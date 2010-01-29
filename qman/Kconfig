@@ -1,0 +1,149 @@
+menu "Hardware queue support"
+
+menuconfig FSL_QMAN
+	bool "Freescale Queue Manager (datapath) support"
+	depends on PPC_E500MC
+	default y
+	---help---
+	  If unsure, say Y.
+
+if FSL_QMAN
+
+config FSL_QMAN_CHECKING
+	bool "additional driver checking"
+	default y
+	---help---
+	  Compiles in additional checks to sanity-check the Qman driver and any
+	  use of it by other code. Not recommended for performance.
+
+config FSL_QMAN_PORTAL
+	bool "Qman portal support"
+	default y
+	---help---
+	  Compiles support to detect and support Qman software corenet portals
+	  (as provided by the device-tree).
+
+config FSL_QMAN_BUG_AND_FEATURE_REV1
+	bool "workarounds for errata and missing features in p4080 rev1"
+	depends on FSL_QMAN_PORTAL
+	default y
+	---help---
+	  If this option is selected, the driver will be compiled with
+	  workarounds for errata as well as feature limitations (relative to
+	  more recent parts) of p4080 rev1. On unaffected revisions, this
+	  support incurs only a negligable overhead, typically only a couple of
+	  instructions per non-fast-path operation (the fast-path operations are
+	  unaffected).
+
+	  If in doubt, say Y.
+
+# The current driver is interrupt-driven only (poll-driven isn't yet supported).
+config FSL_QMAN_HAVE_POLL
+	bool
+	default n
+
+config FSL_QMAN_POLL_LIMIT
+	int
+	default 32
+
+config FSL_QMAN_PORTAL_DISABLEAUTO
+	bool "disable auto-initialisation of cpu-affine portals"
+	depends on FSL_QMAN_PORTAL
+	default n
+	---help---
+	  The high-level portal API, in its normal usage, requires that each cpu
+	  have a portal assigned to it that is auto-initialised. If an
+	  application is manually initialising portals in a non-cpu-affine
+	  manner (or you are using the low-level portal API), this may need to
+	  be disabled. If in doubt, say N.
+
+config FSL_QMAN_PORTAL_DISABLEAUTO_DCA
+	bool "disable discrete-consumption support on cpu-affine portals"
+	depends on !FSL_QMAN_PORTAL_DISABLEAUTO
+	default n
+	---help---
+	  By default, auto-initialised cpu-affine portals support
+	  discrete-consumption acknowledgements, but this may be unimplemented
+	  in the simulation model.
+
+config FSL_QMAN_FQALLOCATOR
+	bool "use Bman buffer pool 0 as a Qman FQ allocator"
+	depends on FSL_QMAN_PORTAL && !FSL_BMAN_PORTAL_DISABLEAUTO
+	default y
+	---help---
+	  If enabled, the Qman driver will assume that Bman buffer pool 0 has
+	  been preseeded with frame queue IDs available for dynamic allocation.
+
+config FSL_QMAN_FQRANGE
+	bool "Implement a control-plane only allocator supporting ranges"
+	default y
+	---help---
+	  This allocator does not use Bman or any other h/w resource, it
+	  provides a s/w allocator implementation that supports allocating
+	  and deallocating FQID ranges, with control over alignment.
+
+config FSL_QMAN_CONFIG
+	bool "Qman device management"
+	default y
+	---help---
+	  If this linux image is running natively, you need this option. If this
+	  linux image is running as a guest OS under the hypervisor, only one
+	  guest OS ("the control plane") needs this option.
+
+config FSL_QMAN_TEST
+	tristate "Qman self-tests"
+	depends on FSL_QMAN_PORTAL
+	default n
+	---help---
+	  This option compiles self-test code for Qman.
+
+config FSL_QMAN_TEST_STASH_POTATO
+	bool "Qman 'hot potato' data-stashing self-test"
+	depends on FSL_QMAN_TEST && FSL_QMAN_FQALLOCATOR && !FSL_QMAN_PORTAL_DISABLEAUTO
+	default y
+	---help---
+	  This performs a "hot potato" style test enqueuing/dequeuing a frame
+	  across a series of FQs scheduled to different portals (and cpus), with
+	  DQRR, data and context stashing always on.
+
+config FSL_QMAN_TEST_LOW
+	bool "Qman low-level self-test"
+	depends on FSL_QMAN_TEST && FSL_QMAN_PORTAL_DISABLEAUTO
+	default y
+	---help---
+	  This takes an unused portal and portal and performs low-level
+	  API testing with it.
+
+config FSL_QMAN_TEST_HIGH
+	bool "Qman high-level self-test"
+	depends on FSL_QMAN_TEST && !FSL_QMAN_PORTAL_DISABLEAUTO
+	default y
+	---help---
+	  This requires the presence of cpu-affine portals, and performs
+	  high-level API testing with them (whichever portal(s) are affine to
+	  the cpu(s) the test executes on).
+
+# H/w settings that can be hard-coded for now.
+
+# Corenet initiator settings. Stash request queues are 4-deep to match cores'
+# ability to snart. Stash priority is 3, other priorities are 2.
+config FSL_QMAN_CI_SCHED_CFG_SRCCIV
+	int
+	depends on FSL_QMAN_CONFIG
+	default 4
+config FSL_QMAN_CI_SCHED_CFG_SRQ_W
+	int
+	depends on FSL_QMAN_CONFIG
+	default 3
+config FSL_QMAN_CI_SCHED_CFG_RW_W
+	int
+	depends on FSL_QMAN_CONFIG
+	default 2
+config FSL_QMAN_CI_SCHED_CFG_BMAN_W
+	int
+	depends on FSL_QMAN_CONFIG
+	default 2
+
+endif # FSL_QMAN
+
+endmenu
