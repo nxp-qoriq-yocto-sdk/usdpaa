@@ -64,6 +64,8 @@ struct bm_portal;
 struct bman_depletion {
 	u32 __state[2];
 };
+#define BMAN_DEPLETION_EMPTY (struct bman_depletion){{0x00000000, 0x00000000}}
+#define BMAN_DEPLETION_FULL  (struct bman_depletion){{0xffffffff, 0xffffffff}}
 #define __bmdep_word(x) ((x) >> 5)
 #define __bmdep_shift(x) ((x) & 0x1f)
 #define __bmdep_bit(x) (0x80000000 >> __bmdep_shift(x))
