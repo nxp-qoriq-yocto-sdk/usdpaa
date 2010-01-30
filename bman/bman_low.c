@@ -121,7 +121,7 @@ static inline u8 cyc_diff(u8 ringsize, u8 first, u8 last)
 /* It's safer to code in terms of the 'rcr' object than the 'portal' object,
  * because the latter runs the risk of copy-n-paste errors from other code where
  * we could manipulate some other structure within 'portal'. */
-#define RCR_API_START()		register struct bm_rcr *rcr = &portal->rcr
+#define RCR_API_START() __UNUSED register struct bm_rcr *rcr = &portal->rcr
 
 /* Bit-wise logic to wrap a ring pointer by clearing the "carry bit" */
 #define RCR_CARRYCLEAR(p) \
@@ -356,7 +356,7 @@ EXPORT_SYMBOL(bm_rcr_get_fill);
 /* It's safer to code in terms of the 'mc' object than the 'portal' object,
  * because the latter runs the risk of copy-n-paste errors from other code where
  * we could manipulate some other structure within 'portal'. */
-#define MC_API_START()		register struct bm_mc *mc = &portal->mc
+#define MC_API_START() __UNUSED register struct bm_mc *mc = &portal->mc
 
 int bm_mc_init(struct bm_portal *portal)
 {
