@@ -134,7 +134,7 @@ IMPLEMENT_QMAN_RBTREE(fqtree, struct qman_fq, node, fqid);
 
 /* This is what everything can wait on, even if it migrates to a different cpu
  * to the one whose affine portal it is waiting on. */
-static DECLARE_WAIT_QUEUE_HEAD(affine_queue);
+static __UNUSED DECLARE_WAIT_QUEUE_HEAD(affine_queue);
 
 static inline int table_push_fq(struct qman_portal *p, struct qman_fq *fq)
 {
@@ -354,11 +354,11 @@ struct qman_portal *qman_create_portal(struct qm_portal *__p, u32 flags,
 	return portal;
 fail_dqrr_mr_empty:
 fail_eqcr_empty:
-fail_affinity:
 #ifdef CONFIG_FSL_QMAN_HAVE_IRQ
+fail_affinity:
 	free_irq(config->irq, portal);
-#endif
 fail_irq:
+#endif
 	platform_device_del(portal->pdev);
 fail_devadd:
 	platform_device_put(portal->pdev);
