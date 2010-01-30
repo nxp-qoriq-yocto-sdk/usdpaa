@@ -138,7 +138,7 @@ static inline u8 cyc_diff(u8 ringsize, u8 first, u8 last)
 /* It's safer to code in terms of the 'eqcr' object than the 'portal' object,
  * because the latter runs the risk of copy-n-paste errors from other code where
  * we could manipulate some other structure within 'portal'. */
-#define EQCR_API_START()	register struct qm_eqcr *eqcr = &portal->eqcr
+#define EQCR_API_START() __UNUSED register struct qm_eqcr *eqcr = &portal->eqcr
 
 /* Bit-wise logic to wrap a ring pointer by clearing the "carry bit" */
 #define EQCR_CARRYCLEAR(p) \
@@ -417,7 +417,7 @@ EXPORT_SYMBOL(qm_eqcr_get_fill);
 /* It's safer to code in terms of the 'dqrr' object than the 'portal' object,
  * because the latter runs the risk of copy-n-paste errors from other code where
  * we could manipulate some other structure within 'portal'. */
-#define DQRR_API_START()	register struct qm_dqrr *dqrr = &portal->dqrr
+#define DQRR_API_START() __UNUSED register struct qm_dqrr *dqrr = &portal->dqrr
 
 #define DQRR_CARRYCLEAR(p) \
 	(void *)((unsigned long)(p) & (~(unsigned long)(QM_DQRR_SIZE << 6)))
@@ -784,7 +784,7 @@ EXPORT_SYMBOL(qm_dqrr_set_maxfill);
 /* It's safer to code in terms of the 'mr' object than the 'portal' object,
  * because the latter runs the risk of copy-n-paste errors from other code where
  * we could manipulate some other structure within 'portal'. */
-#define MR_API_START()		register struct qm_mr *mr = &portal->mr
+#define MR_API_START() __UNUSED register struct qm_mr *mr = &portal->mr
 
 #define MR_CARRYCLEAR(p) \
 	(void *)((unsigned long)(p) & (~(unsigned long)(QM_MR_SIZE << 6)))
@@ -1021,7 +1021,7 @@ EXPORT_SYMBOL(qm_mr_set_ithresh);
 /* It's safer to code in terms of the 'mc' object than the 'portal' object,
  * because the latter runs the risk of copy-n-paste errors from other code where
  * we could manipulate some other structure within 'portal'. */
-#define MC_API_START()		register struct qm_mc *mc = &portal->mc
+#define MC_API_START() __UNUSED register struct qm_mc *mc = &portal->mc
 
 int qm_mc_init(struct qm_portal *portal)
 {
