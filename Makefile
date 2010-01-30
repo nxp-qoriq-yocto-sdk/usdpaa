@@ -6,7 +6,8 @@ CC=$(CROSS_COMPILE)gcc
 AR=$(CROSS_COMPILE)ar
 
 LIB_SRC=qman/qman_high.c qman/qman_low.c qman/qman_fqalloc.c \
-	qman/qman_utility.c qman/qman_driver.c
+	qman/qman_utility.c qman/qman_driver.c \
+	bman/bman_high.c bman/bman_low.c bman/bman_driver.c
 
 # Simplicity, meet large stick. Large stick, simplicity.
 default: rebuild
@@ -14,13 +15,14 @@ default: rebuild
 rebuild: clean build
 
 clean:
-	rm -f *.o *.a
+	rm -f objs/*.o *.a
 
 build:
 	@for i in $(LIB_SRC); do \
-		$(CC) -c $(C_TARG_FLAGS) $(C_MY_FLAGS) $$i; \
+		$(CC) -c $(C_TARG_FLAGS) $(C_MY_FLAGS) $$i && mv *.o objs/ || \
+			exit 1; \
 		echo "[CC] $$i"; \
 	done
-	@$(AR) rcs libusd.a *.o
+	@$(AR) rcs libusd.a objs/*.o
 	@echo "[AR] libusd.a"
 
