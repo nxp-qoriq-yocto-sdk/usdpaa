@@ -42,25 +42,24 @@ extern "C" {
 /* support for run-time parameter checking, assertions, etc */
 #undef CONFIG_FSL_BMAN_CHECKING
 
-/* do slow-path processing via IRQ */
-#define CONFIG_FSL_BMAN_PIRQ_SLOW
+/* do not do slow-path processing via IRQ */
+#undef CONFIG_FSL_BMAN_PORTAL_FLAG_IRQ_SLOW
 
-/* do fast-path processing via IRQ (there is none, so this reduces bman_poll()
- * overhead) */
-#define CONFIG_FSL_BMAN_PIRQ_FAST
+/* do not do fast-path processing via IRQ */
+#undef CONFIG_FSL_BMAN_PORTAL_FLAG_IRQ_FAST
 
 /* portals do not initialise in recovery mode */
 #undef CONFIG_FSL_BMAN_PORTAL_FLAG_RECOVER
 
-#if defined(CONFIG_FSL_BMAN_PIRQ_SLOW) || \
-		defined(CONFIG_FSL_BMAN_PIRQ_FAST)
+#if defined(CONFIG_FSL_BMAN_PORTAL_FLAG_IRQ_SLOW) || \
+		defined(CONFIG_FSL_BMAN_PORTAL_FLAG_IRQ_FAST)
 #define CONFIG_FSL_BMAN_HAVE_IRQ
 #else
 #undef CONFIG_FSL_BMAN_HAVE_IRQ
 #endif
 
-#if !defined(CONFIG_FSL_BMAN_PIRQ_SLOW) || \
-		!defined(CONFIG_FSL_BMAN_PIRQ_FAST)
+#if !defined(CONFIG_FSL_BMAN_PORTAL_FLAG_IRQ_SLOW) || \
+		!defined(CONFIG_FSL_BMAN_PORTAL_FLAG_IRQ_FAST)
 #define CONFIG_FSL_BMAN_HAVE_POLL
 #else
 #undef CONFIG_FSL_BMAN_HAVE_POLL
@@ -91,10 +90,10 @@ extern "C" {
 #define CONFIG_FSL_QMAN_POLL_LIMIT 1
 
 /* do not do slow-path processing via IRQ */
-#undef CONFIG_FSL_QMAN_PIRQ_SLOW
+#undef CONFIG_FSL_QMAN_PORTAL_FLAG_IRQ_SLOW
 
 /* do not do fast-path processing via IRQ */
-#undef CONFIG_FSL_QMAN_PIRQ_FAST
+#undef CONFIG_FSL_QMAN_PORTAL_FLAG_IRQ_FAST
 
 /* portals aren't SMP-locked, they're core-affine */
 #undef CONFIG_FSL_QMAN_PORTAL_FLAG_LOCKED
@@ -102,8 +101,8 @@ extern "C" {
 /* portals do not initialise in recovery mode */
 #undef CONFIG_FSL_QMAN_PORTAL_FLAG_RECOVER
 
-#if defined(CONFIG_FSL_QMAN_PIRQ_SLOW) || \
-		defined(CONFIG_FSL_QMAN_PIRQ_FAST)
+#if defined(CONFIG_FSL_QMAN_PORTAL_FLAG_IRQ_SLOW) || \
+		defined(CONFIG_FSL_QMAN_PORTAL_FLAG_IRQ_FAST)
 #define CONFIG_FSL_QMAN_HAVE_IRQ
 #else
 #undef CONFIG_FSL_QMAN_HAVE_IRQ
