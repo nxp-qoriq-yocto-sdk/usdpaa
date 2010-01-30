@@ -125,8 +125,9 @@ static irqreturn_t portal_isr(int irq, void *ptr)
 {
 	struct bman_portal *p = ptr;
 	struct bm_portal *lowp = p->p;
+	u32 clear = 0;
 #ifdef CONFIG_FSL_BMAN_PORTAL_FLAG_IRQ_SLOW
-	u32 clear = 0, is = bm_isr_status_read(lowp);
+	u32 is = bm_isr_status_read(lowp);
 #endif
 	/* Only do fast-path handling if it's required */
 #ifdef CONFIG_FSL_BMAN_PORTAL_FLAG_IRQ_FAST
@@ -144,7 +145,9 @@ struct bman_portal *bman_create_portal(struct bm_portal *__p,
 				const struct bman_depletion *pools)
 {
 	struct bman_portal *portal;
+#ifdef CONFIG_FSL_BMAN_HAVE_IRQ
 	const struct bm_portal_config *config = bm_portal_config(__p);
+#endif
 	int ret;
 
 	portal = kmalloc(sizeof(*portal), GFP_KERNEL);
@@ -218,11 +221,11 @@ struct bman_portal *bman_create_portal(struct bm_portal *__p,
 	bm_isr_disable_write(portal->p, 0);
 	return portal;
 fail_rcr_empty:
-fail_affinity:
 #ifdef CONFIG_FSL_BMAN_HAVE_IRQ
+fail_affinity:
 	free_irq(config->irq, portal);
-#endif
 fail_irq:
+#endif
 	if (portal->pools)
 		kfree(portal->pools);
 fail_pools:
@@ -349,7 +352,7 @@ void bman_poll(void)
 	struct bm_portal *lowp = p->p;
 #ifndef CONFIG_FSL_BMAN_PORTAL_FLAG_IRQ_SLOW
 	if (!(p->slowpoll--)) {
-		u32 is = qm_isr_status_read(lowp);
+		u32 is = bm_isr_status_read(lowp);
 		u32 active = __poll_portal_slow(p, lowp, is);
 		if (active)
 			p->slowpoll = SLOW_POLL_BUSY;
