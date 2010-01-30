@@ -175,6 +175,21 @@ const struct qm_pool_channel *qm_pool_channel(u32 mask)
 }
 EXPORT_SYMBOL(qm_pool_channel);
 
+/* GALAK: all of the above is generic - shouldn't need modification for usd.
+ * It's the stuff below (which invokes the stuff above) that deal with the
+ * sordid details of device-trees, ioremap()s, and suchlike. Yes I know, the
+ * above code should therefore be part of the "single-source" with linux+LWE
+ * rather than in here as platform-specific stuff. Sue me. :-) */
+
+
+/* GALAK: this function handles pool channel nodes - the essential hook is its
+ * call to __qm_pool_add(). Note that the pool channels are associated with
+ * their phandles (see "struct __pool_channel"). This is because we next parse the
+ * portals, which have the "fsl,qman-pool-channels" property which is a list of
+ * phandles to the pools. So if you're completely replacing device-trees and
+ * feeding in portal+pool config by other means, the phandle can be any
+ * pool-channel ID you like, it exists only for the portal->pool linkage. */
+#if 0
 static int __init fsl_qman_pool_channel_init(struct device_node *node)
 {
 	phandle *ph;
@@ -205,6 +220,16 @@ static int __init fsl_qman_pool_channel_init(struct device_node *node)
 		pr_err("Failed to register pool channel %s\n", node->full_name);
 	return ret;
 }
+#else
+static int __init fsl_qman_pool_channel_init(u32 pool_idx,
+					enum qm_channel channel, phandle ph)
+{
+	int ret = __qm_pool_add(pool_idx, channel, ph);
+	if (ret)
+		pr_err("Failed to register pool channel\n");
+	return ret;
+}
+#endif
 
 /* Handlers for NULL portal callbacks (ie. where the contextB field, normally
  * pointing to the corresponding FQ object, is NULL). */
@@ -228,6 +253,11 @@ static const struct qman_fq_cb null_cb = {
 	.fqs = null_cb_mr
 };
 
+/* GALAK: this handles portal nodes - the essential bits are the call to
+ * __qm_portal_add(), the loop of calls to __qm_link() to hook up pool channels,
+ * and the assignment "affine_portal=qman_create_portal()". My stub bypasses a
+ * lot of hassle, eg. no "interrupts" and all configuration is spoon-fed. */
+#if 0
 static int __init fsl_qman_portal_init(struct device_node *node)
 {
 	struct resource res[2];
@@ -388,11 +418,79 @@ bad_cpu_ph:
 #endif
 	return 0;
 }
+#else
+static int __init fsl_qman_portal_init(u16 ip_rev,
+				struct qm_addr *addr,
+				struct qm_portal_config *cfg,
+				const phandle *pools,
+				int num_pools)
+{
+	struct qm_portal *portal;
+	struct qman_portal *affine_portal;
+	if (!qman_ip_rev) {
+		if (ip_rev)
+			qman_ip_rev = ip_rev;
+		else {
+			pr_warning("unknown Qman version, presuming rev1\n");
+			qman_ip_rev = QMAN_REV1;
+		}
+	} else if (ip_rev && (qman_ip_rev != ip_rev))
+		pr_warning("Revision=0x%04x, but portal has 0x%04x\n",
+			qman_ip_rev, ip_rev);
+	portal = __qm_portal_add(addr, cfg);
+	if (!portal)
+		return -ENOMEM;
+	pr_info("Qman portal at %p:%p (%d:%d,v%04x)\n", addr->addr_ce,
+		addr->addr_ci, cfg->cpu, cfg->channel, qman_ip_rev);
+	while (num_pools--) {
+		int tmp = __qm_link(portal, *(pools++));
+		if (tmp)
+			panic("Unrecoverable error linking pool channels");
+	}
+	/* If the portal is affine to a cpu and that cpu has no default affine
+	 * portal, auto-initialise this one for the job. */
+#ifndef CONFIG_FSL_QMAN_PORTAL_DISABLEAUTO
+	if (cfg->cpu == -1)
+		return 0;
+	affine_portal = per_cpu(qman_affine_portal, cfg->cpu);
+	if (!affine_portal) {
+		u32 flags = 0;
+		if (cfg->has_hv_dma)
+			flags = QMAN_PORTAL_FLAG_RSTASH |
+				QMAN_PORTAL_FLAG_DSTASH;
+		/* TODO: cgrs ?? */
+		affine_portal = qman_create_portal(portal, flags, NULL,
+						&null_cb);
+		if (!affine_portal) {
+			pr_err("Qman portal auto-initialisation failed\n");
+			return 0;
+		}
+		/* default: enable all (available) pool channels */
+		qman_static_dequeue_add_ex(affine_portal, ~0);
+		pr_info("Qman portal %d auto-initialised\n", cfg->cpu);
+		per_cpu(qman_affine_portal, cfg->cpu) = affine_portal;
+		num_affine_portals++;
+	}
+#endif
+	return 0;
+}
+#endif
 
 /***************/
 /* Driver load */
 /***************/
 
+/* GALAK: this is the qman driver init hook. My stub has no device-tree
+ * interaction obviously, and spoon-feeds my stubs for the above routines which
+ * also have no device-tree interaction. Note that right now, I just leave my
+ * stub as a *non-static* function that the program has to call explicitly. This
+ * will also make it easier for you to "pass stuff in" from the program (eg.
+ * from cmd-line arguments) if you want to. A sexier way (though not necessarily
+ * smarter) would be to revert this to a static initcall, redefine
+ * subsys_initcall (in compat.h) to make this is a library init hook (so it
+ * automatically runs prior to main()), and use environment variables (if
+ * required) to get input parameters for the driver. */
+#if 0
 static __init int qman_init(void)
 {
 	struct device_node *dn;
@@ -428,3 +526,42 @@ static __init int qman_init(void)
 	return 0;
 }
 subsys_initcall(qman_init);
+#else
+int qman_init(void)
+{
+	struct qm_addr addr = {
+		.addr_ce = (void *)0xabba0000, /* GALAK: fixme */
+		.addr_ci = (void *)0xf00d0000  /* GALAK: likewise */
+	};
+	struct qm_portal_config cfg = {
+		.cpu = 3,	/* GALAK: fixme */
+		.irq = -1,
+		.channel = qm_channel_swportal3 /* GALAK: likewise */
+	};
+	phandle pools[] = { 1, 2, 3 };
+	/* Declare some pool channels */
+	int ret = fsl_qman_pool_channel_init(1, qm_channel_pool1, pools[0]);
+	if (!ret)
+		ret = fsl_qman_pool_channel_init(2, qm_channel_pool2, pools[1]);
+	if (!ret)
+		ret = fsl_qman_pool_channel_init(3, qm_channel_pool3, pools[2]);
+	if (ret) {
+		pr_err("Failed to init pool channels (%d)\n", ret);
+		return ret;
+	}
+	/* Declare a single portal */
+	ret = fsl_qman_portal_init(QMAN_REV1, &addr, &cfg, pools, 3);
+	if (ret) {
+		pr_err("Failed to init portal (%d)\n", ret);
+		return ret;
+	}
+#ifdef CONFIG_FSL_QMAN_FQALLOCATOR
+	ret = __fqalloc_init();
+	if (ret)
+		return ret;
+#endif
+	pr_info("Qman driver initialised\n");
+	return 0;
+}
+#endif
+
