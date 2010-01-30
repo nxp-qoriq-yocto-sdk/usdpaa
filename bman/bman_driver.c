@@ -65,6 +65,8 @@ static struct bm_portal *__bm_portal_add(const struct bm_addr *addr,
 	return ret;
 }
 
+/* Commented-out, because fsl_bpool_init() is also commented out */
+#if 0
 static int __bm_pool_add(u32 bpid, u32 *cfg, int triplets)
 {
 	u64 total = 0;
@@ -112,6 +114,7 @@ static int __bm_pool_add(u32 bpid, u32 *cfg, int triplets)
 		pr_info("Bman: reserved bpid %d\n", bpid);
 	return 0;
 }
+#endif
 
 int __bm_portal_bind(struct bm_portal *portal, u8 iface)
 {
@@ -184,6 +187,10 @@ void bm_pool_free(u32 bpid)
 }
 EXPORT_SYMBOL(bm_pool_free);
 
+/* GALAK: As per the same comment in qman_driver.c, the above stuff is generic,
+ * the stuff below has the platform-specifics we need to mangle. */
+
+#if 0
 static int __init fsl_bman_portal_init(struct device_node *node)
 {
 	struct resource res[2];
@@ -251,7 +258,6 @@ static int __init fsl_bman_portal_init(struct device_node *node)
 	}
 bad_cpu_ph:
 	bman_depletion_fill(&cfg.mask);
-	cfg.bound = 0;
 	pr_info("Bman portal at %p:%p (%d)\n", addr.addr_ce, addr.addr_ci,
 		cfg.cpu);
 	portal = __bm_portal_add(&addr, &cfg);
@@ -274,7 +280,43 @@ bad_cpu_ph:
 #endif
 	return 0;
 }
+#else
+static int __init fsl_bman_portal_init(struct bm_addr *addr,
+				struct bm_portal_config *cfg)
+{
+	struct bm_portal *portal;
+#ifndef CONFIG_FSL_BMAN_PORTAL_DISABLEAUTO
+	struct bman_portal *affine_portal;
+#endif
+	portal = __bm_portal_add(addr, cfg);
+	if (!portal)
+		return -ENOMEM;
+	pr_info("Bman portal at %p:%p (%d)\n", addr->addr_ce, addr->addr_ci,
+		cfg->cpu);
+	/* If the portal is affine to a cpu and that cpu has no default affine
+	 * portal, auto-initialise this one for the job. */
+#ifndef CONFIG_FSL_BMAN_PORTAL_DISABLEAUTO
+	if (cfg->cpu == -1)
+		return 0;
+	affine_portal = per_cpu(bman_affine_portal, cfg->cpu);
+	if (!affine_portal) {
+		affine_portal = bman_create_portal(portal, &cfg->mask);
+		if (!affine_portal)
+			pr_err("Bman portal auto-initialisation failed\n");
+		else {
+			pr_info("Bman portal %d auto-initialised\n", cfg->cpu);
+			per_cpu(bman_affine_portal, cfg->cpu) = affine_portal;
+			num_affine_portals++;
+		}
+	}
+#endif
+	return 0;
+}
+#endif
 
+/* This handles buffer pool declarations, these are normally only done in the
+ * control-plane, disabling for usd */
+#if 0
 static int __init fsl_bpool_init(struct device_node *node)
 {
 	int ret;
@@ -321,7 +363,10 @@ static int __init fsl_bpool_init(struct device_node *node)
 #endif
 	return ret;
 }
+#endif
 
+/* GALAK: same story as the qman_init() comment */
+#if 0
 static __init int bman_init(void)
 {
 	struct device_node *dn;
@@ -352,3 +397,24 @@ static __init int bman_init(void)
 	pr_info("Bman driver initialised\n");
 }
 subsys_initcall(bman_init);
+#else
+int bman_init(void)
+{
+	struct bm_addr addr = {
+		.addr_ce = (void *)0xabba0000, /* GALAK: fixme */
+		.addr_ci = (void *)0xf00d0000  /* GALAK: likewise */
+	};
+	struct bm_portal_config cfg = {
+		.cpu = 3,	/* GALAK: fixme */
+		.irq = -1,
+		.mask = BMAN_DEPLETION_FULL
+	};
+	int ret = fsl_bman_portal_init(&addr, &cfg);
+	if (ret) {
+		pr_err("Failed to init portal (%d)\n", ret);
+		return ret;
+	}
+	pr_info("Bman driver initialised\n");
+	return 0;
+}
+#endif
