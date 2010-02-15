@@ -43,6 +43,10 @@
 #include <ctype.h>
 #include <stdint.h>
 
+#include <compat.h>
+#include <linux/fsl_qman.h>
+#include <linux/fsl_bman.h>
+
 #define MAX_THREADS 8
 
 #define handle_error_en(en, msg) \
