@@ -12,12 +12,12 @@ LIB_SRC=qman/qman_high.c qman/qman_low.c qman/qman_fqalloc.c \
 # Simplicity, meet large stick. Large stick, simplicity.
 default: rebuild
 
-rebuild: clean build
+rebuild: clean build_lib build_user_example
 
 clean:
 	rm -f objs/*.o *.a
 
-build:
+build_lib:
 	@for i in $(LIB_SRC); do \
 		$(CC) -c $(C_TARG_FLAGS) $(C_MY_FLAGS) $$i && mv *.o objs/ || \
 			exit 1; \
@@ -25,4 +25,12 @@ build:
 	done
 	@$(AR) rcs libusd.a objs/*.o
 	@echo "[AR] libusd.a"
+
+build_user_example:
+	@$(CC) -c $(C_TARG_FLAGS) $(C_MY_FLAGS) apps/user_example.c && \
+		mv *.o objs/ || exit 1
+	@echo "[CC] user_example";
+	@$(CC) $(C_TARG_FLAGS) -o user_example objs/user_example.o \
+		-L. -lusd -lpthread || exit 1
+	@echo "[LINK] user_example"
 
