@@ -65,7 +65,7 @@ typedef int		phandle;
 #define noinline	__attribute__((noinline))
 #define __packed	__attribute__((__packed__))
 #define ____cacheline_aligned __attribute__((aligned(64)))
-#define likely(x)       __builtin_expect(!(x), 0)
+#define likely(x)       __builtin_expect(!!(x), 1)
 #define unlikely(x)     __builtin_expect(!!(x), 0)
 #define __iomem
 #define __stringify_1(x) #x
