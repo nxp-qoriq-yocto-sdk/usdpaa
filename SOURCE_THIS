@@ -1,0 +1,4 @@
+export BMAN0=/dev/uio0
+export BMAN1=/dev/uio1
+export QMAN0=/dev/uio2
+export QMAN1=/dev/uio3
