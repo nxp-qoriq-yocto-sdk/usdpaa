@@ -62,31 +62,6 @@ typedef struct {
 } thread_data_t;
 
 
-/***************************************************************************
- * waste_clks1000
- *
- * This function should take quite close to 100*n cycles on a PowerPC,
- * assuming n is large and that nothing is trashing the caches.
- ***************************************************************************/
-
-void waste_clks100(uint32_t n)
-{
-  int v1 = 1, i;
-
-  for (i = 0; i < 10; i++) {
-
-    asm volatile ("mtctr %0 \n"
-		"1: or %1,%0,%0 \n" "or %0,%1,%1 \n"
-		"or %1,%0,%0 \n" "or %0,%1,%1 \n"
-		"or %1,%0,%0 \n" "or %0,%1,%1 \n"
-		"or %1,%0,%0 \n" "or %0,%1,%1 \n"
-		"or %1,%0,%0 \n" "or %0,%1,%1 \n"
-		"bdnz 1b \n"
-		:: "r" (n), "r" (v1) : "ctr");
-  }
-
-}
-
 
 /***************************************************************************
  * thread_function
@@ -96,7 +71,7 @@ void waste_clks100(uint32_t n)
  * arg points to a thread_data_t object which in turn contains a thread
  * index, an integer counting from 0.
  *
- * The function sets the thread to be affine to core index + 1, where cores
+ * The function sets the thread to be affine to core index, where cores
  * are also counted from zero.
  ****************************************************************************/
 
@@ -106,27 +81,37 @@ static void *thread_function(void *arg)
   int s;
   cpu_set_t cpuset;
 
-  /* Set this thread affine to core index + 1 */
+  /* Set this thread affine to core index */
   CPU_ZERO(&cpuset);
-  CPU_SET(tdata->index + 1, &cpuset);
+  CPU_SET(tdata->index, &cpuset);
   s = pthread_setaffinity_np(tdata->id, sizeof(cpu_set_t), &cpuset);
   if (s != 0) handle_error_en(s, "pthread_setaffinity_np");
 
   printf("This is %d\n", tdata->index);
 
-  /* Do something-- to be replaced by something useful */
-  waste_clks100(120000000); /* 10 sec @ 1.2 GHz */
+  s = qman_thread_init(tdata->index);
+  if (s) {
+    printf("qman_thread_init(%d) failed, ret=%d\n", tdata->index, s);
+    return (void *)-1;
+  }
+
+  s = bman_thread_init(tdata->index);
+  if (s) {
+    printf("bman_thread_init(%d) failed, ret=%d\n", tdata->index, s);
+    return (void *)-1;
+  }
+
+  printf("Leaving %d\n", tdata->index);
 
   return NULL;
 }
-
 
 int main(int argc, char *argv[])
 {
   int s, i, num_threads;
   thread_data_t thread_data[MAX_THREADS];
 
-  num_threads = 7;
+  num_threads = 2;
 
   /* Create the threads */
 
