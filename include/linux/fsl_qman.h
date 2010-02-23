@@ -33,6 +33,9 @@
 #ifndef FSL_QMAN_H
 #define FSL_QMAN_H
 
+/* User-space-specific initialisation: */
+int qman_thread_init(int cpu);
+
 /* Last updated for v00.800 of the BG */
 
 /*************************************************/
