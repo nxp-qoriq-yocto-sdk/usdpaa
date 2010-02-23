@@ -208,6 +208,8 @@ int qman_thread_init(int cpu)
 		return ret;
 	}
 	pr_info("Qman portal initialised (%d)\n", cpu);
+	if (__fqalloc_init())
+		pr_err("Qman FQ allocator failed to initialise, continuing\n");
 	return 0;
 }
 
