@@ -22,6 +22,11 @@
 #include <errno.h>
 #include <string.h>
 #include <malloc.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/mman.h>
 
 /* Strange though it may seem, all qman/bman-dependent apps include this header,
  * so this is a good place to force the inclusion of conf.h. There are
@@ -128,20 +133,12 @@ do { \
 } while(0)
 #define container_of(p, t, f) (t *)((void *)p - offsetof(t, f))
 
-/* GALAK: this stuff deals with "affine" stuff. Note that the "x" cpu number is
- * also the cpu handle we "get" in qman_driver.c for initialising the portal.
- * For linux/LWE it corresponds to the cpu index from the device-tree, so is
- * related to "where stashing is going". In my qman_driver.c stubs, it's a
- * defined constant which is almost certainly not what you want. Anyway, I
- * mention it here FYI. */
 /* SMP stuff */
-#define DEFINE_PER_CPU(t,x)	t per_cpu__##x
+#define DEFINE_PER_CPU(t,x)	__thread t per_cpu__##x
 #define per_cpu(x,c)		per_cpu__##x
 #define get_cpu_var(x)		per_cpu__##x
 #define put_cpu_var(x)		do { ; } while(0)
 
-/* GALAK: this stuff presumes we've have no interrupts at all. If this changes,
- * we need to talk first... */
 /* Interrupt stuff */
 typedef uint32_t	irqreturn_t; /* as per hwi.h */
 #define IRQ_HANDLED	0
