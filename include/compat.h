@@ -73,14 +73,14 @@ typedef int		phandle;
 /* GALAK: I doubt my impl of in/out_be32 are any good. There's probably an
  * __iomem missing (and presumably the above definition of __iomem is
  * insufficient too) and perhaps a volatile. Maybe some asm too? */
-static inline u32 in_be32(void *__p)
+static inline u32 in_be32(volatile void *__p)
 {
-	u32 *p = __p;
+	volatile u32 *p = __p;
 	return *p;
 }
-static inline void out_be32(void *__p, u32 val)
+static inline void out_be32(volatile void *__p, u32 val)
 {
-	u32 *p = __p;
+	volatile u32 *p = __p;
 	*p = val;
 }
 #define hwsync() \
