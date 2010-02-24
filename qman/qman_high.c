@@ -161,8 +161,8 @@ static inline struct qman_fq *table_find_fq(struct qman_portal *p, u32 fqid)
  * once. The idle decrementer constant is used when the last slow-poll detected
  * no work to do, and the busy decrementer constant when the last slow-poll had
  * work to do. */
-#define SLOW_POLL_IDLE   1000
-#define SLOW_POLL_BUSY   10
+#define SLOW_POLL_IDLE   100
+#define SLOW_POLL_BUSY   6
 static u32 __poll_portal_slow(struct qman_portal *p, struct qm_portal *lowp,
 				u32 is);
 static inline void __poll_portal_fast(struct qman_portal *p,
@@ -292,11 +292,15 @@ struct qman_portal *qman_create_portal(struct qm_portal *__p, u32 flags,
 	qman_rbtree_init(&portal->retire_table);
 	isdr = 0xffffffff;
 	qm_isr_disable_write(portal->p, isdr);
+#ifdef CONFIG_FSL_QMAN_HAVE_IRQ
 	qm_isr_enable_write(portal->p, QM_PIRQ_EQCI | QM_PIRQ_EQRI |
 #ifdef CONFIG_FSL_QMAN_PORTAL_FLAG_IRQ_FAST
 		QM_PIRQ_DQRI |
 #endif
 		QM_PIRQ_MRI | (cgrs ? QM_PIRQ_CSCI : 0));
+#else
+	qm_isr_enable_write(portal->p, 0);
+#endif
 	qm_isr_status_clear(portal->p, 0xffffffff);
 #ifdef CONFIG_FSL_QMAN_HAVE_IRQ
 	snprintf(portal->irqname, MAX_IRQNAME, IRQNAME, config->cpu);

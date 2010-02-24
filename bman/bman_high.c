@@ -188,7 +188,11 @@ struct bman_portal *bman_create_portal(struct bm_portal *__p,
 	memset(&portal->cb, 0, sizeof(portal->cb));
 	/* Write-to-clear any stale interrupt status bits */
 	bm_isr_disable_write(portal->p, 0xffffffff);
+#ifdef CONFIG_FSL_BMAN_HAVE_IRQ
 	bm_isr_enable_write(portal->p, BM_PIRQ_RCRI | BM_PIRQ_BSCN);
+#else
+	bm_isr_enable_write(portal->p, 0);
+#endif
 	bm_isr_status_clear(portal->p, 0xffffffff);
 #ifdef CONFIG_FSL_BMAN_HAVE_IRQ
 	snprintf(portal->irqname, MAX_IRQNAME, IRQNAME, config->cpu);
@@ -343,8 +347,8 @@ static inline void __poll_portal_fast(struct bman_portal *p,
  * once. The idle decrementer constant is used when the last slow-poll detected
  * no work to do, and the busy decrementer constant when the last slow-poll had
  * work to do. */
-#define SLOW_POLL_IDLE   1000
-#define SLOW_POLL_BUSY   10
+#define SLOW_POLL_IDLE   100
+#define SLOW_POLL_BUSY   6
 #ifdef CONFIG_FSL_BMAN_HAVE_POLL
 void bman_poll(void)
 {
@@ -486,7 +490,7 @@ static noinline void rel_set_thresh(struct bman_portal *p, int check)
 
 /* Used as a wait_event() expression. If it returns non-NULL, any lock will
  * remain held. */
-static struct bm_rcr_entry *try_rel_start(struct bman_portal **p)
+static struct bm_rcr_entry *__try_rel(struct bman_portal **p)
 {
 	struct bm_rcr_entry *r;
 	struct bm_portal *lowp;
@@ -508,9 +512,9 @@ static struct bm_rcr_entry *try_rel_start(struct bman_portal **p)
 	return r;
 }
 
-static inline struct bm_rcr_entry *__try_rel(struct bman_portal **p)
+static inline struct bm_rcr_entry *try_rel_start(struct bman_portal **p)
 {
-	struct bm_rcr_entry *rcr = try_rel_start(p);
+	struct bm_rcr_entry *rcr = __try_rel(p);
 	if (unlikely(!rcr))
 		rel_set_thresh(*p, 1);
 	return rcr;
