@@ -32,5 +32,6 @@
 
 #include "compat.h"
 
-void qman_test_high(void);
+void qman_test_high(int cpu);
+void bman_test_high(int cpu);
 

@@ -30,7 +30,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "qman_test.h"
+#include "test.h"
 
 /*************/
 /* constants */
@@ -39,7 +39,7 @@
 #define CGR_ID		27
 #define POOL_ID		12
 #define FQ_FLAGS	QMAN_FQ_FLAG_DYNAMIC_FQID
-#define NUM_ENQUEUES	10
+#define NUM_ENQUEUES	100
 #define NUM_PARTIAL	4
 #define PORTAL_SDQCR	(QM_SDQCR_SOURCE_CHANNELS | \
 			QM_SDQCR_TYPE_PRIO_QOS | \
@@ -131,14 +131,14 @@ static void do_enqueues(struct qman_fq *fq)
 	}
 }
 
-void qman_test_high(void)
+void qman_test_high(int cpu)
 {
 	struct qman_cgrs cgrs;
 	int res;
 	u32 flags;
 	struct qman_fq *fq = &fq_base;
 
-	pr_info("qman_test_high starting\n");
+	pr_info("QMAN:  --- starting high-level test (cpu %d) ---\n", cpu);
 	fd_init(&fd);
 	fd_init(&fd_dq);
 	qman_cgrs_init(&cgrs);
@@ -183,7 +183,7 @@ void qman_test_high(void)
 	if (qman_oos_fq(fq))
 		panic("qman_oos_fq() failed\n");
 	qman_destroy_fq(fq, 0);
-	pr_info("qman_test_high finished\n");
+	pr_info("QMAN:  --- finished high-level test (cpu %d) ---\n", cpu);
 }
 
 static enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *p,

@@ -47,7 +47,7 @@
 #include <linux/fsl_qman.h>
 #include <linux/fsl_bman.h>
 
-#include "qman_test.h"
+#include "test.h"
 
 #define MAX_THREADS 8
 
@@ -77,6 +77,20 @@ typedef struct {
  * are also counted from zero.
  ****************************************************************************/
 
+static void calm_down(void)
+{
+  int die_slowly = 1000;
+  /* FIXME: there may be stale MR entries (eg. FQRNIs that the driver ignores
+   * and drops in the bin), but these will hamper any attempt to run another
+   * user-driver instance after we exit. Loop on the portal processing a bit to
+   * let it "go idle". */
+  while (die_slowly--) {
+  	barrier();
+	qman_poll();
+	bman_poll();
+  }
+}
+
 static void *thread_function(void *arg)
 {
   thread_data_t *tdata = (thread_data_t *) arg;
@@ -103,7 +117,10 @@ static void *thread_function(void *arg)
     return (void *)-1;
   }
 
-  qman_test_high();
+  qman_test_high(tdata->index);
+  calm_down();
+  bman_test_high(tdata->index);
+  calm_down();
 
   printf("Leaving %d\n", tdata->index);
 

@@ -12,7 +12,10 @@ LIB_SRC=qman/qman_high.c qman/qman_low.c qman/qman_fqalloc.c \
 # Simplicity, meet large stick. Large stick, simplicity.
 default: rebuild
 
-rebuild: clean build_lib build_qman_test_high build_user_example
+rebuild: clean build_lib \
+	build_qman_test_high \
+	build_bman_test_high \
+	build_user_example
 
 clean:
 	rm -f objs/*.o *.a
@@ -31,11 +34,19 @@ build_qman_test_high:
 		mv *.o objs/ || exit 1
 	@echo "[CC] qman_test_high"
 
+build_bman_test_high:
+	@$(CC) -c $(C_TARG_FLAGS) $(C_MY_FLAGS) apps/bman_test_high.c && \
+		mv *.o objs/ || exit 1
+	@echo "[CC] bman_test_high"
+
 build_user_example:
 	@$(CC) -c $(C_TARG_FLAGS) $(C_MY_FLAGS) apps/user_example.c && \
 		mv *.o objs/ || exit 1
 	@echo "[CC] user_example"
-	@$(CC) $(C_TARG_FLAGS) -o user_example objs/user_example.o \
-		objs/qman_test_high.o -L. -lusd -lpthread || exit 1
+	@$(CC) $(C_TARG_FLAGS) -o user_example \
+		objs/user_example.o \
+		objs/qman_test_high.o \
+		objs/bman_test_high.o \
+		-L. -lusd -lpthread || exit 1
 	@echo "[LINK] user_example"
 
