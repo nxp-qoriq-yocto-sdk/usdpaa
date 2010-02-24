@@ -35,6 +35,14 @@ extern "C" {
 /* support for BUG_ON()s, might_sleep()s, etc */
 #define CONFIG_BUGON
 
+/* The driver requires that CENA spaces be 16KB-aligned, whereas mmap() only
+ * guarantees 4KB-alignment. Hmm. Hacky workaround is to require *these*
+ * addresses for now. */
+#define BMAN_CENA(n)	(void *)(0x60000000 + (n)*16*1024)
+#define QMAN_CENA(n)	(void *)(0x64000000 + (n)*16*1024)
+#define BMAN_CINH(n)	(void *)(0x68000000 + (n)*4*1024)
+#define QMAN_CINH(n)	(void *)(0x6c000000 + (n)*4*1024)
+
 /********/
 /* Bman */
 /********/

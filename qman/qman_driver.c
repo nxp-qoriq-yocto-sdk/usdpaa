@@ -149,11 +149,11 @@ static int __init fsl_qman_portal_init(int cpu)
 		perror("can't open Qman portal UIO device");
 		return -ENODEV;
 	}
-	addr.addr_ce = mmap(NULL, 16*1024, PROT_READ | PROT_WRITE,
-			MAP_SHARED, fd, 0);
+	addr.addr_ce = mmap(QMAN_CENA(cfg.cpu), 16*1024, PROT_READ | PROT_WRITE,
+			MAP_SHARED | MAP_FIXED, fd, 0);
 	if (addr.addr_ce == MAP_FAILED)
 		perror("mmap of CENA failed");
-	addr.addr_ci = mmap(NULL, 4*1024, PROT_READ | PROT_WRITE,
+	addr.addr_ci = mmap(QMAN_CINH(cfg.cpu), 4*1024, PROT_READ | PROT_WRITE,
 			MAP_SHARED, fd, 4*1024);
 	if (addr.addr_ci == MAP_FAILED)
 		perror("mmap of CINH failed");
