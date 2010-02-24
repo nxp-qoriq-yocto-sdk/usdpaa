@@ -47,6 +47,8 @@
 #include <linux/fsl_qman.h>
 #include <linux/fsl_bman.h>
 
+#include "qman_test.h"
+
 #define MAX_THREADS 8
 
 #define handle_error_en(en, msg) \
@@ -89,17 +91,19 @@ static void *thread_function(void *arg)
 
   printf("This is %d\n", tdata->index);
 
+  /* Bman must go first, otherwise the FQ allocator can't initialise */
+  s = bman_thread_init(tdata->index);
+  if (s) {
+    printf("bman_thread_init(%d) failed, ret=%d\n", tdata->index, s);
+    return (void *)-1;
+  }
   s = qman_thread_init(tdata->index);
   if (s) {
     printf("qman_thread_init(%d) failed, ret=%d\n", tdata->index, s);
     return (void *)-1;
   }
 
-  s = bman_thread_init(tdata->index);
-  if (s) {
-    printf("bman_thread_init(%d) failed, ret=%d\n", tdata->index, s);
-    return (void *)-1;
-  }
+  qman_test_high();
 
   printf("Leaving %d\n", tdata->index);
 
