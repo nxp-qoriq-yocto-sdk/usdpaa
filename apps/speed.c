@@ -86,11 +86,11 @@ struct test {
 	u32 num_enqueues;
 };
 static const struct test tests[] = {
-	{ 1, 256},
-	{ 2, 256},
+	{ 1, 8192},
+	{ 2, 8192},
 #if 0
-	{ 4, 256},
-	{ 7, 256},
+	{ 4, 8192},
+	{ 7, 8192},
 #endif
 	{ 0, 0}
 };
