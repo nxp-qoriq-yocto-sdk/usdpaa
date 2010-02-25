@@ -16,11 +16,14 @@
 #ifndef HEADER_COMPAT_H
 #define HEADER_COMPAT_H
 
+#define _GNU_SOURCE
+#include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <errno.h>
 #include <string.h>
+#include <ctype.h>
 #include <malloc.h>
 #include <sys/types.h>
 #include <sys/stat.h>

@@ -33,20 +33,6 @@
  * kernel parameter, e.g. "isolcpus=1-7".
  *************************************************************************/
 
-#define _GNU_SOURCE
-#include <pthread.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
-#include <ctype.h>
-#include <stdint.h>
-
-#include <compat.h>
-#include <linux/fsl_qman.h>
-#include <linux/fsl_bman.h>
-
 #include "test.h"
 
 #define MAX_THREADS 8
