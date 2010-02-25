@@ -109,6 +109,8 @@ static void *thread_function(void *arg)
   calm_down();
   speed(tdata->index);
   calm_down();
+  blastman(tdata->index);
+  calm_down();
 
   printf("Leaving %d\n", tdata->index);
 

@@ -35,6 +35,7 @@
 void qman_test_high(int cpu);
 void bman_test_high(int cpu);
 void speed(int cpu);
+void blastman(int cpu);
 
 /* These aren't really part of the "compat" header because we don't assume their
  * presence in linux or LWE. */
