@@ -924,11 +924,12 @@ int qman_init_fq(struct qman_fq *fq, u32 flags, struct qm_mcc_initfq *opts)
 			mcc->initfq.we_mask |= QM_INITFQ_WE_CONTEXTA;
 			memset(&mcc->initfq.fqd.context_a, 0,
 				sizeof(&mcc->initfq.fqd.context_a));
+		} else {
+			phys_fq = dma_map_single(&p->pdev->dev, fq, sizeof(*fq),
+						DMA_TO_DEVICE);
+			mcc->initfq.fqd.context_a.context_hi = 0;
+			mcc->initfq.fqd.context_a.context_lo = (u32)phys_fq;
 		}
-		phys_fq = dma_map_single(&p->pdev->dev, fq, sizeof(*fq),
-					DMA_TO_DEVICE);
-		mcc->initfq.fqd.context_a.context_hi = 0;
-		mcc->initfq.fqd.context_a.context_lo = (u32)phys_fq;
 	}
 	if (flags & QMAN_INITFQ_FLAG_LOCAL) {
 		mcc->initfq.fqd.dest.channel = p->p->config.channel;
