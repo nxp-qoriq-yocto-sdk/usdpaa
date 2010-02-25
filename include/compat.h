@@ -141,6 +141,7 @@ do { \
 #define per_cpu(x,c)		per_cpu__##x
 #define get_cpu_var(x)		per_cpu__##x
 #define put_cpu_var(x)		do { ; } while(0)
+#define __PERCPU		__thread
 
 /* Interrupt stuff */
 typedef uint32_t	irqreturn_t; /* as per hwi.h */
@@ -165,7 +166,59 @@ typedef uint32_t	irqreturn_t; /* as per hwi.h */
 #define spin_unlock_irq(x)	do { ; } while(0)
 
 /* Atomic stuff */
-typedef unsigned long	atomic_t;
+typedef unsigned long atomic_t;
+/* NB: __atomic_*() functions copied and twiddled from lwe_atomic.h */
+static inline int
+__atomic_read(unsigned long *ptr)
+{
+	int ret;
+	asm volatile ("lwz%U1%X1 %0,%1":"=r" (ret):"m"(*ptr));
+
+	return ret;
+}
+static inline void
+__atomic_set(unsigned long *ptr, int i)
+{
+	asm volatile ("stw%U0%X0 %1,%0":"=m" (*ptr):"r"(i):"memory");
+}
+static inline unsigned long
+__atomic_add(unsigned long *ptr, long val)
+{
+	unsigned long ret;
+
+	// FIXME 64-bit
+	asm volatile("1: lwarx %0, %y1;"
+	             "add %0, %0, %2;"
+	             "stwcx. %0, %y1;"
+	             "bne 1b;" :
+	             "=&r" (ret), "+Z" (*ptr) :
+	             "r" (val) :
+	             "memory", "cc");
+
+	return ret;
+}
+static inline int
+__atomic_dec_and_test(unsigned long *ptr)
+{
+	return (__atomic_add(ptr, -1)) == 0;
+}
+/* wrappers using atomic_t */
+static inline int atomic_read(const atomic_t *v)
+{
+	return __atomic_read((unsigned long *)v);
+}
+static inline void atomic_set(atomic_t *v, int i)
+{
+	__atomic_set((unsigned long *)v, i);
+}
+static inline void atomic_inc(atomic_t *v)
+{
+	__atomic_add((unsigned long *)v, 1);
+}
+static inline int atomic_dec_and_test(atomic_t *v)
+{
+	return __atomic_dec_and_test((unsigned long *)v);
+}
 
 /* Waitqueue stuff */
 typedef struct { }		wait_queue_head_t;
@@ -232,9 +285,8 @@ static inline dma_addr_t dma_map_single(void *dev __UNUSED,
 				size_t size __UNUSED,
 				enum dma_data_direction direction __UNUSED)
 {
-	/* GALAK: need this to convert cpu_addr to real-physical. The current
-	 * implementation is a cast, which is clearly bogus. */
-	return (dma_addr_t)cpu_addr;
+	panic("dma_map_***() not implemented yet\n");
+	return (dma_addr_t)0xdeadbeef;
 }
 static inline int dma_mapping_error(void *dev __UNUSED,
 				dma_addr_t dma_addr __UNUSED)
