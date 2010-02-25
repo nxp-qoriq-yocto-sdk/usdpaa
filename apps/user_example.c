@@ -107,6 +107,8 @@ static void *thread_function(void *arg)
   calm_down();
   bman_test_high(tdata->index);
   calm_down();
+  speed(tdata->index);
+  calm_down();
 
   printf("Leaving %d\n", tdata->index);
 

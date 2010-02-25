@@ -15,6 +15,7 @@ default: rebuild
 rebuild: clean build_lib \
 	build_qman_test_high \
 	build_bman_test_high \
+	build_speed \
 	build_user_example
 
 clean:
@@ -39,6 +40,11 @@ build_bman_test_high:
 		mv *.o objs/ || exit 1
 	@echo "[CC] bman_test_high"
 
+build_speed:
+	@$(CC) -c $(C_TARG_FLAGS) $(C_MY_FLAGS) apps/speed.c && \
+		mv *.o objs/ || exit 1
+	@echo "[CC] speed"
+
 build_user_example:
 	@$(CC) -c $(C_TARG_FLAGS) $(C_MY_FLAGS) apps/user_example.c && \
 		mv *.o objs/ || exit 1
@@ -47,6 +53,7 @@ build_user_example:
 		objs/user_example.o \
 		objs/qman_test_high.o \
 		objs/bman_test_high.o \
+		objs/speed.o \
 		-L. -lusd -lpthread || exit 1
 	@echo "[LINK] user_example"
 

@@ -34,4 +34,36 @@
 
 void qman_test_high(int cpu);
 void bman_test_high(int cpu);
+void speed(int cpu);
+
+/* These aren't really part of the "compat" header because we don't assume their
+ * presence in linux or LWE. */
+
+/* Alternate Time Base */
+#define SPR_ATBL	526
+#define SPR_ATBU	527
+
+#define my_mfspr(reg) \
+({ \
+	register_t ret; \
+	asm volatile("mfspr %0, %1" : "=r" (ret) : "i" (reg) : "memory"); \
+	ret; \
+})
+static inline uint64_t
+my_get_timebase(void)
+{
+	uint32_t hi, lo, chk;
+
+	/*
+	 * To make sure that there is no carry over
+	 * between checking of TBU and TBL
+	 */
+	do {
+		hi = my_mfspr(SPR_ATBU);
+		lo = my_mfspr(SPR_ATBL);
+		chk = my_mfspr(SPR_ATBU);
+	} while (unlikely(hi != chk));
+
+	return (uint64_t) hi << 32 | (uint64_t) lo;
+}
 
