@@ -38,15 +38,15 @@
 #define MAX_THREADS 8
 
 #define handle_error_en(en, msg) \
-  do { errno = en; perror(msg); exit(EXIT_FAILURE); } while (0)
+	do { errno = en; perror(msg); exit(EXIT_FAILURE); } while (0)
 
 #define handle_error(msg) \
-  do { perror(msg); exit(EXIT_FAILURE); } while (0)
+	do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
 /* Per-thread data, including the pthread id */
 typedef struct {
-  pthread_t id;
-  int index; /* count from 0 */
+	pthread_t id;
+	int cpu; /* count from 0 */
 } thread_data_t;
 
 
@@ -56,90 +56,88 @@ typedef struct {
  *
  * This function is executed in each created thread.
  *
- * arg points to a thread_data_t object which in turn contains a thread
- * index, an integer counting from 0.
- *
- * The function sets the thread to be affine to core index, where cores
- * are also counted from zero.
+ * arg points to a thread_data_t object which in turn contains a cpu
+ * index, an integer counting from 0. The function sets the thread
+ * affine to the corresponding cpu.
  ****************************************************************************/
 
 static void calm_down(void)
 {
-  int die_slowly = 1000;
-  /* FIXME: there may be stale MR entries (eg. FQRNIs that the driver ignores
-   * and drops in the bin), but these will hamper any attempt to run another
-   * user-driver instance after we exit. Loop on the portal processing a bit to
-   * let it "go idle". */
-  while (die_slowly--) {
-  	barrier();
+	int die_slowly = 1000;
+	/* FIXME: there may be stale MR entries (eg. FQRNIs that the driver
+	 * ignores and drops in the bin), but these will hamper any attempt to
+	 * run another user-driver instance after we exit. Loop on the portal
+	 * processing a bit to let it "go idle". */
+	while (die_slowly--) {
+		barrier();
 	qman_poll();
 	bman_poll();
-  }
+	}
 }
 
 static void *thread_function(void *arg)
 {
-  thread_data_t *tdata = (thread_data_t *) arg;
-  int s;
-  cpu_set_t cpuset;
+	thread_data_t *tdata = (thread_data_t *) arg;
+	int s;
+	cpu_set_t cpuset;
 
-  /* Set this thread affine to core index */
-  CPU_ZERO(&cpuset);
-  CPU_SET(tdata->index, &cpuset);
-  s = pthread_setaffinity_np(tdata->id, sizeof(cpu_set_t), &cpuset);
-  if (s != 0) handle_error_en(s, "pthread_setaffinity_np");
+	/* Set this thread affine to cpu */
+	CPU_ZERO(&cpuset);
+	CPU_SET(tdata->cpu, &cpuset);
+	s = pthread_setaffinity_np(tdata->id, sizeof(cpu_set_t), &cpuset);
+	if (s != 0) handle_error_en(s, "pthread_setaffinity_np");
 
-  printf("This is %d\n", tdata->index);
+	printf("This is %d\n", tdata->cpu);
 
-  /* Bman must go first, otherwise the FQ allocator can't initialise */
-  s = bman_thread_init(tdata->index);
-  if (s) {
-    printf("bman_thread_init(%d) failed, ret=%d\n", tdata->index, s);
-    return (void *)-1;
-  }
-  s = qman_thread_init(tdata->index);
-  if (s) {
-    printf("qman_thread_init(%d) failed, ret=%d\n", tdata->index, s);
-    return (void *)-1;
-  }
+	/* Bman must go first, otherwise the FQ allocator can't initialise */
+	s = bman_thread_init(tdata->cpu);
+	if (s) {
+		printf("bman_thread_init(%d) failed, ret=%d\n", tdata->cpu, s);
+		return (void *)-1;
+	}
+	s = qman_thread_init(tdata->cpu);
+	if (s) {
+		printf("qman_thread_init(%d) failed, ret=%d\n", tdata->cpu, s);
+		return (void *)-1;
+	}
 
-  qman_test_high(tdata->index);
-  calm_down();
-  bman_test_high(tdata->index);
-  calm_down();
-  speed(tdata->index);
-  calm_down();
-  blastman(tdata->index);
-  calm_down();
+	qman_test_high(tdata->cpu);
+	calm_down();
+	bman_test_high(tdata->cpu);
+	calm_down();
+	speed(tdata->cpu);
+	calm_down();
+	blastman(tdata->cpu);
+	calm_down();
 
-  printf("Leaving %d\n", tdata->index);
+	printf("Leaving %d\n", tdata->cpu);
 
-  return NULL;
+	return NULL;
 }
 
 int main(int argc, char *argv[])
 {
-  int s, i, num_threads;
-  thread_data_t thread_data[MAX_THREADS];
+	int s, i, num_threads;
+	thread_data_t thread_data[MAX_THREADS];
 
-  num_threads = 2;
+	num_threads = 2;
 
-  /* Create the threads */
+	/* Create the threads */
 
-  for (i = 0; i < num_threads; i++) {
-    thread_data[i].index = i;
+	for (i = 0; i < num_threads; i++) {
+		thread_data[i].cpu = i;
 
-    s = pthread_create(&thread_data[i].id, NULL, &thread_function,
+		s = pthread_create(&thread_data[i].id, NULL, &thread_function,
 		       &thread_data[i]);
-    if (s != 0) handle_error_en(s, "pthread_create");
-  }
+		if (s != 0) handle_error_en(s, "pthread_create");
+	}
 
-  /* Wait for them to join */
+	/* Wait for them to join */
 
-  for (i = 0; i < num_threads; i++) {
-    s = pthread_join(thread_data[i].id, NULL);
-    if (s != 0) handle_error_en(s, "pthread_join");
-  }
+	for (i = 0; i < num_threads; i++) {
+		s = pthread_join(thread_data[i].id, NULL);
+		if (s != 0) handle_error_en(s, "pthread_join");
+	}
 
-  exit(EXIT_SUCCESS);
+	exit(EXIT_SUCCESS);
 }
