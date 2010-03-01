@@ -1,4 +1,4 @@
-CROSS_COMPILE ?= /opt/freescale/usr/local/gcc-4.3.74-eglibc-2.8.74-6/powerpc-linux-gnu/bin/powerpc-linux-gnu-
+CROSS_COMPILE ?= /opt/freescale/usr/local/gcc-4.4.78-eglibc-2.10.78/powerpc-linux-gnu/bin/powerpc-linux-gnu-
 C_TARG_FLAGS=-mcpu=e500mc -msoft-float -D_GCCPORT_ -D__POWERPC__ \
 	-D__PPC_EABI__ -mmultiple -mno-altivec -pthread
 C_MY_FLAGS=-Iinclude -Wall -Werror -O2 -ggdb3
@@ -63,4 +63,3 @@ build_user_example:
 		objs/blastman.o \
 		-L. -lusd -lpthread || exit 1
 	@echo "[LINK] user_example"
-
