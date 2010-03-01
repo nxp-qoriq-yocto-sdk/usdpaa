@@ -1,9 +1,11 @@
 CROSS_COMPILE ?= /opt/freescale/usr/local/gcc-4.4.78-eglibc-2.10.78/powerpc-linux-gnu/bin/powerpc-linux-gnu-
+
+CC = $(CROSS_COMPILE)gcc
+AR = $(CROSS_COMPILE)ar
+
 C_TARG_FLAGS=-mcpu=e500mc -msoft-float -D_GCCPORT_ -D__POWERPC__ \
 	-D__PPC_EABI__ -mmultiple -mno-altivec -pthread
 C_MY_FLAGS=-Iinclude -Wall -Werror -O2 -ggdb3
-CC=$(CROSS_COMPILE)gcc
-AR=$(CROSS_COMPILE)ar
 
 LIB_SRC=qman/qman_high.c qman/qman_low.c qman/qman_fqalloc.c \
 	qman/qman_utility.c qman/qman_driver.c \
@@ -19,8 +21,9 @@ rebuild: clean build_lib \
 	build_blastman \
 	build_user_example
 
+.PHONY: clean
 clean:
-	rm -f objs/*.o *.a
+	$(RM) objs/*.o *.a
 
 build_lib:
 	@for i in $(LIB_SRC); do \
@@ -63,3 +66,7 @@ build_user_example:
 		objs/blastman.o \
 		-L. -lusd -lpthread || exit 1
 	@echo "[LINK] user_example"
+
+install:
+	install -d $(DESTDIR)$(PREFIX)/bin
+	install user_example $(DESTDIR)$(PREFIX)/bin
