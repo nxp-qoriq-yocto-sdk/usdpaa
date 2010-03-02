@@ -138,7 +138,7 @@ do_loop:
 		i -= num;
 	}
 	i = bman_acquire(pool, NULL, 1, 0);
-	BUG_ON(i);
+	BUG_ON(i >= 0);
 
 	bufs_confirm();
 
