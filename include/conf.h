@@ -95,7 +95,7 @@ extern "C" {
 #define CONFIG_FSL_QMAN_PIRQ_IPERIOD 0
 
 /* maximum number of DQRR entries to process in qman_poll() */
-#define CONFIG_FSL_QMAN_POLL_LIMIT 1
+#define CONFIG_FSL_QMAN_POLL_LIMIT 8
 
 /* do not do slow-path processing via IRQ */
 #undef CONFIG_FSL_QMAN_PORTAL_FLAG_IRQ_SLOW
