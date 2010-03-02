@@ -23,43 +23,7 @@
  * DAMAGE.
  */
 
-/************************************************************************
- * This program starts threads and makes them affine to cores.  Each
- * thread runs function thread_function.
- *
- * It creates num_threads threads.  The first is made affine to core 1,
- * the next to core 2, and so on.  To cause nothing else in user
- * space to be scheduled onto cores other than core 0, use the isolcpus
- * kernel parameter, e.g. "isolcpus=1-7".
- *************************************************************************/
-
 #include "test.h"
-
-#define MAX_THREADS 8
-
-#define handle_error_en(en, msg) \
-	do { errno = en; perror(msg); exit(EXIT_FAILURE); } while (0)
-
-#define handle_error(msg) \
-	do { perror(msg); exit(EXIT_FAILURE); } while (0)
-
-/* Per-thread data, including the pthread id */
-typedef struct {
-	pthread_t id;
-	int cpu; /* count from 0 */
-} thread_data_t;
-
-
-
-/***************************************************************************
- * thread_function
- *
- * This function is executed in each created thread.
- *
- * arg points to a thread_data_t object which in turn contains a cpu
- * index, an integer counting from 0. The function sets the thread
- * affine to the corresponding cpu.
- ****************************************************************************/
 
 static void calm_down(void)
 {
@@ -75,69 +39,80 @@ static void calm_down(void)
 	}
 }
 
-static void *thread_function(void *arg)
+static int worker_fn(thread_data_t *tdata)
 {
-	thread_data_t *tdata = (thread_data_t *) arg;
-	int s;
-	cpu_set_t cpuset;
+	printf("This is the thread on cpu %d\n", tdata->cpu);
 
-	/* Set this thread affine to cpu */
-	CPU_ZERO(&cpuset);
-	CPU_SET(tdata->cpu, &cpuset);
-	s = pthread_setaffinity_np(tdata->id, sizeof(cpu_set_t), &cpuset);
-	if (s != 0) handle_error_en(s, "pthread_setaffinity_np");
+	qman_test_high(tdata);
+	calm_down();
+	bman_test_high(tdata);
+	calm_down();
+	speed(tdata);
+	calm_down();
+	blastman(tdata);
+	calm_down();
 
-	printf("This is %d\n", tdata->cpu);
+	printf("Leaving thread on cpu %d\n", tdata->cpu);
+	return 0;
+}
 
-	/* Bman must go first, otherwise the FQ allocator can't initialise */
-	s = bman_thread_init(tdata->cpu);
-	if (s) {
-		printf("bman_thread_init(%d) failed, ret=%d\n", tdata->cpu, s);
-		return (void *)-1;
+static int my_toul(const char *str, char **endptr, long ncpus)
+{
+	unsigned long tmp = strtoul(str, endptr, 0);
+	if ((tmp == ULONG_MAX) || (*endptr == str)) {
+		fprintf(stderr, "error: can't parsing cpu-range '%s'\n", str);
+		exit(-1);
 	}
-	s = qman_thread_init(tdata->cpu);
-	if (s) {
-		printf("qman_thread_init(%d) failed, ret=%d\n", tdata->cpu, s);
-		return (void *)-1;
+	if (tmp >= ncpus) {
+		fprintf(stderr, "error: cpu index %lu out of range\n", tmp);
+		exit(-1);
 	}
-
-	qman_test_high(tdata->cpu);
-	calm_down();
-	bman_test_high(tdata->cpu);
-	calm_down();
-	speed(tdata->cpu);
-	calm_down();
-	blastman(tdata->cpu);
-	calm_down();
-
-	printf("Leaving %d\n", tdata->cpu);
-
-	return NULL;
+	return (int)tmp;
 }
 
 int main(int argc, char *argv[])
 {
-	int s, i, num_threads;
 	thread_data_t thread_data[MAX_THREADS];
+	int ret, first, last;
+	long ncpus = sysconf(_SC_NPROCESSORS_ONLN);
 
-	num_threads = 2;
+	if (ncpus == 1)
+		first = last = 0;
+	else {
+		first = 1;
+		last = ncpus - 1;
+	}
+	if (argc == 2) {
+		char *endptr;
+		first = my_toul(argv[1], &endptr, ncpus);
+		if (*endptr == '\0') {
+			last = first;
+		} else if ((*(endptr++) == '.') && (*(endptr++) == '.') &&
+				(*endptr != '\0')) {
+			last = my_toul(endptr, &endptr, ncpus);
+			if (last < first) {
+				ret = first;
+				first = last;
+				last = ret;
+			}
+		} else {
+			fprintf(stderr, "error: can't parse cpu-range '%s'\n",
+				argv[1]);
+			exit(-1);
+		}
+	} else if (argc != 1) {
+		fprintf(stderr, "usage: user_example [cpu-range]\n");
+		fprintf(stderr, "where [cpu-range] is 'n' or 'm..n'\n");
+		exit(-1);
+	}
 
 	/* Create the threads */
+	printf("Starting %d threads for cpu-range '%s'\n",
+		last - first + 1, argv[1]);
+	ret = run_threads(thread_data, last - first + 1, first, worker_fn);
+	if (ret != 0)
+		handle_error_en(ret, "run_threads");
 
-	for (i = 0; i < num_threads; i++) {
-		thread_data[i].cpu = i;
-
-		s = pthread_create(&thread_data[i].id, NULL, &thread_function,
-		       &thread_data[i]);
-		if (s != 0) handle_error_en(s, "pthread_create");
-	}
-
-	/* Wait for them to join */
-
-	for (i = 0; i < num_threads; i++) {
-		s = pthread_join(thread_data[i].id, NULL);
-		if (s != 0) handle_error_en(s, "pthread_join");
-	}
-
+	printf("Done\n");
 	exit(EXIT_SUCCESS);
 }

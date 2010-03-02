@@ -67,11 +67,6 @@ static __PERCPU struct qman_fq fq_base = {
 	}
 };
 
-struct waker {
-	volatile int kick;
-} __cacheline_aligned;
-static struct waker waker[NUM_CPUS];
-
 static __PERCPU u64 eq_capture[2] ____cacheline_aligned;
 static __PERCPU u64 dq_capture[2] ____cacheline_aligned;
 static __PERCPU u32 test_frames;
@@ -80,7 +75,7 @@ static __PERCPU u32 dq_count;
 static __PERCPU u32 eq_jam;
 static __PERCPU int sdqcr_complete;
 
-/* This is our test array (only used by cpu 0) */
+/* This is our test array (only used by index 0) */
 struct test {
 	int num_cpus;
 	u32 num_enqueues;
@@ -88,10 +83,8 @@ struct test {
 static const struct test tests[] = {
 	{ 1, 8192},
 	{ 2, 8192},
-#if 0
 	{ 4, 8192},
 	{ 7, 8192},
-#endif
 	{ 0, 0}
 };
 
@@ -209,53 +202,25 @@ static void cb_dc_ern(struct qman_portal *p, struct qman_fq *fq,
 static volatile int done_print;
 static spinlock_t bringup_lock = SPIN_LOCK_UNLOCKED;
 #endif
-static atomic_t cpus_ready = 0;
 
-/* At the beginning of each test, the cpus all call this routine. The secondary
- * cores signal their readyness for the next test by incrementing "ready", the
- * primary core polls until "ready" hits the desired total. (Ie. except for
- * one-off writes from secondary cores, "ready" stays cache-local to cpu 0.)
- * After incrementing "ready", the secondary cores wait for the go-ahead by
- * polling on the percpu "waker" signal, which cpu 0 sets once everyone is
- * ready. (Ie. except for one-off writes from cpu 0, the "waker" values stay
- * cache-local to their respective cpus.)
- *
- * The idea behind all this is to avoid bursts of coherency noise when tests are
- * starting up or finishing, as these would contaminate the results. This
- * signalling involves some coherency action, but only for the one-off writes,
- * the important thing is that the polling should stay cache-local. */
-static void sync_cpus(int whoami)
+static void my_sync(void)
 {
-	unsigned int dumbloop;
-	atomic_inc(&cpus_ready);
-	if (whoami) {
-		/* secondary cpus wait for the "go" */
-		while (!waker[whoami].kick)
-			;
-		waker[whoami].kick = 0;
-	} else {
-		/* cpu 0 waits for the others to be ready */
-		while (atomic_read(&cpus_ready) < NUM_CPUS)
-			;
-		atomic_set(&cpus_ready, 0);
-#ifndef MODEL_CHKPT
-		dumbloop = 0;
-		while (dumbloop < 0x100000)
-			dumbloop++;
-#endif
-		dumbloop = 1;
-		while (dumbloop < NUM_CPUS)
-			waker[dumbloop++].kick = 1;
-	}
+	thread_data_t *tdata = my_thread_data();
+	if (tdata->am_master) {
+		sync_primary_wait(tdata);
+		sync_primary_release(tdata);
+	} else
+		sync_secondary(tdata);
 }
 
-void speed(int cpu)
+void speed(thread_data_t *tdata)
 {
 	struct qman_fq *fq = &fq_base;
 	const struct test *test = &tests[0];
 
-	pr_info("SPEED: --- starting high-level test (cpu %d) ---\n", cpu);
-	sync_cpus(cpu);
+	pr_info("SPEED: --- starting high-level test (cpu %d) ---\n",
+		tdata->cpu);
+	my_sync();
 #ifdef MODEL_CHKPT
 	/* Do a dance so that we can checkpoint when we see "speed starting",
 	 * know that no cpu has yet started testing, and that post-checkpoint we
@@ -271,7 +236,8 @@ void speed(int cpu)
 	fd_init(&fd_dq);
 
 	while (test->num_cpus) {
-		int doIrun = (cpu < test->num_cpus) ? 1 : 0;
+		int doIrun = (tdata->total_cpus < test->num_cpus) ? 0 :
+			((tdata->index < test->num_cpus) ? 1 : 0);
 
 		test_frames = test->num_enqueues;
 		test_start = test->num_enqueues - NUM_IGNORE;
@@ -301,7 +267,7 @@ void speed(int cpu)
 #endif
 		}
 
-		sync_cpus(cpu);
+		my_sync();
 
 		if (doIrun) {
 			do_enqueues(fq);
@@ -313,7 +279,7 @@ void speed(int cpu)
 			sdqcr_complete = 0;
 		}
 
-		sync_cpus(cpu);
+		my_sync();
 
 		if (doIrun) {
 			u32 flags;
@@ -330,7 +296,8 @@ void speed(int cpu)
 		}
 		test++;
 	}
-	sync_cpus(cpu);
-	pr_info("SPEED: --- finished high-level test (cpu %d) ---\n", cpu);
+	my_sync();
+	pr_info("SPEED: --- finished high-level test (cpu %d) ---\n",
+		tdata->cpu);
 }
 

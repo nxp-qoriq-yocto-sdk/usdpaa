@@ -54,18 +54,13 @@ static __PERCPU u32 rsum;
 static __PERCPU u32 asum;
 #endif
 
-struct waker {
-	volatile int kick;
-} __cacheline_aligned;
-static struct waker waker[NUM_CPUS];
-
 static __PERCPU u64 rel_capture[2] ____cacheline_aligned;
 static __PERCPU u64 acq_capture[2] ____cacheline_aligned;
 static __PERCPU u32 test_buffers;
 static __PERCPU u32 test_start;
 static __PERCPU u32 rel_jam, acq_jam;
 
-/* This is our test array (only used by cpu 0) */
+/* This is our test array (only used by index 0) */
 struct test {
 	int num_cpus;
 	int stockpiling;
@@ -74,16 +69,12 @@ struct test {
 static const struct test tests[] = {
 	{ 1, 0, 8192},
 	{ 2, 0, 8192},
-#if 0
 	{ 4, 0, 8192},
 	{ 7, 0, 8192},
-#endif
 	{ 1, 1, 8192},
 	{ 2, 1, 8192},
-#if 0
 	{ 4, 1, 8192},
 	{ 7, 1, 8192},
-#endif
 	{ 0, 0, 0}
 };
 
@@ -227,53 +218,26 @@ retry:
 static volatile int done_print;
 static spinlock_t bringup_lock = SPIN_LOCK_UNLOCKED;
 #endif
-static atomic_t cpus_ready = 0;
 
-/* At the beginning of each test, the cpus all call this routine. The secondary
- * cores signal their readyness for the next test by incrementing "ready", the
- * primary core polls until "ready" hits the desired total. (Ie. except for
- * one-off writes from secondary cores, "ready" stays cache-local to cpu 0.)
- * After incrementing "ready", the secondary cores wait for the go-ahead by
- * polling on the percpu "waker" signal, which cpu 0 sets once everyone is
- * ready. (Ie. except for one-off writes from cpu 0, the "waker" values stay
- * cache-local to their respective cpus.)
- *
- * The idea behind all this is to avoid bursts of coherency noise when tests are
- * starting up or finishing, as these would contaminate the results. This
- * signalling involves some coherency action, but only for the one-off writes,
- * the important thing is that the polling should stay cache-local. */
-static void sync_cpus(int whoami)
+static void my_sync(void)
 {
-	unsigned int dumbloop;
-	atomic_inc(&cpus_ready);
-	if (whoami) {
-		/* secondary cpus wait for the "go" */
-		while (!waker[whoami].kick)
-			;
-		waker[whoami].kick = 0;
-	} else {
-		/* cpu 0 waits for the others to be ready */
-		while (atomic_read(&cpus_ready) < NUM_CPUS)
-			;
-		atomic_set(&cpus_ready, 0);
-#ifndef MODEL_CHKPT
-		dumbloop = 0;
-		while (dumbloop < 0x100000)
-			dumbloop++;
-#endif
-		dumbloop = 1;
-		while (dumbloop < NUM_CPUS)
-			waker[dumbloop++].kick = 1;
-	}
+	thread_data_t *tdata = my_thread_data();
+	if (tdata->am_master) {
+		sync_primary_wait(tdata);
+		sync_primary_release(tdata);
+	} else
+		sync_secondary(tdata);
 }
 
-void blastman(int cpu)
+void blastman(thread_data_t *tdata)
 {
 	struct bman_pool_params params;
 	struct bman_pool *pool = NULL; /* unnecessary, but gcc doesn't see */
 	const struct test *test = &tests[0];
 
-	pr_info("BLAST: --- starting high-level test (cpu %d) ---\n", cpu);
+	pr_info("BLAST: --- starting high-level test (cpu %d) ---\n",
+		tdata->cpu);
+	my_sync();
 #ifdef MODEL_CHKPT
 	/* Do a dance so that we can checkpoint when we see "blastman starting",
 	 * know that no cpu has yet started testing, and that post-checkpoint we
@@ -287,14 +251,15 @@ void blastman(int cpu)
 #endif
 
 	while (test->num_cpus) {
-		int doIrun = (cpu < test->num_cpus) ? 1 : 0;
+		int doIrun = (tdata->total_cpus < test->num_cpus) ? 0 :
+			((tdata->index < test->num_cpus) ? 1 : 0);
 
 		test_buffers = test->num_buffers;
 		test_start = test->num_buffers - NUM_IGNORE;
 		rel_jam = acq_jam = 0;
 
 		if (doIrun) {
-			params.bpid = TEST_BPID(cpu);
+			params.bpid = TEST_BPID(tdata->index);
 			params.flags = 0;
 			if (test->stockpiling)
 				params.flags |= BMAN_POOL_FLAG_STOCKPILE;
@@ -303,14 +268,14 @@ void blastman(int cpu)
 				panic("bman_new_pool() failed\n");
 		}
 
-		sync_cpus(cpu);
+		my_sync();
 
 		if (doIrun) {
 			do_releases(pool);
 			do_acquires(pool);
 		}
 
-		sync_cpus(cpu);
+		my_sync();
 
 		if (doIrun) {
 			bman_free_pool(pool);
@@ -321,7 +286,8 @@ void blastman(int cpu)
 		}
 		test++;
 	}
-	sync_cpus(cpu);
-	pr_info("BLAST: --- finished high-level test (cpu %d) ---\n", cpu);
+	my_sync();
+	pr_info("BLAST: --- finished high-level test (cpu %d) ---\n",
+		tdata->cpu);
 }
 

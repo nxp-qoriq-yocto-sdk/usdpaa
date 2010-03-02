@@ -30,12 +30,12 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "compat.h"
+#include "common.h"
 
-void qman_test_high(int cpu);
-void bman_test_high(int cpu);
-void speed(int cpu);
-void blastman(int cpu);
+void qman_test_high(thread_data_t *tdata);
+void bman_test_high(thread_data_t *tdata);
+void speed(thread_data_t *tdata);
+void blastman(thread_data_t *tdata);
 
 /* These aren't really part of the "compat" header because we don't assume their
  * presence in linux or LWE. */

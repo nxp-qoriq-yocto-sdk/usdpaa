@@ -93,16 +93,17 @@ static void bufs_confirm(void)
 /* test */
 /********/
 
-void bman_test_high(int cpu)
+void bman_test_high(thread_data_t *tdata)
 {
 	struct bman_pool_params pparams = {
-		.bpid = 17 + cpu
+		.bpid = 17 + tdata->index
 	};
 	int i, loops = LOOPS;
 
 	bufs_init();
 
-	pr_info("BMAN:  --- starting high-level test (cpu %d) ---\n", cpu);
+	pr_info("BMAN:  --- starting high-level test (cpu %d) ---\n",
+		tdata->cpu);
 
 	pool = bman_new_pool(&pparams);
 	BUG_ON(!pool);
@@ -147,6 +148,7 @@ do_loop:
 	/* Clean up */
 	/************/
 	bman_free_pool(pool);
-	pr_info("BMAN:  --- finished high-level test (cpu %d) ---\n", cpu);
+	pr_info("BMAN:  --- finished high-level test (cpu %d) ---\n",
+		tdata->cpu);
 }
 

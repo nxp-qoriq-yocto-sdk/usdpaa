@@ -131,14 +131,15 @@ static void do_enqueues(struct qman_fq *fq)
 	}
 }
 
-void qman_test_high(int cpu)
+void qman_test_high(thread_data_t *tdata)
 {
 	struct qman_cgrs cgrs;
 	int res;
 	u32 flags;
 	struct qman_fq *fq = &fq_base;
 
-	pr_info("QMAN:  --- starting high-level test (cpu %d) ---\n", cpu);
+	pr_info("QMAN:  --- starting high-level test (cpu %d) ---\n",
+		tdata->cpu);
 	fd_init(&fd);
 	fd_init(&fd_dq);
 	qman_cgrs_init(&cgrs);
@@ -183,7 +184,8 @@ void qman_test_high(int cpu)
 	if (qman_oos_fq(fq))
 		panic("qman_oos_fq() failed\n");
 	qman_destroy_fq(fq, 0);
-	pr_info("QMAN:  --- finished high-level test (cpu %d) ---\n", cpu);
+	pr_info("QMAN:  --- finished high-level test (cpu %d) ---\n",
+		tdata->cpu);
 }
 
 static enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *p,

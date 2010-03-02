@@ -130,11 +130,6 @@ struct qm_portal {
 int __qm_portal_bind(struct qm_portal *portal, u8 iface);
 void __qm_portal_unbind(struct qm_portal *portal, u8 iface);
 
-/* Hooks for driver initialisation */
-#ifdef CONFIG_FSL_QMAN_FQALLOCATOR
-__init int __fqalloc_init(void);
-#endif
-
 /* Revision info (for errata and feature handling) */
 #define QMAN_REV1 0x0100
 #define QMAN_REV2 0x0101

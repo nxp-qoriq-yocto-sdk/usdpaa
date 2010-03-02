@@ -15,6 +15,7 @@ LIB_SRC=qman/qman_high.c qman/qman_low.c qman/qman_fqalloc.c \
 default: rebuild
 
 rebuild: clean build_lib \
+	build_common \
 	build_qman_test_high \
 	build_bman_test_high \
 	build_speed \
@@ -33,6 +34,11 @@ build_lib:
 	done
 	@$(AR) rcs libusd.a objs/*.o
 	@echo "[AR] libusd.a"
+
+build_common:
+	@$(CC) -c $(C_TARG_FLAGS) $(C_MY_FLAGS) apps/common.c && \
+		mv *.o objs/ || exit 1
+	@echo "[CC] common"
 
 build_qman_test_high:
 	@$(CC) -c $(C_TARG_FLAGS) $(C_MY_FLAGS) apps/qman_test_high.c && \
@@ -64,6 +70,7 @@ build_user_example:
 		objs/bman_test_high.o \
 		objs/speed.o \
 		objs/blastman.o \
+		objs/common.o \
 		-L. -lusd -lpthread || exit 1
 	@echo "[LINK] user_example"
 
