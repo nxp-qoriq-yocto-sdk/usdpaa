@@ -104,6 +104,7 @@ void bman_test_high(thread_data_t *tdata)
 
 	pr_info("BMAN:  --- starting high-level test (cpu %d) ---\n",
 		tdata->cpu);
+	sync_all();
 
 	pool = bman_new_pool(&pparams);
 	BUG_ON(!pool);
@@ -148,6 +149,7 @@ do_loop:
 	/* Clean up */
 	/************/
 	bman_free_pool(pool);
+	sync_all();
 	pr_info("BMAN:  --- finished high-level test (cpu %d) ---\n",
 		tdata->cpu);
 }

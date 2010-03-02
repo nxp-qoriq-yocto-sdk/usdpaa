@@ -56,5 +56,17 @@ void sync_secondary(thread_data_t *whoami);
 void sync_primary_wait(thread_data_t *whoami);
 void sync_primary_release(thread_data_t *whoami);
 
+/* Or if the master has no special work to do, a simple sync */
+static inline void sync_all(void)
+{
+	thread_data_t *tdata = my_thread_data();
+	if (tdata->am_master) {
+		sync_primary_wait(tdata);
+		sync_primary_release(tdata);
+	} else
+		sync_secondary(tdata);
+}
+
+
 #endif /* !APPS_COMMON_H */
 

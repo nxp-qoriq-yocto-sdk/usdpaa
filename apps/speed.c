@@ -203,16 +203,6 @@ static volatile int done_print;
 static spinlock_t bringup_lock = SPIN_LOCK_UNLOCKED;
 #endif
 
-static void my_sync(void)
-{
-	thread_data_t *tdata = my_thread_data();
-	if (tdata->am_master) {
-		sync_primary_wait(tdata);
-		sync_primary_release(tdata);
-	} else
-		sync_secondary(tdata);
-}
-
 void speed(thread_data_t *tdata)
 {
 	struct qman_fq *fq = &fq_base;
@@ -220,7 +210,7 @@ void speed(thread_data_t *tdata)
 
 	pr_info("SPEED: --- starting high-level test (cpu %d) ---\n",
 		tdata->cpu);
-	my_sync();
+	sync_all();
 #ifdef MODEL_CHKPT
 	/* Do a dance so that we can checkpoint when we see "speed starting",
 	 * know that no cpu has yet started testing, and that post-checkpoint we
@@ -267,7 +257,7 @@ void speed(thread_data_t *tdata)
 #endif
 		}
 
-		my_sync();
+		sync_all();
 
 		if (doIrun) {
 			do_enqueues(fq);
@@ -279,7 +269,7 @@ void speed(thread_data_t *tdata)
 			sdqcr_complete = 0;
 		}
 
-		my_sync();
+		sync_all();
 
 		if (doIrun) {
 			u32 flags;
@@ -296,7 +286,7 @@ void speed(thread_data_t *tdata)
 		}
 		test++;
 	}
-	my_sync();
+	sync_all();
 	pr_info("SPEED: --- finished high-level test (cpu %d) ---\n",
 		tdata->cpu);
 }

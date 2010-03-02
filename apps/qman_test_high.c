@@ -140,6 +140,7 @@ void qman_test_high(thread_data_t *tdata)
 
 	pr_info("QMAN:  --- starting high-level test (cpu %d) ---\n",
 		tdata->cpu);
+	sync_all();
 	fd_init(&fd);
 	fd_init(&fd_dq);
 	qman_cgrs_init(&cgrs);
@@ -153,23 +154,18 @@ void qman_test_high(thread_data_t *tdata)
 
 	/* Do enqueues + VDQCR, twice. (Parked FQ) */
 	do_enqueues(fq);
-	pr_info("VDQCR (till-empty);\n");
 	if (qman_volatile_dequeue(fq, VDQCR_FLAGS,
 			QM_VDQCR_NUMFRAMES_TILLEMPTY))
 		panic("qman_volatile_dequeue() failed\n");
 	do_enqueues(fq);
-	pr_info("VDQCR (%d of %d);\n", NUM_PARTIAL, NUM_ENQUEUES);
 	if (qman_volatile_dequeue(fq, VDQCR_FLAGS,
 			QM_VDQCR_NUMFRAMES_SET(NUM_PARTIAL)))
 		panic("qman_volatile_dequeue() failed\n");
-	pr_info("VDQCR (%d of %d);\n", NUM_ENQUEUES - NUM_PARTIAL,
-					NUM_ENQUEUES);
 	if (qman_volatile_dequeue(fq, VDQCR_FLAGS,
 			QM_VDQCR_NUMFRAMES_SET(NUM_ENQUEUES - NUM_PARTIAL)))
 		panic("qman_volatile_dequeue() failed\n");
 
 	do_enqueues(fq);
-	pr_info("scheduled dequeue (till-empty)\n");
 	if (qman_schedule_fq(fq))
 		panic("qman_schedule_fq() failed\n");
 	wait_event(waitqueue, sdqcr_complete);
@@ -184,6 +180,7 @@ void qman_test_high(thread_data_t *tdata)
 	if (qman_oos_fq(fq))
 		panic("qman_oos_fq() failed\n");
 	qman_destroy_fq(fq, 0);
+	sync_all();
 	pr_info("QMAN:  --- finished high-level test (cpu %d) ---\n",
 		tdata->cpu);
 }
