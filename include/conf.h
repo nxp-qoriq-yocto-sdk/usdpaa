@@ -57,7 +57,7 @@ extern "C" {
 
 #define FSL_SHMEM_PATH	"/dev/fsl-shmem"
 #define FSL_SHMEM_VIRT	(u32)0x70000000
-#define FSL_SHMEM_PHYS	(u32)0x40000000 /* 1G */
+#define FSL_SHMEM_PHYS	(u32)0x70000000 /* 1.75G */
 #define FSL_SHMEM_SIZE	(u32)0x10000000 /* 256M */
 #define fsl_shmem_ptov(p) (void *)(p + (FSL_SHMEM_VIRT - FSL_SHMEM_PHYS))
 #define fsl_shmem_vtop(v) ((dma_addr_t)v - (FSL_SHMEM_VIRT - FSL_SHMEM_PHYS))
