@@ -74,6 +74,120 @@ typedef int		phandle;
 #define __iomem
 #define __stringify_1(x) #x
 #define __stringify(x)	__stringify_1(x)
+#define EINTR		4
+#define ENODEV		19
+#define MODULE_AUTHOR(s)
+#define MODULE_LICENSE(s)
+#define MODULE_DESCRIPTION(s)
+#define EXPORT_SYMBOL(x)
+#define module_init(fn) int m_##fn(void) { return fn(); }
+#define module_exit(fn) void m_##fn(void) { fn(); }
+#define GFP_KERNEL	0
+#define __KERNEL__
+#define __init
+#define lower_32_bits(x) ((u32)(x))
+#define upper_32_bits(x) ((u32)(((x) >> 16) >> 16))
+#define panic(x) \
+do { \
+	printf("panic: %s", x); \
+	abort(); \
+} while(0)
+#define container_of(p, t, f) (t *)((void *)p - offsetof(t, f))
+
+/* printk() stuff */
+#define printk(fmt, args...)	do_not_use_printk
+#define nada(fmt, args...)	do { ; } while(0)
+
+#define pr_crit(fmt, args...)	printf(fmt, ##args)
+#define pr_err(fmt, args...)	printf(fmt, ##args)
+#define pr_warning(fmt, args...) printf(fmt, ##args)
+#define pr_info(fmt, args...)	printf(fmt, ##args)
+
+/* Debug stuff */
+#define BUG()	abort()
+#ifdef CONFIG_BUGON
+#define BUG_ON(c) \
+do { \
+	if (c) { \
+		pr_crit("BUG: %s:%d\n", __FILE__, __LINE__); \
+		abort(); \
+	} \
+} while(0)
+#define might_sleep_if(c)	BUG_ON(c)
+#define msleep(x) \
+do { \
+	pr_crit("BUG: illegal call %s:%d\n", __FILE__, __LINE__); \
+	exit(1); \
+} while(0)
+#else
+#define BUG_ON(c)		do { ; } while(0)
+#define might_sleep_if(c)	do { ; } while(0)
+#define msleep(x)		do { ; } while(0)
+#endif
+#ifdef CONFIG_FSL_BMAN_CHECKING
+#define BM_ASSERT(x) \
+	do { \
+		if (!(x)) { \
+			pr_crit("ASSERT: (%s:%d) %s\n", __FILE__, __LINE__, \
+				__stringify_1(x)); \
+			exit(1); \
+		} \
+	} while(0)
+#else
+#define BM_ASSERT(x)		do { ; } while(0)
+#endif
+#ifdef CONFIG_FSL_QMAN_CHECKING
+#define QM_ASSERT(x) \
+	do { \
+		if (!(x)) { \
+			pr_crit("ASSERT: (%s:%d) %s\n", __FILE__, __LINE__, \
+				__stringify_1(x)); \
+			exit(1); \
+		} \
+	} while(0)
+#else
+#define QM_ASSERT(x)		do { ; } while(0)
+#endif
+static inline void __hexdump(unsigned long start, unsigned long end,
+			unsigned long p, size_t sz, const unsigned char *c)
+{
+	while (start < end) {
+		unsigned int pos = 0;
+		char buf[64];
+		int nl = 0;
+		pos += sprintf(buf + pos, "%08lx: ", start);
+		do {
+			if ((start < p) || (start >= (p + sz)))
+				pos += sprintf(buf + pos, "..");
+			else
+				pos += sprintf(buf + pos, "%02x", *(c++));
+			if (!(++start & 15)) {
+				buf[pos++] = '\n';
+				nl = 1;
+			} else {
+				nl = 0;
+				if(!(start & 1))
+					buf[pos++] = ' ';
+				if(!(start & 3))
+					buf[pos++] = ' ';
+			}
+		} while (start & 15);
+		if (!nl)
+			buf[pos++] = '\n';
+		buf[pos] = '\0';
+		pr_info("%s", buf);
+	}
+}
+static inline void hexdump(const void *ptr, size_t sz)
+{
+	unsigned long p = (unsigned long)ptr;
+	unsigned long start = p & ~(unsigned long)15;
+	unsigned long end = (p + sz + 15) & ~(unsigned long)15;
+	const unsigned char *c = ptr;
+	__hexdump(start, end, p, sz, c);
+}
+
+/* I/O operations */
 /* GALAK: I doubt my impl of in/out_be32 are any good. There's probably an
  * __iomem missing (and presumably the above definition of __iomem is
  * insufficient too) and perhaps a volatile. Maybe some asm too? */
@@ -117,25 +231,6 @@ static inline void out_be32(volatile void *__p, u32 val)
 	} while(0)
 #define dcbi(p) dcbf(p)
 #define cpu_relax()	do { ; } while(0)
-#define EINTR		4
-#define ENODEV		19
-#define MODULE_AUTHOR(s)
-#define MODULE_LICENSE(s)
-#define MODULE_DESCRIPTION(s)
-#define EXPORT_SYMBOL(x)
-#define module_init(fn) int m_##fn(void) { return fn(); }
-#define module_exit(fn) void m_##fn(void) { fn(); }
-#define GFP_KERNEL	0
-#define __KERNEL__
-#define __init
-#define lower_32_bits(x) ((u32)(x))
-#define upper_32_bits(x) ((u32)(((x) >> 16) >> 16))
-#define panic(x) \
-do { \
-	printf("panic: %s", x); \
-	abort(); \
-} while(0)
-#define container_of(p, t, f) (t *)((void *)p - offsetof(t, f))
 
 /* SMP stuff */
 #define DEFINE_PER_CPU(t,x)	__thread t per_cpu__##x
@@ -285,8 +380,9 @@ static inline dma_addr_t dma_map_single(void *dev __UNUSED,
 				size_t size __UNUSED,
 				enum dma_data_direction direction __UNUSED)
 {
-	panic("dma_map_***() not implemented yet\n");
-	return (dma_addr_t)0xdeadbeef;
+	BUG_ON((u32)cpu_addr < FSL_SHMEM_VIRT);
+	BUG_ON(((u32)cpu_addr + size) > (FSL_SHMEM_VIRT + FSL_SHMEM_SIZE));
+	return fsl_shmem_vtop(cpu_addr);
 }
 static inline int dma_mapping_error(void *dev __UNUSED,
 				dma_addr_t dma_addr __UNUSED)
@@ -406,99 +502,6 @@ static inline int find_first_zero_bit(unsigned long *bits, int limit)
 	while (test_bit(idx, bits) && (++idx < limit))
 		;
 	return idx;
-}
-
-/* printk() stuff */
-#define printk(fmt, args...)	do_not_use_printk
-#define nada(fmt, args...)	do { ; } while(0)
-
-#define pr_crit(fmt, args...)	printf(fmt, ##args)
-#define pr_err(fmt, args...)	printf(fmt, ##args)
-#define pr_warning(fmt, args...) printf(fmt, ##args)
-#define pr_info(fmt, args...)	printf(fmt, ##args)
-
-/* Debug stuff */
-#define BUG()	abort()
-#ifdef CONFIG_BUGON
-#define BUG_ON(c) \
-do { \
-	if (c) { \
-		pr_crit("BUG: %s:%d\n", __FILE__, __LINE__); \
-		abort(); \
-	} \
-} while(0)
-#define might_sleep_if(c)	BUG_ON(c)
-#define msleep(x) \
-do { \
-	pr_crit("BUG: illegal call %s:%d\n", __FILE__, __LINE__); \
-	exit(1); \
-} while(0)
-#else
-#define BUG_ON(c)		do { ; } while(0)
-#define might_sleep_if(c)	do { ; } while(0)
-#define msleep(x)		do { ; } while(0)
-#endif
-#ifdef CONFIG_FSL_BMAN_CHECKING
-#define BM_ASSERT(x) \
-	do { \
-		if (!(x)) { \
-			pr_crit("ASSERT: (%s:%d) %s\n", __FILE__, __LINE__, \
-				__stringify_1(x)); \
-			exit(1); \
-		} \
-	} while(0)
-#else
-#define BM_ASSERT(x)		do { ; } while(0)
-#endif
-#ifdef CONFIG_FSL_QMAN_CHECKING
-#define QM_ASSERT(x) \
-	do { \
-		if (!(x)) { \
-			pr_crit("ASSERT: (%s:%d) %s\n", __FILE__, __LINE__, \
-				__stringify_1(x)); \
-			exit(1); \
-		} \
-	} while(0)
-#else
-#define QM_ASSERT(x)		do { ; } while(0)
-#endif
-static inline void __hexdump(unsigned long start, unsigned long end,
-			unsigned long p, size_t sz, const unsigned char *c)
-{
-	while (start < end) {
-		unsigned int pos = 0;
-		char buf[64];
-		int nl = 0;
-		pos += sprintf(buf + pos, "%08lx: ", start);
-		do {
-			if ((start < p) || (start >= (p + sz)))
-				pos += sprintf(buf + pos, "..");
-			else
-				pos += sprintf(buf + pos, "%02x", *(c++));
-			if (!(++start & 15)) {
-				buf[pos++] = '\n';
-				nl = 1;
-			} else {
-				nl = 0;
-				if(!(start & 1))
-					buf[pos++] = ' ';
-				if(!(start & 3))
-					buf[pos++] = ' ';
-			}
-		} while (start & 15);
-		if (!nl)
-			buf[pos++] = '\n';
-		buf[pos] = '\0';
-		pr_info("%s", buf);
-	}
-}
-static inline void hexdump(const void *ptr, size_t sz)
-{
-	unsigned long p = (unsigned long)ptr;
-	unsigned long start = p & ~(unsigned long)15;
-	unsigned long end = (p + sz + 15) & ~(unsigned long)15;
-	const unsigned char *c = ptr;
-	__hexdump(start, end, p, sz, c);
 }
 
 /****************/
