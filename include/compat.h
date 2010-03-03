@@ -154,18 +154,6 @@ typedef uint32_t	irqreturn_t; /* as per hwi.h */
 #define irq_can_set_affinity(x)	0
 #define irq_set_affinity(x,y)	0
 
-/* GALAK: this stuff is also presuming that we have no interrupts(/signals) and
- * that we're not multi-threading. */
-/* Spinlock stuff */
-#define spinlock_t		uint32_t
-#define SPIN_LOCK_UNLOCKED	0
-#define DEFINE_SPINLOCK(x)	__UNUSED spinlock_t x = SPIN_LOCK_UNLOCKED
-#define spin_lock_init(x)	do { *(x) = 0; } while(0)
-#define spin_lock(x)		do { ; } while(0)
-#define spin_unlock(x)		do { ; } while(0)
-#define spin_lock_irq(x)	do { ; } while(0)
-#define spin_unlock_irq(x)	do { ; } while(0)
-
 /* Atomic stuff */
 typedef unsigned long atomic_t;
 /* NB: __atomic_*() functions copied and twiddled from lwe_atomic.h */
@@ -221,9 +209,20 @@ static inline int atomic_dec_and_test(atomic_t *v)
 	return __atomic_dec_and_test((unsigned long *)v);
 }
 
+/* GALAK: this is ... sub-optimal ... spinlocks based on atomics. */
+/* Spinlock stuff */
+#define spinlock_t		atomic_t
+#define SPIN_LOCK_UNLOCKED	1
+#define DEFINE_SPINLOCK(x)	spinlock_t x = SPIN_LOCK_UNLOCKED
+#define spin_lock_init(x)	atomic_set(x, 1);
+#define spin_lock(x)		while (!atomic_dec_and_test(x)) atomic_inc(x);
+#define spin_unlock(x)		atomic_inc(x);
+#define spin_lock_irq(x)	do { local_irq_disable(); spin_lock(x); } while(0)
+#define spin_unlock_irq(x)	do { spin_unlock(x); local_irq_enable(); } while(0)
+
 /* Waitqueue stuff */
 typedef struct { }		wait_queue_head_t;
-#define DECLARE_WAIT_QUEUE_HEAD(x) DEFINE_SPINLOCK(x)
+#define DECLARE_WAIT_QUEUE_HEAD(x) int dummy_##x __UNUSED
 #define might_sleep()		do { ; } while(0)
 #define init_waitqueue_head(x)	do { ; } while(0)
 #define wake_up(x)		do { ; } while(0)
@@ -511,10 +510,24 @@ struct list_head {
 	struct list_head *prev;
 	struct list_head *next;
 };
+#define LIST_HEAD(n) \
+struct list_head n = { \
+	.prev = &n, \
+	.next = &n \
+};
 #define INIT_LIST_HEAD(p) \
 do { \
 	struct list_head *__p298 = (p); \
 	__p298->prev = __p298->next =__p298; \
+} while(0)
+#define list_add(p,l) \
+do { \
+	struct list_head *__p298 = (p); \
+	struct list_head *__l298 = (l); \
+	__p298->next = __l298->next; \
+	__p298->prev = __l298; \
+	__l298->next->prev = __p298; \
+	__l298->next = __p298; \
 } while(0)
 #define list_add_tail(p,l) \
 do { \
@@ -525,10 +538,11 @@ do { \
 	__l298->prev->next = __p298; \
 	__l298->prev = __p298; \
 } while(0)
+#define list_entry(p, t, name) \
+	(t *)((void *)p - offsetof(t, name))
 #define list_for_each_entry(i, l, name) \
-	for (i = (typeof(i))((void *)(l)->next - offsetof(typeof(*i), name)); \
-		&i->name != (l); \
-		i = (typeof(i))((void *)i->name.next - offsetof(typeof(*i), name)))
+	for (i = list_entry((l)->next, typeof(*i), name); &i->name != (l); \
+		i = list_entry(i->name.next, typeof(*i), name))
 #define list_del(i) \
 do { \
 	(i)->next->prev = (i)->prev; \
