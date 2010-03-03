@@ -2,6 +2,7 @@
 #define APPS_COMMON_H
 
 #include "compat.h"
+#include <fsl_shmem.h>
 
 #define MAX_THREADS 8
 

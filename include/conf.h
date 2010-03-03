@@ -36,12 +36,31 @@ extern "C" {
 #define CONFIG_BUGON
 
 /* The driver requires that CENA spaces be 16KB-aligned, whereas mmap() only
- * guarantees 4KB-alignment. Hmm. Hacky workaround is to require *these*
- * addresses for now. */
-#define BMAN_CENA(n)	(void *)(0x60000000 + (n)*16*1024)
-#define QMAN_CENA(n)	(void *)(0x64000000 + (n)*16*1024)
-#define BMAN_CINH(n)	(void *)(0x68000000 + (n)*4*1024)
-#define QMAN_CINH(n)	(void *)(0x6c000000 + (n)*4*1024)
+ * guarantees 4KB-alignment. Hmm. Workaround is to require *these*
+ * [BQ]MAN_*** addresses for now.
+
+ * The contiguous memory map for 'shmem' uses the FSL_SHMEM_*** constants, the
+ * _PHYS and _SIZE values *must* agree with the "mem=<...>" kernel boot
+ * parameter as well as the device-tree's "fsl-shmem" node.
+ *
+ * So the virt-address space we use for all of this is;
+ *  BM_CENA     0x6ff00000 - 0x6f3fffff    at (1.75G - 1M); sz=256K
+ *  QM_CENA     0x6ff40000 - 0x6f7fffff                     sz=256K
+ *  BM_CINH     0x6ff80000 - 0x6fbfffff                     sz=256K
+ *  QM_CINH     0x6ffc0000 - 0x6fffffff                     sz=256K
+ *  shmem       0x70000000 - 0x7fffffff    at 1.75G; sz=256M
+ */
+#define BMAN_CENA(n)	(void *)(0x6ff00000 + (n)*16*1024)
+#define QMAN_CENA(n)	(void *)(0x6ff40000 + (n)*16*1024)
+#define BMAN_CINH(n)	(void *)(0x6ff80000 + (n)*4*1024)
+#define QMAN_CINH(n)	(void *)(0x6ffc0000 + (n)*4*1024)
+
+#define FSL_SHMEM_PATH	"/dev/fsl-shmem"
+#define FSL_SHMEM_VIRT	(u32)0x70000000
+#define FSL_SHMEM_PHYS	(u32)0x40000000 /* 1G */
+#define FSL_SHMEM_SIZE	(u32)0x10000000 /* 256M */
+#define fsl_shmem_ptov(p) (void *)(p + (FSL_SHMEM_VIRT - FSL_SHMEM_PHYS))
+#define fsl_shmem_vtop(v) ((dma_addr_t)v - (FSL_SHMEM_VIRT - FSL_SHMEM_PHYS))
 
 /********/
 /* Bman */
