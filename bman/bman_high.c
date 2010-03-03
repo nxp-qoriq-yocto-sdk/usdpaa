@@ -666,7 +666,7 @@ static inline int __bman_acquire(struct bman_pool *pool, struct bm_buffer *bufs,
 	struct bman_portal *p = get_affine_portal();
 	struct bm_mc_command *mcc;
 	struct bm_mc_result *mcr;
-	u8 ret;
+	int ret;
 
 	local_irq_disable();
 	mcc = bm_mc_start(p->p);
@@ -675,10 +675,13 @@ static inline int __bman_acquire(struct bman_pool *pool, struct bm_buffer *bufs,
 			(num & BM_MCC_VERB_ACQUIRE_BUFCOUNT));
 	while (!(mcr = bm_mc_result(p->p)))
 		cpu_relax();
-	ret = num = mcr->verb & BM_MCR_VERB_ACQUIRE_BUFCOUNT;
-	memcpy(&bufs[0], &mcr->acquire.bufs[0], num * sizeof(bufs[0]));
+	ret = mcr->verb & BM_MCR_VERB_ACQUIRE_BUFCOUNT;
+	if (bufs)
+		memcpy(&bufs[0], &mcr->acquire.bufs[0], num * sizeof(bufs[0]));
 	local_irq_enable();
 	put_affine_portal();
+	if (ret != num)
+		ret = -ENOMEM;
 	return ret;
 }
 
@@ -700,8 +703,8 @@ int bman_acquire(struct bman_pool *pool, struct bm_buffer *bufs, u8 num,
 	/* Only need a h/w op if we'll hit the low-water thresh */
 	if (!(flags & BMAN_ACQUIRE_FLAG_STOCKPILE) &&
 			(pool->sp_fill <= (BMAN_STOCKPILE_LOW + num))) {
-		u8 ret = __bman_acquire(pool, pool->sp + pool->sp_fill, 8);
-		if (!ret)
+		int ret = __bman_acquire(pool, pool->sp + pool->sp_fill, 8);
+		if (ret < 0)
 			goto hw_starved;
 		BUG_ON(ret != 8);
 		pool->sp_fill += 8;
