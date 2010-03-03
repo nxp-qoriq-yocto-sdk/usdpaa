@@ -52,6 +52,13 @@ static void cb_ern(struct qman_portal *, struct qman_fq *,
 			const struct qm_mr_entry *);
 static void cb_dc_ern(struct qman_portal *, struct qman_fq *,
 			const struct qm_mr_entry *);
+static const struct qman_fq fq_base = {
+	.cb = {
+		.dqrr = cb_dqrr,
+		.ern = cb_ern,
+		.dc_ern = cb_dc_ern
+	}
+};
 
 /***************/
 /* global vars */
@@ -59,13 +66,6 @@ static void cb_dc_ern(struct qman_portal *, struct qman_fq *,
 
 static __PERCPU struct qm_fd fd;
 static __PERCPU struct qm_fd fd_dq;
-static __PERCPU struct qman_fq fq_base = {
-	.cb = {
-		.dqrr = cb_dqrr,
-		.ern = cb_ern,
-		.dc_ern = cb_dc_ern
-	}
-};
 
 static __PERCPU u64 eq_capture[2] ____cacheline_aligned;
 static __PERCPU u64 dq_capture[2] ____cacheline_aligned;
@@ -205,11 +205,14 @@ static spinlock_t bringup_lock = SPIN_LOCK_UNLOCKED;
 
 void speed(thread_data_t *tdata)
 {
-	struct qman_fq *fq = &fq_base;
+	struct qman_fq *fq;
 	const struct test *test = &tests[0];
 
 	pr_info("SPEED: --- starting high-level test (cpu %d) ---\n",
 		tdata->cpu);
+	fq = fsl_shmem_memalign(64, sizeof(*fq));
+	BUG_ON(!fq);
+	memcpy(fq, &fq_base, sizeof(fq_base));
 	sync_all();
 #ifdef MODEL_CHKPT
 	/* Do a dance so that we can checkpoint when we see "speed starting",
@@ -235,13 +238,10 @@ void speed(thread_data_t *tdata)
 		eq_jam = 0;
 
 		if (doIrun) {
-#if 0
 			struct qm_mcc_initfq initfq;
-#endif
 			/* Initialise (parked) FQ */
 			if (qman_create_fq(0, QMAN_FQ_FLAG_DYNAMIC_FQID, fq))
 				panic("qman_create_fq() failed\n");
-#if 0
 			memset(&initfq, 0, sizeof(initfq));
 			initfq.we_mask = QM_INITFQ_WE_FQCTRL |
 					QM_INITFQ_WE_CONTEXTA;
@@ -251,10 +251,6 @@ void speed(thread_data_t *tdata)
 
 			if (qman_init_fq(fq, QMAN_INITFQ_FLAG_LOCAL, &initfq))
 				panic("qman_init_fq() failed\n");
-#else
-			if (qman_init_fq(fq, QMAN_INITFQ_FLAG_LOCAL, NULL))
-				panic("qman_init_fq() failed\n");
-#endif
 		}
 
 		sync_all();
