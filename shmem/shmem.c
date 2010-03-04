@@ -6,38 +6,10 @@
  * similarly reserved from regular linux use by a "mem=<...>" kernel boot
  * parameter). See conf.h for the hard-coded constants that are used. */
 
-/* drain buffer pools of any stale entries (assumes Fman is quiesced),
- * mmap() the device,
- * carve out bman buffers and seed them into buffer pools,
- * initialise ad-hoc DMA allocation memory.
- *    -> returns non-zero on failure.
- */
-
 static int fd;
 
-/* these vars are shared with the other shmem C files, they define the "carve up"
- * of the shmem region */
-
-static struct shmem_bpool shmem_bpools[] = {
-	{
-		.bpid = 7,
-		.sz = 704,
-		.num = 0x6000,
-		.offset = 0
-	},
-	{
-		.bpid = 8,
-		.sz = 1088,
-		.num = 0x6000,
-		.offset = 0x01080000
-	},
-	{
-		.bpid = 9,
-		.sz = 2112,
-		.num = 0x6000,
-		.offset = 0x02a00000
-	}
-};
+/* Present "carve up" is to use the first 0x5b80000 bytes of shmem for buffer
+ * pools and the rest of shmem (which is 256MB total) for ad-hoc allocations. */
 #define SHMEM_ALLOC_BAR	((void *)FSL_SHMEM_VIRT + 0x5b80000)
 #define SHMEM_ALLOC_SZ	(0x10000000 - 0x05b80000)
 
@@ -59,9 +31,6 @@ int fsl_shmem_setup(void)
 	if (p != (void *)FSL_SHMEM_VIRT)
 		goto err;
 	ret = shmem_alloc_init(SHMEM_ALLOC_BAR, SHMEM_ALLOC_SZ);
-	if (ret)
-		goto err;
-	ret = shmem_bman_init(shmem_bpools, 3);
 	if (ret)
 		goto err;
 	printf("FSL shmem device mapped (phys=0x%x,virt=%p,sz=0x%x)\n",

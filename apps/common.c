@@ -85,27 +85,14 @@ static void *thread_wrapper(void *arg)
 			tdata->cpu, s);
 		goto end;
 	}
-	/* Synchronise, and have the master thread map the shmem device and seed
-	 * the FQ allocator prior to releasing the secondary threads. */
+	/* Synchronise; have the master thread map the shmem device and init the
+	 * FQ allocator prior to releasing the secondary threads. */
 	if (tdata->am_master) {
-		int loop, res;
 		sync_primary_wait(tdata);
-		res = fsl_shmem_setup();
-		if (res)
+		s = fsl_shmem_setup();
+		if (s)
 			fprintf(stderr, "Continuing despite shmem failure\n");
 		__fqalloc_init();
-		/* FIXME: hard-coded */
-		for (loop = 256; loop < 512; loop++) {
-			res = qm_fq_free_flags(loop, QM_FQ_FREE_WAIT |
-				((loop == 511) ? QM_FQ_FREE_WAIT_SYNC : 0));
-			if (res) {
-				fprintf(stderr, "qm_fq_free_flags(%d) failed, "
-					"ret=%d\n", loop, res);
-				break;
-			}
-		}
-		if (!res)
-			printf("Seeded FQIDs 256..511\n");
 		sync_primary_release(tdata);
 	} else
 		sync_secondary(tdata);
