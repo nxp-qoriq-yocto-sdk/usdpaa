@@ -126,7 +126,7 @@ static int __init fsl_qman_portal_init(int cpu)
 		.cpu = cpu,
 		.irq = -1,
 		/* FIXME: hard-coded */
-		.channel = qm_channel_swportal0 + cpu,
+		.channel = qm_channel_swportal0 + (cpu ? cpu : 8),
 		/* FIXME: hard-coded */
 		.pools = QM_SDQCR_CHANNELS_POOL_MASK,
 		/* FIXME: hard-coded */
