@@ -1098,8 +1098,6 @@ void qm_mc_commit(struct qm_portal *portal, u8 myverb)
 			dcbt_ro(rr);
 			barrier();
 		} while (!rr->verb);
-		mc->rridx ^= 1;
-		mc->vbit ^= QM_MCC_VERB_VBIT;
 #ifdef CONFIG_FSL_QMAN_CHECKING
 		mc->state = mc_idle;
 #endif
@@ -1109,6 +1107,8 @@ void qm_mc_commit(struct qm_portal *portal, u8 myverb)
 #endif
 			return;
 		}
+		mc->rridx ^= 1;
+		mc->vbit ^= QM_MCC_VERB_VBIT;
 		rr = mc->rr + mc->rridx;
 		dcbzl(mc->cr);
 		mc->cr->alterfq.fqid = fqid;
