@@ -801,7 +801,8 @@ struct qm_fqd {
 #define QM_FQCTRL_FORCESFDR	0x0008	/* High-priority SFDRs */
 #define QM_FQCTRL_AVOIDBLOCK	0x0004	/* Don't block active */
 #define QM_FQCTRL_HOLDACTIVE	0x0002	/* Hold active in portal */
-#define QM_FQCTRL_LOCKINCACHE	0x0001	/* Aggressively cache FQD */
+#define QM_FQCTRL_PREFERINCACHE	0x0001	/* Aggressively cache FQD */
+#define QM_FQCTRL_LOCKINCACHE	QM_FQCTRL_PREFERINCACHE /* older naming */
 
 /* See 1.5.6.7.1: "FQD Context_A field used for [...] */
 /* Frame Queue Descriptor (FQD) field 'CONTEXT_A' uses these constants */
