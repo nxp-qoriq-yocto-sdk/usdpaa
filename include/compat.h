@@ -93,6 +93,7 @@ do { \
 	abort(); \
 } while(0)
 #define container_of(p, t, f) (t *)((void *)p - offsetof(t, f))
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
 /* printk() stuff */
 #define printk(fmt, args...)	do_not_use_printk
@@ -386,7 +387,7 @@ static inline dma_addr_t dma_map_single(void *dev __UNUSED,
 }
 static inline int dma_mapping_error(void *dev __UNUSED,
 				dma_addr_t dma_addr __UNUSED)
-{	
+{
 	return 0;
 }
 

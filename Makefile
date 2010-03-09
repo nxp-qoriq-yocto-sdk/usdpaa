@@ -7,10 +7,11 @@ C_TARG_FLAGS=-mcpu=e500mc -msoft-float -D_GCCPORT_ -D__POWERPC__ \
 	-D__PPC_EABI__ -mmultiple -mno-altivec -pthread
 C_MY_FLAGS=-Iinclude -Wall -Werror -O2 -ggdb3
 
-LIB_SRC=qman/qman_high.c qman/qman_low.c qman/qman_fqalloc.c \
-	qman/qman_utility.c qman/qman_driver.c \
-	bman/bman_high.c bman/bman_low.c bman/bman_driver.c \
-	shmem/shmem.c shmem/shmem_alloc.c
+LIB_SRC=qman/qman_high.c qman/qman_low.c qman/qman_fqalloc.c qman/qman_utility.c	\
+	qman/qman_driver.c								\
+	bman/bman_high.c bman/bman_low.c bman/bman_driver.c				\
+	shmem/shmem.c shmem/shmem_alloc.c						\
+	of/of.c
 
 # Simplicity, meet large stick. Large stick, simplicity.
 default: rebuild
@@ -77,4 +78,4 @@ build_user_example:
 
 install:
 	install -d $(DESTDIR)$(PREFIX)/bin
-	install user_example $(DESTDIR)$(PREFIX)/bin
+	install user_example of/of.sh $(DESTDIR)$(PREFIX)/bin
