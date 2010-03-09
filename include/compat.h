@@ -304,6 +304,11 @@ static inline int atomic_dec_and_test(atomic_t *v)
 {
 	return __atomic_dec_and_test((unsigned long *)v);
 }
+/* new variants not present in LWE */
+static inline int atomic_inc_and_test(atomic_t *v)
+{
+	return (__atomic_add((unsigned long *)v, 1)) == 0;
+}
 
 /* GALAK: this is ... sub-optimal ... spinlocks based on atomics. */
 /* Spinlock stuff */

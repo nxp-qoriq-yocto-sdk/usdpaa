@@ -68,6 +68,60 @@ static inline void sync_all(void)
 		sync_secondary(tdata);
 }
 
+/* Or write your code in the following way;
+ *     sync_start_if_master(whoami) {
+ *             ... stuff that should only happen on the master ...
+ *     }
+ *     sync_end(whoami);
+ */
+#define sync_start_if_master(whoami) \
+	if (!(whoami)->am_master) \
+		sync_secondary(whoami); \
+	else if (sync_primary_wait(whoami),1)
+#define sync_end(whoami) \
+	if ((whoami)->am_master) \
+		sync_primary_release(tdata);
+
+/* Utility functions */
+static inline int my_toul(const char *str, char **endptr, long toobig)
+{
+	unsigned long tmp = strtoul(str, endptr, 0);
+	if ((tmp == ULONG_MAX) || (*endptr == str)) {
+		fprintf(stderr, "error: can't parsing '%s'\n", str);
+		exit(-1);
+	}
+	if (tmp >= toobig) {
+		fprintf(stderr, "error: value %lu out of range\n", tmp);
+		exit(-1);
+	}
+	return (int)tmp;
+}
+
+/* 64-bit atomics */
+struct bigatomic {
+	atomic_t upper;
+	atomic_t lower;
+};
+
+static inline void bigatomic_set(struct bigatomic *b, int i)
+{
+	atomic_set(&b->upper, 0);
+	atomic_set(&b->lower, i);
+}
+static inline u64 bigatomic_read(struct bigatomic *b)
+{
+	u32 upper, lower;
+	do {
+		upper = atomic_read(&b->upper);
+		lower = atomic_read(&b->lower);
+	} while (upper != atomic_read(&b->upper));
+	return ((u64)upper << 32) | (u64)lower;
+}
+static inline void bigatomic_inc(struct bigatomic *b)
+{
+	if (atomic_inc_and_test(&b->lower))
+		atomic_inc(&b->upper);
+}
 
 #endif /* !APPS_COMMON_H */
 

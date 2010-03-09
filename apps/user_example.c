@@ -56,20 +56,6 @@ static int worker_fn(thread_data_t *tdata)
 	return 0;
 }
 
-static int my_toul(const char *str, char **endptr, long ncpus)
-{
-	unsigned long tmp = strtoul(str, endptr, 0);
-	if ((tmp == ULONG_MAX) || (*endptr == str)) {
-		fprintf(stderr, "error: can't parsing cpu-range '%s'\n", str);
-		exit(-1);
-	}
-	if (tmp >= ncpus) {
-		fprintf(stderr, "error: cpu index %lu out of range\n", tmp);
-		exit(-1);
-	}
-	return (int)tmp;
-}
-
 int main(int argc, char *argv[])
 {
 	thread_data_t thread_data[MAX_THREADS];
