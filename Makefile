@@ -11,7 +11,8 @@ LIB_SRC=qman/qman_high.c qman/qman_low.c qman/qman_fqalloc.c qman/qman_utility.c
 	qman/qman_driver.c								\
 	bman/bman_high.c bman/bman_low.c bman/bman_driver.c				\
 	shmem/shmem.c shmem/shmem_alloc.c						\
-	of/of.c
+	of/of.c										\
+	fman/fman.c
 
 # Simplicity, meet large stick. Large stick, simplicity.
 default: rebuild

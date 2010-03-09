@@ -1,4 +1,5 @@
 #include "common.h"
+#include "fman.h"
 
 /* Run-list. This isn't locked because it's built up by the app thread. Now
  * early-starting threads may enter sync_cpus() before late-starting threads are
@@ -93,6 +94,7 @@ static void *thread_wrapper(void *arg)
 		if (s)
 			fprintf(stderr, "Continuing despite shmem failure\n");
 		__fqalloc_init();
+		__mac_enable_all();
 		sync_primary_release(tdata);
 	} else
 		sync_secondary(tdata);
