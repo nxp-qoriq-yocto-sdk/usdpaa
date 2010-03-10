@@ -23,7 +23,8 @@ rebuild: clean build_lib \
 	build_bman_test_high \
 	build_speed \
 	build_blastman \
-	build_user_example
+	build_user_example \
+	build_poc
 
 .PHONY: clean
 clean:
@@ -77,6 +78,16 @@ build_user_example:
 		-L. -lusd -lpthread || exit 1
 	@echo "[LINK] user_example"
 
+build_poc:
+	@$(CC) -c $(C_TARG_FLAGS) $(C_MY_FLAGS) apps/poc.c && \
+		mv *.o objs/ || exit 1
+	@echo "[CC] poc"
+	@$(CC) $(C_TARG_FLAGS) -o poc \
+		objs/poc.o \
+		objs/common.o \
+		-L. -lusd -lpthread || exit 1
+	@echo "[LINK] poc"
+
 install:
 	install -d $(DESTDIR)$(PREFIX)/bin
-	install user_example of/of.sh $(DESTDIR)$(PREFIX)/bin
+	install user_example poc of/of.sh $(DESTDIR)$(PREFIX)/bin

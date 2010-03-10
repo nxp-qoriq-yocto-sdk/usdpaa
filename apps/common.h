@@ -4,6 +4,9 @@
 #include "compat.h"
 #include <fsl_shmem.h>
 
+/* System headers required for apps but not for drivers */
+#include <net/ethernet.h>
+
 #define MAX_THREADS 8
 
 /* Per-thread data, including the pthread id */
