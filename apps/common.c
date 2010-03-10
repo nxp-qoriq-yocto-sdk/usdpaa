@@ -86,18 +86,17 @@ static void *thread_wrapper(void *arg)
 			tdata->cpu, s);
 		goto end;
 	}
-	/* Synchronise; have the master thread map the shmem device and init the
-	 * FQ allocator prior to releasing the secondary threads. */
-	if (tdata->am_master) {
+	/* Synchronise; the master thread maps shmem, inits the FQ allocator,
+	 * and enables Fman MACs. */
+	sync_start_if_master(tdata) {
 		sync_primary_wait(tdata);
 		s = fsl_shmem_setup();
 		if (s)
 			fprintf(stderr, "Continuing despite shmem failure\n");
 		__fqalloc_init();
 		__mac_enable_all();
-		sync_primary_release(tdata);
-	} else
-		sync_secondary(tdata);
+	}
+	sync_end(tdata);
 	/* Invoke the application thread function */
 	s = tdata->fn(tdata);
 end:
