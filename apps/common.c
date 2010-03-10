@@ -52,6 +52,7 @@ void sync_primary_release(thread_data_t *whoami)
 }
 
 static __thread thread_data_t *__my_thread_data;
+static int __enable_macs;
 
 thread_data_t *my_thread_data(void)
 {
@@ -94,7 +95,8 @@ static void *thread_wrapper(void *arg)
 		if (s)
 			fprintf(stderr, "Continuing despite shmem failure\n");
 		__fqalloc_init();
-		__mac_enable_all();
+		if (__enable_macs)
+			__mac_enable_all();
 	}
 	sync_end(tdata);
 	/* Invoke the application thread function */
@@ -105,9 +107,10 @@ end:
 	return NULL;
 }
 
-int run_threads_custom(struct thread_data *ctxs, int num_ctxs)
+int run_threads_custom(struct thread_data *ctxs, int num_ctxs, int enable_macs)
 {
 	int i, err;
+	__enable_macs = enable_macs;
 	/* Create the threads */
 	for (i = 0; i < num_ctxs; i++) {
 		ctxs[i].next = NULL;

@@ -32,9 +32,10 @@ thread_data_t *my_thread_data(void);
 
 /* API(s) used to kick off application cpu-affine threads and wait for them to
  * complete. */
-int run_threads_custom(struct thread_data *ctxs, int num_ctxs);
+int run_threads_custom(struct thread_data *ctxs, int num_ctxs, int enable_macs);
 static inline int run_threads(struct thread_data *ctxs, int num_ctxs,
-			int first_cpu, int (*fn)(thread_data_t *))
+			int first_cpu, int (*fn)(thread_data_t *),
+			int enable_macs)
 {
 	int loop;
 	for (loop = 0; loop < num_ctxs; loop++) {
@@ -44,7 +45,7 @@ static inline int run_threads(struct thread_data *ctxs, int num_ctxs,
 		ctxs[loop].total_cpus = num_ctxs;
 		ctxs[loop].am_master = (loop == 0);
 	}
-	return run_threads_custom(ctxs, num_ctxs);
+	return run_threads_custom(ctxs, num_ctxs, enable_macs);
 }
 
 #define handle_error_en(en, msg) \

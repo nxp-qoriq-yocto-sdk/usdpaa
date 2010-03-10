@@ -381,7 +381,7 @@ int main(int argc, char *argv[])
 	/* Create the threads */
 	printf("Starting %d threads for cpu-range '%s'\n",
 		last - first + 1, argv[1]);
-	ret = run_threads(thread_data, last - first + 1, first, worker_fn);
+	ret = run_threads(thread_data, last - first + 1, first, worker_fn, 1);
 	if (ret != 0)
 		handle_error_en(ret, "run_threads");
 
