@@ -989,29 +989,33 @@ struct qm_mc_result {
 			u8 state;	/* QM_MCR_NP_STATE_*** */
 			u8 __reserved2;
 			u32 fqd_link:24;
-			u16 odp_seq;
-			u16 orp_nesn;
-			u16 orp_ea_hseq;
-			u16 orp_ea_tseq;
-			u8 __reserved3;
+			u16 __reserved3:2;
+			u16 odp_seq:14;
+			u16 __reserved4:2;
+			u16 orp_nesn:14;
+			u16 __reserved5:1;
+			u16 orp_ea_hseq:15;
+			u16 __reserved6:1;
+			u16 orp_ea_tseq:15;
+			u8 __reserved7;
 			u32 orp_ea_hptr:24;
-			u8 __reserved4;
+			u8 __reserved8;
 			u32 orp_ea_tptr:24;
-			u8 __reserved5;
+			u8 __reserved9;
 			u32 pfdr_hptr:24;
-			u8 __reserved6;
+			u8 __reserved10;
 			u32 pfdr_tptr:24;
-			u8 __reserved7[5];
-			u8 __reserved8:7;
+			u8 __reserved11[5];
+			u8 __reserved12:7;
 			u8 is:1;
 			u16 ics_surp;
 			u32 byte_cnt;
-			u8 __reserved9;
+			u8 __reserved13;
 			u32 frm_cnt:24;
-			u32 __reserved10;
+			u32 __reserved14;
 			u16 ra1_sfdr;	/* QM_MCR_NP_RA1_*** */
 			u16 ra2_sfdr;	/* QM_MCR_NP_RA2_*** */
-			u16 __reserved11;
+			u16 __reserved15;
 			u16 od1_sfdr;	/* QM_MCR_NP_OD1_*** */
 			u16 od2_sfdr;	/* QM_MCR_NP_OD2_*** */
 			u16 od3_sfdr;	/* QM_MCR_NP_OD3_*** */
