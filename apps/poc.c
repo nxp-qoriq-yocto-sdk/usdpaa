@@ -367,6 +367,7 @@ static int worker_fn(thread_data_t *tdata)
 	sync_start_if_master(tdata) {
 		int loop;
 		u8 bpids[] = POC_BPIDS;
+		/* initialise interfaces */
 		ifs = fsl_shmem_memalign(64, POC_IF_NUM * sizeof(*ifs));
 		BUG_ON(!ifs);
 		memset(ifs, 0, POC_IF_NUM * sizeof(*ifs));
@@ -374,6 +375,7 @@ static int worker_fn(thread_data_t *tdata)
 			TRACE("Initialising interface %d\n", loop);
 			poc_if_init(&ifs[loop], loop);
 		}
+		/* initialise buffer pools */
 		for (loop = 0; loop < sizeof(bpids); loop++) {
 			struct bman_pool_params params = {
 				.bpid = bpids[loop],
@@ -383,6 +385,8 @@ static int worker_fn(thread_data_t *tdata)
 			pool[bpids[loop]] = bman_new_pool(&params);
 			BUG_ON(!pool[bpids[loop]]);
 		}
+		/* ready to go, open the flood-gates */
+		__mac_enable_all();
 	}
 	sync_end(tdata);
 
@@ -437,7 +441,7 @@ int main(int argc, char *argv[])
 	/* Create the threads */
 	printf("Starting %d threads for cpu-range '%s'\n",
 		last - first + 1, argv[1]);
-	ret = run_threads(thread_data, last - first + 1, first, worker_fn, 1);
+	ret = run_threads(thread_data, last - first + 1, first, worker_fn);
 	if (ret != 0)
 		handle_error_en(ret, "run_threads");
 
