@@ -317,11 +317,7 @@ static void poc_fq_2fwd_init(struct poc_fq_2fwd *p, u32 fqid,
 struct poc_if {
 	struct poc_fq_2fwd rx_hash[POC_RX_HASH_SIZE];
 	struct poc_fq_2drop rx_error;
-#if 0
 	struct poc_fq_2drop rx_default;
-#else
-	struct poc_fq_2fwd rx_default;
-#endif
 	struct poc_fq_2drop tx_error;
 	struct poc_fq_2drop tx_confirm;
 	struct poc_fq_2tx tx;
@@ -335,11 +331,7 @@ static void poc_if_init(struct poc_if *i, int idx)
 	enum qm_channel rxc = i->rx_channel_id = POC_CHANNEL_RX(idx);
 	enum qm_channel txc = i->tx_channel_id = POC_CHANNEL_TX(idx);
 	poc_fq_2drop_init(&i->rx_error, POC_FQID_RX_ERROR(idx), rxc);
-#if 0
 	poc_fq_2drop_init(&i->rx_default, POC_FQID_RX_DEFAULT(idx), rxc);
-#else
-	poc_fq_2fwd_init(&i->rx_default, POC_FQID_RX_DEFAULT(idx), rxc, &i->tx);
-#endif
 	poc_fq_2drop_init(&i->tx_error, POC_FQID_TX_ERROR(idx), rxc);
 	poc_fq_2drop_init(&i->tx_confirm, POC_FQID_TX_CONFIRM(idx), rxc);
 	poc_fq_2tx_init(&i->tx, POC_FQID_TX(idx), txc);
