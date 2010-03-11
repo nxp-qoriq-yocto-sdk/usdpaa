@@ -91,3 +91,4 @@ build_poc:
 install:
 	install -d $(DESTDIR)$(PREFIX)/bin
 	install user_example poc of/of.sh $(DESTDIR)$(PREFIX)/bin
+	install apps/us_*.xml $(DESTDIR)
