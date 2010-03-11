@@ -26,7 +26,7 @@
 #include "common.h"
 
 /* if defined, be lippy about everything */
-#define POC_TRACE
+#undef POC_TRACE
 
 /* application settings/configuration */
 #define POC_RX_HASH_SIZE	0x20
@@ -87,6 +87,17 @@ retry:
 	if (ret) {
 		/* anything better than this to avoid thrashing but without
 		 * going idle for too long? */
+		barrier();
+		goto retry;
+	}
+}
+
+static inline void send_frame(struct qman_fq *fq, const struct qm_fd *fd)
+{
+	int ret;
+retry:
+	ret = qman_enqueue(fq, fd, 0);
+	if (ret) {
 		barrier();
 		goto retry;
 	}
@@ -171,6 +182,15 @@ static void poc_fq_2tx_init(struct poc_fq_2tx *p, u32 fqid,
 	BUG_ON(ret);
 }
 
+static void poc_fq_2tx_send(struct poc_fq_2tx *p, const struct qm_fd *fd)
+{
+	TRACE("Tx: 2tx   fqid=%d\n", p->fq.fqid);
+	TRACE("      phys=0x%08x, offset=%d, len=%d, bpid=%d\n",
+		fd->addr_lo, fd->offset, fd->length20, fd->bpid);
+	bigatomic_inc(&p->cnt);
+	send_frame(&p->fq, fd);
+}
+
 /**********************/
 /* struct poc_fq_2fwd */
 /**********************/
@@ -200,6 +220,7 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		fd->addr_lo, addr, fd->offset, fd->length20, fd->bpid);
 	addr += fd->offset;
 	prot_eth = addr;
+	bigatomic_inc(&p->cnt);
 	TRACE("      dhost=%02x:%02x:%02x:%02x:%02x:%02x\n",
 		prot_eth->ether_dhost[0], prot_eth->ether_dhost[1],
 		prot_eth->ether_dhost[2], prot_eth->ether_dhost[3],
@@ -209,15 +230,58 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		prot_eth->ether_shost[2], prot_eth->ether_shost[3],
 		prot_eth->ether_shost[4], prot_eth->ether_shost[5]);
 	TRACE("      ether_type=%04x\n", prot_eth->ether_type);
-	if (prot_eth->ether_type == ETH_P_IP)
+	switch (prot_eth->ether_type)
+	{
+	case ETH_P_IP:
 		TRACE("        -> it's ETH_P_IP!\n");
-	else if (prot_eth->ether_type == ETH_P_ARP)
+		{
+		struct iphdr *iphdr = addr + 14;
+		__be32 tmp;
+		struct ether_addr tmp2;
+#ifdef POC_TRACE
+		u8 *src = (void *)&iphdr->saddr;
+		u8 *dst = (void *)&iphdr->daddr;
+		TRACE("           ver=%d,ihl=%d,tos=%d,len=%d,id=%d\n",
+			iphdr->version, iphdr->ihl, iphdr->tos, iphdr->tot_len,
+			iphdr->id);
+		TRACE("           frag_off=%d,ttl=%d,prot=%d,csum=0x%04x\n",
+			iphdr->frag_off, iphdr->ttl, iphdr->protocol,
+			iphdr->check);
+		TRACE("           src=%d.%d.%d.%d\n",
+			src[0], src[1], src[2], src[3]);
+		TRACE("           dst=%d.%d.%d.%d\n",
+			dst[0], dst[1], dst[2], dst[3]);
+#endif
+		/* switch ipv4 src/dst addresses */
+		tmp = iphdr->daddr;
+		iphdr->daddr = iphdr->saddr;
+		iphdr->saddr = tmp;
+		/* switch ethernet src/dest MAC addresses (we're aligned so
+		 * should try to do better than memcpy()...) */
+		memcpy(&tmp2, prot_eth->ether_dhost, sizeof(tmp2));
+		memcpy(prot_eth->ether_dhost, prot_eth->ether_shost,
+			sizeof(tmp2));
+		memcpy(prot_eth->ether_shost, &tmp2, sizeof(tmp2));
+		}
+		poc_fq_2tx_send(p->tx, fd);
+		return qman_cb_dqrr_consume;
+	case ETH_P_ARP:
 		TRACE("        -> it's ETH_P_ARP!\n");
-	else
-		TRACE("        -> it's type 0x%04x\n", prot_eth->ether_type);
-	bigatomic_inc(&p->cnt);
-	/* FIXME: duh */
-	drop_frame(&dqrr->fd);
+#ifdef POC_TRACE
+		{
+		struct arphdr *arphdr = addr + 14;
+		TRACE("           hrd=%d, pro=%d, hln=%d, pln=%d, op=%d\n",
+			arphdr->ar_hrd, arphdr->ar_pro, arphdr->ar_hln,
+			arphdr->ar_pln, arphdr->ar_op);
+		}
+#endif
+		break;
+	default:
+		TRACE("        -> it's UNKNOWN (!!) type 0x%04x\n",
+			prot_eth->ether_type);
+	}
+	/* FIXME: dropping without stats */
+	drop_frame(fd);
 	return qman_cb_dqrr_consume;
 }
 
@@ -306,7 +370,7 @@ static void calm_down(void)
 
 static int worker_fn(thread_data_t *tdata)
 {
-	TRACE("This is the thread on cpu %d\n", tdata->cpu);
+	printf("This is the thread on cpu %d\n", tdata->cpu);
 
 	sync_start_if_master(tdata) {
 		int loop;
@@ -338,7 +402,7 @@ static int worker_fn(thread_data_t *tdata)
 	}
 
 	calm_down();
-	TRACE("Leaving thread on cpu %d\n", tdata->cpu);
+	printf("Leaving thread on cpu %d\n", tdata->cpu);
 	return 0;
 }
 

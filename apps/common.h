@@ -6,6 +6,8 @@
 
 /* System headers required for apps but not for drivers */
 #include <net/ethernet.h>
+#include <net/if_arp.h>
+#include <linux/ip.h>
 
 #define MAX_THREADS 8
 
