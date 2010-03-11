@@ -43,6 +43,7 @@
 #define POC_CHANNEL_TX(n)	(qm_channel_fman0_sp1 + (n))
 #define POC_CHANNEL_RX(n)	qm_channel_pool4
 #define POC_CPU_SDQCR(x)	QM_SDQCR_CHANNELS_POOL(4)
+#define POC_IS_IPV4_BCAST(x)	(((x) & 0x000001ff) == 0x000001ff)
 #define POC_STASH_DATA_CL	1
 #define POC_STASH_CTX_CL(p) \
 ({ \
@@ -199,8 +200,9 @@ static void poc_fq_2tx_send(struct poc_fq_2tx *p, const struct qm_fd *fd)
 struct poc_fq_2fwd {
 	struct qman_fq fq;
 	struct bigatomic cnt;
-	struct bigatomic cnt_drop_notipv4;
 	struct bigatomic cnt_drop_bcast;
+	struct bigatomic cnt_drop_arp;
+	struct bigatomic cnt_drop_other;
 	struct poc_fq_2tx *tx;
 } ____cacheline_aligned;
 
@@ -252,6 +254,12 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		TRACE("           dst=%d.%d.%d.%d\n",
 			dst[0], dst[1], dst[2], dst[3]);
 #endif
+		/* Drop broadcast frames */
+		if (POC_IS_IPV4_BCAST(iphdr->daddr)) {
+			TRACE("           -> dropping broadcast packet\n");
+			bigatomic_inc(&p->cnt_drop_bcast);
+			break;
+		}
 		/* switch ipv4 src/dst addresses */
 		tmp = iphdr->daddr;
 		iphdr->daddr = iphdr->saddr;
@@ -275,12 +283,15 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 			arphdr->ar_pln, arphdr->ar_op);
 		}
 #endif
+		TRACE("           -> dropping ARP packet\n");
+		bigatomic_inc(&p->cnt_drop_arp);
 		break;
 	default:
 		TRACE("        -> it's UNKNOWN (!!) type 0x%04x\n",
 			prot_eth->ether_type);
+		TRACE("           -> dropping unknown packet\n");
+		bigatomic_inc(&p->cnt_drop_other);
 	}
-	/* FIXME: dropping without stats */
 	drop_frame(fd);
 	return qman_cb_dqrr_consume;
 }
@@ -291,8 +302,9 @@ static void poc_fq_2fwd_init(struct poc_fq_2fwd *p, u32 fqid,
 	struct qm_mcc_initfq opts;
 	int ret;
 	bigatomic_set(&p->cnt, 0);
-	bigatomic_set(&p->cnt_drop_notipv4, 0);
 	bigatomic_set(&p->cnt_drop_bcast, 0);
+	bigatomic_set(&p->cnt_drop_arp, 0);
+	bigatomic_set(&p->cnt_drop_other, 0);
 	p->tx = tx;
 	p->fq.cb.dqrr = cb_dqrr_2fwd;
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_NO_ENQUEUE, &p->fq);
@@ -362,7 +374,7 @@ static void calm_down(void)
 
 static int worker_fn(thread_data_t *tdata)
 {
-	printf("This is the thread on cpu %d\n", tdata->cpu);
+	TRACE("This is the thread on cpu %d\n", tdata->cpu);
 
 	sync_start_if_master(tdata) {
 		int loop;
@@ -392,13 +404,14 @@ static int worker_fn(thread_data_t *tdata)
 
 	qman_static_dequeue_add(POC_CPU_SDQCR(tdata->index));
 
+	printf("Starting poll loop on cpu %d\n", tdata->cpu);
 	while (1) {
 		qman_poll();
 		bman_poll();
 	}
 
 	calm_down();
-	printf("Leaving thread on cpu %d\n", tdata->cpu);
+	TRACE("Leaving thread on cpu %d\n", tdata->cpu);
 	return 0;
 }
 
@@ -439,12 +452,12 @@ int main(int argc, char *argv[])
 	}
 
 	/* Create the threads */
-	printf("Starting %d threads for cpu-range '%s'\n",
+	TRACE("Starting %d threads for cpu-range '%s'\n",
 		last - first + 1, argv[1]);
 	ret = run_threads(thread_data, last - first + 1, first, worker_fn);
 	if (ret != 0)
 		handle_error_en(ret, "run_threads");
 
-	printf("Done\n");
+	TRACE("Done\n");
 	exit(EXIT_SUCCESS);
 }
