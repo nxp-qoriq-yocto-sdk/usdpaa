@@ -5,6 +5,9 @@
 #include <fsl_shmem.h>
 #include <fman.h>
 
+/* This stuff shouldn't be part of the "compat" header because we don't assume
+ * its presence in linux or LWE. */
+
 /* System headers required for apps but not for drivers */
 #include <net/ethernet.h>
 #include <net/if_arp.h>
@@ -127,6 +130,34 @@ static inline void bigatomic_inc(struct bigatomic *b)
 {
 	if (atomic_inc_and_test(&b->lower))
 		atomic_inc(&b->upper);
+}
+
+/* Alternate Time Base */
+#define SPR_ATBL	526
+#define SPR_ATBU	527
+
+#define my_mfspr(reg) \
+({ \
+	register_t ret; \
+	asm volatile("mfspr %0, %1" : "=r" (ret) : "i" (reg) : "memory"); \
+	ret; \
+})
+static inline uint64_t
+my_get_timebase(void)
+{
+	uint32_t hi, lo, chk;
+
+	/*
+	 * To make sure that there is no carry over
+	 * between checking of TBU and TBL
+	 */
+	do {
+		hi = my_mfspr(SPR_ATBU);
+		lo = my_mfspr(SPR_ATBL);
+		chk = my_mfspr(SPR_ATBU);
+	} while (unlikely(hi != chk));
+
+	return (uint64_t) hi << 32 | (uint64_t) lo;
 }
 
 #endif /* !APPS_COMMON_H */
