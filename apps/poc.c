@@ -43,7 +43,6 @@
 #define POC_CHANNEL_TX(n)	(qm_channel_fman0_sp1 + (n))
 #define POC_CHANNEL_RX(n)	qm_channel_pool4
 #define POC_CPU_SDQCR(x)	QM_SDQCR_CHANNELS_POOL(4)
-#define POC_IS_IPV4_BCAST(x)	(((x) & 0x000001ff) == 0x000001ff)
 #define POC_STASH_DATA_CL	1
 #define POC_STASH_CTX_CL(p) \
 ({ \
@@ -232,6 +231,12 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		prot_eth->ether_shost[2], prot_eth->ether_shost[3],
 		prot_eth->ether_shost[4], prot_eth->ether_shost[5]);
 	TRACE("      ether_type=%04x\n", prot_eth->ether_type);
+	/* Eliminate ethernet broadcasts. memcpy() would be cleaner, but
+	 * probably slower... */
+	if (prot_eth->ether_dhost[0] & 0x01) {
+		TRACE("      -> dropping broadcast packet\n");
+		bigatomic_inc(&p->cnt_drop_bcast);
+	} else
 	switch (prot_eth->ether_type)
 	{
 	case ETH_P_IP:
@@ -254,12 +259,6 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		TRACE("           dst=%d.%d.%d.%d\n",
 			dst[0], dst[1], dst[2], dst[3]);
 #endif
-		/* Drop broadcast frames */
-		if (POC_IS_IPV4_BCAST(iphdr->daddr)) {
-			TRACE("           -> dropping broadcast packet\n");
-			bigatomic_inc(&p->cnt_drop_bcast);
-			break;
-		}
 		/* switch ipv4 src/dst addresses */
 		tmp = iphdr->daddr;
 		iphdr->daddr = iphdr->saddr;
