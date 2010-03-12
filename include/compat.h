@@ -310,14 +310,25 @@ static inline int atomic_inc_and_test(atomic_t *v)
 	return (__atomic_add((unsigned long *)v, 1)) == 0;
 }
 
-/* GALAK: this is ... sub-optimal ... spinlocks based on atomics. */
 /* Spinlock stuff */
-#define spinlock_t		atomic_t
-#define SPIN_LOCK_UNLOCKED	1
+#define spinlock_t		pthread_mutex_t
+#define SPIN_LOCK_UNLOCKED	PTHREAD_MUTEX_INITIALIZER
 #define DEFINE_SPINLOCK(x)	spinlock_t x = SPIN_LOCK_UNLOCKED
-#define spin_lock_init(x)	atomic_set(x, 1);
-#define spin_lock(x)		while (!atomic_dec_and_test(x)) atomic_inc(x);
-#define spin_unlock(x)		atomic_inc(x);
+#define spin_lock_init(x) \
+	do { \
+		int __foo = pthread_mutex_init(x, NULL); \
+		BUG_ON(__foo); \
+	} while (0)
+#define spin_lock(x) \
+	do { \
+		int __foo = pthread_mutex_lock(x); \
+		BUG_ON(__foo); \
+	} while (0)
+#define spin_unlock(x) \
+	do { \
+		int __foo = pthread_mutex_unlock(x); \
+		BUG_ON(__foo); \
+	} while (0)
 #define spin_lock_irq(x)	do { local_irq_disable(); spin_lock(x); } while(0)
 #define spin_unlock_irq(x)	do { spin_unlock(x); local_irq_enable(); } while(0)
 

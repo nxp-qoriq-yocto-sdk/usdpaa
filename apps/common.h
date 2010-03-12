@@ -15,6 +15,47 @@
 
 #define MAX_THREADS 8
 
+/* Barriers, used for sync between master and secondary threads */
+struct thread_kick {
+	pthread_cond_t cond;
+	pthread_mutex_t mutex;
+};
+static inline int thread_kick_init(struct thread_kick *k)
+{
+	int ret = pthread_mutex_init(&k->mutex, NULL);
+	if (ret)
+		return ret;
+	ret = pthread_cond_init(&k->cond, NULL);
+	if (ret)
+		pthread_mutex_destroy(&k->mutex);
+	return ret;
+}
+static inline void thread_kick_destroy(struct thread_kick *k)
+{
+	pthread_cond_destroy(&k->cond);
+	pthread_mutex_destroy(&k->mutex);
+}
+static inline void thread_kick_lock(struct thread_kick *k)
+{
+	int ret = pthread_mutex_lock(&k->mutex);
+	BUG_ON(ret);
+}
+static inline void thread_kick_unlock(struct thread_kick *k)
+{
+	int ret = pthread_mutex_unlock(&k->mutex);
+	BUG_ON(ret);
+}
+static inline void thread_kick_wait(struct thread_kick *k)
+{
+	int ret = pthread_cond_wait(&k->cond, &k->mutex);
+	BUG_ON(ret);
+}
+static inline void thread_kick_signal(struct thread_kick *k)
+{
+	int ret = pthread_cond_signal(&k->cond);
+	BUG_ON(ret);
+}
+
 /* Per-thread data, including the pthread id */
 typedef struct thread_data thread_data_t;
 struct thread_data {
@@ -23,13 +64,14 @@ struct thread_data {
 	int index;
 	int (*fn)(thread_data_t *ctx);
 	int total_cpus;
-	int am_master; /* only one should have this set */
 	/* Value used within 'fn' - handle to the pthread; */
 	pthread_t id;
 	/* Stores fn() return value on return from run_threads_custom(); */
 	int result;
 	/* Internal state */
-	volatile int kick;
+	struct thread_kick kick;
+	volatile int counter;
+	int am_master;
 	thread_data_t *next;
 } ____cacheline_aligned;
 
@@ -37,7 +79,8 @@ struct thread_data {
 thread_data_t *my_thread_data(void);
 
 /* API(s) used to kick off application cpu-affine threads and wait for them to
- * complete. */
+ * complete. 'am_master' is automatically set for the first thread (running on
+ * the first cpu). */
 int run_threads_custom(struct thread_data *ctxs, int num_ctxs);
 static inline int run_threads(struct thread_data *ctxs, int num_ctxs,
 			int first_cpu, int (*fn)(thread_data_t *))
@@ -48,7 +91,6 @@ static inline int run_threads(struct thread_data *ctxs, int num_ctxs,
 		ctxs[loop].index = loop;
 		ctxs[loop].fn = fn;
 		ctxs[loop].total_cpus = num_ctxs;
-		ctxs[loop].am_master = (loop == 0);
 	}
 	return run_threads_custom(ctxs, num_ctxs);
 }
