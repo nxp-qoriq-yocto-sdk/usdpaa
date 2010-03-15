@@ -135,7 +135,7 @@ done:
 }
 void fsl_shmem_free(void *ptr, size_t size)
 {
-	int ret = shmem_free(ptr, size);
+	__UNUSED int ret = shmem_free(ptr, size);
 	BUG_ON(ret);
 }
 EXPORT_SYMBOL(fsl_shmem_free);

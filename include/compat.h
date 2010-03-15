@@ -316,17 +316,17 @@ static inline int atomic_inc_and_test(atomic_t *v)
 #define DEFINE_SPINLOCK(x)	spinlock_t x = SPIN_LOCK_UNLOCKED
 #define spin_lock_init(x) \
 	do { \
-		int __foo = pthread_mutex_init(x, NULL); \
+		__UNUSED int __foo = pthread_mutex_init(x, NULL); \
 		BUG_ON(__foo); \
 	} while (0)
 #define spin_lock(x) \
 	do { \
-		int __foo = pthread_mutex_lock(x); \
+		__UNUSED int __foo = pthread_mutex_lock(x); \
 		BUG_ON(__foo); \
 	} while (0)
 #define spin_unlock(x) \
 	do { \
-		int __foo = pthread_mutex_unlock(x); \
+		__UNUSED int __foo = pthread_mutex_unlock(x); \
 		BUG_ON(__foo); \
 	} while (0)
 #define spin_lock_irq(x)	do { local_irq_disable(); spin_lock(x); } while(0)
