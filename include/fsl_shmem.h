@@ -20,5 +20,15 @@ int fsl_shmem_setup(void);
 void *fsl_shmem_memalign(size_t boundary, size_t size);
 void fsl_shmem_free(void *ptr, size_t size);
 
+/* Conversion between user-virtual ("v") and physical ("p") address */
+static inline void *fsl_shmem_ptov(dma_addr_t p)
+{
+	return __shmem_ptov(p);
+}
+static inline dma_addr_t fsl_shmem_vtop(void *v)
+{
+	return __shmem_vtop(v);
+}
+
 #endif /* !FSL_SHMEM_H */
 

@@ -399,7 +399,7 @@ static inline dma_addr_t dma_map_single(void *dev __UNUSED,
 {
 	BUG_ON((u32)cpu_addr < FSL_SHMEM_VIRT);
 	BUG_ON(((u32)cpu_addr + size) > (FSL_SHMEM_VIRT + FSL_SHMEM_SIZE));
-	return fsl_shmem_vtop(cpu_addr);
+	return __shmem_vtop(cpu_addr);
 }
 static inline int dma_mapping_error(void *dev __UNUSED,
 				dma_addr_t dma_addr __UNUSED)
