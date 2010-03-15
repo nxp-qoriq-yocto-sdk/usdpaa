@@ -33,7 +33,7 @@ extern "C" {
 /***********/
 
 /* support for BUG_ON()s, might_sleep()s, etc */
-#define CONFIG_BUGON
+#undef CONFIG_BUGON
 
 /* The driver requires that CENA spaces be 16KB-aligned, whereas mmap() only
  * guarantees 4KB-alignment. Hmm. Workaround is to require *these*
