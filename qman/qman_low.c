@@ -163,7 +163,7 @@ static inline void EQCR_INC(struct qm_eqcr *eqcr)
 }
 
 int qm_eqcr_init(struct qm_portal *portal, enum qm_eqcr_pmode pmode,
-		enum qm_eqcr_cmode cmode)
+		__UNUSED enum qm_eqcr_cmode cmode)
 {
 	EQCR_API_START();
 	u32 cfg;
@@ -433,7 +433,7 @@ static inline struct qm_dqrr_entry *DQRR_INC(struct qm_dqrr_entry *e)
 }
 
 int qm_dqrr_init(struct qm_portal *portal, enum qm_dqrr_dmode dmode,
-		enum qm_dqrr_pmode pmode, enum qm_dqrr_cmode cmode,
+		__UNUSED enum qm_dqrr_pmode pmode, enum qm_dqrr_cmode cmode,
 		u8 max_fill, int stash_ring, int stash_data)
 {
 	DQRR_API_START();

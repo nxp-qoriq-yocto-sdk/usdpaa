@@ -1,4 +1,4 @@
-/* Copyright (c) 2008, 2009 Freescale Semiconductor, Inc.
+/* Copyright (c) 2008-2010 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -146,7 +146,7 @@ static inline void RCR_INC(struct bm_rcr *rcr)
 }
 
 int bm_rcr_init(struct bm_portal *portal, enum bm_rcr_pmode pmode,
-		enum bm_rcr_cmode cmode)
+		__UNUSED enum bm_rcr_cmode cmode)
 {
 	RCR_API_START();
 	u32 cfg;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008, 2009 Freescale Semiconductor, Inc.
+/* Copyright (c) 2008-2010 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,6 +32,10 @@
 
 #ifndef FSL_BMAN_H
 #define FSL_BMAN_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* User-space-specific initialisation: */
 int bman_thread_init(int cpu);
@@ -67,8 +71,10 @@ struct bm_portal;
 struct bman_depletion {
 	u32 __state[2];
 };
-#define BMAN_DEPLETION_EMPTY (struct bman_depletion){{0x00000000, 0x00000000}}
-#define BMAN_DEPLETION_FULL  (struct bman_depletion){{0xffffffff, 0xffffffff}}
+#define BMAN_DEPLETION_EMPTY \
+	(struct bman_depletion){ { 0x00000000, 0x00000000 } }
+#define BMAN_DEPLETION_FULL \
+	(struct bman_depletion){ { 0xffffffff, 0xffffffff } }
 #define __bmdep_word(x) ((x) >> 5)
 #define __bmdep_shift(x) ((x) & 0x1f)
 #define __bmdep_bit(x) (0x80000000 >> __bmdep_shift(x))
@@ -291,16 +297,18 @@ struct bm_rcr_entry {
 
 /* See 1.5.3.1: "Acquire Command" */
 /* See 1.5.3.2: "Query Command" */
+struct bm_mcc_acquire {
+	u8 bpid;
+	u8 __reserved1[62];
+} __packed;
+struct bm_mcc_query {
+	u8 __reserved2[63];
+} __packed;
 struct bm_mc_command {
 	u8 __dont_write_directly__verb;
 	union {
-		struct bm_mcc_acquire {
-			u8 bpid;
-			u8 __reserved1[62];
-		} __packed acquire;
-		struct bm_mcc_query {
-			u8 __reserved1[63];
-		} __packed query;
+		struct bm_mcc_acquire acquire;
+		struct bm_mcc_query query;
 	};
 } __packed;
 #define BM_MCC_VERB_VBIT		0x80
@@ -369,7 +377,7 @@ typedef void (*bman_cb_depletion)(struct bman_portal *bm,
 
 /* This struct specifies parameters for a bman_pool object. */
 struct bman_pool_params {
-	/* index of the buffer pool to encapsulate (0-63), overwritten if
+	/* index of the buffer pool to encapsulate (0-63), ignored if
 	 * BMAN_POOL_FLAG_DYNAMIC_BPID is set. */
 	u32 bpid;
 	/* bit-mask of BMAN_POOL_FLAG_*** options */
@@ -486,5 +494,9 @@ int bman_release(struct bman_pool *pool, const struct bm_buffer *bufs, u8 num,
  */
 int bman_acquire(struct bman_pool *pool, struct bm_buffer *bufs, u8 num,
 			u32 flags);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* FSL_BMAN_H */

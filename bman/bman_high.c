@@ -1,4 +1,4 @@
-/* Copyright (c) 2008, 2009 Freescale Semiconductor, Inc.
+/* Copyright (c) 2008-2010 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -121,7 +121,7 @@ static inline void __poll_portal_fast(struct bman_portal *p,
 
 #ifdef CONFIG_FSL_BMAN_HAVE_IRQ
 /* Portal interrupt handler */
-static irqreturn_t portal_isr(int irq, void *ptr)
+static irqreturn_t portal_isr(__UNUSED int irq, void *ptr)
 {
 	struct bman_portal *p = ptr;
 	struct bm_portal *lowp = p->p;
@@ -333,8 +333,8 @@ static u32 __poll_portal_slow(struct bman_portal *p, struct bm_portal *lowp,
 	return ret;
 }
 
-static inline void __poll_portal_fast(struct bman_portal *p,
-				struct bm_portal *lowp)
+static inline void __poll_portal_fast(__UNUSED struct bman_portal *p,
+					__UNUSED struct bm_portal *lowp)
 {
 	/* nothing yet, this is where we'll put optimised RCR consumption
 	 * tracking */
@@ -347,8 +347,8 @@ static inline void __poll_portal_fast(struct bman_portal *p,
  * once. The idle decrementer constant is used when the last slow-poll detected
  * no work to do, and the busy decrementer constant when the last slow-poll had
  * work to do. */
-#define SLOW_POLL_IDLE   100
-#define SLOW_POLL_BUSY   6
+#define SLOW_POLL_IDLE   1000
+#define SLOW_POLL_BUSY   10
 #ifdef CONFIG_FSL_BMAN_HAVE_POLL
 void bman_poll(void)
 {

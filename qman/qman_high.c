@@ -134,7 +134,7 @@ IMPLEMENT_QMAN_RBTREE(fqtree, struct qman_fq, node, fqid);
 
 /* This is what everything can wait on, even if it migrates to a different cpu
  * to the one whose affine portal it is waiting on. */
-static __UNUSED DECLARE_WAIT_QUEUE_HEAD(affine_queue);
+static DECLARE_WAIT_QUEUE_HEAD(affine_queue);
 
 static inline int table_push_fq(struct qman_portal *p, struct qman_fq *fq)
 {
@@ -161,8 +161,8 @@ static inline struct qman_fq *table_find_fq(struct qman_portal *p, u32 fqid)
  * once. The idle decrementer constant is used when the last slow-poll detected
  * no work to do, and the busy decrementer constant when the last slow-poll had
  * work to do. */
-#define SLOW_POLL_IDLE   100
-#define SLOW_POLL_BUSY   6
+#define SLOW_POLL_IDLE   1000
+#define SLOW_POLL_BUSY   10
 static u32 __poll_portal_slow(struct qman_portal *p, struct qm_portal *lowp,
 				u32 is);
 static inline void __poll_portal_fast(struct qman_portal *p,
@@ -170,7 +170,7 @@ static inline void __poll_portal_fast(struct qman_portal *p,
 
 #ifdef CONFIG_FSL_QMAN_HAVE_IRQ
 /* Portal interrupt handler */
-static irqreturn_t portal_isr(int irq, void *ptr)
+static irqreturn_t portal_isr(__UNUSED int irq, void *ptr)
 {
 	struct qman_portal *p = ptr;
 	struct qm_portal *lowp = p->p;
@@ -844,7 +844,7 @@ err:
 }
 EXPORT_SYMBOL(qman_create_fq);
 
-void qman_destroy_fq(struct qman_fq *fq, u32 flags)
+void qman_destroy_fq(struct qman_fq *fq, __UNUSED u32 flags)
 {
 	/* We don't need to lock the FQ as it is a pre-condition that the FQ be
 	 * quiesced. Instead, run some checks. */
