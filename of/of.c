@@ -84,38 +84,35 @@ struct device_node *of_get_parent(const struct device_node *dev_node)
 
 void *of_get_property(struct device_node *dev_node, const char *name, size_t *lenp)
 {
-	int	 _errno;
+	int	 _err, __err;
+	size_t	 len;
 	char	 command[PATH_MAX];
 	FILE	*of_sh;
-	void	*_property;
 
 	assert(name != NULL);
 
 	if (dev_node == NULL)
 		dev_node = &root;
 
-	_property = NULL;
-
 	snprintf(command, sizeof(command), "of.sh %s \"%s\" \"%s\"",
 		 __func__, dev_node->full_name, name);
 
 	of_sh = popen(command, "r");
 	if (unlikely(of_sh == NULL))
-		goto _return;
+		return NULL;
 
-	_errno = fread(dev_node->_property,
-		       sizeof(*dev_node->_property), sizeof(dev_node->_property), of_sh);
-	if (unlikely(_errno < 0))
-		goto _return_pclose;
+	len = fread(dev_node->_property,
+		    sizeof(*dev_node->_property), sizeof(dev_node->_property), of_sh);
+	_err = len == 0 ? ferror(of_sh) : 0;
+	__err = pclose(of_sh);
 
-	_property = dev_node->_property;
+	if (unlikely(_err != 0 || __err != 0))
+		return NULL;
+
 	if (lenp != NULL)
-		*lenp = _errno * sizeof(*dev_node->_property);
+		*lenp = len * sizeof(*dev_node->_property);
 
-_return_pclose:
-	pclose(of_sh);
-_return:
-	return _property;
+	return dev_node->_property;
 }
 
 uint32_t of_n_addr_cells(const struct device_node *dev_node)
@@ -236,9 +233,10 @@ struct device_node *of_find_compatible_node(const struct device_node	*from,
 					    const char			*type,
 					    const char			*compatible)
 {
-	char			 command[PATH_MAX], *_errno;
+	int			 _err, __err;
+	char			 command[PATH_MAX], *full_name;
 	FILE			*of_sh;
-	struct device_node	*dev_node, *_current_node;
+	struct device_node	*dev_node;
 	static uint8_t		 node = 1;
 
 	assert(compatible != NULL);
@@ -246,65 +244,67 @@ struct device_node *of_find_compatible_node(const struct device_node	*from,
 	if (from == NULL)
 		from = &root;
 
-	dev_node = NULL;
-
-	snprintf(command, sizeof(command), "of.sh %s \"%s\" \"%s\" %d",
+	snprintf(command, sizeof(command), "of.sh %s \"%s\" \"%s\" %hhu",
 		 __func__, from->full_name, compatible, node++);
 
 	of_sh = popen(command, "r");
 	if (unlikely(of_sh == NULL))
-		goto _return;
+		return NULL;
 
-	_current_node = current_node + current;
-	_errno = fgets(_current_node->full_name, sizeof(_current_node->full_name), of_sh);
-	if (unlikely(_errno == NULL)) {
-		if (feof(of_sh))
-			node = 1;
-		goto _return_pclose;
-	}
+	dev_node = current_node + current;
+	full_name = fgets(dev_node->full_name, sizeof(dev_node->full_name), of_sh);
+	if (full_name == NULL) {
+		_err = ferror(of_sh);
+		if (_err == 0) {
+			_err = feof(of_sh);
+			if (_err != 0)
+				node = 1;
+			else
+				assert(0);
+		}
+	} else
+		_err = 0;
+	__err = pclose(of_sh);
 
-	_current_node->name = of_basename(_current_node->full_name);
-	if (_current_node->name == NULL)
-		goto _return_pclose;
+	if (unlikely(_err != 0 || __err != 0))
+		return NULL;
 
-	dev_node = _current_node;
+	dev_node->name = of_basename(dev_node->full_name);
+	if (dev_node->name == NULL)
+		return NULL;
+
 	current = (current + 1) % ARRAY_SIZE(current_node);
 
-_return_pclose:
-	pclose(of_sh);
-_return:
 	return dev_node;
 }
 
 struct device_node *of_find_node_by_phandle(phandle ph)
 {
-	char			 command[PATH_MAX], *_errno;
+	int			 _err, __err;
+	char			 command[PATH_MAX], *full_name;
 	FILE			*of_sh;
-	struct device_node	*dev_node, *_current_node;
-
-	dev_node = NULL;
+	struct device_node	*dev_node;
 
 	snprintf(command, sizeof(command), "of.sh %s %c",
 		 __func__, *((char *)&ph + sizeof(ph) - sizeof(char)));
 
 	of_sh = popen(command, "r");
 	if (unlikely(of_sh == NULL))
-		goto _return;
+		return NULL;
 
-	_current_node = current_node + current;
-	_errno = fgets(_current_node->full_name, sizeof(_current_node->full_name), of_sh);
-	if (unlikely(_errno == NULL))
-		goto _return_pclose;
+	dev_node = current_node + current;
+	full_name = fgets(dev_node->full_name, sizeof(dev_node->full_name), of_sh);
+	_err = full_name == NULL ? ferror(of_sh) : 0;
+	__err = pclose(of_sh);
 
-	_current_node->name = of_basename(_current_node->full_name);
-	if (_current_node->name == NULL)
-		goto _return_pclose;
+	if (unlikely(_err != 0 || __err != 0))
+		return NULL;
 
-	dev_node = _current_node;
+	dev_node->name = of_basename(dev_node->full_name);
+	if (dev_node->name == NULL)
+		return NULL;
+
 	current = (current + 1) % ARRAY_SIZE(current_node);
 
-_return_pclose:
-	pclose(of_sh);
-_return:
 	return dev_node;
 }
