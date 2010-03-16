@@ -308,3 +308,38 @@ struct device_node *of_find_node_by_phandle(phandle ph)
 
 	return dev_node;
 }
+
+bool of_device_is_available(struct device_node *dev_node)
+{
+	size_t		 lenp;
+	const char	*status;
+
+
+	status = of_get_property(dev_node, "status", &lenp);
+	if (status == NULL)
+		return true;
+
+	return lenp > 0 &&
+		(of_prop_cmp(status, "okay") == 0 || of_prop_cmp(status, "ok") == 0);
+}
+
+bool of_device_is_compatible(struct device_node *dev_node, const char *compatible)
+{
+	size_t		 lenp, len;
+	const char	*_compatible;
+
+	_compatible = of_get_property(dev_node, "compatible", &lenp);
+	if (unlikely(_compatible == NULL))
+		return false;
+
+	while (lenp > 0) {
+		if (of_compat_cmp(compatible, _compatible, strlen(compatible)) == 0)
+			return true;
+
+		len = strlen(_compatible) + 1;
+		_compatible += len;
+		lenp -= len;
+	}
+
+	return false;
+}

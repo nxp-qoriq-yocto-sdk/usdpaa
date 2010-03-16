@@ -31,10 +31,15 @@
  */
 
 #ifndef __OF_H
-#define	 __OF_H
+#define	__OF_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <limits.h>	/* PATH_MAX */
+#include <string.h>	/* strcmp(), strcasecmp() */
+
+#define of_prop_cmp	strcmp
+#define of_compat_cmp	strncasecmp
 
 struct device_node
 {
@@ -71,5 +76,8 @@ struct device_node *of_find_compatible_node(const struct device_node	*from,
 	     dev_node = of_find_compatible_node(NULL, type, compatible))
 
 struct device_node *of_find_node_by_phandle(phandle ph);
+
+bool of_device_is_available(struct device_node *dev_node);
+bool of_device_is_compatible(struct device_node *dev_node, const char *compatible);
 
 #endif	/*  __OF_H */
