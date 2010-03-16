@@ -56,6 +56,9 @@ int __mac_enable_all(void)
 
 	_errno = 0;
 	for_each_compatible_node(dpa_node, NULL, "fsl,dpa-ethernet-init") {
+		if (of_device_is_available(dpa_node) == false)
+			continue;
+
 		printf("Found %s...\n", dpa_node->full_name);
 
 		mac_phandle = of_get_property(dpa_node, "fsl,fman-mac", &lenp);
@@ -93,7 +96,6 @@ int __mac_enable_all(void)
 				__FILE__, __LINE__, __func__, mac_node->full_name);
 			continue;
 		}
-		printf("\t...using %s:0x%0x\n", mac_node->full_name, phys_addr);
 
 		dev_mem = mmap(NULL, regs_size, PROT_READ | PROT_WRITE, MAP_SHARED, dev_mem_fd,
 			       phys_addr);
@@ -103,13 +105,22 @@ int __mac_enable_all(void)
 			continue;
 		}
 
-		out_be32(dev_mem + 0x100, in_be32(dev_mem + 0x100) | 0x5);
+		if (of_device_is_compatible(mac_node, "fsl,fman-1g-mac"))
+			out_be32(dev_mem + 0x100, in_be32(dev_mem + 0x100) | 0x5);
+		else if (of_device_is_compatible(mac_node, "fsl,fman-10g-mac"))
+			out_be32(dev_mem + 8, in_be32(dev_mem + 8) | 3);
+		else
+			fprintf(stderr, "%s:%hu:%s: %s:0x%0x: unknown MAC type\n",
+				__FILE__, __LINE__, __func__, mac_node->full_name, phys_addr);
+
 
 		_errno = munmap(dev_mem, regs_size);
 		if (unlikely(_errno < 0)) {
 			fprintf(stderr, "%s:%hu:%s(): mmap() = %d (%s)\n",
 				__FILE__, __LINE__, __func__, -errno, strerror(errno));
 		}
+
+		printf("\t...using %s:0x%0x\n", mac_node->full_name, phys_addr);
 	}
 
 	close(dev_mem_fd);
