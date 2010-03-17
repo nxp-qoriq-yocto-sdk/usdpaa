@@ -611,7 +611,8 @@ static inline int __bman_release(struct bman_pool *pool,
 	/* We can copy all but the first entry, as this can trigger badness
 	 * with the valid-bit. Use the overlay to mask the verb byte. */
 	o_dest = (struct overlay_bm_buffer *)&r->bufs[0];
-	o_dest->first = o_src->first & 0x00ffffff;
+	o_dest->first = (o_src->first & 0x0000ffff) |
+		(((u32)pool->params.bpid << 16) & 0x00ff0000);
 	o_dest->second = o_src->second;
 	if (i)
 		copy_words(&r->bufs[1], &bufs[1], i * sizeof(bufs[0]));
