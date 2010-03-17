@@ -310,6 +310,37 @@ static inline int atomic_inc_and_test(atomic_t *v)
 	return (__atomic_add((unsigned long *)v, 1)) == 0;
 }
 
+/* memcpy() stuff - when you know alignments in advance */
+static inline void copy_words(void *dest, const void *src, size_t sz)
+{
+	u32 *__dest = dest;
+	const u32 *__src = src;
+	size_t __sz = sz >> 2;
+	BUG_ON((unsigned long)dest & 0x3);
+	BUG_ON((unsigned long)src & 0x3);
+	BUG_ON(sz & 0x3);
+	while (__sz--)
+		*(__dest++) = *(__src++);
+}
+static inline void copy_shorts(void *dest, const void *src, size_t sz)
+{
+	u16 *__dest = dest;
+	const u16 *__src = src;
+	size_t __sz = sz >> 1;
+	BUG_ON((unsigned long)dest & 0x1);
+	BUG_ON((unsigned long)src & 0x1);
+	BUG_ON(sz & 0x1);
+	while (__sz--)
+		*(__dest++) = *(__src++);
+}
+static inline void copy_bytes(void *dest, const void *src, size_t sz)
+{
+	u8 *__dest = dest;
+	const u8 *__src = src;
+	while (sz--)
+		*(__dest++) = *(__src++);
+}
+
 /* Spinlock stuff */
 #define spinlock_t		pthread_mutex_t
 #define SPIN_LOCK_UNLOCKED	PTHREAD_MUTEX_INITIALIZER

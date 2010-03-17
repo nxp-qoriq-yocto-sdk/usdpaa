@@ -932,7 +932,7 @@ u8 qm_mr_pvb_update(struct qm_portal *portal)
 		if (qman_ip_rev == QMAN_REV1) {
 			struct qm_mr_entry *shadow = ptr_OR(portal->bugs->mr,
 							qm_cl(mr->pi));
-			memcpy(shadow, res, sizeof(*res));
+			copy_words(shadow, res, sizeof(*res));
 			/* Bypass the QM_MR_RC_*** definitions, and check the
 			 * byte value directly to handle the erratum. */
 			if (shadow->ern.rc == 0x06)
@@ -1144,14 +1144,14 @@ struct qm_mc_result *qm_mc_result(struct qm_portal *portal)
 	if (qman_ip_rev == QMAN_REV1) {
 		if ((rr->verb & QM_MCR_VERB_MASK) == QM_MCR_VERB_QUERYFQ) {
 			void *misplaced = (void *)rr + 50;
-			memcpy(&portal->bugs->result, rr, sizeof(*rr));
+			copy_words(&portal->bugs->result, rr, sizeof(*rr));
 			rr = &portal->bugs->result;
-			memcpy(&rr->queryfq.fqd.td, misplaced,
+			copy_shorts(&rr->queryfq.fqd.td, misplaced,
 				sizeof(rr->queryfq.fqd.td));
 		} else if (portal->bugs->initfq_and_sched) {
 			/* We split the user-requested command, make the final
 			 * result match the requested type. */
-			memcpy(&portal->bugs->result, rr, sizeof(*rr));
+			copy_words(&portal->bugs->result, rr, sizeof(*rr));
 			rr = &portal->bugs->result;
 			rr->verb = (rr->verb & QM_MCR_VERB_RRID) |
 					QM_MCR_VERB_INITFQ_SCHED;

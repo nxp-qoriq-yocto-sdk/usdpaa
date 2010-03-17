@@ -205,6 +205,19 @@ struct poc_fq_2fwd {
 	struct poc_fq_2tx *tx;
 } ____cacheline_aligned;
 
+/* Swap 6-byte MAC headers "efficiently" (hopefully) */
+static inline void ether_header_swap(struct ether_header *prot_eth)
+{
+	register u32 a, b, c;
+	u32 *overlay = (u32 *)prot_eth;
+	a = overlay[0];
+	b = overlay[1];
+	c = overlay[2];
+	overlay[0] = (b << 16) | (c >> 16);
+	overlay[1] = (c << 16) | (a >> 16);
+	overlay[2] = (a << 16) | (b >> 16);
+}
+
 static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 					struct qman_fq *fq,
 					const struct qm_dqrr_entry *dqrr)
@@ -231,8 +244,7 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		prot_eth->ether_shost[2], prot_eth->ether_shost[3],
 		prot_eth->ether_shost[4], prot_eth->ether_shost[5]);
 	TRACE("      ether_type=%04x\n", prot_eth->ether_type);
-	/* Eliminate ethernet broadcasts. memcpy() would be cleaner, but
-	 * probably slower... */
+	/* Eliminate ethernet broadcasts. */
 	if (prot_eth->ether_dhost[0] & 0x01) {
 		TRACE("      -> dropping broadcast packet\n");
 		bigatomic_inc(&p->cnt_drop_bcast);
@@ -244,7 +256,6 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		{
 		struct iphdr *iphdr = addr + 14;
 		__be32 tmp;
-		struct ether_addr tmp2;
 #ifdef POC_TRACE
 		u8 *src = (void *)&iphdr->saddr;
 		u8 *dst = (void *)&iphdr->daddr;
@@ -263,12 +274,8 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		tmp = iphdr->daddr;
 		iphdr->daddr = iphdr->saddr;
 		iphdr->saddr = tmp;
-		/* switch ethernet src/dest MAC addresses (we're aligned so
-		 * should try to do better than memcpy()...) */
-		memcpy(&tmp2, prot_eth->ether_dhost, sizeof(tmp2));
-		memcpy(prot_eth->ether_dhost, prot_eth->ether_shost,
-			sizeof(tmp2));
-		memcpy(prot_eth->ether_shost, &tmp2, sizeof(tmp2));
+		/* switch ethernet src/dest MAC addresses */
+		ether_header_swap(prot_eth);
 		}
 		poc_fq_2tx_send(p->tx, fd);
 		return qman_cb_dqrr_consume;

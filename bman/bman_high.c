@@ -580,11 +580,21 @@ static inline void rel_commit(struct bman_portal *p, u32 flags, u8 num)
 		wait_rel_commit(p, flags, rcr_poll);
 }
 
+/* to facilitate better copying of bufs into the ring without either (a) copying
+ * noise into the first byte (prematurely triggering the command), nor (b) being
+ * very inefficient by copying small fields using read-modify-write */
+struct overlay_bm_buffer {
+	u32 first;
+	u32 second;
+};
+
 static inline int __bman_release(struct bman_pool *pool,
 			const struct bm_buffer *bufs, u8 num, u32 flags)
 {
 	struct bman_portal *p;
 	struct bm_rcr_entry *r;
+	struct overlay_bm_buffer *o_dest;
+	struct overlay_bm_buffer *o_src = (struct overlay_bm_buffer *)&bufs[0];
 	u32 i = num - 1;
 
 	/* FIXME: I'm ignoring BMAN_PORTAL_FLAG_COMPACT for now. */
@@ -598,13 +608,13 @@ static inline int __bman_release(struct bman_pool *pool,
 			return -EBUSY;
 		BM_ASSERT(r != NULL);
 	}
-	/* We can memcpy() all but the first entry, as this can trigger badness
-	 * with the valid-bit. */
-	r->bpid = pool->params.bpid;
-	r->bufs[0].hi = bufs[0].hi;
-	r->bufs[0].lo = bufs[0].lo;
+	/* We can copy all but the first entry, as this can trigger badness
+	 * with the valid-bit. Use the overlay to mask the verb byte. */
+	o_dest = (struct overlay_bm_buffer *)&r->bufs[0];
+	o_dest->first = o_src->first & 0x00ffffff;
+	o_dest->second = o_src->second;
 	if (i)
-		memcpy(&r->bufs[1], &bufs[1], i * sizeof(bufs[0]));
+		copy_words(&r->bufs[1], &bufs[1], i * sizeof(bufs[0]));
 	/* Issue the release command and wait for sync if requested. NB: the
 	 * commit can't fail, only waiting can. Don't propogate any failure if a
 	 * signal arrives, otherwise the caller can't distinguish whether the
@@ -642,7 +652,7 @@ int bman_release(struct bman_pool *pool, const struct bm_buffer *bufs, u8 num,
 	while (num) {
 		/* Add buffers to stockpile if they fit */
 		if ((pool->sp_fill + num) < BMAN_STOCKPILE_SZ) {
-			memcpy(pool->sp + pool->sp_fill, bufs,
+			copy_words(pool->sp + pool->sp_fill, bufs,
 				sizeof(struct bm_buffer) * num);
 			pool->sp_fill += num;
 			num = 0; /* --> will return success no matter what */
@@ -677,7 +687,7 @@ static inline int __bman_acquire(struct bman_pool *pool, struct bm_buffer *bufs,
 		cpu_relax();
 	ret = mcr->verb & BM_MCR_VERB_ACQUIRE_BUFCOUNT;
 	if (bufs)
-		memcpy(&bufs[0], &mcr->acquire.bufs[0], num * sizeof(bufs[0]));
+		copy_words(&bufs[0], &mcr->acquire.bufs[0], num * sizeof(bufs[0]));
 	local_irq_enable();
 	put_affine_portal();
 	if (ret != num)
@@ -713,7 +723,7 @@ hw_starved:
 		if (pool->sp_fill < num)
 			return -ENOMEM;
 	}
-	memcpy(bufs, pool->sp + (pool->sp_fill - num),
+	copy_words(bufs, pool->sp + (pool->sp_fill - num),
 		sizeof(struct bm_buffer) * num);
 	pool->sp_fill -= num;
 	return num;
