@@ -56,6 +56,8 @@
 
 /* Boolean options, #define or #undef */
 #define POC_2FWD_HOLDACTIVE	/* process each FQ on one cpu at a time */
+#define POC_2FWD_RX_PREFERINCACHE /* keep rx FQDs in-cache even when empty */
+#define POC_2FWD_TX_PREFERINCACHE /* keep tx FQDs in-cache even when empty */
 #undef POC_COUNTERS		/* enable counters */
 
 /* We want a trivial mapping from bpid->pool, so just have a 64-wide array of
@@ -191,9 +193,14 @@ static void poc_fq_2tx_init(struct poc_fq_2tx *p, u32 fqid,
 	p->fq.cb.ern = cb_ern_2tx;
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_TO_DCPORTAL, &p->fq);
 	BUG_ON(ret);
-	opts.we_mask = QM_INITFQ_WE_DESTWQ;
+	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL;
 	opts.fqd.dest.channel = channel;
 	opts.fqd.dest.wq = POC_PRIO_2TX;
+	opts.fqd.fq_ctrl =
+#ifdef POC_2FWD_TX_PREFERINCACHE
+		QM_FQCTRL_PREFERINCACHE |
+#endif
+		0;
 	ret = qman_init_fq(&p->fq, QMAN_INITFQ_FLAG_SCHED, &opts);
 	BUG_ON(ret);
 }
@@ -336,11 +343,14 @@ static void poc_fq_2fwd_init(struct poc_fq_2fwd *p, u32 fqid,
 			QM_INITFQ_WE_CONTEXTA;
 	opts.fqd.dest.channel = channel;
 	opts.fqd.dest.wq = POC_PRIO_2FWD;
+	opts.fqd.fq_ctrl =
 #ifdef POC_2FWD_HOLDACTIVE
-	opts.fqd.fq_ctrl = QM_FQCTRL_CTXASTASHING | QM_FQCTRL_HOLDACTIVE;
-#else
-	opts.fqd.fq_ctrl = QM_FQCTRL_CTXASTASHING;
+		QM_FQCTRL_HOLDACTIVE |
 #endif
+#ifdef POC_2FWD_RX_PREFERINCACHE
+		QM_FQCTRL_PREFERINCACHE |
+#endif
+		QM_FQCTRL_CTXASTASHING;
 	opts.fqd.context_a.stashing.data_cl = 1;
 	opts.fqd.context_a.stashing.context_cl = POC_STASH_CTX_CL(p);
 	ret = qman_init_fq(&p->fq, QMAN_INITFQ_FLAG_SCHED, &opts);
