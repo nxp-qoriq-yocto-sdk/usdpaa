@@ -121,7 +121,7 @@ static inline void __poll_portal_fast(struct bman_portal *p,
 
 #ifdef CONFIG_FSL_BMAN_HAVE_IRQ
 /* Portal interrupt handler */
-static irqreturn_t portal_isr(__UNUSED int irq, void *ptr)
+static irqreturn_t portal_isr(__always_unused int irq, void *ptr)
 {
 	struct bman_portal *p = ptr;
 	struct bm_portal *lowp = p->p;
@@ -333,8 +333,8 @@ static u32 __poll_portal_slow(struct bman_portal *p, struct bm_portal *lowp,
 	return ret;
 }
 
-static inline void __poll_portal_fast(__UNUSED struct bman_portal *p,
-					__UNUSED struct bm_portal *lowp)
+static inline void __poll_portal_fast(__always_unused struct bman_portal *p,
+					__always_unused struct bm_portal *lowp)
 {
 	/* nothing yet, this is where we'll put optimised RCR consumption
 	 * tracking */

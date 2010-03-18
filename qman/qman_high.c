@@ -170,7 +170,7 @@ static inline void __poll_portal_fast(struct qman_portal *p,
 
 #ifdef CONFIG_FSL_QMAN_HAVE_IRQ
 /* Portal interrupt handler */
-static irqreturn_t portal_isr(__UNUSED int irq, void *ptr)
+static irqreturn_t portal_isr(__always_unused int irq, void *ptr)
 {
 	struct qman_portal *p = ptr;
 	struct qm_portal *lowp = p->p;
@@ -844,7 +844,7 @@ err:
 }
 EXPORT_SYMBOL(qman_create_fq);
 
-void qman_destroy_fq(struct qman_fq *fq, __UNUSED u32 flags)
+void qman_destroy_fq(struct qman_fq *fq, __maybe_unused u32 flags)
 {
 	/* We don't need to lock the FQ as it is a pre-condition that the FQ be
 	 * quiesced. Instead, run some checks. */
