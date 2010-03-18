@@ -55,7 +55,7 @@
 #define POC_BPIDS		{7, 8, 9}
 
 /* Boolean options, #define or #undef */
-#define POC_2FWD_HOLDACTIVE	/* process each FQ on one cpu at a time */
+#undef POC_2FWD_HOLDACTIVE	/* process each FQ on one cpu at a time */
 #define POC_2FWD_RX_PREFERINCACHE /* keep rx FQDs in-cache even when empty */
 #define POC_2FWD_TX_PREFERINCACHE /* keep tx FQDs in-cache even when empty */
 #undef POC_COUNTERS		/* enable counters */
