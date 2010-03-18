@@ -56,6 +56,7 @@
 
 /* Boolean options, #define or #undef */
 #define POC_2FWD_HOLDACTIVE	/* process each FQ on one cpu at a time */
+#undef POC_COUNTERS		/* enable counters */
 
 /* We want a trivial mapping from bpid->pool, so just have a 64-wide array of
  * pointers, most of which are NULL. */
@@ -69,6 +70,16 @@ static struct bman_pool *pool[64];
 #define TRACE		printf
 #else
 #define TRACE(x...)	do { ; } while(0)
+#endif
+
+#ifdef POC_COUNTERS
+#define CNT(a)      struct bigatomic a
+#define CNT_ZERO(a) bigatomic_set(a, 0)
+#define CNT_INC(a)  bigatomic_inc(a)
+#else
+#define CNT(a)      struct { }
+#define CNT_ZERO(a) do { ; } while (0)
+#define CNT_INC(a)  do { ; } while (0)
 #endif
 
 /* Rx handling either leads to a forward (qman enqueue) or a drop (bman
@@ -114,16 +125,17 @@ retry:
  * error", "Tx confirm"). */
 struct poc_fq_2drop {
 	struct qman_fq fq;
-	struct bigatomic cnt;
+	CNT(cnt);
 };
 
 static enum qman_cb_dqrr_result cb_dqrr_2drop(struct qman_portal *qm,
 					struct qman_fq *fq,
 					const struct qm_dqrr_entry *dqrr)
 {
-	struct poc_fq_2drop *p = container_of(fq, struct poc_fq_2drop, fq);
+	__maybe_unused struct poc_fq_2drop *p = container_of(fq,
+					struct poc_fq_2drop, fq);
 	TRACE("Rx: 2drop fqid=%d\n", fq->fqid);
-	bigatomic_inc(&p->cnt);
+	CNT_INC(&p->cnt);
 	drop_frame(&dqrr->fd);
 	return qman_cb_dqrr_consume;
 }
@@ -133,7 +145,7 @@ static void poc_fq_2drop_init(struct poc_fq_2drop *p, u32 fqid,
 {
 	struct qm_mcc_initfq opts;
 	int ret;
-	bigatomic_set(&p->cnt, 0);
+	CNT_ZERO(&p->cnt);
 	p->fq.cb.dqrr = cb_dqrr_2drop;
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_NO_ENQUEUE, &p->fq);
 	BUG_ON(ret);
@@ -156,15 +168,16 @@ static void poc_fq_2drop_init(struct poc_fq_2drop *p, u32 fqid,
 /* Tx FQs that count EQs and ERNs (later <= former, obviously). */
 struct poc_fq_2tx {
 	struct qman_fq fq;
-	struct bigatomic cnt;
-	struct bigatomic cnt_ern;
+	CNT(cnt);
+	CNT(cnt_ern);
 };
 
 static void cb_ern_2tx(struct qman_portal *qm, struct qman_fq *fq,
 				const struct qm_mr_entry *msg)
 {
-	struct poc_fq_2tx *p = container_of(fq, struct poc_fq_2tx, fq);
-	bigatomic_inc(&p->cnt_ern);
+	__maybe_unused struct poc_fq_2tx *p = container_of(fq,
+					struct poc_fq_2tx, fq);
+	CNT_INC(&p->cnt_ern);
 	drop_frame(&msg->ern.fd);
 }
 
@@ -173,8 +186,8 @@ static void poc_fq_2tx_init(struct poc_fq_2tx *p, u32 fqid,
 {
 	struct qm_mcc_initfq opts;
 	int ret;
-	bigatomic_set(&p->cnt, 0);
-	bigatomic_set(&p->cnt_ern, 0);
+	CNT_ZERO(&p->cnt);
+	CNT_ZERO(&p->cnt_ern);
 	p->fq.cb.ern = cb_ern_2tx;
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_TO_DCPORTAL, &p->fq);
 	BUG_ON(ret);
@@ -190,7 +203,7 @@ static void poc_fq_2tx_send(struct poc_fq_2tx *p, const struct qm_fd *fd)
 	TRACE("Tx: 2tx   fqid=%d\n", p->fq.fqid);
 	TRACE("      phys=0x%08x, offset=%d, len=%d, bpid=%d\n",
 		fd->addr_lo, fd->offset, fd->length20, fd->bpid);
-	bigatomic_inc(&p->cnt);
+	CNT_INC(&p->cnt);
 	send_frame(&p->fq, fd);
 }
 
@@ -201,10 +214,10 @@ static void poc_fq_2tx_send(struct poc_fq_2tx *p, const struct qm_fd *fd)
 /* Rx FQs that fwd, count packets and drop-decisions. */
 struct poc_fq_2fwd {
 	struct qman_fq fq;
-	struct bigatomic cnt;
-	struct bigatomic cnt_drop_bcast;
-	struct bigatomic cnt_drop_arp;
-	struct bigatomic cnt_drop_other;
+	CNT(cnt);
+	CNT(cnt_drop_bcast);
+	CNT(cnt_drop_arp);
+	CNT(cnt_drop_other);
 	struct poc_fq_2tx *tx;
 } ____cacheline_aligned;
 
@@ -237,7 +250,7 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		fd->addr_lo, addr, fd->offset, fd->length20, fd->bpid);
 	addr += fd->offset;
 	prot_eth = addr;
-	bigatomic_inc(&p->cnt);
+	CNT_INC(&p->cnt);
 	TRACE("      dhost=%02x:%02x:%02x:%02x:%02x:%02x\n",
 		prot_eth->ether_dhost[0], prot_eth->ether_dhost[1],
 		prot_eth->ether_dhost[2], prot_eth->ether_dhost[3],
@@ -250,7 +263,7 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 	/* Eliminate ethernet broadcasts. */
 	if (prot_eth->ether_dhost[0] & 0x01) {
 		TRACE("      -> dropping broadcast packet\n");
-		bigatomic_inc(&p->cnt_drop_bcast);
+		CNT_INC(&p->cnt_drop_bcast);
 	} else
 	switch (prot_eth->ether_type)
 	{
@@ -293,13 +306,13 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		}
 #endif
 		TRACE("           -> dropping ARP packet\n");
-		bigatomic_inc(&p->cnt_drop_arp);
+		CNT_INC(&p->cnt_drop_arp);
 		break;
 	default:
 		TRACE("        -> it's UNKNOWN (!!) type 0x%04x\n",
 			prot_eth->ether_type);
 		TRACE("           -> dropping unknown packet\n");
-		bigatomic_inc(&p->cnt_drop_other);
+		CNT_INC(&p->cnt_drop_other);
 	}
 	drop_frame(fd);
 	return qman_cb_dqrr_consume;
@@ -310,10 +323,10 @@ static void poc_fq_2fwd_init(struct poc_fq_2fwd *p, u32 fqid,
 {
 	struct qm_mcc_initfq opts;
 	int ret;
-	bigatomic_set(&p->cnt, 0);
-	bigatomic_set(&p->cnt_drop_bcast, 0);
-	bigatomic_set(&p->cnt_drop_arp, 0);
-	bigatomic_set(&p->cnt_drop_other, 0);
+	CNT_ZERO(&p->cnt);
+	CNT_ZERO(&p->cnt_drop_bcast);
+	CNT_ZERO(&p->cnt_drop_arp);
+	CNT_ZERO(&p->cnt_drop_other);
 	p->tx = tx;
 	p->fq.cb.dqrr = cb_dqrr_2fwd;
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_NO_ENQUEUE, &p->fq);
