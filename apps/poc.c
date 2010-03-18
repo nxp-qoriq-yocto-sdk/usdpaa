@@ -54,6 +54,9 @@
 })
 #define POC_BPIDS		{7, 8, 9}
 
+/* Boolean options, #define or #undef */
+#define POC_2FWD_HOLDACTIVE	/* process each FQ on one cpu at a time */
+
 /* We want a trivial mapping from bpid->pool, so just have a 64-wide array of
  * pointers, most of which are NULL. */
 static struct bman_pool *pool[64];
@@ -320,7 +323,11 @@ static void poc_fq_2fwd_init(struct poc_fq_2fwd *p, u32 fqid,
 			QM_INITFQ_WE_CONTEXTA;
 	opts.fqd.dest.channel = channel;
 	opts.fqd.dest.wq = POC_PRIO_2FWD;
+#ifdef POC_2FWD_HOLDACTIVE
+	opts.fqd.fq_ctrl = QM_FQCTRL_CTXASTASHING | QM_FQCTRL_HOLDACTIVE;
+#else
 	opts.fqd.fq_ctrl = QM_FQCTRL_CTXASTASHING;
+#endif
 	opts.fqd.context_a.stashing.data_cl = 1;
 	opts.fqd.context_a.stashing.context_cl = POC_STASH_CTX_CL(p);
 	ret = qman_init_fq(&p->fq, QMAN_INITFQ_FLAG_SCHED, &opts);
