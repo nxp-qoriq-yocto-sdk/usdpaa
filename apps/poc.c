@@ -46,7 +46,7 @@
 #define POC_STASH_DATA_CL	1
 #define POC_STASH_CTX_CL(p) \
 ({ \
-	__UNUSED const typeof(*(p)) *foo = (p); \
+	__always_unused const typeof(*(p)) *foo = (p); \
 	int foolen = sizeof(*foo) / 64; \
 	if (foolen > 3) \
 		foolen = 3; \

@@ -65,7 +65,8 @@ typedef uint64_t	u64;
 typedef uint64_t	__u64;
 typedef unsigned int	gfp_t;
 typedef int		phandle;
-#define __UNUSED	__attribute__((unused))
+#define __maybe_unused	__attribute__((unused))
+#define __always_unused	__attribute__((unused))
 #define noinline	__attribute__((noinline))
 #define __packed	__attribute__((__packed__))
 #define ____cacheline_aligned __attribute__((aligned(64)))
@@ -347,17 +348,17 @@ static inline void copy_bytes(void *dest, const void *src, size_t sz)
 #define DEFINE_SPINLOCK(x)	spinlock_t x = SPIN_LOCK_UNLOCKED
 #define spin_lock_init(x) \
 	do { \
-		__UNUSED int __foo = pthread_mutex_init(x, NULL); \
+		__maybe_unused int __foo = pthread_mutex_init(x, NULL); \
 		BUG_ON(__foo); \
 	} while (0)
 #define spin_lock(x) \
 	do { \
-		__UNUSED int __foo = pthread_mutex_lock(x); \
+		__maybe_unused int __foo = pthread_mutex_lock(x); \
 		BUG_ON(__foo); \
 	} while (0)
 #define spin_unlock(x) \
 	do { \
-		__UNUSED int __foo = pthread_mutex_unlock(x); \
+		__maybe_unused int __foo = pthread_mutex_unlock(x); \
 		BUG_ON(__foo); \
 	} while (0)
 #define spin_lock_irq(x)	do { local_irq_disable(); spin_lock(x); } while(0)
@@ -365,7 +366,7 @@ static inline void copy_bytes(void *dest, const void *src, size_t sz)
 
 /* Waitqueue stuff */
 typedef struct { }		wait_queue_head_t;
-#define DECLARE_WAIT_QUEUE_HEAD(x) int dummy_##x __UNUSED
+#define DECLARE_WAIT_QUEUE_HEAD(x) int dummy_##x __always_unused
 #define might_sleep()		do { ; } while(0)
 #define init_waitqueue_head(x)	do { ; } while(0)
 #define wake_up(x)		do { ; } while(0)
@@ -400,8 +401,8 @@ do { \
 /* Platform device stuff */
 struct platform_device { void *dev; };
 static inline struct
-platform_device *platform_device_alloc(const char *name __UNUSED,
-					int id__UNUSED)
+platform_device *platform_device_alloc(const char *name __always_unused,
+					int id __always_unused)
 {
 	struct platform_device *ret = malloc(sizeof(*ret));
 	if (ret)
@@ -423,17 +424,17 @@ enum dma_data_direction {
 	DMA_FROM_DEVICE = 2,
 	DMA_NONE = 3,
 };
-static inline dma_addr_t dma_map_single(void *dev __UNUSED,
+static inline dma_addr_t dma_map_single(void *dev __always_unused,
 				void *cpu_addr,
-				size_t size __UNUSED,
-				enum dma_data_direction direction __UNUSED)
+				size_t size __maybe_unused,
+				enum dma_data_direction direction __always_unused)
 {
 	BUG_ON((u32)cpu_addr < FSL_SHMEM_VIRT);
 	BUG_ON(((u32)cpu_addr + size) > (FSL_SHMEM_VIRT + FSL_SHMEM_SIZE));
 	return __shmem_vtop(cpu_addr);
 }
-static inline int dma_mapping_error(void *dev __UNUSED,
-				dma_addr_t dma_addr __UNUSED)
+static inline int dma_mapping_error(void *dev __always_unused,
+				dma_addr_t dma_addr __always_unused)
 {
 	return 0;
 }
@@ -441,7 +442,7 @@ static inline int dma_mapping_error(void *dev __UNUSED,
 /* Allocator stuff */
 #define kmalloc(sz, t)	malloc(sz)
 #define kfree(p)	free(p)
-static inline void *kzalloc(size_t sz, gfp_t foo __UNUSED)
+static inline void *kzalloc(size_t sz, gfp_t foo __always_unused)
 {
 	void *ptr = malloc(sz);
 	if (ptr)
@@ -460,9 +461,9 @@ struct kmem_cache {
 	size_t align;
 };
 #define SLAB_HWCACHE_ALIGN	0
-static inline struct kmem_cache *kmem_cache_create(const char *n __UNUSED,
-		 size_t sz, size_t align, unsigned long flags __UNUSED,
-			void (*c)(void *) __UNUSED)
+static inline struct kmem_cache *kmem_cache_create(const char *n __always_unused,
+		 size_t sz, size_t align, unsigned long flags __always_unused,
+			void (*c)(void *) __always_unused)
 {
 	struct kmem_cache *ret = malloc(sizeof(*ret));
 	if (ret) {
@@ -475,11 +476,11 @@ static inline void kmem_cache_destroy(struct kmem_cache *c)
 {
 	free(c);
 }
-static inline void *kmem_cache_alloc(struct kmem_cache *c, gfp_t f __UNUSED)
+static inline void *kmem_cache_alloc(struct kmem_cache *c, gfp_t f __always_unused)
 {
 	return memalign(c->align, c->sz);
 }
-static inline void kmem_cache_free(struct kmem_cache *c __UNUSED, void *p)
+static inline void kmem_cache_free(struct kmem_cache *c __always_unused, void *p)
 {
 	free(p);
 }

@@ -37,22 +37,22 @@ static inline void thread_kick_destroy(struct thread_kick *k)
 }
 static inline void thread_kick_lock(struct thread_kick *k)
 {
-	__UNUSED int ret = pthread_mutex_lock(&k->mutex);
+	__maybe_unused int ret = pthread_mutex_lock(&k->mutex);
 	BUG_ON(ret);
 }
 static inline void thread_kick_unlock(struct thread_kick *k)
 {
-	__UNUSED int ret = pthread_mutex_unlock(&k->mutex);
+	__maybe_unused int ret = pthread_mutex_unlock(&k->mutex);
 	BUG_ON(ret);
 }
 static inline void thread_kick_wait(struct thread_kick *k)
 {
-	__UNUSED int ret = pthread_cond_wait(&k->cond, &k->mutex);
+	__maybe_unused int ret = pthread_cond_wait(&k->cond, &k->mutex);
 	BUG_ON(ret);
 }
 static inline void thread_kick_signal(struct thread_kick *k)
 {
-	__UNUSED int ret = pthread_cond_signal(&k->cond);
+	__maybe_unused int ret = pthread_cond_signal(&k->cond);
 	BUG_ON(ret);
 }
 
