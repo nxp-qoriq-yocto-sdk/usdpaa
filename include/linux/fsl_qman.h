@@ -759,10 +759,11 @@ struct qm_mr_entry {
 #define QM_MR_DCERN_COLOUR_RED		0x02
 #define QM_MR_DCERN_COLOUR_OVERRIDE	0x03
 
-/* This identical structure of FQD fields is present in the "Init FQ" command
- * and the "Query FQ" result. It's suctioned out here into its own struct. It's
- * also used as the qman_query_fq() result structure in the high-level API. NB,
- * qm_fqd_stashing is predeclared because of C++ finickyness. */
+/* An identical structure of FQD fields is present in the "Init FQ" command and
+ * the "Query FQ" result, it's suctioned out into the "struct qm_fqd" type.
+ * Within that, the 'stashing' and 'taildrop' pieces are also factored out, the
+ * latter has two inlines to assist with converting to/from the mant+exp
+ * representation. */
 struct qm_fqd_stashing {
 	/* See QM_STASHING_EXCL_<...> */
 	u8 exclusive;
@@ -771,6 +772,11 @@ struct qm_fqd_stashing {
 	u8 annotation_cl:2;
 	u8 data_cl:2;
 	u8 context_cl:2;
+} __packed;
+struct qm_fqd_taildrop {
+	u16 __reserved1:3;
+	u16 mant:8;
+	u16 exp:5;
 } __packed;
 struct qm_fqd {
 	union {
@@ -793,11 +799,7 @@ struct qm_fqd {
 	};
 	u16 __reserved2:1;
 	u16 ics_cred:15;
-	struct {
-		u16 __reserved1:3;
-		u16 mant:8;
-		u16 exp:5;
-	} __packed td;
+	struct qm_fqd_taildrop td;
 	u32 context_b;
 	union {
 		/* Treat it as 64-bit opaque */
@@ -816,6 +818,30 @@ struct qm_fqd {
 		} __packed;
 	} context_a;
 } __packed;
+/* convert a threshold value into mant+exp representation */
+static inline int qm_fqd_taildrop_set(struct qm_fqd_taildrop *td, u32 val,
+					int roundup)
+{
+	u32 e = 0;
+	int oddbit = 0;
+	if (val > 0xe0000000)
+		return -ERANGE;
+	while (val > 0xff) {
+		oddbit = val & 1;
+		val >>= 1;
+		e++;
+		if (roundup && oddbit)
+			val++;
+	}
+	td->exp = e;
+	td->mant = val;
+	return 0;
+}
+/* and the other direction */
+static inline u32 qm_fqd_taildrop_get(const struct qm_fqd_taildrop *td)
+{
+	return (u32)td->mant << td->exp;
+}
 
 /* See 1.5.2.2: "Frame Queue Descriptor (FQD)" */
 /* Frame Queue Descriptor (FQD) field 'fq_ctrl' uses these constants */
