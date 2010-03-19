@@ -28,7 +28,7 @@
 /* if defined, be lippy about everything */
 #undef POC_TRACE
 
-/* application settings/configuration */
+/* application configuration */
 #define POC_RX_HASH_SIZE	0x20
 #define POC_IF_NUM		4
 #define POC_FQID_RX_ERROR(n)	(0x50 + 2*(n))
@@ -54,10 +54,12 @@
 })
 #define POC_BPIDS		{7, 8, 9}
 
-/* Boolean options, #define or #undef */
+/* application options */
 #undef POC_2FWD_HOLDACTIVE	/* process each FQ on one cpu at a time */
 #define POC_2FWD_RX_PREFERINCACHE /* keep rx FQDs in-cache even when empty */
 #define POC_2FWD_TX_PREFERINCACHE /* keep tx FQDs in-cache even when empty */
+#undef POC_2FWD_RX_TD		/* whether to enable taildrop */
+#define POC_2FWD_RX_TD_THRESH 64000
 #undef POC_COUNTERS		/* enable counters */
 
 /* We want a trivial mapping from bpid->pool, so just have a 64-wide array of
@@ -340,7 +342,7 @@ static void poc_fq_2fwd_init(struct poc_fq_2fwd *p, u32 fqid,
 	BUG_ON(ret);
 	/* FIXME: no taildrop/holdactive for "2fwd" FQs */
 	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
-			QM_INITFQ_WE_CONTEXTA;
+			QM_INITFQ_WE_CONTEXTA | QM_INITFQ_WE_TDTHRESH;
 	opts.fqd.dest.channel = channel;
 	opts.fqd.dest.wq = POC_PRIO_2FWD;
 	opts.fqd.fq_ctrl =
@@ -350,9 +352,14 @@ static void poc_fq_2fwd_init(struct poc_fq_2fwd *p, u32 fqid,
 #ifdef POC_2FWD_RX_PREFERINCACHE
 		QM_FQCTRL_PREFERINCACHE |
 #endif
+#ifdef POC_2FWD_RX_TD
+		QM_FQCTRL_TDE |
+#endif
 		QM_FQCTRL_CTXASTASHING;
 	opts.fqd.context_a.stashing.data_cl = 1;
 	opts.fqd.context_a.stashing.context_cl = POC_STASH_CTX_CL(p);
+	ret = qm_fqd_taildrop_set(&opts.fqd.td, POC_2FWD_RX_TD_THRESH, 0);
+	BUG_ON(ret);
 	ret = qman_init_fq(&p->fq, QMAN_INITFQ_FLAG_SCHED, &opts);
 	BUG_ON(ret);
 }
