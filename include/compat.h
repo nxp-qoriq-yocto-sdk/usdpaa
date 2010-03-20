@@ -251,6 +251,26 @@ static inline void out_be32(volatile void *__p, u32 val)
 #define dcbi(p) dcbf(p)
 #define cpu_relax()	do { ; } while(0)
 
+/* Alternate Time Base */
+#define SPR_ATBL	526
+#define SPR_ATBU	527
+#define mfspr(reg) \
+({ \
+	register_t ret; \
+	asm volatile("mfspr %0, %1" : "=r" (ret) : "i" (reg) : "memory"); \
+	ret; \
+})
+static inline uint64_t mfatb(void)
+{
+	uint32_t hi, lo, chk;
+	do {
+		hi = mfspr(SPR_ATBU);
+		lo = mfspr(SPR_ATBL);
+		chk = mfspr(SPR_ATBU);
+	} while (unlikely(hi != chk));
+	return (uint64_t) hi << 32 | (uint64_t) lo;
+}
+
 /* SMP stuff */
 #define DEFINE_PER_CPU(t,x)	__thread t per_cpu__##x
 #define per_cpu(x,c)		per_cpu__##x

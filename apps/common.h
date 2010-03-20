@@ -206,32 +206,12 @@ static inline void bigatomic_inc(struct bigatomic *b)
 		atomic_inc(&b->upper);
 }
 
-/* Alternate Time Base */
-#define SPR_ATBL	526
-#define SPR_ATBU	527
-
-#define my_mfspr(reg) \
-({ \
-	register_t ret; \
-	asm volatile("mfspr %0, %1" : "=r" (ret) : "i" (reg) : "memory"); \
-	ret; \
-})
-static inline uint64_t
-my_get_timebase(void)
+/* Spin for a few cycles without bothering anyone else */
+static inline void cpu_spin(int cycles)
 {
-	uint32_t hi, lo, chk;
-
-	/*
-	 * To make sure that there is no carry over
-	 * between checking of TBU and TBL
-	 */
-	do {
-		hi = my_mfspr(SPR_ATBU);
-		lo = my_mfspr(SPR_ATBL);
-		chk = my_mfspr(SPR_ATBU);
-	} while (unlikely(hi != chk));
-
-	return (uint64_t) hi << 32 | (uint64_t) lo;
+	uint64_t now = mfatb();
+	while (mfatb() < (now + cycles))
+		;
 }
 
 #endif /* !APPS_COMMON_H */

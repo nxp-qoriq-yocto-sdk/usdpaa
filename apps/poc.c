@@ -67,7 +67,10 @@
 #define POC_2FWD_TX_PREFERINCACHE /* keep tx FQDs in-cache even when empty */
 #undef POC_2FWD_RX_TD		/* whether to enable taildrop */
 #define POC_2FWD_RX_TD_THRESH 64000
+#undef POC_BACKOFF		/* consume cycles when EQCR/RCR is full */
+#define POC_BACKOFF_CYCLES	200
 #undef POC_COUNTERS		/* enable counters */
+#define POC_
 
 /* We want a trivial mapping from bpid->pool, so just have a 64-wide array of
  * pointers, most of which are NULL. */
@@ -110,9 +113,11 @@ static inline void drop_frame(const struct qm_fd *fd)
 retry:
 	ret = bman_release(pool[fd->bpid], &buf, 1, 0);
 	if (ret) {
-		/* anything better than this to avoid thrashing but without
-		 * going idle for too long? */
+#ifdef POC_BACKOFF
+		cpu_spin(POC_BACKOFF_CYCLES);
+#else
 		barrier();
+#endif
 		goto retry;
 	}
 }
@@ -123,7 +128,11 @@ static inline void send_frame(struct qman_fq *fq, const struct qm_fd *fd)
 retry:
 	ret = qman_enqueue(fq, fd, 0);
 	if (ret) {
+#ifdef POC_BACKOFF
+		cpu_spin(POC_BACKOFF_CYCLES);
+#else
 		barrier();
+#endif
 		goto retry;
 	}
 }

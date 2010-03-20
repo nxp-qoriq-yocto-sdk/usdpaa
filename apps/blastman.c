@@ -42,6 +42,7 @@
 #define TEST_BPID(n)		(30 + (n))
 #undef MODEL_CHKPT
 #undef DO_CHECKSUMS
+#define RELEASE_BACKOFF		200
 
 /***************/
 /* global vars */
@@ -125,7 +126,7 @@ static void do_releases(struct bman_pool *pool)
 	while (loop) {
 		int err;
 		if (loop == test_start)
-			rel_capture[0] = my_get_timebase();
+			rel_capture[0] = mfatb();
 		/* Loops (and gcc) seem to generate more cycles than the
 		 * interface we're trying to benchmark! Take matters into one's
 		 * own hands... */
@@ -157,12 +158,12 @@ retry:
 		err = bman_release(pool, &bufs[0], NUM_BUFS_PER_RELEASE, 0);
 		if (unlikely(err)) {
 			rel_jam++;
-			barrier();
+			cpu_spin(RELEASE_BACKOFF);
 			goto retry;
 		}
 		loop--;
 	}
-	rel_capture[1] = my_get_timebase();
+	rel_capture[1] = mfatb();
 }
 
 static void do_acquires(struct bman_pool *pool)
@@ -176,7 +177,7 @@ static void do_acquires(struct bman_pool *pool)
 	while (loop) {
 		int err;
 		if (loop == test_start)
-			acq_capture[0] = my_get_timebase();
+			acq_capture[0] = mfatb();
 retry:
 		err = bman_acquire(pool, &bufs[0], NUM_BUFS_PER_RELEASE, 0);
 		if (unlikely(err != NUM_BUFS_PER_RELEASE)) {
@@ -211,7 +212,7 @@ retry:
 #endif
 		loop--;
 	}
-	acq_capture[1] = my_get_timebase();
+	acq_capture[1] = mfatb();
 }
 
 #ifdef MODEL_CHKPT
