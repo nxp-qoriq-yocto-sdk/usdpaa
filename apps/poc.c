@@ -48,8 +48,11 @@
 #define POC_PRIO_2FWD		4 /* rx-hash */
 #define POC_PRIO_2TX		4 /* consumed by Fman */
 #define POC_CHANNEL_TX(n)	(qm_channel_fman0_sp1 + (n))
-#define POC_CHANNEL_RX(n)	qm_channel_pool4
-#define POC_CPU_SDQCR(x)	QM_SDQCR_CHANNELS_POOL(4)
+#define POC_CHANNEL_RX(n)	(qm_channel_pool4 + (n))
+#define POC_CPU_SDQCR(x)	(QM_SDQCR_CHANNELS_POOL(4) | \
+				QM_SDQCR_CHANNELS_POOL(5) | \
+				QM_SDQCR_CHANNELS_POOL(6) | \
+				QM_SDQCR_CHANNELS_POOL(7))
 #define POC_STASH_DATA_CL	1
 #define POC_STASH_CTX_CL(p) \
 ({ \
