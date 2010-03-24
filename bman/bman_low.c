@@ -115,6 +115,17 @@ static inline u8 cyc_diff(u8 ringsize, u8 first, u8 last)
 	return ringsize + last - first;
 }
 
+/* Inlining (and/or loops) can go horribly wrong if the compiler caches
+ * foo->verb - it doesn't realise that dcbi()s and dcbt()s mean that a new
+ * value will show eventually up (it assumes coherency). Use this accessor to
+ * read verb bytes to address this issue. */
+static inline u8 read_verb(volatile void *p)
+{
+	volatile u8 *__p = p;
+	return *__p;
+}
+
+
 /* --------------- */
 /* --- RCR API --- */
 
@@ -358,8 +369,8 @@ int bm_mc_init(struct bm_portal *portal)
 		return -EBUSY;
 	mc->cr = ptr_OR(portal->addr.addr_ce, CL_CR);
 	mc->rr = ptr_OR(portal->addr.addr_ce, CL_RR0);
-	mc->rridx = (mc->cr->__dont_write_directly__verb & BM_MCC_VERB_VBIT) ?
-			0 : 1;
+	mc->rridx = (read_verb(&mc->cr->__dont_write_directly__verb) &
+			BM_MCC_VERB_VBIT) ?  0 : 1;
 	mc->vbit = mc->rridx ? BM_MCC_VERB_VBIT : 0;
 #ifdef CONFIG_FSL_BMAN_CHECKING
 	mc->state = mc_idle;
@@ -425,7 +436,7 @@ struct bm_mc_result *bm_mc_result(struct bm_portal *portal)
 	/* The inactive response register's verb byte always returns zero until
 	 * its command is submitted and completed. This includes the valid-bit,
 	 * in case you were wondering... */
-	if (!rr->verb) {
+	if (!read_verb(&rr->verb)) {
 		dcbi(rr);
 		dcbt_ro(rr);
 		return NULL;

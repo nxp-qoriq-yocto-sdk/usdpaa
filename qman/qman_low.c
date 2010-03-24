@@ -131,6 +131,16 @@ static inline u8 cyc_diff(u8 ringsize, u8 first, u8 last)
 	return ringsize + last - first;
 }
 
+/* Inlining (and/or loops) can go horribly wrong if the compiler caches
+ * foo->verb - it doesn't realise that dcbi()s and dcbt()s mean that a new
+ * value will show eventually up (it assumes coherency). Use this accessor to
+ * read verb bytes to address this issue. */
+static inline u8 read_verb(volatile void *p)
+{
+	volatile u8 *__p = p;
+	return *__p;
+}
+
 
 /* ---------------- */
 /* --- EQCR API --- */
@@ -566,7 +576,7 @@ u8 qm_dqrr_pvb_update(struct qm_portal *portal)
 	register struct qm_dqrr *dqrr = &portal->dqrr;
 	struct qm_dqrr_entry *res = ptr_OR(dqrr->ring, qm_cl(dqrr->pi));
 	QM_ASSERT(dqrr->pmode == qm_dqrr_pvb);
-	if ((res->verb & QM_DQRR_VERB_VBIT) == dqrr->vbit) {
+	if ((read_verb(&res->verb) & QM_DQRR_VERB_VBIT) == dqrr->vbit) {
 		dqrr->pi = (dqrr->pi + 1) & (QM_DQRR_SIZE - 1);
 		if (!dqrr->pi)
 			dqrr->vbit ^= QM_DQRR_VERB_VBIT;
@@ -914,7 +924,7 @@ u8 qm_mr_pvb_update(struct qm_portal *portal)
 	register struct qm_mr *mr = &portal->mr;
 	struct qm_mr_entry *res = ptr_OR(mr->ring, qm_cl(mr->pi));
 	QM_ASSERT(mr->pmode == qm_mr_pvb);
-	if ((res->verb & QM_MR_VERB_VBIT) == mr->vbit) {
+	if ((read_verb(&res->verb) & QM_MR_VERB_VBIT) == mr->vbit) {
 #ifdef CONFIG_FSL_QMAN_BUG_AND_FEATURE_REV1
 		/* New MR entry, on affected chips, copy this to the shadow ring
 		 * and fixup if required. */
@@ -1014,8 +1024,8 @@ int qm_mc_init(struct qm_portal *portal)
 		return -EBUSY;
 	mc->cr = ptr_OR(portal->addr.addr_ce, CL_CR);
 	mc->rr = ptr_OR(portal->addr.addr_ce, CL_RR0);
-	mc->rridx = (mc->cr->__dont_write_directly__verb & QM_MCC_VERB_VBIT) ?
-			0 : 1;
+	mc->rridx = (read_verb(&mc->cr->__dont_write_directly__verb) &
+			QM_MCC_VERB_VBIT) ?  0 : 1;
 	mc->vbit = mc->rridx ? QM_MCC_VERB_VBIT : 0;
 #ifdef CONFIG_FSL_QMAN_CHECKING
 	mc->state = mc_idle;
@@ -1081,7 +1091,7 @@ void qm_mc_commit(struct qm_portal *portal, u8 myverb)
 			dcbi(rr);
 			dcbt_ro(rr);
 			barrier();
-		} while (!rr->verb);
+		} while (!read_verb(&rr->verb));
 #ifdef CONFIG_FSL_QMAN_CHECKING
 		mc->state = mc_idle;
 #endif
@@ -1119,14 +1129,15 @@ struct qm_mc_result *qm_mc_result(struct qm_portal *portal)
 	/* The inactive response register's verb byte always returns zero until
 	 * its command is submitted and completed. This includes the valid-bit,
 	 * in case you were wondering... */
-	if (!rr->verb) {
+	if (!read_verb(&rr->verb)) {
 		dcbi(rr);
 		dcbt_ro(rr);
 		return NULL;
 	}
 #ifdef CONFIG_FSL_QMAN_BUG_AND_FEATURE_REV1
 	if (qman_ip_rev == QMAN_REV1) {
-		if ((rr->verb & QM_MCR_VERB_MASK) == QM_MCR_VERB_QUERYFQ) {
+		if ((read_verb(&rr->verb) & QM_MCR_VERB_MASK) ==
+						QM_MCR_VERB_QUERYFQ) {
 			void *misplaced = (void *)rr + 50;
 			copy_words(&portal->bugs->result, rr, sizeof(*rr));
 			rr = &portal->bugs->result;
