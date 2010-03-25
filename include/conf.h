@@ -41,6 +41,9 @@ extern "C" {
 /* support for BUG_ON()s, might_sleep()s, etc */
 #undef CONFIG_BUGON
 
+/* When copying aligned words or shorts, try to avoid memcpy() */
+#define CONFIG_TRY_BETTER_MEMCPY
+
 /* The driver requires that CENA spaces be 16KB-aligned, whereas mmap() only
  * guarantees 4KB-alignment. Hmm. Workaround is to require *these*
  * [BQ]MAN_*** addresses for now.

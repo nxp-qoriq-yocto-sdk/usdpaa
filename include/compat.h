@@ -349,6 +349,7 @@ static inline int atomic_inc_and_test(atomic_t *v)
 }
 
 /* memcpy() stuff - when you know alignments in advance */
+#ifdef CONFIG_TRY_BETTER_MEMCPY
 static inline void copy_words(void *dest, const void *src, size_t sz)
 {
 	u32 *__dest = dest;
@@ -378,6 +379,11 @@ static inline void copy_bytes(void *dest, const void *src, size_t sz)
 	while (sz--)
 		*(__dest++) = *(__src++);
 }
+#else
+#define copy_words memcpy
+#define copy_shorts memcpy
+#define copy_bytes memcpy
+#endif
 
 /* Spinlock stuff */
 #define spinlock_t		pthread_mutex_t
