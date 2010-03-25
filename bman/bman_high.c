@@ -35,7 +35,7 @@
  * - make RECOVER also handle incomplete mgmt-commands
  */
 
-#include "bman_private.h"
+#include "bman_low.h"
 
 /* Compilation constants */
 #define RCR_THRESH	2	/* reread h/w CI when running out of space */

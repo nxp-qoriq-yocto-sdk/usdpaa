@@ -35,7 +35,7 @@
  * - make RECOVER also handle incomplete mgmt-commands
  */
 
-#include "qman_private.h"
+#include "qman_low.h"
 
 /* Compilation constants */
 #define DQRR_MAXFILL	15

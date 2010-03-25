@@ -151,7 +151,7 @@ static inline void RCR_INC(struct bm_rcr *rcr)
 		rcr->vbit ^= BM_RCR_VERB_VBIT;
 }
 
-int bm_rcr_init(struct bm_portal *portal, enum bm_rcr_pmode pmode,
+static inline int bm_rcr_init(struct bm_portal *portal, enum bm_rcr_pmode pmode,
 		__maybe_unused enum bm_rcr_cmode cmode)
 {
 	/* This use of 'register', as well as all other occurances, is because
@@ -179,9 +179,8 @@ int bm_rcr_init(struct bm_portal *portal, enum bm_rcr_pmode pmode,
 	bm_out(CFG, cfg);
 	return 0;
 }
-EXPORT_SYMBOL(bm_rcr_init);
 
-void bm_rcr_finish(struct bm_portal *portal)
+static inline void bm_rcr_finish(struct bm_portal *portal)
 {
 	register struct bm_rcr *rcr = &portal->rcr;
 	u8 pi = bm_in(RCR_PI_CINH) & (BM_RCR_SIZE - 1);
@@ -195,9 +194,8 @@ void bm_rcr_finish(struct bm_portal *portal)
 		pr_crit("RCR destroyed unquiesced\n");
 	__bm_portal_unbind(portal, BM_BIND_RCR);
 }
-EXPORT_SYMBOL(bm_rcr_finish);
 
-struct bm_rcr_entry *bm_rcr_start(struct bm_portal *portal)
+static inline struct bm_rcr_entry *bm_rcr_start(struct bm_portal *portal)
 {
 	register struct bm_rcr *rcr = &portal->rcr;
 	BM_ASSERT(!rcr->busy);
@@ -209,9 +207,8 @@ struct bm_rcr_entry *bm_rcr_start(struct bm_portal *portal)
 	dcbzl(rcr->cursor);
 	return rcr->cursor;
 }
-EXPORT_SYMBOL(bm_rcr_start);
 
-void bm_rcr_abort(struct bm_portal *portal)
+static inline void bm_rcr_abort(struct bm_portal *portal)
 {
 	__maybe_unused register struct bm_rcr *rcr = &portal->rcr;
 	BM_ASSERT(rcr->busy);
@@ -219,9 +216,9 @@ void bm_rcr_abort(struct bm_portal *portal)
 	rcr->busy = 0;
 #endif
 }
-EXPORT_SYMBOL(bm_rcr_abort);
 
-struct bm_rcr_entry *bm_rcr_pend_and_next(struct bm_portal *portal, u8 myverb)
+static inline struct bm_rcr_entry *bm_rcr_pend_and_next(
+					struct bm_portal *portal, u8 myverb)
 {
 	register struct bm_rcr *rcr = &portal->rcr;
 	BM_ASSERT(rcr->busy);
@@ -235,9 +232,8 @@ struct bm_rcr_entry *bm_rcr_pend_and_next(struct bm_portal *portal, u8 myverb)
 	dcbzl(rcr->cursor);
 	return rcr->cursor;
 }
-EXPORT_SYMBOL(bm_rcr_pend_and_next);
 
-void bm_rcr_pci_commit(struct bm_portal *portal, u8 myverb)
+static inline void bm_rcr_pci_commit(struct bm_portal *portal, u8 myverb)
 {
 	register struct bm_rcr *rcr = &portal->rcr;
 	BM_ASSERT(rcr->busy);
@@ -251,18 +247,16 @@ void bm_rcr_pci_commit(struct bm_portal *portal, u8 myverb)
 	rcr->busy = 0;
 #endif
 }
-EXPORT_SYMBOL(bm_rcr_pci_commit);
 
-void bm_rcr_pce_prefetch(struct bm_portal *portal)
+static inline void bm_rcr_pce_prefetch(struct bm_portal *portal)
 {
 	__maybe_unused register struct bm_rcr *rcr = &portal->rcr;
 	BM_ASSERT(rcr->pmode == bm_rcr_pce);
 	bm_cl_invalidate(RCR_PI);
 	bm_cl_touch_rw(RCR_PI);
 }
-EXPORT_SYMBOL(bm_rcr_pce_prefetch);
 
-void bm_rcr_pce_commit(struct bm_portal *portal, u8 myverb)
+static inline void bm_rcr_pce_commit(struct bm_portal *portal, u8 myverb)
 {
 	register struct bm_rcr *rcr = &portal->rcr;
 	BM_ASSERT(rcr->busy);
@@ -276,9 +270,8 @@ void bm_rcr_pce_commit(struct bm_portal *portal, u8 myverb)
 	rcr->busy = 0;
 #endif
 }
-EXPORT_SYMBOL(bm_rcr_pce_commit);
 
-void bm_rcr_pvb_commit(struct bm_portal *portal, u8 myverb)
+static inline void bm_rcr_pvb_commit(struct bm_portal *portal, u8 myverb)
 {
 	register struct bm_rcr *rcr = &portal->rcr;
 	struct bm_rcr_entry *rcursor;
@@ -294,9 +287,8 @@ void bm_rcr_pvb_commit(struct bm_portal *portal, u8 myverb)
 	rcr->busy = 0;
 #endif
 }
-EXPORT_SYMBOL(bm_rcr_pvb_commit);
 
-u8 bm_rcr_cci_update(struct bm_portal *portal)
+static inline u8 bm_rcr_cci_update(struct bm_portal *portal)
 {
 	register struct bm_rcr *rcr = &portal->rcr;
 	u8 diff, old_ci = rcr->ci;
@@ -306,17 +298,15 @@ u8 bm_rcr_cci_update(struct bm_portal *portal)
 	rcr->available += diff;
 	return diff;
 }
-EXPORT_SYMBOL(bm_rcr_cci_update);
 
-void bm_rcr_cce_prefetch(struct bm_portal *portal)
+static inline void bm_rcr_cce_prefetch(struct bm_portal *portal)
 {
 	__maybe_unused register struct bm_rcr *rcr = &portal->rcr;
 	BM_ASSERT(rcr->cmode == bm_rcr_cce);
 	bm_cl_touch_ro(RCR_CI);
 }
-EXPORT_SYMBOL(bm_rcr_cce_prefetch);
 
-u8 bm_rcr_cce_update(struct bm_portal *portal)
+static inline u8 bm_rcr_cce_update(struct bm_portal *portal)
 {
 	register struct bm_rcr *rcr = &portal->rcr;
 	u8 diff, old_ci = rcr->ci;
@@ -327,42 +317,37 @@ u8 bm_rcr_cce_update(struct bm_portal *portal)
 	rcr->available += diff;
 	return diff;
 }
-EXPORT_SYMBOL(bm_rcr_cce_update);
 
-u8 bm_rcr_get_ithresh(struct bm_portal *portal)
+static inline u8 bm_rcr_get_ithresh(struct bm_portal *portal)
 {
 	register struct bm_rcr *rcr = &portal->rcr;
 	return rcr->ithresh;
 }
-EXPORT_SYMBOL(bm_rcr_get_ithresh);
 
-void bm_rcr_set_ithresh(struct bm_portal *portal, u8 ithresh)
+static inline void bm_rcr_set_ithresh(struct bm_portal *portal, u8 ithresh)
 {
 	register struct bm_rcr *rcr = &portal->rcr;
 	rcr->ithresh = ithresh;
 	bm_out(RCR_ITR, ithresh);
 }
-EXPORT_SYMBOL(bm_rcr_set_ithresh);
 
-u8 bm_rcr_get_avail(struct bm_portal *portal)
+static inline u8 bm_rcr_get_avail(struct bm_portal *portal)
 {
 	register struct bm_rcr *rcr = &portal->rcr;
 	return rcr->available;
 }
-EXPORT_SYMBOL(bm_rcr_get_avail);
 
-u8 bm_rcr_get_fill(struct bm_portal *portal)
+static inline u8 bm_rcr_get_fill(struct bm_portal *portal)
 {
 	register struct bm_rcr *rcr = &portal->rcr;
 	return BM_RCR_SIZE - 1 - rcr->available;
 }
-EXPORT_SYMBOL(bm_rcr_get_fill);
 
 
 /* ------------------------------ */
 /* --- Management command API --- */
 
-int bm_mc_init(struct bm_portal *portal)
+static inline int bm_mc_init(struct bm_portal *portal)
 {
 	register struct bm_mc *mc = &portal->mc;
 	if (__bm_portal_bind(portal, BM_BIND_MC))
@@ -377,9 +362,8 @@ int bm_mc_init(struct bm_portal *portal)
 #endif
 	return 0;
 }
-EXPORT_SYMBOL(bm_mc_init);
 
-void bm_mc_finish(struct bm_portal *portal)
+static inline void bm_mc_finish(struct bm_portal *portal)
 {
 	__maybe_unused register struct bm_mc *mc = &portal->mc;
 	BM_ASSERT(mc->state == mc_idle);
@@ -389,9 +373,8 @@ void bm_mc_finish(struct bm_portal *portal)
 #endif
 	__bm_portal_unbind(portal, BM_BIND_MC);
 }
-EXPORT_SYMBOL(bm_mc_finish);
 
-struct bm_mc_command *bm_mc_start(struct bm_portal *portal)
+static inline struct bm_mc_command *bm_mc_start(struct bm_portal *portal)
 {
 	register struct bm_mc *mc = &portal->mc;
 	BM_ASSERT(mc->state == mc_idle);
@@ -401,9 +384,8 @@ struct bm_mc_command *bm_mc_start(struct bm_portal *portal)
 	dcbzl(mc->cr);
 	return mc->cr;
 }
-EXPORT_SYMBOL(bm_mc_start);
 
-void bm_mc_abort(struct bm_portal *portal)
+static inline void bm_mc_abort(struct bm_portal *portal)
 {
 	__maybe_unused register struct bm_mc *mc = &portal->mc;
 	BM_ASSERT(mc->state == mc_user);
@@ -411,9 +393,8 @@ void bm_mc_abort(struct bm_portal *portal)
 	mc->state = mc_idle;
 #endif
 }
-EXPORT_SYMBOL(bm_mc_abort);
 
-void bm_mc_commit(struct bm_portal *portal, u8 myverb)
+static inline void bm_mc_commit(struct bm_portal *portal, u8 myverb)
 {
 	register struct bm_mc *mc = &portal->mc;
 	BM_ASSERT(mc->state == mc_user);
@@ -426,9 +407,8 @@ void bm_mc_commit(struct bm_portal *portal, u8 myverb)
 	mc->state = mc_hw;
 #endif
 }
-EXPORT_SYMBOL(bm_mc_commit);
 
-struct bm_mc_result *bm_mc_result(struct bm_portal *portal)
+static inline struct bm_mc_result *bm_mc_result(struct bm_portal *portal)
 {
 	register struct bm_mc *mc = &portal->mc;
 	struct bm_mc_result *rr = mc->rr + mc->rridx;
@@ -448,29 +428,27 @@ struct bm_mc_result *bm_mc_result(struct bm_portal *portal)
 #endif
 	return rr;
 }
-EXPORT_SYMBOL(bm_mc_result);
 
 
 /* ------------------------------------- */
 /* --- Portal interrupt register API --- */
 
-int bm_isr_init(struct bm_portal *portal)
+static inline int bm_isr_init(struct bm_portal *portal)
 {
 	if (__bm_portal_bind(portal, BM_BIND_ISR))
 		return -EBUSY;
 	return 0;
 }
-EXPORT_SYMBOL(bm_isr_init);
 
-void bm_isr_finish(struct bm_portal *portal)
+static inline void bm_isr_finish(struct bm_portal *portal)
 {
 	__bm_portal_unbind(portal, BM_BIND_ISR);
 }
-EXPORT_SYMBOL(bm_isr_finish);
 
 #define SCN_REG(bpid) REG_SCN((bpid) / 32)
 #define SCN_BIT(bpid) (0x80000000 >> (bpid & 31))
-void bm_isr_bscn_mask(struct bm_portal *portal, u8 bpid, int enable)
+static inline void bm_isr_bscn_mask(struct bm_portal *portal, u8 bpid,
+					int enable)
 {
 	u32 val;
 	BM_ASSERT(bpid < 64);
@@ -482,17 +460,15 @@ void bm_isr_bscn_mask(struct bm_portal *portal, u8 bpid, int enable)
 		val &= ~SCN_BIT(bpid);
 	__bm_out(&portal->addr, SCN_REG(bpid), val);
 }
-EXPORT_SYMBOL(bm_isr_bscn_mask);
 
-u32 __bm_isr_read(struct bm_portal *portal, enum bm_isr_reg n)
+static inline u32 __bm_isr_read(struct bm_portal *portal, enum bm_isr_reg n)
 {
 	return __bm_in(&portal->addr, REG_ISR + (n << 2));
 }
-EXPORT_SYMBOL(__bm_isr_read);
 
-void __bm_isr_write(struct bm_portal *portal, enum bm_isr_reg n, u32 val)
+static inline void __bm_isr_write(struct bm_portal *portal, enum bm_isr_reg n,
+					u32 val)
 {
 	__bm_out(&portal->addr, REG_ISR + (n << 2), val);
 }
-EXPORT_SYMBOL(__bm_isr_write);
 
