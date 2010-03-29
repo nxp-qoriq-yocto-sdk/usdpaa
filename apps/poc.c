@@ -214,7 +214,8 @@ static void poc_fq_2tx_init(struct poc_fq_2tx *p, u32 fqid,
 	p->fq.cb.ern = cb_ern_2tx;
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_TO_DCPORTAL, &p->fq);
 	BUG_ON(ret);
-	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL;
+	opts.we_mask = QM_INITFQ_WE_DESTWQ	| QM_INITFQ_WE_FQCTRL	|
+		       QM_INITFQ_WE_CONTEXTB	| QM_INITFQ_WE_CONTEXTA;
 	opts.fqd.dest.channel = channel;
 	opts.fqd.dest.wq = POC_PRIO_2TX;
 	opts.fqd.fq_ctrl =
@@ -222,6 +223,9 @@ static void poc_fq_2tx_init(struct poc_fq_2tx *p, u32 fqid,
 		QM_FQCTRL_PREFERINCACHE |
 #endif
 		0;
+	opts.fqd.context_b = 0;
+	opts.fqd.context_a.hi = 0x80000000;
+	opts.fqd.context_a.lo = 0;
 	ret = qman_init_fq(&p->fq, QMAN_INITFQ_FLAG_SCHED, &opts);
 	BUG_ON(ret);
 }
