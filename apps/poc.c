@@ -50,7 +50,7 @@
 #define POC_PRIO_2DROP		3 /* error/default/etc */
 #define POC_PRIO_2FWD		4 /* rx-hash */
 #define POC_PRIO_2TX		4 /* consumed by Fman */
-#define POC_CHANNEL_TX(n)	(qm_channel_fman0_sp1 + (n))
+#define POC_CHANNEL_TX(n)	((qm_channel_fman0_sp0 + 0x20 * ((n) / 5)) + ((n) + 1) % 5)
 #define POC_STASH_DATA_CL	1
 #define POC_STASH_CTX_CL(p) \
 ({ \
