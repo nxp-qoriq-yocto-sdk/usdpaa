@@ -75,9 +75,9 @@
  * pointers, most of which are NULL. */
 static struct bman_pool *pool[64];
 
-/********************/
-/* common functions */
-/********************/
+/**********/
+/* macros */
+/**********/
 
 /* Construct the SDQCR mask */
 #define POC_CPU_SDQCR(x) \
@@ -103,6 +103,50 @@ static struct bman_pool *pool[64];
 #define CNT_ZERO(a) do { ; } while (0)
 #define CNT_INC(a)  do { ; } while (0)
 #endif
+
+/*******************/
+/* Data structures */
+/*******************/
+
+/* Rx FQs that count packets and drop (ie. "Rx error", "Rx default", "Tx
+ * error", "Tx confirm"). */
+struct poc_fq_2drop {
+	struct qman_fq fq;
+	CNT(cnt);
+};
+
+/* Tx FQs that count EQs and ERNs (later <= former, obviously). */
+struct poc_fq_2tx {
+	struct qman_fq fq;
+	CNT(cnt);
+	CNT(cnt_ern);
+};
+
+/* Rx FQs that fwd, count packets and drop-decisions. */
+struct poc_fq_2fwd {
+	struct qman_fq fq;
+	CNT(cnt);
+	CNT(cnt_drop_bcast);
+	CNT(cnt_drop_arp);
+	CNT(cnt_drop_other);
+	struct poc_fq_2tx *tx;
+} ____cacheline_aligned;
+
+/* Each DTSEC i/face (fm1-dtsec[0123]) has one of these */
+struct poc_if {
+	struct poc_fq_2fwd rx_hash[POC_RX_HASH_SIZE];
+	struct poc_fq_2drop rx_error;
+	struct poc_fq_2drop rx_default;
+	struct poc_fq_2drop tx_error;
+	struct poc_fq_2drop tx_confirm;
+	struct poc_fq_2tx tx;
+	enum qm_channel rx_channel_id;
+	enum qm_channel tx_channel_id;
+} ____cacheline_aligned;
+
+/********************/
+/* common functions */
+/********************/
 
 /* Rx handling either leads to a forward (qman enqueue) or a drop (bman
  * release). In either case, we're in the callback so can't "block" (by using a
@@ -149,13 +193,6 @@ retry:
 /* struct poc_fq_2drop */
 /***********************/
 
-/* Rx FQs that count packets and drop (ie. "Rx error", "Rx default", "Tx
- * error", "Tx confirm"). */
-struct poc_fq_2drop {
-	struct qman_fq fq;
-	CNT(cnt);
-};
-
 static enum qman_cb_dqrr_result cb_dqrr_2drop(struct qman_portal *qm,
 					struct qman_fq *fq,
 					const struct qm_dqrr_entry *dqrr)
@@ -192,13 +229,6 @@ static void poc_fq_2drop_init(struct poc_fq_2drop *p, u32 fqid,
 /*********************/
 /* struct poc_fq_2tx */
 /*********************/
-
-/* Tx FQs that count EQs and ERNs (later <= former, obviously). */
-struct poc_fq_2tx {
-	struct qman_fq fq;
-	CNT(cnt);
-	CNT(cnt_ern);
-};
 
 static void cb_ern_2tx(struct qman_portal *qm, struct qman_fq *fq,
 				const struct qm_mr_entry *msg)
@@ -247,16 +277,6 @@ static void poc_fq_2tx_send(struct poc_fq_2tx *p, const struct qm_fd *fd)
 /**********************/
 /* struct poc_fq_2fwd */
 /**********************/
-
-/* Rx FQs that fwd, count packets and drop-decisions. */
-struct poc_fq_2fwd {
-	struct qman_fq fq;
-	CNT(cnt);
-	CNT(cnt_drop_bcast);
-	CNT(cnt_drop_arp);
-	CNT(cnt_drop_other);
-	struct poc_fq_2tx *tx;
-} ____cacheline_aligned;
 
 /* Swap 6-byte MAC headers "efficiently" (hopefully) */
 static inline void ether_header_swap(struct ether_header *prot_eth)
@@ -396,17 +416,6 @@ static void poc_fq_2fwd_init(struct poc_fq_2fwd *p, u32 fqid,
 /* struct poc_if */
 /*****************/
 
-/* Each DTSEC i/face (fm1-dtsec[0123]) has one of these */
-struct poc_if {
-	struct poc_fq_2fwd rx_hash[POC_RX_HASH_SIZE];
-	struct poc_fq_2drop rx_error;
-	struct poc_fq_2drop rx_default;
-	struct poc_fq_2drop tx_error;
-	struct poc_fq_2drop tx_confirm;
-	struct poc_fq_2tx tx;
-	enum qm_channel tx_channel_id;
-} ____cacheline_aligned;
-
 /* Pick which pool channel to schedule a(ny) Rx FQ to using a 32-bit LFSR and
  * 'modulo'. This should help us avoid any bad harmonies, eg. if we just
  * scrolled round the pool channels in order, we could have all Rx errors come
@@ -422,7 +431,6 @@ static enum qm_channel get_rxc(void)
 	n = POC_POOLCHANNEL_FIRST + (tmp % POC_POOLCHANNEL_NUM);
 	return qm_channel_pool1 + (n - 1);
 }
-
 
 static void poc_if_init(struct poc_if *i, int idx)
 {
