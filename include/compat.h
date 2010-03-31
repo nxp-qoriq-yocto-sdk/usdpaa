@@ -251,6 +251,26 @@ static inline void out_be32(volatile void *__p, u32 val)
 #define dcbi(p) dcbf(p)
 #define cpu_relax()	do { ; } while(0)
 
+/* Alternate Time Base */
+#define SPR_ATBL	526
+#define SPR_ATBU	527
+#define mfspr(reg) \
+({ \
+	register_t ret; \
+	asm volatile("mfspr %0, %1" : "=r" (ret) : "i" (reg) : "memory"); \
+	ret; \
+})
+static inline uint64_t mfatb(void)
+{
+	uint32_t hi, lo, chk;
+	do {
+		hi = mfspr(SPR_ATBU);
+		lo = mfspr(SPR_ATBL);
+		chk = mfspr(SPR_ATBU);
+	} while (unlikely(hi != chk));
+	return (uint64_t) hi << 32 | (uint64_t) lo;
+}
+
 /* SMP stuff */
 #define DEFINE_PER_CPU(t,x)	__thread t per_cpu__##x
 #define per_cpu(x,c)		per_cpu__##x
@@ -327,6 +347,43 @@ static inline int atomic_inc_and_test(atomic_t *v)
 {
 	return (__atomic_add((unsigned long *)v, 1)) == 0;
 }
+
+/* memcpy() stuff - when you know alignments in advance */
+#ifdef CONFIG_TRY_BETTER_MEMCPY
+static inline void copy_words(void *dest, const void *src, size_t sz)
+{
+	u32 *__dest = dest;
+	const u32 *__src = src;
+	size_t __sz = sz >> 2;
+	BUG_ON((unsigned long)dest & 0x3);
+	BUG_ON((unsigned long)src & 0x3);
+	BUG_ON(sz & 0x3);
+	while (__sz--)
+		*(__dest++) = *(__src++);
+}
+static inline void copy_shorts(void *dest, const void *src, size_t sz)
+{
+	u16 *__dest = dest;
+	const u16 *__src = src;
+	size_t __sz = sz >> 1;
+	BUG_ON((unsigned long)dest & 0x1);
+	BUG_ON((unsigned long)src & 0x1);
+	BUG_ON(sz & 0x1);
+	while (__sz--)
+		*(__dest++) = *(__src++);
+}
+static inline void copy_bytes(void *dest, const void *src, size_t sz)
+{
+	u8 *__dest = dest;
+	const u8 *__src = src;
+	while (sz--)
+		*(__dest++) = *(__src++);
+}
+#else
+#define copy_words memcpy
+#define copy_shorts memcpy
+#define copy_bytes memcpy
+#endif
 
 /* Spinlock stuff */
 #define spinlock_t		pthread_mutex_t

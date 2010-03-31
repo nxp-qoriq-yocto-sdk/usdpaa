@@ -35,7 +35,7 @@
 /* if defined, be lippy about everything */
 #undef POC_TRACE
 
-/* application settings/configuration */
+/* application configuration */
 #define POC_RX_HASH_SIZE	0x20
 #define POC_IF_NUM		4
 #define POC_FQID_RX_ERROR(n)	(0x50 + 2*(n))
@@ -48,8 +48,11 @@
 #define POC_PRIO_2FWD		4 /* rx-hash */
 #define POC_PRIO_2TX		4 /* consumed by Fman */
 #define POC_CHANNEL_TX(n)	(qm_channel_fman0_sp1 + (n))
-#define POC_CHANNEL_RX(n)	qm_channel_pool4
-#define POC_CPU_SDQCR(x)	QM_SDQCR_CHANNELS_POOL(4)
+#define POC_CHANNEL_RX(n)	(qm_channel_pool4 + (n))
+#define POC_CPU_SDQCR(x)	(QM_SDQCR_CHANNELS_POOL(4) | \
+				QM_SDQCR_CHANNELS_POOL(5) | \
+				QM_SDQCR_CHANNELS_POOL(6) | \
+				QM_SDQCR_CHANNELS_POOL(7))
 #define POC_STASH_DATA_CL	1
 #define POC_STASH_CTX_CL(p) \
 ({ \
@@ -60,6 +63,17 @@
 	foolen; \
 })
 #define POC_BPIDS		{7, 8, 9}
+
+/* application options */
+#undef POC_2FWD_HOLDACTIVE	/* process each FQ on one cpu at a time */
+#define POC_2FWD_RX_PREFERINCACHE /* keep rx FQDs in-cache even when empty */
+#define POC_2FWD_TX_PREFERINCACHE /* keep tx FQDs in-cache even when empty */
+#undef POC_2FWD_RX_TD		/* whether to enable taildrop */
+#define POC_2FWD_RX_TD_THRESH 64000
+#undef POC_BACKOFF		/* consume cycles when EQCR/RCR is full */
+#define POC_BACKOFF_CYCLES	200
+#undef POC_COUNTERS		/* enable counters */
+#define POC_
 
 /* We want a trivial mapping from bpid->pool, so just have a 64-wide array of
  * pointers, most of which are NULL. */
@@ -73,6 +87,16 @@ static struct bman_pool *pool[64];
 #define TRACE		printf
 #else
 #define TRACE(x...)	do { ; } while(0)
+#endif
+
+#ifdef POC_COUNTERS
+#define CNT(a)      struct bigatomic a
+#define CNT_ZERO(a) bigatomic_set(a, 0)
+#define CNT_INC(a)  bigatomic_inc(a)
+#else
+#define CNT(a)      struct { }
+#define CNT_ZERO(a) do { ; } while (0)
+#define CNT_INC(a)  do { ; } while (0)
 #endif
 
 /* Rx handling either leads to a forward (qman enqueue) or a drop (bman
@@ -92,9 +116,11 @@ static inline void drop_frame(const struct qm_fd *fd)
 retry:
 	ret = bman_release(pool[fd->bpid], &buf, 1, 0);
 	if (ret) {
-		/* anything better than this to avoid thrashing but without
-		 * going idle for too long? */
+#ifdef POC_BACKOFF
+		cpu_spin(POC_BACKOFF_CYCLES);
+#else
 		barrier();
+#endif
 		goto retry;
 	}
 }
@@ -105,7 +131,11 @@ static inline void send_frame(struct qman_fq *fq, const struct qm_fd *fd)
 retry:
 	ret = qman_enqueue(fq, fd, 0);
 	if (ret) {
+#ifdef POC_BACKOFF
+		cpu_spin(POC_BACKOFF_CYCLES);
+#else
 		barrier();
+#endif
 		goto retry;
 	}
 }
@@ -118,16 +148,17 @@ retry:
  * error", "Tx confirm"). */
 struct poc_fq_2drop {
 	struct qman_fq fq;
-	struct bigatomic cnt;
+	CNT(cnt);
 };
 
 static enum qman_cb_dqrr_result cb_dqrr_2drop(struct qman_portal *qm,
 					struct qman_fq *fq,
 					const struct qm_dqrr_entry *dqrr)
 {
-	struct poc_fq_2drop *p = container_of(fq, struct poc_fq_2drop, fq);
+	__maybe_unused struct poc_fq_2drop *p = container_of(fq,
+					struct poc_fq_2drop, fq);
 	TRACE("Rx: 2drop fqid=%d\n", fq->fqid);
-	bigatomic_inc(&p->cnt);
+	CNT_INC(&p->cnt);
 	drop_frame(&dqrr->fd);
 	return qman_cb_dqrr_consume;
 }
@@ -137,7 +168,7 @@ static void poc_fq_2drop_init(struct poc_fq_2drop *p, u32 fqid,
 {
 	struct qm_mcc_initfq opts;
 	int ret;
-	bigatomic_set(&p->cnt, 0);
+	CNT_ZERO(&p->cnt);
 	p->fq.cb.dqrr = cb_dqrr_2drop;
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_NO_ENQUEUE, &p->fq);
 	BUG_ON(ret);
@@ -160,15 +191,16 @@ static void poc_fq_2drop_init(struct poc_fq_2drop *p, u32 fqid,
 /* Tx FQs that count EQs and ERNs (later <= former, obviously). */
 struct poc_fq_2tx {
 	struct qman_fq fq;
-	struct bigatomic cnt;
-	struct bigatomic cnt_ern;
+	CNT(cnt);
+	CNT(cnt_ern);
 };
 
 static void cb_ern_2tx(struct qman_portal *qm, struct qman_fq *fq,
 				const struct qm_mr_entry *msg)
 {
-	struct poc_fq_2tx *p = container_of(fq, struct poc_fq_2tx, fq);
-	bigatomic_inc(&p->cnt_ern);
+	__maybe_unused struct poc_fq_2tx *p = container_of(fq,
+					struct poc_fq_2tx, fq);
+	CNT_INC(&p->cnt_ern);
 	drop_frame(&msg->ern.fd);
 }
 
@@ -177,15 +209,20 @@ static void poc_fq_2tx_init(struct poc_fq_2tx *p, u32 fqid,
 {
 	struct qm_mcc_initfq opts;
 	int ret;
-	bigatomic_set(&p->cnt, 0);
-	bigatomic_set(&p->cnt_ern, 0);
+	CNT_ZERO(&p->cnt);
+	CNT_ZERO(&p->cnt_ern);
 	p->fq.cb.ern = cb_ern_2tx;
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_TO_DCPORTAL, &p->fq);
 	BUG_ON(ret);
-	opts.we_mask = QM_INITFQ_WE_DESTWQ	|
+	opts.we_mask = QM_INITFQ_WE_DESTWQ	| QM_INITFQ_WE_FQCTRL	|
 		       QM_INITFQ_WE_CONTEXTB	| QM_INITFQ_WE_CONTEXTA;
 	opts.fqd.dest.channel = channel;
 	opts.fqd.dest.wq = POC_PRIO_2TX;
+	opts.fqd.fq_ctrl =
+#ifdef POC_2FWD_TX_PREFERINCACHE
+		QM_FQCTRL_PREFERINCACHE |
+#endif
+		0;
 	opts.fqd.context_b = 0;
 	opts.fqd.context_a.hi = 0x80000000;
 	opts.fqd.context_a.lo = 0;
@@ -198,7 +235,7 @@ static void poc_fq_2tx_send(struct poc_fq_2tx *p, const struct qm_fd *fd)
 	TRACE("Tx: 2tx   fqid=%d\n", p->fq.fqid);
 	TRACE("      phys=0x%08x, offset=%d, len=%d, bpid=%d\n",
 		fd->addr_lo, fd->offset, fd->length20, fd->bpid);
-	bigatomic_inc(&p->cnt);
+	CNT_INC(&p->cnt);
 	send_frame(&p->fq, fd);
 }
 
@@ -209,12 +246,25 @@ static void poc_fq_2tx_send(struct poc_fq_2tx *p, const struct qm_fd *fd)
 /* Rx FQs that fwd, count packets and drop-decisions. */
 struct poc_fq_2fwd {
 	struct qman_fq fq;
-	struct bigatomic cnt;
-	struct bigatomic cnt_drop_bcast;
-	struct bigatomic cnt_drop_arp;
-	struct bigatomic cnt_drop_other;
+	CNT(cnt);
+	CNT(cnt_drop_bcast);
+	CNT(cnt_drop_arp);
+	CNT(cnt_drop_other);
 	struct poc_fq_2tx *tx;
 } ____cacheline_aligned;
+
+/* Swap 6-byte MAC headers "efficiently" (hopefully) */
+static inline void ether_header_swap(struct ether_header *prot_eth)
+{
+	register u32 a, b, c;
+	u32 *overlay = (u32 *)prot_eth;
+	a = overlay[0];
+	b = overlay[1];
+	c = overlay[2];
+	overlay[0] = (b << 16) | (c >> 16);
+	overlay[1] = (c << 16) | (a >> 16);
+	overlay[2] = (a << 16) | (b >> 16);
+}
 
 static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 					struct qman_fq *fq,
@@ -232,7 +282,7 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		fd->addr_lo, addr, fd->offset, fd->length20, fd->bpid);
 	addr += fd->offset;
 	prot_eth = addr;
-	bigatomic_inc(&p->cnt);
+	CNT_INC(&p->cnt);
 	TRACE("      dhost=%02x:%02x:%02x:%02x:%02x:%02x\n",
 		prot_eth->ether_dhost[0], prot_eth->ether_dhost[1],
 		prot_eth->ether_dhost[2], prot_eth->ether_dhost[3],
@@ -242,11 +292,10 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		prot_eth->ether_shost[2], prot_eth->ether_shost[3],
 		prot_eth->ether_shost[4], prot_eth->ether_shost[5]);
 	TRACE("      ether_type=%04x\n", prot_eth->ether_type);
-	/* Eliminate ethernet broadcasts. memcpy() would be cleaner, but
-	 * probably slower... */
+	/* Eliminate ethernet broadcasts. */
 	if (prot_eth->ether_dhost[0] & 0x01) {
 		TRACE("      -> dropping broadcast packet\n");
-		bigatomic_inc(&p->cnt_drop_bcast);
+		CNT_INC(&p->cnt_drop_bcast);
 	} else
 	switch (prot_eth->ether_type)
 	{
@@ -255,7 +304,6 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		{
 		struct iphdr *iphdr = addr + 14;
 		__be32 tmp;
-		struct ether_addr tmp2;
 #ifdef POC_TRACE
 		u8 *src = (void *)&iphdr->saddr;
 		u8 *dst = (void *)&iphdr->daddr;
@@ -274,12 +322,8 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		tmp = iphdr->daddr;
 		iphdr->daddr = iphdr->saddr;
 		iphdr->saddr = tmp;
-		/* switch ethernet src/dest MAC addresses (we're aligned so
-		 * should try to do better than memcpy()...) */
-		memcpy(&tmp2, prot_eth->ether_dhost, sizeof(tmp2));
-		memcpy(prot_eth->ether_dhost, prot_eth->ether_shost,
-			sizeof(tmp2));
-		memcpy(prot_eth->ether_shost, &tmp2, sizeof(tmp2));
+		/* switch ethernet src/dest MAC addresses */
+		ether_header_swap(prot_eth);
 		}
 		poc_fq_2tx_send(p->tx, fd);
 		return qman_cb_dqrr_consume;
@@ -294,13 +338,13 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		}
 #endif
 		TRACE("           -> dropping ARP packet\n");
-		bigatomic_inc(&p->cnt_drop_arp);
+		CNT_INC(&p->cnt_drop_arp);
 		break;
 	default:
 		TRACE("        -> it's UNKNOWN (!!) type 0x%04x\n",
 			prot_eth->ether_type);
 		TRACE("           -> dropping unknown packet\n");
-		bigatomic_inc(&p->cnt_drop_other);
+		CNT_INC(&p->cnt_drop_other);
 	}
 	drop_frame(fd);
 	return qman_cb_dqrr_consume;
@@ -311,22 +355,34 @@ static void poc_fq_2fwd_init(struct poc_fq_2fwd *p, u32 fqid,
 {
 	struct qm_mcc_initfq opts;
 	int ret;
-	bigatomic_set(&p->cnt, 0);
-	bigatomic_set(&p->cnt_drop_bcast, 0);
-	bigatomic_set(&p->cnt_drop_arp, 0);
-	bigatomic_set(&p->cnt_drop_other, 0);
+	CNT_ZERO(&p->cnt);
+	CNT_ZERO(&p->cnt_drop_bcast);
+	CNT_ZERO(&p->cnt_drop_arp);
+	CNT_ZERO(&p->cnt_drop_other);
 	p->tx = tx;
 	p->fq.cb.dqrr = cb_dqrr_2fwd;
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_NO_ENQUEUE, &p->fq);
 	BUG_ON(ret);
 	/* FIXME: no taildrop/holdactive for "2fwd" FQs */
 	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
-			QM_INITFQ_WE_CONTEXTA;
+			QM_INITFQ_WE_CONTEXTA | QM_INITFQ_WE_TDTHRESH;
 	opts.fqd.dest.channel = channel;
 	opts.fqd.dest.wq = POC_PRIO_2FWD;
-	opts.fqd.fq_ctrl = QM_FQCTRL_CTXASTASHING;
+	opts.fqd.fq_ctrl =
+#ifdef POC_2FWD_HOLDACTIVE
+		QM_FQCTRL_HOLDACTIVE |
+#endif
+#ifdef POC_2FWD_RX_PREFERINCACHE
+		QM_FQCTRL_PREFERINCACHE |
+#endif
+#ifdef POC_2FWD_RX_TD
+		QM_FQCTRL_TDE |
+#endif
+		QM_FQCTRL_CTXASTASHING;
 	opts.fqd.context_a.stashing.data_cl = 1;
 	opts.fqd.context_a.stashing.context_cl = POC_STASH_CTX_CL(p);
+	ret = qm_fqd_taildrop_set(&opts.fqd.td, POC_2FWD_RX_TD_THRESH, 0);
+	BUG_ON(ret);
 	ret = qman_init_fq(&p->fq, QMAN_INITFQ_FLAG_SCHED, &opts);
 	BUG_ON(ret);
 }

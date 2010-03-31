@@ -40,6 +40,7 @@
 #define NUM_CPUS	2
 #undef MODEL_CHKPT
 #undef TEST_FD
+#define ENQUEUE_BACKOFF	200
 
 /*************************************/
 /* Predeclarations (eg. for fq_base) */
@@ -145,12 +146,12 @@ static void do_enqueues(struct qman_fq *fq)
 	while (loop) {
 		int err;
 		if (loop == test_start)
-			eq_capture[0] = my_get_timebase();
+			eq_capture[0] = mfatb();
 retry:
 		err = qman_enqueue(fq, &fd, 0);
 		if (err) {
 			eq_jam++;
-			barrier();
+			cpu_spin(ENQUEUE_BACKOFF);
 			goto retry;
 		}
 #ifdef TEST_FD
@@ -158,7 +159,7 @@ retry:
 #endif
 		loop--;
 	}
-	eq_capture[1] = my_get_timebase();
+	eq_capture[1] = mfatb();
 }
 
 static enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *p,
@@ -177,9 +178,9 @@ static enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *p,
 	fd_inc(&fd_dq);
 #endif
 	if (dq_count-- == test_start)
-		dq_capture[0] = my_get_timebase();
+		dq_capture[0] = mfatb();
 	else if (!dq_count) {
-		dq_capture[1] = my_get_timebase();
+		dq_capture[1] = mfatb();
 		BUG_ON(!(dq->stat & QM_DQRR_STAT_FQ_EMPTY));
 		sdqcr_complete = 1;
 	}
