@@ -69,11 +69,8 @@
 #define POC_2FWD_RX_TD_THRESH 64000
 #undef POC_BACKOFF		/* consume cycles when EQCR/RCR is full */
 #define POC_BACKOFF_CYCLES	200
-#undef POC_COUNTERS		/* enable counters */
-
-/* We want a trivial mapping from bpid->pool, so just have a 64-wide array of
- * pointers, most of which are NULL. */
-static struct bman_pool *pool[64];
+#define POC_COUNTERS		/* enable counters */
+#undef POC_COUNTERS_SUCCESS	/*   not just errors, count everything */
 
 /**********/
 /* macros */
@@ -96,11 +93,9 @@ static struct bman_pool *pool[64];
 
 #ifdef POC_COUNTERS
 #define CNT(a)      struct bigatomic a
-#define CNT_ZERO(a) bigatomic_set(a, 0)
 #define CNT_INC(a)  bigatomic_inc(a)
 #else
 #define CNT(a)      struct { }
-#define CNT_ZERO(a) do { ; } while (0)
 #define CNT_INC(a)  do { ; } while (0)
 #endif
 
@@ -112,25 +107,74 @@ static struct bman_pool *pool[64];
  * error", "Tx confirm"). */
 struct poc_fq_2drop {
 	struct qman_fq fq;
+	size_t percpu_offset;
+};
+struct poc_fq_2drop_percpu {
 	CNT(cnt);
 };
+#define set_fq_2drop_percpu(p,pc) \
+do { \
+	struct poc_fq_2drop *__foo = (p); \
+	struct poc_fq_2drop_percpu *__foo2 = (pc); \
+	__foo->percpu_offset = (unsigned long)__foo2 - \
+			(unsigned long)&ifs_percpu[0]; \
+} while (0)
+#define get_fq_2drop_percpu(p) \
+(struct poc_fq_2drop_percpu *)({ \
+	struct poc_fq_2drop *__foo = (p); \
+	(void *)ifs_percpu + __foo->percpu_offset; \
+})
 
 /* Tx FQs that count EQs and ERNs (later <= former, obviously). */
 struct poc_fq_2tx {
 	struct qman_fq fq;
+	size_t percpu_offset;
+};
+struct poc_fq_2tx_percpu {
+#ifdef POC_COUNTERS_SUCCESS
 	CNT(cnt);
+#endif
 	CNT(cnt_ern);
 };
+#define set_fq_2tx_percpu(p,pc) \
+do { \
+	struct poc_fq_2tx *__foo = (p); \
+	struct poc_fq_2tx_percpu *__foo2 = (pc); \
+	__foo->percpu_offset = (unsigned long)__foo2 - \
+			(unsigned long)&ifs_percpu[0]; \
+} while (0)
+#define get_fq_2tx_percpu(p) \
+(struct poc_fq_2tx_percpu *)({ \
+	struct poc_fq_2tx *__foo = (p); \
+	(void *)ifs_percpu + __foo->percpu_offset; \
+})
 
 /* Rx FQs that fwd, count packets and drop-decisions. */
 struct poc_fq_2fwd {
 	struct qman_fq fq;
+	struct poc_fq_2tx *tx;
+	size_t percpu_offset;
+};
+struct poc_fq_2fwd_percpu {
+#ifdef POC_COUNTERS_SUCCESS
 	CNT(cnt);
+#endif
 	CNT(cnt_drop_bcast);
 	CNT(cnt_drop_arp);
 	CNT(cnt_drop_other);
-	struct poc_fq_2tx *tx;
 } ____cacheline_aligned;
+#define set_fq_2fwd_percpu(p,pc) \
+do { \
+	struct poc_fq_2fwd *__foo = (p); \
+	struct poc_fq_2fwd_percpu *__foo2 = (pc); \
+	__foo->percpu_offset = (unsigned long)__foo2 - \
+			(unsigned long)&ifs_percpu[0]; \
+} while (0)
+#define get_fq_2fwd_percpu(p) \
+(struct poc_fq_2fwd_percpu *)({ \
+	struct poc_fq_2fwd *__foo = (p); \
+	(void *)ifs_percpu + __foo->percpu_offset; \
+})
 
 /* Each DTSEC i/face (fm1-dtsec[0123]) has one of these */
 struct poc_if {
@@ -140,9 +184,44 @@ struct poc_if {
 	struct poc_fq_2drop tx_error;
 	struct poc_fq_2drop tx_confirm;
 	struct poc_fq_2tx tx;
+	size_t percpu_offset;
 	enum qm_channel rx_channel_id;
 	enum qm_channel tx_channel_id;
 } ____cacheline_aligned;
+struct poc_if_percpu {
+	struct poc_fq_2fwd_percpu rx_hash[POC_RX_HASH_SIZE];
+	struct poc_fq_2drop_percpu rx_error;
+	struct poc_fq_2drop_percpu rx_default;
+	struct poc_fq_2drop_percpu tx_error;
+	struct poc_fq_2drop_percpu tx_confirm;
+	struct poc_fq_2tx_percpu tx;
+};
+#define set_if_percpu(p,pc) \
+do { \
+	struct poc_if *__foo = (p); \
+	struct poc_if_percpu *__foo2 = (pc); \
+	__foo->percpu_offset = (unsigned long)__foo2 - \
+			(unsigned long)&ifs_percpu[0]; \
+} while (0)
+#define get_if_percpu(p) \
+(struct poc_if_percpu *)({ \
+	struct poc_if *__foo = (p); \
+	(void *)ifs_percpu + __foo->percpu_offset; \
+})
+
+/***************/
+/* Global data */
+/***************/
+
+/* We want a trivial mapping from bpid->pool, so just have a 64-wide array of
+ * pointers, most of which are NULL. */
+static struct bman_pool *pool[64];
+
+/* This array is allocated from the shmem region so that it DMAs OK */
+static struct poc_if *ifs;
+
+/* A per-cpu shadown structure for keeping stats */
+static __PERCPU struct poc_if_percpu ifs_percpu[POC_IF_NUM];
 
 /********************/
 /* common functions */
@@ -199,18 +278,20 @@ static enum qman_cb_dqrr_result cb_dqrr_2drop(struct qman_portal *qm,
 {
 	__maybe_unused struct poc_fq_2drop *p = container_of(fq,
 					struct poc_fq_2drop, fq);
+	__maybe_unused struct poc_fq_2drop_percpu *pc = get_fq_2drop_percpu(p);
 	TRACE("Rx: 2drop fqid=%d\n", fq->fqid);
-	CNT_INC(&p->cnt);
+	CNT_INC(&pc->cnt);
 	drop_frame(&dqrr->fd);
 	return qman_cb_dqrr_consume;
 }
 
-static void poc_fq_2drop_init(struct poc_fq_2drop *p, u32 fqid,
+static void poc_fq_2drop_init(struct poc_fq_2drop *p,
+				struct poc_fq_2drop_percpu *pc, u32 fqid,
 				enum qm_channel channel)
 {
 	struct qm_mcc_initfq opts;
 	int ret;
-	CNT_ZERO(&p->cnt);
+	set_fq_2drop_percpu(p, pc);
 	p->fq.cb.dqrr = cb_dqrr_2drop;
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_NO_ENQUEUE, &p->fq);
 	BUG_ON(ret);
@@ -235,17 +316,17 @@ static void cb_ern_2tx(struct qman_portal *qm, struct qman_fq *fq,
 {
 	__maybe_unused struct poc_fq_2tx *p = container_of(fq,
 					struct poc_fq_2tx, fq);
-	CNT_INC(&p->cnt_ern);
+	__maybe_unused struct poc_fq_2tx_percpu *pc = get_fq_2tx_percpu(p);
+	CNT_INC(&pc->cnt_ern);
 	drop_frame(&msg->ern.fd);
 }
 
-static void poc_fq_2tx_init(struct poc_fq_2tx *p, u32 fqid,
-				enum qm_channel channel)
+static void poc_fq_2tx_init(struct poc_fq_2tx *p, struct poc_fq_2tx_percpu *pc,
+				u32 fqid, enum qm_channel channel)
 {
 	struct qm_mcc_initfq opts;
 	int ret;
-	CNT_ZERO(&p->cnt);
-	CNT_ZERO(&p->cnt_ern);
+	set_fq_2tx_percpu(p, pc);
 	p->fq.cb.ern = cb_ern_2tx;
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_TO_DCPORTAL, &p->fq);
 	BUG_ON(ret);
@@ -267,10 +348,13 @@ static void poc_fq_2tx_init(struct poc_fq_2tx *p, u32 fqid,
 
 static void poc_fq_2tx_send(struct poc_fq_2tx *p, const struct qm_fd *fd)
 {
+	__maybe_unused struct poc_fq_2tx_percpu *pc = get_fq_2tx_percpu(p);
 	TRACE("Tx: 2tx   fqid=%d\n", p->fq.fqid);
 	TRACE("      phys=0x%08x, offset=%d, len=%d, bpid=%d\n",
 		fd->addr_lo, fd->offset, fd->length20, fd->bpid);
-	CNT_INC(&p->cnt);
+#ifdef POC_COUNTERS_SUCCESS
+	CNT_INC(&pc->cnt);
+#endif
 	send_frame(&p->fq, fd);
 }
 
@@ -296,6 +380,7 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 					const struct qm_dqrr_entry *dqrr)
 {
 	struct poc_fq_2fwd *p = container_of(fq, struct poc_fq_2fwd, fq);
+	__maybe_unused struct poc_fq_2fwd_percpu *pc = get_fq_2fwd_percpu(p);
 	const struct qm_fd *fd = &dqrr->fd;
 	void *addr;
 	struct ether_header *prot_eth;
@@ -307,7 +392,9 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		fd->addr_lo, addr, fd->offset, fd->length20, fd->bpid);
 	addr += fd->offset;
 	prot_eth = addr;
-	CNT_INC(&p->cnt);
+#ifdef POC_COUNTERS_SUCCESS
+	CNT_INC(&pc->cnt);
+#endif
 	TRACE("      dhost=%02x:%02x:%02x:%02x:%02x:%02x\n",
 		prot_eth->ether_dhost[0], prot_eth->ether_dhost[1],
 		prot_eth->ether_dhost[2], prot_eth->ether_dhost[3],
@@ -320,7 +407,7 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 	/* Eliminate ethernet broadcasts. */
 	if (prot_eth->ether_dhost[0] & 0x01) {
 		TRACE("      -> dropping broadcast packet\n");
-		CNT_INC(&p->cnt_drop_bcast);
+		CNT_INC(&pc->cnt_drop_bcast);
 	} else
 	switch (prot_eth->ether_type)
 	{
@@ -363,27 +450,25 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		}
 #endif
 		TRACE("           -> dropping ARP packet\n");
-		CNT_INC(&p->cnt_drop_arp);
+		CNT_INC(&pc->cnt_drop_arp);
 		break;
 	default:
 		TRACE("        -> it's UNKNOWN (!!) type 0x%04x\n",
 			prot_eth->ether_type);
 		TRACE("           -> dropping unknown packet\n");
-		CNT_INC(&p->cnt_drop_other);
+		CNT_INC(&pc->cnt_drop_other);
 	}
 	drop_frame(fd);
 	return qman_cb_dqrr_consume;
 }
 
-static void poc_fq_2fwd_init(struct poc_fq_2fwd *p, u32 fqid,
+static void poc_fq_2fwd_init(struct poc_fq_2fwd *p,
+			struct poc_fq_2fwd_percpu *pc, u32 fqid,
 			enum qm_channel channel, struct poc_fq_2tx *tx)
 {
 	struct qm_mcc_initfq opts;
 	int ret;
-	CNT_ZERO(&p->cnt);
-	CNT_ZERO(&p->cnt_drop_bcast);
-	CNT_ZERO(&p->cnt_drop_arp);
-	CNT_ZERO(&p->cnt_drop_other);
+	set_fq_2fwd_percpu(p, pc);
 	p->tx = tx;
 	p->fq.cb.dqrr = cb_dqrr_2fwd;
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_NO_ENQUEUE, &p->fq);
@@ -436,21 +521,25 @@ static void poc_if_init(struct poc_if *i, int idx)
 {
 	int loop, rxh = POC_FQID_RX_HASH(idx);
 	enum qm_channel txc = i->tx_channel_id = POC_CHANNEL_TX(idx);
-	poc_fq_2drop_init(&i->rx_error, POC_FQID_RX_ERROR(idx), get_rxc());
-	poc_fq_2drop_init(&i->rx_default, POC_FQID_RX_DEFAULT(idx), get_rxc());
-	poc_fq_2drop_init(&i->tx_error, POC_FQID_TX_ERROR(idx), get_rxc());
-	poc_fq_2drop_init(&i->tx_confirm, POC_FQID_TX_CONFIRM(idx), get_rxc());
-	poc_fq_2tx_init(&i->tx, POC_FQID_TX(idx), txc);
+	struct poc_if_percpu *pc = &ifs_percpu[idx];
+	set_if_percpu(i, pc);
+	poc_fq_2drop_init(&i->rx_error, &pc->rx_error,
+			POC_FQID_RX_ERROR(idx), get_rxc());
+	poc_fq_2drop_init(&i->rx_default, &pc->rx_default,
+			POC_FQID_RX_DEFAULT(idx), get_rxc());
+	poc_fq_2drop_init(&i->tx_error, &pc->tx_error,
+			POC_FQID_TX_ERROR(idx), get_rxc());
+	poc_fq_2drop_init(&i->tx_confirm, &pc->tx_confirm,
+			POC_FQID_TX_CONFIRM(idx), get_rxc());
+	poc_fq_2tx_init(&i->tx, &pc->tx, POC_FQID_TX(idx), txc);
 	for (loop = 0; loop < POC_RX_HASH_SIZE; loop++, rxh++)
-		poc_fq_2fwd_init(&i->rx_hash[loop], rxh, get_rxc(), &i->tx);
+		poc_fq_2fwd_init(&i->rx_hash[loop], &pc->rx_hash[loop],
+				rxh, get_rxc(), &i->tx);
 }
 
 /*******/
 /* app */
 /*******/
-
-/* This array is allocated from the shmem region so it DMAs OK */
-static struct poc_if *ifs;
 
 static void calm_down(void)
 {
