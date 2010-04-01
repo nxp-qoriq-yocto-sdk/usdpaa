@@ -152,7 +152,7 @@ do { \
 /* Rx FQs that fwd, count packets and drop-decisions. */
 struct poc_fq_2fwd {
 	struct qman_fq fq;
-	struct poc_fq_2tx *tx;
+	struct poc_if *iface;
 	size_t percpu_offset;
 };
 struct poc_fq_2fwd_percpu {
@@ -416,6 +416,8 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		{
 		struct iphdr *iphdr = addr + 14;
 		__be32 tmp;
+		/* Avoid stalling on the p->iface->tx indirection below */
+		dcbt_ro(p->iface);
 #ifdef POC_TRACE
 		u8 *src = (void *)&iphdr->saddr;
 		u8 *dst = (void *)&iphdr->daddr;
@@ -437,7 +439,7 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		/* switch ethernet src/dest MAC addresses */
 		ether_header_swap(prot_eth);
 		}
-		poc_fq_2tx_send(p->tx, fd);
+		poc_fq_2tx_send(&p->iface->tx, fd);
 		return qman_cb_dqrr_consume;
 	case ETH_P_ARP:
 		TRACE("        -> it's ETH_P_ARP!\n");
@@ -464,12 +466,12 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 
 static void poc_fq_2fwd_init(struct poc_fq_2fwd *p,
 			struct poc_fq_2fwd_percpu *pc, u32 fqid,
-			enum qm_channel channel, struct poc_fq_2tx *tx)
+			enum qm_channel channel, struct poc_if *iface)
 {
 	struct qm_mcc_initfq opts;
 	int ret;
 	set_fq_2fwd_percpu(p, pc);
-	p->tx = tx;
+	p->iface = iface;
 	p->fq.cb.dqrr = cb_dqrr_2fwd;
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_NO_ENQUEUE, &p->fq);
 	BUG_ON(ret);
@@ -534,7 +536,7 @@ static void poc_if_init(struct poc_if *i, int idx)
 	poc_fq_2tx_init(&i->tx, &pc->tx, POC_FQID_TX(idx), txc);
 	for (loop = 0; loop < POC_RX_HASH_SIZE; loop++, rxh++)
 		poc_fq_2fwd_init(&i->rx_hash[loop], &pc->rx_hash[loop],
-				rxh, get_rxc(), &i->tx);
+				rxh, get_rxc(), i);
 }
 
 /*******/
