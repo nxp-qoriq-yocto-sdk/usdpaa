@@ -38,6 +38,8 @@
 /* application configuration */
 #define POC_RX_HASH_SIZE	0x20
 #define POC_IF_NUM		4
+#define POC_POOLCHANNEL_NUM	4
+#define POC_POOLCHANNEL_FIRST	4
 #define POC_FQID_RX_ERROR(n)	(0x50 + 2*(n))
 #define POC_FQID_RX_DEFAULT(n)	(0x51 + 2*(n))
 #define POC_FQID_TX_ERROR(n)	(0x70 + 2*(n))
@@ -48,11 +50,6 @@
 #define POC_PRIO_2FWD		4 /* rx-hash */
 #define POC_PRIO_2TX		4 /* consumed by Fman */
 #define POC_CHANNEL_TX(n)	(qm_channel_fman0_sp1 + (n))
-#define POC_CHANNEL_RX(n)	(qm_channel_pool4 + (n))
-#define POC_CPU_SDQCR(x)	(QM_SDQCR_CHANNELS_POOL(4) | \
-				QM_SDQCR_CHANNELS_POOL(5) | \
-				QM_SDQCR_CHANNELS_POOL(6) | \
-				QM_SDQCR_CHANNELS_POOL(7))
 #define POC_STASH_DATA_CL	1
 #define POC_STASH_CTX_CL(p) \
 ({ \
@@ -73,7 +70,6 @@
 #undef POC_BACKOFF		/* consume cycles when EQCR/RCR is full */
 #define POC_BACKOFF_CYCLES	200
 #undef POC_COUNTERS		/* enable counters */
-#define POC_
 
 /* We want a trivial mapping from bpid->pool, so just have a 64-wide array of
  * pointers, most of which are NULL. */
@@ -82,6 +78,15 @@ static struct bman_pool *pool[64];
 /********************/
 /* common functions */
 /********************/
+
+/* Construct the SDQCR mask */
+#define POC_CPU_SDQCR(x) \
+({ \
+	u32 __foo = 0, __foo2 = POC_POOLCHANNEL_FIRST; \
+	while (__foo2 < (POC_POOLCHANNEL_FIRST + POC_POOLCHANNEL_NUM)) \
+		__foo |= QM_SDQCR_CHANNELS_POOL(__foo2++); \
+	__foo; \
+})
 
 #ifdef POC_TRACE
 #define TRACE		printf
@@ -399,22 +404,37 @@ struct poc_if {
 	struct poc_fq_2drop tx_error;
 	struct poc_fq_2drop tx_confirm;
 	struct poc_fq_2tx tx;
-	enum qm_channel rx_channel_id;
 	enum qm_channel tx_channel_id;
 } ____cacheline_aligned;
+
+/* Pick which pool channel to schedule a(ny) Rx FQ to using a 32-bit LFSR and
+ * 'modulo'. This should help us avoid any bad harmonies, eg. if we just
+ * scrolled round the pool channels in order, we could have all Rx errors come
+ * to the same channel, or end up with hot flows "just happening" to beat on the
+ * same channel. */
+static u32 my_lfsr = 0xabbaf00d;
+static enum qm_channel get_rxc(void)
+{
+	u32 tmp;
+	int n;
+	my_lfsr = (my_lfsr >> 1) ^ (-(my_lfsr & 1u) & 0xd0000001u);
+	tmp = (my_lfsr & 0x00ffff00) >> 8;
+	n = POC_POOLCHANNEL_FIRST + (tmp % POC_POOLCHANNEL_NUM);
+	return qm_channel_pool1 + (n - 1);
+}
+
 
 static void poc_if_init(struct poc_if *i, int idx)
 {
 	int loop, rxh = POC_FQID_RX_HASH(idx);
-	enum qm_channel rxc = i->rx_channel_id = POC_CHANNEL_RX(idx);
 	enum qm_channel txc = i->tx_channel_id = POC_CHANNEL_TX(idx);
-	poc_fq_2drop_init(&i->rx_error, POC_FQID_RX_ERROR(idx), rxc);
-	poc_fq_2drop_init(&i->rx_default, POC_FQID_RX_DEFAULT(idx), rxc);
-	poc_fq_2drop_init(&i->tx_error, POC_FQID_TX_ERROR(idx), rxc);
-	poc_fq_2drop_init(&i->tx_confirm, POC_FQID_TX_CONFIRM(idx), rxc);
+	poc_fq_2drop_init(&i->rx_error, POC_FQID_RX_ERROR(idx), get_rxc());
+	poc_fq_2drop_init(&i->rx_default, POC_FQID_RX_DEFAULT(idx), get_rxc());
+	poc_fq_2drop_init(&i->tx_error, POC_FQID_TX_ERROR(idx), get_rxc());
+	poc_fq_2drop_init(&i->tx_confirm, POC_FQID_TX_CONFIRM(idx), get_rxc());
 	poc_fq_2tx_init(&i->tx, POC_FQID_TX(idx), txc);
 	for (loop = 0; loop < POC_RX_HASH_SIZE; loop++, rxh++)
-		poc_fq_2fwd_init(&i->rx_hash[loop], rxh, rxc, &i->tx);
+		poc_fq_2fwd_init(&i->rx_hash[loop], rxh, get_rxc(), &i->tx);
 }
 
 /*******/
