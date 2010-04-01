@@ -71,6 +71,7 @@
 #define POC_BACKOFF_CYCLES	200
 #define POC_COUNTERS		/* enable counters */
 #undef POC_COUNTERS_SUCCESS	/*   not just errors, count everything */
+#define POC_TX_PERCPU		/* use a distinct Tx FQ per-i/face, per-cpu */
 
 /**********/
 /* macros */
@@ -183,10 +184,10 @@ struct poc_if {
 	struct poc_fq_2drop rx_default;
 	struct poc_fq_2drop tx_error;
 	struct poc_fq_2drop tx_confirm;
+#ifndef POC_TX_PERCPU
 	struct poc_fq_2tx tx;
+#endif
 	size_t percpu_offset;
-	enum qm_channel rx_channel_id;
-	enum qm_channel tx_channel_id;
 } ____cacheline_aligned;
 struct poc_if_percpu {
 	struct poc_fq_2fwd_percpu rx_hash[POC_RX_HASH_SIZE];
@@ -194,6 +195,9 @@ struct poc_if_percpu {
 	struct poc_fq_2drop_percpu rx_default;
 	struct poc_fq_2drop_percpu tx_error;
 	struct poc_fq_2drop_percpu tx_confirm;
+#ifdef POC_TX_PERCPU
+	struct poc_fq_2tx tx_fq;
+#endif
 	struct poc_fq_2tx_percpu tx;
 };
 #define set_if_percpu(p,pc) \
@@ -416,7 +420,10 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		{
 		struct iphdr *iphdr = addr + 14;
 		__be32 tmp;
-		/* Avoid stalling on the p->iface->tx indirection below */
+#ifdef POC_TX_PERCPU
+		struct poc_if_percpu *ipc;
+#endif
+		/* Avoid stalling on the p->iface indirection below */
 		dcbt_ro(p->iface);
 #ifdef POC_TRACE
 		u8 *src = (void *)&iphdr->saddr;
@@ -438,8 +445,13 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		iphdr->saddr = tmp;
 		/* switch ethernet src/dest MAC addresses */
 		ether_header_swap(prot_eth);
-		}
+#ifdef POC_TX_PERCPU
+		ipc = get_if_percpu(p->iface);
+		poc_fq_2tx_send(&ipc->tx_fq, fd);
+#else
 		poc_fq_2tx_send(&p->iface->tx, fd);
+#endif
+		}
 		return qman_cb_dqrr_consume;
 	case ETH_P_ARP:
 		TRACE("        -> it's ETH_P_ARP!\n");
@@ -522,7 +534,6 @@ static enum qm_channel get_rxc(void)
 static void poc_if_init(struct poc_if *i, int idx)
 {
 	int loop, rxh = POC_FQID_RX_HASH(idx);
-	enum qm_channel txc = i->tx_channel_id = POC_CHANNEL_TX(idx);
 	struct poc_if_percpu *pc = &ifs_percpu[idx];
 	set_if_percpu(i, pc);
 	poc_fq_2drop_init(&i->rx_error, &pc->rx_error,
@@ -533,11 +544,22 @@ static void poc_if_init(struct poc_if *i, int idx)
 			POC_FQID_TX_ERROR(idx), get_rxc());
 	poc_fq_2drop_init(&i->tx_confirm, &pc->tx_confirm,
 			POC_FQID_TX_CONFIRM(idx), get_rxc());
-	poc_fq_2tx_init(&i->tx, &pc->tx, POC_FQID_TX(idx), txc);
+#ifndef POC_TX_PERCPU
+	poc_fq_2tx_init(&i->tx, &pc->tx, POC_FQID_TX(idx), POC_CHANNEL_TX(idx));
+#endif
 	for (loop = 0; loop < POC_RX_HASH_SIZE; loop++, rxh++)
 		poc_fq_2fwd_init(&i->rx_hash[loop], &pc->rx_hash[loop],
 				rxh, get_rxc(), i);
 }
+
+#ifdef POC_TX_PERCPU
+static void poc_if_init_percpu(struct poc_if *i, int idx, int cpu)
+{
+	enum qm_channel txc = POC_CHANNEL_TX(idx);
+	struct poc_if_percpu *pc = &ifs_percpu[idx];
+	poc_fq_2tx_init(&pc->tx_fq, &pc->tx, POC_FQID_TX(idx) + cpu, txc);
+}
+#endif
 
 /*******/
 /* app */
@@ -559,10 +581,10 @@ static void calm_down(void)
 
 static int worker_fn(thread_data_t *tdata)
 {
+	int loop;
 	TRACE("This is the thread on cpu %d\n", tdata->cpu);
 
 	sync_start_if_master(tdata) {
-		int loop;
 		u8 bpids[] = POC_BPIDS;
 		/* initialise interfaces */
 		ifs = fsl_shmem_memalign(64, POC_IF_NUM * sizeof(*ifs));
@@ -582,10 +604,27 @@ static int worker_fn(thread_data_t *tdata)
 			pool[bpids[loop]] = bman_new_pool(&params);
 			BUG_ON(!pool[bpids[loop]]);
 		}
+#ifndef POC_TX_PERCPU
+		/* ready to go, open the flood-gates */
+		__mac_enable_all();
+#endif
+	}
+	sync_end(tdata);
+
+#ifdef POC_TX_PERCPU
+	/* Tx initialisation is a per-cpu job, do it in each thread then resync
+	 * before turning on the MACs */
+	for (loop = 0; loop < POC_IF_NUM; loop++) {
+		TRACE("Initialising interface %d, per-cpu Tx (%d)\n",
+			loop, tdata->index);
+		poc_if_init_percpu(&ifs[loop], loop, tdata->index);
+	}
+	sync_start_if_master(tdata) {
 		/* ready to go, open the flood-gates */
 		__mac_enable_all();
 	}
 	sync_end(tdata);
+#endif
 
 	qman_static_dequeue_add(POC_CPU_SDQCR(tdata->index));
 
