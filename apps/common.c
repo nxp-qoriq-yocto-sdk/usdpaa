@@ -141,12 +141,13 @@ end:
 	return NULL;
 }
 
-int run_threads_custom(struct thread_data *ctxs, int num_ctxs)
+int start_threads_custom(struct thread_data *ctxs, int num_ctxs)
 {
-	int i, err;
+	int i;
 	struct thread_data *ctx;
 	/* Create the threads */
 	for (i = 0, ctx = &ctxs[0]; i < num_ctxs; i++, ctx++) {
+		int err;
 		ctx->next = NULL;
 		err = thread_kick_init(&ctx->kick);
 		if (err) {
@@ -171,8 +172,14 @@ int run_threads_custom(struct thread_data *ctxs, int num_ctxs)
 			return err;
 		}
 	}
+	return 0;
+}
+
+int wait_threads(struct thread_data *ctxs, int num_ctxs)
+{
+	int i, err = 0;
+	struct thread_data *ctx;
 	/* Wait for them to join */
-	err = 0;
 	for (i = 0, ctx = &ctxs[0]; i < num_ctxs; i++, ctx++) {
 		int res = pthread_join(ctx->id, NULL);
 		if (res != 0) {

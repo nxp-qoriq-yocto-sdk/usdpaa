@@ -113,8 +113,8 @@ thread_data_t *my_thread_data(void);
 /* API(s) used to kick off application cpu-affine threads and wait for them to
  * complete. 'am_master' is automatically set for the first thread (running on
  * the first cpu). */
-int run_threads_custom(struct thread_data *ctxs, int num_ctxs);
-static inline int run_threads(struct thread_data *ctxs, int num_ctxs,
+int start_threads_custom(struct thread_data *ctxs, int num_ctxs);
+static inline int start_threads(struct thread_data *ctxs, int num_ctxs,
 			int first_cpu, int (*fn)(thread_data_t *))
 {
 	int loop;
@@ -124,7 +124,16 @@ static inline int run_threads(struct thread_data *ctxs, int num_ctxs,
 		ctxs[loop].fn = fn;
 		ctxs[loop].total_cpus = num_ctxs;
 	}
-	return run_threads_custom(ctxs, num_ctxs);
+	return start_threads_custom(ctxs, num_ctxs);
+}
+int wait_threads(struct thread_data *ctxs, int num_ctxs);
+static inline int run_threads(struct thread_data *ctxs, int num_ctxs,
+			int first_cpu, int (*fn)(thread_data_t *))
+{
+	int ret = start_threads(ctxs, num_ctxs, first_cpu, fn);
+	if (ret)
+		return ret;
+	return wait_threads(ctxs, num_ctxs);
 }
 
 #define handle_error_en(en, msg) \
