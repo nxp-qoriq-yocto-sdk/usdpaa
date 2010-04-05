@@ -944,7 +944,6 @@ int qman_init_fq(struct qman_fq *fq, u32 flags, struct qm_mcc_initfq *opts)
 	QM_ASSERT((mcr->verb & QM_MCR_VERB_MASK) == myverb);
 	res = mcr->result;
 	if (res != QM_MCR_RESULT_OK) {
-		pr_err("INITFQ failed: %s\n", mcr_result_str(res));
 		FQUNLOCK(fq);
 		local_irq_enable();
 		put_affine_portal();
@@ -999,7 +998,6 @@ int qman_schedule_fq(struct qman_fq *fq)
 	QM_ASSERT((mcr->verb & QM_MCR_VERB_MASK) == QM_MCR_VERB_ALTER_SCHED);
 	res = mcr->result;
 	if (res != QM_MCR_RESULT_OK) {
-		pr_err("ALTER_SCHED failed: %s\n", mcr_result_str(res));
 		ret = -EIO;
 		goto out;
 	}
@@ -1085,7 +1083,6 @@ int qman_retire_fq(struct qman_fq *fq, u32 *flags)
 	} else {
 		rval = -EIO;
 		table_del_fq(p, fq);
-		pr_err("ALTER_RETIRE failed: %s\n", mcr_result_str(res));
 	}
 out:
 	FQUNLOCK(fq);
@@ -1124,7 +1121,6 @@ int qman_oos_fq(struct qman_fq *fq)
 	QM_ASSERT((mcr->verb & QM_MCR_VERB_MASK) == QM_MCR_VERB_ALTER_OOS);
 	res = mcr->result;
 	if (res != QM_MCR_RESULT_OK) {
-		pr_err("ALTER_OOS failed: %s\n", mcr_result_str(res));
 		ret = -EIO;
 		goto out;
 	}
@@ -1156,10 +1152,8 @@ int qman_query_fq(struct qman_fq *fq, struct qm_fqd *fqd)
 		*fqd = mcr->queryfq.fqd;
 	local_irq_enable();
 	put_affine_portal();
-	if (res != QM_MCR_RESULT_OK) {
-		pr_err("QUERYFQ failed: %s\n", mcr_result_str(res));
+	if (res != QM_MCR_RESULT_OK)
 		return -EIO;
-	}
 	return 0;
 }
 EXPORT_SYMBOL(qman_query_fq);
@@ -1183,10 +1177,8 @@ int qman_query_fq_np(struct qman_fq *fq, struct qm_mcr_queryfq_np *np)
 		*np = mcr->queryfq_np;
 	local_irq_enable();
 	put_affine_portal();
-	if (res != QM_MCR_RESULT_OK) {
-		pr_err("QUERYFQ_NP failed: %s\n", mcr_result_str(res));
+	if (res != QM_MCR_RESULT_OK)
 		return -EIO;
-	}
 	return 0;
 }
 EXPORT_SYMBOL(qman_query_fq_np);
@@ -1497,9 +1489,6 @@ int qman_init_cgr(u32 cgid)
 		cpu_relax();
 	QM_ASSERT((mcr->verb & QM_MCR_VERB_MASK) == QM_MCC_VERB_INITCGR);
 	res = mcr->result;
-	if (res != QM_MCR_RESULT_OK) {
-		pr_err("INITCGR failed: %s\n", mcr_result_str(res));
-	}
 	local_irq_enable();
 	put_affine_portal();
 	return (res == QM_MCR_RESULT_OK) ? 0 : -EIO;
