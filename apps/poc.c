@@ -40,12 +40,13 @@
 #define POC_IF_NUM		4
 #define POC_POOLCHANNEL_NUM	4
 #define POC_POOLCHANNEL_FIRST	4
+/* n==interface, x=[0..(POC_RX_HASH_SIZE-1)] */
 #define POC_FQID_RX_ERROR(n)	(0x50 + 2*(n))
 #define POC_FQID_RX_DEFAULT(n)	(0x51 + 2*(n))
 #define POC_FQID_TX_ERROR(n)	(0x70 + 2*(n))
 #define POC_FQID_TX_CONFIRM(n)	(0x71 + 2*(n))
-#define POC_FQID_RX_HASH(n)	(0x400 + 0x100*(n))
-#define POC_FQID_TX(n)		(0x480 + 0x100*(n))
+#define POC_FQID_RX_HASH(n,x)	(0x400 + 0x100*(n) + (x))
+#define POC_FQID_TX(n,x)	(0x480 + 0x100*(n) + (x & 15))
 #define POC_PRIO_2DROP		3 /* error/default/etc */
 #define POC_PRIO_2FWD		4 /* rx-hash */
 #define POC_PRIO_2TX		4 /* consumed by Fman */
@@ -533,6 +534,24 @@ static void poc_fq_2fwd_init(struct poc_fq_2fwd *p,
 	int ret;
 	set_fq_2fwd_percpu(p, pc);
 #ifdef POC_TX_PERRX
+	/* Each Rx FQ object has its own Tx FQ object, but that doesn't mean
+	 * that each Rx FQID has its own Tx FQ FQID. As such, the Tx FQ object
+	 * we're initialising here may be for a FQID that is already fronted by
+	 * another FQ object, and thus the FQD would already be initialised.
+	 * Before an enqueue may be attempted against a FQ object, the Qman API
+	 * requires that it complete a successful qman_init_fq() operation or
+	 * that the FQ object be declared with the QMAN_FQ_FLAG_NO_MODIFY flag.
+	 * An application that has a single well-defined configuration could
+	 * just initialise all the FQ objects such that the first occurance of a
+	 * FQID perform the init() and the others use NO_MODIFY. But to allow
+	 * this application to support wildly different configurations, it's
+	 * preferable here to "discover" on-the-fly whether or not we're the
+	 * first object for a given Tx FQID. We do this by handling failure of
+	 * qman_init_fq() to imply that we're not the first user of the FQID (so
+	 * revert to NO_MODIFY). The weakness of this scheme is that a real
+	 * failure to initialise the Tx FQD (eg. if it's out of bounds or
+	 * conflicts with some other FQ), will not be detected, and subsequent
+	 * forwarding actions will have undefined consequences. */
 	p->tx.cb.ern = cb_ern_2fwd;
 	ret = qman_create_fq(tx_fqid, QMAN_FQ_FLAG_TO_DCPORTAL, &p->tx);
 	BUG_ON(ret);
@@ -549,7 +568,12 @@ static void poc_fq_2fwd_init(struct poc_fq_2fwd *p,
 	opts.fqd.context_a.hi = 0x80000000;
 	opts.fqd.context_a.lo = 0;
 	ret = qman_init_fq(&p->tx, QMAN_INITFQ_FLAG_SCHED, &opts);
-	BUG_ON(ret);
+	if (ret) {
+		/* revert to NO_MODIFY */
+		qman_destroy_fq(&p->tx, 0);
+		ret = qman_create_fq(tx_fqid, QMAN_FQ_FLAG_NO_MODIFY, &p->tx);
+		BUG_ON(ret);
+	}
 #else
 	p->iface = iface;
 #endif
@@ -602,7 +626,7 @@ static enum qm_channel get_rxc(void)
 
 static void poc_if_init(struct poc_if *i, int idx)
 {
-	int loop, rxh = POC_FQID_RX_HASH(idx);
+	int loop;
 	struct poc_if_percpu *pc = &ifs_percpu[idx];
 	set_if_percpu(i, pc);
 	poc_fq_2drop_init(&i->rx_error, &pc->rx_error,
@@ -614,16 +638,18 @@ static void poc_if_init(struct poc_if *i, int idx)
 	poc_fq_2drop_init(&i->tx_confirm, &pc->tx_confirm,
 			POC_FQID_TX_CONFIRM(idx), get_rxc());
 #if !defined(POC_TX_PERCPU) && !defined(POC_TX_PERRX)
-	poc_fq_2tx_init(&i->tx, &pc->tx, POC_FQID_TX(idx), POC_CHANNEL_TX(idx));
+	poc_fq_2tx_init(&i->tx, &pc->tx, POC_FQID_TX(idx, 0),
+			POC_CHANNEL_TX(idx));
 #endif
-	for (loop = 0; loop < POC_RX_HASH_SIZE; loop++, rxh++)
+	for (loop = 0; loop < POC_RX_HASH_SIZE; loop++)
 #ifdef POC_TX_PERRX
 		poc_fq_2fwd_init(&i->rx_hash[loop], &pc->rx_hash[loop],
-				rxh, POC_FQID_TX(idx) + loop,
+				POC_FQID_RX_HASH(idx, loop),
+				POC_FQID_TX(idx, loop),
 				get_rxc(), POC_CHANNEL_TX(idx));
 #else
 		poc_fq_2fwd_init(&i->rx_hash[loop], &pc->rx_hash[loop],
-				rxh, get_rxc(), i);
+				POC_FQID_RX_HASH(idx, loop), get_rxc(), i);
 #endif
 }
 
