@@ -4,13 +4,13 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
+ *	 notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
+ *	 notice, this list of conditions and the following disclaimer in the
+ *	 documentation and/or other materials provided with the distribution.
  *     * Neither the name of Freescale Semiconductor nor the
- *       names of its contributors may be used to endorse or promote products
- *       derived from this software without specific prior written permission.
+ *	 names of its contributors may be used to endorse or promote products
+ *	 derived from this software without specific prior written permission.
  *
  *
  * ALTERNATIVELY, this software may be distributed under the terms of the
@@ -93,10 +93,10 @@
 #endif
 
 #ifdef POC_COUNTERS
-#define CNT(a)      struct bigatomic a
+#define CNT(a)	    struct bigatomic a
 #define CNT_INC(a)  bigatomic_inc(a)
 #else
-#define CNT(a)      struct { }
+#define CNT(a)	    struct { }
 #define CNT_INC(a)  do { ; } while (0)
 #endif
 
@@ -256,7 +256,7 @@ static enum qman_cb_dqrr_result cb_dqrr_2drop(struct qman_portal *qm,
 	__maybe_unused struct poc_fq_2drop *p = container_of(fq,
 					struct poc_fq_2drop, fq);
 	__maybe_unused struct poc_fq_2drop_percpu *pc = get_fq_2drop_percpu(p);
-	TRACE("Rx: 2drop fqid=%d\n", fq->fqid);
+	TRACE("Rx: 2drop fqid=%d\tfd_status = 0x%08x\n", fq->fqid, dqrr->fd.status);
 	CNT_INC(&pc->cnt);
 	drop_frame(&dqrr->fd);
 	return qman_cb_dqrr_consume;
@@ -313,47 +313,47 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 
 	BUG_ON(fd->format != qm_fd_contig);
 	addr = fsl_shmem_ptov(fd->addr_lo);
-	TRACE("Rx: 2fwd  fqid=%d\n", fq->fqid);
-	TRACE("      phys=0x%08x, virt=%p, offset=%d, len=%d, bpid=%d\n",
+	TRACE("Rx: 2fwd	 fqid=%d\n", fq->fqid);
+	TRACE("	     phys=0x%08x, virt=%p, offset=%d, len=%d, bpid=%d\n",
 		fd->addr_lo, addr, fd->offset, fd->length20, fd->bpid);
 	addr += fd->offset;
 	prot_eth = addr;
 #ifdef POC_COUNTERS_SUCCESS
 	CNT_INC(&pc->cnt);
 #endif
-	TRACE("      dhost=%02x:%02x:%02x:%02x:%02x:%02x\n",
+	TRACE("	     dhost=%02x:%02x:%02x:%02x:%02x:%02x\n",
 		prot_eth->ether_dhost[0], prot_eth->ether_dhost[1],
 		prot_eth->ether_dhost[2], prot_eth->ether_dhost[3],
 		prot_eth->ether_dhost[4], prot_eth->ether_dhost[5]);
-	TRACE("      shost=%02x:%02x:%02x:%02x:%02x:%02x\n",
+	TRACE("	     shost=%02x:%02x:%02x:%02x:%02x:%02x\n",
 		prot_eth->ether_shost[0], prot_eth->ether_shost[1],
 		prot_eth->ether_shost[2], prot_eth->ether_shost[3],
 		prot_eth->ether_shost[4], prot_eth->ether_shost[5]);
-	TRACE("      ether_type=%04x\n", prot_eth->ether_type);
+	TRACE("	     ether_type=%04x\n", prot_eth->ether_type);
 	/* Eliminate ethernet broadcasts. */
 	if (prot_eth->ether_dhost[0] & 0x01) {
-		TRACE("      -> dropping broadcast packet\n");
+		TRACE("	     -> dropping broadcast packet\n");
 		CNT_INC(&pc->cnt_drop_bcast);
 	} else
 	switch (prot_eth->ether_type)
 	{
 	case ETH_P_IP:
-		TRACE("        -> it's ETH_P_IP!\n");
+		TRACE("	       -> it's ETH_P_IP!\n");
 		{
 		struct iphdr *iphdr = addr + 14;
 		__be32 tmp;
 #ifdef POC_TRACE
 		u8 *src = (void *)&iphdr->saddr;
 		u8 *dst = (void *)&iphdr->daddr;
-		TRACE("           ver=%d,ihl=%d,tos=%d,len=%d,id=%d\n",
+		TRACE("		  ver=%d,ihl=%d,tos=%d,len=%d,id=%d\n",
 			iphdr->version, iphdr->ihl, iphdr->tos, iphdr->tot_len,
 			iphdr->id);
-		TRACE("           frag_off=%d,ttl=%d,prot=%d,csum=0x%04x\n",
+		TRACE("		  frag_off=%d,ttl=%d,prot=%d,csum=0x%04x\n",
 			iphdr->frag_off, iphdr->ttl, iphdr->protocol,
 			iphdr->check);
-		TRACE("           src=%d.%d.%d.%d\n",
+		TRACE("		  src=%d.%d.%d.%d\n",
 			src[0], src[1], src[2], src[3]);
-		TRACE("           dst=%d.%d.%d.%d\n",
+		TRACE("		  dst=%d.%d.%d.%d\n",
 			dst[0], dst[1], dst[2], dst[3]);
 #endif
 		/* switch ipv4 src/dst addresses */
@@ -362,8 +362,8 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		iphdr->saddr = tmp;
 		/* switch ethernet src/dest MAC addresses */
 		ether_header_swap(prot_eth);
-		TRACE("Tx: 2fwd  fqid=%d\n", p->tx.fqid);
-		TRACE("      phys=0x%08x, offset=%d, len=%d, bpid=%d\n",
+		TRACE("Tx: 2fwd	 fqid=%d\n", p->tx.fqid);
+		TRACE("	     phys=0x%08x, offset=%d, len=%d, bpid=%d\n",
 			fd->addr_lo, fd->offset, fd->length20, fd->bpid);
 #ifdef POC_COUNTERS_SUCCESS
 		CNT_INC(&pc->cnt_tx);
@@ -372,22 +372,22 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		}
 		return qman_cb_dqrr_consume;
 	case ETH_P_ARP:
-		TRACE("        -> it's ETH_P_ARP!\n");
+		TRACE("	       -> it's ETH_P_ARP!\n");
 #ifdef POC_TRACE
 		{
 		struct arphdr *arphdr = addr + 14;
-		TRACE("           hrd=%d, pro=%d, hln=%d, pln=%d, op=%d\n",
+		TRACE("		  hrd=%d, pro=%d, hln=%d, pln=%d, op=%d\n",
 			arphdr->ar_hrd, arphdr->ar_pro, arphdr->ar_hln,
 			arphdr->ar_pln, arphdr->ar_op);
 		}
 #endif
-		TRACE("           -> dropping ARP packet\n");
+		TRACE("		  -> dropping ARP packet\n");
 		CNT_INC(&pc->cnt_drop_arp);
 		break;
 	default:
-		TRACE("        -> it's UNKNOWN (!!) type 0x%04x\n",
+		TRACE("	       -> it's UNKNOWN (!!) type 0x%04x\n",
 			prot_eth->ether_type);
-		TRACE("           -> dropping unknown packet\n");
+		TRACE("		  -> dropping unknown packet\n");
 		CNT_INC(&pc->cnt_drop_other);
 	}
 	drop_frame(fd);
