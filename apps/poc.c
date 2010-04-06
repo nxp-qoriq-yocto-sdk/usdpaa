@@ -37,7 +37,7 @@
 
 /* application configuration */
 #define POC_RX_HASH_SIZE	0x20
-#define POC_IF_NUM		4
+#define POC_IF_NUM		ARRAY_SIZE(ifid)
 #define POC_POOLCHANNEL_NUM	4
 #define POC_POOLCHANNEL_FIRST	4
 /* n==interface, x=[0..(POC_RX_HASH_SIZE-1)] */
@@ -61,6 +61,8 @@
 	foolen; \
 })
 #define POC_BPIDS		{7, 8, 9}
+
+static const uint8_t ifid[] = {0, 1, 2, 3, 9};
 
 /* application options */
 #undef POC_2FWD_HOLDACTIVE	/* process each FQ on one cpu at a time */
@@ -498,10 +500,9 @@ static enum qm_channel get_rxc(void)
 	return qm_channel_pool1 + (n - 1);
 }
 
-static void poc_if_init(struct poc_if *i, int idx)
+static void poc_if_init(struct poc_if *i, struct poc_if_percpu *pc, int idx)
 {
 	int loop;
-	struct poc_if_percpu *pc = &ifs_percpu[idx];
 	set_if_percpu(i, pc);
 	poc_fq_2drop_init(&i->rx_error, &pc->rx_error,
 			POC_FQID_RX_ERROR(idx), get_rxc());
@@ -555,8 +556,8 @@ static int worker_fn(thread_data_t *tdata)
 		BUG_ON(!ifs);
 		memset(ifs, 0, POC_IF_NUM * sizeof(*ifs));
 		for (loop = 0; loop < POC_IF_NUM; loop++) {
-			TRACE("Initialising interface %d\n", loop);
-			poc_if_init(&ifs[loop], loop);
+			TRACE("Initialising interface %d\n", ifid[loop]);
+			poc_if_init(&ifs[loop], &ifs_percpu[loop], ifid[loop]);
 		}
 		/* initialise buffer pools */
 		for (loop = 0; loop < sizeof(bpids); loop++) {

@@ -45,5 +45,8 @@ the policies indicated below.
 		<port type="1G" number="2" policy="hash_ipv4_src_dst_policy2"/>
 		<port type="1G" number="3" policy="hash_ipv4_src_dst_policy3"/>
 	</engine>
+	<engine name="fm1">
+		<port type="10G" number="0" policy="hash_ipv4_src_dst_policy9"/>
+	</engine>
     </config>
 </cfgdata>
