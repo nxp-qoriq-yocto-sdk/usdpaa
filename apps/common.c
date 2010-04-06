@@ -32,25 +32,6 @@
 
 #include "common.h"
 
-static thread_data_t *master;
-
-/* Synchronisation. */
-void sync_secondary(thread_data_t *whoami)
-{
-	BUG_ON(whoami == master);
-	pthread_barrier_wait(&master->barr);
-	pthread_barrier_wait(&master->barr);
-}
-void sync_primary_wait(thread_data_t *whoami)
-{
-	BUG_ON(whoami != master);
-	pthread_barrier_wait(&whoami->barr);
-}
-void sync_primary_release(thread_data_t *whoami)
-{
-	pthread_barrier_wait(&whoami->barr);
-}
-
 static __thread thread_data_t *__my_thread_data;
 
 thread_data_t *my_thread_data(void)
@@ -86,14 +67,6 @@ static void *thread_wrapper(void *arg)
 			tdata->cpu, s);
 		goto end;
 	}
-	/* Synchronise to map shmem and init the FQ allocator. */
-	sync_if_master(tdata) {
-		s = fsl_shmem_setup();
-		if (s)
-			fprintf(stderr, "Continuing despite shmem failure\n");
-		__fqalloc_init();
-	}
-	sync_end(tdata);
 	/* Invoke the application thread function */
 	s = tdata->fn(tdata);
 end:
@@ -109,16 +82,6 @@ int start_threads_custom(struct thread_data *ctxs, int num_ctxs)
 	/* Create the threads */
 	for (i = 0, ctx = &ctxs[0]; i < num_ctxs; i++, ctx++) {
 		int err;
-		err = pthread_barrier_init(&ctx->barr, NULL, num_ctxs);
-		if (err) {
-			fprintf(stderr, "error initialising barrier\n");
-			return err;
-		}
-		if (!i) {
-			master = ctx;
-			ctx->am_master = 1;
-		} else
-			ctx->am_master = 0;
 		/* Create+start the thread */
 		err = pthread_create(&ctx->id, NULL, thread_wrapper, ctx);
 		if (err != 0) {
@@ -143,7 +106,6 @@ int wait_threads(struct thread_data *ctxs, int num_ctxs)
 				err = res;
 		}
 	}
-	master = NULL;
 	return err;
 }
 

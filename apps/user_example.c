@@ -32,6 +32,13 @@
 
 #include "test.h"
 
+static pthread_barrier_t barr;
+
+void sync_all(void)
+{
+	pthread_barrier_wait(&barr);
+}
+
 static void calm_down(void)
 {
 	int die_slowly = 1000;
@@ -98,6 +105,21 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "where [cpu-range] is 'n' or 'm..n'\n");
 		exit(-1);
 	}
+
+	/* init the FQ allocator */
+	ret = __fqalloc_init();
+	if (ret != 0)
+		handle_error_en(ret, "__fqalloc_init");
+
+	/* map shmem */
+	ret = fsl_shmem_setup();
+	if (ret)
+		handle_error_en(ret, "fsl_shmem_setup");
+
+	/* Create the barrier used by sync_all() */
+	ret = pthread_barrier_init(&barr, NULL, last - first + 1);
+	if (ret != 0)
+		handle_error_en(ret, "pthread_barrier_init");
 
 	/* Create the threads */
 	printf("Starting %d threads for cpu-range '%s'\n",

@@ -37,3 +37,5 @@ void bman_test_high(thread_data_t *tdata);
 void speed(thread_data_t *tdata);
 void blastman(thread_data_t *tdata);
 
+void sync_all(void);
+

@@ -59,9 +59,6 @@ struct thread_data {
 	pthread_t id;
 	/* Stores fn() return value on return from run_threads_custom(); */
 	int result;
-	/* Internal state */
-	pthread_barrier_t barr;
-	int am_master;
 } ____cacheline_aligned;
 
 /* Threads can determine their own thread_data_t using this; */
@@ -98,38 +95,6 @@ static inline int run_threads(struct thread_data *ctxs, int num_ctxs,
 
 #define handle_error(msg) \
 	do { perror(msg); exit(EXIT_FAILURE); } while (0)
-
-/* Synchronise all threads. The master thread can do work between 'wait' and
- * 'release' knowing that the secondary threads are all inside the
- * sync_secondary() function. */
-void sync_secondary(thread_data_t *whoami);
-void sync_primary_wait(thread_data_t *whoami);
-void sync_primary_release(thread_data_t *whoami);
-
-/* Or if the master has no special work to do, a simple sync */
-static inline void sync_all(void)
-{
-	thread_data_t *tdata = my_thread_data();
-	if (tdata->am_master) {
-		sync_primary_wait(tdata);
-		sync_primary_release(tdata);
-	} else
-		sync_secondary(tdata);
-}
-
-/* Or write your code in the following way;
- *     sync_if_master(whoami) {
- *             ... stuff that should only happen on the master ...
- *     }
- *     sync_end(whoami);
- */
-#define sync_if_master(whoami) \
-	if (!(whoami)->am_master) \
-		sync_secondary(whoami); \
-	else if (sync_primary_wait(whoami),1)
-#define sync_end(whoami) \
-	if ((whoami)->am_master) \
-		sync_primary_release(tdata);
 
 /* Utility functions */
 static inline int my_toul(const char *str, char **endptr, long toobig)

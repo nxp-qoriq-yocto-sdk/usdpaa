@@ -544,17 +544,25 @@ static void bp_depletion(struct bman_portal *bm, struct bman_pool *pool, void *c
 	TRACE("%s: BP%u -> %x\n", __func__, bman_get_params(pool)->bpid, depleted);
 }
 
+/* This is not actually necessary, the threads can just start up without any
+ * ordering requirement. The first cpu will initialise the interfaces before
+ * enabling the MACs, and cpus/portals can come online in any order. On
+ * simulation however, the initialising thread/cpu *crawls* because the
+ * simulator spends most of its time simulating the other cpus in their tight
+ * polling loops, whereas having those threads suspended in a barrier allows the
+ * simulator to focus on the cpu doing the initialisation. On h/w this is
+ * harmless but of no benefit. */
+static pthread_barrier_t init_barrier;
+
 static int worker_fn(thread_data_t *tdata)
 {
-	int loop;
 	TRACE("This is the thread on cpu %d\n", tdata->cpu);
 
-	sync_if_master(tdata) {
+	/* Do interface initialisation in the first thread. We can't do this
+	 * before, because we need to use portals to initialise FQs. */
+	if (!tdata->index) {
 		u8 bpids[] = POC_BPIDS;
-		/* initialise interfaces */
-		ifs = fsl_shmem_memalign(64, POC_IF_NUM * sizeof(*ifs));
-		BUG_ON(!ifs);
-		memset(ifs, 0, POC_IF_NUM * sizeof(*ifs));
+		int loop;
 		for (loop = 0; loop < POC_IF_NUM; loop++) {
 			TRACE("Initialising interface %d\n", ifid[loop]);
 			poc_if_init(&ifs[loop], &ifs_percpu[loop], ifid[loop]);
@@ -574,7 +582,7 @@ static int worker_fn(thread_data_t *tdata)
 		/* ready to go, open the flood-gates */
 		__mac_enable_all();
 	}
-	sync_end(tdata);
+	pthread_barrier_wait(&init_barrier);
 
 	qman_static_dequeue_add(POC_CPU_SDQCR(tdata->index));
 
@@ -592,7 +600,8 @@ static int worker_fn(thread_data_t *tdata)
 int main(int argc, char *argv[])
 {
 	thread_data_t thread_data[MAX_THREADS];
-	int ret, first, last;
+	int ret, first, last, loop;
+	u8 bpids[] = POC_BPIDS;
 	long ncpus = sysconf(_SC_NPROCESSORS_ONLN);
 
 	if (ncpus == 1)
@@ -625,7 +634,30 @@ int main(int argc, char *argv[])
 		exit(-1);
 	}
 
+	/* map shmem */
+	ret = fsl_shmem_setup();
+	if (ret)
+		fprintf(stderr, "Continuing despite shmem failure\n");
+	/* allocate interface structs in shmem region */
+	ifs = fsl_shmem_memalign(64, POC_IF_NUM * sizeof(*ifs));
+	BUG_ON(!ifs);
+	memset(ifs, 0, POC_IF_NUM * sizeof(*ifs));
+
+	/* initialise buffer pools */
+	for (loop = 0; loop < sizeof(bpids); loop++) {
+		struct bman_pool_params params = {
+			.bpid = bpids[loop],
+			.flags = BMAN_POOL_FLAG_ONLY_RELEASE
+		};
+		TRACE("Initialising pool for bpid %d\n", bpids[loop]);
+		pool[bpids[loop]] = bman_new_pool(&params);
+		BUG_ON(!pool[bpids[loop]]);
+	}
+
 	/* Create the threads */
+	ret = pthread_barrier_init(&init_barrier, NULL, last - first + 1);
+	if (ret != 0)
+		handle_error_en(ret, "pthread_barrier_init");
 	TRACE("Starting %d threads for cpu-range '%s'\n",
 		last - first + 1, argv[1]);
 	ret = run_threads(thread_data, last - first + 1, first, worker_fn);
