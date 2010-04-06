@@ -685,7 +685,7 @@ static int worker_fn(thread_data_t *tdata)
 	int loop;
 	TRACE("This is the thread on cpu %d\n", tdata->cpu);
 
-	sync_start_if_master(tdata) {
+	sync_if_master(tdata) {
 		u8 bpids[] = POC_BPIDS;
 		/* initialise interfaces */
 		ifs = fsl_shmem_memalign(64, POC_IF_NUM * sizeof(*ifs));
@@ -720,7 +720,7 @@ static int worker_fn(thread_data_t *tdata)
 			loop, tdata->index);
 		poc_if_init_percpu(&ifs[loop], loop, tdata->index);
 	}
-	sync_start_if_master(tdata) {
+	sync_if_master(tdata) {
 		/* ready to go, open the flood-gates */
 		__mac_enable_all();
 	}

@@ -32,62 +32,23 @@
 
 #include "common.h"
 
-/* Run-list. This isn't locked because it's built up by the app thread. Now
- * early-starting threads may enter sync_cpus() before late-starting threads are
- * in the list, but the list isn't iterated until the master thread has been
- * signalled by *all* threads (incl. late-stating ones), and as the master
- * thread is created first, there is no need for locking. */
-static thread_data_t *run_list_head, *run_list_tail;
+static thread_data_t *master;
 
-/* Synchronisation. The master thread's counter must hit n-1 (n is # of cpus)
- * before being signalled, the other threads' counters only need to hit 1 to be
- * signalled. The barrier works by having secondary threads increment the master
- * thread's counter (the last one signals) and then wait for the master thread
- * to signal them in return. This gives the master a window of opportunity in
- * which the other threads are all in the barrier waiting to get back out. */
+/* Synchronisation. */
 void sync_secondary(thread_data_t *whoami)
 {
-	BUG_ON(whoami == run_list_head);
-	/* Lock the master, increment his counter, and signal if everyone has
-	 * reached the barrier */
-	thread_kick_lock(&run_list_head->kick);
-	if (++run_list_head->counter == (whoami->total_cpus - 1))
-		thread_kick_signal(&run_list_head->kick);
-	thread_kick_unlock(&run_list_head->kick);
-	/* Wait for the master to signal us back */
-	thread_kick_lock(&whoami->kick);
-	if (!whoami->counter)
-		thread_kick_wait(&whoami->kick);
-	whoami->counter = 0;
-	barrier();
-	thread_kick_unlock(&whoami->kick);
+	BUG_ON(whoami == master);
+	pthread_barrier_wait(&master->barr);
+	pthread_barrier_wait(&master->barr);
 }
 void sync_primary_wait(thread_data_t *whoami)
 {
-	BUG_ON(whoami != run_list_head);
-	/* Wait to be signalled that the secondaries are all past the barrier */
-	thread_kick_lock(&whoami->kick);
-	if (whoami->counter != (whoami->total_cpus - 1))
-		thread_kick_wait(&whoami->kick);
-	thread_kick_unlock(&whoami->kick);
+	BUG_ON(whoami != master);
+	pthread_barrier_wait(&whoami->barr);
 }
 void sync_primary_release(thread_data_t *whoami)
 {
-	thread_data_t *loop;
-	BUG_ON(whoami != run_list_head);
-	BUG_ON(whoami->counter != (whoami->total_cpus - 1));
-	whoami->counter = 0;
-	barrier();
-	/* give the secondary cpus the "go ahead" */
-	loop = whoami->next;
-	while (loop) {
-		thread_kick_lock(&loop->kick);
-		BUG_ON(loop->counter);
-		loop->counter = 1;
-		thread_kick_signal(&loop->kick);
-		thread_kick_unlock(&loop->kick);
-		loop = loop->next;
-	}
+	pthread_barrier_wait(&whoami->barr);
 }
 
 static __thread thread_data_t *__my_thread_data;
@@ -126,7 +87,7 @@ static void *thread_wrapper(void *arg)
 		goto end;
 	}
 	/* Synchronise to map shmem and init the FQ allocator. */
-	sync_start_if_master(tdata) {
+	sync_if_master(tdata) {
 		s = fsl_shmem_setup();
 		if (s)
 			fprintf(stderr, "Continuing despite shmem failure\n");
@@ -148,22 +109,16 @@ int start_threads_custom(struct thread_data *ctxs, int num_ctxs)
 	/* Create the threads */
 	for (i = 0, ctx = &ctxs[0]; i < num_ctxs; i++, ctx++) {
 		int err;
-		ctx->next = NULL;
-		err = thread_kick_init(&ctx->kick);
+		err = pthread_barrier_init(&ctx->barr, NULL, num_ctxs);
 		if (err) {
-			fprintf(stderr, "error initialising thread locks\n");
+			fprintf(stderr, "error initialising barrier\n");
 			return err;
 		}
-		ctx->counter = 0;
-		/* Add to the run_list */
 		if (!i) {
-			run_list_head = run_list_tail = ctx;
+			master = ctx;
 			ctx->am_master = 1;
-		} else {
-			run_list_tail->next = ctx;
-			run_list_tail = run_list_tail->next;
+		} else
 			ctx->am_master = 0;
-		}
 		/* Create+start the thread */
 		err = pthread_create(&ctx->id, NULL, thread_wrapper, ctx);
 		if (err != 0) {
@@ -188,7 +143,7 @@ int wait_threads(struct thread_data *ctxs, int num_ctxs)
 				err = res;
 		}
 	}
-	run_list_head = run_list_tail = NULL;
+	master = NULL;
 	return err;
 }
 

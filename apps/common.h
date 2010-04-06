@@ -47,47 +47,6 @@
 
 #define MAX_THREADS 8
 
-/* Barriers, used for sync between master and secondary threads */
-struct thread_kick {
-	pthread_cond_t cond;
-	pthread_mutex_t mutex;
-};
-static inline int thread_kick_init(struct thread_kick *k)
-{
-	int ret = pthread_mutex_init(&k->mutex, NULL);
-	if (ret)
-		return ret;
-	ret = pthread_cond_init(&k->cond, NULL);
-	if (ret)
-		pthread_mutex_destroy(&k->mutex);
-	return ret;
-}
-static inline void thread_kick_destroy(struct thread_kick *k)
-{
-	pthread_cond_destroy(&k->cond);
-	pthread_mutex_destroy(&k->mutex);
-}
-static inline void thread_kick_lock(struct thread_kick *k)
-{
-	__maybe_unused int ret = pthread_mutex_lock(&k->mutex);
-	BUG_ON(ret);
-}
-static inline void thread_kick_unlock(struct thread_kick *k)
-{
-	__maybe_unused int ret = pthread_mutex_unlock(&k->mutex);
-	BUG_ON(ret);
-}
-static inline void thread_kick_wait(struct thread_kick *k)
-{
-	__maybe_unused int ret = pthread_cond_wait(&k->cond, &k->mutex);
-	BUG_ON(ret);
-}
-static inline void thread_kick_signal(struct thread_kick *k)
-{
-	__maybe_unused int ret = pthread_cond_signal(&k->cond);
-	BUG_ON(ret);
-}
-
 /* Per-thread data, including the pthread id */
 typedef struct thread_data thread_data_t;
 struct thread_data {
@@ -101,10 +60,8 @@ struct thread_data {
 	/* Stores fn() return value on return from run_threads_custom(); */
 	int result;
 	/* Internal state */
-	struct thread_kick kick;
-	volatile int counter;
+	pthread_barrier_t barr;
 	int am_master;
-	thread_data_t *next;
 } ____cacheline_aligned;
 
 /* Threads can determine their own thread_data_t using this; */
@@ -143,7 +100,7 @@ static inline int run_threads(struct thread_data *ctxs, int num_ctxs,
 	do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
 /* Synchronise all threads. The master thread can do work between 'wait' and
- * 'release' knowing that the secondary threads are all spinning inside the
+ * 'release' knowing that the secondary threads are all inside the
  * sync_secondary() function. */
 void sync_secondary(thread_data_t *whoami);
 void sync_primary_wait(thread_data_t *whoami);
@@ -161,12 +118,12 @@ static inline void sync_all(void)
 }
 
 /* Or write your code in the following way;
- *     sync_start_if_master(whoami) {
+ *     sync_if_master(whoami) {
  *             ... stuff that should only happen on the master ...
  *     }
  *     sync_end(whoami);
  */
-#define sync_start_if_master(whoami) \
+#define sync_if_master(whoami) \
 	if (!(whoami)->am_master) \
 		sync_secondary(whoami); \
 	else if (sync_primary_wait(whoami),1)
