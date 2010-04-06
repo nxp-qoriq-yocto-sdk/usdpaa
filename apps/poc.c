@@ -536,6 +536,13 @@ static void calm_down(void)
 	}
 }
 
+static void bp_depletion(struct bman_portal *bm, struct bman_pool *pool, void *cb_ctx, int depleted)
+{
+	BUG_ON(pool != *(typeof(&pool))cb_ctxt);
+
+	TRACE("%s: BP%u -> %x\n", __func__, bman_get_params(pool)->bpid, depleted);
+}
+
 static int worker_fn(thread_data_t *tdata)
 {
 	int loop;
@@ -554,8 +561,10 @@ static int worker_fn(thread_data_t *tdata)
 		/* initialise buffer pools */
 		for (loop = 0; loop < sizeof(bpids); loop++) {
 			struct bman_pool_params params = {
-				.bpid = bpids[loop],
-				.flags = BMAN_POOL_FLAG_ONLY_RELEASE
+				.bpid	= bpids[loop],
+				.flags	= BMAN_POOL_FLAG_ONLY_RELEASE | BMAN_POOL_FLAG_DEPLETION,
+				.cb	= bp_depletion,
+				.cb_ctx	= pool + bpids[loop]
 			};
 			TRACE("Initialising pool for bpid %d\n", bpids[loop]);
 			pool[bpids[loop]] = bman_new_pool(&params);
