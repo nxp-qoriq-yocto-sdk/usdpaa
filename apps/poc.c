@@ -61,6 +61,7 @@
 	foolen; \
 })
 #define POC_BPIDS		{7, 8, 9}
+#define POC_CLI_BUFFER		(2*1024)
 
 static const uint8_t ifid[] = {0, 1, 2, 3, 9};
 
@@ -97,6 +98,11 @@ static const uint8_t ifid[] = {0, 1, 2, 3, 9};
 #ifdef POC_COUNTERS
 #define CNT(a)	    struct bigatomic a
 #define CNT_INC(a)  bigatomic_inc(a)
+static inline void CNT_ADD(struct bigatomic *a, const struct bigatomic *b)
+{
+	if (a)
+		bigatomic_set(a, bigatomic_read(a) + bigatomic_read(b));
+}
 #else
 #define CNT(a)	    struct { }
 #define CNT_INC(a)  do { ; } while (0)
@@ -127,6 +133,14 @@ do { \
 	struct poc_fq_2drop *__foo = (p); \
 	(void *)ifs_percpu + __foo->percpu_offset; \
 })
+#ifdef POC_COUNTERS
+static inline void dump_fq_2drop(const char *prefix, struct poc_fq_2drop_percpu *to,
+			const struct poc_fq_2drop_percpu *pc)
+{
+	printf("%s:%llu", prefix, bigatomic_read(&pc->cnt));
+	CNT_ADD(to ? &to->cnt : NULL, &pc->cnt);
+}
+#endif
 
 /* Rx FQs that fwd, count packets and drop-decisions. */
 struct poc_fq_2fwd {
@@ -137,8 +151,6 @@ struct poc_fq_2fwd {
 struct poc_fq_2fwd_percpu {
 #ifdef POC_COUNTERS_SUCCESS
 	CNT(cnt);
-#endif
-#ifdef POC_COUNTERS_SUCCESS
 	CNT(cnt_tx);
 #endif
 	CNT(cnt_tx_ern);
@@ -158,6 +170,33 @@ do { \
 	struct poc_fq_2fwd *__foo = (p); \
 	(void *)ifs_percpu + __foo->percpu_offset; \
 })
+#ifdef POC_COUNTERS
+static inline void dump_fq_2fwd(struct poc_fq_2fwd_percpu *to,
+			const struct poc_fq_2fwd_percpu *pc, int skip_print)
+{
+#ifdef POC_COUNTERS_SUCCESS
+	if (!skip_print) {
+		printf("        rx:%llu,", bigatomic_read(&pc->cnt));
+		printf("fwd:%llu,", bigatomic_read(&pc->cnt_tx));
+	}
+	CNT_ADD(to ? &to->cnt : NULL, &pc->cnt);
+	CNT_ADD(to ? &to->cnt_tx : NULL, &pc->cnt_tx);
+#else
+	if (!skip_print)
+		printf("        ");
+#endif
+	if (!skip_print) {
+		printf("ern:%llu,", bigatomic_read(&pc->cnt_tx_ern));
+		printf("d_bcast:%llu,", bigatomic_read(&pc->cnt_drop_bcast));
+		printf("d_arp:%llu,", bigatomic_read(&pc->cnt_drop_arp));
+		printf("d_other:%llu\n", bigatomic_read(&pc->cnt_drop_other));
+	}
+	CNT_ADD(to ? &to->cnt_tx_ern : NULL, &pc->cnt_tx_ern);
+	CNT_ADD(to ? &to->cnt_drop_bcast : NULL, &pc->cnt_drop_bcast);
+	CNT_ADD(to ? &to->cnt_drop_arp : NULL, &pc->cnt_drop_arp);
+	CNT_ADD(to ? &to->cnt_drop_other : NULL, &pc->cnt_drop_other);
+}
+#endif
 
 /* Each DTSEC i/face (fm1-dtsec[0123]) has one of these */
 struct poc_if {
@@ -187,6 +226,32 @@ do { \
 	struct poc_if *__foo = (p); \
 	(void *)ifs_percpu + __foo->percpu_offset; \
 })
+#ifdef POC_COUNTERS
+static inline void dump_if_percpu(struct poc_if_percpu *to,
+			const struct poc_if_percpu *pc)
+{
+	struct poc_fq_2fwd_percpu my_total;
+	int loop;
+	memset(&my_total, 0, sizeof(my_total));
+	printf("        ");
+	dump_fq_2drop("rx_error", to ? &to->rx_error : NULL,
+			&pc->rx_error);
+	dump_fq_2drop(",rx_default", to ? &to->rx_default : NULL,
+			&pc->rx_default);
+	dump_fq_2drop(",tx_error", to ? &to->tx_error : NULL,
+			&pc->tx_error);
+	dump_fq_2drop(",tx_confirm", to ? &to->tx_confirm : NULL,
+			&pc->tx_confirm);
+	printf("\n");
+	for (loop = 0; loop < POC_RX_HASH_SIZE; loop++) {
+		dump_fq_2fwd(&my_total, &pc->rx_hash[loop], 0);
+		dump_fq_2fwd(to ? &to->rx_hash[loop] : NULL,
+				&pc->rx_hash[loop], 1);
+	}
+	printf("      total;\n");
+	dump_fq_2fwd(NULL, &my_total, 0);
+}
+#endif
 
 /***************/
 /* Global data */
@@ -201,6 +266,89 @@ static struct poc_if *ifs;
 
 /* A per-cpu shadown structure for keeping stats */
 static __PERCPU struct poc_if_percpu ifs_percpu[POC_IF_NUM];
+
+/*********/
+/* Stats */
+/*********/
+
+struct poc_msg {
+	/* The CLI thread sets this !=poc_msg_none then waits on the barrier.
+	 * The worker thread checks for !=poc_msg_none in its polling loop,
+	 * performs the desired function, and sets this ==poc_msg_none before
+	 * going into the barrier (releasing itself and the CLI thread). */
+	volatile enum poc_msg_type {
+		poc_msg_none = 0,
+		poc_msg_quit,
+		poc_msg_dump_if_percpu,
+		poc_msg_printf_foobar
+	} msg;
+	pthread_barrier_t barr;
+	/* ifs_percpu[] is copied to this by poc_msg_dump_if_percpu */
+	struct poc_if_percpu dump[POC_IF_NUM];
+} ____cacheline_aligned;
+
+/* worker-side processing */
+static noinline int process_msg(thread_data_t *ctx)
+{
+	struct poc_msg *msg = ctx->appdata;
+	if (msg->msg == poc_msg_quit)
+		printf("quit not implemented yet\n");
+	else if (msg->msg == poc_msg_dump_if_percpu)
+		memcpy(msg->dump, ifs_percpu,
+			POC_IF_NUM * sizeof(ifs_percpu[0]));
+	else if (msg->msg == poc_msg_printf_foobar)
+		printf("foobar (index:%d,cpu:%d)\n", ctx->index, ctx->cpu);
+	else
+		panic("bad message type");
+	msg->msg = poc_msg_none;
+	pthread_barrier_wait(&msg->barr);
+	return 1;
+}
+static inline int check_msg(thread_data_t *ctx)
+{
+	struct poc_msg *msg = ctx->appdata;
+	if (likely(msg->msg == poc_msg_none))
+		return 1;
+	return process_msg(ctx);
+}
+
+/* CLI-side processing */
+#ifdef POC_COUNTERS
+static void dump_if_percpus(struct poc_if_percpu *to,
+			const struct poc_if_percpu *pc, int cnt)
+{
+	int loop;
+	for (loop = 0; loop < cnt; loop++) {
+		printf("    Interface %d;\n", loop);
+		dump_if_percpu(to ? &to[loop] : NULL, &pc[loop]);
+	}
+}
+static void msg_dump_if_percpus(thread_data_t *ctx, int cnt)
+{
+	struct poc_if_percpu totals[POC_IF_NUM];
+	int loop;
+	memset(totals, 0, POC_IF_NUM * sizeof(totals[0]));
+	for (loop = 0; loop < cnt; loop++, ctx++) {
+		struct poc_msg *msg = ctx->appdata;
+		msg->msg = poc_msg_dump_if_percpu;
+		pthread_barrier_wait(&msg->barr);
+		printf("Dumping thread %d (cpu %d);\n", ctx->index, ctx->cpu);
+		dump_if_percpus(totals, msg->dump, POC_IF_NUM);
+	}
+	printf("Dumping totals;\n");
+	dump_if_percpus(NULL, totals, POC_IF_NUM);
+}
+#endif
+
+static void msg_printf_foobar(thread_data_t *ctx, int cnt)
+{
+	int loop;
+	for (loop = 0; loop < cnt; loop++, ctx++) {
+		struct poc_msg *msg = ctx->appdata;
+		msg->msg = poc_msg_printf_foobar;
+		pthread_barrier_wait(&msg->barr);
+	}
+}
 
 /********************/
 /* common functions */
@@ -557,6 +705,7 @@ static pthread_barrier_t init_barrier;
 static int worker_fn(thread_data_t *tdata)
 {
 	TRACE("This is the thread on cpu %d\n", tdata->cpu);
+	memset(ifs_percpu, 0, sizeof(ifs_percpu));
 
 	/* Do interface initialisation in the first thread. We can't do this
 	 * before, because we need to use portals to initialise FQs. */
@@ -582,12 +731,12 @@ static int worker_fn(thread_data_t *tdata)
 		/* ready to go, open the flood-gates */
 		__mac_enable_all();
 	}
-	pthread_barrier_wait(&init_barrier);
 
 	qman_static_dequeue_add(POC_CPU_SDQCR(tdata->index));
 
-	printf("Starting poll loop on cpu %d\n", tdata->cpu);
-	while (1) {
+	pthread_barrier_wait(&init_barrier);
+	TRACE("Starting poll loop on cpu %d\n", tdata->cpu);
+	while (check_msg(tdata)) {
 		qman_poll();
 		bman_poll();
 	}
@@ -597,12 +746,21 @@ static int worker_fn(thread_data_t *tdata)
 	return 0;
 }
 
+static int do_cli(char *buf, unsigned int sz)
+{
+	printf("poc> ");
+	fflush(stdout);
+	return (fgets(buf, sz, stdin) != NULL);
+}
+
 int main(int argc, char *argv[])
 {
 	thread_data_t thread_data[MAX_THREADS];
+	struct poc_msg appdata[MAX_THREADS];
 	int ret, first, last, loop;
 	u8 bpids[] = POC_BPIDS;
 	long ncpus = sysconf(_SC_NPROCESSORS_ONLN);
+	char cli[POC_CLI_BUFFER];
 
 	if (ncpus == 1)
 		first = last = 0;
@@ -655,14 +813,43 @@ int main(int argc, char *argv[])
 	}
 
 	/* Create the threads */
-	ret = pthread_barrier_init(&init_barrier, NULL, last - first + 1);
+	for (loop = 0; loop < last - first + 1; loop++) {
+		struct poc_msg *msg = &appdata[loop];
+		memset(msg, 0, sizeof(*msg));
+		pthread_barrier_init(&msg->barr, NULL, 2);
+		thread_data[loop].appdata = msg;
+	}
+	/* This is 'last-first+2' rather than 'last-first+1', so that the CLI
+	 * thread can wait on initialisation too! */
+	ret = pthread_barrier_init(&init_barrier, NULL, last - first + 2);
 	if (ret != 0)
 		handle_error_en(ret, "pthread_barrier_init");
 	TRACE("Starting %d threads for cpu-range '%s'\n",
 		last - first + 1, argv[1]);
-	ret = run_threads(thread_data, last - first + 1, first, worker_fn);
+	ret = start_threads(thread_data, last - first + 1, first, worker_fn);
 	if (ret != 0)
-		handle_error_en(ret, "run_threads");
+		handle_error_en(ret, "start_threads");
+	/* don't start the cmd-prompt until thread init is done */
+	pthread_barrier_wait(&init_barrier);
+	while (do_cli(cli, POC_CLI_BUFFER)) {
+		while ((cli[strlen(cli) - 1] == '\r') ||
+				(cli[strlen(cli) - 1] == '\n'))
+			cli[strlen(cli) - 1] = '\0';
+		if (!strncmp(cli, "q", 1))
+			break;
+		else if (!strncmp(cli, "dump", 4))
+#ifdef POC_COUNTERS
+			msg_dump_if_percpus(thread_data, last - first + 1);
+#else
+			fprintf(stderr, "No counters compiled in\n");
+#endif
+		else if (!strncmp(cli, "foo", 3))
+			msg_printf_foobar(thread_data, last - first + 1);
+		else
+			fprintf(stderr, "unknown cmd: %s\n", cli);
+	}
+	/* TODO: "signal" the other threads? */
+	wait_threads(thread_data, last - first + 1);
 
 	TRACE("Done\n");
 	exit(EXIT_SUCCESS);
