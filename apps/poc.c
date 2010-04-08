@@ -758,7 +758,6 @@ int main(int argc, char *argv[])
 	thread_data_t thread_data[MAX_THREADS];
 	struct poc_msg appdata[MAX_THREADS];
 	int ret, first, last, loop;
-	u8 bpids[] = POC_BPIDS;
 	long ncpus = sysconf(_SC_NPROCESSORS_ONLN);
 	char cli[POC_CLI_BUFFER];
 
@@ -800,17 +799,6 @@ int main(int argc, char *argv[])
 	ifs = fsl_shmem_memalign(64, POC_IF_NUM * sizeof(*ifs));
 	BUG_ON(!ifs);
 	memset(ifs, 0, POC_IF_NUM * sizeof(*ifs));
-
-	/* initialise buffer pools */
-	for (loop = 0; loop < sizeof(bpids); loop++) {
-		struct bman_pool_params params = {
-			.bpid = bpids[loop],
-			.flags = BMAN_POOL_FLAG_ONLY_RELEASE
-		};
-		TRACE("Initialising pool for bpid %d\n", bpids[loop]);
-		pool[bpids[loop]] = bman_new_pool(&params);
-		BUG_ON(!pool[bpids[loop]]);
-	}
 
 	/* Create the threads */
 	for (loop = 0; loop < last - first + 1; loop++) {
