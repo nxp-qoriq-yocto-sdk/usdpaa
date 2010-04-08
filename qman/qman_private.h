@@ -599,31 +599,3 @@ u32 __qm_isr_read(struct qm_portal *portal, enum qm_isr_reg n);
 void __qm_isr_write(struct qm_portal *portal, enum qm_isr_reg n, u32 val);
 #endif
 
-/* ------------------------ */
-/* --- FQ allocator API --- */
-
-/* Flags to qm_fq_free_flags() */
-#define QM_FQ_FREE_WAIT       0x00000001 /* wait if RCR is full */
-#define QM_FQ_FREE_WAIT_INT   0x00000002 /* if wait, interruptible? */
-#define QM_FQ_FREE_WAIT_SYNC  0x00000004 /* if wait, until consumed? */
-
-#ifdef CONFIG_FSL_QMAN_FQALLOCATOR
-
-/* Allocate an unused FQID from the FQ allocator, returns zero for failure */
-u32 qm_fq_new(void);
-/* Release a FQID back to the FQ allocator */
-int qm_fq_free_flags(u32 fqid, u32 flags);
-static inline void qm_fq_free(u32 fqid)
-{
-	if (qm_fq_free_flags(fqid, QM_FQ_FREE_WAIT))
-		BUG();
-}
-
-#else /* !CONFIG_FSL_QMAN_FQALLOCATOR */
-
-#define qm_fq_new()                   0
-#define qm_fq_free_flags(fqid,flags)  BUG()
-#define qm_fq_free(fqid)              BUG()
-
-#endif /* !CONFIG_FSL_QMAN_FQALLOCATOR */
-
