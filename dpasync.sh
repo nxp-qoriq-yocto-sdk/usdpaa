@@ -8,8 +8,8 @@ TOPDIR="`dirname $0`/.."
 INCL="fsl_qman.h fsl_bman.h"
 
 # source files
-QMAN="qman_high.c qman_low.c qman_private.h qman_utility.c qman_fqalloc.c"
-BMAN="bman_high.c bman_low.c bman_private.h"
+QMAN="qman_high.c qman_low.h qman_private.h qman_utility.c qman_fqalloc.c"
+BMAN="bman_high.c bman_low.h bman_private.h"
 #PME2="pme2_high.c pme2_low.c pme2_private.h"
 
 # Location of files in linux
