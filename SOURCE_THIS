@@ -1,3 +1,4 @@
+
 export BMAN1=/dev/uio0
 export BMAN2=/dev/uio1
 export BMAN3=/dev/uio2
@@ -15,7 +16,8 @@ export QMAN6=/dev/uio13
 export QMAN7=/dev/uio14
 export QMAN0=/dev/uio15
 
-# cd /
-# fmc -c us_config_fm0_sgmii.xml -p us_policy_hash_ipv4_src_dst.xml -a
-# poc
+cd /
+fmc -c us_config_fm0_sgmii.xml -p us_policy_hash_ipv4_src_dst.xml -a
+
+poc
 
