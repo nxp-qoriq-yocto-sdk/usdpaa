@@ -75,7 +75,13 @@ static const uint8_t ifid[] = {0, 1, 2, 3, 9};
 #define POC_BACKOFF_CYCLES	200
 #define POC_COUNTERS		/* enable counters */
 #undef POC_COUNTERS_SUCCESS	/*   not just errors, count everything */
+#undef POC_DUMP_PERCPU		/*   dump per-cpu stats, or just totals */
 #define POC_DATA_DCBF		/* cache flush modified data during Tx */
+#define POC_EQCR_HIST		/* keep a per-portal histogram of CI updates */
+
+#if defined(POC_EQCR_HIST) && !defined(POC_COUNTERS)
+#error "POC_EQCR_HIST requires POC_COUNTERS"
+#endif
 
 /**********/
 /* macros */
@@ -138,7 +144,8 @@ do { \
 static inline void dump_fq_2drop(const char *prefix, struct poc_fq_2drop_percpu *to,
 			const struct poc_fq_2drop_percpu *pc)
 {
-	printf("%s:%llu", prefix, bigatomic_read(&pc->cnt));
+	if (prefix)
+		printf("%s:%llu", prefix, bigatomic_read(&pc->cnt));
 	CNT_ADD(to ? &to->cnt : NULL, &pc->cnt);
 }
 #endif
@@ -173,20 +180,20 @@ do { \
 })
 #ifdef POC_COUNTERS
 static inline void dump_fq_2fwd(struct poc_fq_2fwd_percpu *to,
-			const struct poc_fq_2fwd_percpu *pc, int skip_print)
+			const struct poc_fq_2fwd_percpu *pc, int log)
 {
 #ifdef POC_COUNTERS_SUCCESS
-	if (!skip_print) {
+	if (log) {
 		printf("        rx:%llu,", bigatomic_read(&pc->cnt));
 		printf("fwd:%llu,", bigatomic_read(&pc->cnt_tx));
 	}
 	CNT_ADD(to ? &to->cnt : NULL, &pc->cnt);
 	CNT_ADD(to ? &to->cnt_tx : NULL, &pc->cnt_tx);
 #else
-	if (!skip_print)
+	if (log)
 		printf("        ");
 #endif
-	if (!skip_print) {
+	if (log) {
 		printf("ern:%llu,", bigatomic_read(&pc->cnt_tx_ern));
 		printf("d_bcast:%llu,", bigatomic_read(&pc->cnt_drop_bcast));
 		printf("d_arp:%llu,", bigatomic_read(&pc->cnt_drop_arp));
@@ -229,28 +236,31 @@ do { \
 })
 #ifdef POC_COUNTERS
 static inline void dump_if_percpu(struct poc_if_percpu *to,
-			const struct poc_if_percpu *pc)
+			const struct poc_if_percpu *pc, int log)
 {
 	struct poc_fq_2fwd_percpu my_total;
 	int loop;
 	memset(&my_total, 0, sizeof(my_total));
-	printf("        ");
-	dump_fq_2drop("rx_error", to ? &to->rx_error : NULL,
+	if (log)
+		printf("        ");
+	dump_fq_2drop(log ? "rx_error" : NULL, to ? &to->rx_error : NULL,
 			&pc->rx_error);
-	dump_fq_2drop(",rx_default", to ? &to->rx_default : NULL,
+	dump_fq_2drop(log ? ",rx_default" : NULL, to ? &to->rx_default : NULL,
 			&pc->rx_default);
-	dump_fq_2drop(",tx_error", to ? &to->tx_error : NULL,
+	dump_fq_2drop(log ? ",tx_error" : NULL, to ? &to->tx_error : NULL,
 			&pc->tx_error);
-	dump_fq_2drop(",tx_confirm", to ? &to->tx_confirm : NULL,
+	dump_fq_2drop(log ? ",tx_confirm" : NULL, to ? &to->tx_confirm : NULL,
 			&pc->tx_confirm);
-	printf("\n");
+	if (log)
+		printf("\n");
 	for (loop = 0; loop < POC_RX_HASH_SIZE; loop++) {
 		dump_fq_2fwd(&my_total, &pc->rx_hash[loop], 0);
 		dump_fq_2fwd(to ? &to->rx_hash[loop] : NULL,
-				&pc->rx_hash[loop], 1);
+				&pc->rx_hash[loop], log);
 	}
-	printf("      total;\n");
-	dump_fq_2fwd(NULL, &my_total, 0);
+	if (log)
+		printf("      total;\n");
+	dump_fq_2fwd(NULL, &my_total, log);
 }
 #endif
 
@@ -286,6 +296,9 @@ struct poc_msg {
 	pthread_barrier_t barr;
 	/* ifs_percpu[] is copied to this by poc_msg_dump_if_percpu */
 	struct poc_if_percpu dump[POC_IF_NUM];
+#ifdef POC_EQCR_HIST
+	u64 ci_hist[8];
+#endif
 } ____cacheline_aligned;
 
 /* worker-side processing */
@@ -294,10 +307,13 @@ static noinline int process_msg(thread_data_t *ctx)
 	struct poc_msg *msg = ctx->appdata;
 	if (msg->msg == poc_msg_quit)
 		printf("quit not implemented yet\n");
-	else if (msg->msg == poc_msg_dump_if_percpu)
+	else if (msg->msg == poc_msg_dump_if_percpu) {
 		memcpy(msg->dump, ifs_percpu,
 			POC_IF_NUM * sizeof(ifs_percpu[0]));
-	else if (msg->msg == poc_msg_printf_foobar)
+#ifdef POC_EQCR_HIST
+		memcpy(&msg->ci_hist[0], &eqcr_ci_histogram[0], sizeof(msg->ci_hist));
+#endif
+	} else if (msg->msg == poc_msg_printf_foobar)
 		printf("foobar (index:%d,cpu:%d)\n", ctx->index, ctx->cpu);
 	else
 		panic("bad message type");
@@ -316,28 +332,69 @@ static inline int check_msg(thread_data_t *ctx)
 /* CLI-side processing */
 #ifdef POC_COUNTERS
 static void dump_if_percpus(struct poc_if_percpu *to,
-			const struct poc_if_percpu *pc, int cnt)
+			const struct poc_if_percpu *pc, int cnt, int log)
 {
 	int loop;
 	for (loop = 0; loop < cnt; loop++) {
-		printf("    Interface %d;\n", loop);
-		dump_if_percpu(to ? &to[loop] : NULL, &pc[loop]);
+		if (log)
+			printf("    Interface %d;\n", loop);
+		dump_if_percpu(to ? &to[loop] : NULL, &pc[loop], log);
 	}
 }
+#ifdef POC_EQCR_HIST
+static void dump_hist(u64 *to, u64 *pc, int log)
+{
+	uint64_t total = 0, weighted = 0, avg;
+	int hist;
+	if (log) {
+		printf("    EQCR_CI updates (histogram);\n");
+		printf("        ");
+	}
+	for (hist = 0; hist < 8; hist++) {
+		if (log)
+			printf("[%d]:%llu ", hist, pc[hist]);
+		if (to)
+			to[hist] += pc[hist];
+		total += pc[hist];
+		weighted += hist * pc[hist];
+	}
+	if (!log)
+		return;
+	printf("\n");
+	avg = total ? ((weighted * 10 + (total / 2)) / total) : 0;
+	printf("        [total]:%llu [weighted]:%llu [avg]:%d.%d\n",
+		total, weighted, (int)avg / 10, (int)avg % 10);
+}
+#endif
 static void msg_dump_if_percpus(thread_data_t *ctx, int cnt)
 {
-	struct poc_if_percpu totals[POC_IF_NUM];
+	struct poc_if_percpu if_totals[POC_IF_NUM];
+	u64 hist_totals[8];
 	int loop;
-	memset(totals, 0, POC_IF_NUM * sizeof(totals[0]));
+	memset(if_totals, 0, sizeof(if_totals));
+	memset(hist_totals, 0, sizeof(hist_totals));
 	for (loop = 0; loop < cnt; loop++, ctx++) {
 		struct poc_msg *msg = ctx->appdata;
 		msg->msg = poc_msg_dump_if_percpu;
 		pthread_barrier_wait(&msg->barr);
+#ifdef POC_DUMP_PERCPU
 		printf("Dumping thread %d (cpu %d);\n", ctx->index, ctx->cpu);
-		dump_if_percpus(totals, msg->dump, POC_IF_NUM);
+		dump_if_percpus(if_totals, msg->dump, POC_IF_NUM, 1);
+#ifdef POC_EQCR_HIST
+		dump_hist(hist_totals, msg->ci_hist, 1);
+#endif
+#else
+		dump_if_percpus(if_totals, msg->dump, POC_IF_NUM, 0);
+#ifdef POC_EQCR_HIST
+		dump_hist(hist_totals, msg->ci_hist, 0);
+#endif
+#endif
 	}
 	printf("Dumping totals;\n");
-	dump_if_percpus(NULL, totals, POC_IF_NUM);
+	dump_if_percpus(NULL, if_totals, POC_IF_NUM, 1);
+#ifdef POC_EQCR_HIST
+	dump_hist(NULL, hist_totals, 1);
+#endif
 }
 #endif
 
