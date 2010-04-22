@@ -75,6 +75,7 @@ static const uint8_t ifid[] = {0, 1, 2, 3, 9};
 #define POC_BACKOFF_CYCLES	200
 #define POC_COUNTERS		/* enable counters */
 #undef POC_COUNTERS_SUCCESS	/*   not just errors, count everything */
+#define POC_DATA_DCBF		/* cache flush modified data during Tx */
 
 /**********/
 /* macros */
@@ -451,6 +452,19 @@ static inline void ether_header_swap(struct ether_header *prot_eth)
 	overlay[2] = (a << 16) | (b >> 16);
 }
 
+#ifdef POC_DATA_DCBF
+/* Flush cacheline(s) containing the data starting at addr, size len */
+static inline void cache_flush(void *addr, unsigned long len)
+{
+	void *s = (void *)((unsigned long)addr & ~(unsigned long)63);
+	addr += len;
+	while (s < addr) {
+		dcbf(s);
+		s += 64;
+	}
+}
+#endif
+
 static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 					struct qman_fq *fq,
 					const struct qm_dqrr_entry *dqrr)
@@ -512,6 +526,10 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		iphdr->saddr = tmp;
 		/* switch ethernet src/dest MAC addresses */
 		ether_header_swap(prot_eth);
+#ifdef POC_DATA_DCBF
+		cache_flush(addr, (unsigned long)iphdr + 12 -
+				(unsigned long)addr);
+#endif
 		TRACE("Tx: 2fwd	 fqid=%d\n", p->tx.fqid);
 		TRACE("	     phys=0x%08x, offset=%d, len=%d, bpid=%d\n",
 			fd->addr_lo, fd->offset, fd->length20, fd->bpid);
