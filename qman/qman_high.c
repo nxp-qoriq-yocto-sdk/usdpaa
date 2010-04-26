@@ -1275,11 +1275,13 @@ static struct qm_eqcr_entry *try_eq_start(struct qman_portal **p)
 static inline struct qm_eqcr_entry *__try_eq(struct qman_portal **p)
 {
 	struct qm_eqcr_entry *eq = try_eq_start(p);
+#ifdef CONFIG_FSL_QMAN_PORTAL_FLAG_IRQ_FAST
 	if (unlikely(!eq))
 		/* TODO: this used to be in try_eq_start() prior to
 		 * local_irq_enable() - verify that the reorder hasn't created a
 		 * race... */
 		eqcr_set_thresh(*p, 1);
+#endif
 	return eq;
 }
 
@@ -1321,7 +1323,9 @@ static int eqcr_completed(struct qman_portal *p, u32 eq_poll)
 	if (!qm_eqcr_get_fill(p->p))
 		/* If EQCR is empty, we must have completed */
 		return 1;
+#ifdef CONFIG_FSL_QMAN_PORTAL_FLAG_IRQ_FAST
 	eqcr_set_thresh(p, 0);
+#endif
 	return 0;
 }
 
