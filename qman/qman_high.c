@@ -41,8 +41,10 @@
 #define DQRR_MAXFILL	15
 #define DQRR_STASH_RING	0	/* if enabled, we ought to check SDEST */
 #define DQRR_STASH_DATA	0	/* ditto */
-#define EQCR_THRESH	1	/* reread h/w CI when running out of space */
 #define EQCR_ITHRESH	4	/* if EQCR congests, interrupt threshold */
+#define EQCR_CI_UPDATE_MIN 5	/* if fewer, increase delays */
+#define EQCR_CI_UPDATE_MAX 6	/* if greater, reduce delays */
+#define EQCR_CI_UPDATE_STEP 50  /* # cycles to inc/decrement delays by */
 #define RECOVER_MSLEEP	100	/* DQRR and MR need to be empty for 0.1s */
 #define IRQNAME		"QMan portal %d"
 #define MAX_IRQNAME	16	/* big enough for "QMan portal %d" */
@@ -110,6 +112,9 @@ struct qman_portal {
 	/* The wrap-around eq_[prod|cons] counters are used to support
 	 * QMAN_ENQUEUE_FLAG_WAIT_SYNC. */
 	u32 eq_prod, eq_cons;
+	/* Throttle EQCR::CI updates under load, see __eq_pause() */
+	u16 eq_pause_switch;
+	u16 eq_pause_delay;
 	u32 sdqcr;
 	volatile int disable_count;
 	/* If we receive a DQRR or MR ring entry for a "null" FQ, ie. for which
@@ -272,6 +277,7 @@ struct qman_portal *qman_create_portal(struct qm_portal *__p, u32 flags,
 	portal->bits = 0;
 	portal->slowpoll = 0;
 	portal->eq_prod = portal->eq_cons = 0;
+	portal->eq_pause_switch = portal->eq_pause_delay = 0;
 	portal->sdqcr = QM_SDQCR_SOURCE_CHANNELS | QM_SDQCR_COUNT_UPTO3 |
 			QM_SDQCR_DEDICATED_PRECEDENCE | QM_SDQCR_TYPE_PRIO_QOS |
 			QM_SDQCR_TOKEN_SET(0xab) | QM_SDQCR_CHANNELS_DEDICATED;
@@ -1248,24 +1254,61 @@ int qman_volatile_dequeue(struct qman_fq *fq, u32 flags, u32 vdqcr)
 }
 EXPORT_SYMBOL(qman_volatile_dequeue);
 
+/* Our 'eq_pause' will be adaptive based on how many EQCR entries expire with
+ * each CI update. It'll start at zero and increment whenever the update is
+ * below EQCR_CI_UPDATE_MIN and will decrement whenever it's above
+ * EQCR_CI_UPDATE_MAX. What's complicated is: it makes more sense to pause prior
+ * to the prefetch(), but if EQCR is full we skip the prefetch so this wouldn't
+ * work in the worst case! So, use a
+ * boolean variable (eq_pause_switch) to track whether the pause has occurred,
+ * and insert the pause statement prior to prefetch() *and* update(). */
+#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
+static inline void __eq_pause(struct qman_portal *p)
+{
+	if (p->eq_pause_delay && !p->eq_pause_switch) {
+		cpu_spin(p->eq_pause_delay);
+		p->eq_pause_switch = 1;
+	}
+}
+static inline void __eq_pause_updated(struct qman_portal *p, u8 ci_inc)
+{
+	p->eq_pause_switch = 0;
+	if (ci_inc < EQCR_CI_UPDATE_MIN)
+		p->eq_pause_delay += EQCR_CI_UPDATE_STEP;
+	else if (ci_inc > EQCR_CI_UPDATE_MAX) {
+		if (p->eq_pause_delay)
+			p->eq_pause_delay -= EQCR_CI_UPDATE_STEP;
+	}
+}
+#else
+#define __eq_pause(p)		do { ; } while (0)
+#define __eq_pause_updated(p,i)	do { ; } while (0)
+#endif
 static struct qm_eqcr_entry *try_eq_start(struct qman_portal **p)
 {
 	struct qm_eqcr_entry *eq;
 	struct qm_portal *lowp;
+	struct qman_portal *highp;
 	u8 avail;
-	*p = get_affine_portal();
-	lowp = (*p)->p;
+	highp = get_affine_portal();
+	lowp = highp->p;
 	local_irq_disable();
 	avail = qm_eqcr_get_avail(lowp);
-	if (avail == EQCR_THRESH)
-		/* We don't need EQCR:CI yet, but we will next time */
-		qm_eqcr_cce_prefetch(lowp);
-	else if (avail < EQCR_THRESH)
-		/* The EQCR::CI cacheline is prefetched post-enqueue, so this
-		 * would ideally be in cache from the previous commit. */
-		(*p)->eq_cons += qm_eqcr_cce_update(lowp);
+	if (avail <= 1) {
+		__eq_pause(highp);
+		if (avail == 1)
+			/* We don't need EQCR:CI yet, but we will next time */
+			qm_eqcr_cce_prefetch(lowp);
+		else {
+			u8 ci_inc = qm_eqcr_cce_update(lowp);
+			highp->eq_cons += ci_inc;
+			__eq_pause_updated(highp, ci_inc);
+		}
+	}
 	eq = qm_eqcr_start(lowp);
-	if (unlikely(!eq)) {
+	if (likely(eq))
+		*p = highp;
+	else {
 		local_irq_enable();
 		put_affine_portal();
 	}
