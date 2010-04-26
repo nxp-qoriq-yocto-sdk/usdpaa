@@ -139,13 +139,5 @@ static inline void bigatomic_inc(struct bigatomic *b)
 		atomic_inc(&b->upper);
 }
 
-/* Spin for a few cycles without bothering anyone else */
-static inline void cpu_spin(int cycles)
-{
-	uint64_t now = mfatb();
-	while (mfatb() < (now + cycles))
-		;
-}
-
 #endif /* !APPS_COMMON_H */
 

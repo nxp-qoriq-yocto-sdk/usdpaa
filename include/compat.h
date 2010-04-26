@@ -270,6 +270,13 @@ static inline uint64_t mfatb(void)
 	} while (unlikely(hi != chk));
 	return (uint64_t) hi << 32 | (uint64_t) lo;
 }
+/* Spin for a few cycles without bothering anyone else */
+static inline void cpu_spin(int cycles)
+{
+	uint64_t now = mfatb();
+	while (mfatb() < (now + cycles))
+		;
+}
 
 /* SMP stuff */
 #define DEFINE_PER_CPU(t,x)	__thread t per_cpu__##x
