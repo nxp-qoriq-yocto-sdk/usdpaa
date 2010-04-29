@@ -75,7 +75,6 @@ static const uint8_t ifid[] = {0, 1, 2, 3, 9};
 #define POC_BACKOFF_CYCLES	200
 #define POC_COUNTERS		/* enable counters */
 #undef POC_COUNTERS_SUCCESS	/*   not just errors, count everything */
-#undef POC_DUMP_PERCPU		/*   dump per-cpu stats, or just totals */
 #define POC_DATA_DCBF		/* cache flush modified data during Tx */
 #define POC_EQCR_HIST		/* keep a per-portal histogram of CI updates */
 
@@ -291,11 +290,12 @@ struct poc_msg {
 		poc_msg_none = 0,
 		poc_msg_quit,
 		poc_msg_dump_if_percpu,
+		poc_msg_dump_if_all,
 		poc_msg_reset_if_percpu,
 		poc_msg_printf_foobar
 	} msg;
 	pthread_barrier_t barr;
-	/* ifs_percpu[] is copied to this by poc_msg_dump_if_percpu */
+	/* ifs_percpu[] is copied to this by poc_msg_dump_* */
 	struct poc_if_percpu dump[POC_IF_NUM];
 #ifdef POC_EQCR_HIST
 	u64 ci_hist[8];
@@ -308,7 +308,8 @@ static noinline int process_msg(thread_data_t *ctx)
 	struct poc_msg *msg = ctx->appdata;
 	if (msg->msg == poc_msg_quit)
 		printf("quit not implemented yet\n");
-	else if (msg->msg == poc_msg_dump_if_percpu) {
+	else if ((msg->msg == poc_msg_dump_if_percpu) ||
+			(msg->msg == poc_msg_dump_if_all)) {
 		memcpy(msg->dump, ifs_percpu, sizeof(ifs_percpu));
 #ifdef POC_EQCR_HIST
 		memcpy(&msg->ci_hist[0], &eqcr_ci_histogram[0], sizeof(msg->ci_hist));
@@ -371,7 +372,19 @@ static void dump_hist(u64 *to, u64 *pc, int log)
 		total, weighted, (int)avg / 10, (int)avg % 10);
 }
 #endif
-static void msg_dump_if_percpus(thread_data_t *ctx, int cnt)
+static void msg_dump_if_percpu(thread_data_t *ctx)
+{
+	struct poc_msg *msg = ctx->appdata;
+
+	msg->msg = poc_msg_dump_if_all;
+	pthread_barrier_wait(&msg->barr);
+	printf("Dumping thread %d (cpu %d);\n", ctx->index, ctx->cpu);
+	dump_if_percpus(NULL, msg->dump, POC_IF_NUM, 1);
+#ifdef POC_EQCR_HIST
+	dump_hist(NULL, msg->ci_hist, 1);
+#endif
+}
+static void msg_dump_if_all(thread_data_t *ctx, int cnt)
 {
 	struct poc_if_percpu if_totals[POC_IF_NUM];
 	u64 hist_totals[8];
@@ -382,17 +395,9 @@ static void msg_dump_if_percpus(thread_data_t *ctx, int cnt)
 		struct poc_msg *msg = ctx->appdata;
 		msg->msg = poc_msg_dump_if_percpu;
 		pthread_barrier_wait(&msg->barr);
-#ifdef POC_DUMP_PERCPU
-		printf("Dumping thread %d (cpu %d);\n", ctx->index, ctx->cpu);
-		dump_if_percpus(if_totals, msg->dump, POC_IF_NUM, 1);
-#ifdef POC_EQCR_HIST
-		dump_hist(hist_totals, msg->ci_hist, 1);
-#endif
-#else
 		dump_if_percpus(if_totals, msg->dump, POC_IF_NUM, 0);
 #ifdef POC_EQCR_HIST
 		dump_hist(hist_totals, msg->ci_hist, 0);
-#endif
 #endif
 	}
 	printf("Dumping totals;\n");
@@ -846,6 +851,7 @@ int main(int argc, char *argv[])
 {
 	thread_data_t thread_data[MAX_THREADS];
 	struct poc_msg appdata[MAX_THREADS];
+	char *endptr;
 	int ret, first, last, loop;
 	long ncpus = sysconf(_SC_NPROCESSORS_ONLN);
 	char cli[POC_CLI_BUFFER];
@@ -857,7 +863,6 @@ int main(int argc, char *argv[])
 		last = ncpus - 1;
 	}
 	if (argc == 2) {
-		char *endptr;
 		first = my_toul(argv[1], &endptr, ncpus);
 		if (*endptr == '\0') {
 			last = first;
@@ -916,11 +921,19 @@ int main(int argc, char *argv[])
 			break;
 		else if (!strncmp(cli, "dump", 4))
 #ifdef POC_COUNTERS
-			msg_dump_if_percpus(thread_data, last - first + 1);
+			msg_dump_if_all(thread_data, last - first + 1);
 #else
 			fprintf(stderr, "No counters compiled in\n");
 #endif
-		else if (!strncmp(cli, "reset", 5))
+		else if (!strncmp(cli, "cpu", 3)) {
+			int param = my_toul(cli + 3, &endptr, ncpus);
+			if ((param < first) || (param > last))
+				fprintf(stderr, "cpu %d doesn't exist\n",
+						param);
+			else
+				msg_dump_if_percpu(thread_data +
+						(param - first));
+		} else if (!strncmp(cli, "reset", 5))
 #ifdef POC_COUNTERS
 			msg_reset_if_percpus(thread_data, last - first + 1);
 #else
