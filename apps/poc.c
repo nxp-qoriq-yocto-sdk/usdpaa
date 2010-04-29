@@ -291,6 +291,7 @@ struct poc_msg {
 		poc_msg_none = 0,
 		poc_msg_quit,
 		poc_msg_dump_if_percpu,
+		poc_msg_reset_if_percpu,
 		poc_msg_printf_foobar
 	} msg;
 	pthread_barrier_t barr;
@@ -308,10 +309,14 @@ static noinline int process_msg(thread_data_t *ctx)
 	if (msg->msg == poc_msg_quit)
 		printf("quit not implemented yet\n");
 	else if (msg->msg == poc_msg_dump_if_percpu) {
-		memcpy(msg->dump, ifs_percpu,
-			POC_IF_NUM * sizeof(ifs_percpu[0]));
+		memcpy(msg->dump, ifs_percpu, sizeof(ifs_percpu));
 #ifdef POC_EQCR_HIST
 		memcpy(&msg->ci_hist[0], &eqcr_ci_histogram[0], sizeof(msg->ci_hist));
+#endif
+	} else if (msg->msg == poc_msg_reset_if_percpu) {
+		memset(ifs_percpu, 0, sizeof(ifs_percpu));
+#ifdef POC_EQCR_HIST
+		memset(&eqcr_ci_histogram[0], 0, sizeof(msg->ci_hist));
 #endif
 	} else if (msg->msg == poc_msg_printf_foobar)
 		printf("foobar (index:%d,cpu:%d)\n", ctx->index, ctx->cpu);
@@ -395,6 +400,15 @@ static void msg_dump_if_percpus(thread_data_t *ctx, int cnt)
 #ifdef POC_EQCR_HIST
 	dump_hist(NULL, hist_totals, 1);
 #endif
+}
+static void msg_reset_if_percpus(thread_data_t *ctx, int cnt)
+{
+	int loop;
+	for (loop = 0; loop < cnt; loop++, ctx++) {
+		struct poc_msg *msg = ctx->appdata;
+		msg->msg = poc_msg_reset_if_percpu;
+		pthread_barrier_wait(&msg->barr);
+	}
 }
 #endif
 
@@ -903,6 +917,12 @@ int main(int argc, char *argv[])
 		else if (!strncmp(cli, "dump", 4))
 #ifdef POC_COUNTERS
 			msg_dump_if_percpus(thread_data, last - first + 1);
+#else
+			fprintf(stderr, "No counters compiled in\n");
+#endif
+		else if (!strncmp(cli, "reset", 5))
+#ifdef POC_COUNTERS
+			msg_reset_if_percpus(thread_data, last - first + 1);
 #else
 			fprintf(stderr, "No counters compiled in\n");
 #endif
