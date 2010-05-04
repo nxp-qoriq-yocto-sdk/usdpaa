@@ -43,10 +43,11 @@ int qman_thread_init(int cpu);
 #ifdef CONFIG_FSL_QMAN_FQALLOCATOR
 __init int __fqalloc_init(void);
 #endif
-/* --- HACK BEGINS ---
- * USD-specific instrumentation to track (per-cpu) EQCR_CI updates */
-extern __thread u64 eqcr_ci_histogram[8];
-/* --- HACK ENDS --- */
+#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
+/* Rev1-specific instrumentation to throttle (per-cpu) EQCR_CI updates */
+extern __thread u32 eqcr_ci_histogram[8];
+extern __thread u32 throt_histogram[41];
+#endif
 
 /* Last updated for v00.800 of the BG */
 

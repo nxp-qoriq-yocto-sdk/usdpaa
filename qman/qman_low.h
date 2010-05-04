@@ -359,10 +359,6 @@ static inline void qm_eqcr_cce_prefetch(struct qm_portal *portal)
 	qm_cl_touch_ro(EQCR_CI);
 }
 
-
-/* --- HACK BEGINS ---
- * USD-specific instrumentation to track (per-cpu) EQCR_CI updates */
-__thread u64 eqcr_ci_histogram[8];
 static inline u8 qm_eqcr_cce_update(struct qm_portal *portal)
 {
 	register struct qm_eqcr *eqcr = &portal->eqcr;
@@ -372,10 +368,27 @@ static inline u8 qm_eqcr_cce_update(struct qm_portal *portal)
 	qm_cl_invalidate(EQCR_CI);
 	diff = cyc_diff(QM_EQCR_SIZE, old_ci, eqcr->ci);
 	eqcr->available += diff;
-	eqcr_ci_histogram[diff]++;
+#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
+	portal->bugs->ci_histogram[diff]++;
+#endif
 	return diff;
 }
-/* --- HACK ENDS --- */
+
+#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
+static inline u32 qm_eqcr_cce_avg_x10(struct qm_portal *portal)
+{
+	u32 total = 0, weighted = 0, *p = portal->bugs->ci_histogram;
+	int hist;
+	for (hist = 0; hist < 8; hist++, p++) {
+		total += *p;
+		weighted += (*p) * hist;
+		*p = 0;
+	}
+	if (!total)
+		return 0;
+	return (u32)((weighted * 10 + (total / 2)) / total);
+}
+#endif
 
 static inline u8 qm_eqcr_get_ithresh(struct qm_portal *portal)
 {

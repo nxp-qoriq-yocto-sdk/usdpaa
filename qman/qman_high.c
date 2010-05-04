@@ -42,9 +42,12 @@
 #define DQRR_STASH_RING	0	/* if enabled, we ought to check SDEST */
 #define DQRR_STASH_DATA	0	/* ditto */
 #define EQCR_ITHRESH	4	/* if EQCR congests, interrupt threshold */
-#define EQCR_CI_UPDATE_MIN 5	/* if fewer, increase delays */
-#define EQCR_CI_UPDATE_MAX 6	/* if greater, reduce delays */
-#define EQCR_CI_UPDATE_STEP 50  /* # cycles to inc/decrement delays by */
+#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
+#define EQCR_CI_THROT_PERIOD 500000 /* min # updates b4 throttle adjust */
+#define EQCR_CI_THROT_MAX 4000	/* max # cycles to throttle by */
+#define EQCR_CI_THROT_STEP 100	/* # cycles to inc/dec throttle by */
+#define EQCR_CI_THROT_TARGET_x10 45 /* throttle if (updatesx10) go lower */
+#endif
 #define RECOVER_MSLEEP	100	/* DQRR and MR need to be empty for 0.1s */
 #define IRQNAME		"QMan portal %d"
 #define MAX_IRQNAME	16	/* big enough for "QMan portal %d" */
@@ -88,6 +91,7 @@ static inline int fq_isclear(struct qman_fq *fq, u32 mask)
 /* Portal API */
 /**************/
 
+#define PORTAL_BITS_CI_PREFETCH	0x00020000	/* EQCR::CI prefetched */
 #define PORTAL_BITS_RECOVER	0x00010000	/* use default callbacks */
 #define PORTAL_BITS_VDQCR	0x00008000	/* VDQCR active */
 #define PORTAL_BITS_MASK_V	0x00007fff
@@ -112,9 +116,12 @@ struct qman_portal {
 	/* The wrap-around eq_[prod|cons] counters are used to support
 	 * QMAN_ENQUEUE_FLAG_WAIT_SYNC. */
 	u32 eq_prod, eq_cons;
-	/* Throttle EQCR::CI updates under load, see __eq_pause() */
-	u16 eq_pause_switch;
-	u16 eq_pause_delay;
+#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
+	/* Throttle EQCR::CI updates under load, see try_eq_start() */
+	u64 eq_throt_last_update;
+	u32 eq_throt_last_evaluation;
+	u32 eq_throt_cycles;
+#endif
 	u32 sdqcr;
 	volatile int disable_count;
 	/* If we receive a DQRR or MR ring entry for a "null" FQ, ie. for which
@@ -277,7 +284,11 @@ struct qman_portal *qman_create_portal(struct qm_portal *__p, u32 flags,
 	portal->bits = 0;
 	portal->slowpoll = 0;
 	portal->eq_prod = portal->eq_cons = 0;
-	portal->eq_pause_switch = portal->eq_pause_delay = 0;
+#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
+	portal->eq_throt_last_update = 0;
+	portal->eq_throt_last_evaluation = 0;
+	portal->eq_throt_cycles = 0;
+#endif
 	portal->sdqcr = QM_SDQCR_SOURCE_CHANNELS | QM_SDQCR_COUNT_UPTO3 |
 			QM_SDQCR_DEDICATED_PRECEDENCE | QM_SDQCR_TYPE_PRIO_QOS |
 			QM_SDQCR_TOKEN_SET(0xab) | QM_SDQCR_CHANNELS_DEDICATED;
@@ -1254,61 +1265,75 @@ int qman_volatile_dequeue(struct qman_fq *fq, u32 flags, u32 vdqcr)
 }
 EXPORT_SYMBOL(qman_volatile_dequeue);
 
-/* Our 'eq_pause' will be adaptive based on how many EQCR entries expire with
- * each CI update. It'll start at zero and increment whenever the update is
- * below EQCR_CI_UPDATE_MIN and will decrement whenever it's above
- * EQCR_CI_UPDATE_MAX. What's complicated is: it makes more sense to pause prior
- * to the prefetch(), but if EQCR is full we skip the prefetch so this wouldn't
- * work in the worst case! So, use a
- * boolean variable (eq_pause_switch) to track whether the pause has occurred,
- * and insert the pause statement prior to prefetch() *and* update(). */
 #ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
-static inline void __eq_pause(struct qman_portal *p)
+__thread u32 eqcr_ci_histogram[8];
+__thread u32 throt_histogram[41];
+
+static noinline void __throttle_reevaluate(struct qman_portal *highp)
 {
-	if (p->eq_pause_delay && !p->eq_pause_switch) {
-		cpu_spin(p->eq_pause_delay);
-		p->eq_pause_switch = 1;
+	u32 weight = qm_eqcr_cce_avg_x10(highp->p);
+	eqcr_ci_histogram[(weight + 5) / 10]++;
+	if (weight < EQCR_CI_THROT_TARGET_x10) {
+		highp->eq_throt_cycles += EQCR_CI_THROT_STEP;
+		if (highp->eq_throt_cycles > EQCR_CI_THROT_MAX)
+			highp->eq_throt_cycles = EQCR_CI_THROT_MAX;
+	} else if (weight > EQCR_CI_THROT_TARGET_x10) {
+		if (highp->eq_throt_cycles > EQCR_CI_THROT_STEP)
+			highp->eq_throt_cycles -= EQCR_CI_THROT_STEP;
+		else
+			highp->eq_throt_cycles = 0;
 	}
+	throt_histogram[highp->eq_throt_cycles / 100]++;
+	highp->eq_throt_last_evaluation = EQCR_CI_THROT_PERIOD;
 }
-static inline void __eq_pause_updated(struct qman_portal *p, u8 ci_inc)
+static noinline int __throttle_test(struct qman_portal *highp)
 {
-	p->eq_pause_switch = 0;
-	if (ci_inc < EQCR_CI_UPDATE_MIN)
-		p->eq_pause_delay += EQCR_CI_UPDATE_STEP;
-	else if (ci_inc > EQCR_CI_UPDATE_MAX) {
-		if (p->eq_pause_delay)
-			p->eq_pause_delay -= EQCR_CI_UPDATE_STEP;
+	u64 now = mfatb();
+	/* 2's complement should handle u64 wraparound, I think */
+	if ((now - highp->eq_throt_last_update) >= highp->eq_throt_cycles) {
+		highp->eq_throt_last_update = now;
+		return 1;
 	}
+	return 0;
 }
-#else
-#define __eq_pause(p)		do { ; } while (0)
-#define __eq_pause_updated(p,i)	do { ; } while (0)
 #endif
 static struct qm_eqcr_entry *try_eq_start(struct qman_portal **p)
 {
 	struct qm_eqcr_entry *eq;
-	struct qm_portal *lowp;
-	struct qman_portal *highp;
+	register struct qm_portal *lowp;
 	u8 avail;
-	highp = get_affine_portal();
+#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
+	struct qman_portal *highp;
+	*p = highp = get_affine_portal();
 	lowp = highp->p;
+#else
+	*p = get_affine_portal();
+	lowp = (*p)->p;
+#endif
 	local_irq_disable();
 	avail = qm_eqcr_get_avail(lowp);
-	if (avail <= 1) {
-		__eq_pause(highp);
-		if (avail == 1)
-			/* We don't need EQCR:CI yet, but we will next time */
-			qm_eqcr_cce_prefetch(lowp);
-		else {
-			u8 ci_inc = qm_eqcr_cce_update(lowp);
-			highp->eq_cons += ci_inc;
-			__eq_pause_updated(highp, ci_inc);
+#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
+	if (avail < 2) {
+		if (highp->bits & PORTAL_BITS_CI_PREFETCH) {
+			highp->eq_cons += qm_eqcr_cce_update(lowp);
+			highp->bits &= ~PORTAL_BITS_CI_PREFETCH;
+		} else {
+			if (unlikely(!(highp->eq_throt_last_evaluation--)))
+				__throttle_reevaluate(highp);
+			if (!highp->eq_throt_cycles || __throttle_test(highp)) {
+				qm_eqcr_cce_prefetch(lowp);
+				highp->bits |= PORTAL_BITS_CI_PREFETCH;
+			}
 		}
 	}
+#else
+	if (avail == 1)
+		qm_eqcr_cce_prefetch(lowp);
+	else if (avail == 0)
+		(*p)->eq_cons += qm_eqcr_cce_update(lowp);
+#endif
 	eq = qm_eqcr_start(lowp);
-	if (likely(eq))
-		*p = highp;
-	else {
+	if (unlikely(!eq)) {
 		local_irq_enable();
 		put_affine_portal();
 	}

@@ -162,6 +162,10 @@ struct qm_portal_bugs {
 	struct qm_mc_result result;
 	/* boolean switch for QMAN7 workaround */
 	int initfq_and_sched;
+	/* histogram to track EQCR_CI updates */
+#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
+	u32 ci_histogram[8];
+#endif
 };
 #endif
 
@@ -324,6 +328,9 @@ void qm_eqcr_pvb_commit(struct qm_portal *portal, u8 myverb);
 u8 qm_eqcr_cci_update(struct qm_portal *portal);
 void qm_eqcr_cce_prefetch(struct qm_portal *portal);
 u8 qm_eqcr_cce_update(struct qm_portal *portal);
+#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
+static inline u32 qm_eqcr_cce_avg_x10(struct qm_portal *portal)
+#endif
 u8 qm_eqcr_get_ithresh(struct qm_portal *portal);
 void qm_eqcr_set_ithresh(struct qm_portal *portal, u8 ithresh);
 /* Returns the number of available EQCR entries */
