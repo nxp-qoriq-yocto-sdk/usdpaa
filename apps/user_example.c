@@ -57,10 +57,12 @@ static int worker_fn(thread_data_t *tdata)
 {
 	printf("This is the thread on cpu %d\n", tdata->cpu);
 
+#if 0
 	qman_test_high(tdata);
 	calm_down();
 	bman_test_high(tdata);
 	calm_down();
+#endif
 	speed(tdata);
 	calm_down();
 	blastman(tdata);
