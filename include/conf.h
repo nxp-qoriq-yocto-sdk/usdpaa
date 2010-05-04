@@ -108,8 +108,8 @@ extern "C" {
 /* workarounds for errata and missing features in p4080 rev1 */
 #define CONFIG_FSL_QMAN_BUG_AND_FEATURE_REV1
 
-/* use adaptive delays (cpu time-waste spins) when EQCR congests */
-#define CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
+/* use adaptive "backoff" for EQCR:CI updates only on rev1 */
+#undef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
 
 /* support for run-time parameter checking, assertions, etc */
 #undef CONFIG_FSL_QMAN_CHECKING
