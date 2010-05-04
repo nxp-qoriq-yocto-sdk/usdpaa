@@ -75,7 +75,7 @@ static const uint8_t ifid[] = {0, 1, 2, 3, 9};
 #define POC_BACKOFF_CYCLES	200
 #define POC_COUNTERS		/* enable counters */
 #undef POC_COUNTERS_SUCCESS	/*   not just errors, count everything */
-#define POC_DATA_DCBF		/* cache flush modified data during Tx */
+#undef POC_DATA_DCBF		/* cache flush modified data during Tx */
 #define POC_EQCR_HIST		/* keep a per-portal histogram of CI updates */
 
 #if defined(POC_EQCR_HIST) && !defined(POC_COUNTERS)
