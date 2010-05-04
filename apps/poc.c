@@ -76,11 +76,6 @@ static const uint8_t ifid[] = {0, 1, 2, 3, 9};
 #define POC_COUNTERS		/* enable counters */
 #undef POC_COUNTERS_SUCCESS	/*   not just errors, count everything */
 #undef POC_DATA_DCBF		/* cache flush modified data during Tx */
-#define POC_EQCR_HIST		/* keep a per-portal histogram of CI updates */
-
-#if defined(POC_EQCR_HIST) && !defined(POC_COUNTERS)
-#error "POC_EQCR_HIST requires POC_COUNTERS"
-#endif
 
 /**********/
 /* macros */
@@ -297,8 +292,9 @@ struct poc_msg {
 	pthread_barrier_t barr;
 	/* ifs_percpu[] is copied to this by poc_msg_dump_* */
 	struct poc_if_percpu dump[POC_IF_NUM];
-#ifdef POC_EQCR_HIST
-	u64 ci_hist[8];
+#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
+	u32 ci_hist[8];
+	u32 throt_hist[41];
 #endif
 } ____cacheline_aligned;
 
@@ -311,13 +307,15 @@ static noinline int process_msg(thread_data_t *ctx)
 	else if ((msg->msg == poc_msg_dump_if_percpu) ||
 			(msg->msg == poc_msg_dump_if_all)) {
 		memcpy(msg->dump, ifs_percpu, sizeof(ifs_percpu));
-#ifdef POC_EQCR_HIST
+#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
 		memcpy(&msg->ci_hist[0], &eqcr_ci_histogram[0], sizeof(msg->ci_hist));
+		memcpy(&msg->throt_hist[0], &throt_histogram[0], sizeof(msg->throt_hist));
 #endif
 	} else if (msg->msg == poc_msg_reset_if_percpu) {
 		memset(ifs_percpu, 0, sizeof(ifs_percpu));
-#ifdef POC_EQCR_HIST
+#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
 		memset(&eqcr_ci_histogram[0], 0, sizeof(msg->ci_hist));
+		memset(&throt_histogram[0], 0, sizeof(msg->throt_hist));
 #endif
 	} else if (msg->msg == poc_msg_printf_foobar)
 		printf("foobar (index:%d,cpu:%d)\n", ctx->index, ctx->cpu);
@@ -347,10 +345,10 @@ static void dump_if_percpus(struct poc_if_percpu *to,
 		dump_if_percpu(to ? &to[loop] : NULL, &pc[loop], log);
 	}
 }
-#ifdef POC_EQCR_HIST
-static void dump_hist(u64 *to, u64 *pc, int log)
+#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
+static void dump_hist(u32 *to, u32 *pc, int log)
 {
-	uint64_t total = 0, weighted = 0, avg;
+	uint32_t total = 0, weighted = 0, avg;
 	int hist;
 	if (log) {
 		printf("    EQCR_CI updates (histogram);\n");
@@ -358,7 +356,7 @@ static void dump_hist(u64 *to, u64 *pc, int log)
 	}
 	for (hist = 0; hist < 8; hist++) {
 		if (log)
-			printf("[%d]:%llu ", hist, pc[hist]);
+			printf("[%d]:%u ", hist, pc[hist]);
 		if (to)
 			to[hist] += pc[hist];
 		total += pc[hist];
@@ -368,7 +366,31 @@ static void dump_hist(u64 *to, u64 *pc, int log)
 		return;
 	printf("\n");
 	avg = total ? ((weighted * 10 + (total / 2)) / total) : 0;
-	printf("        [total]:%llu [weighted]:%llu [avg]:%d.%d\n",
+	printf("        [total]:%u [weighted]:%u [avg]:%d.%d\n",
+		total, weighted, (int)avg / 10, (int)avg % 10);
+}
+static void dump_thist(u32 *to, u32 *pc, int log)
+{
+	uint32_t total = 0, weighted = 0, avg;
+	int hist;
+	if (log)
+		printf("    throttle periods (histogram);");
+	for (hist = 0; hist < 41; hist++) {
+		if (log) {
+			if (!(hist % 8))
+				printf("\n        ");
+			printf("[%d]:%u ", hist, pc[hist]);
+		}
+		if (to)
+			to[hist] += pc[hist];
+		total += pc[hist];
+		weighted += hist * pc[hist];
+	}
+	if (!log)
+		return;
+	printf("\n");
+	avg = total ? ((weighted * 10 + (total / 2)) / total) : 0;
+	printf("        [total]:%u [weighted]:%u [avg]:%d.%d\n",
 		total, weighted, (int)avg / 10, (int)avg % 10);
 }
 #endif
@@ -380,30 +402,35 @@ static void msg_dump_if_percpu(thread_data_t *ctx)
 	pthread_barrier_wait(&msg->barr);
 	printf("Dumping thread %d (cpu %d);\n", ctx->index, ctx->cpu);
 	dump_if_percpus(NULL, msg->dump, POC_IF_NUM, 1);
-#ifdef POC_EQCR_HIST
+#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
 	dump_hist(NULL, msg->ci_hist, 1);
+	dump_thist(NULL, msg->throt_hist, 1);
 #endif
 }
 static void msg_dump_if_all(thread_data_t *ctx, int cnt)
 {
 	struct poc_if_percpu if_totals[POC_IF_NUM];
-	u64 hist_totals[8];
+	u32 hist_totals[8];
+	u32 thist_totals[41];
 	int loop;
 	memset(if_totals, 0, sizeof(if_totals));
 	memset(hist_totals, 0, sizeof(hist_totals));
+	memset(thist_totals, 0, sizeof(thist_totals));
 	for (loop = 0; loop < cnt; loop++, ctx++) {
 		struct poc_msg *msg = ctx->appdata;
 		msg->msg = poc_msg_dump_if_percpu;
 		pthread_barrier_wait(&msg->barr);
 		dump_if_percpus(if_totals, msg->dump, POC_IF_NUM, 0);
-#ifdef POC_EQCR_HIST
+#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
 		dump_hist(hist_totals, msg->ci_hist, 0);
+		dump_thist(thist_totals, msg->throt_hist, 0);
 #endif
 	}
 	printf("Dumping totals;\n");
 	dump_if_percpus(NULL, if_totals, POC_IF_NUM, 1);
-#ifdef POC_EQCR_HIST
+#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
 	dump_hist(NULL, hist_totals, 1);
+	dump_thist(NULL, thist_totals, 1);
 #endif
 }
 static void msg_reset_if_percpus(thread_data_t *ctx, int cnt)
