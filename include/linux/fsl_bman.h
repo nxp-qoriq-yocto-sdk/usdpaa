@@ -37,9 +37,6 @@
 extern "C" {
 #endif
 
-/* User-space-specific initialisation: */
-int bman_thread_init(int cpu);
-
 /* Last updated for v00.79 of the BG */
 
 /* Represents s/w corenet portal mapped data structures */

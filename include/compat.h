@@ -754,9 +754,9 @@ static inline type *name##_find(struct qman_rbtree *tree, u32 val) \
 	return NULL; \
 }
 
-/* Ensure the code that includes us gets both Bman and Qman headers, because of
- * wait_event() polling. */
+/* Ensure the code that includes us gets these headers */
 #include <linux/fsl_bman.h>
 #include <linux/fsl_qman.h>
+#include <fsl_usd.h>
 
 #endif /* HEADER_COMPAT_H */

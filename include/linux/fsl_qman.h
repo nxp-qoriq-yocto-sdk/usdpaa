@@ -37,8 +37,6 @@
 extern "C" {
 #endif
 
-/* User-space-specific initialisation: */
-int qman_thread_init(int cpu);
 /* Hooks for driver initialisation */
 #ifdef CONFIG_FSL_QMAN_FQALLOCATOR
 __init int __fqalloc_init(void);
