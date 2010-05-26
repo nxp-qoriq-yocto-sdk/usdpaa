@@ -188,11 +188,11 @@ static irqreturn_t portal_isr(__always_unused int irq, void *ptr)
 	struct qm_portal *lowp = p->p;
 	u32 clear = 0, is = qm_isr_status_read(lowp);
 	/* Only do fast-path handling if it's required */
-#ifdef CONFIG_FSL_QMAN_PORTAL_FLAG_IRQ_FAST
+#ifdef CONFIG_FSL_QMAN_PIRQ_FAST
 	clear |= QM_PIRQ_DQRI;
 	__poll_portal_fast(p, lowp);
 #endif
-#ifdef CONFIG_FSL_QMAN_PORTAL_FLAG_IRQ_SLOW
+#ifdef CONFIG_FSL_QMAN_PIRQ_SLOW
 	clear |= __poll_portal_slow(p, lowp, is);
 #endif
 	qm_isr_status_clear(lowp, clear);
@@ -267,9 +267,9 @@ struct qman_portal *qman_create_portal(struct qm_portal *__p, u32 flags,
 		goto fail_isr;
 	}
 	/* static interrupt-gating controls */
-	qm_dqrr_set_ithresh(__p, 12);
-	qm_mr_set_ithresh(__p, 4);
-	qm_isr_set_iperiod(__p, 100);
+	qm_dqrr_set_ithresh(__p, CONFIG_FSL_QMAN_PIRQ_DQRR_ITHRESH);
+	qm_mr_set_ithresh(__p, CONFIG_FSL_QMAN_PIRQ_MR_ITHRESH);
+	qm_isr_set_iperiod(__p, CONFIG_FSL_QMAN_PIRQ_IPERIOD);
 	portal->p = __p;
 	if (!cgrs)
 		portal->cgrs = NULL;
@@ -311,7 +311,7 @@ struct qman_portal *qman_create_portal(struct qm_portal *__p, u32 flags,
 	qm_isr_disable_write(portal->p, isdr);
 #ifdef CONFIG_FSL_QMAN_HAVE_IRQ
 	qm_isr_enable_write(portal->p, QM_PIRQ_EQCI | QM_PIRQ_EQRI |
-#ifdef CONFIG_FSL_QMAN_PORTAL_FLAG_IRQ_FAST
+#ifdef CONFIG_FSL_QMAN_PIRQ_FAST
 		QM_PIRQ_DQRI |
 #endif
 		QM_PIRQ_MRI | (cgrs ? QM_PIRQ_CSCI : 0));
@@ -666,7 +666,7 @@ void qman_poll(void)
 {
 	struct qman_portal *p = get_affine_portal();
 	struct qm_portal *lowp = p->p;
-#ifndef CONFIG_FSL_QMAN_PORTAL_FLAG_IRQ_SLOW
+#ifndef CONFIG_FSL_QMAN_PIRQ_SLOW
 	if (!(p->slowpoll--)) {
 		u32 is = qm_isr_status_read(lowp);
 		u32 active = __poll_portal_slow(p, lowp, is);
@@ -677,7 +677,7 @@ void qman_poll(void)
 			p->slowpoll = SLOW_POLL_IDLE;
 	}
 #endif
-#ifndef CONFIG_FSL_QMAN_PORTAL_FLAG_IRQ_FAST
+#ifndef CONFIG_FSL_QMAN_PIRQ_FAST
 	__poll_portal_fast(p, lowp);
 #endif
 	put_affine_portal();
@@ -931,7 +931,7 @@ int qman_init_fq(struct qman_fq *fq, u32 flags, struct qm_mcc_initfq *opts)
 	if ((flags & QMAN_INITFQ_FLAG_NULL) ||
 			fq_isclear(fq, QMAN_FQ_FLAG_TO_DCPORTAL)) {
 		dma_addr_t phys_fq;
-		BUG_ON(sizeof(phys_fq) > sizeof(u32));
+//		BUG_ON(sizeof(phys_fq) > sizeof(u32));
 		mcc->initfq.we_mask |= QM_INITFQ_WE_CONTEXTB;
 		mcc->initfq.fqd.context_b = (flags & QMAN_INITFQ_FLAG_NULL) ?
 						0 : (u32)fq;
@@ -1343,7 +1343,7 @@ static struct qm_eqcr_entry *try_eq_start(struct qman_portal **p)
 static inline struct qm_eqcr_entry *__try_eq(struct qman_portal **p)
 {
 	struct qm_eqcr_entry *eq = try_eq_start(p);
-#ifdef CONFIG_FSL_QMAN_PORTAL_FLAG_IRQ_FAST
+#ifdef CONFIG_FSL_QMAN_PIRQ_FAST
 	if (unlikely(!eq))
 		/* TODO: this used to be in try_eq_start() prior to
 		 * local_irq_enable() - verify that the reorder hasn't created a
@@ -1391,7 +1391,7 @@ static int eqcr_completed(struct qman_portal *p, u32 eq_poll)
 	if (!qm_eqcr_get_fill(p->p))
 		/* If EQCR is empty, we must have completed */
 		return 1;
-#ifdef CONFIG_FSL_QMAN_PORTAL_FLAG_IRQ_FAST
+#ifdef CONFIG_FSL_QMAN_PIRQ_FAST
 	eqcr_set_thresh(p, 0);
 #endif
 	return 0;

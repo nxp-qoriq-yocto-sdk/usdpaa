@@ -131,6 +131,15 @@ struct bm_mc_command {
 
 /* See 1.5.3.3: "Acquire Reponse" */
 /* See 1.5.3.4: "Query Reponse" */
+struct bm_pool_state {
+	u8 __reserved1[32];
+	/* "availability state" and "depletion state" */
+	struct {
+		u8 __reserved1[8];
+		/* Access using bman_depletion_***() */
+		struct bman_depletion state;
+	} as, ds;
+};
 struct bm_mc_result {
 	union {
 		struct {
@@ -145,15 +154,7 @@ struct bm_mc_result {
 			};
 			struct bm_buffer bufs[8];
 		} acquire;
-		struct {
-			u8 __reserved1[32];
-			/* "availability state" and "depletion state" */
-			struct {
-				u8 __reserved1[8];
-				/* Access using bman_depletion_***() */
-				struct bman_depletion state;
-			} as, ds;
-		} query;
+		struct bm_pool_state query;
 	};
 } __packed;
 #define BM_MCR_VERB_VBIT		0x80
@@ -306,6 +307,12 @@ int bman_release(struct bman_pool *pool, const struct bm_buffer *bufs, u8 num,
  */
 int bman_acquire(struct bman_pool *pool, struct bm_buffer *bufs, u8 num,
 			u32 flags);
+
+/**
+ * bman_query_pools - Query all buffer pool states
+ * @state: storage for the queried availability and depletion states
+ */
+int bman_query_pools(struct bm_pool_state *state);
 
 #ifdef __cplusplus
 }

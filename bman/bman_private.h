@@ -135,6 +135,11 @@ struct bm_portal {
 int __bm_portal_bind(struct bm_portal *portal, u8 iface);
 void __bm_portal_unbind(struct bm_portal *portal, u8 iface);
 
+#ifdef CONFIG_FSL_QMAN_CONFIG
+/* Hooks from bman_driver.c to bman_config.c */
+int bman_init_error_int(struct device_node *node);
+#endif
+
 /* Hooks between qman_driver.c and qman_high.c */
 extern DEFINE_PER_CPU(struct bman_portal *, bman_affine_portal);
 static inline struct bman_portal *get_affine_portal(void)

@@ -248,6 +248,11 @@ __init int __fqalloc_init(void);
 #define QMAN_REV2 0x0101
 extern u16 qman_ip_rev; /* 0 if uninitialised, otherwise QMAN_REVx */
 
+#ifdef CONFIG_FSL_QMAN_CONFIG
+/* Hooks from qman_driver.c to qman_config.c */
+int qman_init_error_int(struct device_node *node);
+#endif
+
 /* Hooks from qman_high.c in to qman_driver.c */
 extern DEFINE_PER_CPU(struct qman_portal *, qman_affine_portal);
 static inline struct qman_portal *get_affine_portal(void)

@@ -126,14 +126,14 @@ static irqreturn_t portal_isr(__always_unused int irq, void *ptr)
 	struct bman_portal *p = ptr;
 	struct bm_portal *lowp = p->p;
 	u32 clear = 0;
-#ifdef CONFIG_FSL_BMAN_PORTAL_FLAG_IRQ_SLOW
+#ifdef CONFIG_FSL_BMAN_PIRQ_SLOW
 	u32 is = bm_isr_status_read(lowp);
 #endif
 	/* Only do fast-path handling if it's required */
-#ifdef CONFIG_FSL_BMAN_PORTAL_FLAG_IRQ_FAST
+#ifdef CONFIG_FSL_BMAN_PIRQ_FAST
 	__poll_portal_fast(p, lowp);
 #endif
-#ifdef CONFIG_FSL_BMAN_PORTAL_FLAG_IRQ_SLOW
+#ifdef CONFIG_FSL_BMAN_PIRQ_SLOW
 	clear |= __poll_portal_slow(p, lowp, is);
 #endif
 	bm_isr_status_clear(lowp, clear);
@@ -354,7 +354,7 @@ void bman_poll(void)
 {
 	struct bman_portal *p = get_affine_portal();
 	struct bm_portal *lowp = p->p;
-#ifndef CONFIG_FSL_BMAN_PORTAL_FLAG_IRQ_SLOW
+#ifndef CONFIG_FSL_BMAN_PIRQ_SLOW
 	if (!(p->slowpoll--)) {
 		u32 is = bm_isr_status_read(lowp);
 		u32 active = __poll_portal_slow(p, lowp, is);
@@ -364,7 +364,7 @@ void bman_poll(void)
 			p->slowpoll = SLOW_POLL_IDLE;
 	}
 #endif
-#ifndef CONFIG_FSL_BMAN_PORTAL_FLAG_IRQ_FAST
+#ifndef CONFIG_FSL_BMAN_PIRQ_FAST
 	__poll_portal_fast(p, lowp);
 #endif
 	put_affine_portal();
@@ -730,4 +730,23 @@ hw_starved:
 	return num;
 }
 EXPORT_SYMBOL(bman_acquire);
+
+int bman_query_pools(struct bm_pool_state *state)
+{
+	struct bman_portal *p = get_affine_portal();
+	struct bm_mc_command *mcc;
+	struct bm_mc_result *mcr;
+
+	local_irq_disable();
+	mcc = bm_mc_start(p->p);
+	bm_mc_commit(p->p, BM_MCC_VERB_CMD_QUERY);
+	while (!(mcr = bm_mc_result(p->p)))
+		cpu_relax();
+	BM_ASSERT((mcr->verb & BM_MCR_VERB_CMD_MASK) == BM_MCR_VERB_CMD_QUERY);
+	*state = mcr->query;
+	local_irq_enable();
+	put_affine_portal();
+	return 0;
+}
+EXPORT_SYMBOL(bman_query_pools);
 
