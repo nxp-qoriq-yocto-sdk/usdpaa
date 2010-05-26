@@ -37,12 +37,6 @@
 extern "C" {
 #endif
 
-#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
-/* Rev1-specific instrumentation to throttle (per-cpu) EQCR_CI updates */
-extern __thread u32 eqcr_ci_histogram[8];
-extern __thread u32 throt_histogram[41];
-#endif
-
 /* Last updated for v00.800 of the BG */
 
 /* Hardware constants */
