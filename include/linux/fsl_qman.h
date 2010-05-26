@@ -37,10 +37,6 @@
 extern "C" {
 #endif
 
-/* Hooks for driver initialisation */
-#ifdef CONFIG_FSL_QMAN_FQALLOCATOR
-__init int __fqalloc_init(void);
-#endif
 #ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
 /* Rev1-specific instrumentation to throttle (per-cpu) EQCR_CI updates */
 extern __thread u32 eqcr_ci_histogram[8];

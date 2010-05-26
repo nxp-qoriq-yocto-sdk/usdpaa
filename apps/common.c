@@ -32,6 +32,7 @@
 
 #include "common.h"
 
+static pthread_barrier_t barr;
 static __thread thread_data_t *__my_thread_data;
 
 thread_data_t *my_thread_data(void)
@@ -54,7 +55,6 @@ static void *thread_wrapper(void *arg)
 		handle_error_en(s, "pthread_setaffinity_np");
 		goto end;
 	}
-	/* Bman must go first, otherwise the FQ allocator can't initialise */
 	s = bman_thread_init(tdata->cpu);
 	if (s) {
 		fprintf(stderr, "bman_thread_init(%d) failed, ret=%d\n",
@@ -67,6 +67,10 @@ static void *thread_wrapper(void *arg)
 			tdata->cpu, s);
 		goto end;
 	}
+	/* First barrier allows global fqalloc initialisation to start */
+	pthread_barrier_wait(&barr);
+	/* Second barrier waits for fqalloc init to complete */
+	pthread_barrier_wait(&barr);
 	/* Invoke the application thread function */
 	s = tdata->fn(tdata);
 end:
@@ -79,6 +83,8 @@ int start_threads_custom(struct thread_data *ctxs, int num_ctxs)
 {
 	int i;
 	struct thread_data *ctx;
+	/* Create the barrier used for qman_fqalloc_init() */
+	i = pthread_barrier_init(&barr, NULL, num_ctxs + 1);
 	/* Create the threads */
 	for (i = 0, ctx = &ctxs[0]; i < num_ctxs; i++, ctx++) {
 		int err;
@@ -90,6 +96,13 @@ int start_threads_custom(struct thread_data *ctxs, int num_ctxs)
 			return err;
 		}
 	}
+	/* Wait till threads have initialised thread-local qman/bman */
+	pthread_barrier_wait(&barr);
+	i = qman_fqalloc_init();
+	/* Release threads to start processing again */
+	pthread_barrier_wait(&barr);
+	if (i)
+		fprintf(stderr, "error initialising FQ allocator\n");
 	return 0;
 }
 

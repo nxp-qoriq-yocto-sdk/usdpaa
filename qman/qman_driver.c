@@ -211,3 +211,7 @@ int qman_thread_init(int cpu)
 	return 0;
 }
 
+int qman_fqalloc_init(void)
+{
+	return __fqalloc_init();
+}

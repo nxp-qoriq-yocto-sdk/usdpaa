@@ -108,11 +108,6 @@ int main(int argc, char *argv[])
 		exit(-1);
 	}
 
-	/* init the FQ allocator */
-	ret = __fqalloc_init();
-	if (ret != 0)
-		handle_error_en(ret, "__fqalloc_init");
-
 	/* map shmem */
 	ret = fsl_shmem_setup();
 	if (ret)

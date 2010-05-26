@@ -40,6 +40,7 @@ extern "C" {
 /* User-space-specific initialisation: */
 int qman_thread_init(int cpu);
 int bman_thread_init(int cpu);
+int qman_fqalloc_init(void);
 
 #ifdef __cplusplus
 }

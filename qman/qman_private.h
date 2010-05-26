@@ -238,6 +238,11 @@ struct qm_pool_channel {
 	u32 portals;
 };
 
+/* Hooks for driver initialisation */
+#ifdef CONFIG_FSL_QMAN_FQALLOCATOR
+__init int __fqalloc_init(void);
+#endif
+
 /* Revision info (for errata and feature handling) */
 #define QMAN_REV1 0x0100
 #define QMAN_REV2 0x0101
