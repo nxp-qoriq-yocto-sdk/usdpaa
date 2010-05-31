@@ -31,10 +31,12 @@ LWE_QMAN=$TOPDIR/usd/qman
 DIRECTION=""
 IS_DIFF="no"
 IS_MELD="no"
+IS_FORCE="no"
+CP_UPDATE="--update"
 
 usage () {
 	echo "Usage:"
-	echo "  dpasync.sh [diff|meld] <2linux|2usd>"
+	echo "  dpasync.sh [diff|meld|force] <2linux|2usd>"
 	exit 1
 }
 
@@ -78,6 +80,13 @@ elif [ $1 = "meld" ]; then
 	fi
 	parse_direction $2
 	IS_MELD="yes"
+elif [ $1 = "force" ]; then
+	if [ $# -ne 2 ]; then
+		usage
+	fi
+	parse_direction $2
+	IS_FORCE="yes"
+	CP_UPDATE=""
 else
 	if [ $# -ne 1 ]; then
 		usage
@@ -131,7 +140,7 @@ process () {
 			meld $S $D
 		else
 			echo "Updated: copying $SS"
-			cp --update $S $D || exit 1
+			cp $CP_UPDATE $S $D || exit 1
 			if ! mycmp $S $D; then
 				echo "Bad: dest file $SS newer than source"
 				exit 1
