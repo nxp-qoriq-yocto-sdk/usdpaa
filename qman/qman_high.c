@@ -1200,6 +1200,89 @@ int qman_query_fq_np(struct qman_fq *fq, struct qm_mcr_queryfq_np *np)
 }
 EXPORT_SYMBOL(qman_query_fq_np);
 
+int qman_query_wq(u8 query_dedicated, struct qm_mcr_querywq *wq)
+{
+	struct qm_mc_command *mcc;
+	struct qm_mc_result *mcr;
+	struct qman_portal *p = get_affine_portal();
+	u8 res, myverb;
+
+	local_irq_disable();
+	myverb = (query_dedicated) ? QM_MCR_VERB_QUERYWQ_DEDICATED :
+				 QM_MCR_VERB_QUERYWQ;
+	mcc = qm_mc_start(p->p);
+	mcc->querywq.channel.id = wq->channel.id;
+	qm_mc_commit(p->p, myverb);
+	while (!(mcr = qm_mc_result(p->p)))
+		cpu_relax();
+	QM_ASSERT((mcr->verb & QM_MCR_VERB_MASK) == myverb);
+	res = mcr->result;
+	if (res == QM_MCR_RESULT_OK)
+		*wq = mcr->querywq;
+	local_irq_enable();
+	put_affine_portal();
+	if (res != QM_MCR_RESULT_OK) {
+		pr_err("QUERYWQ failed: %s\n", mcr_result_str(res));
+		return -EIO;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(qman_query_wq);
+
+int qman_query_cgr(struct qman_cgr *cgr, struct qm_mcr_querycgr *cgrd)
+{
+	struct qm_mc_command *mcc;
+	struct qm_mc_result *mcr;
+	struct qman_portal *p = get_affine_portal();
+	u8 res;
+
+	local_irq_disable();
+	mcc = qm_mc_start(p->p);
+	mcc->querycgr.cgid = cgr->cgrid;
+	qm_mc_commit(p->p, QM_MCC_VERB_QUERYCGR);
+	while (!(mcr = qm_mc_result(p->p)))
+		cpu_relax();
+	QM_ASSERT((mcr->verb & QM_MCR_VERB_MASK) == QM_MCC_VERB_QUERYCGR);
+	res = mcr->result;
+	if (res == QM_MCR_RESULT_OK)
+		*cgrd = mcr->querycgr;
+	local_irq_enable();
+	put_affine_portal();
+	if (res != QM_MCR_RESULT_OK) {
+		pr_err("QUERY_CGR failed: %s\n", mcr_result_str(res));
+		return -EIO;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(qman_query_cgr);
+
+int qman_query_congestion(struct qm_mcr_querycongestion *congestion)
+{
+	struct qm_mc_command *mcc;
+	struct qm_mc_result *mcr;
+	struct qman_portal *p = get_affine_portal();
+	u8 res;
+
+	local_irq_disable();
+	mcc = qm_mc_start(p->p);
+	qm_mc_commit(p->p, QM_MCC_VERB_QUERYCONGESTION);
+	while (!(mcr = qm_mc_result(p->p)))
+		cpu_relax();
+	QM_ASSERT((mcr->verb & QM_MCR_VERB_MASK) ==
+			QM_MCC_VERB_QUERYCONGESTION);
+	res = mcr->result;
+	if (res == QM_MCR_RESULT_OK)
+		*congestion = mcr->querycongestion;
+	local_irq_enable();
+	put_affine_portal();
+	if (res != QM_MCR_RESULT_OK) {
+		pr_err("QUERY_CONGESTION failed: %s\n", mcr_result_str(res));
+		return -EIO;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(qman_query_congestion);
+
 /* internal function used as a wait_event() expression */
 static int set_vdqcr(struct qman_portal **p, u32 vdqcr, u16 *v)
 {

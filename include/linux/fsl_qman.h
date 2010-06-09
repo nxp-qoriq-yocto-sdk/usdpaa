@@ -813,6 +813,11 @@ struct qman_portal;
  * defined further down. */
 struct qman_fq;
 
+
+/* This object type represents a Qman congestion group, it is defined further
+ * down. */
+struct qman_cgr;
+
 /* This enum, and the callback type that returns it, are used when handling
  * dequeued frames via DQRR. Note that for "null" callbacks registered with the
  * portal object (for handling dequeues that do not demux because contextB is
@@ -898,6 +903,10 @@ struct qman_fq {
 	enum qman_fq_state state;
 	int cgr_groupid;
 	struct rb_node node;
+};
+
+struct qman_cgr {
+	u32 cgrid; /* 0..255, but u32 to allow specials like -1, 256, etc.*/
 };
 
 /* Flags to qman_create_fq() */
@@ -1202,6 +1211,29 @@ int qman_query_fq(struct qman_fq *fq, struct qm_fqd *fqd);
  * @np: storage for the queried FQD fields
  */
 int qman_query_fq_np(struct qman_fq *fq, struct qm_mcr_queryfq_np *np);
+
+/**
+ * qman_query_wq - Queries work queue lengths
+ * @query_dedicated: If non-zero, query length of WQs in the channel dedicated
+ *		to this software portal. Otherwise, query length of WQs in a
+ *		channel  specified in wq.
+ * @wq: storage for the queried WQs lengths. Also specified the channel to
+ *	to query if query_dedicated is zero.
+ */
+int qman_query_wq(u8 query_dedicated, struct qm_mcr_querywq *wq);
+
+/**
+ * qman_query_cgr - Queries congestion group record
+ * @cgr: the congestion group record object to be queried
+ * @cgrd: storage for the queried congestion group record
+ */
+int qman_query_cgr(struct qman_cgr *cgr, struct qm_mcr_querycgr *cgrd);
+
+/**
+ * qman_query_congestion - Queries the state of all congestion groups
+ * @congestion: storage for the queried state of all congestion groups
+ */
+int qman_query_congestion(struct qm_mcr_querycongestion *congestion);
 
 /**
  * qman_volatile_dequeue - Issue a volatile dequeue command
