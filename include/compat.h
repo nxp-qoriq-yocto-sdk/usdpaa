@@ -707,7 +707,8 @@ static inline int name##_push(struct qman_rbtree *tree, type *obj) \
 	} \
 	obj->node_field.prev = tree->tail; \
 	obj->node_field.next = NULL; \
-	tree->tail->next = tree->tail = &obj->node_field; \
+	tree->tail->next = &obj->node_field; \
+	tree->tail = &obj->node_field; \
 	return 0; \
 } \
 static inline void name##_del(struct qman_rbtree *tree, type *obj) \
