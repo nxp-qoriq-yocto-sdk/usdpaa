@@ -364,7 +364,7 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		iphdr->saddr = tmp;
 		/* switch ethernet src/dest MAC addresses */
 		ether_header_swap(prot_eth);
-		TRACE("Tx: 2fwd	 fqid=%d\n", p->tx.fqid);
+		TRACE("Tx: 2fwd	 fqid=%d\n", p->fq_tx.fqid);
 		TRACE("	     phys=0x%08x, offset=%d, len=%d, bpid=%d\n",
 			fd->addr_lo, fd->offset, fd->length20, fd->bpid);
 #ifdef POC_COUNTERS_SUCCESS
