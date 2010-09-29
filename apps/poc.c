@@ -633,7 +633,7 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 		cache_flush(addr, (unsigned long)iphdr + 12 -
 				(unsigned long)addr);
 #endif
-		TRACE("Tx: 2fwd	 fqid=%d\n", p->tx.fqid);
+		TRACE("Tx: 2fwd	 fqid=%d\n", p->fq_tx.fqid);
 		TRACE("	     phys=0x%08x, offset=%d, len=%d, bpid=%d\n",
 			fd->addr_lo, fd->offset, fd->length20, fd->bpid);
 #ifdef POC_COUNTERS_SUCCESS
