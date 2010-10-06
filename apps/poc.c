@@ -33,7 +33,7 @@
 #include "common.h"
 
 /* if defined, be lippy about everything */
-#undef POC_TRACE
+#define POC_TRACE
 
 /* application configuration */
 #define POC_RX_HASH_SIZE	0x20
@@ -63,7 +63,8 @@
 #define POC_BPIDS		{7, 8, 9}
 #define POC_CLI_BUFFER		(2*1024)
 
-static const uint8_t ifid[] = {0, 1, 2, 3, 9};
+//static const uint8_t ifid[] = {0, 1, 2, 3, 9};
+static const uint8_t ifid[] = {4, 7, 8, 9};
 
 /* application options */
 #undef POC_2FWD_HOLDACTIVE	/* process each FQ on one cpu at a time */

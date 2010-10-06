@@ -17,7 +17,8 @@ export QMAN7=/dev/uio14
 export QMAN0=/dev/uio15
 
 cd /
-fmc -c us_config_fm0_sgmii.xml -p us_policy_hash_ipv4_src_dst.xml -a
+#fmc -c us_config_fm0_sgmii.xml -p us_policy_hash_ipv4_src_dst.xml -a
+fmc -c us_config_serdes_0xe_2sgmii.xml -p us_policy_hash_ipv4_src_dst.xml -a
 
 poc
 
