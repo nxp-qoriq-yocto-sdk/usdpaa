@@ -1,0 +1,3 @@
+MY_LIBS = usdpaa_fman
+
+usdpaa_fman_objs := fman.o

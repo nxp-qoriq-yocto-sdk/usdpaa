@@ -1,0 +1,3 @@
+MY_LIBS = usdpaa_of
+
+usdpaa_of_objs := of.o

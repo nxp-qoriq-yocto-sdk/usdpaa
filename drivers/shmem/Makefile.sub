@@ -1,0 +1,3 @@
+MY_LIBS = usdpaa_shmem
+
+usdpaa_shmem_objs := shmem.o shmem_alloc.o

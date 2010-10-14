@@ -1,0 +1,3 @@
+MY_LIBS = usdpaa_bman
+
+usdpaa_bman_objs := bman_high.o bman_driver.o

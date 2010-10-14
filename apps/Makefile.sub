@@ -1,0 +1,9 @@
+MY_APPS = user_example poc
+
+user_example_objs := user_example.o common.o speed.o blastman.o
+user_example_link_libs := usdpaa_qman usdpaa_bman usdpaa_shmem
+user_example_sys_link_libs := pthread
+
+poc_objs := poc.o common.o
+poc_link_libs := usdpaa_qman usdpaa_bman usdpaa_fman usdpaa_shmem usdpaa_of
+poc_sys_link_libs := pthread
