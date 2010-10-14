@@ -62,7 +62,7 @@
 })
 #define POC_BPIDS		{7, 8, 9}
 
-static const uint8_t ifid[] = {0, 1, 2, 3, 9};
+static const uint8_t ifid[] = {4, 7, 8, 9};
 
 /* application options */
 #undef POC_2FWD_HOLDACTIVE	/* process each FQ on one cpu at a time */
