@@ -1,0 +1,275 @@
+# Copyright (c) 2010 Freescale Semiconductor, Inc.
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#     * Redistributions of source code must retain the above copyright
+#	notice, this list of conditions and the following disclaimer.
+#     * Redistributions in binary form must reproduce the above copyright
+#	notice, this list of conditions and the following disclaimer in the
+#	documentation and/or other materials provided with the distribution.
+#     * Neither the name of Freescale Semiconductor nor the
+#	names of its contributors may be used to endorse or promote products
+#	derived from this software without specific prior written permission.
+#
+#
+# ALTERNATIVELY, this software may be distributed under the terms of the
+# GNU General Public License ("GPL") as published by the Free Software
+# Foundation, either version 2 of that License or (at your option) any
+# later version.
+#
+# THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
+# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
+# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+#----=[Arch specific rules]=----
+ifneq (distclean,$(MAKECMDGOALS))
+ ifndef ARCH
+   $(error "ARCH not defined.")
+ endif
+ include rules/Makefile.$(ARCH)
+endif
+
+
+# ----=[ TOOLS ]=----
+#  Tools apart from gcc, that are arch agnostic are placed in
+export TOP_LEVEL:= $(PWD)
+export SYS_PATH :=
+
+# ----[ TOOLS ]----
+#  Tools apart from gcc, that are arch agnostic are placed here
+export MAKE     :=make
+export FLEX     :=flex
+export YACC     :=bison
+export CC       := $(CROSS_COMPILE)gcc
+export CXX      := $(CROSS_COMPILE)g++
+export LD       := $(CROSS_COMPILE)ld
+export AR       := $(CROSS_COMPILE)ar
+export OBJ_DIR  := objs_$(ARCH)
+export BIN_DIR  := $(TOP_LEVEL)/bin_$(ARCH)
+export LIB_DIR  := $(TOP_LEVEL)/lib_$(ARCH)
+export APP_DIR  := $(TOP_LEVEL)/bin_$(ARCH)
+export RULE_PATH:=$(TOP_LEVEL)/rules
+
+# ----=[ Defines and Paths]=----
+# DEFINES, LIB_PATH, INC_PATH are set in the rules/Makefile.<arch> files.
+DEFINES  := $(addprefix -D,$(ARCH_SPEC_DEFINES))
+LIB_PATH := $(addprefix -L,$(LIB_DIR)) $(addprefix -L,$($(ARCH)_LIB_PATH))
+#LIB_PATH += -L$(SYS_PATH)/lib_$(ARCH)
+INC_PATH := -I$(TOP_LEVEL)/include -I. $(addprefix -I,$($(ARCH)_INC_PATH))
+WARN     := -W -Wall -Wshadow  -g3
+
+
+# aggregate exported vars
+export LDFLAGS  := $(LIB_PATH) $(EXTRA_LDFLAGS) $(ARCH_SPEC_LDFLAGS)
+export ARFLAGS  := rcs
+
+#----=[Pretty Printout]=----
+ifndef V
+ export Q := @
+ MAKE_FLAGS += --no-print-directory
+ export MAKE_FLAGS
+endif
+ifeq (,$(MAKECMDGOALS))
+  ACTION := (compiling)
+else
+  ACTION := ($(MAKECMDGOALS))
+endif
+export ACTION
+
+# ----=[Dynamic rules for apps and libs]=----
+# This is where the build definition for all targets is generated.  These macros
+# are called via foreach loops on LIBS and APPS in the main makefile.  There is
+# a loop to generate rules for libs, apps and all their dependencies, e.g. yacc,
+# lex, objs, cxx_objs.  Each sub makefile MUST append to LIBS and APPS a keyword
+# that can be expanded on to hold other variables required by the build.  See
+# the example/Makefile for details.  Bison and flex files are more complex.
+# bison:
+# The sub makefiles must specify the obj to be generated (*_objs) and  a *_yac
+# value for the bison *.y file.
+# E.g.
+#   LIBS += regex
+#   regex_objs := pmrec.tab.o
+#   regex_yac := pmrec.y
+# This will trigger bison to run.
+# flex:
+# the sub makefiles must specify the obj to be generated (*_objs), the lex
+# prefix (*_lex_prefix) and the lex scan file (*_lex_scan_file).
+# E.g.:
+#   LIBS += regex
+#   regex_objs := lex.rec_yy.o
+#   regex_lex_prefix := rec_yy
+#   regex_lex_scan_file := pmrec.lex
+# This will trigger flex to run.
+define set_app_rule
+$(APP_DIR)/$(1):$(addprefix $($(1)_dir)/.$(1)_,$($(1)_cxx_objs) $($(1)_objs)) $(addprefix $(LIB_DIR)/lib,$(addsuffix .a,$($(1)_link_libs)))
+	$$(Q)echo " [LD] $$(notdir $$@)";
+	$$(Q)$(CXX) $(addprefix $($(1)_dir)/.$(1)_,$($(1)_objs) $($(1)_cxx_objs)) $(LDFLAGS) $($(1)_LDFLAGS) $(addprefix -l,$($(1)_priv_link_libs)) $(addprefix -l,$($(1)_link_libs))  $(addprefix -l,$($(1)_sys_link_libs)) -lc -o $$@
+endef
+
+define set_lib_rule
+$(LIB_DIR)/lib$(1).a:$(addprefix $($(1)_dir)/.$(1)_,$($(1)_objs))
+	$(Q)echo " [AR] $$(notdir $$@)"
+	$(Q)$(AR) $(ARFLAGS) $$@ $(addprefix $($(1)_dir)/.$(1)_,$($(1)_objs))
+endef
+
+define set_yacc_lex_rule
+$($(1)_dir)/%.tab.c $($(1)_dir)/%.tab.h:$($(1)_dir)/%.y
+	$(Q)echo " [YC] $$<"
+	$(Q)cd $($(1)_dir) && $(YACC) -d $$(notdir $$<)
+$(foreach x,$($(1)_lex_prefix),$($(1)_dir)/lex.$(x).c):$(foreach x,$($(1)_lex_prefix),$($(1)_dir)/$($(1)_lex_scan_file))
+	$(Q)echo " [LX] $$@"
+	$(Q)cd $($(1)_dir) && $(FLEX) -P$$(patsubst lex.%.c,%,$$(notdir $$@)) $($(1)_lex_scan_file)
+endef
+
+# 1 == app/lib name, 2 == obj
+define set_obj_rule
+$($(1)_dir)/.$(1)_$(2):$($(1)_dir)/$(patsubst %.o,%.c,$(2))
+	$$(Q)echo " [CC]  $$@ $(1):$(2)"
+	$$(Q)touch  $$(patsubst %.o,%.d,$$@)
+	$$(Q)$(CC) -MMD -MP -MF$$(patsubst %.o,%.d,$$@) $(CFLAGS) $($(1)_CFLAGS) -I$$(dir $$<) -I$$(dir $$<)include -c $$< -o $$@
+endef
+
+define set_cxx_obj_rule
+$($(1)_dir)/.$(1)_$(2):$($(1)_dir)/$(patsubst %.o,%.cpp,$(2))
+	$$(Q)echo " [CXX]  $$@ $(1):$(2)"
+	$$(Q)touch  $$(patsubst %.o,%.d,$$@)
+	$$(Q)$(CXX) -MMD -MP -MF$$(patsubst %.o,%.d,$$@) $(CFLAGS) $(CXXFLAGS) $($(1)_CFLAGS) -I$$(dir $$<) -I$$(dir $$<)include -c $$< -o $$@
+endef
+
+#----=[Include Makefiles]=----
+# get a list of all the Makefiles to include.  Each dir with code to compile
+#  must contain a Makefile of the correct format. EXTRA_DEFINES can be added to
+#  in these sub makefiles without the -D.
+#  Note: each sub makefile requires that libs and apps define a %_dir var indicating the dir path
+#  relative to the top level.  There is no easy way to automate this.
+#
+define process_makefiles
+  $(eval include $(1))
+  $(foreach A,$(MY_APPS),$(eval $(A)_dir = $(2:%/=%)))
+  $(foreach L,$(MY_LIBS),$(eval $(L)_dir = $(2:%/=%)))
+  APPS += $(MY_APPS)
+  LIBS += $(MY_LIBS)
+  MY_APPS :=
+  MY_LIBS :=
+  MY_INCLUDES :=
+endef
+
+ALL_MAKEFILES := $(foreach d,$(DIRS),$(shell find $(d) -name Makefile.sub))
+$(foreach M,$(ALL_MAKEFILES), $(eval $(call process_makefiles,$(M),$(dir $(M)))))
+
+#----=[VPATH]=-----
+# need vpath if not building in the dir with src files.  Otherwise, make will
+# not trigger the correct dep.
+VPATH := $(foreach p,$(ALL_MAKEFILES),$(dir $(p)))
+
+# ----=[Default targets to build.]=----
+PHONY_TARGETS := mkdirs $(APPS) $(LIBS) obj_dir
+
+#----=[CFLAGS]=----
+CFLAGS := $(LIB_PATH) $(INC_PATH) $(WARN) $(DEFINES) $(EXTRA_CFLAGS) $(ARCH_SPEC_CFLAGS)
+CFLAGS += $(addprefix -D,$(EXTRA_DEFINES))
+CXXFLAGS := -fPIC
+
+# ----=[Dependencies to include]=----
+APP_DEPS := $(foreach app,$(APPS),$(addprefix $($(app)_dir)/.$(app)_,$(patsubst %.o,%.d,$($(app)_objs))))
+LIB_DEPS := $(foreach lib,$(LIBS),$(addprefix $($(lib)_dir)/.$(lib)_,$(patsubst %.o,%.d,$($(lib)_objs))))
+
+# ----=[Default build targets]=----
+.PHONY: $(PHONY_TARGETS)
+
+#----=[Helper macros]=----
+print_obj =\
+ echo "      (compile) $(3) -> .$(1)_$(2)";
+
+define print_debug_lib
+ echo "   $(1): $($(1)_objs)";
+ echo "      (path) $($(1)_dir)/";
+$(foreach obj,$($(1)_objs), $(call print_obj,$(1),$(obj),$(patsubst %.o,%.c,$(obj))))
+ echo;
+endef
+
+define print_debug_app
+ echo "   $(1): $($(1)_objs)";
+ echo "      (path) $($(1)_dir)/";
+$(foreach obj,$($(1)_objs), $(call print_obj,$(1),$(obj),$(patsubst %.o,%.c,$(obj))))
+ echo "      (link with) $($(1)_link_libs)"
+ echo;
+endef
+
+define print_debug_mk
+ echo "   $(1)";
+endef
+
+#----=[Targets start here]=----
+all: mkdirs $(LIBS) $(APPS)
+
+debug:
+	@echo "LIBS"
+	@echo "   $(LIBS)"
+	@echo
+	@echo "LIB_DEPS"
+	@$(foreach lib,$(LIBS),$(call print_debug_lib,$(lib)))
+	@echo
+	@echo "APPS"
+	@echo "   $(APPS)"
+	@echo
+	@echo "APP_DEPS"
+	@$(foreach app,$(APPS),$(call print_debug_app,$(app)))
+	@echo
+	@echo "ALL_MAKEFILES"
+	@$(foreach mk,$(ALL_MAKEFILES),$(call print_debug_mk,$(mk)))
+	@echo
+
+mkdirs:
+	$(Q)test -e $(BIN_DIR) || mkdir -p $(BIN_DIR)
+	$(Q)test -e $(LIB_DIR) || mkdir -p $(LIB_DIR)
+
+# -----[ Build target LIBS ]-----
+#  Dynamically build up the rules for each obj and target.
+$(LIBS):$(foreach lib,$(LIBS),$(LIB_DIR)/lib$(lib).a)
+$(foreach lib,$(LIBS),$(eval $(call set_lib_rule,$(lib))))
+$(foreach lib,$(LIBS),$(eval $(call set_yacc_lex_rule,$(lib))))
+$(foreach lib,$(LIBS),$(foreach o,$($(lib)_objs),$(eval $(call set_obj_rule,$(lib),$(o)))))
+$(foreach lib,$(LIBS),$(foreach o,$($(lib)_cxx_objs),$(eval $(call set_cxx_obj_rule,$(lib),$(o)))))
+
+# -----[ Build target APPS ]-----
+$(APPS): $(foreach app,$(APPS),$(APP_DIR)/$(app))
+$(foreach app,$(APPS),$(eval $(call set_app_rule,$(app))))
+$(foreach app,$(APPS),$(eval $(call set_yacc_lex_rule,$(app))))
+$(foreach app,$(APPS),$(foreach o,$($(app)_objs),$(eval $(call set_obj_rule,$(app),$(o)))))
+$(foreach app,$(APPS),$(foreach o,$($(app)_cxx_objs),$(eval $(call set_cxx_obj_rule,$(app),$(o)))))
+
+obj_dir:
+	$(Q)mkdir -p objs_$(ARCH)
+
+# ----=[ clean rule ]=----
+#  Cleanup only what we generate, but do not remove the libs and bins.
+#  remove lex.*.c files and *.tab.* files.
+#  distclean removes all generated files regardless
+clean:
+	$(Q)echo "---- clean ----"
+	$(Q)rm -f $(foreach a,$(APPS),$(addprefix $($(a)_dir)/.$(a)_,$($(a)_objs) $(patsubst %.o,%.d,$($(a)_objs))))
+	$(Q)rm -f $(foreach a,$(LIBS),$(addprefix $($(a)_dir)/.$(a)_,$($(a)_objs) $(patsubst %.o,%.d,$($(a)_objs))))
+	$(Q)find -name \*.tab.c |xargs rm -f
+	$(Q)find -name \*.tab.h |xargs rm -f
+	$(Q)find -name lex.*.c  |xargs rm -f
+distclean:
+	$(Q)echo "---- distclean ----"
+	$(Q)rm -fr $(BIN_DIR)
+	$(Q)rm -fr $(LIB_DIR)
+	$(Q)find -name \*.o |xargs rm -f
+	$(Q)find -name \*.d |xargs rm -f
+	$(Q)find -name \*.tab.c |xargs rm -f
+	$(Q)find -name \*.tab.h |xargs rm -f
+	$(Q)find -name lex.*.c  |xargs rm -f
+
+-include $(LIB_DEPS)
+-include $(APP_DEPS)
