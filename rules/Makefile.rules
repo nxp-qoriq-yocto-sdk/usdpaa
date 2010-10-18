@@ -59,11 +59,11 @@ export APP_DIR  := $(TOP_LEVEL)/bin_$(ARCH)
 export RULE_PATH:=$(TOP_LEVEL)/rules
 
 # ----=[ Defines and Paths]=----
-# DEFINES, LIB_PATH, INC_PATH are set in the rules/Makefile.<arch> files.
+# ARCH DEFINES, LIB_PATH, INC_PATH are set in the rules/Makefile.<arch> files.
 DEFINES  := $(addprefix -D,$(ARCH_SPEC_DEFINES))
 LIB_PATH := $(addprefix -L,$(LIB_DIR)) $(addprefix -L,$($(ARCH)_LIB_PATH))
 #LIB_PATH += -L$(SYS_PATH)/lib_$(ARCH)
-INC_PATH := -I$(TOP_LEVEL)/include -I. $(addprefix -I,$($(ARCH)_INC_PATH))
+INC_PATH := -I$(TOP_LEVEL)/include $(addprefix -I,$($(ARCH)_INC_PATH))
 WARN     := -W -Wall -Wshadow  -g3
 
 
@@ -134,14 +134,14 @@ define set_obj_rule
 $($(1)_dir)/.$(1)_$(2):$($(1)_dir)/$(patsubst %.o,%.c,$(2))
 	$$(Q)echo " [CC]  $$@ $(1):$(2)"
 	$$(Q)touch  $$(patsubst %.o,%.d,$$@)
-	$$(Q)$(CC) -MMD -MP -MF$$(patsubst %.o,%.d,$$@) $(CFLAGS) $($(1)_CFLAGS) -I$$(dir $$<) -I$$(dir $$<)include -c $$< -o $$@
+	$$(Q)$(CC) -MMD -MP -MF$$(patsubst %.o,%.d,$$@) $(CFLAGS) $($(1)_CFLAGS) $($(1)_mk_cflags) -I$$(dir $$<)include $(INC_PATH) -c $$< -o $$@
 endef
 
 define set_cxx_obj_rule
 $($(1)_dir)/.$(1)_$(2):$($(1)_dir)/$(patsubst %.o,%.cpp,$(2))
 	$$(Q)echo " [CXX]  $$@ $(1):$(2)"
 	$$(Q)touch  $$(patsubst %.o,%.d,$$@)
-	$$(Q)$(CXX) -MMD -MP -MF$$(patsubst %.o,%.d,$$@) $(CFLAGS) $(CXXFLAGS) $($(1)_CFLAGS) -I$$(dir $$<) -I$$(dir $$<)include -c $$< -o $$@
+	$$(Q)$(CXX) -MMD -MP -MF$$(patsubst %.o,%.d,$$@) $(CFLAGS) $(CXXFLAGS) $($(1)_CFLAGS) $($(1)_mk_cflags) -I$$(dir $$<)include $(INC_PATH) -c $$< -o $$@
 endef
 
 #----=[Include Makefiles]=----
@@ -155,11 +155,13 @@ define process_makefiles
   $(eval include $(1))
   $(foreach A,$(MY_APPS),$(eval $(A)_dir = $(2:%/=%)))
   $(foreach L,$(MY_LIBS),$(eval $(L)_dir = $(2:%/=%)))
+  $(foreach A,$(MY_APPS),$(eval $(A)_mk_cflags = $(MY_CFLAGS)))
+  $(foreach A,$(MY_LIBS),$(eval $(A)_mk_cflags = $(MY_CFLAGS)))
   APPS += $(MY_APPS)
   LIBS += $(MY_LIBS)
   MY_APPS :=
   MY_LIBS :=
-  MY_INCLUDES :=
+  MY_CFLAGS :=
 endef
 
 ALL_MAKEFILES := $(foreach d,$(DIRS),$(shell find $(d) -name Makefile.sub))
@@ -174,7 +176,7 @@ VPATH := $(foreach p,$(ALL_MAKEFILES),$(dir $(p)))
 PHONY_TARGETS := mkdirs $(APPS) $(LIBS) obj_dir
 
 #----=[CFLAGS]=----
-CFLAGS := $(LIB_PATH) $(INC_PATH) $(WARN) $(DEFINES) $(EXTRA_CFLAGS) $(ARCH_SPEC_CFLAGS)
+CFLAGS := $(LIB_PATH) $(WARN) $(DEFINES) $(EXTRA_CFLAGS) $(ARCH_SPEC_CFLAGS)
 CFLAGS += $(addprefix -D,$(EXTRA_DEFINES))
 CXXFLAGS := -fPIC
 
