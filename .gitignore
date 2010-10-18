@@ -1,5 +1,4 @@
 *.a
 *.o
 *.d
-user_example
-poc
+/bin_*
