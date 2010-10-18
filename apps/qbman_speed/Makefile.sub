@@ -1,0 +1,21 @@
+MY_APPS = qbman_speed
+
+# $(TOP_LEVEL)/include and ./include are always in the include path
+# Any other desired paths should be added by;
+#     MY_CFLAGS := -I<...> ...    (Makefile-wide)
+#    <x>_CFLAGS := -I<...> ...    (per-app or per-lib)
+#
+# Style-wise, we should aim for every Makefile to define MY_CFLAGS
+# equal to the "include" sub-directory of all intermediate directories
+# between the TOP_LEVEL and the code. The reason this isn't
+# auto-generated is to leave flexibility in the hands of customers and
+# to put less magic behind the curtain. All include paths we add here
+# should be an include/ sub-directory of a direct ancestor. Anything
+# else suggests either the file-system representation or the app's
+# interface design is wrong, or both.
+MY_CFLAGS := -I$(TOP_LEVEL)/apps/include
+
+qbman_speed_objs := main.o speed.o blastman.o
+qbman_speed_link_libs := apps_badinit usdpaa_qman usdpaa_bman usdpaa_shmem
+qbman_speed_sys_link_libs := pthread
+

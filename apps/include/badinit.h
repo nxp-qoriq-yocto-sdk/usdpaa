@@ -30,17 +30,17 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef APPS_COMMON_H
-#define APPS_COMMON_H
+#ifndef BADINIT_H
+#define BADINIT_H
 
-#include "compat.h"
+#include <compat.h>
 #include <fsl_shmem.h>
 #include <fman.h>
 
-/* This stuff shouldn't be part of the "compat" header because we don't assume
- * its presence in linux or LWE. */
+/* This mechanism for initialising threads and binding portals is from the
+ * legacy "poc" work - it will change and the "bad" naming is to emphasise this
+ * fact. */
 
-/* System headers required for apps but not for drivers */
 #include <net/ethernet.h>
 #include <net/if_arp.h>
 #include <linux/ip.h>
@@ -113,31 +113,5 @@ static inline int my_toul(const char *str, char **endptr, long toobig)
 	return (int)tmp;
 }
 
-/* 64-bit atomics */
-struct bigatomic {
-	atomic_t upper;
-	atomic_t lower;
-};
-
-static inline void bigatomic_set(struct bigatomic *b, u64 i)
-{
-	atomic_set(&b->upper, i >> 32);
-	atomic_set(&b->lower, i & 0xffffffff);
-}
-static inline u64 bigatomic_read(const struct bigatomic *b)
-{
-	u32 upper, lower;
-	do {
-		upper = atomic_read(&b->upper);
-		lower = atomic_read(&b->lower);
-	} while (upper != atomic_read(&b->upper));
-	return ((u64)upper << 32) | (u64)lower;
-}
-static inline void bigatomic_inc(struct bigatomic *b)
-{
-	if (atomic_inc_and_test(&b->lower))
-		atomic_inc(&b->upper);
-}
-
-#endif /* !APPS_COMMON_H */
+#endif /* !BADINIT_H */
 

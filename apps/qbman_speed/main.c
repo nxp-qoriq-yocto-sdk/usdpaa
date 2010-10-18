@@ -30,7 +30,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "test.h"
+#include "private.h"
 
 static pthread_barrier_t barr;
 
@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
 			exit(-1);
 		}
 	} else if (argc != 1) {
-		fprintf(stderr, "usage: user_example [cpu-range]\n");
+		fprintf(stderr, "usage: qbman [cpu-range]\n");
 		fprintf(stderr, "where [cpu-range] is 'n' or 'm..n'\n");
 		exit(-1);
 	}

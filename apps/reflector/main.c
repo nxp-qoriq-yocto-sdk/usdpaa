@@ -30,7 +30,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "common.h"
+#include <badinit.h>
+#include <bigatomic.h>
 
 /* if defined, be lippy about everything */
 #define POC_TRACE
@@ -908,7 +909,7 @@ int main(int argc, char *argv[])
 			exit(-1);
 		}
 	} else if (argc != 1) {
-		fprintf(stderr, "usage: poc [cpu-range]\n");
+		fprintf(stderr, "usage: reflector [cpu-range]\n");
 		fprintf(stderr, "where [cpu-range] is 'n' or 'm..n'\n");
 		exit(-1);
 	}

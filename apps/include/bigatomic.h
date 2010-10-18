@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,12 +30,33 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "common.h"
+#ifndef BIGATOMIC_H
+#define BIGATOMIC_H
 
-void qman_test_high(thread_data_t *tdata);
-void bman_test_high(thread_data_t *tdata);
-void speed(thread_data_t *tdata);
-void blastman(thread_data_t *tdata);
+/* 64-bit atomics */
+struct bigatomic {
+	atomic_t upper;
+	atomic_t lower;
+};
 
-void sync_all(void);
+static inline void bigatomic_set(struct bigatomic *b, u64 i)
+{
+	atomic_set(&b->upper, i >> 32);
+	atomic_set(&b->lower, i & 0xffffffff);
+}
+static inline u64 bigatomic_read(const struct bigatomic *b)
+{
+	u32 upper, lower;
+	do {
+		upper = atomic_read(&b->upper);
+		lower = atomic_read(&b->lower);
+	} while (upper != atomic_read(&b->upper));
+	return ((u64)upper << 32) | (u64)lower;
+}
+static inline void bigatomic_inc(struct bigatomic *b)
+{
+	if (atomic_inc_and_test(&b->lower))
+		atomic_inc(&b->upper);
+}
 
+#endif

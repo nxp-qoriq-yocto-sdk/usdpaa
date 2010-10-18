@@ -30,7 +30,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "common.h"
+#include <badinit.h>
 
 static pthread_barrier_t barr;
 static __thread thread_data_t *__my_thread_data;
