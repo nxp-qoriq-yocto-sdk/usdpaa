@@ -1,0 +1,137 @@
+# The following is a template that documents the supported functionality, but
+# most options shouldn't be needed and the Makefile.sub files should be very
+# simple. Please consult the examples in the source-tree for guidance, this
+# template is intended to be complete rather than readable.
+
+#######
+# Makefile-wide options
+#######
+
+# MY_APPS defines executables whose source code is in the current directory.
+# Source and settings for "testapp1" come from "testapp1_*" definitions.
+MY_APPS = testapp1 anotherapp
+
+# MY_LIBS defines libraries whose source code is in the current directory.
+# Source and settings for "mytoolbox" come from "mytoolbox_*" definitions.
+MY_LIBS = mytoolbox
+
+# MY_OTHER defines files that are installed without any compilation step,
+# eg. configuration files. Settings for "foobar.xml" come from "foobar.xml_*"
+# definitions.
+MY_OTHER = foobar.xml README.testapp1
+
+# MY_CFLAGS should mostly be used to define include paths to "intermediate"
+# interfaces. $(TOP_LEVEL)/include is already in the include path, as is the
+# "include" sub-directory of the current-directory (if it exists). Style-wise,
+# the intention is for the "include" sub-directory of each directory level
+# between those two to also be in the include-path (but no other paths, ie. if
+# you need an include path that is "off to the side", your directory-layout is
+# wrong). This set of include paths is not automated, for the simple reason that
+# this leaves flexibility in the hands of customers and it hides less "magic"
+# behind the curtain. The maintainer will however enforce this rule for the
+# in-tree code, and we may revert to automating include paths in the future.
+#
+# MY_CFLAGS applies to all objects built for MY_APPS and MY_LIBS, however each
+# target "foo" can provide additional CFLAGS by setting "foo_CFLAGS".
+MY_CFLAGS=-I$(TOP_LEVEL)/apps/testsuite/include -DBUILD_DATE=`date +%T`
+
+#######
+# Application-specific options
+#######
+
+# "_objs" specifies the source-files to compiled into the app, where the ".c"
+# suffix is replaced by ".o" for familiarity with other build systems (more
+# logical would be a "_src" definition listing ".c" sources, but we don't want
+# to scare anyone). Note, two apps can specify the same ".o", in which case the
+# C file is compiled into two distinct outputs (in case each app specifies
+# different CFLAGS).
+testapp1_objs := testapp1.o foo.o bar.o
+
+# "_link_libs" specifies libraries from this buid-system that should be linked
+# into the given app. These libraries are not necessarily exported/installed, so
+# it is possible to build private-libs and link them into apps in order to
+# reduce code-duplication between applications. These libraries can be built
+# anywhere in the source-tree, the only directory-layout restriction between
+# private-libs and the apps that link them is that the header defining the
+# interface between them must be located in the "include" sub-directory of a
+# common ancestor.
+testapp1_link_libs := mytoolbox some_other_lib
+
+# "_sys_link_libs" specifies installed system libraries that should be linked
+# into the given app. Eg. pthreads, ncurses, openssl, etc.
+testapp1_sys_link_libs := pthread
+
+# "_install" allows one to specify an alternative destination directory for
+# installation of the application, or use the special value "none" to prevent
+# installation. The build system must be invoked with $(DESTDIR) set, and all
+# installation paths are relative to this, typically it's where a root
+# filesystem is being staged. Additionally, $(PREFIX) may be set, but it will
+# default to "usr" otherwise (so the effective prefix is $(DESTDIR)/usr).
+# Furthermore, $(INSTALL_BIN) and $(INSTALL_SBIN) may be set, but otherwise
+# default to "$(PREFIX)/bin" and "$(PREFIX)/sbin" accordingly (so if PREFIX is
+# overriden, the INSTALL_BIN and INSTALL_SBIN defaults are modified implicitly
+# unless they are overriden too). "_install" can be set to $(INSTALL_SBIN) or to
+# an explicit path to change the destination directory (in which case only
+# $(DESTDIR) is observed from the externally-supplied environment).
+testapp1_install := $(INSTALL_SBIN)
+
+# "_install_flags" allows one to specify alternative options for supplying to
+# the "install" script. The build system may be invoked with "$(INSTALL_FLAGS)"
+# set, otherwise it defaults to "-D" (telling "install" to create missing
+# directories). Additionally, $(INSTALL_BIN_FLAGS) and $(INSTALL_SBIN_FLAGS) may
+# be set, otherwise they default to "--mode=755" and "--mode=700" respectively.
+# If "_install_flags" is not specified, it defaults to $(INSTALL_BIN_FLAGS).
+# This flag can allow customisation of user/group ownership, setuid flags, and
+# such-like. However, many options of that type will fail unless the build
+# system's "install" target is being invoked with super-user privileges.
+testapp1_install_flags := $(INSTALL_SBIN_FLAGS)
+
+# The "other app". No need to specify _sys_link_libs, _install, or
+# _install_flags, the defaults are fine.
+anotherapp_objs := silly.o logging.o foo.o bar.o
+anotherapp_link_libs := mytoolbox
+
+#######
+# Library-specific options
+#######
+
+# "_objs" functions in the same way as for applications
+mytoolbox_objs := toolbox.o
+
+# Unlike apps, there are no "_link_libs" nor "_sys_link_libs" options for libs.
+
+# "_install" works in a similar way to applications, except that the default
+# value is $(INSTALL_LIB), which defaults to $(PREFIX)/lib if not overriden
+# externally.
+# As with apps, the special value "none" can be used to indicate that no
+# installation should be attempted, which is the correct thing to do for
+# private-libs (ie. libs that are used to reduce code-duplication in the
+# source-tree, but are not intended for wider exposure).
+mytoolbox_install := none
+
+# "_install_flags" works in a similar way to applications, except that the
+# default value is $(INSTALL_LIB_FLAGS), which defaults to "--mode=644" if not
+# overriden externally. In this example, the lib is not installed so there's
+# definitely no need to override the default installation flags!
+
+#######
+# Raw installation options
+#######
+
+# Targets specified with MY_OTHER are for installation "as is", they support
+# only two flags
+
+# "_install" behaves similarly to apps and libs, here the default value is
+# $(INSTALL_OTHER), which defaults to $(PREFIX)/etc if not overriden externally.
+# In this example, the README should be installed in a documentation path, and
+# the XML should be in the default path but within a "foobar" sub-directory.
+README.testapp1_install := $(PREFIX)/share/doc
+foobar.xml_install := $(INSTALL_OTHER)/foobar
+
+# "_install_flags" behave similarly to apps and libs, here the default value is
+# $(INSTALL_OTHER_FLAGS), which defaults to "--mode=644" if not overriden
+# externally.
+# In this example, the XML should only be root-readable, and the README is fine
+# with the default settings.
+foobar.xml_install_flags := --mode=600
+

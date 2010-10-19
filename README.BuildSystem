@@ -1,0 +1,47 @@
+The build-system supports a directory tree with arbitrary hierarchy. The
+top-level Makefile declares which sub-directories are to be covered by the
+build, the following is the default value (if not overriden externally);
+
+# All "Makefile.sub"s found beneath these directories are procssed;
+DIRS := apps drivers
+
+The build system will find any "Makefile.sub" files in all sub-directories of
+the directories named in "DIR" and will process them all for building. All such
+Makefile.sub files are sourced and processed to form a global dependency graph
+before any building begins, so there is no particular "build order" that has to
+be observed as is usually the case with recursive builds, ie. builds that
+execute "make" child processes in sub-directories. In particular, dependencies
+between applications, the libraries they link against, and their source-code is
+fully expanded, and this also includes the auto-generated dependencies between
+source and header files created by the gcc preprocessor. Likewise, installation
+of apps/libs/other files observes proper dependencies too, so a parallel make
+all the way to install "just works".
+
+Eg. on my dual-xeon system;
+
+$ make distclean && time (DESTDIR=./tmp make install > /dev/null 2>&1)
+real    0m3.051s
+user    0m2.508s
+sys     0m0.532s
+
+$ make distclean && time (DESTDIR=./tmp make -j 8 install > /dev/null 2>&1)
+real    0m1.455s
+user    0m2.280s
+sys     0m0.456s
+
+One upshot of this build-system is that sub-directories can be created
+arbitrarily in order to "expand downwards", to create modularisation and
+organise components without needing to necessarily move code or interfaces
+"upwards" in the source tree. In particular, headers and libraries don't need to
+exist at a global scope in order to be shared between components that sit within
+a common sub-tree.
+
+To increase encapsulation and avoid a single horizontal layer of interfaces
+("spaghetti"), the design approach should therefore be to maximise the
+localisation of interfaces ("pushing down the directory tree") and minimise the
+globalisation of interfaces ("percolating up the directory tree").
+
+README.MakefileTemplate documents all the supported functionality of the
+Makefile.sub files, however most of the options should rarely be required, so
+please also consult the examples in the source-tree for guidance.
+
