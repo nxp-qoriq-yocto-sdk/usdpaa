@@ -48,6 +48,7 @@ export SYS_PATH :=
 export MAKE     :=make
 export FLEX     :=flex
 export YACC     :=bison
+export INSTALL  :=install
 export CC       := $(CROSS_COMPILE)gcc
 export CXX      := $(CROSS_COMPILE)g++
 export LD       := $(CROSS_COMPILE)ld
@@ -66,6 +67,23 @@ LIB_PATH := $(addprefix -L,$(LIB_DIR)) $(addprefix -L,$($(ARCH)_LIB_PATH))
 INC_PATH := -I$(TOP_LEVEL)/include $(addprefix -I,$($(ARCH)_INC_PATH))
 WARN     := -W -Wall -Wshadow  -g3
 
+# ----=[ Installation ]=----
+# Installation will fail unless $(DESTDIR) is set from outside,
+# and everything will be installed relative to "$(DESTDIR)/".
+PREFIX ?= usr
+INSTALL_BIN ?= $(PREFIX)/bin
+INSTALL_SBIN ?= $(PREFIX)/sbin
+INSTALL_LIB ?= $(PREFIX)/lib
+INSTALL_OTHER ?= $(PREFIX)/etc
+#
+# "install -d $(INSTALL_FLAGS) $(INSTALL_xxx_FLAGS) <from> <to>"
+# INSTALL_FLAGS is always used, INSTALL_xxx_FLAGS is only used if targets
+# don't set xxx_install_flags.
+INSTALL_FLAGS ?= -D
+INSTALL_BIN_FLAGS ?= --mode=755
+INSTALL_SBIN_FLAGS ?= --mode=700
+INSTALL_LIB_FLAGS ?= --mode=644
+INSTALL_OTHER_FLAGS ?= --mode=644
 
 # aggregate exported vars
 export LDFLAGS  := $(LIB_PATH) $(EXTRA_LDFLAGS) $(ARCH_SPEC_LDFLAGS)
@@ -144,6 +162,54 @@ $($(1)_dir)/.$(1)_$(2):$($(1)_dir)/$(patsubst %.o,%.cpp,$(2))
 	$$(Q)$(CXX) -MMD -MP -MF$$(patsubst %.o,%.d,$$@) $(CFLAGS) $(CXXFLAGS) $($(1)_CFLAGS) $($(1)_mk_cflags) -I$$(dir $$<)include $(INC_PATH) -c $$< -o $$@
 endef
 
+# ----=[Dynamic rules for installation targets]=----
+define set_install_rule
+do_install_$(1):$($(1)_install_from)/$($(1)_install_name)
+	$$(Q)echo " [INSTALL]  $(1)"
+	$$(Q)$(INSTALL) $(INSTALL_FLAGS) $($(1)_install_flags) $($(1)_install_from)/$($(1)_install_name) $(DESTDIR)/$($(1)_install_to)/$($(1)_install_name)
+do_uninstall_$(1):
+	$$(Q)echo " [UNINSTALL]  $(1)"
+	$$(Q)rm -f $(DESTDIR)/$($(1)_install_to)/$($(1)_install_name)
+endef
+
+# ----=[Post process *_install definitions]=----
+# Set default ("xxx_install" undefined) and bypass ("xxx_install=none")
+# $(1) = install target (app/lib name, or misc file)
+# $(2) = target filename (for libs, this is lib$(1).a)
+# $(3) = default install dir
+# $(4) = from dir (or empty to copy misc file)
+# $(5) = default install flags
+define process_install
+  $(eval target := $(1))
+  $(eval fname := $(2))
+  $(eval definstall := $(3))
+  $(eval fromdir := $(strip $(4)))
+  $(eval defiflags := $(5))
+  $(eval myinstall := $(strip $($(1)_install)))
+  $(eval srcdir := $(strip $($(1)_dir)))
+  $(eval myiflags := $(strip $($(1)_install_flags)))
+
+  ifneq (none,$(myinstall))
+    ifeq (,$(myinstall))
+      $(1)_install_to := $(definstall)
+    else
+      $(1)_install_to := $(myinstall)
+    endif
+    ifeq (,$(fromdir))
+      $(1)_install_from := $(srcdir)
+    else
+      $(1)_install_from := $(fromdir)
+    endif
+    ifeq (,$(myiflags))
+      $(1)_install_flags := $(defiflags)
+    else
+      $(1)_install_flags := $(myiflags)
+    endif
+    $(1)_install_name := $(fname)
+    TO_INSTALL += $(target)
+  endif
+endef
+
 #----=[Include Makefiles]=----
 # get a list of all the Makefiles to include.  Each dir with code to compile
 #  must contain a Makefile of the correct format. EXTRA_DEFINES can be added to
@@ -155,12 +221,17 @@ define process_makefiles
   $(eval include $(1))
   $(foreach A,$(MY_APPS),$(eval $(A)_dir = $(2:%/=%)))
   $(foreach L,$(MY_LIBS),$(eval $(L)_dir = $(2:%/=%)))
+  $(foreach x,$(MY_OTHER),$(eval $(x)_dir = $(2:%/=%)))
   $(foreach A,$(MY_APPS),$(eval $(A)_mk_cflags = $(MY_CFLAGS)))
-  $(foreach A,$(MY_LIBS),$(eval $(A)_mk_cflags = $(MY_CFLAGS)))
+  $(foreach L,$(MY_LIBS),$(eval $(L)_mk_cflags = $(MY_CFLAGS)))
+  $(foreach A,$(MY_APPS),$(eval $(call process_install,$(A),$(A),$(INSTALL_BIN),$(APP_DIR),$(INSTALL_BIN_FLAGS))))
+  $(foreach L,$(MY_LIBS),$(eval $(call process_install,$(L),lib$(L).a,$(INSTALL_LIB),$(LIB_DIR),$(INSTALL_LIB_FLAGS))))
+  $(foreach x,$(MY_OTHER),$(eval $(call process_install,$(x),$(x),$(INSTALL_OTHER),,$(INSTALL_OTHER_FLAGS))))
   APPS += $(MY_APPS)
   LIBS += $(MY_LIBS)
   MY_APPS :=
   MY_LIBS :=
+  MY_OTHER :=
   MY_CFLAGS :=
 endef
 
@@ -213,6 +284,10 @@ endef
 #----=[Targets start here]=----
 all: mkdirs $(LIBS) $(APPS)
 
+install: all $(addprefix do_install_,$(TO_INSTALL))
+
+uninstall: $(addprefix do_uninstall_,$(TO_INSTALL))
+
 debug:
 	@echo "LIBS"
 	@echo "   $(LIBS)"
@@ -248,6 +323,9 @@ $(foreach app,$(APPS),$(eval $(call set_app_rule,$(app))))
 $(foreach app,$(APPS),$(eval $(call set_yacc_lex_rule,$(app))))
 $(foreach app,$(APPS),$(foreach o,$($(app)_objs),$(eval $(call set_obj_rule,$(app),$(o)))))
 $(foreach app,$(APPS),$(foreach o,$($(app)_cxx_objs),$(eval $(call set_cxx_obj_rule,$(app),$(o)))))
+
+# -----[ Build install rules ]-----
+$(foreach x,$(TO_INSTALL),$(eval $(call set_install_rule,$(x))))
 
 obj_dir:
 	$(Q)mkdir -p objs_$(ARCH)
