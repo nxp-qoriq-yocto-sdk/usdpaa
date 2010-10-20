@@ -281,6 +281,15 @@ define print_debug_mk
  echo "   $(1)";
 endef
 
+define print_debug_install
+ $(eval DESTDIR?=<DESTDIR>)
+ echo "   $(1) NAME:$($(1)_install_name)"
+ echo "      FROM:$($(1)_install_from)"
+ echo "      DEST:  $(DESTDIR)/$($(1)_install_to)"
+ echo "      FLAGS: $($(1)_install_flags)"
+ echo
+endef
+
 #----=[Targets start here]=----
 all: mkdirs $(LIBS) $(APPS)
 
@@ -304,6 +313,8 @@ debug:
 	@echo "ALL_MAKEFILES"
 	@$(foreach mk,$(ALL_MAKEFILES),$(call print_debug_mk,$(mk)))
 	@echo
+	@echo "TO BE INSTALLED"
+	@$(foreach i,$(TO_INSTALL),$(call print_debug_install,$(i)))
 
 mkdirs:
 	$(Q)test -e $(BIN_DIR) || mkdir -p $(BIN_DIR)
