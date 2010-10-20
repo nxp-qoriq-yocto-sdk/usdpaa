@@ -45,27 +45,27 @@ export SYS_PATH :=
 
 # ----[ TOOLS ]----
 #  Tools apart from gcc, that are arch agnostic are placed here
-export MAKE     :=make
-export FLEX     :=flex
-export YACC     :=bison
-export INSTALL  :=install
-export CC       := $(CROSS_COMPILE)gcc
-export CXX      := $(CROSS_COMPILE)g++
-export LD       := $(CROSS_COMPILE)ld
-export AR       := $(CROSS_COMPILE)ar
-export OBJ_DIR  := objs_$(ARCH)
-export BIN_DIR  := $(TOP_LEVEL)/bin_$(ARCH)
-export LIB_DIR  := $(TOP_LEVEL)/lib_$(ARCH)
-export APP_DIR  := $(TOP_LEVEL)/bin_$(ARCH)
+export MAKE	:=make
+export FLEX	:=flex
+export YACC	:=bison
+export INSTALL	:=install
+export CC	:= $(CROSS_COMPILE)gcc
+export CXX	:= $(CROSS_COMPILE)g++
+export LD	:= $(CROSS_COMPILE)ld
+export AR	:= $(CROSS_COMPILE)ar
+export OBJ_DIR	:= objs_$(ARCH)
+export BIN_DIR	:= $(TOP_LEVEL)/bin_$(ARCH)
+export LIB_DIR	:= $(TOP_LEVEL)/lib_$(ARCH)
+export APP_DIR	:= $(TOP_LEVEL)/bin_$(ARCH)
 export RULE_PATH:=$(TOP_LEVEL)/rules
 
 # ----=[ Defines and Paths]=----
 # ARCH DEFINES, LIB_PATH, INC_PATH are set in the rules/Makefile.<arch> files.
-DEFINES  := $(addprefix -D,$(ARCH_SPEC_DEFINES))
+DEFINES	 := $(addprefix -D,$($(ARCH)_SPEC_DEFINES))
 LIB_PATH := $(addprefix -L,$(LIB_DIR)) $(addprefix -L,$($(ARCH)_LIB_PATH))
 #LIB_PATH += -L$(SYS_PATH)/lib_$(ARCH)
 INC_PATH := -I$(TOP_LEVEL)/include $(addprefix -I,$($(ARCH)_INC_PATH))
-WARN     := -W -Wall -Wshadow  -g3
+WARN	 := -W -Wall -Wshadow  -g3
 
 # ----=[ Installation ]=----
 # Installation will fail unless $(DESTDIR) is set from outside,
@@ -86,8 +86,8 @@ INSTALL_LIB_FLAGS ?= --mode=644
 INSTALL_OTHER_FLAGS ?= --mode=644
 
 # aggregate exported vars
-export LDFLAGS  := $(LIB_PATH) $(EXTRA_LDFLAGS) $(ARCH_SPEC_LDFLAGS)
-export ARFLAGS  := rcs
+export LDFLAGS	:= $(LIB_PATH) $(EXTRA_LDFLAGS) $($(ARCH)_SPEC_LDFLAGS)
+export ARFLAGS	:= rcs
 
 #----=[Pretty Printout]=----
 ifndef V
@@ -106,7 +106,7 @@ export ACTION
 # This is where the build definition for all targets is generated.  These macros
 # are called via foreach loops on LIBS and APPS in the main makefile.  There is
 # a loop to generate rules for libs, apps and all their dependencies, e.g. yacc,
-# lex, objs, cxx_objs.  Each sub makefile MUST append to LIBS and APPS a keyword
+# lex, objs, cxx_objs.	Each sub makefile MUST append to LIBS and APPS a keyword
 # that can be expanded on to hold other variables required by the build.  See
 # the example/Makefile for details.  Bison and flex files are more complex.
 # bison:
@@ -168,7 +168,7 @@ do_install_$(1):$($(1)_install_from)/$($(1)_install_name)
 	$$(Q)echo " [INSTALL]  $(1)"
 	$$(Q)$(INSTALL) $(INSTALL_FLAGS) $($(1)_install_flags) $($(1)_install_from)/$($(1)_install_name) $(DESTDIR)/$($(1)_install_to)/$($(1)_install_name)
 do_uninstall_$(1):
-	$$(Q)echo " [UNINSTALL]  $(1)"
+	$$(Q)echo " [UNINSTALL]	 $(1)"
 	$$(Q)rm -f $(DESTDIR)/$($(1)_install_to)/$($(1)_install_name)
 endef
 
@@ -239,7 +239,7 @@ ALL_MAKEFILES := $(foreach d,$(DIRS),$(shell find $(d) -name Makefile.sub))
 $(foreach M,$(ALL_MAKEFILES), $(eval $(call process_makefiles,$(M),$(dir $(M)))))
 
 #----=[VPATH]=-----
-# need vpath if not building in the dir with src files.  Otherwise, make will
+# need vpath if not building in the dir with src files.	 Otherwise, make will
 # not trigger the correct dep.
 VPATH := $(foreach p,$(ALL_MAKEFILES),$(dir $(p)))
 
@@ -247,7 +247,7 @@ VPATH := $(foreach p,$(ALL_MAKEFILES),$(dir $(p)))
 PHONY_TARGETS := mkdirs $(APPS) $(LIBS) obj_dir
 
 #----=[CFLAGS]=----
-CFLAGS := $(LIB_PATH) $(WARN) $(DEFINES) $(EXTRA_CFLAGS) $(ARCH_SPEC_CFLAGS)
+CFLAGS := $(LIB_PATH) $(WARN) $(DEFINES) $(EXTRA_CFLAGS) $($(ARCH)_SPEC_CFLAGS)
 CFLAGS += $(addprefix -D,$(EXTRA_DEFINES))
 CXXFLAGS := -fPIC
 
@@ -260,33 +260,33 @@ LIB_DEPS := $(foreach lib,$(LIBS),$(addprefix $($(lib)_dir)/.$(lib)_,$(patsubst 
 
 #----=[Helper macros]=----
 print_obj =\
- echo "      (compile) $(3) -> .$(1)_$(2)";
+ echo "	     (compile) $(3) -> .$(1)_$(2)";
 
 define print_debug_lib
- echo "   $(1): $($(1)_objs)";
- echo "      (path) $($(1)_dir)/";
+ echo "	  $(1): $($(1)_objs)";
+ echo "	     (path) $($(1)_dir)/";
 $(foreach obj,$($(1)_objs), $(call print_obj,$(1),$(obj),$(patsubst %.o,%.c,$(obj))))
  echo;
 endef
 
 define print_debug_app
- echo "   $(1): $($(1)_objs)";
- echo "      (path) $($(1)_dir)/";
+ echo "	  $(1): $($(1)_objs)";
+ echo "	     (path) $($(1)_dir)/";
 $(foreach obj,$($(1)_objs), $(call print_obj,$(1),$(obj),$(patsubst %.o,%.c,$(obj))))
- echo "      (link with) $($(1)_link_libs)"
+ echo "	     (link with) $($(1)_link_libs)"
  echo;
 endef
 
 define print_debug_mk
- echo "   $(1)";
+ echo "	  $(1)";
 endef
 
 define print_debug_install
  $(eval DESTDIR?=<DESTDIR>)
- echo "   $(1) NAME:$($(1)_install_name)"
- echo "      FROM:$($(1)_install_from)"
- echo "      DEST:  $(DESTDIR)/$($(1)_install_to)"
- echo "      FLAGS: $($(1)_install_flags)"
+ echo "	  $(1) NAME:$($(1)_install_name)"
+ echo "	     FROM:$($(1)_install_from)"
+ echo "	     DEST:  $(DESTDIR)/$($(1)_install_to)"
+ echo "	     FLAGS: $($(1)_install_flags)"
  echo
 endef
 
@@ -299,13 +299,13 @@ uninstall: $(addprefix do_uninstall_,$(TO_INSTALL))
 
 debug:
 	@echo "LIBS"
-	@echo "   $(LIBS)"
+	@echo "	  $(LIBS)"
 	@echo
 	@echo "LIB_DEPS"
 	@$(foreach lib,$(LIBS),$(call print_debug_lib,$(lib)))
 	@echo
 	@echo "APPS"
-	@echo "   $(APPS)"
+	@echo "	  $(APPS)"
 	@echo
 	@echo "APP_DEPS"
 	@$(foreach app,$(APPS),$(call print_debug_app,$(app)))
@@ -351,7 +351,7 @@ clean:
 	$(Q)rm -f $(foreach a,$(LIBS),$(addprefix $($(a)_dir)/.$(a)_,$($(a)_objs) $(patsubst %.o,%.d,$($(a)_objs))))
 	$(Q)find -name \*.tab.c |xargs rm -f
 	$(Q)find -name \*.tab.h |xargs rm -f
-	$(Q)find -name lex.*.c  |xargs rm -f
+	$(Q)find -name lex.*.c	|xargs rm -f
 distclean:
 	$(Q)echo "---- distclean ----"
 	$(Q)rm -fr $(BIN_DIR)
@@ -360,7 +360,7 @@ distclean:
 	$(Q)find -name \*.d |xargs rm -f
 	$(Q)find -name \*.tab.c |xargs rm -f
 	$(Q)find -name \*.tab.h |xargs rm -f
-	$(Q)find -name lex.*.c  |xargs rm -f
+	$(Q)find -name lex.*.c	|xargs rm -f
 
 -include $(LIB_DEPS)
 -include $(APP_DEPS)
