@@ -40,7 +40,7 @@ endif
 
 # ----=[ TOOLS ]=----
 #  Tools apart from gcc, that are arch agnostic are placed in
-export TOP_LEVEL:= $(PWD)
+export TOP_LEVEL:= $(shell pwd)
 export SYS_PATH :=
 
 # ----[ TOOLS ]----
