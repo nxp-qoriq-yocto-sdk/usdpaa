@@ -1,6 +1,5 @@
 MY_APPS = reflector
-MY_OTHER = us_config_fm0_sgmii.xml us_config_serdes_0xe_2sgmii.xml \
-	us_policy_hash_ipv4_src_dst.xml
+MY_OTHER = us_config_serdes_0xe.xml us_policy_hash_ipv4_src_dst.xml
 
 MY_CFLAGS := -I$(TOP_LEVEL)/apps/include
 
