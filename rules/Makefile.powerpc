@@ -31,11 +31,10 @@
 
 # all gcc calls and rules are done in the main makefile.  Here we just specify
 # arch specific settings.
-ARCH                 ?=powerpc
-CROSS_COMPILE        ?=powerpc-linux-gnu-
+ARCH		     ?=powerpc
+CROSS_COMPILE	     ?=powerpc-linux-gnu-
 $(ARCH)_SPEC_CFLAGS  :=
 $(ARCH)_SPEC_LDFLAGS :=
-$(ARCH)_SPEC_DEFINES :=
+$(ARCH)_SPEC_DEFINES := _FILE_OFFSET_BITS=64
 
 export ARCH CROSS_COMPILE
-
