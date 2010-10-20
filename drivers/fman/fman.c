@@ -32,6 +32,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <sys/mman.h>	/* mmap()/munmap() */
 
 #include "compat.h"
 #include "of.h"
@@ -44,8 +45,7 @@ int __mac_enable_all(void)
 	const phandle		*mac_phandle;
 	size_t			 lenp;
 	const uint32_t		*regs_addr;
-	uint64_t		 regs_size;
-	uintptr_t		 phys_addr;
+	uint64_t		 phys_addr, regs_size;
 
 	dev_mem_fd = open("/dev/mem", O_RDWR);
 	if (unlikely(dev_mem_fd < 0)) {
@@ -110,7 +110,7 @@ int __mac_enable_all(void)
 		else if (of_device_is_compatible(mac_node, "fsl,fman-10g-mac"))
 			out_be32(dev_mem + 8, in_be32(dev_mem + 8) | 3);
 		else
-			fprintf(stderr, "%s:%hu:%s: %s:0x%0x: unknown MAC type\n",
+			fprintf(stderr, "%s:%hu:%s: %s:0x%09llx: unknown MAC type\n",
 				__FILE__, __LINE__, __func__, mac_node->full_name, phys_addr);
 
 
@@ -120,7 +120,7 @@ int __mac_enable_all(void)
 				__FILE__, __LINE__, __func__, -errno, strerror(errno));
 		}
 
-		printf("\t...using %s:0x%0x\n", mac_node->full_name, phys_addr);
+		printf("\t...using %s:0x%09llx\n", mac_node->full_name, phys_addr);
 	}
 
 	close(dev_mem_fd);
