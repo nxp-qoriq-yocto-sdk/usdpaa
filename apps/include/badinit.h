@@ -99,7 +99,7 @@ static inline int run_threads(struct thread_data *ctxs, int num_ctxs,
 	do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
 /* Utility functions */
-static inline int my_toul(const char *str, char **endptr, long toobig)
+static inline int my_toul(const char *str, char **endptr, unsigned long toobig)
 {
 	unsigned long tmp = strtoul(str, endptr, 0);
 	if ((tmp == ULONG_MAX) || (*endptr == str)) {

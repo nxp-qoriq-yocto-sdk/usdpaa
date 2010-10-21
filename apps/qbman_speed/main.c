@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
 {
 	thread_data_t thread_data[MAX_THREADS];
 	int ret, first, last;
-	long ncpus = sysconf(_SC_NPROCESSORS_ONLN);
+	unsigned long ncpus = (unsigned long)sysconf(_SC_NPROCESSORS_ONLN);
 
 	if (ncpus == 1)
 		first = last = 0;

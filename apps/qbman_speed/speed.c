@@ -162,9 +162,9 @@ retry:
 	eq_capture[1] = mfatb();
 }
 
-static enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *p,
-					struct qman_fq *fq,
-					const struct qm_dqrr_entry *dq)
+static enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *p __always_unused,
+					struct qman_fq *fq __always_unused,
+				const struct qm_dqrr_entry *dq __maybe_unused)
 {
 #ifdef TEST_FD
 	if (fd_cmp(&fd_dq, &dq->fd)) {
@@ -187,14 +187,16 @@ static enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *p,
 	return qman_cb_dqrr_consume;
 }
 
-static void cb_ern(struct qman_portal *p, struct qman_fq *fq,
-			const struct qm_mr_entry *msg)
+static void cb_ern(struct qman_portal *p __always_unused,
+			struct qman_fq *fq __always_unused,
+			const struct qm_mr_entry *msg __always_unused)
 {
 	panic("cb_ern() unimplemented");
 }
 
-static void cb_dc_ern(struct qman_portal *p, struct qman_fq *fq,
-			const struct qm_mr_entry *msg)
+static void cb_dc_ern(struct qman_portal *p __always_unused,
+			struct qman_fq *fq __always_unused,
+			const struct qm_mr_entry *msg __always_unused)
 {
 	panic("cb_dc_ern() unimplemented");
 }

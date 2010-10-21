@@ -505,7 +505,8 @@ retry:
 /* struct poc_fq_2drop */
 /***********************/
 
-static enum qman_cb_dqrr_result cb_dqrr_2drop(struct qman_portal *qm,
+static enum qman_cb_dqrr_result cb_dqrr_2drop(
+					struct qman_portal *qm __always_unused,
 					struct qman_fq *fq,
 					const struct qm_dqrr_entry *dqrr)
 {
@@ -570,7 +571,8 @@ static inline void cache_flush(void *addr, unsigned long len)
 }
 #endif
 
-static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
+static enum qman_cb_dqrr_result cb_dqrr_2fwd(
+					struct qman_portal *qm __always_unused,
 					struct qman_fq *fq,
 					const struct qm_dqrr_entry *dqrr)
 {
@@ -667,8 +669,9 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(struct qman_portal *qm,
 	return qman_cb_dqrr_consume;
 }
 
-static void cb_ern_2fwd(struct qman_portal *qm, struct qman_fq *fq,
-				const struct qm_mr_entry *msg)
+static void cb_ern_2fwd(struct qman_portal *qm __always_unused,
+			struct qman_fq *fq,
+			const struct qm_mr_entry *msg)
 {
 	__maybe_unused struct poc_fq_2fwd *p = container_of(fq,
 					struct poc_fq_2fwd, fq_tx);
@@ -808,11 +811,14 @@ static void calm_down(void)
 	}
 }
 
-static void bp_depletion(struct bman_portal *bm, struct bman_pool *pool, void *cb_ctx, int depleted)
+static void bp_depletion(struct bman_portal *bm __always_unused,
+			struct bman_pool *p,
+			void *cb_ctx __maybe_unused,
+			int depleted)
 {
-	BUG_ON(pool != *(typeof(&pool))cb_ctxt);
+	BUG_ON(p != *(typeof(&p))cb_ctxt);
 
-	TRACE("%s: BP%u -> %x\n", __func__, bman_get_params(pool)->bpid, depleted);
+	TRACE("%s: BP%u -> %x\n", __func__, bman_get_params(p)->bpid, depleted);
 }
 
 /* This is not actually necessary, the threads can just start up without any
@@ -834,7 +840,7 @@ static int worker_fn(thread_data_t *tdata)
 	 * before, because we need to use portals to initialise FQs. */
 	if (!tdata->index) {
 		u8 bpids[] = POC_BPIDS;
-		int loop;
+		unsigned int loop;
 		for (loop = 0; loop < POC_IF_NUM; loop++) {
 			TRACE("Initialising interface %d\n", ifid[loop]);
 			poc_if_init(&ifs[loop], &ifs_percpu[loop], ifid[loop]);
@@ -882,7 +888,7 @@ int main(int argc, char *argv[])
 	struct poc_msg appdata[MAX_THREADS];
 	char *endptr;
 	int ret, first, last, loop;
-	long ncpus = sysconf(_SC_NPROCESSORS_ONLN);
+	unsigned long ncpus = (unsigned long)sysconf(_SC_NPROCESSORS_ONLN);
 	char cli[POC_CLI_BUFFER];
 
 	if (ncpus == 1)

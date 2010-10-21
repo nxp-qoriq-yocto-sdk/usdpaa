@@ -499,7 +499,7 @@ static inline void *kzalloc(size_t sz, gfp_t foo __always_unused)
 		memset(ptr, 0, sz);
 	return ptr;
 }
-static inline unsigned long get_zeroed_page(gfp_t foo)
+static inline unsigned long get_zeroed_page(gfp_t foo __always_unused)
 {
 	void *p = memalign(4096, 4096);
 	if (p)

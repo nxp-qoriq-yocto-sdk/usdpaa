@@ -175,9 +175,9 @@ static void of_bus_default_count_cells(const struct device_node	*dev_node,
 }
 
 const uint32_t *of_get_address(struct device_node	*dev_node,
-			       size_t			 index,
+			       size_t			 idx,
 			       uint64_t			*size,
-			       uint32_t			*flags)
+			       uint32_t			*flags __always_unused)
 {
 	const uint32_t	*uint32_prop;
 	size_t		 lenp;
@@ -192,7 +192,7 @@ const uint32_t *of_get_address(struct device_node	*dev_node,
 		return NULL;
 	assert((lenp % ((na + ns) * sizeof(uint32_t))) == 0);
 
-	uint32_prop += (na + ns) * index;
+	uint32_prop += (na + ns) * idx;
 	if (size != NULL)
 		for (*size = 0; ns > 0; ns--, na++)
 			*size = (*size << 32) + uint32_prop[na];
@@ -230,8 +230,8 @@ uint64_t of_translate_address(struct device_node *dev_node, const u32 *addr)
 }
 
 struct device_node *of_find_compatible_node(const struct device_node	*from,
-					    const char			*type,
-					    const char			*compatible)
+					    const char	*type __always_unused,
+					    const char	*compatible)
 {
 	int			 _err, __err;
 	char			 command[PATH_MAX], *full_name;

@@ -50,7 +50,7 @@ static inline u64 bigatomic_read(const struct bigatomic *b)
 	do {
 		upper = atomic_read(&b->upper);
 		lower = atomic_read(&b->lower);
-	} while (upper != atomic_read(&b->upper));
+	} while (upper != (u32)atomic_read(&b->upper));
 	return ((u64)upper << 32) | (u64)lower;
 }
 static inline void bigatomic_inc(struct bigatomic *b)
