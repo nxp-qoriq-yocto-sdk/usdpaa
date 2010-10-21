@@ -32,9 +32,9 @@ sys     0m0.456s
 One upshot of this build-system is that sub-directories can be created
 arbitrarily in order to "expand downwards", to create modularisation and
 organise components without needing to necessarily move code or interfaces
-"upwards" in the source tree. In particular, headers and libraries don't need to
-exist at a global scope in order to be shared between components that sit within
-a common sub-tree.
+"upwards" in the source tree. In particular, headers and source code for
+libraries don't need to exist at a global scope in order to be shared between
+components that sit within a common sub-tree.
 
 To increase encapsulation and avoid a single horizontal layer of interfaces
 ("spaghetti"), the design approach should therefore be to maximise the
