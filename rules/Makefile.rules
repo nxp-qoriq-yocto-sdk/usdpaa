@@ -150,14 +150,14 @@ endef
 # 1 == app/lib name, 2 == obj
 define set_obj_rule
 $($(1)_dir)/.$(1)_$(2):$($(1)_dir)/$(patsubst %.o,%.c,$(2))
-	$$(Q)echo " [CC]  $$@ $(1):$(2)"
+	$$(Q)echo " [CC] $(1):$(2)"
 	$$(Q)touch  $$(patsubst %.o,%.d,$$@)
 	$$(Q)$(CC) -MMD -MP -MF$$(patsubst %.o,%.d,$$@) $(CFLAGS) $($(1)_CFLAGS) $($(1)_mk_cflags) -I$$(dir $$<)include $(INC_PATH) -c $$< -o $$@
 endef
 
 define set_cxx_obj_rule
 $($(1)_dir)/.$(1)_$(2):$($(1)_dir)/$(patsubst %.o,%.cpp,$(2))
-	$$(Q)echo " [CXX]  $$@ $(1):$(2)"
+	$$(Q)echo " [CXX] $(1):$(2)"
 	$$(Q)touch  $$(patsubst %.o,%.d,$$@)
 	$$(Q)$(CXX) -MMD -MP -MF$$(patsubst %.o,%.d,$$@) $(CFLAGS) $(CXXFLAGS) $($(1)_CFLAGS) $($(1)_mk_cflags) -I$$(dir $$<)include $(INC_PATH) -c $$< -o $$@
 endef
@@ -165,10 +165,10 @@ endef
 # ----=[Dynamic rules for installation targets]=----
 define set_install_rule
 do_install_$(1):$($(1)_install_from)/$($(1)_install_name)
-	$$(Q)echo " [INSTALL]  $(1)"
+	$$(Q)echo " [INSTALL] $(1)"
 	$$(Q)$(INSTALL) $(INSTALL_FLAGS) $($(1)_install_flags) $($(1)_install_from)/$($(1)_install_name) $(DESTDIR)/$($(1)_install_to)/$($(1)_install_name)
 do_uninstall_$(1):
-	$$(Q)echo " [UNINSTALL]	 $(1)"
+	$$(Q)echo " [UNINSTALL] $(1)"
 	$$(Q)rm -f $(DESTDIR)/$($(1)_install_to)/$($(1)_install_name)
 endef
 
