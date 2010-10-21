@@ -3,5 +3,5 @@ MY_OTHER = of.sh
 
 usdpaa_of_objs := of.o
 
-of.sh_install = $(PREFIX)/bin
+of.sh_install = $(INSTALL_BIN)
 of.sh_install_flags = --mode=755
