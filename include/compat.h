@@ -48,6 +48,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <limits.h>
+#include <assert.h>
 
 /* Strange though it may seem, all qman/bman-dependent apps include this header,
  * so this is a good place to force the inclusion of conf.h. There are
@@ -207,9 +208,6 @@ static inline void hexdump(const void *ptr, size_t sz)
 }
 
 /* I/O operations */
-/* GALAK: I doubt my impl of in/out_be32 are any good. There's probably an
- * __iomem missing (and presumably the above definition of __iomem is
- * insufficient too) and perhaps a volatile. Maybe some asm too? */
 static inline u32 in_be32(volatile void *__p)
 {
 	volatile u32 *p = __p;
@@ -270,7 +268,7 @@ static inline uint64_t mfatb(void)
 	} while (unlikely(hi != chk));
 	return (uint64_t) hi << 32 | (uint64_t) lo;
 }
-/* Spin for a few cycles without bothering anyone else */
+/* Spin for a few cycles without bothering the bus */
 static inline void cpu_spin(int cycles)
 {
 	uint64_t now = mfatb();
