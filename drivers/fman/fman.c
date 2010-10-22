@@ -30,12 +30,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <assert.h>
-#include <stdio.h>
-#include <sys/mman.h>	/* mmap()/munmap() */
-
-#include "compat.h"
-#include "of.h"
+#include <compat.h>
+#include <of.h>
 
 int __mac_enable_all(void)
 {

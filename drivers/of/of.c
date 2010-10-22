@@ -30,12 +30,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <assert.h>
-#include <stdio.h>
-#include <string.h>
-
-#include "compat.h"
-#include "of.h"
+#include <compat.h>
+#include <of.h>
 
 #define OF_DEFAULT_NA 1
 #define OF_DEFAULT_NS 1
