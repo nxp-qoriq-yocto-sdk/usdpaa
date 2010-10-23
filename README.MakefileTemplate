@@ -9,22 +9,22 @@
 # Makefile-wide options
 #######
 
-# MY_APPS defines executables whose source code is in the current directory.
+# bin_PROGRAMS defines executables whose source code is in the current directory.
 # The source files, library dependencies, and compilation settings for these
 # apps are specified afterwards. Eg. testapp1 settings are defined by
 # "testapp1_*" variables, see below.
-MY_APPS = testapp1 anotherapp
+bin_PROGRAMS = testapp1 anotherapp
 
-# MY_LIBS defines libraries whose source code is in the current directory.
+# lib_LIBRARIES defines libraries whose source code is in the current directory.
 # Source and settings for "mytoolbox" come from "mytoolbox_*" variables.
-MY_LIBS = mytoolbox
+lib_LIBRARIES = mytoolbox
 
-# MY_OTHER defines files that are installed without any compilation step, eg.
+# my_DATA defines files that are installed without any compilation step, eg.
 # configuration files, shell scripts, etc. Settings for "foobar.xml" come from
 # "foobar.xml_*" variables.
-MY_OTHER = foobar.xml README.testapp1 sanity.sh
+my_DATA = foobar.xml README.testapp1 sanity.sh
 
-# MY_CFLAGS should mostly be used to define include paths to "intermediate"
+# my_CFLAGS should mostly be used to define include paths to "intermediate"
 # interfaces. $(TOP_LEVEL)/include is already in the include path, as is the
 # "include" sub-directory of the current-directory (if it exists). Style-wise,
 # the intention is for the "include" sub-directory of each directory level
@@ -36,23 +36,21 @@ MY_OTHER = foobar.xml README.testapp1 sanity.sh
 # however enforce this rule for the in-tree code, and we may revert to
 # automating include paths in the future.
 #
-# MY_CFLAGS applies to all objects built for MY_APPS and MY_LIBS, however each
+# my_CFLAGS applies to all objects built for bin_PROGRAMS and lib_LIBRARIES, however each
 # target "foo" can provide additional CFLAGS by setting "foo_CFLAGS".
-MY_CFLAGS=-I$(TOP_LEVEL)/apps/testsuite/include -DBUILD_DATE=`date +%T`
+my_CFLAGS=-I$(TOP_LEVEL)/apps/testsuite/include -DBUILD_DATE=`date +%T`
 
 #######
 # Application-specific options
 #######
 
-# "_objs" specifies the source-files to be compiled into the app, where the ".c"
-# suffix is replaced by ".o" for familiarity with other build systems (more
-# logical would be a "_src" definition listing ".c" sources, but we don't want
-# to scare anyone). Note, two apps can specify the same ".o", in which case the
+# "_SOURCES" specifies the source-files to be compiled into the app. Note, two
+# apps can specify the same ".c", in which case the
 # C file is compiled into two distinct outputs (so this supports the case where
 # each app specifies different CFLAGS).
-testapp1_objs := testapp1.o foo.o bar.o
+testapp1_SOURCES := testapp1.c foo.c bar.c
 
-# "_link_libs" specifies libraries within this buid-system that should be linked
+# "_LDADD" specifies libraries within this buid-system that should be linked
 # into the given app. These libraries are not necessarily exported/installed, so
 # it is possible to build private-libs and link them into apps in order to
 # reduce code-duplication between applications. These libraries can be built
@@ -60,11 +58,11 @@ testapp1_objs := testapp1.o foo.o bar.o
 # private-libs and the apps that link them is that the header defining the
 # interface between them must be located in the "include" sub-directory of a
 # common ancestor.
-testapp1_link_libs := mytoolbox some_other_lib
+testapp1_LDADD := mytoolbox some_other_lib
 
-# "_sys_link_libs" specifies installed system libraries that should be linked
+# "_sys_LDADD" specifies installed system libraries that should be linked
 # into the given app. Eg. pthreads, ncurses, openssl, etc.
-testapp1_sys_link_libs := pthread
+testapp1_sys_LDADD := pthread
 
 # "_install" allows one to specify an alternative destination directory for
 # installation of the application, or use the special value "none" to prevent
@@ -91,19 +89,19 @@ testapp1_install := $(INSTALL_SBIN)
 # system's "install" target is being invoked with super-user privileges.
 testapp1_install_flags := $(INSTALL_SBIN_FLAGS)
 
-# The "other app". No need to specify _sys_link_libs, _install, or
+# The "other app". No need to specify _sys_LDADD, _install, or
 # _install_flags, the defaults are fine.
 anotherapp_objs := silly.o logging.o foo.o bar.o
-anotherapp_link_libs := mytoolbox
+anotherapp_LDADD := mytoolbox
 
 #######
 # Library-specific options
 #######
 
-# "_objs" functions in the same way as for applications
-mytoolbox_objs := toolbox.o
+# "_SOURCES" functions in the same way as for applications
+mytoolbox_SOURCES:= toolbox.c
 
-# Unlike apps, there are no "_link_libs" nor "_sys_link_libs" options for libs.
+# Unlike apps, there are no "_LDADD" nor "_sys_LDADD" options for libs.
 
 # "_install" works in a similar way to applications, except that the default
 # value is $(INSTALL_LIB), which defaults to $(PREFIX)/lib if not overriden
@@ -123,7 +121,7 @@ mytoolbox_install := none
 # Raw installation options
 #######
 
-# Targets specified with MY_OTHER are for installation "as is", they support
+# Targets specified with my_DATA are for installation "as is", they support
 # only two flags
 
 # "_install" behaves similarly to apps and libs, here the default value is

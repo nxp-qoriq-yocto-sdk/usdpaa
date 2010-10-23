@@ -1,7 +1,7 @@
-MY_APPS = qbman_speed
+bin_PROGRAMS = qbman_speed
 
-MY_CFLAGS := -I$(TOP_LEVEL)/apps/include
+my_CFLAGS := -I$(TOP_LEVEL)/apps/include
 
-qbman_speed_objs := main.o speed.o blastman.o
-qbman_speed_link_libs := apps_badinit usdpaa_qman usdpaa_bman usdpaa_shmem
-qbman_speed_sys_link_libs := pthread
+qbman_speed_SOURCES := main.c speed.c blastman.c
+qbman_speed_LDADD := apps_badinit usdpaa_qman usdpaa_bman usdpaa_shmem
+qbman_speed_sys_LDADD := pthread

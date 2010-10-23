@@ -1,3 +1,3 @@
-MY_LIBS = usdpaa_qman
+lib_LIBRARIES = usdpaa_qman
 
-usdpaa_qman_objs := qman_high.o qman_fqalloc.o qman_utility.o qman_driver.o
+usdpaa_qman_SOURCES := qman_high.c qman_fqalloc.c qman_utility.c qman_driver.c

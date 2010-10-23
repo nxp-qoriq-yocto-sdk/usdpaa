@@ -106,39 +106,46 @@ export ACTION
 # This is where the build definition for all targets is generated.  These macros
 # are called via foreach loops on LIBS and APPS in the main makefile.  There is
 # a loop to generate rules for libs, apps and all their dependencies, e.g. yacc,
-# lex, objs, cxx_objs.	Each sub makefile MUST append to LIBS and APPS a keyword
+# lex, object files.	Each sub makefile MUST append to LIBS and APPS a keyword
 # that can be expanded on to hold other variables required by the build.  See
 # the example/Makefile for details.  Bison and flex files are more complex.
 # bison:
-# The sub makefiles must specify the obj to be generated (*_objs) and  a *_yac
-# value for the bison *.y file.
+# The sub makefiles must specify the source file (*_SOURCES).  Note: there
+# convention used is that the prefix for the .y file is used for the 
+# generated file .tab.c and .tab.h files.
 # E.g.
 #   LIBS += regex
-#   regex_objs := pmrec.tab.o
-#   regex_yac := pmrec.y
-# This will trigger bison to run.
+#   regex_SOURCES:= pmrec.tab.c
+# There must be a pmrec.y file in the same directory.  Note pmrec.tab.c/h files will
+# be generated along side the source files.  Adding pmrec.tab.c to the
+# regex_SOURCES is the dependency that triggers the build of the *.tab.c and
+# *.tab.h files.
+#
 # flex:
-# the sub makefiles must specify the obj to be generated (*_objs), the lex
-# prefix (*_lex_prefix) and the lex scan file (*_lex_scan_file).
+# the Makefile.sub must specify the <target>_lex_prefix and
+# <target>_lex_scan_file.
 # E.g.:
 #   LIBS += regex
-#   regex_objs := lex.rec_yy.o
+#   regex_SOURCES:= lex.rec_yy.c
 #   regex_lex_prefix := rec_yy
 #   regex_lex_scan_file := pmrec.lex
 # This will trigger flex to run.
 define set_app_rule
-$(APP_DIR)/$(1):$(addprefix $($(1)_dir)/.$(1)_,$($(1)_cxx_objs) $($(1)_objs)) $(addprefix $(LIB_DIR)/lib,$(addsuffix .a,$($(1)_link_libs)))
+$(APP_DIR)/$(1):$($(1)_objs) $($(1)_cxx_objs) $(addprefix $(LIB_DIR)/lib,$(addsuffix .a,$($(1)_LDADD)))
 	$$(Q)echo " [LD] $$(notdir $$@)";
-	$$(Q)$(CXX) $(addprefix $($(1)_dir)/.$(1)_,$($(1)_objs) $($(1)_cxx_objs)) $(LDFLAGS) $($(1)_LDFLAGS) $(addprefix -l,$($(1)_priv_link_libs)) $(addprefix -l,$($(1)_link_libs))  $(addprefix -l,$($(1)_sys_link_libs)) -lc -o $$@
+	$$(Q)$(CXX) $($(1)_objs) $($(1)_cxx_objs) $(LDFLAGS) $($(1)_LDFLAGS) $(addprefix -l,$($(1)_priv_LDADD)) $(addprefix -l,$($(1)_LDADD))  $(addprefix -l,$($(1)_sys_LDADD)) -lc -o $$@
 endef
 
 define set_lib_rule
-$(LIB_DIR)/lib$(1).a:$(addprefix $($(1)_dir)/.$(1)_,$($(1)_objs))
+$(LIB_DIR)/lib$(1).a:$($(1)_objs) $($(1)_cxx_objs)
 	$(Q)echo " [AR] $$(notdir $$@)"
-	$(Q)$(AR) $(ARFLAGS) $$@ $(addprefix $($(1)_dir)/.$(1)_,$($(1)_objs))
+	$(Q)$(AR) $(ARFLAGS) $$@ $($(1)_objs) $($(1)_cxx_objs)
 endef
 
+# automatically set the -I to the dir with the bison rules.  This is to make
+# sure the *.tab.h file is found.
 define set_yacc_lex_rule
+$(eval $(1)_CFLAGS += -I$($(1)_dir))
 $($(1)_dir)/%.tab.c $($(1)_dir)/%.tab.h:$($(1)_dir)/%.y
 	$(Q)echo " [YC] $$<"
 	$(Q)cd $($(1)_dir) && $(YACC) -d $$(notdir $$<)
@@ -147,17 +154,29 @@ $(foreach x,$($(1)_lex_prefix),$($(1)_dir)/lex.$(x).c):$(foreach x,$($(1)_lex_pr
 	$(Q)cd $($(1)_dir) && $(FLEX) -P$$(patsubst lex.%.c,%,$$(notdir $$@)) $($(1)_lex_scan_file)
 endef
 
-# 1 == app/lib name, 2 == obj
+# NOTE: c and cpp files can be specified in SOURCES, so filter them out.
+# Single point to change the obj path.
+# params: 1 = target
+define expand_obj_target
+$(eval pref = $($(1)_dir)/$(OBJ_DIR)/$(1)_)
+$(eval $(1)_pref := $(pref))
+$(eval $(1)_objs := $(foreach s,$(filter %.c,$($(1)_SOURCES)),$(pref)$(basename $(s)).o))
+$(eval $(1)_cxx_objs := $(foreach s,$(filter %.cpp,$($(1)_SOURCES)),$(pref)$(basename $(s)).o))
+endef
+
+# 1 == app/lib name, 2 == source file, 3 basename of 2
 define set_obj_rule
-$($(1)_dir)/.$(1)_$(2):$($(1)_dir)/$(patsubst %.o,%.c,$(2))
-	$$(Q)echo " [CC] $(1):$(2)"
+$($(1)_pref)$(3).o:$($(1)_dir)/$(2)
+	$$(Q)mkdir -p $$(dir $$@)
+	$$(Q)echo " [CC] $(notdir $(1)):$(2):$$@"
 	$$(Q)touch  $$(patsubst %.o,%.d,$$@)
 	$$(Q)$(CC) -MMD -MP -MF$$(patsubst %.o,%.d,$$@) $(CFLAGS) $($(1)_CFLAGS) $($(1)_mk_cflags) -I$$(dir $$<)include $(INC_PATH) -c $$< -o $$@
 endef
 
 define set_cxx_obj_rule
-$($(1)_dir)/.$(1)_$(2):$($(1)_dir)/$(patsubst %.o,%.cpp,$(2))
-	$$(Q)echo " [CXX] $(1):$(2)"
+$($(1)_pref)$(3).o:$($(1)_dir)/$(2)
+	$$(Q)mkdir -p $$(dir $$@)
+	$$(Q)echo " [CXX] $(notdir $(1)):$(2):$$@"
 	$$(Q)touch  $$(patsubst %.o,%.d,$$@)
 	$$(Q)$(CXX) -MMD -MP -MF$$(patsubst %.o,%.d,$$@) $(CFLAGS) $(CXXFLAGS) $($(1)_CFLAGS) $($(1)_mk_cflags) -I$$(dir $$<)include $(INC_PATH) -c $$< -o $$@
 endef
@@ -219,20 +238,20 @@ endef
 #
 define process_makefiles
   $(eval include $(1))
-  $(foreach A,$(MY_APPS),$(eval $(A)_dir = $(2:%/=%)))
-  $(foreach L,$(MY_LIBS),$(eval $(L)_dir = $(2:%/=%)))
-  $(foreach x,$(MY_OTHER),$(eval $(x)_dir = $(2:%/=%)))
-  $(foreach A,$(MY_APPS),$(eval $(A)_mk_cflags = $(MY_CFLAGS)))
-  $(foreach L,$(MY_LIBS),$(eval $(L)_mk_cflags = $(MY_CFLAGS)))
-  $(foreach A,$(MY_APPS),$(eval $(call process_install,$(A),$(A),$(INSTALL_BIN),$(APP_DIR),$(INSTALL_BIN_FLAGS))))
-  $(foreach L,$(MY_LIBS),$(eval $(call process_install,$(L),lib$(L).a,$(INSTALL_LIB),$(LIB_DIR),$(INSTALL_LIB_FLAGS))))
-  $(foreach x,$(MY_OTHER),$(eval $(call process_install,$(x),$(x),$(INSTALL_OTHER),,$(INSTALL_OTHER_FLAGS))))
-  APPS += $(MY_APPS)
-  LIBS += $(MY_LIBS)
-  MY_APPS :=
-  MY_LIBS :=
-  MY_OTHER :=
-  MY_CFLAGS :=
+  $(foreach A,$(bin_PROGRAMS),$(eval $(A)_dir = $(2:%/=%)))
+  $(foreach L,$(lib_LIBRARIES),$(eval $(L)_dir = $(2:%/=%)))
+  $(foreach x,$(my_DATA),$(eval $(x)_dir = $(2:%/=%)))
+  $(foreach A,$(bin_PROGRAMS),$(eval $(A)_mk_cflags = $(my_CFLAGS)))
+  $(foreach L,$(lib_LIBRARIES),$(eval $(L)_mk_cflags = $(my_CFLAGS)))
+  $(foreach A,$(bin_PROGRAMS),$(eval $(call process_install,$(A),$(A),$(INSTALL_BIN),$(APP_DIR),$(INSTALL_BIN_FLAGS))))
+  $(foreach L,$(lib_LIBRARIES),$(eval $(call process_install,$(L),lib$(L).a,$(INSTALL_LIB),$(LIB_DIR),$(INSTALL_LIB_FLAGS))))
+  $(foreach x,$(my_DATA),$(eval $(call process_install,$(x),$(x),$(INSTALL_OTHER),,$(INSTALL_OTHER_FLAGS))))
+  APPS += $(bin_PROGRAMS)
+  LIBS += $(lib_LIBRARIES)
+  bin_PROGRAMS:=
+  lib_LIBRARIES:=
+  my_DATA :=
+  my_CFLAGS :=
 endef
 
 ALL_MAKEFILES := $(foreach d,$(DIRS),$(shell find $(d) -name Makefile.sub))
@@ -252,28 +271,28 @@ CFLAGS += $(addprefix -D,$(EXTRA_DEFINES))
 CXXFLAGS := -fPIC
 
 # ----=[Dependencies to include]=----
-APP_DEPS := $(foreach app,$(APPS),$(addprefix $($(app)_dir)/.$(app)_,$(patsubst %.o,%.d,$($(app)_objs))))
-LIB_DEPS := $(foreach lib,$(LIBS),$(addprefix $($(lib)_dir)/.$(lib)_,$(patsubst %.o,%.d,$($(lib)_objs))))
+APP_DEPS := $(foreach app,$(APPS),$($(app)_objs))
+LIB_DEPS := $(foreach lib,$(LIBS),$($(lib)_objs))
 
 # ----=[Default build targets]=----
 .PHONY: $(PHONY_TARGETS)
 
 #----=[Helper macros]=----
 print_obj =\
- echo "	     (compile) $(3) -> .$(1)_$(2)";
+ echo "	     (compile) $(3) -> $(4)$(2)";
 
 define print_debug_lib
- echo "	  $(1): $($(1)_objs)";
+ echo "	  $(1): $(addsuffix .o,$(basename $($(1)_SOURCES)))";
  echo "	     (path) $($(1)_dir)/";
-$(foreach obj,$($(1)_objs), $(call print_obj,$(1),$(obj),$(patsubst %.o,%.c,$(obj))))
+$(foreach s,$($(1)_SOURCES), $(call print_obj,$(1),$(basename $(s)).o,$(s),$($(1)_pref)))
  echo;
 endef
 
 define print_debug_app
- echo "	  $(1): $($(1)_objs)";
+ echo "	  $(1): $(addsuffix .o,$(basename $($(1)_SOURCES)))";
  echo "	     (path) $($(1)_dir)/";
-$(foreach obj,$($(1)_objs), $(call print_obj,$(1),$(obj),$(patsubst %.o,%.c,$(obj))))
- echo "	     (link with) $($(1)_link_libs)"
+$(foreach s,$($(1)_SOURCES), $(call print_obj,$(1),$(basename $(s)).o,$(s),$($(1)_pref)))
+ echo "	     (link with) $($(1)_LDADD)"
  echo;
 endef
 
@@ -323,17 +342,18 @@ mkdirs:
 # -----[ Build target LIBS ]-----
 #  Dynamically build up the rules for each obj and target.
 $(LIBS):$(foreach lib,$(LIBS),$(LIB_DIR)/lib$(lib).a)
+# setup _obj per target for simplicity
+$(foreach lib,$(LIBS),$(eval $(call expand_obj_target,$(lib))))
 $(foreach lib,$(LIBS),$(eval $(call set_lib_rule,$(lib))))
 $(foreach lib,$(LIBS),$(eval $(call set_yacc_lex_rule,$(lib))))
-$(foreach lib,$(LIBS),$(foreach o,$($(lib)_objs),$(eval $(call set_obj_rule,$(lib),$(o)))))
-$(foreach lib,$(LIBS),$(foreach o,$($(lib)_cxx_objs),$(eval $(call set_cxx_obj_rule,$(lib),$(o)))))
+$(foreach lib,$(LIBS),$(foreach x,$($(lib)_SOURCES),$(eval $(call set_obj_rule,$(lib),$(x),$(basename $(x))))))
 
 # -----[ Build target APPS ]-----
 $(APPS): $(foreach app,$(APPS),$(APP_DIR)/$(app))
+$(foreach app,$(APPS),$(eval $(call expand_obj_target,$(app))))
 $(foreach app,$(APPS),$(eval $(call set_app_rule,$(app))))
 $(foreach app,$(APPS),$(eval $(call set_yacc_lex_rule,$(app))))
-$(foreach app,$(APPS),$(foreach o,$($(app)_objs),$(eval $(call set_obj_rule,$(app),$(o)))))
-$(foreach app,$(APPS),$(foreach o,$($(app)_cxx_objs),$(eval $(call set_cxx_obj_rule,$(app),$(o)))))
+$(foreach app,$(APPS),$(foreach x,$($(app)_SOURCES),$(eval $(call set_obj_rule,$(app),$(x),$(basename $(x))))))
 
 # -----[ Build install rules ]-----
 $(foreach x,$(TO_INSTALL),$(eval $(call set_install_rule,$(x))))
@@ -347,8 +367,7 @@ obj_dir:
 #  distclean removes all generated files regardless
 clean:
 	$(Q)echo "---- clean ----"
-	$(Q)rm -f $(foreach a,$(APPS),$(addprefix $($(a)_dir)/.$(a)_,$($(a)_objs) $(patsubst %.o,%.d,$($(a)_objs))))
-	$(Q)rm -f $(foreach a,$(LIBS),$(addprefix $($(a)_dir)/.$(a)_,$($(a)_objs) $(patsubst %.o,%.d,$($(a)_objs))))
+	$(Q)rm -f $(foreach a,$(APPS) $(LIBS),$($(a)_objs))
 	$(Q)find -name \*.tab.c |xargs rm -f
 	$(Q)find -name \*.tab.h |xargs rm -f
 	$(Q)find -name lex.*.c	|xargs rm -f
@@ -356,11 +375,11 @@ distclean:
 	$(Q)echo "---- distclean ----"
 	$(Q)rm -fr $(BIN_DIR)
 	$(Q)rm -fr $(LIB_DIR)
+	$(Q)find -name $(OBJ_DIR) |xargs rm -fr
 	$(Q)find -name \*.o |xargs rm -f
 	$(Q)find -name \*.d |xargs rm -f
 	$(Q)find -name \*.tab.c |xargs rm -f
 	$(Q)find -name \*.tab.h |xargs rm -f
 	$(Q)find -name lex.*.c	|xargs rm -f
-
 -include $(LIB_DEPS)
 -include $(APP_DEPS)

@@ -1,3 +1,3 @@
-MY_LIBS = usdpaa_bman
+lib_LIBRARIES = usdpaa_bman
 
-usdpaa_bman_objs := bman_high.o bman_driver.o
+usdpaa_bman_SOURCES := bman_high.c bman_driver.c

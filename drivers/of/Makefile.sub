@@ -1,7 +1,7 @@
-MY_LIBS = usdpaa_of
-MY_OTHER = of.sh
+lib_LIBRARIES = usdpaa_of
+my_DATA = of.sh
 
-usdpaa_of_objs := of.o
+usdpaa_of_SOURCES := of.c
 
 of.sh_install = $(INSTALL_BIN)
 of.sh_install_flags = --mode=755
