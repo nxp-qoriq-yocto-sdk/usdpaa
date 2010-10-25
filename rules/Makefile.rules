@@ -164,6 +164,14 @@ $(eval $(1)_objs := $(foreach s,$(filter %.c,$($(1)_SOURCES)),$(pref)$(basename 
 $(eval $(1)_cxx_objs := $(foreach s,$(filter %.cpp,$($(1)_SOURCES)),$(pref)$(basename $(s)).o))
 endef
 
+define set_cxx_obj_rule
+$($(1)_pref)$(3).o:$($(1)_dir)/$(2)
+	$$(Q)mkdir -p $$(dir $$@)
+	$$(Q)echo " [CXX] $(notdir $(1)):$(2):$$@"
+	$$(Q)touch  $$(patsubst %.o,%.d,$$@)
+	$$(Q)$(CXX) -MMD -MP -MF$$(patsubst %.o,%.d,$$@) $(CFLAGS) $(CXXFLAGS) $($(1)_CFLAGS) $($(1)_mk_cflags) -I$$(dir $$<)include $(INC_PATH) -c $$< -o $$@
+endef
+
 # 1 == app/lib name, 2 == source file, 3 basename of 2
 define set_obj_rule
 $($(1)_pref)$(3).o:$($(1)_dir)/$(2)
@@ -173,13 +181,6 @@ $($(1)_pref)$(3).o:$($(1)_dir)/$(2)
 	$$(Q)$(CC) -MMD -MP -MF$$(patsubst %.o,%.d,$$@) $(CFLAGS) $($(1)_CFLAGS) $($(1)_mk_cflags) -I$$(dir $$<)include $(INC_PATH) -c $$< -o $$@
 endef
 
-define set_cxx_obj_rule
-$($(1)_pref)$(3).o:$($(1)_dir)/$(2)
-	$$(Q)mkdir -p $$(dir $$@)
-	$$(Q)echo " [CXX] $(notdir $(1)):$(2):$$@"
-	$$(Q)touch  $$(patsubst %.o,%.d,$$@)
-	$$(Q)$(CXX) -MMD -MP -MF$$(patsubst %.o,%.d,$$@) $(CFLAGS) $(CXXFLAGS) $($(1)_CFLAGS) $($(1)_mk_cflags) -I$$(dir $$<)include $(INC_PATH) -c $$< -o $$@
-endef
 
 # ----=[Dynamic rules for installation targets]=----
 define set_install_rule
@@ -271,8 +272,8 @@ CFLAGS += $(addprefix -D,$(EXTRA_DEFINES))
 CXXFLAGS := -fPIC
 
 # ----=[Dependencies to include]=----
-APP_DEPS := $(foreach app,$(APPS),$($(app)_objs))
-LIB_DEPS := $(foreach lib,$(LIBS),$($(lib)_objs))
+APP_DEPS := $(foreach app,$(APPS),$($(app)_objs) $($(app)_cxx_objs))
+LIB_DEPS := $(foreach lib,$(LIBS),$($(lib)_objs) $($(lib)_cxx_objs))
 
 # ----=[Default build targets]=----
 .PHONY: $(PHONY_TARGETS)
@@ -346,14 +347,16 @@ $(LIBS):$(foreach lib,$(LIBS),$(LIB_DIR)/lib$(lib).a)
 $(foreach lib,$(LIBS),$(eval $(call expand_obj_target,$(lib))))
 $(foreach lib,$(LIBS),$(eval $(call set_lib_rule,$(lib))))
 $(foreach lib,$(LIBS),$(eval $(call set_yacc_lex_rule,$(lib))))
-$(foreach lib,$(LIBS),$(foreach x,$($(lib)_SOURCES),$(eval $(call set_obj_rule,$(lib),$(x),$(basename $(x))))))
+$(foreach lib,$(LIBS),$(foreach x,$(filter %.c,$($(lib)_SOURCES)),$(eval $(call set_obj_rule,$(lib),$(x),$(basename $(x))))))
+$(foreach lib,$(LIBS),$(foreach x,$(filter %.cpp,$($(lib)_SOURCES)),$(eval $(call set_cxx_obj_rule,$(lib),$(x),$(basename $(x))))))
 
 # -----[ Build target APPS ]-----
 $(APPS): $(foreach app,$(APPS),$(APP_DIR)/$(app))
 $(foreach app,$(APPS),$(eval $(call expand_obj_target,$(app))))
 $(foreach app,$(APPS),$(eval $(call set_app_rule,$(app))))
 $(foreach app,$(APPS),$(eval $(call set_yacc_lex_rule,$(app))))
-$(foreach app,$(APPS),$(foreach x,$($(app)_SOURCES),$(eval $(call set_obj_rule,$(app),$(x),$(basename $(x))))))
+$(foreach app,$(APPS),$(foreach x,$(filter %.c,$($(app)_SOURCES)),$(eval $(call set_obj_rule,$(app),$(x),$(basename $(x))))))
+$(foreach app,$(APPS),$(foreach x,$(filter %.cpp,$($(app)_SOURCES)),$(eval $(call set_cxx_obj_rule,$(app),$(x),$(basename $(x))))))
 
 # -----[ Build install rules ]-----
 $(foreach x,$(TO_INSTALL),$(eval $(call set_install_rule,$(x))))
@@ -368,6 +371,7 @@ obj_dir:
 clean:
 	$(Q)echo "---- clean ----"
 	$(Q)rm -f $(foreach a,$(APPS) $(LIBS),$($(a)_objs))
+	$(Q)rm -f $(foreach a,$(APPS) $(LIBS),$($(a)_cxx_objs))
 	$(Q)find -name \*.tab.c |xargs rm -f
 	$(Q)find -name \*.tab.h |xargs rm -f
 	$(Q)find -name lex.*.c	|xargs rm -f
