@@ -131,12 +131,14 @@ export ACTION
 #   regex_lex_scan_file := pmrec.lex
 # This will trigger flex to run.
 define set_app_rule
+$(eval $(1)_type := app)
 $(APP_DIR)/$(1):$($(1)_objs) $($(1)_cxx_objs) $(addprefix $(LIB_DIR)/lib,$(addsuffix .a,$($(1)_LDADD)))
 	$$(Q)echo " [LD] $$(notdir $$@)";
 	$$(Q)$(CXX) $($(1)_objs) $($(1)_cxx_objs) $(LDFLAGS) $($(1)_LDFLAGS) $(addprefix -l,$($(1)_priv_LDADD)) $(addprefix -l,$($(1)_LDADD))  $(addprefix -l,$($(1)_sys_LDADD)) -lc -o $$@
 endef
 
 define set_lib_rule
+$(eval $(1)_type := lib)
 $(LIB_DIR)/lib$(1).a:$($(1)_objs) $($(1)_cxx_objs)
 	$(Q)echo " [AR] $$(notdir $$@)"
 	$(Q)$(AR) $(ARFLAGS) $$@ $($(1)_objs) $($(1)_cxx_objs)
@@ -167,7 +169,7 @@ endef
 define set_cxx_obj_rule
 $($(1)_pref)$(3).o:$($(1)_dir)/$(2)
 	$$(Q)mkdir -p $$(dir $$@)
-	$$(Q)echo " [CXX] $(notdir $(1)):$(2):$$@"
+	$$(Q)echo " [CXX] $$(shell printf '%- 16s (%s:%s)' $(2) $($(1)_type) $(1))"
 	$$(Q)touch  $$(patsubst %.o,%.d,$$@)
 	$$(Q)$(CXX) -MMD -MP -MF$$(patsubst %.o,%.d,$$@) $(CFLAGS) $(CXXFLAGS) $($(1)_CFLAGS) $($(1)_mk_cflags) -I$$(dir $$<)include $(INC_PATH) -c $$< -o $$@
 endef
@@ -176,7 +178,7 @@ endef
 define set_obj_rule
 $($(1)_pref)$(3).o:$($(1)_dir)/$(2)
 	$$(Q)mkdir -p $$(dir $$@)
-	$$(Q)echo " [CC] $(notdir $(1)):$(2):$$@"
+	$$(Q)echo " [CC] $$(shell printf '%- 16s (%s:%s)' $(2) $($(1)_type) $(1))"
 	$$(Q)touch  $$(patsubst %.o,%.d,$$@)
 	$$(Q)$(CC) -MMD -MP -MF$$(patsubst %.o,%.d,$$@) $(CFLAGS) $($(1)_CFLAGS) $($(1)_mk_cflags) -I$$(dir $$<)include $(INC_PATH) -c $$< -o $$@
 endef
