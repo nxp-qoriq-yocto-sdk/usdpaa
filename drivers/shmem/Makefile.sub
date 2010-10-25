@@ -1,3 +1,3 @@
-MY_LIBS = usdpaa_shmem
+lib_LIBRARIES = usdpaa_shmem
 
-usdpaa_shmem_objs := setup.o allocator.o
+usdpaa_shmem_SOURCES := setup.c allocator.c
