@@ -1,0 +1,39 @@
+# -------------------------------------------------------------------------
+# Copy this makefile to your directory under "apps" or "drivers" as
+# "Makfile.sub".  The build system will find it automatically.  For a detailed
+# description of the Makefile primatives, please see the README.MakfileTemplate.
+#
+# Build an Executable:
+# This example was taken from apps/qbman_speed.
+# This makefile says that:
+#   1. It will generate an executable "qbman_speed uses" (bin_PROGRAMS).
+#   2. It will add an include dir to the build include path (my_CFLAGS).
+#   3. It will compile 3 source files (qbman_speed_SOURCES).
+#   4. It will link 4 of our libs (qbman_speed_LDADD).
+#   5. It will link 1 external lib (qbman_speed_sys_LDADD).
+# After compilation, the executable will be in the TOP_LEVEL/bin_powerpc/
+# directory.
+# -------------------------------------------------------------------------
+bin_PROGRAMS = qbman_speed
+
+my_CFLAGS := -I$(TOP_LEVEL)/apps/include
+
+qbman_speed_SOURCES := main.c speed.c blastman.c
+qbman_speed_LDADD := apps_badinit usdpaa_qman usdpaa_bman usdpaa_shmem
+qbman_speed_sys_LDADD := pthread
+
+
+# -------------------------------------------------------------------------
+# Build a library.
+# This example was taken from drivers/bman.
+# This makefile says that:
+#   1. It will generate an archive with the basename "usdpaa_bman"
+#   (lib_LIBRARIES).
+#   2. It will compile 2 source files (usdpaa_bman_SOURCES).
+# After compilation, the executable will be in TOP_LEVEL/lib_powerpc.
+# -------------------------------------------------------------------------
+lib_LIBRARIES = usdpaa_bman
+
+usdpaa_bman_SOURCES := bman_high.c bman_driver.c
+
+
