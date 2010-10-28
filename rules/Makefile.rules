@@ -274,8 +274,11 @@ CFLAGS += $(addprefix -D,$(EXTRA_DEFINES))
 CXXFLAGS := -fPIC
 
 # ----=[Dependencies to include]=----
-APP_DEPS := $(foreach app,$(APPS),$($(app)_objs) $($(app)_cxx_objs))
-LIB_DEPS := $(foreach lib,$(LIBS),$($(lib)_objs) $($(lib)_cxx_objs))
+# make sure all targets are expanded
+$(foreach lib,$(LIBS),$(eval $(call expand_obj_target,$(lib))))
+$(foreach app,$(APPS),$(eval $(call expand_obj_target,$(app))))
+APP_DEPS := $(foreach app,$(APPS),$(patsubst %.o,%.d,$($(app)_objs) $($(app)_cxx_objs)))
+LIB_DEPS := $(foreach lib,$(LIBS),$(patsubst %.o,%.d,$($(lib)_objs) $($(lib)_cxx_objs)))
 
 # ----=[Default build targets]=----
 .PHONY: $(PHONY_TARGETS)
@@ -345,8 +348,6 @@ mkdirs:
 # -----[ Build target LIBS ]-----
 #  Dynamically build up the rules for each obj and target.
 $(LIBS):$(foreach lib,$(LIBS),$(LIB_DIR)/lib$(lib).a)
-# setup _obj per target for simplicity
-$(foreach lib,$(LIBS),$(eval $(call expand_obj_target,$(lib))))
 $(foreach lib,$(LIBS),$(eval $(call set_lib_rule,$(lib))))
 $(foreach lib,$(LIBS),$(eval $(call set_yacc_lex_rule,$(lib))))
 $(foreach lib,$(LIBS),$(foreach x,$(filter %.c,$($(lib)_SOURCES)),$(eval $(call set_obj_rule,$(lib),$(x),$(basename $(x))))))
@@ -354,7 +355,6 @@ $(foreach lib,$(LIBS),$(foreach x,$(filter %.cpp,$($(lib)_SOURCES)),$(eval $(cal
 
 # -----[ Build target APPS ]-----
 $(APPS): $(foreach app,$(APPS),$(APP_DIR)/$(app))
-$(foreach app,$(APPS),$(eval $(call expand_obj_target,$(app))))
 $(foreach app,$(APPS),$(eval $(call set_app_rule,$(app))))
 $(foreach app,$(APPS),$(eval $(call set_yacc_lex_rule,$(app))))
 $(foreach app,$(APPS),$(foreach x,$(filter %.c,$($(app)_SOURCES)),$(eval $(call set_obj_rule,$(app),$(x),$(basename $(x))))))
