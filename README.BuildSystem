@@ -10,38 +10,409 @@ the directories named in "DIR" and will process them all for building. All such
 Makefile.sub files are sourced and processed to form a global dependency graph
 before any building begins, so there is no particular "build order" that has to
 be observed as is usually the case with recursive builds, ie. builds that
-execute "make" child processes in sub-directories. In particular, dependencies
-between applications, the libraries they link against, and their source-code is
-fully expanded, and this also includes the auto-generated dependencies between
-source and header files created by the gcc preprocessor. Likewise, installation
-of apps/libs/other files observes proper dependencies too, so a parallel make
-all the way to install "just works".
+execute "make" child processes in sub-directories. In particular, the following
+dependencies are fully expanded within a single make process before building
+begins;
+  * applications and the libraries and objects they are dependent on,
+  * libraries and the objects they are dependent on,
+  * objects and the source files they are dependent on,
+  * auto-generated dependencies between source/headers files, from "gcc -M"
+  * to-be-installed files, and the rules to build them
+So a parallel make all the way up to installation "just works".
 
-Eg. on my dual-xeon system;
+Eg. "make -j 8 install" will build and install everything into "./test_install"
+(or elsewhere, if the DESTDIR environment variable is defined). As can be seen
+from the log-output, installation of some targets usually begins before building
+of other targets has completed. Touching any file in the tree and running make a
+second type should correctly regenerate only the relevant targets, but this
+should include (for example) relinking all dependent apps if a library (or its
+source code) is affected.
 
-$ make distclean && time (DESTDIR=./tmp make install > /dev/null 2>&1)
-real    0m3.051s
-user    0m2.508s
-sys     0m0.532s
+For information on writing "Makefile.sub" files for use within the source-tree,
+please consult "Makefile.sub.example" for basic examples, and
+"README.MakefileTemplate" for a comprehensive list of all the options supported
+by the build system.
 
-$ make distclean && time (DESTDIR=./tmp make -j 8 install > /dev/null 2>&1)
-real    0m1.455s
-user    0m2.280s
-sys     0m0.456s
 
-One upshot of this build-system is that sub-directories can be created
-arbitrarily in order to "expand downwards", to create modularisation and
-organise components without needing to necessarily move code or interfaces
-"upwards" in the source tree. In particular, headers and source code for
-libraries don't need to exist at a global scope in order to be shared between
-components that sit within a common sub-tree.
+		===========================
+		INNARDS OF THE BUILD SYSTEM
+		===========================
 
-To increase encapsulation and avoid a single horizontal layer of interfaces
-("spaghetti"), the design approach should therefore be to maximise the
-localisation of interfaces ("pushing down the directory tree") and minimise the
-globalisation of interfaces ("percolating up the directory tree").
 
-README.MakefileTemplate documents all the supported functionality of the
-Makefile.sub files, however most of the options should rarely be required, so
-please also consult the examples in the source-tree for guidance.
+The remainder of this document describes how the build system contained in the
+top-level "Makefile" works, section by section. Please only read on if you are
+trying to understand the build system details.
+
+-------------
+Section: DIRS
+-------------
+
+As described above, this is defines which top-level sub-directories should be
+searched for "Makefile.sub" files describing build targets. Unless some global
+change to the build system is required, no other part of the top-level Makefile
+should need editing. Each "Makefile.sub" should have sufficient control over its
+build targets. Please note that the build-system supports various environment
+variables that can be set to supplement or override behaviour of the
+build-system - they are listed here, and more information can be found for each
+by searching for them in the rest of the text;
+
+  * ARCH
+  * CROSS_COMPILE
+  * MAKE
+  * INSTALL
+  * DESTDIR
+  * PREFIX
+  * INSTALL_BIN
+  * INSTALL_SBIN
+  * INSTALL_LIB
+  * INSTALL_OTHER
+  * EXTRA_DEFINE
+  * EXTRA_CFLAGS
+  * EXTRA_LDFLAGS
+  * INSTALL_FLAGS
+  * INSTALL_BIN_FLAGS
+  * INSTALL_SBIN_FLAGS
+  * INSTALL_LIB_FLAGS
+  * INSTALL_OTHER_FLAGS
+
+----------------------------------
+Section: Arch specific definitions
+----------------------------------
+
+In order to build, the ARCH environment variable must be defined. This section
+enforces this, and currently only supports an ARCH value of "powerpc". A default
+CROSS_COMPILE prefix is set if not already defined in the caller's environment,
+and there are various ARCH-specific settings;
+
+  * $(ARCH)_SPEC_DEFINE
+      Any elements in this setting are automatically prefixed with "-D" before
+      being passed to the compiler. (So "_FILE_OFFSET_BITS=64 VERBOSE" would be
+      converted to "-D_FILE_OFFSET_BITS=64 -DVERBOSE".) 
+  * $(ARCH)_SPEC_INC_PATH
+      Elements are automatically prefixed with "-I" when passed to the compiler.
+  * $(ARCH)_SPEC_LIB_PATH
+      Elements are automatically prefixed with "-L" when passed to the linker.
+  * $(ARCH)_SPEC_CFLAGS
+      Any additional ARCH-specific compiler flags (besides -D and -I switches)
+      can be specified here.
+  * $(ARCH)_SPEC_LDFLAGS
+      Any additional ARCH-specific linker flags (besides -L switches) can be
+      specified here.
+
+Note that additional symbols can be defined from the caller's environment to
+supplement the options passed to the tool-chain;
+
+  * EXTRA_DEFINE
+      Any elements are automatically prefixed with "-D" before being passed to
+      the compiler.
+  * EXTRA_CFLAGS
+      Any elements are passed to the compiler without modification.
+  * EXTRA_LDFLAGS
+      Any elements are passed to the linker without modification.
+
+--------------
+Section: Tools
+--------------
+
+This section defines the tool options. MAKE and INSTALL default to "make" and
+"install" respectively, which are assumed to be host tools accessible within the
+host's PATH environment. They can be overriden.
+
+CC/LD/AR are assumed to be part of a cross-toolchain as
+indicated via CROSS_COMPILE.
+
+--------------------------------
+Section: Directories and defines
+--------------------------------
+
+This section derives the necessary symbols for the rest of the build system.
+
+TOP_LEVEL defines the source tree location (which is different to $(PWD) if
+being invoked from another directory via "make -C <srcdir>").
+
+DESTDIR defaults to the "./test_install" sub-directory of the source tree if it
+isn't set in the caller's environment. All installation is performed relative to
+this directory, which would typically be the location of a staging area for a
+embedded root file-system. This can be overriden.
+
+PREFIX specifies a default path for installation targets, relative to DESTDIR.
+Unlike DESTDIR, targets can define installation locations that are not
+relative to PREFIX, but if they are, the PREFIX can be overriden to affect all
+such targets. The default is "usr", ie. install with $DESTDIR/usr/.
+
+INSTALL_[BIN|SBIN|LIB|OTHER] specify default paths for installation of
+executables, admin executables, libraries, and data files (the latter is any
+source that is installed without compilation, eg. XML files, shell scripts,
+etc). These default to $PREFIX/bin, $PREFIX/sbin, $PREFIX/lib, and $PREFIX/etc.
+Individual targets can override these defaults, and if they do, they can choose
+whether to do so relative to PREFIX or not. Note that changes PREFIX will
+implicitly change these defaults.
+
+OBJ_DIR defines the sub-directory to create in each source directory where
+compilation occurs. For ARCH=powerpc, this is "obj_powerpc".
+
+BIN_DIR and LIB_DIR define the directories where executables and libraries will
+be placed. For ARCH=powerpc, these will be "bin_powerpc" and "lib_powerpc"
+sub-directories at the top-level of the source-tree.
+
+CFLAGS contains the global options to be passed to the compiler, which are
+composed of some static settings (eg. "-Wall"), arch-specific as well as
+externally-supplied CFLAGS, arch-specific as well as externally-supplied DEFINE
+options (each prefixed with "-D"), a top-level include path, and arch-specific
+INC_PATH options (each prefixed with "-I"). Note, additional compiler options
+can be provided in the Makefile.sub files, both at a Makefile.sub scope and/or
+per-target.
+
+LDFLAGS contains the global options to be passed to the linker, which are
+composed of arch-specific as well as externally-supplied LDFLAGS, a top-level
+linker path, and arch-specific LIB_PATH options (each prefixed with "-L"). Note,
+additional linker options can be provided in the Makefile.sub files, both at a
+Makefile.sub scope and/or per-target.
+
+ARFLAGS contains the flags to pass to the "ar" archive tool, it is set to "rcs".
+
+INSTALL_[BIN|SBIN|LIB|OTHER]_FLAGS specify default flags for installation of
+executables, admin executables, libraries, and data files (the latter is any
+source that is installed without compilation, eg. XML files, shell scripts,
+etc). These default to --mode=[755|700|644|644] respectively. Individual targets
+can override these defaults (eg. to install with specific user/group owernship),
+and if they do, they can choose whether to do so relative to PREFIX or not. Note
+that changes PREFIX will implicitly change these defaults.
+
+--------------------------
+Section: Control verbosity
+--------------------------
+
+The build output is kept minimal and informative, but full logging of the
+commands being issued by make can be achieved by defining the "V" environment
+variable. Eg. "make V=1 install"
+
+-----------------------
+Section: Default target
+-----------------------
+
+In GNU Make, the first target specified is the default, therefore the "all:"
+target is declared here prior to any processing that might auto-generate other
+build or installation targets. It simply says that "all:" is in turn dependent
+on the "build" target (described below).
+
+---------------------------------
+Section: Helpers for "make debug"
+---------------------------------
+
+These functions are used when running "make debug", see the "debug:" target to
+see how they are called (and run "make debug" to see the result).
+
+--------------------------------------
+Section: Processing Makefile.sub input
+--------------------------------------
+
+This is the meat of the build system. It reads all Makefile.sub input, computes
+the corresponding build and installation information as it goes, and generates
+the resulting dependencies and build rules. This processing will be described
+(and should be read) in the reverse order to how it appears in the Makefile.
+
+The parsing of Makefile.sub files and generation of all build and install rules
+are are driven by these lines;
+
+ALL_MAKEFILES := $(foreach d,$(DIRS),$(shell find $(d) -name Makefile.sub))
+$(foreach M,$(ALL_MAKEFILES), $(eval $(call process_makefile,$(M),$(dir $(M)))))
+$(foreach x,$(TO_INSTALL),$(eval $(call process_install,$(x))))
+
+The "process_makefile" function is called for each Makefile.sub file, passing
+the directory for each Makefile.sub as the second parameter. The
+"process_install" function is then called for the list of installable objects
+that was produced from the processing of the Makefiles.
+
+	==== process_makefile ====
+
+This function is called for each Makefile.sub file and;
+
+  * calls "process_bin" for each executable defined in bin_PROGRAMS
+  * calls "process_lib" for each library defined in lib_LIBRARIES
+  * calls "pre_process_target" for each installable file defined in my_DATA
+  * add bin_PROGRAMS to the global list of executables BINS
+  * add lib_LIBRARIES to the global list of libraries LIBS
+
+	==== process_bin ====
+
+This function is called for each executable target "tgt";
+
+  * calls "pre_process_target", passing executable-specific defaults
+  * sets tgt_type to "bin" (only used for "make debug")
+  * calls "process_obj" for for all C source files in tgt_SOURCES.
+  * instantiates a rule that makes "tgt" dependent on;
+    * all its object files,
+    * all the libraries it is to link against,
+    * the BIN_DIR directory where executables are created. This dependency is
+      defined as a target (see further down) that creates the directory.
+    If any dependency of out of date, this rule specifies how to link the
+    executable.
+
+	==== process_lib ====
+
+This function is called for each library target "tgt";
+
+  * calls "pre_process_target", passing library-specific defaults
+  * sets tgt_type to "lib" (only used for "make debug")
+  * calls "process_obj" for for all C source files in tgt_SOURCES.
+  * instantiates a rule that makes "tgt" dependent on;
+    * all its object files,
+    * the LIB_DIR directory where libraries are created. This dependency is
+      defined as a target (see further down) that creates the directory.
+    If any dependency of out of date, this rule specifies how to build the
+    library.
+
+	==== process_obj ====
+
+This function is called for each C source file, and is passed parameters describing
+the target it is being compiled for (an executable or a library);
+
+  * $(1) = the target (bin/lib name) the C file is compiled for
+  * $(2) = the C source file name
+  * $(3) = the C source file name minus the ".c" suffix
+
+It instantiates a rule that makes the compiled output file dependent on the C
+source file, and defines how to build it (and implicitly updating a dependency
+file for the compilation).
+
+	==== pre_process_target ====
+
+This function is called for each library, executable, and installable file
+parsed out of Makefile.sub file. The parameters passed are;
+
+  * $(1) = target (bin/lib name, or misc file)
+  * $(2) = directory of the Makefile.sub
+  * $(3) = "my_CFLAGS" from Makefile.sub
+  * $(4) = target filename (for libs, this is lib$(1).a)
+  * $(5) = default install dir (if not overriden by the target itself)
+  * $(6) = path to compiled file (or empty for copy of source file)
+  * $(7) = default install flags (if not overriden by the target itself)
+
+For each target "tgt", this function defines a variety of target properties of
+the form "tgt_foo" (ie. where "foo" represents the property name);
+
+  * tgt_dir: the directory of the Makefile.sub that defines "tgt"
+  * tgt_mk_cflags: the "my_CFLAGS" setting from the Makefile.sub
+  * tgt_pref: the path-prefix for objects built for this target
+      This defaults to "$(tgt_dir)/obj_powerpc/tgt_", ie. if a common.c file is
+      compiled for executables "foo" and "bar", the object files would be
+      "foo_common.o" and "bar_common.o" respectively.
+  * tgt_objs: the list of object files used for this target. This is calculated
+      from the "tgt_SOURCES" symbol defined in the Makefile.sub, by substituting
+      the .c suffixes with .o and by prefixing with "$(tgt_pref)".
+
+Furthermore, if the Makefile.sub did *not* specify the "tgt_install := none"
+property, then the target will be added to the global list of installable
+targets $(TO_INSTALL), and the following additional properties are defined;
+
+  * tgt_install_to: the location (relative to DESTDIR) where this target should
+      be installed. If the Makefile.sub defined "tgt_install", that will be
+      used, otherwise a default location passed in from "process_makefile" is
+      used (which will be $(INSTALL_BIN), $(INSTALL_LIB), [etc] as appropriate).
+  * tgt_install_from: the location the file should be copied from. This is the
+      6th parameter if it is non-empty, otherwise it's the 2nd parameter.
+  * tgt_install_flags: the flags to pass to the $(INSTALL) command for this
+      target. If the Makefile.sub specifies "tgt_install_flags", that will be
+      used, otherwise the default flags are passed in from "process_makefile"
+      are used (which will be $(INSTALL_BIN_FLAGS), $(INSTALL_LIB_FLAGS), [etc]
+      as appropriate).
+  * tgt_install_name: this is the 4th parameter.
+
+	==== process_install ====
+
+This function is called for each installable target in $(TO_INSTALL). For each
+such target "tgt", it defines two rules;
+
+  * do_install_tgt: this is defined as being dependent on the compiled
+      executable, library, or installable file, and specifies the installation
+      action to perform.
+  * do_uninstall_tgt: this is not dependent on anything, and specifies the
+      uninstallation action to perform.
+
+---------------------------
+Section: Other make targets
+---------------------------
+
+The following targets are defined;
+
+	==== $(BIN_DIR) ====
+	==== $(LIB_DIR) ====
+
+These targets ensure the corresponding output directories for libraries and
+executables are created. The rules defining executables and directories are
+declared as dependent on these targets, ensuring they're created before
+libraries and executables are created.
+
+	==== build ====
+
+This target is declared as a dependency on all the defined library and
+executable targets accumulated from the processing of all Makefile.sub files.
+The default target ("all:") is declared as dependent on this target, ensuring
+that the default action of "make" is to build all libraries and executables.
+
+	==== install ====
+
+This target is declared as being dependent on all the "do_install_*" targets
+built up from processing Makefile.sub files (as produced by the
+"process_install" function). As those targets are in turn declared as dependent
+on the objects being installed, this ensures the targets are built (if
+necessary) before being installed.
+
+	==== uninstall ====
+
+This target is similar to "install", except is dependent on all the
+"do_uninstall_*" targets, which are also produced by the "process_install"
+function.
+
+	==== debug ====
+
+This target formats a detailed layout of;
+
+  * all the libraries,
+  * all the objects the libraries are built out of (see the "print_debug_lib"
+    function),
+  * all the executables,
+  * all the objects and libraries the executables are built out of, (see the
+    "print_debug_bin" function),
+  * all the Makefile.sub files (see the "print_debug_mk" function),
+  * all the install actions to be performed (libraries, executables and other
+    files) for each installable target (see the "print_debug_install"
+    function). The output for each target includes;
+      * the installable file name ("libtgt.a" for libraries),
+      * the path to be installed from,
+      * the path to be installed to,
+      * the flags to install with.
+
+	==== clean ====
+
+This target removes;
+
+  * all executable targets,
+  * all library targets,
+  * all compiled objects used to produce executables and libraries.
+
+It does not remove anything else, which includes directories created for
+generated files, dependency files, etc.
+
+	==== distclean ====
+
+This target removes;
+
+  * BIN_DIR, and therefore all executable targets as well,
+  * LIB_DIR, and therefore all library targets as well,
+  * $(TOP_LEVEL)/test_install, in case it was created by calling "make install"
+    without a caller-override for DESTDIR,
+  * All "obj_$(ARCH)" (ie. "obj_powerpc") directories in the source-tree that
+    have been created during compilation,
+  * All other compiler outputs, including dependency files (*.o and *.d).
+
+--------------------------------------------
+Section: Include auto-generated dependencies
+--------------------------------------------
+
+This section simply includes all the dependency files for all the compiler
+targets produced during processing of Makefile.sub files. These won't exist yet
+if nothing has been compiled (in which case no dependency is needed to indicate
+that they should be rebuilt!), so the includes are prefixed with "-".
 
