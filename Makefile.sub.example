@@ -19,21 +19,21 @@ bin_PROGRAMS = qbman_speed
 my_CFLAGS := -I$(TOP_LEVEL)/apps/include
 
 qbman_speed_SOURCES := main.c speed.c blastman.c
-qbman_speed_LDADD := apps_badinit usdpaa_qman usdpaa_bman usdpaa_shmem
+qbman_speed_LDADD := apps_badinit usdpaa_qbman usdpaa_shmem
 qbman_speed_sys_LDADD := pthread
 
 
 # -------------------------------------------------------------------------
 # Build a library.
-# This example was taken from drivers/bman.
+# This example was taken from drivers/qbman.
 # This makefile says that:
-#   1. It will generate an archive with the basename "usdpaa_bman"
+#   1. It will generate an archive with the basename "usdpaa_qbman"
 #   (lib_LIBRARIES).
-#   2. It will compile 2 source files (usdpaa_bman_SOURCES).
+#   2. It will compile 2 source files (usdpaa_qbman_SOURCES).
 # After compilation, the executable will be in TOP_LEVEL/lib_powerpc.
 # -------------------------------------------------------------------------
-lib_LIBRARIES = usdpaa_bman
+lib_LIBRARIES = usdpaa_qbman
 
-usdpaa_bman_SOURCES := bman_high.c bman_driver.c
-
+usdpaa_qbman_SOURCES := bman_high.c bman_driver.c \
+		qman_high.c qman_fqalloc.c qman_utility.c qman_driver.c
 
