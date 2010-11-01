@@ -1,3 +1,0 @@
-lib_LIBRARIES = usdpaa_bman
-
-usdpaa_bman_SOURCES := bman_high.c bman_driver.c

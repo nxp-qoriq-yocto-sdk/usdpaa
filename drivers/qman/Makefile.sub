@@ -1,3 +1,0 @@
-lib_LIBRARIES = usdpaa_qman
-
-usdpaa_qman_SOURCES := qman_high.c qman_fqalloc.c qman_utility.c qman_driver.c
