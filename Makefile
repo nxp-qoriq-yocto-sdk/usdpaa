@@ -40,7 +40,7 @@ ifneq (distclean,$(MAKECMDGOALS))
    $(ARCH)_SPEC_DEFINE	:= _FILE_OFFSET_BITS=64
    $(ARCH)_SPEC_INC_PATH:=
    $(ARCH)_SPEC_LIB_PATH:=
-   $(ARCH)_SPEC_CFLAGS	:=
+   $(ARCH)_SPEC_CFLAGS	:= -mcpu=e500mc -D_GCCPORT_ -D__POWERPC__ -D__PPC_EABI__ -mmultiple -mno-altivec -pthread -O2 -Wall -Wshadow
    $(ARCH)_SPEC_LDFLAGS	:=
  else
    $(error "ARCH not defined.")
@@ -65,7 +65,7 @@ INSTALL_OTHER	?= $(PREFIX)/etc
 OBJ_DIR		:= objs_$(ARCH)
 BIN_DIR		:= $(TOP_LEVEL)/bin_$(ARCH)
 LIB_DIR		:= $(TOP_LEVEL)/lib_$(ARCH)
-CFLAGS		:= -W -Wall -Wshadow -g3 $(EXTRA_CFLAGS) $($(ARCH)_SPEC_CFLAGS)
+CFLAGS		:= $(EXTRA_CFLAGS) $($(ARCH)_SPEC_CFLAGS)
 CFLAGS		+= $(addprefix -D,$($(ARCH)_SPEC_DEFINE) $(EXTRA_DEFINE))
 CFLAGS		+= -I$(TOP_LEVEL)/include $(addprefix -I,$($(ARCH)_SPEC_INC_PATH))
 LDFLAGS		:= $(EXTRA_LDFLAGS) $($(ARCH)_SPEC_LDFLAGS)
