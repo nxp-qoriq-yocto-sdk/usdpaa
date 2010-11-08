@@ -30,33 +30,29 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* TODO:
- *
- * - make RECOVER also handle incomplete mgmt-commands
- */
-
 #include "bman_low.h"
 
 /* Compilation constants */
 #define RCR_THRESH	2	/* reread h/w CI when running out of space */
-#define RCR_ITHRESH	4	/* if RCR congests, interrupt threshold */
 #define IRQNAME		"BMan portal %d"
 #define MAX_IRQNAME	16	/* big enough for "BMan portal %d" */
 
-/**************/
-/* Portal API */
-/**************/
-
 struct bman_portal {
-	struct bm_portal *p;
+	struct bm_portal p;
 	/* 2-element array. pools[0] is mask, pools[1] is snapshot. */
 	struct bman_depletion *pools;
 	int thresh_set;
+	unsigned long irq_sources;
 	u32 slowpoll;	/* only used when interrupts are off */
 	wait_queue_head_t queue;
-	/* The wrap-around rcr_[prod|cons] counters are used to support
-	 * BMAN_RELEASE_FLAG_WAIT_SYNC. */
-	u32 rcr_prod, rcr_cons;
+#ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
+	struct bman_pool *rcri_owned; /* only 1 release WAIT_SYNC at a time */
+#endif
+#ifdef CONFIG_FSL_BMAN_PORTAL_TASKLET
+	struct tasklet_struct tasklet;
+#endif
+	/* When the cpu-affine portal is activated, this is non-NULL */
+	const struct bm_portal_config *config;
 	/* 64-entry hash-table of pool objects that are tracking depletion
 	 * entry/exit (ie. BMAN_POOL_FLAG_DEPLETION). This isn't fast-path, so
 	 * we're not fussy about cache-misses and so forth - whereas the above
@@ -66,6 +62,18 @@ struct bman_portal {
 	struct bman_pool *cb[64];
 	char irqname[MAX_IRQNAME];
 };
+
+static cpumask_t affine_mask;
+static DEFINE_SPINLOCK(affine_mask_lock);
+static DEFINE_PER_CPU(struct bman_portal, bman_affine_portal);
+static inline struct bman_portal *get_affine_portal(void)
+{
+	return &get_cpu_var(bman_affine_portal);
+}
+static inline void put_affine_portal(void)
+{
+	put_cpu_var(bman_affine_portal);
+}
 
 /* GOTCHA: this object type refers to a pool, it isn't *the* pool. There may be
  * more than one such object per Bman buffer pool, eg. if different users of the
@@ -83,22 +91,24 @@ struct bman_pool {
 /* (De)Registration of depletion notification callbacks */
 static void depletion_link(struct bman_portal *portal, struct bman_pool *pool)
 {
+	__maybe_unused unsigned long irqflags;
 	pool->portal = portal;
-	local_irq_disable();
+	local_irq_save(irqflags);
 	pool->next = portal->cb[pool->params.bpid];
 	portal->cb[pool->params.bpid] = pool;
 	if (!pool->next)
 		/* First object for that bpid on this portal, enable the BSCN
 		 * mask bit. */
-		bm_isr_bscn_mask(portal->p, pool->params.bpid, 1);
-	local_irq_enable();
+		bm_isr_bscn_mask(&portal->p, pool->params.bpid, 1);
+	local_irq_restore(irqflags);
 }
 static void depletion_unlink(struct bman_pool *pool)
 {
 	struct bman_pool *it, *last = NULL;
 	struct bman_pool **base = &pool->portal->cb[pool->params.bpid];
-	local_irq_disable();
-	it = *base;	/* <-- gotcha, don't do this prior to the irq_disable */
+	__maybe_unused unsigned long irqflags;
+	local_irq_save(irqflags);
+	it = *base;	/* <-- gotcha, don't do this prior to the irq_save */
 	while (it != pool) {
 		last = it;
 		it = it->next;
@@ -107,52 +117,72 @@ static void depletion_unlink(struct bman_pool *pool)
 		*base = pool->next;
 	else
 		last->next = pool->next;
-	if (!last && !pool->next)
+	if (!last && !pool->next) {
 		/* Last object for that bpid on this portal, disable the BSCN
 		 * mask bit. */
-		bm_isr_bscn_mask(pool->portal->p, pool->params.bpid, 0);
-	local_irq_enable();
+		bm_isr_bscn_mask(&pool->portal->p, pool->params.bpid, 0);
+		/* And "forget" that we last saw this pool as depleted */
+		bman_depletion_unset(&pool->portal->pools[1], pool->params.bpid);
+	}
+	local_irq_restore(irqflags);
 }
 
 static u32 __poll_portal_slow(struct bman_portal *p, struct bm_portal *lowp,
 				u32 is);
-static inline void __poll_portal_fast(struct bman_portal *p,
-				struct bm_portal *lowp);
 
-#ifdef CONFIG_FSL_BMAN_HAVE_IRQ
+#ifdef CONFIG_FSL_DPA_HAVE_IRQ
+/* This is called from the ISR or from a deferred tasklet */
+static inline void do_isr_work(struct bman_portal *p)
+{
+	struct bm_portal *lowp = &p->p;
+	u32 clear = p->irq_sources;
+	u32 is = bm_isr_status_read(lowp) & p->irq_sources;
+	clear |= __poll_portal_slow(p, lowp, is);
+	bm_isr_status_clear(lowp, clear);
+}
+#ifdef CONFIG_FSL_BMAN_PORTAL_TASKLET
+static void portal_tasklet(unsigned long __p)
+{
+	struct bman_portal *p = (struct bman_portal *)__p;
+	do_isr_work(p);
+	bm_isr_uninhibit(&p->p);
+}
+#endif
 /* Portal interrupt handler */
 static irqreturn_t portal_isr(__always_unused int irq, void *ptr)
 {
 	struct bman_portal *p = ptr;
-	struct bm_portal *lowp = p->p;
-	u32 clear = 0;
-#ifdef CONFIG_FSL_BMAN_PIRQ_SLOW
-	u32 is = bm_isr_status_read(lowp);
+#ifdef CONFIG_FSL_BMAN_PORTAL_TASKLET
+	bm_isr_inhibit(&p->p);
+	tasklet_schedule(&p->tasklet);
+#else
+	do_isr_work(p);
 #endif
-	/* Only do fast-path handling if it's required */
-#ifdef CONFIG_FSL_BMAN_PIRQ_FAST
-	__poll_portal_fast(p, lowp);
-#endif
-#ifdef CONFIG_FSL_BMAN_PIRQ_SLOW
-	clear |= __poll_portal_slow(p, lowp, is);
-#endif
-	bm_isr_status_clear(lowp, clear);
 	return IRQ_HANDLED;
 }
 #endif
 
-struct bman_portal *bman_create_portal(struct bm_portal *__p,
-				const struct bman_depletion *pools)
+int bman_have_affine_portal(void)
 {
-	struct bman_portal *portal;
-#ifdef CONFIG_FSL_BMAN_HAVE_IRQ
-	const struct bm_portal_config *config = bm_portal_config(__p);
-#endif
+	struct bman_portal *bm = get_affine_portal();
+	int ret = (bm->config ? 1 : 0);
+	put_affine_portal();
+	return ret;
+}
+
+int bman_create_affine_portal(const struct bm_portal_config *config,
+				u32 irq_sources,
+				int recovery_mode __maybe_unused)
+{
+	struct bman_portal *portal = get_affine_portal();
+	struct bm_portal *__p = &portal->p;
+	const struct bman_depletion *pools = &config->mask;
 	int ret;
 
-	portal = kmalloc(sizeof(*portal), GFP_KERNEL);
-	if (!portal)
-		return NULL;
+	/* prep the low-level portal struct with the mapped addresses from the
+	 * config, everything that follows depends on it and "config" is more
+	 * for (de)reference... */
+	__p->addr = config->addr;
 	if (bm_rcr_init(__p, bm_rcr_pvb, bm_rcr_cce)) {
 		pr_err("Bman RCR initialisation failed\n");
 		goto fail_rcr;
@@ -165,7 +195,6 @@ struct bman_portal *bman_create_portal(struct bm_portal *__p,
 		pr_err("Bman ISR initialisation failed\n");
 		goto fail_isr;
 	}
-	portal->p = __p;
 	if (!pools)
 		portal->pools = NULL;
 	else {
@@ -184,17 +213,19 @@ struct bman_portal *bman_create_portal(struct bm_portal *__p,
 	}
 	portal->slowpoll = 0;
 	init_waitqueue_head(&portal->queue);
-	portal->rcr_prod = portal->rcr_cons = 0;
+#ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
+	portal->rcri_owned = NULL;
+#endif
+#ifdef CONFIG_FSL_BMAN_PORTAL_TASKLET
+	tasklet_init(&portal->tasklet, portal_tasklet, (unsigned long)portal);
+#endif
 	memset(&portal->cb, 0, sizeof(portal->cb));
 	/* Write-to-clear any stale interrupt status bits */
-	bm_isr_disable_write(portal->p, 0xffffffff);
-#ifdef CONFIG_FSL_BMAN_HAVE_IRQ
-	bm_isr_enable_write(portal->p, BM_PIRQ_RCRI | BM_PIRQ_BSCN);
-#else
-	bm_isr_enable_write(portal->p, 0);
-#endif
-	bm_isr_status_clear(portal->p, 0xffffffff);
-#ifdef CONFIG_FSL_BMAN_HAVE_IRQ
+	bm_isr_disable_write(__p, 0xffffffff);
+	portal->irq_sources = irq_sources;
+	bm_isr_enable_write(__p, portal->irq_sources);
+	bm_isr_status_clear(__p, 0xffffffff);
+#ifdef CONFIG_FSL_DPA_HAVE_IRQ
 	snprintf(portal->irqname, MAX_IRQNAME, IRQNAME, config->cpu);
 	if (request_irq(config->irq, portal_isr, 0, portal->irqname, portal)) {
 		pr_err("request_irq() failed\n");
@@ -208,24 +239,29 @@ struct bman_portal *bman_create_portal(struct bm_portal *__p,
 		goto fail_affinity;
 	}
 	/* Enable the bits that make sense */
-	bm_isr_uninhibit(portal->p);
+	if (!recovery_mode)
+		bm_isr_uninhibit(__p);
+#else
+	if (irq_sources)
+		panic("No Bman portal IRQ support, mustn't specify IRQ flags!");
 #endif
 	/* Need RCR to be empty before continuing */
-	bm_isr_disable_write(portal->p, ~BM_PIRQ_RCRI);
-#ifdef CONFIG_FSL_BMAN_PORTAL_FLAG_RECOVER
-	wait_event(portal->queue, !bm_rcr_get_fill(portal->p));
-	ret = 0;
-#else
-	ret = bm_rcr_get_fill(portal->p);
-#endif
+	bm_isr_disable_write(__p, ~BM_PIRQ_RCRI);
+	ret = bm_rcr_get_fill(__p);
 	if (ret) {
 		pr_err("Bman RCR unclean, need recovery\n");
 		goto fail_rcr_empty;
 	}
-	bm_isr_disable_write(portal->p, 0);
-	return portal;
+	/* Success */
+	portal->config = config;
+	spin_lock(&affine_mask_lock);
+	cpumask_set_cpu(config->cpu, &affine_mask);
+	spin_unlock(&affine_mask_lock);
+	bm_isr_disable_write(__p, 0);
+	put_affine_portal();
+	return 0;
 fail_rcr_empty:
-#ifdef CONFIG_FSL_BMAN_HAVE_IRQ
+#ifdef CONFIG_FSL_DPA_HAVE_IRQ
 fail_affinity:
 	free_irq(config->irq, portal);
 fail_irq:
@@ -239,22 +275,26 @@ fail_isr:
 fail_mc:
 	bm_rcr_finish(__p);
 fail_rcr:
-	kfree(portal);
-	return NULL;
+	put_affine_portal();
+	return -EINVAL;
 }
 
-void bman_destroy_portal(struct bman_portal *bm)
+void bman_destroy_affine_portal(void)
 {
-	bm_rcr_cce_update(bm->p);
-#ifdef CONFIG_FSL_BMAN_HAVE_IRQ
-	free_irq(bm_portal_config(bm->p)->irq, bm);
+	struct bman_portal *bm = get_affine_portal();
+	bm_rcr_cce_update(&bm->p);
+#ifdef CONFIG_FSL_DPA_HAVE_IRQ
+	free_irq(bm->config->irq, bm);
 #endif
-	if (bm->pools)
-		kfree(bm->pools);
-	bm_isr_finish(bm->p);
-	bm_mc_finish(bm->p);
-	bm_rcr_finish(bm->p);
-	kfree(bm);
+	kfree(bm->pools);
+	bm_isr_finish(&bm->p);
+	bm_mc_finish(&bm->p);
+	bm_rcr_finish(&bm->p);
+	spin_lock(&affine_mask_lock);
+	cpumask_clear_cpu(bm->config->cpu, &affine_mask);
+	spin_unlock(&affine_mask_lock);
+	bm->config = NULL;
+	put_affine_portal();
 }
 
 /* When release logic waits on available RCR space, we need a global waitqueue
@@ -277,6 +317,7 @@ static u32 __poll_portal_slow(struct bman_portal *p, struct bm_portal *lowp,
 	 * the query, hence the odd while loop with the 'is' accumulation. */
 	if (is & BM_PIRQ_BSCN) {
 		struct bm_mc_result *mcr;
+		__maybe_unused unsigned long irqflags;
 		unsigned int i, j;
 		u32 __is;
 		bm_isr_status_clear(lowp, BM_PIRQ_BSCN);
@@ -285,13 +326,13 @@ static u32 __poll_portal_slow(struct bman_portal *p, struct bm_portal *lowp,
 			bm_isr_status_clear(lowp, BM_PIRQ_BSCN);
 		}
 		is &= ~BM_PIRQ_BSCN;
-		local_irq_disable();
+		local_irq_save(irqflags);
 		bm_mc_start(lowp);
 		bm_mc_commit(lowp, BM_MCC_VERB_CMD_QUERY);
 		while (!(mcr = bm_mc_result(lowp)))
 			cpu_relax();
 		tmp = mcr->query.ds.state;
-		local_irq_enable();
+		local_irq_restore(irqflags);
 		for (i = 0; i < 2; i++) {
 			int idx = i * 32;
 			/* tmp is a mask of currently-depleted pools.
@@ -319,26 +360,76 @@ static u32 __poll_portal_slow(struct bman_portal *p, struct bm_portal *lowp,
 	}
 
 	if (is & BM_PIRQ_RCRI) {
-		local_irq_disable();
-		p->rcr_cons += bm_rcr_cce_update(lowp);
+		__maybe_unused unsigned long irqflags;
+		local_irq_save(irqflags);
+		bm_rcr_cce_update(lowp);
+#ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
+		/* If waiting for sync, we only cancel the interrupt threshold
+		 * when the ring utilisation hits zero. */
+		if (p->rcri_owned) {
+			if (!bm_rcr_get_fill(lowp)) {
+				p->rcri_owned = NULL;
+				bm_rcr_set_ithresh(lowp, 0);
+			}
+		} else
+#endif
 		bm_rcr_set_ithresh(lowp, 0);
+		local_irq_restore(irqflags);
 		wake_up(&p->queue);
-		local_irq_enable();
 		bm_isr_status_clear(lowp, BM_PIRQ_RCRI);
 		is &= ~BM_PIRQ_RCRI;
 	}
 
 	/* There should be no status register bits left undefined */
-	BM_ASSERT(!is);
+	DPA_ASSERT(!is);
 	return ret;
 }
 
-static inline void __poll_portal_fast(__always_unused struct bman_portal *p,
-					__always_unused struct bm_portal *lowp)
+u32 bman_irqsource_get(void)
 {
-	/* nothing yet, this is where we'll put optimised RCR consumption
-	 * tracking */
+	struct bman_portal *p = get_affine_portal();
+	u32 ret = p->irq_sources & BM_PIRQ_VISIBLE;
+	put_affine_portal();
+	return ret;
 }
+EXPORT_SYMBOL(bman_irqsource_get);
+
+void bman_irqsource_add(__maybe_unused u32 bits)
+{
+#ifdef CONFIG_FSL_DPA_HAVE_IRQ
+	struct bman_portal *p = get_affine_portal();
+	set_bits(bits & BM_PIRQ_VISIBLE, &p->irq_sources);
+	bm_isr_enable_write(&p->p, p->irq_sources);
+	put_affine_portal();
+#else
+	panic("No Bman portal IRQ support, mustn't spcify IRQ flags!");
+#endif
+}
+EXPORT_SYMBOL(bman_irqsource_add);
+
+void bman_irqsource_remove(u32 bits)
+{
+	struct bman_portal *p = get_affine_portal();
+	/* Subtle but important: we need to update the interrupt enable register
+	 * prior to clearing p->irq_sources. If we don't, an interrupt-spin
+	 * might happen between us clearing p->irq_sources and preventing the
+	 * same sources from triggering an interrupt. This means we have to read
+	 * the register back with a data-dependency, to ensure the write reaches
+	 * Bman before we update p->irq_sources. Hence the appearance of
+	 * obfuscation... */
+	u32 newval = p->irq_sources & ~(bits & BM_PIRQ_VISIBLE);
+	bm_isr_enable_write(&p->p, newval);
+	newval = bm_isr_enable_read(&p->p);
+	clear_bits(~newval, &p->irq_sources);
+	put_affine_portal();
+}
+EXPORT_SYMBOL(bman_irqsource_remove);
+
+const cpumask_t *bman_affine_cpus(void)
+{
+	return &affine_mask;
+}
+EXPORT_SYMBOL(bman_affine_cpus);
 
 /* In the case that slow- and fast-path handling are both done by bman_poll()
  * (ie. because there is no interrupt handling), we ought to balance how often
@@ -349,28 +440,56 @@ static inline void __poll_portal_fast(__always_unused struct bman_portal *p,
  * work to do. */
 #define SLOW_POLL_IDLE   1000
 #define SLOW_POLL_BUSY   10
-#ifdef CONFIG_FSL_BMAN_HAVE_POLL
 void bman_poll(void)
 {
 	struct bman_portal *p = get_affine_portal();
-	struct bm_portal *lowp = p->p;
-#ifndef CONFIG_FSL_BMAN_PIRQ_SLOW
+	struct bm_portal *lowp = &p->p;
 	if (!(p->slowpoll--)) {
-		u32 is = bm_isr_status_read(lowp);
+		u32 is = bm_isr_status_read(lowp) & ~p->irq_sources;
 		u32 active = __poll_portal_slow(p, lowp, is);
 		if (active)
 			p->slowpoll = SLOW_POLL_BUSY;
 		else
 			p->slowpoll = SLOW_POLL_IDLE;
 	}
-#endif
-#ifndef CONFIG_FSL_BMAN_PIRQ_FAST
-	__poll_portal_fast(p, lowp);
-#endif
 	put_affine_portal();
 }
 EXPORT_SYMBOL(bman_poll);
-#endif
+
+int bman_recovery_cleanup_bpid(u32 bpid)
+{
+	struct bman_pool pool = {
+		.params = {
+			.bpid = bpid
+		}
+	};
+	struct bm_buffer bufs[8];
+	int ret = 0;
+	unsigned int num_bufs = 0;
+	do {
+		/* Acquire is all-or-nothing, so we drain in 8s, then in
+		 * 1s for the remainder. */
+		if (ret != 1)
+			ret = bman_acquire(&pool, bufs, 8, 0);
+		if (ret < 8)
+			ret = bman_acquire(&pool, bufs, 1, 0);
+		if (ret > 0)
+			num_bufs += ret;
+	} while (ret > 0);
+	if (num_bufs)
+		pr_info("Bman: BPID %d recovered (%d bufs)\n", bpid, num_bufs);
+	return 0;
+}
+EXPORT_SYMBOL(bman_recovery_cleanup_bpid);
+
+/* called from bman_driver.c::bman_recovery_exit() only */
+void bman_recovery_exit_local(void)
+{
+	struct bman_portal *p = get_affine_portal();
+	bm_isr_status_clear(&p->p, 0xffffffff);
+	bm_isr_uninhibit(&p->p);
+	put_affine_portal();
+}
 
 static const u32 zero_thresholds[4] = {0, 0, 0, 0};
 
@@ -380,26 +499,17 @@ struct bman_pool *bman_new_pool(const struct bman_pool_params *params)
 	u32 bpid;
 
 	if (params->flags & BMAN_POOL_FLAG_DYNAMIC_BPID) {
-#ifdef CONFIG_FSL_BMAN_CONFIG
 		int ret = bm_pool_new(&bpid);
 		if (ret)
 			return NULL;
-#else
-		pr_err("No dynamic BPID allocator available\n");
-		return NULL;
-#endif
 	} else
 		bpid = params->bpid;
 #ifdef CONFIG_FSL_BMAN_CONFIG
 	if (params->flags & BMAN_POOL_FLAG_THRESH) {
-		int ret;
-		BUG_ON(!(params->flags & BMAN_POOL_FLAG_DYNAMIC_BPID));
-		ret = bm_pool_set(bpid, params->thresholds);
+		int ret = bm_pool_set(bpid, params->thresholds);
 		if (ret)
 			goto err;
-	} else
-		/* ignore result, if it fails, there was no CCSR */
-		bm_pool_set(bpid, zero_thresholds);
+	}
 #else
 	if (params->flags & BMAN_POOL_FLAG_THRESH)
 		goto err;
@@ -432,9 +542,9 @@ err:
 #ifdef CONFIG_FSL_BMAN_CONFIG
 	if (params->flags & BMAN_POOL_FLAG_THRESH)
 		bm_pool_set(bpid, zero_thresholds);
+#endif
 	if (params->flags & BMAN_POOL_FLAG_DYNAMIC_BPID)
 		bm_pool_free(bpid);
-#endif
 	if (pool) {
 		if (pool->sp)
 			kfree(pool->sp);
@@ -452,7 +562,6 @@ void bman_free_pool(struct bman_pool *pool)
 #endif
 	if (pool->params.flags & BMAN_POOL_FLAG_DEPLETION)
 		depletion_unlink(pool);
-#ifdef CONFIG_FSL_BMAN_CONFIG
 	if (pool->params.flags & BMAN_POOL_FLAG_DYNAMIC_BPID) {
 		/* When releasing a BPID to the dynamic allocator, that pool
 		 * must be *empty*. This code makes it so by dropping everything
@@ -471,7 +580,6 @@ void bman_free_pool(struct bman_pool *pool)
 		} while (ret > 0);
 		bm_pool_free(pool->params.bpid);
 	}
-#endif
 	kfree(pool);
 }
 EXPORT_SYMBOL(bman_free_pool);
@@ -482,103 +590,98 @@ const struct bman_pool_params *bman_get_params(const struct bman_pool *pool)
 }
 EXPORT_SYMBOL(bman_get_params);
 
-static noinline void rel_set_thresh(struct bman_portal *p, int check)
+static noinline void update_rcr_ci(struct bman_portal *p, u8 avail)
 {
-	if (!check || !bm_rcr_get_ithresh(p->p))
-		bm_rcr_set_ithresh(p->p, RCR_ITHRESH);
+	if (avail)
+		bm_rcr_cce_prefetch(&p->p);
+	else
+		bm_rcr_cce_update(&p->p);
 }
 
-/* Used as a wait_event() expression. If it returns non-NULL, any lock will
- * remain held. */
-static struct bm_rcr_entry *__try_rel(struct bman_portal **p)
+int bman_rcr_is_empty(void)
+{
+	__maybe_unused unsigned long irqflags;
+	struct bman_portal *p = get_affine_portal();
+	u8 avail;
+
+	local_irq_save(irqflags);
+	update_rcr_ci(p, 0);
+	avail = bm_rcr_get_fill(&p->p);
+	local_irq_restore(irqflags);
+	put_affine_portal();
+	return (avail == 0);
+}
+EXPORT_SYMBOL(bman_rcr_is_empty);
+
+static inline struct bm_rcr_entry *try_rel_start(struct bman_portal **p,
+#ifdef CONFIG_FSL_DPA_CAN_WAIT
+					__maybe_unused struct bman_pool *pool,
+#endif
+					__maybe_unused unsigned long *irqflags,
+					__maybe_unused u32 flags)
 {
 	struct bm_rcr_entry *r;
-	struct bm_portal *lowp;
 	u8 avail;
+
 	*p = get_affine_portal();
-	lowp = (*p)->p;
-	local_irq_disable();
-	avail = bm_rcr_get_avail(lowp);
-	if (avail == RCR_THRESH)
-		/* We don't need RCR:CI yet, but we will next time */
-		bm_rcr_cce_prefetch(lowp);
-	else if (avail < RCR_THRESH)
-		(*p)->rcr_cons += bm_rcr_cce_update(lowp);
-	r = bm_rcr_start(lowp);
+	local_irq_save((*irqflags));
+#ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
+	if (unlikely((flags & BMAN_RELEASE_FLAG_WAIT) &&
+			(flags & BMAN_RELEASE_FLAG_WAIT_SYNC))) {
+		if ((*p)->rcri_owned) {
+			local_irq_restore((*irqflags));
+			put_affine_portal();
+			return NULL;
+		}
+		(*p)->rcri_owned = pool;
+	}
+#endif
+	avail = bm_rcr_get_avail(&(*p)->p);
+	if (avail < 2)
+		update_rcr_ci(*p, avail);
+	r = bm_rcr_start(&(*p)->p);
 	if (unlikely(!r)) {
-		local_irq_enable();
+#ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
+		if (unlikely((flags & BMAN_RELEASE_FLAG_WAIT) &&
+				(flags & BMAN_RELEASE_FLAG_WAIT_SYNC)))
+			(*p)->rcri_owned = NULL;
+#endif
+		local_irq_restore((*irqflags));
 		put_affine_portal();
 	}
 	return r;
 }
 
-static inline struct bm_rcr_entry *try_rel_start(struct bman_portal **p)
+#ifdef CONFIG_FSL_DPA_CAN_WAIT
+static noinline struct bm_rcr_entry *__wait_rel_start(struct bman_portal **p,
+					struct bman_pool *pool,
+					__maybe_unused unsigned long *irqflags,
+					u32 flags)
 {
-	struct bm_rcr_entry *rcr = __try_rel(p);
-	if (unlikely(!rcr))
-		rel_set_thresh(*p, 1);
+	struct bm_rcr_entry *rcr = try_rel_start(p, pool, irqflags, flags);
+	if (!rcr)
+		bm_rcr_set_ithresh(&(*p)->p, 1);
 	return rcr;
 }
 
 static noinline struct bm_rcr_entry *wait_rel_start(struct bman_portal **p,
-							u32 flags)
+					struct bman_pool *pool,
+					__maybe_unused unsigned long *irqflags,
+					u32 flags)
 {
 	struct bm_rcr_entry *rcr;
-	int ret = 0;
+#ifndef CONFIG_FSL_DPA_CAN_WAIT_SYNC
+	pool = NULL;
+#endif
 	if (flags & BMAN_RELEASE_FLAG_WAIT_INT)
-		ret = wait_event_interruptible(affine_queue,
-				(rcr = try_rel_start(p)));
+		wait_event_interruptible(affine_queue,
+			(rcr = __wait_rel_start(p, pool, irqflags, flags)));
 	else
-		wait_event(affine_queue, (rcr = try_rel_start(p)));
+		wait_event(affine_queue,
+			(rcr = __wait_rel_start(p, pool, irqflags, flags)));
 	return rcr;
 }
-
-/* This copies Qman's eqcr_completed() routine, see that for details */
-static int rel_completed(struct bman_portal *p, u32 rcr_poll)
-{
-	u32 tr_cons = p->rcr_cons;
-	if (rcr_poll & 0xc0000000) {
-		rcr_poll &= 0x7fffffff;
-		tr_cons ^= 0x80000000;
-	}
-	if (tr_cons >= rcr_poll)
-		return 1;
-	if ((rcr_poll - tr_cons) > BM_RCR_SIZE)
-		return 1;
-	if (!bm_rcr_get_fill(p->p))
-		/* If RCR is empty, we must have completed */
-		return 1;
-	rel_set_thresh(p, 0);
-	return 0;
-}
-
-static noinline void wait_rel_commit(struct bman_portal *p, u32 flags,
-					u32 rcr_poll)
-{
-	rel_set_thresh(p, 1);
-	/* So we're supposed to wait until the commit is consumed */
-	if (flags & BMAN_RELEASE_FLAG_WAIT_INT)
-		/* See bman_release() as to why we're ignoring return codes
-		 * from wait_***(). */
-		wait_event_interruptible(affine_queue,
-					rel_completed(p, rcr_poll));
-	else
-		wait_event(affine_queue, rel_completed(p, rcr_poll));
-}
-
-static inline void rel_commit(struct bman_portal *p, u32 flags, u8 num)
-{
-	u32 rcr_poll;
-	bm_rcr_pvb_commit(p->p, BM_RCR_VERB_CMD_BPID_SINGLE |
-			(num & BM_RCR_VERB_BUFCOUNT_MASK));
-	/* increment the producer count and capture it for SYNC */
-	rcr_poll = ++p->rcr_prod;
-	local_irq_enable();
-	put_affine_portal();
-	if ((flags & BMAN_RELEASE_FLAG_WAIT_SYNC) ==
-			BMAN_RELEASE_FLAG_WAIT_SYNC)
-		wait_rel_commit(p, flags, rcr_poll);
-}
+#endif
 
 /* to facilitate better copying of bufs into the ring without either (a) copying
  * noise into the first byte (prematurely triggering the command), nor (b) being
@@ -595,19 +698,19 @@ static inline int __bman_release(struct bman_pool *pool,
 	struct bm_rcr_entry *r;
 	struct overlay_bm_buffer *o_dest;
 	struct overlay_bm_buffer *o_src = (struct overlay_bm_buffer *)&bufs[0];
+	__maybe_unused unsigned long irqflags;
 	u32 i = num - 1;
 
-	/* FIXME: I'm ignoring BMAN_PORTAL_FLAG_COMPACT for now. */
-	r = try_rel_start(&p);
-	if (unlikely(!r)) {
-		if (flags & BMAN_RELEASE_FLAG_WAIT) {
-			r = wait_rel_start(&p, flags);
-			if (!r)
-				return -EBUSY;
-		} else
-			return -EBUSY;
-		BM_ASSERT(r != NULL);
-	}
+#ifdef CONFIG_FSL_DPA_CAN_WAIT
+	if (flags & BMAN_RELEASE_FLAG_WAIT)
+		r = wait_rel_start(&p, pool, &irqflags, flags);
+	else
+		r = try_rel_start(&p, pool, &irqflags, flags);
+#else
+	r = try_rel_start(&p, &irqflags, flags);
+#endif
+	if (!r)
+		return -EBUSY;
 	/* We can copy all but the first entry, as this can trigger badness
 	 * with the valid-bit. Use the overlay to mask the verb byte. */
 	o_dest = (struct overlay_bm_buffer *)&r->bufs[0];
@@ -616,19 +719,37 @@ static inline int __bman_release(struct bman_pool *pool,
 	o_dest->second = o_src->second;
 	if (i)
 		copy_words(&r->bufs[1], &bufs[1], i * sizeof(bufs[0]));
-	/* Issue the release command and wait for sync if requested. NB: the
-	 * commit can't fail, only waiting can. Don't propogate any failure if a
-	 * signal arrives, otherwise the caller can't distinguish whether the
-	 * release was issued or not. Code for user-space can check
-	 * signal_pending() after we return. */
-	rel_commit(p, flags, num);
+	bm_rcr_pvb_commit(&p->p, BM_RCR_VERB_CMD_BPID_SINGLE |
+			(num & BM_RCR_VERB_BUFCOUNT_MASK));
+#ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
+	/* if we wish to sync we need to set the threshold after h/w sees the
+	 * new ring entry. As we're mixing cache-enabled and cache-inhibited
+	 * accesses, this requires a heavy-weight sync. */
+	if (unlikely((flags & BMAN_RELEASE_FLAG_WAIT) &&
+			(flags & BMAN_RELEASE_FLAG_WAIT_SYNC))) {
+		hwsync();
+		bm_rcr_set_ithresh(&p->p, 1);
+	}
+#endif
+	local_irq_restore(irqflags);
+	put_affine_portal();
+#ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
+	if (unlikely((flags & BMAN_RELEASE_FLAG_WAIT) &&
+			(flags & BMAN_RELEASE_FLAG_WAIT_SYNC))) {
+		if (flags & BMAN_RELEASE_FLAG_WAIT_INT)
+			wait_event_interruptible(affine_queue,
+					(p->rcri_owned != pool));
+		else
+			wait_event(affine_queue, (p->rcri_owned != pool));
+	}
+#endif
 	return 0;
 }
 
 int bman_release(struct bman_pool *pool, const struct bm_buffer *bufs, u8 num,
 			u32 flags)
 {
-#ifdef CONFIG_FSL_BMAN_CHECKING
+#ifdef CONFIG_FSL_DPA_CHECKING
 	if (!num || (num > 8))
 		return -EINVAL;
 	if (pool->params.flags & BMAN_POOL_FLAG_NO_RELEASE)
@@ -677,19 +798,21 @@ static inline int __bman_acquire(struct bman_pool *pool, struct bm_buffer *bufs,
 	struct bman_portal *p = get_affine_portal();
 	struct bm_mc_command *mcc;
 	struct bm_mc_result *mcr;
+	__maybe_unused unsigned long irqflags;
 	int ret;
 
-	local_irq_disable();
-	mcc = bm_mc_start(p->p);
+	local_irq_save(irqflags);
+	mcc = bm_mc_start(&p->p);
 	mcc->acquire.bpid = pool->params.bpid;
-	bm_mc_commit(p->p, BM_MCC_VERB_CMD_ACQUIRE |
+	bm_mc_commit(&p->p, BM_MCC_VERB_CMD_ACQUIRE |
 			(num & BM_MCC_VERB_ACQUIRE_BUFCOUNT));
-	while (!(mcr = bm_mc_result(p->p)))
+	while (!(mcr = bm_mc_result(&p->p)))
 		cpu_relax();
 	ret = mcr->verb & BM_MCR_VERB_ACQUIRE_BUFCOUNT;
 	if (bufs)
-		copy_words(&bufs[0], &mcr->acquire.bufs[0], num * sizeof(bufs[0]));
-	local_irq_enable();
+		copy_words(&bufs[0], &mcr->acquire.bufs[0],
+				num * sizeof(bufs[0]));
+	local_irq_restore(irqflags);
 	put_affine_portal();
 	if (ret != num)
 		ret = -ENOMEM;
@@ -699,7 +822,7 @@ static inline int __bman_acquire(struct bman_pool *pool, struct bm_buffer *bufs,
 int bman_acquire(struct bman_pool *pool, struct bm_buffer *bufs, u8 num,
 			u32 flags)
 {
-#ifdef CONFIG_FSL_BMAN_CHECKING
+#ifdef CONFIG_FSL_DPA_CHECKING
 	if (!num || (num > 8))
 		return -EINVAL;
 	if (pool->params.flags & BMAN_POOL_FLAG_ONLY_RELEASE)
@@ -717,7 +840,7 @@ int bman_acquire(struct bman_pool *pool, struct bm_buffer *bufs, u8 num,
 		int ret = __bman_acquire(pool, pool->sp + pool->sp_fill, 8);
 		if (ret < 0)
 			goto hw_starved;
-		BUG_ON(ret != 8);
+		DPA_ASSERT(ret == 8);
 		pool->sp_fill += 8;
 	} else {
 hw_starved:
@@ -736,15 +859,16 @@ int bman_query_pools(struct bm_pool_state *state)
 	struct bman_portal *p = get_affine_portal();
 	struct bm_mc_command *mcc;
 	struct bm_mc_result *mcr;
+	__maybe_unused unsigned long irqflags;
 
-	local_irq_disable();
-	mcc = bm_mc_start(p->p);
-	bm_mc_commit(p->p, BM_MCC_VERB_CMD_QUERY);
-	while (!(mcr = bm_mc_result(p->p)))
+	local_irq_save(irqflags);
+	mcc = bm_mc_start(&p->p);
+	bm_mc_commit(&p->p, BM_MCC_VERB_CMD_QUERY);
+	while (!(mcr = bm_mc_result(&p->p)))
 		cpu_relax();
-	BM_ASSERT((mcr->verb & BM_MCR_VERB_CMD_MASK) == BM_MCR_VERB_CMD_QUERY);
+	DPA_ASSERT((mcr->verb & BM_MCR_VERB_CMD_MASK) == BM_MCR_VERB_CMD_QUERY);
 	*state = mcr->query;
-	local_irq_enable();
+	local_irq_restore(irqflags);
 	put_affine_portal();
 	return 0;
 }

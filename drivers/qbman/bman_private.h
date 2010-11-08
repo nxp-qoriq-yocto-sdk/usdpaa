@@ -30,67 +30,15 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "bman_sys.h"
+#include "dpa_sys.h"
 #include <linux/fsl_bman.h>
-
-/* Portal modes.
- *   Enum types;
- *     pmode == production mode
- *     cmode == consumption mode,
- *   Enum values use 3 letter codes. First letter matches the portal mode,
- *   remaining two letters indicate;
- *     ci == cache-inhibited portal register
- *     ce == cache-enabled portal register
- *     vb == in-band valid-bit (cache-enabled)
- */
-enum bm_rcr_pmode {		/* matches BCSP_CFG::RPM */
-	bm_rcr_pci = 0,		/* PI index, cache-inhibited */
-	bm_rcr_pce = 1,		/* PI index, cache-enabled */
-	bm_rcr_pvb = 2		/* valid-bit */
-};
-enum bm_rcr_cmode {		/* s/w-only */
-	bm_rcr_cci,		/* CI index, cache-inhibited */
-	bm_rcr_cce		/* CI index, cache-enabled */
-};
-
 
 struct bm_addr {
 	void __iomem *addr_ce;	/* cache-enabled */
 	void __iomem *addr_ci;	/* cache-inhibited */
 };
 
-/* RCR state */
-struct bm_rcr {
-	struct bm_rcr_entry *ring, *cursor;
-	u8 ci, available, ithresh, vbit;
-#ifdef CONFIG_FSL_BMAN_CHECKING
-	u32 busy;
-	enum bm_rcr_pmode pmode;
-	enum bm_rcr_cmode cmode;
-#endif
-};
-
-/* MC state */
-struct bm_mc {
-	struct bm_mc_command *cr;
-	struct bm_mc_result *rr;
-	u8 rridx, vbit;
-#ifdef CONFIG_FSL_BMAN_CHECKING
-	enum {
-		/* Can only be _mc_start()ed */
-		mc_idle,
-		/* Can only be _mc_commit()ed or _mc_abort()ed */
-		mc_user,
-		/* Can only be _mc_retry()ed */
-		mc_hw
-	} state;
-#endif
-};
-
-/* Portal constants */
-#define BM_RCR_SIZE		8
-
-/* Hardware constants */
+/* used by CCSR and portal interrupt code */
 enum bm_isr_reg {
 	bm_isr_status = 0,
 	bm_isr_enable = 1,
@@ -98,12 +46,9 @@ enum bm_isr_reg {
 	bm_isr_inhibit = 3
 };
 
-/********************/
-/* Portal structure */
-/********************/
-
-/* When iterating the available portals, this is the exposed config structure */
 struct bm_portal_config {
+	struct bm_portal *portal;
+	struct bm_addr addr;
 	/* This is used for any "core-affine" portals, ie. default portals
 	 * associated to the corresponding cpu. -1 implies that there is no core
 	 * affinity configured. */
@@ -115,44 +60,18 @@ struct bm_portal_config {
 	 * state changes will only be unmasked as/when pool objects are created
 	 * with depletion callbacks - the mask is the superset. */
 	struct bman_depletion mask;
-	/* which portal sub-interfaces are already bound (ie. "in use") */
-	u8 bound;
 };
-/* bm_portal_config::bound uses these bit masks */
-#define BM_BIND_RCR	0x01
-#define BM_BIND_MC	0x02
-#define BM_BIND_ISR	0x04
 
-struct bm_portal {
-	struct bm_addr addr;
-	struct bm_rcr rcr;
-	struct bm_mc mc;
-	struct bm_portal_config config;
-} ____cacheline_aligned;
-
-/* RCR/MC/ISR code uses this as a locked mechanism to bind/unbind to
- * bm_portal::config::bound. */
-int __bm_portal_bind(struct bm_portal *portal, u8 iface);
-void __bm_portal_unbind(struct bm_portal *portal, u8 iface);
-
-#ifdef CONFIG_FSL_QMAN_CONFIG
+#ifdef CONFIG_FSL_BMAN_CONFIG
 /* Hooks from bman_driver.c to bman_config.c */
 int bman_init_error_int(struct device_node *node);
 #endif
 
-/* Hooks between qman_driver.c and qman_high.c */
-extern DEFINE_PER_CPU(struct bman_portal *, bman_affine_portal);
-static inline struct bman_portal *get_affine_portal(void)
-{
-	return get_cpu_var(bman_affine_portal);
-}
-static inline void put_affine_portal(void)
-{
-	put_cpu_var(bman_affine_portal);
-}
-struct bman_portal *bman_create_portal(struct bm_portal *portal,
-					const struct bman_depletion *pools);
-void bman_destroy_portal(struct bman_portal *p);
+int bman_have_affine_portal(void);
+int bman_create_affine_portal(const struct bm_portal_config *config,
+				u32 irq_sources, int recovery_mode);
+void bman_destroy_affine_portal(void);
+void bman_recovery_exit_local(void);
 
 /* Pool logic in the portal driver, during initialisation, needs to know if
  * there's access to CCSR or not (if not, it'll cripple the pool allocator). */
@@ -188,95 +107,21 @@ int bman_have_ccsr(void);
 /*   BMan s/w corenet portal, low-level i/face   */
 /*************************************************/
 
-/* Note: many of these functions are inlined, so are #if 0'd out */
-
-/* ------------------------------ */
-/* --- Portal enumeration API --- */
-
 /* Obtain the number of portals available */
 u8 bm_portal_num(void);
 
 /* Obtain a portal handle */
-struct bm_portal *bm_portal_get(u8 idx);
-const struct bm_portal_config *bm_portal_config(const struct bm_portal *portal);
+const struct bm_portal_config *bm_portal_config(u8 idx);
 
+/* Used by all portal interrupt registers except 'inhibit'. NB, some of these
+ * definitions are exported for use by the bman_irqsource_***() APIs, so are
+ * commented-out here. */
 #if 0
-
-/* --------------- */
-/* --- RCR API --- */
-
-/* Create/destroy */
-int bm_rcr_init(struct bm_portal *portal, enum bm_rcr_pmode pmode,
-		enum bm_rcr_cmode cmode);
-void bm_rcr_finish(struct bm_portal *portal);
-
-/* Start/abort RCR entry */
-struct bm_rcr_entry *bm_rcr_start(struct bm_portal *portal);
-void bm_rcr_abort(struct bm_portal *portal);
-
-/* For PI modes only. This presumes a started but uncommited RCR entry. If
- * there's no more room in the RCR, this function returns NULL. Otherwise it
- * returns the next RCR entry and increments an internal PI counter without
- * flushing it to h/w. */
-struct bm_rcr_entry *bm_rcr_pend_and_next(struct bm_portal *portal, u8 myverb);
-
-/* Commit RCR entries, including pending ones (aka "write PI") */
-void bm_rcr_pci_commit(struct bm_portal *portal, u8 myverb);
-void bm_rcr_pce_prefetch(struct bm_portal *portal);
-void bm_rcr_pce_commit(struct bm_portal *portal, u8 myverb);
-void bm_rcr_pvb_commit(struct bm_portal *portal, u8 myverb);
-
-/* Track h/w consumption. Returns non-zero if h/w had consumed previously
- * unconsumed RCR entries. */
-u8 bm_rcr_cci_update(struct bm_portal *portal);
-void bm_rcr_cce_prefetch(struct bm_portal *portal);
-u8 bm_rcr_cce_update(struct bm_portal *portal);
-/* Returns the number of available RCR entries */
-u8 bm_rcr_get_avail(struct bm_portal *portal);
-/* Returns the number of unconsumed RCR entries */
-u8 bm_rcr_get_fill(struct bm_portal *portal);
-
-/* Read/write the RCR interrupt threshold */
-u8 bm_rcr_get_ithresh(struct bm_portal *portal);
-void bm_rcr_set_ithresh(struct bm_portal *portal, u8 ithresh);
-
-/* ------------------------------ */
-/* --- Management command API --- */
-
-/* Create/destroy */
-int bm_mc_init(struct bm_portal *portal);
-void bm_mc_finish(struct bm_portal *portal);
-
-/* Start/abort mgmt command */
-struct bm_mc_command *bm_mc_start(struct bm_portal *portal);
-void bm_mc_abort(struct bm_portal *portal);
-
-/* Writes 'verb' with appropriate 'vbit'. Invalidates and pre-fetches the
- * response. */
-void bm_mc_commit(struct bm_portal *portal, u8 myverb);
-
-/* Poll for result. If NULL, invalidates and prefetches for the next call. */
-struct bm_mc_result *bm_mc_result(struct bm_portal *portal);
-
-/* ------------------------------------- */
-/* --- Portal interrupt register API --- */
-
-/* For a quick explanation of the Bman interrupt model, see the comments in the
- * equivalent section of the qman_portal.h header.
- */
-
-/* Create/destroy */
-int bm_isr_init(struct bm_portal *portal);
-void bm_isr_finish(struct bm_portal *portal);
-
-/* BSCN masking is a per-portal configuration */
-void bm_isr_bscn_mask(struct bm_portal *portal, u8 bpid, int enable);
-
-#endif
-
-/* Used by all portal interrupt registers except 'inhibit' */
 #define BM_PIRQ_RCRI	0x00000002	/* RCR Ring (below threshold) */
 #define BM_PIRQ_BSCN	0x00000001	/* Buffer depletion State Change */
+#endif
+/* This mask contains all the "irqsource" bits visible to API users */
+#define BM_PIRQ_VISIBLE	(BM_PIRQ_RCRI | BM_PIRQ_BSCN)
 
 /* These are bm_<reg>_<verb>(). So for example, bm_disable_write() means "write
  * the disable register" rather than "disable the ability to write". */
@@ -289,21 +134,11 @@ void bm_isr_bscn_mask(struct bm_portal *portal, u8 bpid, int enable);
 #define bm_isr_inhibit(bm)		__bm_isr_write(bm, bm_isr_inhibit, 1)
 #define bm_isr_uninhibit(bm)		__bm_isr_write(bm, bm_isr_inhibit, 0)
 
-#if 0
-/* Don't use these, use the wrappers above*/
-u32 __bm_isr_read(struct bm_portal *portal, enum bm_isr_reg n);
-void __bm_isr_write(struct bm_portal *portal, enum bm_isr_reg n, u32 val);
-#endif
-
-/* ------------------------------ */
-/* --- Buffer pool allocation --- */
-
-#ifdef CONFIG_FSL_BMAN_CONFIG
-
 /* Allocate/release an unreserved buffer pool id */
 int bm_pool_new(u32 *bpid);
 void bm_pool_free(u32 bpid);
 
+#ifdef CONFIG_FSL_BMAN_CONFIG
 /* Set depletion thresholds associated with a buffer pool. Requires that the
  * operating system have access to Bman CCSR (ie. compiled in support and
  * run-time access courtesy of the device-tree). */

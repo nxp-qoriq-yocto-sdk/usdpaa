@@ -36,68 +36,76 @@
 /* Portal driver */
 /*****************/
 
-static __thread struct bm_portal portal;
+#define PORTAL_MAX	10
+#define POOL_MAX	64
+
 static __thread int fd;
-DEFINE_PER_CPU(struct bman_portal *, bman_affine_portal);
+
+static struct bm_portal_config configs[PORTAL_MAX];
+static u8 num_portals;
+/* First thread to get the lock will handle global init */
+static spinlock_t global_init_lock = SPIN_LOCK_UNLOCKED;
+static int global_init_done = 0;
+
+static struct bman_depletion pools = BMAN_DEPLETION_FULL;
+static u8 num_pools = 64;
+static DEFINE_SPINLOCK(pools_lock);
+
+static struct bm_portal_config *__bm_portal_add(
+					const struct bm_portal_config *config)
+{
+	struct bm_portal_config *ret;
+	BUG_ON((num_portals + 1) > PORTAL_MAX);
+	ret = &configs[num_portals++];
+	*ret = *config;
+	ret->portal = NULL;
+	return ret;
+}
 
 u8 bm_portal_num(void)
 {
-	return 1;
+	return num_portals;
 }
-EXPORT_SYMBOL(bm_portal_num);
 
-struct bm_portal *bm_portal_get(u8 idx)
+const struct bm_portal_config *bm_portal_config(u8 idx)
 {
-	if (unlikely(idx >= 1))
+	if (unlikely(idx >= num_portals))
 		return NULL;
 
-	return &portal;
-}
-EXPORT_SYMBOL(bm_portal_get);
-
-const struct bm_portal_config *bm_portal_config(const struct bm_portal *portal)
-{
-	return &portal->config;
-}
-EXPORT_SYMBOL(bm_portal_config);
-
-static struct bm_portal *__bm_portal_add(const struct bm_addr *addr,
-				const struct bm_portal_config *config)
-{
-	struct bm_portal *ret = &portal;
-	ret->addr = *addr;
-	ret->config = *config;
-	ret->config.bound = 0;
-	return ret;
+	return &configs[idx];
 }
 
-int __bm_portal_bind(struct bm_portal *portal, u8 iface)
+int bm_pool_new(u32 *bpid)
 {
-	int ret = -EBUSY;
-	if (!(portal->config.bound & iface)) {
-		portal->config.bound |= iface;
-		ret = 0;
+	int ret = 0, b = 64;
+	spin_lock(&pools_lock);
+	if (num_pools > 63)
+		ret = -ENOMEM;
+	else {
+		while (b-- && bman_depletion_get(&pools, b))
+			;
+		BUG_ON(b < 0);
+		bman_depletion_set(&pools, b);
+		*bpid = b;
+		num_pools++;
 	}
+	spin_unlock(&pools_lock);
 	return ret;
 }
 
-void __bm_portal_unbind(struct bm_portal *portal, u8 iface)
+void bm_pool_free(u32 bpid)
 {
-	BM_ASSERT(portal->config.bound & iface);
-	portal->config.bound &= ~iface;
+	spin_lock(&pools_lock);
+	BUG_ON(bpid > 63);
+	BUG_ON(!bman_depletion_get(&pools, bpid));
+	bman_depletion_unset(&pools, bpid);
+	num_pools--;
+	spin_unlock(&pools_lock);
 }
 
-static int __init fsl_bman_portal_init(int cpu)
+static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 {
-	struct bm_portal_config cfg = {
-		.cpu = cpu,
-		.irq = -1,
-		/* FIXME: hard-coded */
-		.mask = BMAN_DEPLETION_FULL
-	};
-	struct bm_addr addr;
-	struct bm_portal *portal;
-	struct bman_portal *affine_portal;
+	struct bm_portal_config cfg, *pconfig;
 	char name[8], *path;
 
 	snprintf(name, 7, "BMAN%d", cpu);
@@ -111,55 +119,103 @@ static int __init fsl_bman_portal_init(int cpu)
 		perror("can't open Bman portal UIO device");
 		return -ENODEV;
 	}
-	addr.addr_ce = mmap(BMAN_CENA(cfg.cpu), 16*1024, PROT_READ | PROT_WRITE,
-			MAP_SHARED | MAP_FIXED, fd, 0);
-	if (addr.addr_ce == MAP_FAILED)
-		perror("mmap of CENA failed");
-	addr.addr_ci = mmap(BMAN_CINH(cfg.cpu), 4*1024, PROT_READ | PROT_WRITE,
-			MAP_SHARED, fd, 4*1024);
-	if (addr.addr_ci == MAP_FAILED)
-		perror("mmap of CINH failed");
-	portal = __bm_portal_add(&addr, &cfg);
-	if (!portal)
+	cfg.portal = NULL;
+	cfg.addr.addr_ce = mmap(BMAN_CENA(cpu), 16*1024,
+			PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, fd, 0);
+	cfg.addr.addr_ci = mmap(BMAN_CINH(cpu), 4*1024,
+			PROT_READ | PROT_WRITE, MAP_SHARED, fd, 4*1024);
+	if ((cfg.addr.addr_ce == MAP_FAILED) ||
+			(cfg.addr.addr_ci == MAP_FAILED)) {
+		pr_err("Bman mmap()s failed with %p:%p\n",
+			cfg.addr.addr_ce, cfg.addr.addr_ci);
+		perror("mmap of CENA or CINH failed");
+		close(fd);
+		return -ENODEV;
+	}
+	cfg.cpu = cpu;
+	cfg.irq = -1;
+	bman_depletion_fill(&cfg.mask);
+	pconfig = __bm_portal_add(&cfg);
+	if (!pconfig) {
+		close(fd);
 		return -ENOMEM;
-	pr_info("Bman portal at %p:%p (%d)\n", addr.addr_ce, addr.addr_ci,
-		cfg.cpu);
-#ifndef CONFIG_FSL_BMAN_PORTAL_DISABLEAUTO
+	}
+	pr_info("Bman portal at %p:%p (%d)\n", cfg.addr.addr_ce,
+		cfg.addr.addr_ci, cfg.cpu);
 	if (cfg.cpu == -1)
 		return 0;
-	affine_portal = per_cpu(bman_affine_portal, cfg.cpu);
-	if (!affine_portal) {
-		affine_portal = bman_create_portal(portal, &cfg.mask);
-		if (!affine_portal) {
-			pr_err("Bman portal auto-initialisation failed\n");
-			return 0;
-		}
-		pr_info("Bman portal %d auto-initialised\n", cfg.cpu);
-		per_cpu(bman_affine_portal, cfg->cpu) = affine_portal;
-	}
+	if (!bman_have_affine_portal()) {
+		u32 irq_sources = 0;
+#ifdef CONFIG_FSL_DPA_HAVE_IRQ
+		irq_sources = BM_PIRQ_RCRI | BM_PIRQ_BSCN;
 #endif
+		if (bman_create_affine_portal(pconfig, irq_sources,
+						recovery_mode))
+			pr_err("Bman portal auto-initialisation failed\n");
+		else
+			pr_info("Bman portal %d auto-initialised\n", cfg.cpu);
+	}
 	return 0;
 }
 
-/***************/
-/* Driver load */
-/***************/
+static int fsl_bpool_range_init(int recovery_mode)
+{
+	int ret, warned = 0;
+	u32 bpid;
+	for (bpid = FSL_BPID_RANGE_START;
+			bpid < (FSL_BPID_RANGE_START + FSL_BPID_RANGE_LENGTH);
+			bpid++) {
+		if (bpid > 63) {
+			pr_err("BPIDs out range\n");
+			return -EINVAL;
+		}
+		if (!bman_depletion_get(&pools, bpid)) {
+			if (!warned) {
+				warned = 1;
+				pr_err("BPID overlap in, ignoring\n");
+			}
+		} else {
+			bman_depletion_unset(&pools, bpid);
+			num_pools--;
+		}
+	}
+	if (recovery_mode) {
+		for (bpid = FSL_BPID_RANGE_START; bpid <
+				(FSL_BPID_RANGE_START + FSL_BPID_RANGE_LENGTH);
+				bpid++) {
+			ret = bman_recovery_cleanup_bpid(bpid);
+			if (ret) {
+				pr_err("Failed to recover BPID %d\n", bpid);
+				return ret;
+			}
+		}
+	}
+	pr_info("Bman: BPID allocator includes range %d:%d%s\n",
+		FSL_BPID_RANGE_START, FSL_BPID_RANGE_LENGTH,
+		recovery_mode ? " (recovered)" : "");
+	return 0;
+}
 
 int bman_thread_init(int cpu)
 {
 	/* Load the core-affine portal */
-	int ret = (get_cpu_var(bman_affine_portal) != NULL);
-	put_cpu_var(bman_affine_portal);
-	if (ret) {
-		pr_err("Bman portal already initialised (%d)\n", cpu);
-		return -EBUSY;
-	}
-	ret = fsl_bman_portal_init(cpu);
+	int recovery_mode = fsl_dpa_should_recover();
+	int ret = fsl_bman_portal_init(cpu, recovery_mode);
 	if (ret) {
 		pr_err("Bman portal failed initialisation (%d), ret=%d\n",
 			cpu, ret);
 		return ret;
 	}
+	spin_lock(&global_init_lock);
+	if (!global_init_done) {
+		global_init_done = 1;
+		ret = fsl_bpool_range_init(recovery_mode);
+	}
+	spin_unlock(&global_init_lock);
+	if (ret)
+		return ret;
+	if (recovery_mode)
+		bman_recovery_exit_local();
 	pr_info("Bman portal initialised (%d)\n", cpu);
 	return 0;
 }

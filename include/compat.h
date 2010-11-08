@@ -112,6 +112,10 @@ do { \
 	abort(); \
 } while(0)
 #define container_of(p, t, f) (t *)((void *)p - offsetof(t, f))
+static inline u8 readb(volatile u8 *p)
+{
+	return *p;
+}
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
 /* printk() stuff */
@@ -277,6 +281,19 @@ static inline void cpu_spin(int cycles)
 }
 
 /* SMP stuff */
+typedef cpu_set_t cpumask_t;
+static inline int cpumask_test_cpu(int cpu, cpumask_t *mask)
+{
+	return CPU_ISSET(cpu, mask);
+}
+static inline void cpumask_set_cpu(int cpu, cpumask_t *mask)
+{
+	CPU_SET(cpu, mask);
+}
+static inline void cpumask_clear_cpu(int cpu, cpumask_t *mask)
+{
+	CPU_CLR(cpu, mask);
+}
 #define DEFINE_PER_CPU(t,x)	__thread t per_cpu__##x
 #define per_cpu(x,c)		per_cpu__##x
 #define get_cpu_var(x)		per_cpu__##x
@@ -286,8 +303,13 @@ static inline void cpu_spin(int cycles)
 /* Interrupt stuff */
 typedef uint32_t	irqreturn_t; /* as per hwi.h */
 #define IRQ_HANDLED	0
+#ifdef CONFIG_FSL_DPA_IRQ_SAFETY
+#error "Won't work"
+#endif
 #define local_irq_disable()	do { ; } while(0)
 #define local_irq_enable()	do { ; } while(0)
+#define local_irq_save(v)	do { ; } while(0)
+#define local_irq_restore(v)	do { ; } while(0)
 #define request_irq(irq, isr, args, devname, portal) 0
 #define free_irq(irq, portal)	0
 #define irq_can_set_affinity(x)	0
@@ -411,6 +433,8 @@ static inline void copy_bytes(void *dest, const void *src, size_t sz)
 	} while (0)
 #define spin_lock_irq(x)	do { local_irq_disable(); spin_lock(x); } while(0)
 #define spin_unlock_irq(x)	do { spin_unlock(x); local_irq_enable(); } while(0)
+#define spin_lock_irqsave(x,f)	do { spin_lock_irq(x); } while (0)
+#define spin_unlock_irqrestore(x,f) do { spin_unlock_irq(x); } while (0)
 
 /* Waitqueue stuff */
 typedef struct { }		wait_queue_head_t;
@@ -472,6 +496,11 @@ enum dma_data_direction {
 	DMA_FROM_DEVICE = 2,
 	DMA_NONE = 3,
 };
+#define DMA_BIT_MASK(n) (((u64)1 << (n)) - 1)
+static inline int dma_set_mask(void *dev __always_unused, u64 v __always_unused)
+{
+	return 0;
+}
 static inline dma_addr_t dma_map_single(void *dev __always_unused,
 				void *cpu_addr,
 				size_t size __maybe_unused,
@@ -620,6 +649,13 @@ do { \
 	struct list_head *__p298 = (p); \
 	__p298->prev = __p298->next =__p298; \
 } while(0)
+#define list_entry(node, type, member) \
+	(type *)((void *)node - offsetof(type, member))
+#define list_empty(p) \
+({ \
+	struct list_head *__p298 = (p); \
+	((__p298->next == __p298) && (__p298->prev == __p298)); \
+})
 #define list_add(p,l) \
 do { \
 	struct list_head *__p298 = (p); \
@@ -638,8 +674,6 @@ do { \
 	__l298->prev->next = __p298; \
 	__l298->prev = __p298; \
 } while(0)
-#define list_entry(p, t, name) \
-	(t *)((void *)p - offsetof(t, name))
 #define list_for_each_entry(i, l, name) \
 	for (i = list_entry((l)->next, typeof(*i), name); &i->name != (l); \
 		i = list_entry(i->name.next, typeof(*i), name))
@@ -674,12 +708,12 @@ struct rb_node {
 	struct rb_node *prev, *next;
 };
 
-struct qman_rbtree {
+struct dpa_rbtree {
 	struct rb_node *head, *tail;
 };
 
-#define QMAN_RBTREE { NULL, NULL }
-static inline void qman_rbtree_init(struct qman_rbtree *tree)
+#define DPA_RBTREE { NULL, NULL }
+static inline void dpa_rbtree_init(struct dpa_rbtree *tree)
 {
 	tree->head = tree->tail = NULL;
 }
@@ -687,8 +721,8 @@ static inline void qman_rbtree_init(struct qman_rbtree *tree)
 #define QMAN_NODE2OBJ(ptr, type, node_field) \
 	(type *)((char *)ptr - offsetof(type, node_field))
 
-#define IMPLEMENT_QMAN_RBTREE(name, type, node_field, val_field) \
-static inline int name##_push(struct qman_rbtree *tree, type *obj) \
+#define IMPLEMENT_DPA_RBTREE(name, type, node_field, val_field) \
+static inline int name##_push(struct dpa_rbtree *tree, type *obj) \
 { \
 	struct rb_node *node = tree->head; \
 	if (!node) { \
@@ -716,7 +750,7 @@ static inline int name##_push(struct qman_rbtree *tree, type *obj) \
 	tree->tail = &obj->node_field; \
 	return 0; \
 } \
-static inline void name##_del(struct qman_rbtree *tree, type *obj) \
+static inline void name##_del(struct dpa_rbtree *tree, type *obj) \
 { \
 	if (tree->head == &obj->node_field) { \
 		if (tree->tail == &obj->node_field) \
@@ -739,7 +773,7 @@ static inline void name##_del(struct qman_rbtree *tree, type *obj) \
 		} \
 	} \
 } \
-static inline type *name##_find(struct qman_rbtree *tree, u32 val) \
+static inline type *name##_find(struct dpa_rbtree *tree, u32 val) \
 { \
 	struct rb_node *node = tree->head; \
 	while (node) { \

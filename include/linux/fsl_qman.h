@@ -68,20 +68,29 @@ enum qm_dc_portal {
 	qm_dc_portal_pme = 3
 };
 
-/* Represents s/w corenet portal mapped data structures */
-struct qm_eqcr_entry;	/* EQCR (EnQueue Command Ring) entries */
-struct qm_dqrr_entry;	/* DQRR (DeQueue Response Ring) entries */
-struct qm_mr_entry;	/* MR (Message Ring) entries */
-struct qm_mc_command;	/* MC (Management Command) command */
-struct qm_mc_result;	/* MC result */
+/* Portal processing (interrupt) sources */
+#define QM_PIRQ_CSCI	0x00100000	/* Congestion State Change */
+#define QM_PIRQ_EQCI	0x00080000	/* Enqueue Command Committed */
+#define QM_PIRQ_EQRI	0x00040000	/* EQCR Ring (below threshold) */
+#define QM_PIRQ_DQRI	0x00020000	/* DQRR Ring (non-empty) */
+#define QM_PIRQ_MRI	0x00010000	/* MR Ring (non-empty) */
+/* This mask contains all the interrupt sources that need handling except DQRI,
+ * ie. that if present should trigger slow-path processing. */
+#define QM_PIRQ_SLOW	(QM_PIRQ_CSCI | QM_PIRQ_EQCI | QM_PIRQ_EQRI | \
+			QM_PIRQ_MRI)
+
 
 /* ------------------------ */
 /* --- FQ allocator API --- */
 
 /* Flags to qm_fq_free_flags() */
+#ifdef CONFIG_FSL_DPA_CAN_WAIT
 #define QM_FQ_FREE_WAIT       0x00000001 /* wait if RCR is full */
 #define QM_FQ_FREE_WAIT_INT   0x00000002 /* if wait, interruptible? */
+#ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
 #define QM_FQ_FREE_WAIT_SYNC  0x00000004 /* if wait, until consumed? */
+#endif
+#endif
 
 #ifdef CONFIG_FSL_QMAN_FQALLOCATOR
 
@@ -89,11 +98,15 @@ struct qm_mc_result;	/* MC result */
 u32 qm_fq_new(void);
 /* Release a FQID back to the FQ allocator */
 int qm_fq_free_flags(u32 fqid, u32 flags);
+#ifdef CONFIG_FSL_DPA_CAN_WAIT
 static inline void qm_fq_free(u32 fqid)
 {
 	if (qm_fq_free_flags(fqid, QM_FQ_FREE_WAIT))
 		BUG();
 }
+#else
+#define qm_fq_free(fqid) qm_fq_free_flags(fqid, 0)
+#endif
 
 #else /* !CONFIG_FSL_QMAN_FQALLOCATOR */
 
@@ -121,6 +134,13 @@ static inline void qm_fq_free(u32 fqid)
 
 /* ------------------------------------------------------- */
 /* --- Qman data structures (and associated constants) --- */
+
+/* Represents s/w corenet portal mapped data structures */
+struct qm_eqcr_entry;	/* EQCR (EnQueue Command Ring) entries */
+struct qm_dqrr_entry;	/* DQRR (DeQueue Response Ring) entries */
+struct qm_mr_entry;	/* MR (Message Ring) entries */
+struct qm_mc_command;	/* MC (Management Command) command */
+struct qm_mc_result;	/* MC result */
 
 /* See David Lapp's "Frame formats" document, "dpateam", Jan 07, 2008 */
 #define QM_FD_FORMAT_SG		0x4
@@ -187,9 +207,29 @@ struct qm_fd {
 		u32 cmd;
 		u32 status;
 	};
-} __packed;
+} __packed __attribute__((aligned(4)));
 #define QM_FD_DD_NULL		0x00
 #define QM_FD_PID_MASK		0x3f
+static inline u64 qm_fd_addr_get64(const struct qm_fd *fd)
+{
+	return ((u64)fd->addr_hi << 32) | (u64)fd->addr_lo;
+}
+
+static inline dma_addr_t qm_fd_addr(const struct qm_fd *fd)
+{
+#ifdef CONFIG_PHYS_ADDR_T_64BIT
+	return ((dma_addr_t)fd->addr_hi << 32) | (dma_addr_t)fd->addr_lo;
+#else
+	return (dma_addr_t)fd->addr_lo;
+#endif
+}
+/* Macro, so we compile better if 'v' isn't always 64-bit */
+#define qm_fd_addr_set64(fd, v) \
+	do { \
+		struct qm_fd *__fd931 = (fd); \
+		__fd931->addr_hi = upper_32_bits(v); \
+		__fd931->addr_lo = lower_32_bits(v); \
+	} while (0)
 
 /* For static initialisation of FDs (which is complicated by the use of unions
  * in "struct qm_fd"), use the following macros. Note that;
@@ -219,6 +259,17 @@ struct qm_sg_entry {
 	u16 __reserved3:3;
 	u16 offset:13;
 } __packed;
+static inline u64 qm_sg_entry_get64(const struct qm_sg_entry *sg)
+{
+	return ((u64)sg->addr_hi << 32) | (u64)sg->addr_lo;
+}
+/* Macro, so we compile better if 'v' isn't always 64-bit */
+#define qm_sg_entry_set64(sg, v) \
+	do { \
+		struct qm_sg_entry *__sg931 = (sg); \
+		__sg931->addr_hi = upper_32_bits(v); \
+		__sg931->addr_lo = lower_32_bits(v); \
+	} while (0)
 
 /* See 1.5.8.1: "Enqueue Command" */
 struct qm_eqcr_entry {
@@ -376,6 +427,7 @@ struct qm_fqd {
 	u32 context_b;
 	union {
 		/* Treat it as 64-bit opaque */
+		u64 opaque;
 		struct {
 			u32 hi;
 			u32 lo;
@@ -391,6 +443,19 @@ struct qm_fqd {
 		} __packed;
 	} context_a;
 } __packed;
+/* 64-bit converters for context_hi/lo */
+static inline u64 qm_fqd_stashing_get64(const struct qm_fqd *fqd)
+{
+	return ((u64)fqd->context_a.context_hi << 32) |
+		(u64)fqd->context_a.context_lo;
+}
+/* Macro, so we compile better when 'v' isn't necessarily 64-bit */
+#define qm_fqd_stashing_set64(fqd, v) \
+	do { \
+		struct qm_fqd *__fqd931 = (fqd); \
+		__fqd931->context_a.context_hi = upper_32_bits(v); \
+		__fqd931->context_a.context_lo = lower_32_bits(v); \
+	} while (0)
 /* convert a threshold value into mant+exp representation */
 static inline int qm_fqd_taildrop_set(struct qm_fqd_taildrop *td, u32 val,
 					int roundup)
@@ -483,6 +548,7 @@ struct __qm_mc_cgr {
 	u8 cstd_en;	/* boolean, use QM_CGR_EN */
 	u8 cs;		/* boolean, only used in query response */
 	struct qm_cgr_cs_thres cs_thres;
+	u8 mode;	/* QMAN_CGR_MODE_FRAME not supported in rev1.0 */
 } __packed;
 #define QM_CGR_EN		0x01 /* For wr_en_*, cscn_en, cstd_en */
 #define QM_CGR_TARG_PORTAL(n)	(0x80000000 >> (n)) /* s/w portal, 0-9 */
@@ -494,8 +560,9 @@ struct __qm_mc_cgr {
 /* See 1.5.8.5.3: "Query FQ Non-Programmable Fields" */
 /* See 1.5.8.5.4: "Alter FQ State Commands " */
 /* See 1.5.8.6.1: "Initialize/Modify CGR" */
-/* See 1.5.8.6.2: "Query CGR" */
-/* See 1.5.8.6.3: "Query Congestion Group State" */
+/* See 1.5.8.6.2: "CGR Test Write" */
+/* See 1.5.8.6.3: "Query CGR" */
+/* See 1.5.8.6.4: "Query Congestion Group State" */
 struct qm_mcc_initfq {
 	u8 __reserved1;
 	u16 we_mask;	/* Write Enable Mask */
@@ -523,9 +590,17 @@ struct qm_mcc_initcgr {
 	u8 __reserved1;
 	u16 we_mask;	/* Write Enable Mask */
 	struct __qm_mc_cgr cgr;	/* CGR fields */
-	u8 __reserved2[3];
+	u8 __reserved2[2];
 	u8 cgid;
 	u8 __reserved4[32];
+} __packed;
+struct qm_mcc_cgrtestwrite {
+	u8 __reserved1[2];
+	u8 i_bcnt_hi:8;/* high 8-bits of 40-bit "Instant" */
+	u32 i_bcnt_lo;	/* low 32-bits of 40-bit */
+	u8 __reserved2[23];
+	u8 cgid;
+	u8 __reserved3[32];
 } __packed;
 struct qm_mcc_querycgr {
 	u8 __reserved1[30];
@@ -555,6 +630,7 @@ struct qm_mc_command {
 		struct qm_mcc_queryfq_np queryfq_np;
 		struct qm_mcc_alterfq alterfq;
 		struct qm_mcc_initcgr initcgr;
+		struct qm_mcc_cgrtestwrite cgrtestwrite;
 		struct qm_mcc_querycgr querycgr;
 		struct qm_mcc_querycongestion querycongestion;
 		struct qm_mcc_querywq querywq;
@@ -574,6 +650,7 @@ struct qm_mc_command {
 #define QM_MCC_VERB_ALTER_OOS		0x4b	/* Take FQ out of service */
 #define QM_MCC_VERB_INITCGR		0x50
 #define QM_MCC_VERB_MODIFYCGR		0x51
+#define QM_MCC_VERB_CGRTESTWRITE	0x52
 #define QM_MCC_VERB_QUERYCGR		0x58
 #define QM_MCC_VERB_QUERYCONGESTION	0x59
 /* INITFQ-specific flags */
@@ -598,14 +675,16 @@ struct qm_mc_command {
 #define QM_CGR_WE_CSCN_TARG		0x0008
 #define QM_CGR_WE_CSTD_EN		0x0004
 #define QM_CGR_WE_CS_THRES		0x0002
+#define QM_CGR_WE_MODE			0x0001
 
 /* See 1.5.8.5.1: "Initialize FQ" */
 /* See 1.5.8.5.2: "Query FQ" */
 /* See 1.5.8.5.3: "Query FQ Non-Programmable Fields" */
 /* See 1.5.8.5.4: "Alter FQ State Commands " */
 /* See 1.5.8.6.1: "Initialize/Modify CGR" */
-/* See 1.5.8.6.2: "Query CGR" */
-/* See 1.5.8.6.3: "Query Congestion Group State" */
+/* See 1.5.8.6.2: "CGR Test Write" */
+/* See 1.5.8.6.3: "Query CGR" */
+/* See 1.5.8.6.4: "Query Congestion Group State" */
 struct qm_mcr_initfq {
 	u8 __reserved1[62];
 } __packed;
@@ -657,19 +736,65 @@ struct qm_mcr_alterfq {
 struct qm_mcr_initcgr {
 	u8 __reserved1[62];
 } __packed;
-struct qm_mcr_querycgr {
+struct qm_mcr_cgrtestwrite {
 	u16 __reserved1;
 	struct __qm_mc_cgr cgr; /* CGR fields */
-	u32 __reserved2;
+	u8 __reserved2[3];
 	u32 __reserved3:24;
 	u32 i_bcnt_hi:8;/* high 8-bits of 40-bit "Instant" */
 	u32 i_bcnt_lo;	/* low 32-bits of 40-bit */
 	u32 __reserved4:24;
 	u32 a_bcnt_hi:8;/* high 8-bits of 40-bit "Average" */
 	u32 a_bcnt_lo;	/* low 32-bits of 40-bit */
-	u32 lgt;	/* Last Group Tick */
-	u8 __reserved5[12];
+	u16 lgt;	/* Last Group Tick */
+	u16 wr_prob_g;
+	u16 wr_prob_y;
+	u16 wr_prob_r;
+	u8 __reserved5[8];
 } __packed;
+struct qm_mcr_querycgr {
+	u16 __reserved1;
+	struct __qm_mc_cgr cgr; /* CGR fields */
+	u8 __reserved2[3];
+	u32 __reserved3:24;
+	u32 i_bcnt_hi:8;/* high 8-bits of 40-bit "Instant" */
+	u32 i_bcnt_lo;	/* low 32-bits of 40-bit */
+	u32 __reserved4:24;
+	u32 a_bcnt_hi:8;/* high 8-bits of 40-bit "Average" */
+	u32 a_bcnt_lo;	/* low 32-bits of 40-bit */
+	u8 __reserved5[16];
+} __packed;
+static inline u64 qm_mcr_querycgr_i_get64(const struct qm_mcr_querycgr *q)
+{
+	return ((u64)q->i_bcnt_hi << 32) | (u64)q->i_bcnt_lo;
+}
+static inline u64 qm_mcr_querycgr_a_get64(const struct qm_mcr_querycgr *q)
+{
+	return ((u64)q->a_bcnt_hi << 32) | (u64)q->a_bcnt_lo;
+}
+static inline u64 qm_mcr_cgrtestwrite_i_get64(
+					const struct qm_mcr_cgrtestwrite *q)
+{
+	return ((u64)q->i_bcnt_hi << 32) | (u64)q->i_bcnt_lo;
+}
+static inline u64 qm_mcr_cgrtestwrite_a_get64(
+					const struct qm_mcr_cgrtestwrite *q)
+{
+	return ((u64)q->a_bcnt_hi << 32) | (u64)q->a_bcnt_lo;
+}
+/* Macro, so we compile better if 'v' isn't always 64-bit */
+#define qm_mcr_querycgr_i_set64(q, v) \
+	do { \
+		struct qm_mcr_querycgr *__q931 = (fd); \
+		__q931->i_bcnt_hi = upper_32_bits(v); \
+		__q931->i_bcnt_lo = lower_32_bits(v); \
+	} while (0)
+#define qm_mcr_querycgr_a_set64(q, v) \
+	do { \
+		struct qm_mcr_querycgr *__q931 = (fd); \
+		__q931->a_bcnt_hi = upper_32_bits(v); \
+		__q931->a_bcnt_lo = lower_32_bits(v); \
+	} while (0)
 struct __qm_mcr_querycongestion {
 	u32 __state[8];
 };
@@ -698,6 +823,7 @@ struct qm_mc_result {
 		struct qm_mcr_queryfq_np queryfq_np;
 		struct qm_mcr_alterfq alterfq;
 		struct qm_mcr_initcgr initcgr;
+		struct qm_mcr_cgrtestwrite cgrtestwrite;
 		struct qm_mcr_querycgr querycgr;
 		struct qm_mcr_querycongestion querycongestion;
 		struct qm_mcr_querywq querywq;
@@ -790,6 +916,10 @@ static inline void qman_cgrs_init(struct qman_cgrs *c)
 {
 	memset(c, 0, sizeof(*c));
 }
+static inline void qman_cgrs_fill(struct qman_cgrs *c)
+{
+	memset(c, 0xff, sizeof(*c));
+}
 static inline int qman_cgrs_get(struct qman_cgrs *c, int num)
 {
 	return QM_MCR_QUERYCONGESTION(&c->q, num);
@@ -802,6 +932,39 @@ static inline void qman_cgrs_unset(struct qman_cgrs *c, int num)
 {
 	c->q.__state[__CGR_WORD(num)] &= ~(0x80000000 >> __CGR_SHIFT(num));
 }
+static inline int qman_cgrs_next(struct qman_cgrs *c, int num)
+{
+	while ((++num < 256) && !qman_cgrs_get(c, num))
+		;
+	return num;
+}
+static inline void qman_cgrs_cp(struct qman_cgrs *dest,
+			const struct qman_cgrs *src)
+{
+	memcpy(dest, src, sizeof(*dest));
+}
+static inline void qman_cgrs_and(struct qman_cgrs *dest,
+			const struct qman_cgrs *a, const struct qman_cgrs *b)
+{
+	int ret;
+	u32 *_d = dest->q.__state;
+	const u32 *_a = a->q.__state;
+	const u32 *_b = b->q.__state;
+	for (ret = 0; ret < 8; ret++)
+		*(_d++) = *(_a++) & *(_b++);
+}
+static inline void qman_cgrs_xor(struct qman_cgrs *dest,
+			const struct qman_cgrs *a, const struct qman_cgrs *b)
+{
+	int ret;
+	u32 *_d = dest->q.__state;
+	const u32 *_a = a->q.__state;
+	const u32 *_b = b->q.__state;
+	for (ret = 0; ret < 8; ret++)
+		*(_d++) = *(_a++) ^ *(_b++);
+}
+#define qman_cgrs_for_each_1(cgr, cgrs) \
+	for ((cgr) = -1; (cgr) = qman_cgrs_next((cgrs), (cgr)), (cgr) < 256; )
 
 	/* Portal and Frame Queues */
 	/* ----------------------- */
@@ -812,7 +975,6 @@ struct qman_portal;
  * cacheline-aligned, and initialised by qman_create_fq(). The structure is
  * defined further down. */
 struct qman_fq;
-
 
 /* This object type represents a Qman congestion group, it is defined further
  * down. */
@@ -830,7 +992,15 @@ enum qman_cb_dqrr_result {
 	/* Does not consume, for DCA mode only. This allows out-of-order
 	 * consumes by explicit calls to qman_dca() and/or the use of implicit
 	 * DCA via EQCR entries. */
-	qman_cb_dqrr_defer
+	qman_cb_dqrr_defer,
+	/* Stop processing without consuming this ring entry. Exits the current
+	 * qman_poll_dqrr() or interrupt-handling, as appropriate. If within an
+	 * interrupt handler, the callback would typically call
+	 * qman_irqsource_remove(QM_PIRQ_DQRI) before returning this value,
+	 * otherwise the interrupt will reassert immediately. */
+	qman_cb_dqrr_stop,
+	/* Like qman_cb_dqrr_stop, but consumes the current entry. */
+	qman_cb_dqrr_consume_stop
 };
 typedef enum qman_cb_dqrr_result (*qman_cb_dqrr)(struct qman_portal *qm,
 					struct qman_fq *fq,
@@ -905,8 +1075,18 @@ struct qman_fq {
 	struct rb_node node;
 };
 
+/* This callback type is used when handling congestion group entry/exit.
+ * 'congested' is non-zero on congestion-entry, and zero on congestion-exit. */
+typedef void (*qman_cb_cgr)(struct qman_portal *qm,
+			struct qman_cgr *cgr, int congested);
+
 struct qman_cgr {
+	/* Set these prior to qman_create_cgr() */
 	u32 cgrid; /* 0..255, but u32 to allow specials like -1, 256, etc.*/
+	qman_cb_cgr cb;
+	/* These are private to the driver */
+	enum qm_channel chan; /* portal channel this object is created on */
+	struct list_head node;
 };
 
 /* Flags to qman_create_fq() */
@@ -914,7 +1094,7 @@ struct qman_cgr {
 #define QMAN_FQ_FLAG_NO_MODIFY       0x00000002 /* can only enqueue */
 #define QMAN_FQ_FLAG_TO_DCPORTAL     0x00000004 /* consumed by CAAM/PME/Fman */
 #define QMAN_FQ_FLAG_LOCKED          0x00000008 /* multi-core locking */
-#define QMAN_FQ_FLAG_RECOVER         0x00000010 /* recovery mode */
+#define QMAN_FQ_FLAG_AS_IS           0x00000010 /* query h/w state */
 #define QMAN_FQ_FLAG_DYNAMIC_FQID    0x00000020 /* (de)allocate fqid */
 
 /* Flags to qman_destroy_fq() */
@@ -926,6 +1106,7 @@ struct qman_cgr {
 #define QMAN_FQ_STATE_ORL            0x20000000 /* retired FQ has ORL */
 #define QMAN_FQ_STATE_BLOCKOOS       0xe0000000 /* if any are set, no OOS */
 #define QMAN_FQ_STATE_CGR_EN         0x10000000 /* CGR enabled */
+#define QMAN_FQ_STATE_VDQCR          0x08000000 /* being volatile dequeued */
 
 /* Flags to qman_init_fq() */
 #define QMAN_INITFQ_FLAG_SCHED       0x00000001 /* schedule rather than park */
@@ -933,18 +1114,23 @@ struct qman_cgr {
 #define QMAN_INITFQ_FLAG_LOCAL       0x00000004 /* set dest portal */
 
 /* Flags to qman_volatile_dequeue() */
+#ifdef CONFIG_FSL_DPA_CAN_WAIT
 #define QMAN_VOLATILE_FLAG_WAIT      0x00000001 /* wait if VDQCR is in use */
 #define QMAN_VOLATILE_FLAG_WAIT_INT  0x00000002 /* if wait, interruptible? */
 #define QMAN_VOLATILE_FLAG_FINISH    0x00000004 /* wait till VDQCR completes */
+#endif
 
 /* Flags to qman_enqueue(). NB, the strange numbering is to align with hardware,
  * bit-wise. (NB: the PME API is sensitive to these precise numberings too, so
  * any change here should be audited in PME.) */
+#ifdef CONFIG_FSL_DPA_CAN_WAIT
 #define QMAN_ENQUEUE_FLAG_WAIT       0x00010000 /* wait if EQCR is full */
 #define QMAN_ENQUEUE_FLAG_WAIT_INT   0x00020000 /* if wait, interruptible? */
-#define QMAN_ENQUEUE_FLAG_WAIT_SYNC  0x00040000 /* if wait, until consumed? */
+#ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
+#define QMAN_ENQUEUE_FLAG_WAIT_SYNC  0x00000004 /* if wait, until consumed? */
+#endif
+#endif
 #define QMAN_ENQUEUE_FLAG_WATCH_CGR  0x00080000 /* watch congestion state */
-#define QMAN_ENQUEUE_FLAG_INTERRUPT  0x00000004 /* on command consumption */
 #define QMAN_ENQUEUE_FLAG_DCA        0x00008000 /* perform enqueue-DCA */
 #define QMAN_ENQUEUE_FLAG_DCA_PARK   0x00004000 /* If DCA, requests park */
 #define QMAN_ENQUEUE_FLAG_DCA_PTR(p)		/* If DCA, p is DQRR entry */ \
@@ -964,8 +1150,13 @@ struct qman_cgr {
  *   number. */
 #define QMAN_ENQUEUE_FLAG_NESN       0x04000000
 
+/* Flags to qman_modify_cgr() */
+#define QMAN_CGR_FLAG_USE_INIT       0x00000001
+#define QMAN_CGR_MODE_FRAME          0x00000001
+
 	/* Portal Management */
 	/* ----------------- */
+#ifdef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
 /**
  * qman_get_null_cb - get callbacks currently used for "null" frame queues
  *
@@ -980,42 +1171,107 @@ void qman_get_null_cb(struct qman_fq_cb *null_cb);
  * a DQRR or MR entry refers to a "null" FQ object. (Eg. zero-conf messaging.)
  */
 void qman_set_null_cb(const struct qman_fq_cb *null_cb);
+#endif
 
 /**
- * qman_poll - Runs portal updates not triggered by interrupts
+ * qman_irqsource_get - return the portal work that is interrupt-driven
+ *
+ * Returns a bitmask of QM_PIRQ_**I processing sources that are currently
+ * enabled for interrupt handling on the current cpu's affine portal. These
+ * sources will trigger the portal interrupt and the interrupt handler (or a
+ * tasklet/bottom-half it defers to) will perform the corresponding processing
+ * work. The qman_poll_***() functions will only process sources that are not in
+ * this bitmask.
+ */
+u32 qman_irqsource_get(void);
+
+/**
+ * qman_irqsource_add - add processing sources to be interrupt-driven
+ * @bits: bitmask of QM_PIRQ_**I processing sources
+ *
+ * Adds processing sources that should be interrupt-driven (rather than
+ * processed via qman_poll_***() functions).
+ */
+void qman_irqsource_add(u32 bits);
+
+/**
+ * qman_irqsource_remove - remove processing sources from being interrupt-driven
+ * @bits: bitmask of QM_PIRQ_**I processing sources
+ *
+ * Removes processing sources from being interrupt-driven, so that they will
+ * instead be processed via qman_poll_***() functions.
+ */
+void qman_irqsource_remove(u32 bits);
+
+/**
+ * qman_affine_cpus - return a mask of cpus that have affine portals
+ */
+const cpumask_t *qman_affine_cpus(void);
+
+/**
+ * qman_poll_dqrr - process DQRR (fast-path) entries
+ * @limit: the maximum number of DQRR entries to process
+ *
+ * Use of this function requires that DQRR processing not be interrupt-driven.
+ * Ie. the value returned by qman_irqsource_get() should not include
+ * QM_PIRQ_DQRI.
+ */
+unsigned int qman_poll_dqrr(unsigned int limit);
+
+/**
+ * qman_poll_slow - process anything (except DQRR) that isn't interrupt-driven.
+ *
+ * This function does any portal processing that isn't interrupt-driven.
+ */
+void qman_poll_slow(void);
+
+/**
+ * qman_poll - legacey wrapper for qman_poll_dqrr() and qman_poll_slow()
  *
  * Dispatcher logic on a cpu can use this to trigger any maintenance of the
  * affine portal. There are two classes of portal processing in question;
  * fast-path (which involves demuxing dequeue ring (DQRR) entries and tracking
  * enqueue ring (EQCR) consumption), and slow-path (which involves EQCR
- * thresholds, congestion state changes, etc). The driver is configured to use
- * interrupts for either (a) all processing, (b) only slow-path processing, or
- * (c) no processing. This function does whatever processing is not triggered by
- * interrupts.
+ * thresholds, congestion state changes, etc). This function does whatever
+ * processing is not triggered by interrupts.
+ *
+ * Note, if DQRR and some slow-path processing are poll-driven (rather than
+ * interrupt-driven) then this function uses a heuristic to determine how often
+ * to run slow-path processing - as slow-path processing introduces at least a
+ * minimum latency each time it is run, whereas fast-path (DQRR) processing is
+ * close to zero-cost if there is no work to be done. Applications can tune this
+ * behaviour themselves by using qman_poll_dqrr() and qman_poll_slow() directly
+ * rather than going via this wrapper.
  */
-#ifdef CONFIG_FSL_QMAN_HAVE_POLL
 void qman_poll(void);
-#else
-#define qman_poll()	do { ; } while (0)
-#endif
 
 /**
- * qman_disable_portal - Cease processing DQRR and MR for a s/w portal
- *
- * Disables DQRR and MR processing of the portal. Portal disabling is
- * reference-counted, so qman_enable_portal() must be called as many times as
- * qman_disable_portal() to truly re-enable the portal.
+ * qman_recovery_cleanup_fq - in recovery mode, cleanup a FQ of unknown state
  */
-void qman_disable_portal(void);
+int qman_recovery_cleanup_fq(u32 fqid);
 
 /**
- * qman_enable_portal - Commence processing DQRR and MR for a s/w portal
- *
- * Enables DQRR and MR processing of the portal. Portal disabling is
- * reference-counted, so qman_enable_portal() must be called as many times as
- * qman_disable_portal() to truly re-enable the portal.
+ * qman_recovery_exit - leave recovery mode
  */
-void qman_enable_portal(void);
+int qman_recovery_exit(void);
+
+/**
+ * qman_stop_dequeues - Stop h/w dequeuing to the s/w portal
+ *
+ * Disables DQRR processing of the portal. This is reference-counted, so
+ * qman_start_dequeues() must be called as many times as qman_stop_dequeues() to
+ * truly re-enable dequeuing.
+ */
+void qman_stop_dequeues(void);
+
+/**
+ * qman_start_dequeues - (Re)start h/w dequeuing to the s/w portal
+ *
+ * Enables DQRR processing of the portal. This is reference-counted, so
+ * qman_start_dequeues() must be called as many times as qman_stop_dequeues() to
+ * truly re-enable dequeuing.
+ */
+void qman_start_dequeues(void);
 
 /**
  * qman_static_dequeue_add - Add pool channels to the portal SDQCR
@@ -1048,7 +1304,6 @@ u32 qman_static_dequeue_get(void);
 
 /**
  * qman_dca - Perform a Discrete Consumption Acknowledgement
- * @p: the managed portal whose DQRR is targeted (and is in DCA mode)
  * @dq: the DQRR entry to be consumed
  * @park_request: indicates whether the held-active @fq should be parked
  *
@@ -1060,6 +1315,19 @@ u32 qman_static_dequeue_get(void);
  * entry in the first place.
  */
 void qman_dca(struct qm_dqrr_entry *dq, int park_request);
+
+/**
+ * qman_eqcr_is_empty - Determine if portal's EQCR is empty
+ *
+ * For use in situations where a cpu-affine caller needs to determine when all
+ * enqueues for the local portal have been processed by Qman but can't use the
+ * QMAN_ENQUEUE_FLAG_WAIT_SYNC flag to do this from the final qman_enqueue().
+ * The function forces tracking of EQCR consumption (which normally doesn't
+ * happen until enqueue processing needs to find space to put new enqueue
+ * commands), and returns zero if the ring still has unprocessed entries,
+ * non-zero if it is empty.
+ */
+int qman_eqcr_is_empty(void);
 
 	/* FQ management */
 	/* ------------- */
@@ -1081,10 +1349,10 @@ void qman_dca(struct qm_dqrr_entry *dq, int park_request);
  * qm_init_fq() API, as this indicates the frame queue will be consumed by a
  * direct-connect portal (PME, CAAM, or Fman). When frame queues are consumed by
  * software portals, the contextB field is controlled by the driver and can't be
- * modified by the caller. If the RECOVERY flag is specified, management
- * commands will be used on portal @p to query state for frame queue @fqid and
- * construct a frame queue object based on that, rather than assuming/requiring
- * that it be Out of Service.
+ * modified by the caller. If the AS_IS flag is specified, management commands
+ * will be used on portal @p to query state for frame queue @fqid and construct
+ * a frame queue object based on that, rather than assuming/requiring that it be
+ * Out of Service.
  */
 int qman_create_fq(u32 fqid, u32 flags, struct qman_fq *fq);
 
@@ -1223,19 +1491,6 @@ int qman_query_fq_np(struct qman_fq *fq, struct qm_mcr_queryfq_np *np);
 int qman_query_wq(u8 query_dedicated, struct qm_mcr_querywq *wq);
 
 /**
- * qman_query_cgr - Queries congestion group record
- * @cgr: the congestion group record object to be queried
- * @cgrd: storage for the queried congestion group record
- */
-int qman_query_cgr(struct qman_cgr *cgr, struct qm_mcr_querycgr *cgrd);
-
-/**
- * qman_query_congestion - Queries the state of all congestion groups
- * @congestion: storage for the queried state of all congestion groups
- */
-int qman_query_congestion(struct qm_mcr_querycongestion *congestion);
-
-/**
  * qman_volatile_dequeue - Issue a volatile dequeue command
  * @fq: the frame queue object to dequeue from (or NULL)
  * @flags: a bit-mask of QMAN_VOLATILE_FLAG_*** options
@@ -1246,10 +1501,14 @@ int qman_query_congestion(struct qm_mcr_querycongestion *congestion);
  * the VDQCR is already in use, otherwise returns non-zero for failure. If
  * QMAN_VOLATILE_FLAG_FINISH is specified, the function will only return once
  * the VDQCR command has finished executing (ie. once the callback for the last
- * DQRR entry resulting from the VDQCR command has been called). If @fq is
- * non-NULL, the corresponding FQID will be substituted in to the VDQCR command,
- * otherwise it is assumed that @vdqcr already contains the FQID to dequeue
- * from.
+ * DQRR entry resulting from the VDQCR command has been called). If not using
+ * the FINISH flag, completion can be determined either by detecting the
+ * presence of the QM_DQRR_STAT_UNSCHEDULED and QM_DQRR_STAT_DQCR_EXPIRED bits
+ * in the "stat" field of the "struct qm_dqrr_entry" passed to the FQ's dequeue
+ * callback, or by waiting for the QMAN_FQ_STATE_VDQCR bit to disappear from the
+ * "flags" retrieved from qman_fq_state(). If @fq is non-NULL, the corresponding
+ * FQID will be substituted in to the VDQCR command, otherwise it is assumed
+ * that @vdqcr already contains the FQID to dequeue from.
  */
 int qman_volatile_dequeue(struct qman_fq *fq, u32 flags, u32 vdqcr);
 
@@ -1358,6 +1617,64 @@ static inline void qman_release_fqid(u32 fqid)
 {
 	qman_release_fqid_range(fqid, 1);
 }
+
+	/* CGR management */
+	/* -------------- */
+/**
+ * qman_create_cgr - Register a congestion group object
+ * @cgr: the 'cgr' object, with fields filled in
+ * @flags: QMAN_CGR_FLAG_* values
+ * @opts: optional state of CGR settings
+ *
+ * Registers this object to receiving congestion entry/exit callbacks on the
+ * portal affine to the cpu portal on which this API is executed. If opts is
+ * NULL then only the callback (cgr->cb) function is registered. If @flags
+ * contains QMAN_CGR_FLAG_USE_INIT, then an init hw command (which will reset
+ * any unspecified parameters) will be used rather than a modify hw hardware
+ * (which only modifies the specified parameters).
+ */
+int qman_create_cgr(struct qman_cgr *cgr, u32 flags,
+			struct qm_mcc_initcgr *opts);
+
+/**
+ * qman_delete_cgr - Deregisters a congestion group object
+ * @cgr: the 'cgr' object to deregister
+ *
+ * "Unplugs" this CGR object from the portal affine to the cpu on which this API
+ * is executed. This must be excuted on the same affine portal on which it was
+ * created.
+ */
+int qman_delete_cgr(struct qman_cgr *cgr);
+
+/**
+ * qman_modify_cgr - Modify CGR fields
+ * @cgr: the 'cgr' object to modify
+ * @flags: QMAN_CGR_FLAG_* values
+ * @opts: the CGR-modification settings
+ *
+ * The @opts parameter comes from the low-level portal API, and can be NULL.
+ * Note that some fields and options within @opts may be ignored or overwritten
+ * by the driver, in particular the 'cgrid' field is ignored (this operation
+ * only affects the given CGR object). If @flags contains
+ * QMAN_CGR_FLAG_USE_INIT, then an init hw command (which will reset any
+ * unspecified parameters) will be used rather than a modify hw hardware (which
+ * only modifies the specified parameters).
+ */
+int qman_modify_cgr(struct qman_cgr *cgr, u32 flags,
+			struct qm_mcc_initcgr *opts);
+
+/**
+* qman_query_cgr - Queries CGR fields
+* @cgr: the 'cgr' object to query
+* @result: storage for the queried congestion group record
+*/
+int qman_query_cgr(struct qman_cgr *cgr, struct qm_mcr_querycgr *result);
+
+/**
+ * qman_query_congestion - Queries the state of all congestion groups
+ * @congestion: storage for the queried state of all congestion groups
+ */
+int qman_query_congestion(struct qm_mcr_querycongestion *congestion);
 
 	/* Helpers */
 	/* ------- */

@@ -40,7 +40,6 @@ extern "C" {
 /* User-space-specific initialisation: */
 int qman_thread_init(int cpu);
 int bman_thread_init(int cpu);
-int qman_fqalloc_init(void);
 
 #ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
 /* Rev1-specific instrumentation to throttle (per-cpu) EQCR_CI updates */

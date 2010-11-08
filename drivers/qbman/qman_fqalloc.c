@@ -40,14 +40,20 @@
 /* FQ allocator */
 /****************/
 
+/* Global flag: use BPID==0 (fq_pool), or use the range-allocator? */
+static int use_bman;
+
 static struct bman_pool *fq_pool;
 static const struct bman_pool_params fq_pool_params;
 
-__init int __fqalloc_init(void)
+__init int fqalloc_init(int __use_bman)
 {
-	fq_pool = bman_new_pool(&fq_pool_params);
-	if (!fq_pool)
-		return -ENOMEM;
+	use_bman = __use_bman;
+	if (use_bman) {
+		fq_pool = bman_new_pool(&fq_pool_params);
+		if (!fq_pool)
+			return -ENOMEM;
+	}
 	return 0;
 }
 
@@ -56,6 +62,12 @@ u32 qm_fq_new(void)
 	struct bm_buffer buf;
 	int ret;
 
+	if (!use_bman) {
+		u32 result;
+		if (qman_alloc_fqid(&result) < 0)
+			return 0;
+		return result;
+	}
 	BUG_ON(!fq_pool);
 	ret = bman_acquire(fq_pool, &buf, 1, 0);
 	if (ret != 1)
@@ -64,14 +76,17 @@ u32 qm_fq_new(void)
 }
 EXPORT_SYMBOL(qm_fq_new);
 
-int qm_fq_free_flags(u32 fqid, u32 flags)
+int qm_fq_free_flags(u32 fqid, __maybe_unused u32 flags)
 {
-	struct bm_buffer buf = {
-		.hi = 0,
-		.lo = fqid
-	};
+	struct bm_buffer buf = BM_BUFFER_INIT64(fqid);
 	u32 bflags = 0;
 	int ret;
+
+	if (!use_bman) {
+		qman_release_fqid(fqid);
+		return 0;
+	}
+#ifdef CONFIG_FSL_DPA_CAN_WAIT
 	if (flags & QM_FQ_FREE_WAIT) {
 		bflags |= BMAN_RELEASE_FLAG_WAIT;
 		if (flags & BMAN_RELEASE_FLAG_WAIT_INT)
@@ -79,14 +94,11 @@ int qm_fq_free_flags(u32 fqid, u32 flags)
 		if (flags & BMAN_RELEASE_FLAG_WAIT_SYNC)
 			bflags |= BMAN_RELEASE_FLAG_WAIT_SYNC;
 	}
+#endif
 	ret = bman_release(fq_pool, &buf, 1, bflags);
 	return ret;
 }
 EXPORT_SYMBOL(qm_fq_free_flags);
-
-#endif /* CONFIG_FSL_QMAN_FQALLOCATOR */
-
-#ifdef CONFIG_FSL_QMAN_FQRANGE
 
 /* Global state for the allocator */
 static DEFINE_SPINLOCK(alloc_lock);
@@ -126,6 +138,7 @@ int qman_alloc_fqid_range(u32 *result, u32 count, u32 align, int partial)
 	u32 base, next_best_base = 0, num = 0, next_best_num = 0;
 	struct alloc_node *margin_left, *margin_right;
 
+	*result = (u32)-1;
 	DPRINT("alloc_range(%d,%d,%d)\n", count, align, partial);
 	DUMP();
 	/* If 'align' is 0, it should behave as though it was 1 */
@@ -187,7 +200,7 @@ done:
 err:
 	DPRINT("returning %d\n", i ? num : -ENOMEM);
 	DUMP();
-	return i ? num : -ENOMEM;
+	return i ? (int)num : -ENOMEM;
 }
 EXPORT_SYMBOL(qman_alloc_fqid_range);
 
@@ -229,4 +242,4 @@ done:
 }
 EXPORT_SYMBOL(qman_release_fqid_range);
 
-#endif /* CONFIG_FSL_QMAN_FQRANGE */
+#endif /* CONFIG_FSL_QMAN_FQALLOCATOR */

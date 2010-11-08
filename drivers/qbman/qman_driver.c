@@ -40,74 +40,52 @@ u16 qman_ip_rev = QMAN_REV1;
 /* Portal driver */
 /*****************/
 
-static __thread struct qm_portal portal;
+#define PORTAL_MAX	10
+
 static __thread int fd;
-DEFINE_PER_CPU(struct qman_portal *, qman_affine_portal);
+
+static struct qm_portal_config configs[PORTAL_MAX];
+static u8 num_portals;
+/* First thread to get the lock will handle global init */
+static spinlock_t global_init_lock = SPIN_LOCK_UNLOCKED;
+static int global_init_done = 0;
+
+static struct qm_portal_config *__qm_portal_add(
+					const struct qm_portal_config *config)
+{
+	struct qm_portal_config *ret;
+	BUG_ON((num_portals + 1) > PORTAL_MAX);
+	ret = &configs[num_portals];
+	*ret = *config;
+	ret->portal = NULL;
+	ret->index = num_portals++;
+	return ret;
+}
 
 u8 qm_portal_num(void)
 {
-	return 1;
+	return num_portals;
 }
-EXPORT_SYMBOL(qm_portal_num);
 
-struct qm_portal *qm_portal_get(u8 idx)
+const struct qm_portal_config *qm_portal_config(u8 idx)
 {
-	if (unlikely(idx >= 1))
+	if (unlikely(idx >= num_portals))
 		return NULL;
 
-	return &portal;
-}
-EXPORT_SYMBOL(qm_portal_get);
-
-const struct qm_portal_config *qm_portal_config(const struct qm_portal *portal)
-{
-	return &portal->config;
-}
-EXPORT_SYMBOL(qm_portal_config);
-
-static struct qm_portal *__qm_portal_add(const struct qm_addr *addr,
-				const struct qm_portal_config *config)
-{
-	struct qm_portal *ret = &portal;
-	ret->addr = *addr;
-	ret->config = *config;
-	ret->config.bound = 0;
-#ifdef CONFIG_FSL_QMAN_BUG_AND_FEATURE_REV1
-	ret->bugs = (void *)get_zeroed_page(GFP_KERNEL);
-	if (!ret->bugs) {
-		pr_err("Can't get zeroed page for 'bugs'\n");
-		return NULL;
-	}
-#endif
-	return ret;
+	return &configs[idx];
 }
 
-int __qm_portal_bind(struct qm_portal *portal, u8 iface)
-{
-	int ret = -EBUSY;
-	if (!(portal->config.bound & iface)) {
-		portal->config.bound |= iface;
-		ret = 0;
-	}
-	return ret;
-}
-
-void __qm_portal_unbind(struct qm_portal *portal, u8 iface)
-{
-	QM_ASSERT(portal->config.bound & iface);
-	portal->config.bound &= ~iface;
-}
-
+#ifdef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
 /* Handlers for NULL portal callbacks (ie. where the contextB field, normally
  * pointing to the corresponding FQ object, is NULL). */
 static enum qman_cb_dqrr_result null_cb_dqrr(struct qman_portal *qm,
-					struct qman_fq *fq,
-					const struct qm_dqrr_entry *dqrr)
+					__UNUSED struct qman_fq *fq,
+					__UNUSED const struct qm_dqrr_entry *dqrr)
 {
 	pr_warning("Ignoring unowned DQRR frame on portal %p.\n", qm);
 	return qman_cb_dqrr_consume;
 }
-static void null_cb_mr(struct qman_portal *qm, struct qman_fq *fq,
+static void null_cb_mr(struct qman_portal *qm, __UNUSED struct qman_fq *fq,
 			const struct qm_mr_entry *msg)
 {
 	pr_warning("Ignoring unowned MR msg on portal %p, verb 0x%02x.\n",
@@ -119,25 +97,13 @@ static const struct qman_fq_cb null_cb = {
 	.dc_ern = null_cb_mr,
 	.fqs = null_cb_mr
 };
+#endif
 
-static int __init fsl_qman_portal_init(int cpu)
+static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 {
-	struct qm_portal_config cfg = {
-		.cpu = cpu,
-		.irq = -1,
-		/* FIXME: hard-coded */
-		.channel = qm_channel_swportal0 + (cpu ? cpu : 8),
-		/* FIXME: hard-coded */
-		.pools = QM_SDQCR_CHANNELS_POOL_MASK,
-		/* FIXME: hard-coded */
-		.has_hv_dma = 1
-	};
-	struct qm_addr addr;
-	struct qm_portal *portal;
-	struct qman_portal *affine_portal;
+	struct qm_portal_config cfg, *pconfig;
 	char name[8], *path;
 
-	/* FIXME: hard-coded */
 	snprintf(name, 7, "QMAN%d", cpu);
 	path = getenv(name);
 	if (!path) {
@@ -149,69 +115,106 @@ static int __init fsl_qman_portal_init(int cpu)
 		perror("can't open Qman portal UIO device");
 		return -ENODEV;
 	}
-	addr.addr_ce = mmap(QMAN_CENA(cfg.cpu), 16*1024, PROT_READ | PROT_WRITE,
+	cfg.portal = NULL;
+	cfg.addr.addr_ce = mmap(QMAN_CENA(cpu), 16*1024, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_FIXED, fd, 0);
-	if (addr.addr_ce == MAP_FAILED)
-		perror("mmap of CENA failed");
-	addr.addr_ci = mmap(QMAN_CINH(cfg.cpu), 4*1024, PROT_READ | PROT_WRITE,
+	cfg.addr.addr_ci = mmap(QMAN_CINH(cpu), 4*1024, PROT_READ | PROT_WRITE,
 			MAP_SHARED, fd, 4*1024);
-	if (addr.addr_ci == MAP_FAILED)
-		perror("mmap of CINH failed");
-	portal = __qm_portal_add(&addr, &cfg);
-	if (!portal)
+	if ((cfg.addr.addr_ce == MAP_FAILED) ||
+			(cfg.addr.addr_ci == MAP_FAILED)) {
+		pr_err("Qman mmap()s failed with %p:%p\n",
+			cfg.addr.addr_ce, cfg.addr.addr_ci);
+		perror("mmap of CENA or CINH failed");
+		close(fd);
+		return -ENODEV;
+	}
+	cfg.cpu = cpu;
+	cfg.irq = -1;
+	cfg.channel = qm_channel_swportal0 + (cpu ? cpu : 8);
+	cfg.pools = QM_SDQCR_CHANNELS_POOL_MASK;
+	cfg.has_hv_dma = 1;
+	cfg.index = -1;
+	cfg.node = NULL;
+	pconfig = __qm_portal_add(&cfg);
+	if (!pconfig) {
+		close(fd);
 		return -ENOMEM;
-	pr_info("Qman portal at %p:%p (%d:%d,v%04x)\n", addr.addr_ce,
-		addr.addr_ci, cfg.cpu, cfg.channel, qman_ip_rev);
-#ifndef CONFIG_FSL_QMAN_PORTAL_DISABLEAUTO
+	}
+	pr_info("Qman portal at %p:%p (%d:%d,v%04x)\n", cfg.addr.addr_ce,
+		cfg.addr.addr_ci, cfg.cpu, cfg.channel, qman_ip_rev);
 	if (cfg.cpu == -1)
 		return 0;
-	affine_portal = per_cpu(qman_affine_portal, cfg.cpu);
-	if (!affine_portal) {
+	if (!qman_have_affine_portal()) {
 		u32 flags = 0;
+		u32 irq_sources = 0;
 		if (cfg.has_hv_dma)
 			flags = QMAN_PORTAL_FLAG_RSTASH |
 				QMAN_PORTAL_FLAG_DSTASH;
-		affine_portal = qman_create_portal(portal, flags, NULL,
-						&null_cb);
-		if (!affine_portal) {
+#ifdef CONFIG_FSL_DPA_PIRQ_SLOW
+		irq_sources = QM_PIRQ_EQCI | QM_PIRQ_EQRI | QM_PIRQ_MRI |
+				QM_PIRQ_CSCI;
+#endif
+#ifdef CONFIG_FSL_QMAN_PIRQ_FAST
+		irq_sources |= QM_PIRQ_DQRI;
+#endif
+		if (qman_create_affine_portal(pconfig, flags, NULL,
+#ifdef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
+			 	&null_cb,
+#else
+				NULL,
+#endif
+				irq_sources,
+				recovery_mode))
 			pr_err("Qman portal auto-initialisation failed\n");
-			return 0;
-		}
-#if 0
-		/* default: enable all (available) pool channels */
-		qman_static_dequeue_add_ex(affine_portal, ~0);
-#endif
-		pr_info("Qman portal %d auto-initialised\n", cfg.cpu);
-		per_cpu(qman_affine_portal, cfg.cpu) = affine_portal;
+		else
+			pr_info("Qman portal %d auto-initialised\n", cfg.cpu);
 	}
-#endif
 	return 0;
 }
 
-/***************/
-/* Driver load */
-/***************/
+static int fsl_fqid_range_init(int recovery_mode)
+{
+	if (recovery_mode) {
+		u32 fqid;
+		for (fqid = FSL_FQID_RANGE_START; fqid <
+				(FSL_FQID_RANGE_START + FSL_FQID_RANGE_LENGTH);
+				fqid++) {
+			int ret = qman_recovery_cleanup_fq(fqid);
+			if (ret) {
+				pr_err("Failed to recover FQID %d\n", fqid);
+				return ret;
+			}
+		}
+	}
+	qman_release_fqid_range(FSL_FQID_RANGE_START, FSL_FQID_RANGE_LENGTH);
+	pr_info("Qman: FQID allocator includes range %d:%d%s\n",
+		FSL_FQID_RANGE_START, FSL_FQID_RANGE_LENGTH,
+		recovery_mode ? " (recovered)" : "");
+	return 0;
+}
 
 int qman_thread_init(int cpu)
 {
 	/* Load the core-affine portal */
-	int ret = (get_cpu_var(qman_affine_portal) != NULL);
-	put_cpu_var(qman_affine_portal);
-	if (ret) {
-		pr_err("Qman portal already initialised (%d)\n", cpu);
-		return -EBUSY;
-	}
-	ret = fsl_qman_portal_init(cpu);
+	int recovery_mode = fsl_dpa_should_recover();
+	int ret = fsl_qman_portal_init(cpu, recovery_mode);
 	if (ret) {
 		pr_err("Qman portal failed initialisation (%d), ret=%d\n",
 			cpu, ret);
 		return ret;
 	}
+	spin_lock(&global_init_lock);
+	if (!global_init_done) {
+		global_init_done = 1;
+		ret = fsl_fqid_range_init(recovery_mode);
+		if (!ret)
+			ret = fqalloc_init(0);
+	}
+	spin_unlock(&global_init_lock);
+	if (ret)
+		return ret;
+	if (recovery_mode)
+		qman_recovery_exit_local();
 	pr_info("Qman portal initialised (%d)\n", cpu);
 	return 0;
-}
-
-int qman_fqalloc_init(void)
-{
-	return __fqalloc_init();
 }

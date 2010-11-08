@@ -34,16 +34,6 @@
 extern "C" {
 #endif
 
-/***********/
-/* General */
-/***********/
-
-/* support for BUG_ON()s, might_sleep()s, etc */
-#undef CONFIG_BUGON
-
-/* When copying aligned words or shorts, try to avoid memcpy() */
-#define CONFIG_TRY_BETTER_MEMCPY
-
 /* The driver requires that CENA spaces be 16KB-aligned, whereas mmap() only
  * guarantees 4KB-alignment. Hmm. Workaround is to require *these*
  * [BQ]MAN_*** addresses for now.
@@ -71,48 +61,38 @@ extern "C" {
 #define __shmem_ptov(p) (void *)(p + (FSL_SHMEM_VIRT - FSL_SHMEM_PHYS))
 #define __shmem_vtop(v) ((dma_addr_t)v - (FSL_SHMEM_VIRT - FSL_SHMEM_PHYS))
 
-/********/
-/* Bman */
-/********/
+/* Until device-trees (or device-tree replacements) are available, another thing
+ * to hard-code is the FQID and BPID range allocation. */
+#define FSL_FQID_RANGE_START	0x200	/* 512 */
+#define FSL_FQID_RANGE_LENGTH	0x080	/* 128 */
+#define FSL_BPID_RANGE_START	60
+#define FSL_BPID_RANGE_LENGTH	4
 
-/* support for run-time parameter checking, assertions, etc */
-#undef CONFIG_FSL_BMAN_CHECKING
+/* support for BUG_ON()s, might_sleep()s, etc */
+#undef CONFIG_BUGON
 
-/* do not do slow-path processing via IRQ */
-#undef CONFIG_FSL_BMAN_PORTAL_FLAG_IRQ_SLOW
+/* When copying aligned words or shorts, try to avoid memcpy() */
+#define CONFIG_TRY_BETTER_MEMCPY
 
-/* do not do fast-path processing via IRQ */
-#undef CONFIG_FSL_BMAN_PORTAL_FLAG_IRQ_FAST
+/* don't support blocking (so, WAIT flags won't be #define'd) */
+#undef CONFIG_FSL_DPA_CAN_WAIT
 
-/* portals do not initialise in recovery mode */
-#undef CONFIG_FSL_BMAN_PORTAL_FLAG_RECOVER
-
-#if defined(CONFIG_FSL_BMAN_PORTAL_FLAG_IRQ_SLOW) || \
-		defined(CONFIG_FSL_BMAN_PORTAL_FLAG_IRQ_FAST)
-#define CONFIG_FSL_BMAN_HAVE_IRQ
-#else
-#undef CONFIG_FSL_BMAN_HAVE_IRQ
+#ifdef CONFIG_FSL_DPA_CAN_WAIT
+/* if we can "WAIT" - can we "WAIT_SYNC" too? */
+#undef CONFIG_FSL_DPA_CAN_WAIT_SYNC
 #endif
 
-#if !defined(CONFIG_FSL_BMAN_PORTAL_FLAG_IRQ_SLOW) || \
-		!defined(CONFIG_FSL_BMAN_PORTAL_FLAG_IRQ_FAST)
-#define CONFIG_FSL_BMAN_HAVE_POLL
-#else
-#undef CONFIG_FSL_BMAN_HAVE_POLL
-#endif
+/* disable support for run-time parameter checking, assertions, etc */
+#undef CONFIG_FSL_DPA_CHECKING
 
-/********/
-/* Qman */
-/********/
+/* don't support IRQs (can't be enabled at run-time either) */
+#undef CONFIG_FSL_DPA_HAVE_IRQ
 
 /* workarounds for errata and missing features in p4080 rev1 */
 #define CONFIG_FSL_QMAN_BUG_AND_FEATURE_REV1
 
 /* don't use rev1-specific adaptive "backoff" for EQCR:CI updates */
 #undef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
-
-/* support for run-time parameter checking, assertions, etc */
-#undef CONFIG_FSL_QMAN_CHECKING
 
 /* support FQ allocator built on top of BPID 0 */
 #define CONFIG_FSL_QMAN_FQALLOCATOR
@@ -128,31 +108,11 @@ extern "C" {
 /* maximum number of DQRR entries to process in qman_poll() */
 #define CONFIG_FSL_QMAN_POLL_LIMIT 8
 
-/* do not do slow-path processing via IRQ */
-#undef CONFIG_FSL_QMAN_PORTAL_FLAG_IRQ_SLOW
+/* don't compile support for NULL FQ handling */
+#undef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
 
-/* do not do fast-path processing via IRQ */
-#undef CONFIG_FSL_QMAN_PORTAL_FLAG_IRQ_FAST
-
-/* portals aren't SMP-locked, they're core-affine */
-#undef CONFIG_FSL_QMAN_PORTAL_FLAG_LOCKED
-
-/* portals do not initialise in recovery mode */
-#undef CONFIG_FSL_QMAN_PORTAL_FLAG_RECOVER
-
-#if defined(CONFIG_FSL_QMAN_PORTAL_FLAG_IRQ_SLOW) || \
-		defined(CONFIG_FSL_QMAN_PORTAL_FLAG_IRQ_FAST)
-#define CONFIG_FSL_QMAN_HAVE_IRQ
-#else
-#undef CONFIG_FSL_QMAN_HAVE_IRQ
-#endif
-
-#if !defined(CONFIG_FSL_QMAN_PIRQ_SLOW) || \
-		!defined(CONFIG_FSL_QMAN_PIRQ_FAST)
-#define CONFIG_FSL_QMAN_HAVE_POLL
-#else
-#undef CONFIG_FSL_QMAN_HAVE_POLL
-#endif
+/* don't compile support for DQRR prefetching (so stashing is required) */
+#undef CONFIG_FSL_QMAN_DQRR_PREFETCHING
 
 #ifdef __cplusplus
 }

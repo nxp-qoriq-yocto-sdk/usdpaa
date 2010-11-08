@@ -39,20 +39,17 @@ extern "C" {
 
 /* Last updated for v00.79 of the BG */
 
-/* Represents s/w corenet portal mapped data structures */
-struct bm_rcr_entry;	/* RCR (Release Command Ring) entries */
-struct bm_mc_command;	/* MC (Management Command) command */
-struct bm_mc_result;	/* MC result */
+/* Portal processing (interrupt) sources */
+#define BM_PIRQ_RCRI	0x00000002	/* RCR Ring (below threshold) */
+#define BM_PIRQ_BSCN	0x00000001	/* Buffer depletion State Change */
 
 /* This wrapper represents a bit-array for the depletion state of the 64 Bman
  * buffer pools. */
 struct bman_depletion {
 	u32 __state[2];
 };
-#define BMAN_DEPLETION_EMPTY \
-	(struct bman_depletion){ { 0x00000000, 0x00000000 } }
-#define BMAN_DEPLETION_FULL \
-	(struct bman_depletion){ { 0xffffffff, 0xffffffff } }
+#define BMAN_DEPLETION_EMPTY { { 0x00000000, 0x00000000 } }
+#define BMAN_DEPLETION_FULL { { 0xffffffff, 0xffffffff } }
 #define __bmdep_word(x) ((x) >> 5)
 #define __bmdep_shift(x) ((x) & 0x1f)
 #define __bmdep_bit(x) (0x80000000 >> __bmdep_shift(x))
@@ -80,15 +77,44 @@ static inline void bman_depletion_unset(struct bman_depletion *c, u8 bpid)
 /* ------------------------------------------------------- */
 /* --- Bman data structures (and associated constants) --- */
 
+/* Represents s/w corenet portal mapped data structures */
+struct bm_rcr_entry;	/* RCR (Release Command Ring) entries */
+struct bm_mc_command;	/* MC (Management Command) command */
+struct bm_mc_result;	/* MC result */
+
 /* Code-reduction, define a wrapper for 48-bit buffers. In cases where a buffer
  * pool id specific to this buffer is needed (BM_RCR_VERB_CMD_BPID_MULTI,
  * BM_MCC_VERB_ACQUIRE), the 'bpid' field is used. */
 struct bm_buffer {
 	u8 __reserved1;
 	u8 bpid;
-	u16 hi;	/* High 16-bits of 48-bit address */
-	u32 lo;	/* Low 32-bits of 48-bit address */
+	u16 hi; /* High 16-bits of 48-bit address */
+	u32 lo; /* Low 32-bits of 48-bit address */
 } __packed;
+static inline u64 bm_buffer_get64(const struct bm_buffer *buf)
+{
+	return ((u64)buf->hi << 32) | (u64)buf->lo;
+}
+static inline dma_addr_t bm_buf_addr(const struct bm_buffer *buf)
+{
+#ifdef CONFIG_PHYS_ADDR_T_64BIT
+	return ((dma_addr_t)buf->hi << 32) | (dma_addr_t)buf->lo;
+#else
+	return (dma_addr_t)buf->lo;
+#endif
+}
+/* Macro, so we compile better if 'v' isn't always 64-bit */
+#define bm_buffer_set64(buf, v) \
+	do { \
+		struct bm_buffer *__buf931 = (buf); \
+		__buf931->hi = upper_32_bits(v); \
+		__buf931->lo = lower_32_bits(v); \
+	} while (0)
+#define BM_BUFFER_INIT64(v) \
+	(struct bm_buffer) { \
+		.hi = upper_32_bits(v), \
+		.lo = lower_32_bits(v) \
+	}
 
 /* See 1.5.3.5.4: "Release Command" */
 struct bm_rcr_entry {
@@ -215,9 +241,13 @@ struct bman_pool_params {
 #define BMAN_POOL_FLAG_STOCKPILE     0x00000020 /* stockpile to reduce hw ops */
 
 /* Flags to bman_release() */
+#ifdef CONFIG_FSL_DPA_CAN_WAIT
 #define BMAN_RELEASE_FLAG_WAIT       0x00000001 /* wait if RCR is full */
 #define BMAN_RELEASE_FLAG_WAIT_INT   0x00000002 /* if we wait, interruptible? */
+#ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
 #define BMAN_RELEASE_FLAG_WAIT_SYNC  0x00000004 /* if wait, until consumed? */
+#endif
+#endif
 #define BMAN_RELEASE_FLAG_NOW        0x00000008 /* issue immediate release */
 
 /* Flags to bman_acquire() */
@@ -226,21 +256,71 @@ struct bman_pool_params {
 	/* Portal Management */
 	/* ----------------- */
 /**
- * bman_poll - Runs portal updates not triggered by interrupts
+ * bman_irqsource_get - return the portal work that is interrupt-driven
+ *
+ * Returns a bitmask of BM_PIRQ_**I processing sources that are currently
+ * enabled for interrupt handling on the current cpu's affine portal. These
+ * sources will trigger the portal interrupt and the interrupt handler (or a
+ * tasklet/bottom-half it defers to) will perform the corresponding processing
+ * work. The bman_poll_***() functions will only process sources that are not in
+ * this bitmask.
+ */
+u32 bman_irqsource_get(void);
+
+/**
+ * bman_irqsource_add - add processing sources to be interrupt-driven
+ * @bits: bitmask of BM_PIRQ_**I processing sources
+ *
+ * Adds processing sources that should be interrupt-driven, rather than
+ * processed via bman_poll().
+ */
+void bman_irqsource_add(u32 bits);
+
+/**
+ * bman_irqsource_remove - remove processing sources from being interrupt-driven
+ * @bits: bitmask of BM_PIRQ_**I processing sources
+ *
+ * Removes processing sources from being interrupt-driven, so that they will
+ * instead be processed via bman_poll().
+ */
+void bman_irqsource_remove(u32 bits);
+
+/**
+ * bman_affine_cpus - return a mask of cpus that have affine portals
+ */
+const cpumask_t *bman_affine_cpus(void);
+
+/**
+ * bman_poll - process anything that isn't interrupt-driven.
  *
  * Dispatcher logic on a cpu can use this to trigger any maintenance of the
- * affine portal. There are two classes of portal processing in question;
- * fast-path (which involves tracking release ring (RCR) consumption), and
- * slow-path (which involves RCR thresholds, pool depletion state changes, etc).
- * The driver is configured to use interrupts for either (a) all processing, (b)
- * only slow-path processing, or (c) no processing. This function does whatever
- * processing is not triggered by interrupts.
+ * affine portal. This function does whatever processing is not triggered by
+ * interrupts.
  */
-#ifdef CONFIG_FSL_BMAN_HAVE_POLL
 void bman_poll(void);
-#else
-#define bman_poll()	do { ; } while (0)
-#endif
+
+/**
+ * bman_recovery_cleanup_bpid  - in recovery mode, cleanup a buffer pool
+ */
+int bman_recovery_cleanup_bpid(u32 bpid);
+
+/**
+ * bman_recovery_exit - leave recovery mode
+ */
+int bman_recovery_exit(void);
+
+/**
+ * bman_rcr_is_empty - Determine if portal's RCR is empty
+ *
+ * For use in situations where a cpu-affine caller needs to determine when all
+ * releases for the local portal have been processed by Bman but can't use the
+ * BMAN_RELEASE_FLAG_WAIT_SYNC flag to do this from the final bman_release().
+ * The function forces tracking of RCR consumption (which normally doesn't
+ * happen until release processing needs to find space to put new release
+ * commands), and returns zero if the ring still has unprocessed entries,
+ * non-zero if it is empty.
+ */
+int bman_rcr_is_empty(void);
 
 
 	/* Pool management */

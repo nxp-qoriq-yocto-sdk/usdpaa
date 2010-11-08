@@ -14,15 +14,15 @@ BMAN="bman_high.c bman_low.h bman_private.h"
 
 # Location of files in linux
 LIN_INCL=$TOPDIR/linux-2.6/include/linux
-LIN_BMAN=$TOPDIR/linux-2.6/drivers/hwalloc
-LIN_QMAN=$TOPDIR/linux-2.6/drivers/hwqueue
-#LIN_PME2=$TOPDIR/linux-2.6/drivers/match
+LIN_BMAN=$TOPDIR/linux-2.6/drivers/staging/fsl_qbman
+LIN_QMAN=$TOPDIR/linux-2.6/drivers/staging/fsl_qbman
+#LIN_PME2=$TOPDIR/linux-2.6/drivers/staging/fsl_pme2
 
 # Location of files in usd
-LWE_INCL=$TOPDIR/usd/include/linux
-LWE_BMAN=$TOPDIR/usd/bman
-LWE_QMAN=$TOPDIR/usd/qman
-#LWE_PME2=$TOPDIR/usd/pme2
+LWE_INCL=$TOPDIR/usdpaa/include/linux
+LWE_BMAN=$TOPDIR/usdpaa/drivers/qbman
+LWE_QMAN=$TOPDIR/usdpaa/drivers/qbman
+#LWE_PME2=$TOPDIR/usdpaa/drivers/pme2
 
 ####$#################
 # The rest is script #

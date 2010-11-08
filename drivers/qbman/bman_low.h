@@ -115,15 +115,64 @@ static inline u8 cyc_diff(u8 ringsize, u8 first, u8 last)
 	return ringsize + last - first;
 }
 
-/* Inlining (and/or loops) can go horribly wrong if the compiler caches
- * foo->verb - it doesn't realise that dcbi()s and dcbt()s mean that a new
- * value will show eventually up (it assumes coherency). Use this accessor to
- * read verb bytes to address this issue. */
-static inline u8 read_verb(volatile void *p)
-{
-	volatile u8 *__p = p;
-	return *__p;
-}
+/* Portal modes.
+ *   Enum types;
+ *     pmode == production mode
+ *     cmode == consumption mode,
+ *   Enum values use 3 letter codes. First letter matches the portal mode,
+ *   remaining two letters indicate;
+ *     ci == cache-inhibited portal register
+ *     ce == cache-enabled portal register
+ *     vb == in-band valid-bit (cache-enabled)
+ */
+enum bm_rcr_pmode {		/* matches BCSP_CFG::RPM */
+	bm_rcr_pci = 0,		/* PI index, cache-inhibited */
+	bm_rcr_pce = 1,		/* PI index, cache-enabled */
+	bm_rcr_pvb = 2		/* valid-bit */
+};
+enum bm_rcr_cmode {		/* s/w-only */
+	bm_rcr_cci,		/* CI index, cache-inhibited */
+	bm_rcr_cce		/* CI index, cache-enabled */
+};
+
+
+/* ------------------------- */
+/* --- Portal structures --- */
+
+#define BM_RCR_SIZE		8
+
+struct bm_rcr {
+	struct bm_rcr_entry *ring, *cursor;
+	u8 ci, available, ithresh, vbit;
+#ifdef CONFIG_FSL_DPA_CHECKING
+	u32 busy;
+	enum bm_rcr_pmode pmode;
+	enum bm_rcr_cmode cmode;
+#endif
+};
+
+struct bm_mc {
+	struct bm_mc_command *cr;
+	struct bm_mc_result *rr;
+	u8 rridx, vbit;
+#ifdef CONFIG_FSL_DPA_CHECKING
+	enum {
+		/* Can only be _mc_start()ed */
+		mc_idle,
+		/* Can only be _mc_commit()ed or _mc_abort()ed */
+		mc_user,
+		/* Can only be _mc_retry()ed */
+		mc_hw
+	} state;
+#endif
+};
+
+struct bm_portal {
+	struct bm_addr addr;
+	struct bm_rcr rcr;
+	struct bm_mc mc;
+	struct bm_portal_config config;
+} ____cacheline_aligned;
 
 
 /* --------------- */
@@ -161,8 +210,6 @@ static inline int bm_rcr_init(struct bm_portal *portal, enum bm_rcr_pmode pmode,
 	u32 cfg;
 	u8 pi;
 
-	if (__bm_portal_bind(portal, BM_BIND_RCR))
-		return -EBUSY;
 	rcr->ring = ptr_OR(portal->addr.addr_ce, CL_RCR);
 	rcr->ci = bm_in(RCR_CI_CINH) & (BM_RCR_SIZE - 1);
 	pi = bm_in(RCR_PI_CINH) & (BM_RCR_SIZE - 1);
@@ -170,7 +217,7 @@ static inline int bm_rcr_init(struct bm_portal *portal, enum bm_rcr_pmode pmode,
 	rcr->vbit = (bm_in(RCR_PI_CINH) & BM_RCR_SIZE) ?  BM_RCR_VERB_VBIT : 0;
 	rcr->available = BM_RCR_SIZE - 1 - cyc_diff(BM_RCR_SIZE, rcr->ci, pi);
 	rcr->ithresh = bm_in(RCR_ITR);
-#ifdef CONFIG_FSL_BMAN_CHECKING
+#ifdef CONFIG_FSL_DPA_CHECKING
 	rcr->busy = 0;
 	rcr->pmode = pmode;
 	rcr->cmode = cmode;
@@ -185,23 +232,22 @@ static inline void bm_rcr_finish(struct bm_portal *portal)
 	register struct bm_rcr *rcr = &portal->rcr;
 	u8 pi = bm_in(RCR_PI_CINH) & (BM_RCR_SIZE - 1);
 	u8 ci = bm_in(RCR_CI_CINH) & (BM_RCR_SIZE - 1);
-	BM_ASSERT(!rcr->busy);
+	DPA_ASSERT(!rcr->busy);
 	if (pi != RCR_PTR2IDX(rcr->cursor))
 		pr_crit("losing uncommited RCR entries\n");
 	if (ci != rcr->ci)
 		pr_crit("missing existing RCR completions\n");
 	if (rcr->ci != RCR_PTR2IDX(rcr->cursor))
 		pr_crit("RCR destroyed unquiesced\n");
-	__bm_portal_unbind(portal, BM_BIND_RCR);
 }
 
 static inline struct bm_rcr_entry *bm_rcr_start(struct bm_portal *portal)
 {
 	register struct bm_rcr *rcr = &portal->rcr;
-	BM_ASSERT(!rcr->busy);
+	DPA_ASSERT(!rcr->busy);
 	if (!rcr->available)
 		return NULL;
-#ifdef CONFIG_FSL_BMAN_CHECKING
+#ifdef CONFIG_FSL_DPA_CHECKING
 	rcr->busy = 1;
 #endif
 	dcbzl(rcr->cursor);
@@ -211,8 +257,8 @@ static inline struct bm_rcr_entry *bm_rcr_start(struct bm_portal *portal)
 static inline void bm_rcr_abort(struct bm_portal *portal)
 {
 	__maybe_unused register struct bm_rcr *rcr = &portal->rcr;
-	BM_ASSERT(rcr->busy);
-#ifdef CONFIG_FSL_BMAN_CHECKING
+	DPA_ASSERT(rcr->busy);
+#ifdef CONFIG_FSL_DPA_CHECKING
 	rcr->busy = 0;
 #endif
 }
@@ -221,8 +267,8 @@ static inline struct bm_rcr_entry *bm_rcr_pend_and_next(
 					struct bm_portal *portal, u8 myverb)
 {
 	register struct bm_rcr *rcr = &portal->rcr;
-	BM_ASSERT(rcr->busy);
-	BM_ASSERT(rcr->pmode != bm_rcr_pvb);
+	DPA_ASSERT(rcr->busy);
+	DPA_ASSERT(rcr->pmode != bm_rcr_pvb);
 	if (rcr->available == 1)
 		return NULL;
 	rcr->cursor->__dont_write_directly__verb = myverb | rcr->vbit;
@@ -236,14 +282,14 @@ static inline struct bm_rcr_entry *bm_rcr_pend_and_next(
 static inline void bm_rcr_pci_commit(struct bm_portal *portal, u8 myverb)
 {
 	register struct bm_rcr *rcr = &portal->rcr;
-	BM_ASSERT(rcr->busy);
-	BM_ASSERT(rcr->pmode == bm_rcr_pci);
+	DPA_ASSERT(rcr->busy);
+	DPA_ASSERT(rcr->pmode == bm_rcr_pci);
 	rcr->cursor->__dont_write_directly__verb = myverb | rcr->vbit;
 	RCR_INC(rcr);
 	rcr->available--;
 	hwsync();
 	bm_out(RCR_PI_CINH, RCR_PTR2IDX(rcr->cursor));
-#ifdef CONFIG_FSL_BMAN_CHECKING
+#ifdef CONFIG_FSL_DPA_CHECKING
 	rcr->busy = 0;
 #endif
 }
@@ -251,7 +297,7 @@ static inline void bm_rcr_pci_commit(struct bm_portal *portal, u8 myverb)
 static inline void bm_rcr_pce_prefetch(struct bm_portal *portal)
 {
 	__maybe_unused register struct bm_rcr *rcr = &portal->rcr;
-	BM_ASSERT(rcr->pmode == bm_rcr_pce);
+	DPA_ASSERT(rcr->pmode == bm_rcr_pce);
 	bm_cl_invalidate(RCR_PI);
 	bm_cl_touch_rw(RCR_PI);
 }
@@ -259,14 +305,14 @@ static inline void bm_rcr_pce_prefetch(struct bm_portal *portal)
 static inline void bm_rcr_pce_commit(struct bm_portal *portal, u8 myverb)
 {
 	register struct bm_rcr *rcr = &portal->rcr;
-	BM_ASSERT(rcr->busy);
-	BM_ASSERT(rcr->pmode == bm_rcr_pce);
+	DPA_ASSERT(rcr->busy);
+	DPA_ASSERT(rcr->pmode == bm_rcr_pce);
 	rcr->cursor->__dont_write_directly__verb = myverb | rcr->vbit;
 	RCR_INC(rcr);
 	rcr->available--;
 	lwsync();
 	bm_cl_out(RCR_PI, RCR_PTR2IDX(rcr->cursor));
-#ifdef CONFIG_FSL_BMAN_CHECKING
+#ifdef CONFIG_FSL_DPA_CHECKING
 	rcr->busy = 0;
 #endif
 }
@@ -275,15 +321,15 @@ static inline void bm_rcr_pvb_commit(struct bm_portal *portal, u8 myverb)
 {
 	register struct bm_rcr *rcr = &portal->rcr;
 	struct bm_rcr_entry *rcursor;
-	BM_ASSERT(rcr->busy);
-	BM_ASSERT(rcr->pmode == bm_rcr_pvb);
+	DPA_ASSERT(rcr->busy);
+	DPA_ASSERT(rcr->pmode == bm_rcr_pvb);
 	lwsync();
 	rcursor = rcr->cursor;
 	rcursor->__dont_write_directly__verb = myverb | rcr->vbit;
 	dcbf(rcursor);
 	RCR_INC(rcr);
 	rcr->available--;
-#ifdef CONFIG_FSL_BMAN_CHECKING
+#ifdef CONFIG_FSL_DPA_CHECKING
 	rcr->busy = 0;
 #endif
 }
@@ -292,7 +338,7 @@ static inline u8 bm_rcr_cci_update(struct bm_portal *portal)
 {
 	register struct bm_rcr *rcr = &portal->rcr;
 	u8 diff, old_ci = rcr->ci;
-	BM_ASSERT(rcr->cmode == bm_rcr_cci);
+	DPA_ASSERT(rcr->cmode == bm_rcr_cci);
 	rcr->ci = bm_in(RCR_CI_CINH) & (BM_RCR_SIZE - 1);
 	diff = cyc_diff(BM_RCR_SIZE, old_ci, rcr->ci);
 	rcr->available += diff;
@@ -302,7 +348,7 @@ static inline u8 bm_rcr_cci_update(struct bm_portal *portal)
 static inline void bm_rcr_cce_prefetch(struct bm_portal *portal)
 {
 	__maybe_unused register struct bm_rcr *rcr = &portal->rcr;
-	BM_ASSERT(rcr->cmode == bm_rcr_cce);
+	DPA_ASSERT(rcr->cmode == bm_rcr_cce);
 	bm_cl_touch_ro(RCR_CI);
 }
 
@@ -310,7 +356,7 @@ static inline u8 bm_rcr_cce_update(struct bm_portal *portal)
 {
 	register struct bm_rcr *rcr = &portal->rcr;
 	u8 diff, old_ci = rcr->ci;
-	BM_ASSERT(rcr->cmode == bm_rcr_cce);
+	DPA_ASSERT(rcr->cmode == bm_rcr_cce);
 	rcr->ci = bm_cl_in(RCR_CI) & (BM_RCR_SIZE - 1);
 	bm_cl_invalidate(RCR_CI);
 	diff = cyc_diff(BM_RCR_SIZE, old_ci, rcr->ci);
@@ -350,14 +396,12 @@ static inline u8 bm_rcr_get_fill(struct bm_portal *portal)
 static inline int bm_mc_init(struct bm_portal *portal)
 {
 	register struct bm_mc *mc = &portal->mc;
-	if (__bm_portal_bind(portal, BM_BIND_MC))
-		return -EBUSY;
 	mc->cr = ptr_OR(portal->addr.addr_ce, CL_CR);
 	mc->rr = ptr_OR(portal->addr.addr_ce, CL_RR0);
-	mc->rridx = (read_verb(&mc->cr->__dont_write_directly__verb) &
+	mc->rridx = (readb(&mc->cr->__dont_write_directly__verb) &
 			BM_MCC_VERB_VBIT) ?  0 : 1;
 	mc->vbit = mc->rridx ? BM_MCC_VERB_VBIT : 0;
-#ifdef CONFIG_FSL_BMAN_CHECKING
+#ifdef CONFIG_FSL_DPA_CHECKING
 	mc->state = mc_idle;
 #endif
 	return 0;
@@ -366,19 +410,18 @@ static inline int bm_mc_init(struct bm_portal *portal)
 static inline void bm_mc_finish(struct bm_portal *portal)
 {
 	__maybe_unused register struct bm_mc *mc = &portal->mc;
-	BM_ASSERT(mc->state == mc_idle);
-#ifdef CONFIG_FSL_BMAN_CHECKING
+	DPA_ASSERT(mc->state == mc_idle);
+#ifdef CONFIG_FSL_DPA_CHECKING
 	if (mc->state != mc_idle)
 		pr_crit("Losing incomplete MC command\n");
 #endif
-	__bm_portal_unbind(portal, BM_BIND_MC);
 }
 
 static inline struct bm_mc_command *bm_mc_start(struct bm_portal *portal)
 {
 	register struct bm_mc *mc = &portal->mc;
-	BM_ASSERT(mc->state == mc_idle);
-#ifdef CONFIG_FSL_BMAN_CHECKING
+	DPA_ASSERT(mc->state == mc_idle);
+#ifdef CONFIG_FSL_DPA_CHECKING
 	mc->state = mc_user;
 #endif
 	dcbzl(mc->cr);
@@ -388,8 +431,8 @@ static inline struct bm_mc_command *bm_mc_start(struct bm_portal *portal)
 static inline void bm_mc_abort(struct bm_portal *portal)
 {
 	__maybe_unused register struct bm_mc *mc = &portal->mc;
-	BM_ASSERT(mc->state == mc_user);
-#ifdef CONFIG_FSL_BMAN_CHECKING
+	DPA_ASSERT(mc->state == mc_user);
+#ifdef CONFIG_FSL_DPA_CHECKING
 	mc->state = mc_idle;
 #endif
 }
@@ -397,13 +440,13 @@ static inline void bm_mc_abort(struct bm_portal *portal)
 static inline void bm_mc_commit(struct bm_portal *portal, u8 myverb)
 {
 	register struct bm_mc *mc = &portal->mc;
-	BM_ASSERT(mc->state == mc_user);
-	dcbi(mc->rr + mc->rridx);
+	struct bm_mc_result *rr = mc->rr + mc->rridx;
+	DPA_ASSERT(mc->state == mc_user);
 	lwsync();
 	mc->cr->__dont_write_directly__verb = myverb | mc->vbit;
 	dcbf(mc->cr);
-	dcbt_ro(mc->rr + mc->rridx);
-#ifdef CONFIG_FSL_BMAN_CHECKING
+	dcbit_ro(rr);
+#ifdef CONFIG_FSL_DPA_CHECKING
 	mc->state = mc_hw;
 #endif
 }
@@ -412,18 +455,17 @@ static inline struct bm_mc_result *bm_mc_result(struct bm_portal *portal)
 {
 	register struct bm_mc *mc = &portal->mc;
 	struct bm_mc_result *rr = mc->rr + mc->rridx;
-	BM_ASSERT(mc->state == mc_hw);
+	DPA_ASSERT(mc->state == mc_hw);
 	/* The inactive response register's verb byte always returns zero until
 	 * its command is submitted and completed. This includes the valid-bit,
 	 * in case you were wondering... */
-	if (!read_verb(&rr->verb)) {
-		dcbi(rr);
-		dcbt_ro(rr);
+	if (!readb(&rr->verb)) {
+		dcbit_ro(rr);
 		return NULL;
 	}
 	mc->rridx ^= 1;
 	mc->vbit ^= BM_MCC_VERB_VBIT;
-#ifdef CONFIG_FSL_BMAN_CHECKING
+#ifdef CONFIG_FSL_DPA_CHECKING
 	mc->state = mc_idle;
 #endif
 	return rr;
@@ -433,16 +475,13 @@ static inline struct bm_mc_result *bm_mc_result(struct bm_portal *portal)
 /* ------------------------------------- */
 /* --- Portal interrupt register API --- */
 
-static inline int bm_isr_init(struct bm_portal *portal)
+static inline int bm_isr_init(__always_unused struct bm_portal *portal)
 {
-	if (__bm_portal_bind(portal, BM_BIND_ISR))
-		return -EBUSY;
 	return 0;
 }
 
-static inline void bm_isr_finish(struct bm_portal *portal)
+static inline void bm_isr_finish(__always_unused struct bm_portal *portal)
 {
-	__bm_portal_unbind(portal, BM_BIND_ISR);
 }
 
 #define SCN_REG(bpid) REG_SCN((bpid) / 32)
@@ -451,7 +490,7 @@ static inline void bm_isr_bscn_mask(struct bm_portal *portal, u8 bpid,
 					int enable)
 {
 	u32 val;
-	BM_ASSERT(bpid < 64);
+	DPA_ASSERT(bpid < 64);
 	/* REG_SCN for bpid=0..31, REG_SCN+4 for bpid=32..63 */
 	val = __bm_in(&portal->addr, SCN_REG(bpid));
 	if (enable)
