@@ -83,7 +83,7 @@ ifndef V
 endif
 
 # ----=[ Default target ]=----
-all: build
+all: $(BIN_DIR) $(LIB_DIR) build
 
 #----=[ Helpers for "make debug" ]=----
 print_obj = echo "	     (compile) $(2) -> $(3)$(1)";
@@ -163,7 +163,7 @@ define process_bin
 $(eval $(call pre_process_target,$(1),$(2),$(3),$(1),$(INSTALL_BIN),$(BIN_DIR),$(INSTALL_BIN_FLAGS)))
 $(eval $(1)_type := bin)
 $(foreach x,$(filter %.c,$($(1)_SOURCES)),$(eval $(call process_obj,$(1),$(x),$(basename $(x)))))
-$(BIN_DIR)/$(1):$($(1)_objs) $(addprefix $(LIB_DIR)/lib,$(addsuffix .a,$($(1)_LDADD))) $(BIN_DIR)
+$(BIN_DIR)/$(1):$($(1)_objs) $(addprefix $(LIB_DIR)/lib,$(addsuffix .a,$($(1)_LDADD)))
 	$$(Q)echo " [LD] $$(notdir $$@)";
 	$$(Q)$(CC) $($(1)_objs) $(LDFLAGS) $($(1)_LDFLAGS) $(addprefix -l,$($(1)_priv_LDADD)) $(addprefix -l,$($(1)_LDADD)) $(addprefix -l,$($(1)_sys_LDADD)) -lc -o $$@
 endef
@@ -172,7 +172,7 @@ define process_lib
 $(eval $(call pre_process_target,$(1),$(2),$(3),lib$(1).a,$(INSTALL_LIB),$(LIB_DIR),$(INSTALL_LIB_FLAGS)))
 $(eval $(1)_type := lib)
 $(foreach x,$(filter %.c,$($(1)_SOURCES)),$(eval $(call process_obj,$(1),$(x),$(basename $(x)))))
-$(LIB_DIR)/lib$(1).a:$($(1)_objs) $(LIB_DIR)
+$(LIB_DIR)/lib$(1).a:$($(1)_objs)
 	$(Q)echo " [AR] $$(notdir $$@)"
 	$(Q)$(AR) $(ARFLAGS) $$@ $($(1)_objs)
 endef
