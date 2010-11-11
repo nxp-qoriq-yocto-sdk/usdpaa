@@ -863,8 +863,8 @@ static int worker_fn(thread_data_t *tdata)
 
 	qman_static_dequeue_add(POC_CPU_SDQCR(tdata->index));
 
-	pthread_barrier_wait(&init_barrier);
 	TRACE("Starting poll loop on cpu %d\n", tdata->cpu);
+	pthread_barrier_wait(&init_barrier);
 	while (check_msg(tdata)) {
 		qman_poll();
 		bman_poll();
