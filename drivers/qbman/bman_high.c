@@ -127,18 +127,23 @@ static void depletion_unlink(struct bman_pool *pool)
 	local_irq_restore(irqflags);
 }
 
-static u32 __poll_portal_slow(struct bman_portal *p, struct bm_portal *lowp,
-				u32 is);
+/* In the case that the application's core loop calls qman_poll() and
+ * bman_poll(), we ought to balance how often we incur the overheads of the
+ * slow-path poll. We'll use two decrementer sources. The idle decrementer
+ * constant is used when the last slow-poll detected no work to do, and the busy
+ * decrementer constant when the last slow-poll had work to do. */
+#define SLOW_POLL_IDLE   1000
+#define SLOW_POLL_BUSY   10
+static u32 __poll_portal_slow(struct bman_portal *p, u32 is);
 
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
 /* This is called from the ISR or from a deferred tasklet */
 static inline void do_isr_work(struct bman_portal *p)
 {
-	struct bm_portal *lowp = &p->p;
 	u32 clear = p->irq_sources;
-	u32 is = bm_isr_status_read(lowp) & p->irq_sources;
-	clear |= __poll_portal_slow(p, lowp, is);
-	bm_isr_status_clear(lowp, clear);
+	u32 is = bm_isr_status_read(&p->p) & p->irq_sources;
+	clear |= __poll_portal_slow(p, is);
+	bm_isr_status_clear(&p->p, clear);
 }
 #ifdef CONFIG_FSL_BMAN_PORTAL_TASKLET
 static void portal_tasklet(unsigned long __p)
@@ -302,8 +307,7 @@ void bman_destroy_affine_portal(void)
  * different portals - so we can't wait on any per-portal waitqueue). */
 static DECLARE_WAIT_QUEUE_HEAD(affine_queue);
 
-static u32 __poll_portal_slow(struct bman_portal *p, struct bm_portal *lowp,
-				u32 is)
+static u32 __poll_portal_slow(struct bman_portal *p, u32 is)
 {
 	struct bman_depletion tmp;
 	u32 ret = is;
@@ -320,16 +324,16 @@ static u32 __poll_portal_slow(struct bman_portal *p, struct bm_portal *lowp,
 		__maybe_unused unsigned long irqflags;
 		unsigned int i, j;
 		u32 __is;
-		bm_isr_status_clear(lowp, BM_PIRQ_BSCN);
-		while ((__is = bm_isr_status_read(lowp)) & BM_PIRQ_BSCN) {
+		bm_isr_status_clear(&p->p, BM_PIRQ_BSCN);
+		while ((__is = bm_isr_status_read(&p->p)) & BM_PIRQ_BSCN) {
 			is |= __is;
-			bm_isr_status_clear(lowp, BM_PIRQ_BSCN);
+			bm_isr_status_clear(&p->p, BM_PIRQ_BSCN);
 		}
 		is &= ~BM_PIRQ_BSCN;
 		local_irq_save(irqflags);
-		bm_mc_start(lowp);
-		bm_mc_commit(lowp, BM_MCC_VERB_CMD_QUERY);
-		while (!(mcr = bm_mc_result(lowp)))
+		bm_mc_start(&p->p);
+		bm_mc_commit(&p->p, BM_MCC_VERB_CMD_QUERY);
+		while (!(mcr = bm_mc_result(&p->p)))
 			cpu_relax();
 		tmp = mcr->query.ds.state;
 		local_irq_restore(irqflags);
@@ -362,21 +366,21 @@ static u32 __poll_portal_slow(struct bman_portal *p, struct bm_portal *lowp,
 	if (is & BM_PIRQ_RCRI) {
 		__maybe_unused unsigned long irqflags;
 		local_irq_save(irqflags);
-		bm_rcr_cce_update(lowp);
+		bm_rcr_cce_update(&p->p);
 #ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
 		/* If waiting for sync, we only cancel the interrupt threshold
 		 * when the ring utilisation hits zero. */
 		if (p->rcri_owned) {
-			if (!bm_rcr_get_fill(lowp)) {
+			if (!bm_rcr_get_fill(&p->p)) {
 				p->rcri_owned = NULL;
-				bm_rcr_set_ithresh(lowp, 0);
+				bm_rcr_set_ithresh(&p->p, 0);
 			}
 		} else
 #endif
-		bm_rcr_set_ithresh(lowp, 0);
+		bm_rcr_set_ithresh(&p->p, 0);
 		local_irq_restore(irqflags);
 		wake_up(&p->queue);
-		bm_isr_status_clear(lowp, BM_PIRQ_RCRI);
+		bm_isr_status_clear(&p->p, BM_PIRQ_RCRI);
 		is &= ~BM_PIRQ_RCRI;
 	}
 
@@ -431,22 +435,23 @@ const cpumask_t *bman_affine_cpus(void)
 }
 EXPORT_SYMBOL(bman_affine_cpus);
 
-/* In the case that slow- and fast-path handling are both done by bman_poll()
- * (ie. because there is no interrupt handling), we ought to balance how often
- * we do the fast-path poll versus the slow-path poll. We'll use two decrementer
- * sources, so we call the fast poll 'n' times before calling the slow poll
- * once. The idle decrementer constant is used when the last slow-poll detected
- * no work to do, and the busy decrementer constant when the last slow-poll had
- * work to do. */
-#define SLOW_POLL_IDLE   1000
-#define SLOW_POLL_BUSY   10
+void bman_poll_slow(void)
+{
+	struct bman_portal *p = get_affine_portal();
+	u32 is = bm_isr_status_read(&p->p) & ~p->irq_sources;
+	u32 active = __poll_portal_slow(p, is);
+	bm_isr_status_clear(&p->p, active);
+	put_affine_portal();
+}
+EXPORT_SYMBOL(bman_poll_slow);
+
+/* Legacy wrapper */
 void bman_poll(void)
 {
 	struct bman_portal *p = get_affine_portal();
-	struct bm_portal *lowp = &p->p;
 	if (!(p->slowpoll--)) {
-		u32 is = bm_isr_status_read(lowp) & ~p->irq_sources;
-		u32 active = __poll_portal_slow(p, lowp, is);
+		u32 is = bm_isr_status_read(&p->p) & ~p->irq_sources;
+		u32 active = __poll_portal_slow(p, is);
 		if (active)
 			p->slowpoll = SLOW_POLL_BUSY;
 		else

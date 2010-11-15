@@ -291,11 +291,31 @@ void bman_irqsource_remove(u32 bits);
 const cpumask_t *bman_affine_cpus(void);
 
 /**
+ * bman_poll_slow - process anything that isn't interrupt-driven.
+ *
+ * This function does any portal processing that isn't interrupt-driven. NB,
+ * unlike the legacy wrapper bman_poll(), this function will deterministically
+ * check for the presence of portal processing work and do it, which implies
+ * some latency even if there's nothing to do. The bman_poll() wrapper on the
+ * other hand (like the qman_poll() wrapper) attenuates this by checking for
+ * (and doing) portal processing infrequently. Ie. such that qman_poll() and
+ * bmna_poll() can be called from core-processing loops. Use bman_poll_slow()
+ * when you yourself are deciding when to incur the overhead of processing.
+ */
+void bman_poll_slow(void);
+
+/**
  * bman_poll - process anything that isn't interrupt-driven.
  *
  * Dispatcher logic on a cpu can use this to trigger any maintenance of the
  * affine portal. This function does whatever processing is not triggered by
- * interrupts.
+ * interrupts. This is a legacy wrapper that can be used in core-processing
+ * loops but mitigates the performance overhead of portal processing by
+ * adaptively bypassing true portal processing most of the time. (Processing is
+ * done once every 10 calls if the previous processing revealed that work needed
+ * to be done, or once very 1000 calls if the previous processing revealed no
+ * work needed doing.) If you wish to control this yourself, call
+ * bman_poll_slow() instead, which always checks for portal processing work.
  */
 void bman_poll(void);
 
