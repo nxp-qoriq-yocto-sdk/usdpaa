@@ -47,19 +47,9 @@ enum bm_isr_reg {
 };
 
 struct bm_portal_config {
-	struct bm_portal *portal;
+	struct bman_portal_config public_cfg;
+	/* Mapped corenet portal regions */
 	struct bm_addr addr;
-	/* This is used for any "core-affine" portals, ie. default portals
-	 * associated to the corresponding cpu. -1 implies that there is no core
-	 * affinity configured. */
-	int cpu;
-	/* portal interrupt line */
-	int irq;
-	/* These are the buffer pool IDs that may be used via this portal. NB,
-	 * this is only enforced in the high-level API. Also, BSCN depletion
-	 * state changes will only be unmasked as/when pool objects are created
-	 * with depletion callbacks - the mask is the superset. */
-	struct bman_depletion mask;
 };
 
 #ifdef CONFIG_FSL_BMAN_CONFIG

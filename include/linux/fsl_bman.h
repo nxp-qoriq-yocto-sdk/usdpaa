@@ -207,6 +207,17 @@ struct bman_portal;
 /* This object type represents Bman buffer pools. */
 struct bman_pool;
 
+struct bman_portal_config {
+	/* This is used for any "core-affine" portals, ie. default portals
+	 * associated to the corresponding cpu. -1 implies that there is no core
+	 * affinity configured. */
+	int cpu;
+	/* portal interrupt line */
+	int irq;
+	/* These are the buffer pool IDs that may be used via this portal. */
+	struct bman_depletion mask;
+};
+
 /* This callback type is used when handling pool depletion entry/exit. The
  * 'cb_ctx' value is the opaque value associated with the pool object in
  * bman_new_pool(). 'depleted' is non-zero on depletion-entry, and zero on
@@ -255,6 +266,13 @@ struct bman_pool_params {
 
 	/* Portal Management */
 	/* ----------------- */
+/**
+ * bman_get_portal_config - get portal configuration settings
+ *
+ * This returns a read-only view of the current cpu's affine portal settings.
+ */
+const struct bman_portal_config *bman_get_portal_config(void);
+
 /**
  * bman_irqsource_get - return the portal work that is interrupt-driven
  *

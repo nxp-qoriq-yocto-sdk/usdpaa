@@ -58,7 +58,6 @@ static struct bm_portal_config *__bm_portal_add(
 	BUG_ON((num_portals + 1) > PORTAL_MAX);
 	ret = &configs[num_portals++];
 	*ret = *config;
-	ret->portal = NULL;
 	return ret;
 }
 
@@ -119,7 +118,6 @@ static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 		perror("can't open Bman portal UIO device");
 		return -ENODEV;
 	}
-	cfg.portal = NULL;
 	cfg.addr.addr_ce = mmap(BMAN_CENA(cpu), 16*1024,
 			PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, fd, 0);
 	cfg.addr.addr_ci = mmap(BMAN_CINH(cpu), 4*1024,
@@ -132,17 +130,17 @@ static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 		close(fd);
 		return -ENODEV;
 	}
-	cfg.cpu = cpu;
-	cfg.irq = -1;
-	bman_depletion_fill(&cfg.mask);
+	cfg.public_cfg.cpu = cpu;
+	cfg.public_cfg.irq = -1;
+	bman_depletion_fill(&cfg.public_cfg.mask);
 	pconfig = __bm_portal_add(&cfg);
 	if (!pconfig) {
 		close(fd);
 		return -ENOMEM;
 	}
 	pr_info("Bman portal at %p:%p (%d)\n", cfg.addr.addr_ce,
-		cfg.addr.addr_ci, cfg.cpu);
-	if (cfg.cpu == -1)
+		cfg.addr.addr_ci, cfg.public_cfg.cpu);
+	if (cfg.public_cfg.cpu == -1)
 		return 0;
 	if (!bman_have_affine_portal()) {
 		u32 irq_sources = 0;
@@ -153,7 +151,8 @@ static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 						recovery_mode))
 			pr_err("Bman portal auto-initialisation failed\n");
 		else
-			pr_info("Bman portal %d auto-initialised\n", cfg.cpu);
+			pr_info("Bman portal %d auto-initialised\n",
+				cfg.public_cfg.cpu);
 	}
 	return 0;
 }

@@ -562,7 +562,7 @@ static inline int qm_dqrr_init(struct qm_portal *portal,
 	u32 cfg;
 
 	if ((stash_ring || stash_data) &&
-			((config->cpu == -1) || !config->has_hv_dma))
+			((config->public_cfg.cpu == -1) || !config->has_hv_dma))
 		return -EINVAL;
 	/* Make sure the DQRR will be idle when we enable */
 	qm_out(DQRR_SDQCR, 0);

@@ -52,23 +52,9 @@ enum qm_isr_reg {
 };
 
 struct qm_portal_config {
-	struct qm_portal *portal;
+	struct qman_portal_config public_cfg;
+	/* Mapped corenet portal regions */
 	struct qm_addr addr;
-	/* If the caller enables DQRR stashing (and thus wishes to operate the
-	 * portal from only one cpu), this is the logical CPU that the portal
-	 * will stash to. Whether stashing is enabled or not, this setting is
-	 * also used for any "core-affine" portals, ie. default portals
-	 * associated to the corresponding cpu. -1 implies that there is no core
-	 * affinity configured. */
-	int cpu;
-	/* portal interrupt line */
-	int irq;
-	/* The portal's dedicated channel id, use this value for initialising
-	 * frame queues to target this portal when scheduled. */
-	enum qm_channel channel;
-	/* A mask of which pool channels this portal has dequeue access to
-	 * (using QM_SDQCR_CHANNELS_POOL(n) for the bitmask) */
-	u32 pools;
 	/* does this portal have PAMU assistance from hypervisor? */
 	int has_hv_dma;
 	/* Logical index (not cell-index) */

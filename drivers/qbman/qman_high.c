@@ -432,7 +432,7 @@ drain_loop:
 	else
 		memset(&portal->null_cb, 0, sizeof(*null_cb));
 #endif
-	sprintf(buf, "qportal-%d", config->channel);
+	sprintf(buf, "qportal-%d", config->public_cfg.channel);
 	portal->pdev = platform_device_alloc(buf, -1);
 	if (!portal->pdev) {
 		ret = -ENOMEM;
@@ -452,14 +452,16 @@ drain_loop:
 	qm_isr_enable_write(__p, portal->irq_sources);
 	qm_isr_status_clear(__p, 0xffffffff);
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
-	snprintf(portal->irqname, MAX_IRQNAME, IRQNAME, config->cpu);
-	if (request_irq(config->irq, portal_isr, 0, portal->irqname, portal)) {
+	snprintf(portal->irqname, MAX_IRQNAME, IRQNAME, config->public_cfg.cpu);
+	if (request_irq(config->public_cfg.irq, portal_isr, 0, portal->irqname,
+				portal)) {
 		pr_err("request_irq() failed\n");
 		goto fail_irq;
 	}
-	if ((config->cpu != -1) && irq_can_set_affinity(config->irq) &&
-				irq_set_affinity(config->irq,
-					cpumask_of(config->cpu))) {
+	if ((config->public_cfg.cpu != -1) &&
+			irq_can_set_affinity(config->public_cfg.irq) &&
+			irq_set_affinity(config->public_cfg.irq,
+				cpumask_of(config->public_cfg.cpu))) {
 		pr_err("irq_set_affinity() failed\n");
 		goto fail_affinity;
 	}
@@ -497,7 +499,7 @@ drain_loop:
 	/* Success */
 	portal->config = config;
 	spin_lock(&affine_mask_lock);
-	cpumask_set_cpu(config->cpu, &affine_mask);
+	cpumask_set_cpu(config->public_cfg.cpu, &affine_mask);
 	spin_unlock(&affine_mask_lock);
 	qm_isr_disable_write(__p, 0);
 	/* Write a sane SDQCR */
@@ -507,7 +509,7 @@ fail_dqrr_mr_empty:
 fail_eqcr_empty:
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
 fail_affinity:
-	free_irq(config->irq, portal);
+	free_irq(config->public_cfg.irq, portal);
 fail_irq:
 #endif
 	platform_device_del(portal->pdev);
@@ -538,7 +540,7 @@ void qman_destroy_affine_portal(void)
 	 * something related to QM_PIRQ_EQCI, this may need fixing. */
 	qm_eqcr_cce_update(&qm->p);
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
-	free_irq(qm->config->irq, qm);
+	free_irq(qm->config->public_cfg.irq, qm);
 #endif
 	if (qm->cgrs)
 		kfree(qm->cgrs);
@@ -548,11 +550,20 @@ void qman_destroy_affine_portal(void)
 	qm_dqrr_finish(&qm->p);
 	qm_eqcr_finish(&qm->p);
 	spin_lock(&affine_mask_lock);
-	cpumask_clear_cpu(qm->config->cpu, &affine_mask);
+	cpumask_clear_cpu(qm->config->public_cfg.cpu, &affine_mask);
 	spin_unlock(&affine_mask_lock);
 	qm->config = NULL;
 	put_affine_portal();
 }
+
+const struct qman_portal_config *qman_get_portal_config(void)
+{
+	struct qman_portal *p = get_affine_portal();
+	const struct qman_portal_config *ret = &p->config->public_cfg;
+	put_affine_portal();
+	return ret;
+}
+EXPORT_SYMBOL(qman_get_portal_config);
 
 #ifdef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
 void qman_get_null_cb(struct qman_fq_cb *null_cb)
@@ -1128,7 +1139,7 @@ void qman_static_dequeue_add(u32 pools)
 	unsigned long irqflags __maybe_unused;
 	struct qman_portal *p = get_affine_portal();
 	local_irq_save(irqflags);
-	pools &= p->config->pools;
+	pools &= p->config->public_cfg.pools;
 	p->sdqcr |= pools;
 	qm_dqrr_sdqcr_set(&p->p, p->sdqcr);
 	local_irq_restore(irqflags);
@@ -1141,7 +1152,7 @@ void qman_static_dequeue_del(u32 pools)
 	struct qman_portal *p = get_affine_portal();
 	unsigned long irqflags __maybe_unused;
 	local_irq_save(irqflags);
-	pools &= p->config->pools;
+	pools &= p->config->public_cfg.pools;
 	p->sdqcr &= ~pools;
 	qm_dqrr_sdqcr_set(&p->p, p->sdqcr);
 	local_irq_restore(irqflags);
@@ -1363,7 +1374,7 @@ int qman_init_fq(struct qman_fq *fq, u32 flags, struct qm_mcc_initfq *opts)
 		}
 	}
 	if (flags & QMAN_INITFQ_FLAG_LOCAL) {
-		mcc->initfq.fqd.dest.channel = p->config->channel;
+		mcc->initfq.fqd.dest.channel = p->config->public_cfg.channel;
 		if (!(mcc->initfq.we_mask & QM_INITFQ_WE_DESTWQ)) {
 			mcc->initfq.we_mask |= QM_INITFQ_WE_DESTWQ;
 			mcc->initfq.fqd.dest.wq = 4;
@@ -2079,7 +2090,8 @@ int qman_modify_cgr(struct qman_cgr *cgr, u32 flags,
 }
 EXPORT_SYMBOL(qman_modify_cgr);
 
-#define TARG_MASK(n) (0x80000000 >> (n->config->channel - qm_channel_swportal0))
+#define TARG_MASK(n) (0x80000000 >> (n->config->public_cfg.channel - \
+					qm_channel_swportal0))
 
 int qman_create_cgr(struct qman_cgr *cgr, u32 flags,
 			struct qm_mcc_initcgr *opts)
@@ -2091,7 +2103,7 @@ int qman_create_cgr(struct qman_cgr *cgr, u32 flags,
 	struct qman_portal *p = get_affine_portal();
 
 	memset(&local_opts, 0, sizeof(struct qm_mcc_initcgr));
-	cgr->chan = p->config->channel;
+	cgr->chan = p->config->public_cfg.channel;
 	spin_lock_irqsave(&p->cgr_lock, irqflags);
 
 	/* if no opts specified and I'm not the first for this portal, just add
@@ -2145,10 +2157,10 @@ int qman_delete_cgr(struct qman_cgr *cgr)
 	int ret = 0;
 	struct qman_portal *p = get_affine_portal();
 
-	if (cgr->chan != p->config->channel) {
+	if (cgr->chan != p->config->public_cfg.channel) {
 		pr_crit("Attempting to delete cgr from different portal "
 			"than it was create: create 0x%x, delete 0x%x\n",
-			cgr->chan, p->config->channel);
+			cgr->chan, p->config->public_cfg.channel);
 		ret = -EINVAL;
 		goto put_portal;
 	}

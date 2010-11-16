@@ -980,6 +980,24 @@ struct qman_fq;
  * down. */
 struct qman_cgr;
 
+struct qman_portal_config {
+	/* If the caller enables DQRR stashing (and thus wishes to operate the
+	 * portal from only one cpu), this is the logical CPU that the portal
+	 * will stash to. Whether stashing is enabled or not, this setting is
+	 * also used for any "core-affine" portals, ie. default portals
+	 * associated to the corresponding cpu. -1 implies that there is no core
+	 * affinity configured. */
+	int cpu;
+	/* portal interrupt line */
+	int irq;
+	/* The portal's dedicated channel id, use this value for initialising
+	 * frame queues to target this portal when scheduled. */
+	enum qm_channel channel;
+	/* A mask of which pool channels this portal has dequeue access to
+	 * (using QM_SDQCR_CHANNELS_POOL(n) for the bitmask) */
+	u32 pools;
+};
+
 /* This enum, and the callback type that returns it, are used when handling
  * dequeued frames via DQRR. Note that for "null" callbacks registered with the
  * portal object (for handling dequeues that do not demux because contextB is
@@ -1156,6 +1174,13 @@ struct qman_cgr {
 
 	/* Portal Management */
 	/* ----------------- */
+/**
+ * qman_get_portal_config - get portal configuration settings
+ *
+ * This returns a read-only view of the current cpu's affine portal settings.
+ */
+const struct qman_portal_config *qman_get_portal_config(void);
+
 #ifdef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
 /**
  * qman_get_null_cb - get callbacks currently used for "null" frame queues

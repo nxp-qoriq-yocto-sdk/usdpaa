@@ -181,7 +181,7 @@ int bman_create_affine_portal(const struct bm_portal_config *config,
 {
 	struct bman_portal *portal = get_affine_portal();
 	struct bm_portal *__p = &portal->p;
-	const struct bman_depletion *pools = &config->mask;
+	const struct bman_depletion *pools = &config->public_cfg.mask;
 	int ret;
 
 	/* prep the low-level portal struct with the mapped addresses from the
@@ -231,15 +231,16 @@ int bman_create_affine_portal(const struct bm_portal_config *config,
 	bm_isr_enable_write(__p, portal->irq_sources);
 	bm_isr_status_clear(__p, 0xffffffff);
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
-	snprintf(portal->irqname, MAX_IRQNAME, IRQNAME, config->cpu);
-	if (request_irq(config->irq, portal_isr, 0, portal->irqname, portal)) {
+	snprintf(portal->irqname, MAX_IRQNAME, IRQNAME, config->public_cfg.cpu);
+	if (request_irq(config->public_cfg.irq, portal_isr, 0, portal->irqname,
+				portal)) {
 		pr_err("request_irq() failed\n");
 		goto fail_irq;
 	}
-	if ((config->cpu != -1) &&
-			irq_can_set_affinity(config->irq) &&
-			irq_set_affinity(config->irq,
-			     cpumask_of(config->cpu))) {
+	if ((config->public_cfg.cpu != -1) &&
+			irq_can_set_affinity(config->public_cfg.irq) &&
+			irq_set_affinity(config->public_cfg.irq,
+			     cpumask_of(config->public_cfg.cpu))) {
 		pr_err("irq_set_affinity() failed\n");
 		goto fail_affinity;
 	}
@@ -260,7 +261,7 @@ int bman_create_affine_portal(const struct bm_portal_config *config,
 	/* Success */
 	portal->config = config;
 	spin_lock(&affine_mask_lock);
-	cpumask_set_cpu(config->cpu, &affine_mask);
+	cpumask_set_cpu(config->public_cfg.cpu, &affine_mask);
 	spin_unlock(&affine_mask_lock);
 	bm_isr_disable_write(__p, 0);
 	put_affine_portal();
@@ -268,7 +269,7 @@ int bman_create_affine_portal(const struct bm_portal_config *config,
 fail_rcr_empty:
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
 fail_affinity:
-	free_irq(config->irq, portal);
+	free_irq(config->public_cfg.irq, portal);
 fail_irq:
 #endif
 	if (portal->pools)
@@ -289,14 +290,14 @@ void bman_destroy_affine_portal(void)
 	struct bman_portal *bm = get_affine_portal();
 	bm_rcr_cce_update(&bm->p);
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
-	free_irq(bm->config->irq, bm);
+	free_irq(bm->config->public_cfg.irq, bm);
 #endif
 	kfree(bm->pools);
 	bm_isr_finish(&bm->p);
 	bm_mc_finish(&bm->p);
 	bm_rcr_finish(&bm->p);
 	spin_lock(&affine_mask_lock);
-	cpumask_clear_cpu(bm->config->cpu, &affine_mask);
+	cpumask_clear_cpu(bm->config->public_cfg.cpu, &affine_mask);
 	spin_unlock(&affine_mask_lock);
 	bm->config = NULL;
 	put_affine_portal();
@@ -388,6 +389,15 @@ static u32 __poll_portal_slow(struct bman_portal *p, u32 is)
 	DPA_ASSERT(!is);
 	return ret;
 }
+
+const struct bman_portal_config *bman_get_portal_config(void)
+{
+	struct bman_portal *p = get_affine_portal();
+	const struct bman_portal_config *ret = &p->config->public_cfg;
+	put_affine_portal();
+	return ret;
+}
+EXPORT_SYMBOL(bman_get_portal_config);
 
 u32 bman_irqsource_get(void)
 {

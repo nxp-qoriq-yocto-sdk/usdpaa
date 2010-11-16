@@ -57,7 +57,6 @@ static struct qm_portal_config *__qm_portal_add(
 	BUG_ON((num_portals + 1) > PORTAL_MAX);
 	ret = &configs[num_portals];
 	*ret = *config;
-	ret->portal = NULL;
 	ret->index = num_portals++;
 	return ret;
 }
@@ -115,7 +114,6 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 		perror("can't open Qman portal UIO device");
 		return -ENODEV;
 	}
-	cfg.portal = NULL;
 	cfg.addr.addr_ce = mmap(QMAN_CENA(cpu), 16*1024, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_FIXED, fd, 0);
 	cfg.addr.addr_ci = mmap(QMAN_CINH(cpu), 4*1024, PROT_READ | PROT_WRITE,
@@ -128,10 +126,10 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 		close(fd);
 		return -ENODEV;
 	}
-	cfg.cpu = cpu;
-	cfg.irq = -1;
-	cfg.channel = qm_channel_swportal0 + (cpu ? cpu : 8);
-	cfg.pools = QM_SDQCR_CHANNELS_POOL_MASK;
+	cfg.public_cfg.cpu = cpu;
+	cfg.public_cfg.irq = -1;
+	cfg.public_cfg.channel = qm_channel_swportal0 + (cpu ? cpu : 8);
+	cfg.public_cfg.pools = QM_SDQCR_CHANNELS_POOL_MASK;
 	cfg.has_hv_dma = 1;
 	cfg.index = -1;
 	cfg.node = NULL;
@@ -141,8 +139,9 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 		return -ENOMEM;
 	}
 	pr_info("Qman portal at %p:%p (%d:%d,v%04x)\n", cfg.addr.addr_ce,
-		cfg.addr.addr_ci, cfg.cpu, cfg.channel, qman_ip_rev);
-	if (cfg.cpu == -1)
+		cfg.addr.addr_ci, cfg.public_cfg.cpu, cfg.public_cfg.channel,
+		qman_ip_rev);
+	if (cfg.public_cfg.cpu == -1)
 		return 0;
 	if (!qman_have_affine_portal()) {
 		u32 flags = 0;
@@ -167,7 +166,8 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 				recovery_mode))
 			pr_err("Qman portal auto-initialisation failed\n");
 		else
-			pr_info("Qman portal %d auto-initialised\n", cfg.cpu);
+			pr_info("Qman portal %d auto-initialised\n",
+				cfg.public_cfg.cpu);
 	}
 	return 0;
 }
