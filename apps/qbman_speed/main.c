@@ -55,7 +55,14 @@ static void calm_down(void)
 
 static int worker_fn(thread_data_t *tdata)
 {
-	printf("This is the thread on cpu %d\n", tdata->cpu);
+	const struct qman_portal_config *qconfig = qman_get_portal_config();
+	const struct bman_portal_config *bconfig = bman_get_portal_config();
+	printf("Worker %d, qman={cpu=%d,irq=%d,ch=%d,pools=0x%08x}\n"
+		"          bman={cpu=%d,irq=%d,mask=0x%08x_%08x}\n",
+		tdata->cpu,
+		qconfig->cpu, qconfig->irq, qconfig->channel, qconfig->pools,
+		bconfig->cpu, bconfig->irq,
+		bconfig->mask.__state[0], bconfig->mask.__state[1]);
 
 #if 0
 	qman_test_high(tdata);
@@ -68,7 +75,7 @@ static int worker_fn(thread_data_t *tdata)
 	blastman(tdata);
 	calm_down();
 
-	printf("Leaving thread on cpu %d\n", tdata->cpu);
+	printf("Worker %d exiting\n", tdata->cpu);
 	return 0;
 }
 
