@@ -119,7 +119,7 @@ do_install_$(1):$($(1)_install_from)/$($(1)_install_name)
 	$$(Q)$(INSTALL) $(INSTALL_FLAGS) $($(1)_install_flags) $($(1)_install_from)/$($(1)_install_name) $(DESTDIR)/$($(1)_install_to)/$($(1)_install_name)
 do_uninstall_$(1):
 	$$(Q)echo " [UNINSTALL] $(1)"
-	$$(Q)rm -f $(DESTDIR)/$($(1)_install_to)/$($(1)_install_name)
+	$$(Q)$(RM) $(DESTDIR)/$($(1)_install_to)/$($(1)_install_name)
 endef
 
 define pre_process_target
@@ -152,7 +152,7 @@ define pre_process_target
 endef
 
 define process_obj
-$($(1)_pref)$(3).o:$($(1)_dir)/$(2)
+$($(1)_pref)$(3).o:$($(1)_dir)/$(2) $(4)/Makefile.sub $(TOP_LEVEL)/Makefile
 	$$(Q)mkdir -p $$(dir $$@)
 	$$(Q)echo " [CC] $$(shell printf '%- 16s (%s:%s)' $(2) $($(1)_type) $(1))"
 	$$(Q)touch  $$(patsubst %.o,%.d,$$@)
@@ -162,7 +162,7 @@ endef
 define process_bin
 $(eval $(call pre_process_target,$(1),$(2),$(3),$(1),$(INSTALL_BIN),$(BIN_DIR),$(INSTALL_BIN_FLAGS)))
 $(eval $(1)_type := bin)
-$(foreach x,$(filter %.c,$($(1)_SOURCES)),$(eval $(call process_obj,$(1),$(x),$(basename $(x)))))
+$(foreach x,$(filter %.c,$($(1)_SOURCES)),$(eval $(call process_obj,$(1),$(x),$(basename $(x)),$(2))))
 $(BIN_DIR)/$(1):$($(1)_objs) $(addprefix $(LIB_DIR)/lib,$(addsuffix .a,$($(1)_LDADD)))
 	$$(Q)echo " [LD] $$(notdir $$@)";
 	$$(Q)$(CC) $($(1)_objs) $(LDFLAGS) $($(1)_LDFLAGS) $(addprefix -l,$($(1)_priv_LDADD)) $(addprefix -l,$($(1)_LDADD)) $(addprefix -l,$($(1)_sys_LDADD)) -lc -o $$@
@@ -171,9 +171,10 @@ endef
 define process_lib
 $(eval $(call pre_process_target,$(1),$(2),$(3),lib$(1).a,$(INSTALL_LIB),$(LIB_DIR),$(INSTALL_LIB_FLAGS)))
 $(eval $(1)_type := lib)
-$(foreach x,$(filter %.c,$($(1)_SOURCES)),$(eval $(call process_obj,$(1),$(x),$(basename $(x)))))
+$(foreach x,$(filter %.c,$($(1)_SOURCES)),$(eval $(call process_obj,$(1),$(x),$(basename $(x)),$(2))))
 $(LIB_DIR)/lib$(1).a:$($(1)_objs)
 	$(Q)echo " [AR] $$(notdir $$@)"
+	$(Q)$(RM) $$@
 	$(Q)$(AR) $(ARFLAGS) $$@ $($(1)_objs)
 endef
 
