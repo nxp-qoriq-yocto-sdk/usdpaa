@@ -34,7 +34,7 @@
 #include <bigatomic.h>
 
 /* if defined, be lippy about everything */
-#define POC_TRACE
+#undef POC_TRACE
 
 /* application configuration */
 #define POC_RX_HASH_SIZE	0x20
@@ -78,6 +78,7 @@ static const uint8_t ifid[] = {4, 7, 8, 9};
 #define POC_COUNTERS		/* enable counters */
 #undef POC_COUNTERS_SUCCESS	/*   not just errors, count everything */
 #undef POC_DATA_DCBF		/* cache flush modified data during Tx */
+#define POC_DEBUG_DEPLETION	/* trace depletion entry/exit */
 
 /**********/
 /* macros */
@@ -811,6 +812,7 @@ static void calm_down(void)
 	}
 }
 
+#ifdef POC_DEBUG_DEPLETION
 static void bp_depletion(struct bman_portal *bm __always_unused,
 			struct bman_pool *p,
 			void *cb_ctx __maybe_unused,
@@ -818,8 +820,10 @@ static void bp_depletion(struct bman_portal *bm __always_unused,
 {
 	BUG_ON(p != *(typeof(&p))cb_ctxt);
 
-	TRACE("%s: BP%u -> %x\n", __func__, bman_get_params(p)->bpid, depleted);
+	pr_info("%s: BP%u -> %s\n", __func__, bman_get_params(p)->bpid,
+		depleted ? "entry" : "exit");
 }
+#endif
 
 /* This is not actually necessary, the threads can just start up without any
  * ordering requirement. The first cpu will initialise the interfaces before
@@ -849,9 +853,14 @@ static int worker_fn(thread_data_t *tdata)
 		for (loop = 0; loop < sizeof(bpids); loop++) {
 			struct bman_pool_params params = {
 				.bpid	= bpids[loop],
-				.flags	= BMAN_POOL_FLAG_ONLY_RELEASE | BMAN_POOL_FLAG_DEPLETION,
+#ifdef POC_DEBUG_DEPLETION
+				.flags	= BMAN_POOL_FLAG_ONLY_RELEASE |
+					BMAN_POOL_FLAG_DEPLETION,
 				.cb	= bp_depletion,
 				.cb_ctx	= pool + bpids[loop]
+#else
+				.flags	= BMAN_POOL_FLAG_ONLY_RELEASE
+#endif
 			};
 			TRACE("Initialising pool for bpid %d\n", bpids[loop]);
 			pool[bpids[loop]] = bman_new_pool(&params);
