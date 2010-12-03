@@ -34,26 +34,26 @@
 #include <bigatomic.h>
 
 /* if defined, be lippy about everything */
-#undef POC_TRACE
+#undef RFL_TRACE
 
 /* application configuration */
-#define POC_RX_HASH_SIZE	0x20
-#define POC_IF_NUM		ARRAY_SIZE(ifid)
-#define POC_POOLCHANNEL_NUM	4
-#define POC_POOLCHANNEL_FIRST	4
-/* n==interface, x=[0..(POC_RX_HASH_SIZE-1)] */
-#define POC_FQID_RX_ERROR(n)	(0x50 + 2*(n))
-#define POC_FQID_RX_DEFAULT(n)	(0x51 + 2*(n))
-#define POC_FQID_TX_ERROR(n)	(0x70 + 2*(n))
-#define POC_FQID_TX_CONFIRM(n)	(0x71 + 2*(n))
-#define POC_FQID_RX_HASH(n,x)	(0x400 + 0x100*(n) + (x))
-#define POC_FQID_TX(n,x)	(0x480 + 0x100*(n) + (x & 15))
-#define POC_PRIO_2DROP		3 /* error/default/etc */
-#define POC_PRIO_2FWD		4 /* rx-hash */
-#define POC_PRIO_2TX		4 /* consumed by Fman */
-#define POC_CHANNEL_TX(n)	((qm_channel_fman0_sp0 + 0x20 * ((n) / 5)) + ((n) + 1) % 5)
-#define POC_STASH_DATA_CL	1
-#define POC_STASH_CTX_CL(p) \
+#define RFL_RX_HASH_SIZE	0x20
+#define RFL_IF_NUM		ARRAY_SIZE(ifid)
+#define RFL_POOLCHANNEL_NUM	4
+#define RFL_POOLCHANNEL_FIRST	4
+/* n==interface, x=[0..(RFL_RX_HASH_SIZE-1)] */
+#define RFL_FQID_RX_ERROR(n)	(0x50 + 2*(n))
+#define RFL_FQID_RX_DEFAULT(n)	(0x51 + 2*(n))
+#define RFL_FQID_TX_ERROR(n)	(0x70 + 2*(n))
+#define RFL_FQID_TX_CONFIRM(n)	(0x71 + 2*(n))
+#define RFL_FQID_RX_HASH(n,x)	(0x400 + 0x100*(n) + (x))
+#define RFL_FQID_TX(n,x)	(0x480 + 0x100*(n) + (x & 15))
+#define RFL_PRIO_2DROP		3 /* error/default/etc */
+#define RFL_PRIO_2FWD		4 /* rx-hash */
+#define RFL_PRIO_2TX		4 /* consumed by Fman */
+#define RFL_CHANNEL_TX(n)	((qm_channel_fman0_sp0 + 0x20 * ((n) / 5)) + ((n) + 1) % 5)
+#define RFL_STASH_DATA_CL	1
+#define RFL_STASH_CTX_CL(p) \
 ({ \
 	__always_unused const typeof(*(p)) *foo = (p); \
 	int foolen = sizeof(*foo) / 64; \
@@ -61,45 +61,45 @@
 		foolen = 3; \
 	foolen; \
 })
-#define POC_BPIDS		{7, 8, 9}
-#define POC_CLI_BUFFER		(2*1024)
+#define RFL_BPIDS		{7, 8, 9}
+#define RFL_CLI_BUFFER		(2*1024)
 
 //static const uint8_t ifid[] = {0, 1, 2, 3, 9};
 static const uint8_t ifid[] = {4, 7, 8, 9};
 
 /* application options */
-#undef POC_2FWD_HOLDACTIVE	/* process each FQ on one cpu at a time */
-#define POC_2FWD_RX_PREFERINCACHE /* keep rx FQDs in-cache even when empty */
-#define POC_2FWD_TX_PREFERINCACHE /* keep tx FQDs in-cache even when empty */
-#undef POC_2FWD_RX_TD		/* whether to enable taildrop */
-#define POC_2FWD_RX_TD_THRESH 64000
-#undef POC_BACKOFF		/* consume cycles when EQCR/RCR is full */
-#define POC_BACKOFF_CYCLES	200
-#define POC_COUNTERS		/* enable counters */
-#undef POC_COUNTERS_SUCCESS	/*   not just errors, count everything */
-#undef POC_DATA_DCBF		/* cache flush modified data during Tx */
-#define POC_DEBUG_DEPLETION	/* trace depletion entry/exit */
+#undef RFL_2FWD_HOLDACTIVE	/* process each FQ on one cpu at a time */
+#define RFL_2FWD_RX_PREFERINCACHE /* keep rx FQDs in-cache even when empty */
+#define RFL_2FWD_TX_PREFERINCACHE /* keep tx FQDs in-cache even when empty */
+#undef RFL_2FWD_RX_TD		/* whether to enable taildrop */
+#define RFL_2FWD_RX_TD_THRESH 64000
+#undef RFL_BACKOFF		/* consume cycles when EQCR/RCR is full */
+#define RFL_BACKOFF_CYCLES	200
+#define RFL_COUNTERS		/* enable counters */
+#undef RFL_COUNTERS_SUCCESS	/*   not just errors, count everything */
+#undef RFL_DATA_DCBF		/* cache flush modified data during Tx */
+#define RFL_DEBUG_DEPLETION	/* trace depletion entry/exit */
 
 /**********/
 /* macros */
 /**********/
 
 /* Construct the SDQCR mask */
-#define POC_CPU_SDQCR(x) \
+#define RFL_CPU_SDQCR(x) \
 ({ \
-	u32 __foo = 0, __foo2 = POC_POOLCHANNEL_FIRST; \
-	while (__foo2 < (POC_POOLCHANNEL_FIRST + POC_POOLCHANNEL_NUM)) \
+	u32 __foo = 0, __foo2 = RFL_POOLCHANNEL_FIRST; \
+	while (__foo2 < (RFL_POOLCHANNEL_FIRST + RFL_POOLCHANNEL_NUM)) \
 		__foo |= QM_SDQCR_CHANNELS_POOL(__foo2++); \
 	__foo; \
 })
 
-#ifdef POC_TRACE
+#ifdef RFL_TRACE
 #define TRACE		printf
 #else
 #define TRACE(x...)	do { ; } while(0)
 #endif
 
-#ifdef POC_COUNTERS
+#ifdef RFL_COUNTERS
 #define CNT(a)	    struct bigatomic a
 #define CNT_INC(a)  bigatomic_inc(a)
 static inline void CNT_ADD(struct bigatomic *a, const struct bigatomic *b)
@@ -118,28 +118,28 @@ static inline void CNT_ADD(struct bigatomic *a, const struct bigatomic *b)
 
 /* Rx FQs that count packets and drop (ie. "Rx error", "Rx default", "Tx
  * error", "Tx confirm"). */
-struct poc_fq_2drop {
+struct rfl_fq_2drop {
 	struct qman_fq fq;
 	size_t percpu_offset;
 };
-struct poc_fq_2drop_percpu {
+struct rfl_fq_2drop_percpu {
 	CNT(cnt);
 };
 #define set_fq_2drop_percpu(p,pc) \
 do { \
-	struct poc_fq_2drop *__foo = (p); \
-	struct poc_fq_2drop_percpu *__foo2 = (pc); \
+	struct rfl_fq_2drop *__foo = (p); \
+	struct rfl_fq_2drop_percpu *__foo2 = (pc); \
 	__foo->percpu_offset = (unsigned long)__foo2 - \
 			(unsigned long)&ifs_percpu[0]; \
 } while (0)
 #define get_fq_2drop_percpu(p) \
-(struct poc_fq_2drop_percpu *)({ \
-	struct poc_fq_2drop *__foo = (p); \
+(struct rfl_fq_2drop_percpu *)({ \
+	struct rfl_fq_2drop *__foo = (p); \
 	(void *)ifs_percpu + __foo->percpu_offset; \
 })
-#ifdef POC_COUNTERS
-static inline void dump_fq_2drop(const char *prefix, struct poc_fq_2drop_percpu *to,
-			const struct poc_fq_2drop_percpu *pc)
+#ifdef RFL_COUNTERS
+static inline void dump_fq_2drop(const char *prefix, struct rfl_fq_2drop_percpu *to,
+			const struct rfl_fq_2drop_percpu *pc)
 {
 	if (prefix)
 		printf("%s:%llu", prefix, bigatomic_read(&pc->cnt));
@@ -148,13 +148,13 @@ static inline void dump_fq_2drop(const char *prefix, struct poc_fq_2drop_percpu 
 #endif
 
 /* Rx FQs that fwd, count packets and drop-decisions. */
-struct poc_fq_2fwd {
+struct rfl_fq_2fwd {
 	struct qman_fq fq_rx;
 	struct qman_fq fq_tx;
 	size_t percpu_offset;
 };
-struct poc_fq_2fwd_percpu {
-#ifdef POC_COUNTERS_SUCCESS
+struct rfl_fq_2fwd_percpu {
+#ifdef RFL_COUNTERS_SUCCESS
 	CNT(cnt);
 	CNT(cnt_tx);
 #endif
@@ -165,21 +165,21 @@ struct poc_fq_2fwd_percpu {
 } ____cacheline_aligned;
 #define set_fq_2fwd_percpu(p,pc) \
 do { \
-	struct poc_fq_2fwd *__foo = (p); \
-	struct poc_fq_2fwd_percpu *__foo2 = (pc); \
+	struct rfl_fq_2fwd *__foo = (p); \
+	struct rfl_fq_2fwd_percpu *__foo2 = (pc); \
 	__foo->percpu_offset = (unsigned long)__foo2 - \
 			(unsigned long)&ifs_percpu[0]; \
 } while (0)
 #define get_fq_2fwd_percpu(p) \
-(struct poc_fq_2fwd_percpu *)({ \
-	struct poc_fq_2fwd *__foo = (p); \
+(struct rfl_fq_2fwd_percpu *)({ \
+	struct rfl_fq_2fwd *__foo = (p); \
 	(void *)ifs_percpu + __foo->percpu_offset; \
 })
-#ifdef POC_COUNTERS
-static inline void dump_fq_2fwd(struct poc_fq_2fwd_percpu *to,
-			const struct poc_fq_2fwd_percpu *pc, int log)
+#ifdef RFL_COUNTERS
+static inline void dump_fq_2fwd(struct rfl_fq_2fwd_percpu *to,
+			const struct rfl_fq_2fwd_percpu *pc, int log)
 {
-#ifdef POC_COUNTERS_SUCCESS
+#ifdef RFL_COUNTERS_SUCCESS
 	if (log) {
 		printf("        rx:%llu,", bigatomic_read(&pc->cnt));
 		printf("fwd:%llu,", bigatomic_read(&pc->cnt_tx));
@@ -204,38 +204,38 @@ static inline void dump_fq_2fwd(struct poc_fq_2fwd_percpu *to,
 #endif
 
 /* Each DTSEC i/face (fm1-dtsec[0123]) has one of these */
-struct poc_if {
-	struct poc_fq_2fwd rx_hash[POC_RX_HASH_SIZE];
-	struct poc_fq_2drop rx_error;
-	struct poc_fq_2drop rx_default;
-	struct poc_fq_2drop tx_error;
-	struct poc_fq_2drop tx_confirm;
+struct rfl_if {
+	struct rfl_fq_2fwd rx_hash[RFL_RX_HASH_SIZE];
+	struct rfl_fq_2drop rx_error;
+	struct rfl_fq_2drop rx_default;
+	struct rfl_fq_2drop tx_error;
+	struct rfl_fq_2drop tx_confirm;
 	size_t percpu_offset;
 } ____cacheline_aligned;
-struct poc_if_percpu {
-	struct poc_fq_2fwd_percpu rx_hash[POC_RX_HASH_SIZE];
-	struct poc_fq_2drop_percpu rx_error;
-	struct poc_fq_2drop_percpu rx_default;
-	struct poc_fq_2drop_percpu tx_error;
-	struct poc_fq_2drop_percpu tx_confirm;
+struct rfl_if_percpu {
+	struct rfl_fq_2fwd_percpu rx_hash[RFL_RX_HASH_SIZE];
+	struct rfl_fq_2drop_percpu rx_error;
+	struct rfl_fq_2drop_percpu rx_default;
+	struct rfl_fq_2drop_percpu tx_error;
+	struct rfl_fq_2drop_percpu tx_confirm;
 };
 #define set_if_percpu(p,pc) \
 do { \
-	struct poc_if *__foo = (p); \
-	struct poc_if_percpu *__foo2 = (pc); \
+	struct rfl_if *__foo = (p); \
+	struct rfl_if_percpu *__foo2 = (pc); \
 	__foo->percpu_offset = (unsigned long)__foo2 - \
 			(unsigned long)&ifs_percpu[0]; \
 } while (0)
 #define get_if_percpu(p) \
-(struct poc_if_percpu *)({ \
-	struct poc_if *__foo = (p); \
+(struct rfl_if_percpu *)({ \
+	struct rfl_if *__foo = (p); \
 	(void *)ifs_percpu + __foo->percpu_offset; \
 })
-#ifdef POC_COUNTERS
-static inline void dump_if_percpu(struct poc_if_percpu *to,
-			const struct poc_if_percpu *pc, int log)
+#ifdef RFL_COUNTERS
+static inline void dump_if_percpu(struct rfl_if_percpu *to,
+			const struct rfl_if_percpu *pc, int log)
 {
-	struct poc_fq_2fwd_percpu my_total;
+	struct rfl_fq_2fwd_percpu my_total;
 	int loop;
 	memset(&my_total, 0, sizeof(my_total));
 	if (log)
@@ -250,7 +250,7 @@ static inline void dump_if_percpu(struct poc_if_percpu *to,
 			&pc->tx_confirm);
 	if (log)
 		printf("\n");
-	for (loop = 0; loop < POC_RX_HASH_SIZE; loop++) {
+	for (loop = 0; loop < RFL_RX_HASH_SIZE; loop++) {
 		dump_fq_2fwd(&my_total, &pc->rx_hash[loop], 0);
 		dump_fq_2fwd(to ? &to->rx_hash[loop] : NULL,
 				&pc->rx_hash[loop], log);
@@ -270,31 +270,31 @@ static inline void dump_if_percpu(struct poc_if_percpu *to,
 static struct bman_pool *pool[64];
 
 /* This array is allocated from the shmem region so that it DMAs OK */
-static struct poc_if *ifs;
+static struct rfl_if *ifs;
 
 /* A per-cpu shadown structure for keeping stats */
-static __PERCPU struct poc_if_percpu ifs_percpu[POC_IF_NUM];
+static __PERCPU struct rfl_if_percpu ifs_percpu[RFL_IF_NUM];
 
 /*********/
 /* Stats */
 /*********/
 
-struct poc_msg {
-	/* The CLI thread sets this !=poc_msg_none then waits on the barrier.
-	 * The worker thread checks for !=poc_msg_none in its polling loop,
-	 * performs the desired function, and sets this ==poc_msg_none before
+struct rfl_msg {
+	/* The CLI thread sets this !=rfl_msg_none then waits on the barrier.
+	 * The worker thread checks for !=rfl_msg_none in its polling loop,
+	 * performs the desired function, and sets this ==rfl_msg_none before
 	 * going into the barrier (releasing itself and the CLI thread). */
-	volatile enum poc_msg_type {
-		poc_msg_none = 0,
-		poc_msg_quit,
-		poc_msg_dump_if_percpu,
-		poc_msg_dump_if_all,
-		poc_msg_reset_if_percpu,
-		poc_msg_printf_foobar
+	volatile enum rfl_msg_type {
+		rfl_msg_none = 0,
+		rfl_msg_quit,
+		rfl_msg_dump_if_percpu,
+		rfl_msg_dump_if_all,
+		rfl_msg_reset_if_percpu,
+		rfl_msg_printf_foobar
 	} msg;
 	pthread_barrier_t barr;
-	/* ifs_percpu[] is copied to this by poc_msg_dump_* */
-	struct poc_if_percpu dump[POC_IF_NUM];
+	/* ifs_percpu[] is copied to this by rfl_msg_dump_* */
+	struct rfl_if_percpu dump[RFL_IF_NUM];
 #ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
 	u32 ci_hist[8];
 	u32 throt_hist[41];
@@ -304,42 +304,42 @@ struct poc_msg {
 /* worker-side processing */
 static noinline int process_msg(thread_data_t *ctx)
 {
-	struct poc_msg *msg = ctx->appdata;
-	if (msg->msg == poc_msg_quit)
+	struct rfl_msg *msg = ctx->appdata;
+	if (msg->msg == rfl_msg_quit)
 		printf("quit not implemented yet\n");
-	else if ((msg->msg == poc_msg_dump_if_percpu) ||
-			(msg->msg == poc_msg_dump_if_all)) {
+	else if ((msg->msg == rfl_msg_dump_if_percpu) ||
+			(msg->msg == rfl_msg_dump_if_all)) {
 		memcpy(msg->dump, ifs_percpu, sizeof(ifs_percpu));
 #ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
 		memcpy(&msg->ci_hist[0], &eqcr_ci_histogram[0], sizeof(msg->ci_hist));
 		memcpy(&msg->throt_hist[0], &throt_histogram[0], sizeof(msg->throt_hist));
 #endif
-	} else if (msg->msg == poc_msg_reset_if_percpu) {
+	} else if (msg->msg == rfl_msg_reset_if_percpu) {
 		memset(ifs_percpu, 0, sizeof(ifs_percpu));
 #ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
 		memset(&eqcr_ci_histogram[0], 0, sizeof(msg->ci_hist));
 		memset(&throt_histogram[0], 0, sizeof(msg->throt_hist));
 #endif
-	} else if (msg->msg == poc_msg_printf_foobar)
+	} else if (msg->msg == rfl_msg_printf_foobar)
 		printf("foobar (index:%d,cpu:%d)\n", ctx->index, ctx->cpu);
 	else
 		panic("bad message type");
-	msg->msg = poc_msg_none;
+	msg->msg = rfl_msg_none;
 	pthread_barrier_wait(&msg->barr);
 	return 1;
 }
 static inline int check_msg(thread_data_t *ctx)
 {
-	struct poc_msg *msg = ctx->appdata;
-	if (likely(msg->msg == poc_msg_none))
+	struct rfl_msg *msg = ctx->appdata;
+	if (likely(msg->msg == rfl_msg_none))
 		return 1;
 	return process_msg(ctx);
 }
 
 /* CLI-side processing */
-#ifdef POC_COUNTERS
-static void dump_if_percpus(struct poc_if_percpu *to,
-			const struct poc_if_percpu *pc, int cnt, int log)
+#ifdef RFL_COUNTERS
+static void dump_if_percpus(struct rfl_if_percpu *to,
+			const struct rfl_if_percpu *pc, int cnt, int log)
 {
 	int loop;
 	for (loop = 0; loop < cnt; loop++) {
@@ -399,12 +399,12 @@ static void dump_thist(u32 *to, u32 *pc, int log)
 #endif
 static void msg_dump_if_percpu(thread_data_t *ctx)
 {
-	struct poc_msg *msg = ctx->appdata;
+	struct rfl_msg *msg = ctx->appdata;
 
-	msg->msg = poc_msg_dump_if_all;
+	msg->msg = rfl_msg_dump_if_all;
 	pthread_barrier_wait(&msg->barr);
 	printf("Dumping thread %d (cpu %d);\n", ctx->index, ctx->cpu);
-	dump_if_percpus(NULL, msg->dump, POC_IF_NUM, 1);
+	dump_if_percpus(NULL, msg->dump, RFL_IF_NUM, 1);
 #ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
 	dump_hist(NULL, msg->ci_hist, 1);
 	dump_thist(NULL, msg->throt_hist, 1);
@@ -412,7 +412,7 @@ static void msg_dump_if_percpu(thread_data_t *ctx)
 }
 static void msg_dump_if_all(thread_data_t *ctx, int cnt)
 {
-	struct poc_if_percpu if_totals[POC_IF_NUM];
+	struct rfl_if_percpu if_totals[RFL_IF_NUM];
 	u32 hist_totals[8];
 	u32 thist_totals[41];
 	int loop;
@@ -420,17 +420,17 @@ static void msg_dump_if_all(thread_data_t *ctx, int cnt)
 	memset(hist_totals, 0, sizeof(hist_totals));
 	memset(thist_totals, 0, sizeof(thist_totals));
 	for (loop = 0; loop < cnt; loop++, ctx++) {
-		struct poc_msg *msg = ctx->appdata;
-		msg->msg = poc_msg_dump_if_percpu;
+		struct rfl_msg *msg = ctx->appdata;
+		msg->msg = rfl_msg_dump_if_percpu;
 		pthread_barrier_wait(&msg->barr);
-		dump_if_percpus(if_totals, msg->dump, POC_IF_NUM, 0);
+		dump_if_percpus(if_totals, msg->dump, RFL_IF_NUM, 0);
 #ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
 		dump_hist(hist_totals, msg->ci_hist, 0);
 		dump_thist(thist_totals, msg->throt_hist, 0);
 #endif
 	}
 	printf("Dumping totals;\n");
-	dump_if_percpus(NULL, if_totals, POC_IF_NUM, 1);
+	dump_if_percpus(NULL, if_totals, RFL_IF_NUM, 1);
 #ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
 	dump_hist(NULL, hist_totals, 1);
 	dump_thist(NULL, thist_totals, 1);
@@ -440,8 +440,8 @@ static void msg_reset_if_percpus(thread_data_t *ctx, int cnt)
 {
 	int loop;
 	for (loop = 0; loop < cnt; loop++, ctx++) {
-		struct poc_msg *msg = ctx->appdata;
-		msg->msg = poc_msg_reset_if_percpu;
+		struct rfl_msg *msg = ctx->appdata;
+		msg->msg = rfl_msg_reset_if_percpu;
 		pthread_barrier_wait(&msg->barr);
 	}
 }
@@ -451,8 +451,8 @@ static void msg_printf_foobar(thread_data_t *ctx, int cnt)
 {
 	int loop;
 	for (loop = 0; loop < cnt; loop++, ctx++) {
-		struct poc_msg *msg = ctx->appdata;
-		msg->msg = poc_msg_printf_foobar;
+		struct rfl_msg *msg = ctx->appdata;
+		msg->msg = rfl_msg_printf_foobar;
 		pthread_barrier_wait(&msg->barr);
 	}
 }
@@ -478,8 +478,8 @@ static inline void drop_frame(const struct qm_fd *fd)
 retry:
 	ret = bman_release(pool[fd->bpid], &buf, 1, 0);
 	if (ret) {
-#ifdef POC_BACKOFF
-		cpu_spin(POC_BACKOFF_CYCLES);
+#ifdef RFL_BACKOFF
+		cpu_spin(RFL_BACKOFF_CYCLES);
 #else
 		barrier();
 #endif
@@ -493,8 +493,8 @@ static inline void send_frame(struct qman_fq *fq, const struct qm_fd *fd)
 retry:
 	ret = qman_enqueue(fq, fd, 0);
 	if (ret) {
-#ifdef POC_BACKOFF
-		cpu_spin(POC_BACKOFF_CYCLES);
+#ifdef RFL_BACKOFF
+		cpu_spin(RFL_BACKOFF_CYCLES);
 #else
 		barrier();
 #endif
@@ -503,7 +503,7 @@ retry:
 }
 
 /***********************/
-/* struct poc_fq_2drop */
+/* struct rfl_fq_2drop */
 /***********************/
 
 static enum qman_cb_dqrr_result cb_dqrr_2drop(
@@ -511,17 +511,17 @@ static enum qman_cb_dqrr_result cb_dqrr_2drop(
 					struct qman_fq *fq,
 					const struct qm_dqrr_entry *dqrr)
 {
-	__maybe_unused struct poc_fq_2drop *p = container_of(fq,
-					struct poc_fq_2drop, fq);
-	__maybe_unused struct poc_fq_2drop_percpu *pc = get_fq_2drop_percpu(p);
+	__maybe_unused struct rfl_fq_2drop *p = container_of(fq,
+					struct rfl_fq_2drop, fq);
+	__maybe_unused struct rfl_fq_2drop_percpu *pc = get_fq_2drop_percpu(p);
 	TRACE("Rx: 2drop fqid=%d\tfd_status = 0x%08x\n", fq->fqid, dqrr->fd.status);
 	CNT_INC(&pc->cnt);
 	drop_frame(&dqrr->fd);
 	return qman_cb_dqrr_consume;
 }
 
-static void poc_fq_2drop_init(struct poc_fq_2drop *p,
-				struct poc_fq_2drop_percpu *pc, u32 fqid,
+static void rfl_fq_2drop_init(struct rfl_fq_2drop *p,
+				struct rfl_fq_2drop_percpu *pc, u32 fqid,
 				enum qm_channel channel)
 {
 	struct qm_mcc_initfq opts;
@@ -534,16 +534,16 @@ static void poc_fq_2drop_init(struct poc_fq_2drop *p,
 	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
 			QM_INITFQ_WE_CONTEXTA;
 	opts.fqd.dest.channel = channel;
-	opts.fqd.dest.wq = POC_PRIO_2DROP;
+	opts.fqd.dest.wq = RFL_PRIO_2DROP;
 	opts.fqd.fq_ctrl = QM_FQCTRL_CTXASTASHING;
 	opts.fqd.context_a.stashing.data_cl = 1;
-	opts.fqd.context_a.stashing.context_cl = POC_STASH_CTX_CL(p);
+	opts.fqd.context_a.stashing.context_cl = RFL_STASH_CTX_CL(p);
 	ret = qman_init_fq(&p->fq, QMAN_INITFQ_FLAG_SCHED, &opts);
 	BUG_ON(ret);
 }
 
 /**********************/
-/* struct poc_fq_2fwd */
+/* struct rfl_fq_2fwd */
 /**********************/
 
 /* Swap 6-byte MAC headers "efficiently" (hopefully) */
@@ -559,7 +559,7 @@ static inline void ether_header_swap(struct ether_header *prot_eth)
 	overlay[2] = (a << 16) | (b >> 16);
 }
 
-#ifdef POC_DATA_DCBF
+#ifdef RFL_DATA_DCBF
 /* Flush cacheline(s) containing the data starting at addr, size len */
 static inline void cache_flush(void *addr, unsigned long len)
 {
@@ -577,8 +577,8 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(
 					struct qman_fq *fq,
 					const struct qm_dqrr_entry *dqrr)
 {
-	struct poc_fq_2fwd *p = container_of(fq, struct poc_fq_2fwd, fq_rx);
-	__maybe_unused struct poc_fq_2fwd_percpu *pc = get_fq_2fwd_percpu(p);
+	struct rfl_fq_2fwd *p = container_of(fq, struct rfl_fq_2fwd, fq_rx);
+	__maybe_unused struct rfl_fq_2fwd_percpu *pc = get_fq_2fwd_percpu(p);
 	const struct qm_fd *fd = &dqrr->fd;
 	void *addr;
 	struct ether_header *prot_eth;
@@ -590,7 +590,7 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(
 		fd->addr_lo, addr, fd->offset, fd->length20, fd->bpid);
 	addr += fd->offset;
 	prot_eth = addr;
-#ifdef POC_COUNTERS_SUCCESS
+#ifdef RFL_COUNTERS_SUCCESS
 	CNT_INC(&pc->cnt);
 #endif
 	TRACE("	     dhost=%02x:%02x:%02x:%02x:%02x:%02x\n",
@@ -614,7 +614,7 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(
 		{
 		struct iphdr *iphdr = addr + 14;
 		__be32 tmp;
-#ifdef POC_TRACE
+#ifdef RFL_TRACE
 		u8 *src = (void *)&iphdr->saddr;
 		u8 *dst = (void *)&iphdr->daddr;
 		TRACE("		  ver=%d,ihl=%d,tos=%d,len=%d,id=%d\n",
@@ -634,14 +634,14 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(
 		iphdr->saddr = tmp;
 		/* switch ethernet src/dest MAC addresses */
 		ether_header_swap(prot_eth);
-#ifdef POC_DATA_DCBF
+#ifdef RFL_DATA_DCBF
 		cache_flush(addr, (unsigned long)iphdr + 12 -
 				(unsigned long)addr);
 #endif
 		TRACE("Tx: 2fwd	 fqid=%d\n", p->fq_tx.fqid);
 		TRACE("	     phys=0x%08x, offset=%d, len=%d, bpid=%d\n",
 			fd->addr_lo, fd->offset, fd->length20, fd->bpid);
-#ifdef POC_COUNTERS_SUCCESS
+#ifdef RFL_COUNTERS_SUCCESS
 		CNT_INC(&pc->cnt_tx);
 #endif
 		send_frame(&p->fq_tx, fd);
@@ -649,7 +649,7 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(
 		return qman_cb_dqrr_consume;
 	case ETH_P_ARP:
 		TRACE("	       -> it's ETH_P_ARP!\n");
-#ifdef POC_TRACE
+#ifdef RFL_TRACE
 		{
 		struct arphdr *arphdr = addr + 14;
 		TRACE("		  hrd=%d, pro=%d, hln=%d, pln=%d, op=%d\n",
@@ -674,15 +674,15 @@ static void cb_ern_2fwd(struct qman_portal *qm __always_unused,
 			struct qman_fq *fq,
 			const struct qm_mr_entry *msg)
 {
-	__maybe_unused struct poc_fq_2fwd *p = container_of(fq,
-					struct poc_fq_2fwd, fq_tx);
-	__maybe_unused struct poc_fq_2fwd_percpu *pc = get_fq_2fwd_percpu(p);
+	__maybe_unused struct rfl_fq_2fwd *p = container_of(fq,
+					struct rfl_fq_2fwd, fq_tx);
+	__maybe_unused struct rfl_fq_2fwd_percpu *pc = get_fq_2fwd_percpu(p);
 	CNT_INC(&pc->cnt_tx_ern);
 	drop_frame(&msg->ern.fd);
 }
 
-static void poc_fq_2fwd_init(struct poc_fq_2fwd *p,
-			struct poc_fq_2fwd_percpu *pc, u32 rx_fqid, u32 tx_fqid,
+static void rfl_fq_2fwd_init(struct rfl_fq_2fwd *p,
+			struct rfl_fq_2fwd_percpu *pc, u32 rx_fqid, u32 tx_fqid,
 			enum qm_channel channel, enum qm_channel tx_channel)
 {
 	struct qm_mcc_initfq opts;
@@ -712,9 +712,9 @@ static void poc_fq_2fwd_init(struct poc_fq_2fwd *p,
 	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
 		       QM_INITFQ_WE_CONTEXTB | QM_INITFQ_WE_CONTEXTA;
 	opts.fqd.dest.channel = tx_channel;
-	opts.fqd.dest.wq = POC_PRIO_2TX;
+	opts.fqd.dest.wq = RFL_PRIO_2TX;
 	opts.fqd.fq_ctrl =
-#ifdef POC_2FWD_TX_PREFERINCACHE
+#ifdef RFL_2FWD_TX_PREFERINCACHE
 		QM_FQCTRL_PREFERINCACHE |
 #endif
 		0;
@@ -735,28 +735,28 @@ static void poc_fq_2fwd_init(struct poc_fq_2fwd *p,
 	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
 			QM_INITFQ_WE_CONTEXTA | QM_INITFQ_WE_TDTHRESH;
 	opts.fqd.dest.channel = channel;
-	opts.fqd.dest.wq = POC_PRIO_2FWD;
+	opts.fqd.dest.wq = RFL_PRIO_2FWD;
 	opts.fqd.fq_ctrl =
-#ifdef POC_2FWD_HOLDACTIVE
+#ifdef RFL_2FWD_HOLDACTIVE
 		QM_FQCTRL_HOLDACTIVE |
 #endif
-#ifdef POC_2FWD_RX_PREFERINCACHE
+#ifdef RFL_2FWD_RX_PREFERINCACHE
 		QM_FQCTRL_PREFERINCACHE |
 #endif
-#ifdef POC_2FWD_RX_TD
+#ifdef RFL_2FWD_RX_TD
 		QM_FQCTRL_TDE |
 #endif
 		QM_FQCTRL_CTXASTASHING;
 	opts.fqd.context_a.stashing.data_cl = 1;
-	opts.fqd.context_a.stashing.context_cl = POC_STASH_CTX_CL(p);
-	ret = qm_fqd_taildrop_set(&opts.fqd.td, POC_2FWD_RX_TD_THRESH, 0);
+	opts.fqd.context_a.stashing.context_cl = RFL_STASH_CTX_CL(p);
+	ret = qm_fqd_taildrop_set(&opts.fqd.td, RFL_2FWD_RX_TD_THRESH, 0);
 	BUG_ON(ret);
 	ret = qman_init_fq(&p->fq_rx, QMAN_INITFQ_FLAG_SCHED, &opts);
 	BUG_ON(ret);
 }
 
 /*****************/
-/* struct poc_if */
+/* struct rfl_if */
 /*****************/
 
 /* Pick which pool channel to schedule a(ny) Rx FQ to using a 32-bit LFSR and
@@ -771,27 +771,27 @@ static enum qm_channel get_rxc(void)
 	int n;
 	my_lfsr = (my_lfsr >> 1) ^ (-(my_lfsr & 1u) & 0xd0000001u);
 	tmp = (my_lfsr & 0x00ffff00) >> 8;
-	n = POC_POOLCHANNEL_FIRST + (tmp % POC_POOLCHANNEL_NUM);
+	n = RFL_POOLCHANNEL_FIRST + (tmp % RFL_POOLCHANNEL_NUM);
 	return qm_channel_pool1 + (n - 1);
 }
 
-static void poc_if_init(struct poc_if *i, struct poc_if_percpu *pc, int idx)
+static void rfl_if_init(struct rfl_if *i, struct rfl_if_percpu *pc, int idx)
 {
 	int loop;
 	set_if_percpu(i, pc);
-	poc_fq_2drop_init(&i->rx_error, &pc->rx_error,
-			POC_FQID_RX_ERROR(idx), get_rxc());
-	poc_fq_2drop_init(&i->rx_default, &pc->rx_default,
-			POC_FQID_RX_DEFAULT(idx), get_rxc());
-	poc_fq_2drop_init(&i->tx_error, &pc->tx_error,
-			POC_FQID_TX_ERROR(idx), get_rxc());
-	poc_fq_2drop_init(&i->tx_confirm, &pc->tx_confirm,
-			POC_FQID_TX_CONFIRM(idx), get_rxc());
-	for (loop = 0; loop < POC_RX_HASH_SIZE; loop++)
-		poc_fq_2fwd_init(&i->rx_hash[loop], &pc->rx_hash[loop],
-				POC_FQID_RX_HASH(idx, loop),
-				POC_FQID_TX(idx, loop),
-				get_rxc(), POC_CHANNEL_TX(idx));
+	rfl_fq_2drop_init(&i->rx_error, &pc->rx_error,
+			RFL_FQID_RX_ERROR(idx), get_rxc());
+	rfl_fq_2drop_init(&i->rx_default, &pc->rx_default,
+			RFL_FQID_RX_DEFAULT(idx), get_rxc());
+	rfl_fq_2drop_init(&i->tx_error, &pc->tx_error,
+			RFL_FQID_TX_ERROR(idx), get_rxc());
+	rfl_fq_2drop_init(&i->tx_confirm, &pc->tx_confirm,
+			RFL_FQID_TX_CONFIRM(idx), get_rxc());
+	for (loop = 0; loop < RFL_RX_HASH_SIZE; loop++)
+		rfl_fq_2fwd_init(&i->rx_hash[loop], &pc->rx_hash[loop],
+				RFL_FQID_RX_HASH(idx, loop),
+				RFL_FQID_TX(idx, loop),
+				get_rxc(), RFL_CHANNEL_TX(idx));
 }
 
 /*******/
@@ -812,7 +812,7 @@ static void calm_down(void)
 	}
 }
 
-#ifdef POC_DEBUG_DEPLETION
+#ifdef RFL_DEBUG_DEPLETION
 static void bp_depletion(struct bman_portal *bm __always_unused,
 			struct bman_pool *p,
 			void *cb_ctx __maybe_unused,
@@ -843,17 +843,17 @@ static int worker_fn(thread_data_t *tdata)
 	/* Do interface initialisation in the first thread. We can't do this
 	 * before, because we need to use portals to initialise FQs. */
 	if (!tdata->index) {
-		u8 bpids[] = POC_BPIDS;
+		u8 bpids[] = RFL_BPIDS;
 		unsigned int loop;
-		for (loop = 0; loop < POC_IF_NUM; loop++) {
+		for (loop = 0; loop < RFL_IF_NUM; loop++) {
 			TRACE("Initialising interface %d\n", ifid[loop]);
-			poc_if_init(&ifs[loop], &ifs_percpu[loop], ifid[loop]);
+			rfl_if_init(&ifs[loop], &ifs_percpu[loop], ifid[loop]);
 		}
 		/* initialise buffer pools */
 		for (loop = 0; loop < sizeof(bpids); loop++) {
 			struct bman_pool_params params = {
 				.bpid	= bpids[loop],
-#ifdef POC_DEBUG_DEPLETION
+#ifdef RFL_DEBUG_DEPLETION
 				.flags	= BMAN_POOL_FLAG_ONLY_RELEASE |
 					BMAN_POOL_FLAG_DEPLETION,
 				.cb	= bp_depletion,
@@ -870,7 +870,7 @@ static int worker_fn(thread_data_t *tdata)
 		__mac_enable_all();
 	}
 
-	qman_static_dequeue_add(POC_CPU_SDQCR(tdata->index));
+	qman_static_dequeue_add(RFL_CPU_SDQCR(tdata->index));
 
 	TRACE("Starting poll loop on cpu %d\n", tdata->cpu);
 	pthread_barrier_wait(&init_barrier);
@@ -886,7 +886,7 @@ static int worker_fn(thread_data_t *tdata)
 
 static int do_cli(char *buf, unsigned int sz)
 {
-	printf("poc> ");
+	printf("reflector> ");
 	fflush(stdout);
 	return (fgets(buf, sz, stdin) != NULL);
 }
@@ -894,11 +894,11 @@ static int do_cli(char *buf, unsigned int sz)
 int main(int argc, char *argv[])
 {
 	thread_data_t thread_data[MAX_THREADS];
-	struct poc_msg appdata[MAX_THREADS];
+	struct rfl_msg appdata[MAX_THREADS];
 	char *endptr;
 	int ret, first, last, loop;
 	unsigned long ncpus = (unsigned long)sysconf(_SC_NPROCESSORS_ONLN);
-	char cli[POC_CLI_BUFFER];
+	char cli[RFL_CLI_BUFFER];
 
 	if (ncpus == 1)
 		first = last = 0;
@@ -934,13 +934,13 @@ int main(int argc, char *argv[])
 	if (ret)
 		fprintf(stderr, "Continuing despite shmem failure\n");
 	/* allocate interface structs in shmem region */
-	ifs = fsl_shmem_memalign(64, POC_IF_NUM * sizeof(*ifs));
+	ifs = fsl_shmem_memalign(64, RFL_IF_NUM * sizeof(*ifs));
 	BUG_ON(!ifs);
-	memset(ifs, 0, POC_IF_NUM * sizeof(*ifs));
+	memset(ifs, 0, RFL_IF_NUM * sizeof(*ifs));
 
 	/* Create the threads */
 	for (loop = 0; loop < last - first + 1; loop++) {
-		struct poc_msg *msg = &appdata[loop];
+		struct rfl_msg *msg = &appdata[loop];
 		memset(msg, 0, sizeof(*msg));
 		pthread_barrier_init(&msg->barr, NULL, 2);
 		thread_data[loop].appdata = msg;
@@ -957,14 +957,14 @@ int main(int argc, char *argv[])
 		handle_error_en(ret, "start_threads");
 	/* don't start the cmd-prompt until thread init is done */
 	pthread_barrier_wait(&init_barrier);
-	while (do_cli(cli, POC_CLI_BUFFER)) {
+	while (do_cli(cli, RFL_CLI_BUFFER)) {
 		while ((cli[strlen(cli) - 1] == '\r') ||
 				(cli[strlen(cli) - 1] == '\n'))
 			cli[strlen(cli) - 1] = '\0';
 		if (!strncmp(cli, "q", 1))
 			break;
 		else if (!strncmp(cli, "dump", 4))
-#ifdef POC_COUNTERS
+#ifdef RFL_COUNTERS
 			msg_dump_if_all(thread_data, last - first + 1);
 #else
 			fprintf(stderr, "No counters compiled in\n");
@@ -978,7 +978,7 @@ int main(int argc, char *argv[])
 				msg_dump_if_percpu(thread_data +
 						(param - first));
 		} else if (!strncmp(cli, "reset", 5))
-#ifdef POC_COUNTERS
+#ifdef RFL_COUNTERS
 			msg_reset_if_percpus(thread_data, last - first + 1);
 #else
 			fprintf(stderr, "No counters compiled in\n");
