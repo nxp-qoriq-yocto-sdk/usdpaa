@@ -43,9 +43,6 @@ static __thread int fd;
 
 static struct bm_portal_config configs[PORTAL_MAX];
 static u8 num_portals;
-/* First thread to get the lock will handle global init */
-static spinlock_t global_init_lock = SPIN_LOCK_UNLOCKED;
-static int global_init_done = 0;
 
 static struct bman_depletion pools = BMAN_DEPLETION_FULL;
 static u8 num_pools = 64;
@@ -157,64 +154,65 @@ static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 	return 0;
 }
 
-static int fsl_bpool_range_init(int recovery_mode)
+static int fsl_bpool_range_init(int recovery_mode,
+				const struct bman_bpid_ranges *bpids)
 {
 	int ret, warned = 0;
-	u32 bpid;
-	for (bpid = FSL_BPID_RANGE_START;
-			bpid < (FSL_BPID_RANGE_START + FSL_BPID_RANGE_LENGTH);
-			bpid++) {
-		if (bpid > 63) {
-			pr_err("BPIDs out range\n");
-			return -EINVAL;
-		}
-		if (!bman_depletion_get(&pools, bpid)) {
-			if (!warned) {
-				warned = 1;
-				pr_err("BPID overlap in, ignoring\n");
-			}
-		} else {
-			bman_depletion_unset(&pools, bpid);
-			num_pools--;
-		}
-	}
-	if (recovery_mode) {
-		for (bpid = FSL_BPID_RANGE_START; bpid <
-				(FSL_BPID_RANGE_START + FSL_BPID_RANGE_LENGTH);
+	u32 bpid, range;
+	for (range = 0; range < bpids->num_ranges; range++) {
+		for (bpid = bpids->ranges[range].start;
+				bpid < (bpids->ranges[range].start +
+					bpids->ranges[range].num);
 				bpid++) {
-			ret = bman_recovery_cleanup_bpid(bpid);
-			if (ret) {
-				pr_err("Failed to recover BPID %d\n", bpid);
-				return ret;
+			if (bpid > 63) {
+				pr_err("BPIDs out range\n");
+				return -EINVAL;
+			}
+			if (!bman_depletion_get(&pools, bpid)) {
+				if (!warned) {
+					warned = 1;
+					pr_err("BPID overlap in, ignoring\n");
+				}
+			} else {
+				if (recovery_mode) {
+					ret = bman_recovery_cleanup_bpid(bpid);
+					if (ret) {
+						pr_err("Failed to recover BPID "
+							"%d\n", bpid);
+						return ret;
+					}
+				}
+				bman_depletion_unset(&pools, bpid);
+				num_pools--;
 			}
 		}
+		pr_info("Bman: BPID allocator includes range %d:%d%s\n",
+			bpids->ranges[range].start, bpids->ranges[range].num,
+			recovery_mode ? " (recovered)" : "");
 	}
-	pr_info("Bman: BPID allocator includes range %d:%d%s\n",
-		FSL_BPID_RANGE_START, FSL_BPID_RANGE_LENGTH,
-		recovery_mode ? " (recovered)" : "");
 	return 0;
 }
 
-int bman_thread_init(int cpu)
+int bman_thread_init(int cpu, int recovery_mode)
 {
 	/* Load the core-affine portal */
-	int recovery_mode = fsl_dpa_should_recover();
 	int ret = fsl_bman_portal_init(cpu, recovery_mode);
 	if (ret) {
 		pr_err("Bman portal failed initialisation (%d), ret=%d\n",
 			cpu, ret);
 		return ret;
 	}
-	spin_lock(&global_init_lock);
-	if (!global_init_done) {
-		global_init_done = 1;
-		ret = fsl_bpool_range_init(recovery_mode);
-	}
-	spin_unlock(&global_init_lock);
-	if (ret)
-		return ret;
-	if (recovery_mode)
-		bman_recovery_exit_local();
-	pr_info("Bman portal initialised (%d)\n", cpu);
 	return 0;
+}
+
+void bman_thread_finish(void)
+{
+	if (!bman_have_affine_portal())
+		bman_destroy_affine_portal();
+}
+
+int bman_setup_allocator(int recovery_mode,
+			const struct bman_bpid_ranges *bpids)
+{
+	return fsl_bpool_range_init(recovery_mode, bpids);
 }

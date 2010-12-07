@@ -46,9 +46,6 @@ static __thread int fd;
 
 static struct qm_portal_config configs[PORTAL_MAX];
 static u8 num_portals;
-/* First thread to get the lock will handle global init */
-static spinlock_t global_init_lock = SPIN_LOCK_UNLOCKED;
-static int global_init_done = 0;
 
 static struct qm_portal_config *__qm_portal_add(
 					const struct qm_portal_config *config)
@@ -172,49 +169,53 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 	return 0;
 }
 
-static int fsl_fqid_range_init(int recovery_mode)
+static int fsl_fqid_range_init(int recovery_mode,
+				const struct qman_fqid_ranges *fqids)
 {
-	if (recovery_mode) {
-		u32 fqid;
-		for (fqid = FSL_FQID_RANGE_START; fqid <
-				(FSL_FQID_RANGE_START + FSL_FQID_RANGE_LENGTH);
+	u32 fqid, range;
+	for (range = 0; range < fqids->num_ranges; range++) {
+		for (fqid = fqids->ranges[range].start;
+				fqid < (fqids->ranges[range].start +
+					fqids->ranges[range].num);
 				fqid++) {
-			int ret = qman_recovery_cleanup_fq(fqid);
-			if (ret) {
-				pr_err("Failed to recover FQID %d\n", fqid);
-				return ret;
+			if (recovery_mode) {
+				int ret = qman_recovery_cleanup_fq(fqid);
+				if (ret) {
+					pr_err("Failed to recover FQID %d\n",
+						fqid);
+					return ret;
+				}
 			}
 		}
+		qman_release_fqid_range(fqids->ranges[range].start,
+					fqids->ranges[range].num);
+		pr_info("Qman: FQID allocator includes range %d:%d%s\n",
+			fqids->ranges[range].start, fqids->ranges[range].num,
+			recovery_mode ? " (recovered)" : "");
 	}
-	qman_release_fqid_range(FSL_FQID_RANGE_START, FSL_FQID_RANGE_LENGTH);
-	pr_info("Qman: FQID allocator includes range %d:%d%s\n",
-		FSL_FQID_RANGE_START, FSL_FQID_RANGE_LENGTH,
-		recovery_mode ? " (recovered)" : "");
 	return 0;
 }
 
-int qman_thread_init(int cpu)
+int qman_thread_init(int cpu, int recovery_mode)
 {
 	/* Load the core-affine portal */
-	int recovery_mode = fsl_dpa_should_recover();
 	int ret = fsl_qman_portal_init(cpu, recovery_mode);
 	if (ret) {
 		pr_err("Qman portal failed initialisation (%d), ret=%d\n",
 			cpu, ret);
 		return ret;
 	}
-	spin_lock(&global_init_lock);
-	if (!global_init_done) {
-		global_init_done = 1;
-		ret = fsl_fqid_range_init(recovery_mode);
-		if (!ret)
-			ret = fqalloc_init(0);
-	}
-	spin_unlock(&global_init_lock);
-	if (ret)
-		return ret;
-	if (recovery_mode)
-		qman_recovery_exit_local();
-	pr_info("Qman portal initialised (%d)\n", cpu);
 	return 0;
+}
+
+void qman_thread_finish(void)
+{
+	if (!qman_have_affine_portal())
+		qman_destroy_affine_portal();
+}
+
+int qman_setup_allocator(int recovery_mode,
+			const struct qman_fqid_ranges *fqids)
+{
+	return fsl_fqid_range_init(recovery_mode, fqids);
 }

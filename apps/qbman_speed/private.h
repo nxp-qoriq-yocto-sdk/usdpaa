@@ -30,12 +30,23 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <badinit.h>
+#include <compat.h>
+#include <linux/fsl_qman.h>
+#include <linux/fsl_bman.h>
+#include <fsl_shmem.h>
 
-void qman_test_high(thread_data_t *tdata);
-void bman_test_high(thread_data_t *tdata);
-void speed(thread_data_t *tdata);
-void blastman(thread_data_t *tdata);
+struct worker {
+	int cpu, do_global_init;
+	int idx, total_cpus;
+	pthread_t id;
+	struct list_head node;
+	pthread_barrier_t global_init_barrier;
+};
 
 void sync_all(void);
+
+void qman_test_high(struct worker *worker);
+void bman_test_high(struct worker *worker);
+void speed(struct worker *worker);
+void blastman(struct worker *worker);
 

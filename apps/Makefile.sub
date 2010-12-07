@@ -1,3 +1,0 @@
-lib_LIBRARIES = apps_badinit
-
-apps_badinit_SOURCES := badinit.c

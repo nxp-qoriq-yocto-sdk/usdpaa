@@ -65,8 +65,8 @@ extern "C" {
  * to hard-code is the FQID and BPID range allocation. */
 #define FSL_FQID_RANGE_START	0x200	/* 512 */
 #define FSL_FQID_RANGE_LENGTH	0x080	/* 128 */
-#define FSL_BPID_RANGE_START	60
-#define FSL_BPID_RANGE_LENGTH	4
+#define FSL_BPID_RANGE_START	56
+#define FSL_BPID_RANGE_LENGTH	8
 
 /* support for BUG_ON()s, might_sleep()s, etc */
 #undef CONFIG_BUGON

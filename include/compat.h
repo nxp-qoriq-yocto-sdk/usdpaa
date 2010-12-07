@@ -677,6 +677,11 @@ do { \
 #define list_for_each_entry(i, l, name) \
 	for (i = list_entry((l)->next, typeof(*i), name); &i->name != (l); \
 		i = list_entry(i->name.next, typeof(*i), name))
+#define list_for_each_entry_safe(i, j, l, name) \
+	for (i = list_entry((l)->next, typeof(*i), name), \
+		j = list_entry(i->name.next, typeof(*j), name); \
+		&i->name != (l); \
+		i = j, j = list_entry(j->name.next, typeof(*j), name))
 #define list_del(i) \
 do { \
 	(i)->next->prev = (i)->prev; \

@@ -30,8 +30,14 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <badinit.h>
+#include <compat.h>
+#include <fsl_shmem.h>
+#include <fman.h>
 #include <bigatomic.h>
+
+#include <net/ethernet.h>
+#include <net/if_arp.h>
+#include <linux/ip.h>
 
 /* if defined, be lippy about everything */
 #undef RFL_TRACE
@@ -66,6 +72,18 @@
 
 //static const uint8_t ifid[] = {0, 1, 2, 3, 9};
 static const uint8_t ifid[] = {4, 7, 8, 9};
+static const struct bman_bpid_range bpid_range[] =
+	{ {FSL_BPID_RANGE_START, FSL_BPID_RANGE_LENGTH} };
+static const struct bman_bpid_ranges bpid_allocator = {
+	.num_ranges = 1,
+	.ranges = bpid_range
+};
+static const struct qman_fqid_range fqid_range[] =
+	{ {FSL_FQID_RANGE_START, FSL_FQID_RANGE_LENGTH} };
+static const struct qman_fqid_ranges fqid_allocator = {
+	.num_ranges = 1,
+	.ranges = fqid_range
+};
 
 /* application options */
 #undef RFL_2FWD_HOLDACTIVE	/* process each FQ on one cpu at a time */
@@ -85,7 +103,7 @@ static const uint8_t ifid[] = {4, 7, 8, 9};
 /**********/
 
 /* Construct the SDQCR mask */
-#define RFL_CPU_SDQCR(x) \
+#define RFL_CPU_SDQCR() \
 ({ \
 	u32 __foo = 0, __foo2 = RFL_POOLCHANNEL_FIRST; \
 	while (__foo2 < (RFL_POOLCHANNEL_FIRST + RFL_POOLCHANNEL_NUM)) \
@@ -112,9 +130,9 @@ static inline void CNT_ADD(struct bigatomic *a, const struct bigatomic *b)
 #define CNT_INC(a)  do { ; } while (0)
 #endif
 
-/*******************/
-/* Data structures */
-/*******************/
+/*********************************/
+/* Net interface data structures */
+/*********************************/
 
 /* Rx FQs that count packets and drop (ie. "Rx error", "Rx default", "Tx
  * error", "Tx confirm"). */
@@ -233,7 +251,7 @@ do { \
 })
 #ifdef RFL_COUNTERS
 static inline void dump_if_percpu(struct rfl_if_percpu *to,
-			const struct rfl_if_percpu *pc, int log)
+			const struct rfl_if_percpu *pc, int log, int verbose)
 {
 	struct rfl_fq_2fwd_percpu my_total;
 	int loop;
@@ -253,9 +271,9 @@ static inline void dump_if_percpu(struct rfl_if_percpu *to,
 	for (loop = 0; loop < RFL_RX_HASH_SIZE; loop++) {
 		dump_fq_2fwd(&my_total, &pc->rx_hash[loop], 0);
 		dump_fq_2fwd(to ? &to->rx_hash[loop] : NULL,
-				&pc->rx_hash[loop], log);
+			&pc->rx_hash[loop], verbose ? log : 0);
 	}
-	if (log)
+	if (log && verbose)
 		printf("      total;\n");
 	dump_fq_2fwd(NULL, &my_total, log);
 }
@@ -275,199 +293,17 @@ static struct rfl_if *ifs;
 /* A per-cpu shadown structure for keeping stats */
 static __PERCPU struct rfl_if_percpu ifs_percpu[RFL_IF_NUM];
 
-/*********/
-/* Stats */
-/*********/
-
-struct rfl_msg {
-	/* The CLI thread sets this !=rfl_msg_none then waits on the barrier.
-	 * The worker thread checks for !=rfl_msg_none in its polling loop,
-	 * performs the desired function, and sets this ==rfl_msg_none before
-	 * going into the barrier (releasing itself and the CLI thread). */
-	volatile enum rfl_msg_type {
-		rfl_msg_none = 0,
-		rfl_msg_quit,
-		rfl_msg_dump_if_percpu,
-		rfl_msg_dump_if_all,
-		rfl_msg_reset_if_percpu,
-		rfl_msg_printf_foobar
-	} msg;
-	pthread_barrier_t barr;
-	/* ifs_percpu[] is copied to this by rfl_msg_dump_* */
-	struct rfl_if_percpu dump[RFL_IF_NUM];
-#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
-	u32 ci_hist[8];
-	u32 throt_hist[41];
-#endif
-} ____cacheline_aligned;
-
-/* worker-side processing */
-static noinline int process_msg(thread_data_t *ctx)
-{
-	struct rfl_msg *msg = ctx->appdata;
-	if (msg->msg == rfl_msg_quit)
-		printf("quit not implemented yet\n");
-	else if ((msg->msg == rfl_msg_dump_if_percpu) ||
-			(msg->msg == rfl_msg_dump_if_all)) {
-		memcpy(msg->dump, ifs_percpu, sizeof(ifs_percpu));
-#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
-		memcpy(&msg->ci_hist[0], &eqcr_ci_histogram[0], sizeof(msg->ci_hist));
-		memcpy(&msg->throt_hist[0], &throt_histogram[0], sizeof(msg->throt_hist));
-#endif
-	} else if (msg->msg == rfl_msg_reset_if_percpu) {
-		memset(ifs_percpu, 0, sizeof(ifs_percpu));
-#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
-		memset(&eqcr_ci_histogram[0], 0, sizeof(msg->ci_hist));
-		memset(&throt_histogram[0], 0, sizeof(msg->throt_hist));
-#endif
-	} else if (msg->msg == rfl_msg_printf_foobar)
-		printf("foobar (index:%d,cpu:%d)\n", ctx->index, ctx->cpu);
-	else
-		panic("bad message type");
-	msg->msg = rfl_msg_none;
-	pthread_barrier_wait(&msg->barr);
-	return 1;
-}
-static inline int check_msg(thread_data_t *ctx)
-{
-	struct rfl_msg *msg = ctx->appdata;
-	if (likely(msg->msg == rfl_msg_none))
-		return 1;
-	return process_msg(ctx);
-}
-
-/* CLI-side processing */
-#ifdef RFL_COUNTERS
-static void dump_if_percpus(struct rfl_if_percpu *to,
-			const struct rfl_if_percpu *pc, int cnt, int log)
-{
-	int loop;
-	for (loop = 0; loop < cnt; loop++) {
-		if (log)
-			printf("    Interface %d;\n", loop);
-		dump_if_percpu(to ? &to[loop] : NULL, &pc[loop], log);
-	}
-}
-#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
-static void dump_hist(u32 *to, u32 *pc, int log)
-{
-	uint32_t total = 0, weighted = 0, avg;
-	int hist;
-	if (log) {
-		printf("    EQCR_CI updates (histogram);\n");
-		printf("        ");
-	}
-	for (hist = 0; hist < 8; hist++) {
-		if (log)
-			printf("[%d]:%u ", hist, pc[hist]);
-		if (to)
-			to[hist] += pc[hist];
-		total += pc[hist];
-		weighted += hist * pc[hist];
-	}
-	if (!log)
-		return;
-	printf("\n");
-	avg = total ? ((weighted * 10 + (total / 2)) / total) : 0;
-	printf("        [total]:%u [weighted]:%u [avg]:%d.%d\n",
-		total, weighted, (int)avg / 10, (int)avg % 10);
-}
-static void dump_thist(u32 *to, u32 *pc, int log)
-{
-	uint32_t total = 0, weighted = 0, avg;
-	int hist;
-	if (log)
-		printf("    throttle periods (histogram);");
-	for (hist = 0; hist < 41; hist++) {
-		if (log) {
-			if (!(hist % 8))
-				printf("\n        ");
-			printf("[%d]:%u ", hist, pc[hist]);
-		}
-		if (to)
-			to[hist] += pc[hist];
-		total += pc[hist];
-		weighted += hist * pc[hist];
-	}
-	if (!log)
-		return;
-	printf("\n");
-	avg = total ? ((weighted * 10 + (total / 2)) / total) : 0;
-	printf("        [total]:%u [weighted]:%u [avg]:%d.%d\n",
-		total, weighted, (int)avg / 10, (int)avg % 10);
-}
-#endif
-static void msg_dump_if_percpu(thread_data_t *ctx)
-{
-	struct rfl_msg *msg = ctx->appdata;
-
-	msg->msg = rfl_msg_dump_if_all;
-	pthread_barrier_wait(&msg->barr);
-	printf("Dumping thread %d (cpu %d);\n", ctx->index, ctx->cpu);
-	dump_if_percpus(NULL, msg->dump, RFL_IF_NUM, 1);
-#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
-	dump_hist(NULL, msg->ci_hist, 1);
-	dump_thist(NULL, msg->throt_hist, 1);
-#endif
-}
-static void msg_dump_if_all(thread_data_t *ctx, int cnt)
-{
-	struct rfl_if_percpu if_totals[RFL_IF_NUM];
-	u32 hist_totals[8];
-	u32 thist_totals[41];
-	int loop;
-	memset(if_totals, 0, sizeof(if_totals));
-	memset(hist_totals, 0, sizeof(hist_totals));
-	memset(thist_totals, 0, sizeof(thist_totals));
-	for (loop = 0; loop < cnt; loop++, ctx++) {
-		struct rfl_msg *msg = ctx->appdata;
-		msg->msg = rfl_msg_dump_if_percpu;
-		pthread_barrier_wait(&msg->barr);
-		dump_if_percpus(if_totals, msg->dump, RFL_IF_NUM, 0);
-#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
-		dump_hist(hist_totals, msg->ci_hist, 0);
-		dump_thist(thist_totals, msg->throt_hist, 0);
-#endif
-	}
-	printf("Dumping totals;\n");
-	dump_if_percpus(NULL, if_totals, RFL_IF_NUM, 1);
-#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
-	dump_hist(NULL, hist_totals, 1);
-	dump_thist(NULL, thist_totals, 1);
-#endif
-}
-static void msg_reset_if_percpus(thread_data_t *ctx, int cnt)
-{
-	int loop;
-	for (loop = 0; loop < cnt; loop++, ctx++) {
-		struct rfl_msg *msg = ctx->appdata;
-		msg->msg = rfl_msg_reset_if_percpu;
-		pthread_barrier_wait(&msg->barr);
-	}
-}
-#endif
-
-static void msg_printf_foobar(thread_data_t *ctx, int cnt)
-{
-	int loop;
-	for (loop = 0; loop < cnt; loop++, ctx++) {
-		struct rfl_msg *msg = ctx->appdata;
-		msg->msg = rfl_msg_printf_foobar;
-		pthread_barrier_wait(&msg->barr);
-	}
-}
-
 /********************/
 /* common functions */
 /********************/
 
 /* Rx handling either leads to a forward (qman enqueue) or a drop (bman
- * release). In either case, we're in the callback so can't "block" (by using a
- * WAIT flag) and we don't want to defer until outside the callback, because we
- * still have to pushback somehow and as we're a run-to-completion app, we don't
- * have anything else to do than simply retry. So ... we simply retry
- * non-blocking enqueues/releases until they work, which implicitly pushes back
- * on dequeue handling. */
+ * release). In either case, we can't "block" and we don't want to defer until
+ * outside the callback, because we still have to pushback somehow and as we're
+ * a run-to-completion app, we don't have anything else to do than simply retry.
+ * So ... we retry non-blocking enqueues/releases until they succeed, which
+ * implicitly pushes back on dequeue handling. */
+
 static inline void drop_frame(const struct qm_fd *fd)
 {
 	struct bm_buffer buf;
@@ -794,23 +630,9 @@ static void rfl_if_init(struct rfl_if *i, struct rfl_if_percpu *pc, int idx)
 				get_rxc(), RFL_CHANNEL_TX(idx));
 }
 
-/*******/
-/* app */
-/*******/
-
-static void calm_down(void)
-{
-	int die_slowly = 1000;
-	/* FIXME: there may be stale MR entries (eg. FQRNIs that the driver
-	 * ignores and drops in the bin), but these will hamper any attempt to
-	 * run another user-driver instance after we exit. Loop on the portal
-	 * processing a bit to let it "go idle". */
-	while (die_slowly--) {
-		barrier();
-		qman_poll();
-		bman_poll();
-	}
-}
+/*************************/
+/* buffer-pool depletion */
+/*************************/
 
 #ifdef RFL_DEBUG_DEPLETION
 static void bp_depletion(struct bman_portal *bm __always_unused,
@@ -825,26 +647,83 @@ static void bp_depletion(struct bman_portal *bm __always_unused,
 }
 #endif
 
-/* This is not actually necessary, the threads can just start up without any
- * ordering requirement. The first cpu will initialise the interfaces before
- * enabling the MACs, and cpus/portals can come online in any order. On
- * simulation however, the initialising thread/cpu *crawls* because the
- * simulator spends most of its time simulating the other cpus in their tight
- * polling loops, whereas having those threads suspended in a barrier allows the
- * simulator to focus on the cpu doing the initialisation. On h/w this is
- * harmless but of no benefit. */
-static pthread_barrier_t init_barrier;
+/******************/
+/* Worker threads */
+/******************/
 
-static int worker_fn(thread_data_t *tdata)
+struct worker_msg {
+	/* The CLI thread sets ::msg!=worker_msg_none then waits on the barrier.
+	 * The worker thread checks for this in its polling loop, and if set it
+	 * will perform the desired function, set ::msg=worker_msg_none, then go
+	 * into the barrier (releasing itself and the CLI thread). */
+	volatile enum worker_msg_type {
+		worker_msg_none = 0,
+		worker_msg_list,
+		worker_msg_quit,
+		worker_msg_do_global_init,
+		worker_msg_dump_if_percpu,
+		worker_msg_reset_if_percpu
+	} msg;
+	pthread_barrier_t barr;
+	/* ifs_percpu[] is copied to this by worker_msg_dump_* */
+	struct rfl_if_percpu dump[RFL_IF_NUM];
+};
+
+struct worker {
+	int cpu;
+	pthread_t id;
+	int result;
+	struct worker_msg msg;
+	struct list_head node;
+};
+
+/* -------------------------------- */
+/* msg-processing within the worker */
+
+static noinline int process_msg(struct worker *worker, struct worker_msg *msg)
 {
-	TRACE("This is the thread on cpu %d\n", tdata->cpu);
-	memset(ifs_percpu, 0, sizeof(ifs_percpu));
+	int ret = 1;
 
-	/* Do interface initialisation in the first thread. We can't do this
-	 * before, because we need to use portals to initialise FQs. */
-	if (!tdata->index) {
+	/* List */
+	if (msg->msg == worker_msg_list)
+		printf("Thread alive on cpu %d\n", worker->cpu);
+
+	/* Quit */
+	else if (msg->msg == worker_msg_quit) {
+		int calm_down = 16;
+		qman_static_dequeue_del(~(u32)0);
+		while (calm_down--) {
+			qman_poll_slow();
+			qman_poll_dqrr(16);
+		}
+		qman_thread_finish();
+		bman_thread_finish();
+		printf("Stopping thread on cpu %d\n", worker->cpu);
+		ret = 0;
+	}
+
+	/* Do global init */
+	else if (msg->msg == worker_msg_do_global_init) {
 		u8 bpids[] = RFL_BPIDS;
 		unsigned int loop;
+		int err;
+
+		/* Set up the bpid allocator */
+		err = bman_setup_allocator(0, &bpid_allocator);
+		if (err)
+			fprintf(stderr, "Continuing despite BPID failure\n");
+		/* Set up the fqid allocator */
+		err = qman_setup_allocator(0, &fqid_allocator);
+		if (err)
+			fprintf(stderr, "Continuing despite FQID failure\n");
+		/* map shmem */
+		err = fsl_shmem_setup();
+		if (err)
+			fprintf(stderr, "Continuing despite shmem failure\n");
+		/* allocate interface structs in shmem region */
+		ifs = fsl_shmem_memalign(64, RFL_IF_NUM * sizeof(*ifs));
+		BUG_ON(!ifs);
+		memset(ifs, 0, RFL_IF_NUM * sizeof(*ifs));
 		for (loop = 0; loop < RFL_IF_NUM; loop++) {
 			TRACE("Initialising interface %d\n", ifid[loop]);
 			rfl_if_init(&ifs[loop], &ifs_percpu[loop], ifid[loop]);
@@ -870,127 +749,402 @@ static int worker_fn(thread_data_t *tdata)
 		__mac_enable_all();
 	}
 
-	qman_static_dequeue_add(RFL_CPU_SDQCR(tdata->index));
+	/* Dump interface stats */
+	else if (msg->msg == worker_msg_dump_if_percpu)
+		memcpy(msg->dump, ifs_percpu, sizeof(ifs_percpu));
 
-	TRACE("Starting poll loop on cpu %d\n", tdata->cpu);
-	pthread_barrier_wait(&init_barrier);
-	while (check_msg(tdata)) {
+	/* Reset interface stats */
+	else if (msg->msg == worker_msg_reset_if_percpu)
+		memset(ifs_percpu, 0, sizeof(ifs_percpu));
+
+	/* What did you want? */
+	else
+		panic("bad message type");
+
+	/* Release ourselves and the CLI thread from this message */
+	msg->msg = worker_msg_none;
+	pthread_barrier_wait(&msg->barr);
+	return ret;
+}
+
+/* the worker's polling loop calls this function to drive the message pump */
+static inline int check_msg(struct worker *worker)
+{
+	struct worker_msg *msg = &worker->msg;
+	if (likely(msg->msg == worker_msg_none))
+		return 1;
+	return process_msg(worker, msg);
+}
+
+/* ---------------------- */
+/* worker thread function */
+
+static void *worker_fn(void *__worker)
+{
+	struct worker *worker = __worker;
+	cpu_set_t cpuset;
+	int s;
+
+	TRACE("This is the thread on cpu %d\n", worker->cpu);
+	memset(ifs_percpu, 0, sizeof(ifs_percpu));
+
+	/* Set this cpu-affinity */
+	CPU_ZERO(&cpuset);
+	CPU_SET(worker->cpu, &cpuset);
+	s = pthread_setaffinity_np(worker->id, sizeof(cpu_set_t), &cpuset);
+	if (s != 0) {
+		fprintf(stderr, "pthread_setaffinity_np(%d) failed, ret=%d\n",
+			worker->cpu, s);
+		goto end;
+	}
+
+	/* Initialise bman/qman portals */
+	s = bman_thread_init(worker->cpu, 0);
+	if (s) {
+		fprintf(stderr, "bman_thread_init(%d) failed, ret=%d\n",
+			worker->cpu, s);
+		goto end;
+	}
+	s = qman_thread_init(worker->cpu, 0);
+	if (s) {
+		fprintf(stderr, "qman_thread_init(%d) failed, ret=%d\n",
+			worker->cpu, s);
+		goto end;
+	}
+
+	/* Set the qman portal's SDQCR mask */
+	qman_static_dequeue_add(RFL_CPU_SDQCR());
+
+	/* Run! */
+	TRACE("Starting poll loop on cpu %d\n", worker->cpu);
+	while (check_msg(worker)) {
 		qman_poll();
 		bman_poll();
 	}
 
-	calm_down();
-	TRACE("Leaving thread on cpu %d\n", tdata->cpu);
+end:
+	TRACE("Leaving thread on cpu %d\n", worker->cpu);
+	/* TODO: tear down the portal! */
+	pthread_exit(NULL);
+}
+
+/* ------------------------------ */
+/* msg-processing from main()/CLI */
+
+static void msg_list(struct worker *worker)
+{
+	struct worker_msg *msg = &worker->msg;
+	msg->msg = worker_msg_list;
+	pthread_barrier_wait(&msg->barr);
+}
+
+static void msg_quit(struct worker *worker)
+{
+	struct worker_msg *msg = &worker->msg;
+	msg->msg = worker_msg_quit;
+	pthread_barrier_wait(&msg->barr);
+}
+
+static void msg_do_global_init(struct worker *worker)
+{
+	struct worker_msg *msg = &worker->msg;
+	msg->msg = worker_msg_do_global_init;
+	pthread_barrier_wait(&msg->barr);
+}
+
+#ifdef RFL_COUNTERS
+static void msg_dump_if_percpu(struct worker *worker)
+{
+	struct worker_msg *msg = &worker->msg;
+	int loop;
+
+	msg->msg = worker_msg_dump_if_percpu;
+	pthread_barrier_wait(&msg->barr);
+	printf("Dumping thread %d;\n", worker->cpu);
+	for (loop = 0; loop < RFL_IF_NUM; loop++) {
+		printf("    Interface %d;\n", loop);
+		dump_if_percpu(NULL, &msg->dump[loop], 1, 0);
+	}
+}
+static void msg_reset_if_percpu(struct worker *worker)
+{
+	struct worker_msg *msg = &worker->msg;
+	msg->msg = worker_msg_reset_if_percpu;
+	pthread_barrier_wait(&msg->barr);
+}
+#else
+#define no_joy() fprintf(stderr, "No counters compiled in\n")
+static void msg_dump_if_percpu(struct worker *worker)
+{
+	no_joy();
+}
+static void msg_reset_if_percpu(struct worker *worker)
+{
+	no_joy();
+}
+#endif
+
+/* ---------------------------- */
+/* worker setup from main()/CLI */
+
+static struct worker *worker_new(int cpu)
+{
+	struct worker *ret;
+	int err = posix_memalign((void **)&ret, 64, sizeof(*ret));
+	if (err)
+		goto out;
+	ret->cpu = cpu;
+	pthread_barrier_init(&ret->msg.barr, NULL, 2);
+	err = pthread_create(&ret->id, NULL, worker_fn, ret);
+	if (err) {
+		free(ret);
+		goto out;
+	}
+	/* Block until the worker is in its polling loop (by sending a "list"
+	 * command and waiting for it to get processed). This ensures any
+	 * start-up logging is produced before the CLI prints another prompt. */
+	msg_list(ret);
+	return ret;
+out:
+	fprintf(stderr, "error: failed to create thread for %d\n", cpu);
+	return NULL;
+}
+
+static void __worker_free(struct worker *worker)
+{
+	int err;
+	msg_quit(worker);
+	err = pthread_join(worker->id, NULL);
+	if (err) {
+		/* Leak, but warn */
+		fprintf(stderr, "Failed to join thread %d\n", worker->cpu);
+		return;
+	}
+	free(worker);
+}
+
+/********************/
+/* main()/CLI logic */
+/********************/
+
+static LIST_HEAD(workers);
+static unsigned long ncpus;
+
+/* Keep "workers" ordered by cpu on insert */
+static void worker_add(struct worker *worker)
+{
+	struct worker *i;
+	list_for_each_entry(i, &workers, node) {
+		if (i->cpu >= worker->cpu) {
+			list_add_tail(&worker->node, &i->node);
+			return;
+		}
+	}
+	list_add_tail(&worker->node, &workers);
+}
+
+static void worker_free(struct worker *worker)
+{
+	list_del(&worker->node);
+	__worker_free(worker);
+}
+
+/* Parse a cpu id. On entry legit/len contain acceptable "next char" values, on
+ * exit *legit points to the "next char" we found. Return -1 for bad * parse. */
+static int parse_cpu(const char *str, const char **legit, int legitlen)
+{
+	char *endptr;
+	int ret = -EINVAL;
+	/* Extract a ulong */
+	unsigned long tmp = strtoul(str, &endptr, 0);
+	if ((tmp == ULONG_MAX) || (endptr == str))
+		goto out;
+	/* Check next char */
+	while (legitlen--) {
+		if (**legit == *endptr) {
+			/* validate range */
+			if (tmp >= ncpus) {
+				ret = -ERANGE;
+				goto out;
+			}
+			*legit = endptr;
+			return (int)tmp;
+		}
+		(*legit)++;
+	}
+out:
+	fprintf(stderr, "error: invalid cpu '%s'\n", str);
+	return ret;
+}
+
+/* Parse a cpu range (eg. "3"=="3..3"). Return 0 for valid parse. */
+static int parse_cpus(const char *str, int *start, int *end)
+{
+	/* NB: arrays of chars, not strings. Also sizeof(), not strlen()! */
+	static const char PARSE_STR1[] = { ' ', '.', '\0' };
+	static const char PARSE_STR2[] = { ' ', '\0' };
+	const char *p = &PARSE_STR1[0];
+	int ret;
+	ret = parse_cpu(str, &p, sizeof(PARSE_STR1));
+	if (ret < 0)
+		return ret;
+	*start = ret;
+	if ((p[0] == '.') && (p[1] == '.')) {
+		const char *p2 = &PARSE_STR2[0];
+		ret = parse_cpu(p + 2, &p2, sizeof(PARSE_STR2));
+		if (ret < 0)
+			return ret;
+	}
+	*end = ret;
 	return 0;
 }
 
-static int do_cli(char *buf, unsigned int sz)
+static struct worker *worker_find(int cpu, int want)
 {
-	printf("reflector> ");
-	fflush(stdout);
-	return (fgets(buf, sz, stdin) != NULL);
+	struct worker *worker;
+	list_for_each_entry(worker, &workers, node) {
+		if (worker->cpu == cpu) {
+			if (!want)
+				fprintf(stderr, "skipping cpu %d, in use.\n",
+					cpu);
+			return worker;
+		}
+	}
+	if (want)
+		fprintf(stderr, "skipping cpu %d, not in use.\n", cpu);
+	return NULL;
+}
+
+#define call_for_each_worker(str, fn) \
+	do { \
+		int fstart, fend, fret = parse_cpus(str, &fstart, &fend); \
+		if (!fret) { \
+			while (fstart <= fend) { \
+				struct worker *fw = worker_find(fstart, 1); \
+				if (fw) \
+					fn(fw); \
+				fstart++; \
+			} \
+		} \
+	} while (0)
+
+static void usage(void)
+{
+	fprintf(stderr, "usage: reflector [cpu-range]\n");
+	fprintf(stderr, "where [cpu-range] is 'n' or 'm..n'\n");
+	exit(-1);
 }
 
 int main(int argc, char *argv[])
 {
-	thread_data_t thread_data[MAX_THREADS];
-	struct rfl_msg appdata[MAX_THREADS];
-	char *endptr;
-	int ret, first, last, loop;
-	unsigned long ncpus = (unsigned long)sysconf(_SC_NPROCESSORS_ONLN);
-	char cli[RFL_CLI_BUFFER];
+	struct worker *worker, *tmpworker;
+	int first, last, loop;
+	int rcode;
+	
+	ncpus = (unsigned long)sysconf(_SC_NPROCESSORS_ONLN);
 
+	/* Parse the args */
 	if (ncpus == 1)
 		first = last = 0;
-	else {
-		first = 1;
-		last = ncpus - 1;
-	}
+	else
+		first = last = 1;
 	if (argc == 2) {
-		first = my_toul(argv[1], &endptr, ncpus);
-		if (*endptr == '\0') {
-			last = first;
-		} else if ((*(endptr++) == '.') && (*(endptr++) == '.') &&
-				(*endptr != '\0')) {
-			last = my_toul(endptr, &endptr, ncpus);
-			if (last < first) {
-				ret = first;
-				first = last;
-				last = ret;
-			}
-		} else {
-			fprintf(stderr, "error: can't parse cpu-range '%s'\n",
-				argv[1]);
-			exit(-1);
-		}
-	} else if (argc != 1) {
-		fprintf(stderr, "usage: reflector [cpu-range]\n");
-		fprintf(stderr, "where [cpu-range] is 'n' or 'm..n'\n");
-		exit(-1);
-	}
-
-	/* map shmem */
-	ret = fsl_shmem_setup();
-	if (ret)
-		fprintf(stderr, "Continuing despite shmem failure\n");
-	/* allocate interface structs in shmem region */
-	ifs = fsl_shmem_memalign(64, RFL_IF_NUM * sizeof(*ifs));
-	BUG_ON(!ifs);
-	memset(ifs, 0, RFL_IF_NUM * sizeof(*ifs));
+		rcode = parse_cpus(argv[1], &first, &last);
+		if (rcode)
+			usage();
+	} else if (argc != 1)
+		usage();
 
 	/* Create the threads */
-	for (loop = 0; loop < last - first + 1; loop++) {
-		struct rfl_msg *msg = &appdata[loop];
-		memset(msg, 0, sizeof(*msg));
-		pthread_barrier_init(&msg->barr, NULL, 2);
-		thread_data[loop].appdata = msg;
-	}
-	/* This is 'last-first+2' rather than 'last-first+1', so that the CLI
-	 * thread can wait on initialisation too! */
-	ret = pthread_barrier_init(&init_barrier, NULL, last - first + 2);
-	if (ret != 0)
-		handle_error_en(ret, "pthread_barrier_init");
 	TRACE("Starting %d threads for cpu-range '%s'\n",
 		last - first + 1, argv[1]);
-	ret = start_threads(thread_data, last - first + 1, first, worker_fn);
-	if (ret != 0)
-		handle_error_en(ret, "start_threads");
-	/* don't start the cmd-prompt until thread init is done */
-	pthread_barrier_wait(&init_barrier);
-	while (do_cli(cli, RFL_CLI_BUFFER)) {
+	for (loop = first; loop <= last; loop++) {
+		worker = worker_new(loop);
+		if (!worker) {
+			rcode = -1;
+			goto leave;
+		}
+		/* Do interface-initialisation in the first thread (we can't do
+		 * it before, because we need portals to do it) */
+		if (loop == first)
+			msg_do_global_init(worker);
+		worker_add(worker);
+	}
+
+	/* TODO: catch dead threads - for now, we rely on the dying thread to
+	 * print an error, and for the CLI user to then "remove" it. */
+
+	/* Run the CLI loop */
+	while (1) {
+		char cli[RFL_CLI_BUFFER];
+
+		/* Command prompt */
+		printf("reflector> ");
+		fflush(stdout);
+
+		/* Get command */
+		if (!fgets(cli, RFL_CLI_BUFFER, stdin))
+			break;
 		while ((cli[strlen(cli) - 1] == '\r') ||
 				(cli[strlen(cli) - 1] == '\n'))
 			cli[strlen(cli) - 1] = '\0';
+
+		/* Quit */
 		if (!strncmp(cli, "q", 1))
 			break;
-		else if (!strncmp(cli, "dump", 4))
-#ifdef RFL_COUNTERS
-			msg_dump_if_all(thread_data, last - first + 1);
-#else
-			fprintf(stderr, "No counters compiled in\n");
-#endif
-		else if (!strncmp(cli, "cpu", 3)) {
-			int param = my_toul(cli + 3, &endptr, ncpus);
-			if ((param < first) || (param > last))
-				fprintf(stderr, "cpu %d doesn't exist\n",
-						param);
+
+		/* List cpus/threads */
+		else if (!strncmp(cli, "list", 4)) {
+			/* cpu-range is an optional argument */
+			if (strlen(cli) > 4)
+				call_for_each_worker(cli + 4, msg_list);
 			else
-				msg_dump_if_percpu(thread_data +
-						(param - first));
-		} else if (!strncmp(cli, "reset", 5))
-#ifdef RFL_COUNTERS
-			msg_reset_if_percpus(thread_data, last - first + 1);
-#else
-			fprintf(stderr, "No counters compiled in\n");
-#endif
-		else if (!strncmp(cli, "foo", 3))
-			msg_printf_foobar(thread_data, last - first + 1);
+				list_for_each_entry(worker, &workers, node)
+					msg_list(worker);
+		}
+
+		/* Dump percpu info */
+		else if (!strncmp(cli, "dump", 4))
+			call_for_each_worker(cli + 4, msg_dump_if_percpu);
+
+		/* Reset percpu info */
+		else if (!strncmp(cli, "reset", 5))
+			call_for_each_worker(cli + 5, msg_reset_if_percpu);
+
+		/* Add a cpu */
+		else if (!strncmp(cli, "add", 3)) {
+			if (!parse_cpus(cli + 4, &first, &last)) {
+				for (loop = first; loop <= last; loop++) {
+					worker = worker_find(loop, 0);
+					if (worker)
+						continue;
+					worker = worker_new(loop);
+					if (worker)
+						worker_add(worker);
+				}
+			}
+		}
+
+		/* Remove a cpu */
+		else if (!strncmp(cli, "rm", 2)) {
+			if (!parse_cpus(cli + 2, &first, &last)) {
+				for (loop = first; loop <= last; loop++) {
+					worker = worker_find(loop, 1);
+					if (!worker)
+						continue;
+					worker_free(worker);
+				}
+			}
+		}
+
+		/* try again */
 		else
 			fprintf(stderr, "unknown cmd: %s\n", cli);
 	}
-	/* TODO: "signal" the other threads? */
-	wait_threads(thread_data, last - first + 1);
-
-	TRACE("Done\n");
-	exit(EXIT_SUCCESS);
+	/* success */
+	rcode = 0;
+leave:
+	list_for_each_entry_safe(worker, tmpworker, &workers, node)
+		worker_free(worker);
+	return rcode;
 }

@@ -32,6 +32,7 @@
 
 #include "private.h"
 
+/* Barrier used by tests running across all threads */
 static pthread_barrier_t barr;
 
 void sync_all(void)
@@ -39,52 +40,222 @@ void sync_all(void)
 	pthread_barrier_wait(&barr);
 }
 
+static const struct bman_bpid_range bpid_range[] =
+	{ {FSL_BPID_RANGE_START, FSL_BPID_RANGE_LENGTH} };
+static const struct bman_bpid_ranges bpid_allocator = {
+	.num_ranges = 1,
+	.ranges = bpid_range
+};
+static const struct qman_fqid_range fqid_range[] =
+	{ {FSL_FQID_RANGE_START, FSL_FQID_RANGE_LENGTH} };
+static const struct qman_fqid_ranges fqid_allocator = {
+	.num_ranges = 1,
+	.ranges = fqid_range
+};
+
+static LIST_HEAD(workers);
+static unsigned long ncpus;
+
+/* ensure no stale notifications are in the portals - not that they'd be
+ * incorrectly handled later on, but we don't want them impacting subsequent
+ * benchmarks. */
 static void calm_down(void)
 {
-	int die_slowly = 1000;
-	/* FIXME: there may be stale MR entries (eg. FQRNIs that the driver
-	 * ignores and drops in the bin), but these will hamper any attempt to
-	 * run another user-driver instance after we exit. Loop on the portal
-	 * processing a bit to let it "go idle". */
-	while (die_slowly--) {
-		barrier();
-	qman_poll();
+	qman_poll_dqrr(16);
+	qman_poll_slow();
 	bman_poll();
-	}
+	/* For kicks, sync the cpus prior to starting the next test */
+	sync_all();
 }
 
-static int worker_fn(thread_data_t *tdata)
+static void *worker_fn(void *__worker)
 {
-	const struct qman_portal_config *qconfig = qman_get_portal_config();
-	const struct bman_portal_config *bconfig = bman_get_portal_config();
+	cpu_set_t cpuset;
+	struct worker *worker = __worker;
+	const struct qman_portal_config *qconfig;
+	const struct bman_portal_config *bconfig;
+	int err;
+
+	/* Set cpu affinity */
+	CPU_ZERO(&cpuset);
+	CPU_SET(worker->cpu, &cpuset);
+	err = pthread_setaffinity_np(worker->id, sizeof(cpu_set_t), &cpuset);
+	if (err != 0) {
+		fprintf(stderr, "pthread_setaffinity_np(%d) failed, ret=%d\n",
+			worker->cpu, err);
+		exit(-1);
+	}
+
+	/* Initialise bman/qman portals */
+	err = bman_thread_init(worker->cpu, 0);
+	if (err) {
+		fprintf(stderr, "bman_thread_init(%d) failed, ret=%d\n",
+			worker->cpu, err);
+		exit(-1);
+	}
+	err = qman_thread_init(worker->cpu, 0);
+	if (err) {
+		fprintf(stderr, "qman_thread_init(%d) failed, ret=%d\n",
+			worker->cpu, err);
+		exit(-1);
+	}
+
+	if (worker->do_global_init) {
+		/* Set up the bpid allocator */
+		err = bman_setup_allocator(0, &bpid_allocator);
+		if (err)
+			fprintf(stderr, "Continuing despite BPID failure\n");
+		/* Set up the fqid allocator */
+		err = qman_setup_allocator(0, &fqid_allocator);
+		if (err)
+			fprintf(stderr, "Continuing despite FQID failure\n");
+		/* map shmem */
+		err = fsl_shmem_setup();
+		if (err)
+			fprintf(stderr, "Continuing despite shmem failure\n");
+		/* The main thread is waiting on this */
+		pthread_barrier_wait(&worker->global_init_barrier);
+	}
+
+	qconfig = qman_get_portal_config();
+	bconfig = bman_get_portal_config();
 	printf("Worker %d, qman={cpu=%d,irq=%d,ch=%d,pools=0x%08x}\n"
 		"          bman={cpu=%d,irq=%d,mask=0x%08x_%08x}\n",
-		tdata->cpu,
+		worker->cpu,
 		qconfig->cpu, qconfig->irq, qconfig->channel, qconfig->pools,
 		bconfig->cpu, bconfig->irq,
 		bconfig->mask.__state[0], bconfig->mask.__state[1]);
 
 #if 0
-	qman_test_high(tdata);
+	qman_test_high(worker);
 	calm_down();
-	bman_test_high(tdata);
+	bman_test_high(worker);
 	calm_down();
 #endif
-	speed(tdata);
+	speed(worker);
 	calm_down();
-	blastman(tdata);
+	blastman(worker);
 	calm_down();
 
-	printf("Worker %d exiting\n", tdata->cpu);
+	printf("Worker %d exiting\n", worker->cpu);
 	return 0;
+}
+
+static struct worker *worker_new(int cpu, int do_global_init,
+				int idx, int total)
+{
+	struct worker *ret;
+	int err = posix_memalign((void **)&ret, 64, sizeof(*ret));
+	ret->cpu = cpu;
+	ret->do_global_init = do_global_init;
+	ret->idx = idx;
+	ret->total_cpus = total;
+	if (do_global_init)
+		pthread_barrier_init(&ret->global_init_barrier, NULL, 2);
+	err = pthread_create(&ret->id, NULL, worker_fn, ret);
+	if (err) {
+		free(ret);
+		goto out;
+	}
+	if (do_global_init)
+		pthread_barrier_wait(&ret->global_init_barrier);
+	return ret;
+out:
+	fprintf(stderr, "error: failed to create thread for %d\n", cpu);
+	return NULL;
+}
+
+/* Keep "workers" ordered by cpu on insert */
+static void worker_add(struct worker *worker)
+{
+	struct worker *i;
+	list_for_each_entry(i, &workers, node) {
+		if (i->cpu >= worker->cpu) {
+			list_add_tail(&worker->node, &i->node);
+			return;
+		}
+	}
+	list_add_tail(&worker->node, &workers);
+}
+
+static void worker_free(struct worker *worker)
+{
+	int err;
+	list_del(&worker->node);
+	err = pthread_join(worker->id, NULL);
+	if (err) {
+		/* Leak, but warn */
+		fprintf(stderr, "Failed to join thread %d\n", worker->cpu);
+		return;
+	}
+	free(worker);
+}
+
+/* Parse a cpu id. On entry legit/len contain acceptable "next char" values, on
+ * exit *legit points to the "next char" we found. Return -1 for bad * parse. */
+static int parse_cpu(const char *str, const char **legit, int legitlen)
+{
+	char *endptr;
+	int ret = -EINVAL;
+	/* Extract a ulong */
+	unsigned long tmp = strtoul(str, &endptr, 0);
+	if ((tmp == ULONG_MAX) || (endptr == str))
+		goto out;
+	/* Check next char */
+	while (legitlen--) {
+		if (**legit == *endptr) {
+			/* validate range */
+			if (tmp >= ncpus) {
+				ret = -ERANGE;
+				goto out;
+			}
+			*legit = endptr;
+			return (int)tmp;
+		}
+		(*legit)++;
+	}
+out:
+	fprintf(stderr, "error: invalid cpu '%s'\n", str);
+	return ret;
+}
+
+/* Parse a cpu range (eg. "3"=="3..3"). Return 0 for valid parse. */
+static int parse_cpus(const char *str, int *start, int *end)
+{
+	/* NB: arrays of chars, not strings. Also sizeof(), not strlen()! */
+	static const char PARSE_STR1[] = { ' ', '.', '\0' };
+	static const char PARSE_STR2[] = { ' ', '\0' };
+	const char *p = &PARSE_STR1[0];
+	int ret;
+	ret = parse_cpu(str, &p, sizeof(PARSE_STR1));
+	if (ret < 0)
+		return ret;
+	*start = ret;
+	if ((p[0] == '.') && (p[1] == '.')) {
+		const char *p2 = &PARSE_STR2[0];
+		ret = parse_cpu(p + 2, &p2, sizeof(PARSE_STR2));
+		if (ret < 0)
+			return ret;
+	}
+	*end = ret;
+	return 0;
+}
+
+static void usage(void)
+{
+	fprintf(stderr, "usage: qbman [cpu-range]\n");
+	fprintf(stderr, "where [cpu-range] is 'n' or 'm..n'\n");
+	exit(-1);
 }
 
 int main(int argc, char *argv[])
 {
-	thread_data_t thread_data[MAX_THREADS];
-	int ret, first, last;
-	unsigned long ncpus = (unsigned long)sysconf(_SC_NPROCESSORS_ONLN);
+	struct worker *worker, *tmpw;
+	int ret, first, last, loop;
 
+	ncpus = (unsigned long)sysconf(_SC_NPROCESSORS_ONLN);
+
+	/* Parse the args */
 	if (ncpus == 1)
 		first = last = 0;
 	else {
@@ -92,46 +263,30 @@ int main(int argc, char *argv[])
 		last = ncpus - 1;
 	}
 	if (argc == 2) {
-		char *endptr;
-		first = my_toul(argv[1], &endptr, ncpus);
-		if (*endptr == '\0') {
-			last = first;
-		} else if ((*(endptr++) == '.') && (*(endptr++) == '.') &&
-				(*endptr != '\0')) {
-			last = my_toul(endptr, &endptr, ncpus);
-			if (last < first) {
-				ret = first;
-				first = last;
-				last = ret;
-			}
-		} else {
-			fprintf(stderr, "error: can't parse cpu-range '%s'\n",
-				argv[1]);
-			exit(-1);
-		}
-	} else if (argc != 1) {
-		fprintf(stderr, "usage: qbman [cpu-range]\n");
-		fprintf(stderr, "where [cpu-range] is 'n' or 'm..n'\n");
-		exit(-1);
-	}
-
-	/* map shmem */
-	ret = fsl_shmem_setup();
-	if (ret)
-		handle_error_en(ret, "fsl_shmem_setup");
+		ret = parse_cpus(argv[1], &first, &last);
+		if (ret)
+			usage();
+	} else if (argc != 1)
+		usage();
 
 	/* Create the barrier used by sync_all() */
 	ret = pthread_barrier_init(&barr, NULL, last - first + 1);
-	if (ret != 0)
-		handle_error_en(ret, "pthread_barrier_init");
+	if (ret != 0) {
+		fprintf(stderr, "Failed to init barrier\n");
+		exit(-1);
+	}
 
 	/* Create the threads */
-	printf("Starting %d threads for cpu-range '%s'\n",
-		last - first + 1, argv[1]);
-	ret = run_threads(thread_data, last - first + 1, first, worker_fn);
-	if (ret != 0)
-		handle_error_en(ret, "run_threads");
+	for (loop = first; loop <= last; loop++) {
+		worker = worker_new(loop, (loop == first), loop - first,
+					last - first + 1);
+		if (!worker)
+			panic("worker_new() failed");
+		worker_add(worker);
+	}
 
-	printf("Done\n");
-	exit(EXIT_SUCCESS);
+	/* Catch their exit */
+	list_for_each_entry_safe(worker, tmpw, &workers, node)
+		worker_free(worker);
+	return 0;
 }

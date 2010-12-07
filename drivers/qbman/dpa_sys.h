@@ -42,10 +42,6 @@ struct device_node {
 	const char *full_name;
 };
 #define for_each_child_of_node(n1,n2) while (0)
-static inline int fsl_dpa_should_recover(void)
-{
-	return 0;
-}
 static inline int pamu_enable_liodn(struct device_node *n __always_unused,
 					int i __always_unused)
 {

@@ -38,7 +38,6 @@
 
 #define NUM_IGNORE	18
 #define NUM_CPUS	2
-#undef MODEL_CHKPT
 #undef TEST_FD
 #define ENQUEUE_BACKOFF	200
 
@@ -201,39 +200,24 @@ static void cb_dc_ern(struct qman_portal *p __always_unused,
 	panic("cb_dc_ern() unimplemented");
 }
 
-#ifdef MODEL_CHKPT
-static volatile int done_print;
-static spinlock_t bringup_lock = SPIN_LOCK_UNLOCKED;
-#endif
-
-void speed(thread_data_t *tdata)
+void speed(struct worker *worker)
 {
 	struct qman_fq *fq;
 	const struct test *test = &tests[0];
 
 	pr_info("SPEED: --- starting high-level test (cpu %d) ---\n",
-		tdata->cpu);
+		worker->cpu);
 	fq = fsl_shmem_memalign(64, sizeof(*fq));
 	BUG_ON(!fq);
 	memcpy(fq, &fq_base, sizeof(fq_base));
 	sync_all();
-#ifdef MODEL_CHKPT
-	/* Do a dance so that we can checkpoint when we see "speed starting",
-	 * know that no cpu has yet started testing, and that post-checkpoint we
-	 * do no more console activity on any cpu. */
-	spin_lock(&bringup_lock);
-	if (!done_print) {
-		pr_info("%d: speed starting\n", get_lwe_id());
-		done_print = 1;
-	}
-	spin_unlock(&bringup_lock);
-#endif
+
 	fd_init(&fd);
 	fd_init(&fd_dq);
 
 	while (test->num_cpus) {
-		int doIrun = (tdata->total_cpus < test->num_cpus) ? 0 :
-			((tdata->index < test->num_cpus) ? 1 : 0);
+		int doIrun = (worker->total_cpus < test->num_cpus) ? 0 :
+			((worker->idx < test->num_cpus) ? 1 : 0);
 
 		test_frames = test->num_enqueues;
 		test_start = test->num_enqueues - NUM_IGNORE;
@@ -287,6 +271,6 @@ void speed(thread_data_t *tdata)
 	}
 	sync_all();
 	pr_info("SPEED: --- finished high-level test (cpu %d) ---\n",
-		tdata->cpu);
+		worker->cpu);
 }
 

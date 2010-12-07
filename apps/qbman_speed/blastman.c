@@ -37,10 +37,7 @@
 /*************/
 
 #define NUM_IGNORE		18
-#define NUM_CPUS		2
 #define NUM_BUFS_PER_RELEASE	1
-#define TEST_BPID(n)		(30 + (n))
-#undef MODEL_CHKPT
 #undef DO_CHECKSUMS
 #define RELEASE_BACKOFF		200
 
@@ -215,43 +212,26 @@ retry:
 	acq_capture[1] = mfatb();
 }
 
-#ifdef MODEL_CHKPT
-static volatile int done_print;
-static spinlock_t bringup_lock = SPIN_LOCK_UNLOCKED;
-#endif
-
-void blastman(thread_data_t *tdata)
+void blastman(struct worker *worker)
 {
 	struct bman_pool_params params;
 	struct bman_pool *pool = NULL; /* unnecessary, but gcc doesn't see */
 	const struct test *test = &tests[0];
 
 	pr_info("BLAST: --- starting high-level test (cpu %d) ---\n",
-		tdata->cpu);
+		worker->cpu);
 	sync_all();
-#ifdef MODEL_CHKPT
-	/* Do a dance so that we can checkpoint when we see "blastman starting",
-	 * know that no cpu has yet started testing, and that post-checkpoint we
-	 * do no more console activity on any cpu. */
-	spin_lock(&bringup_lock);
-	if (!done_print) {
-		pr_info("%d: blastman starting\n", get_lwe_id());
-		done_print = 1;
-	}
-	spin_unlock(&bringup_lock);
-#endif
 
 	while (test->num_cpus) {
-		int doIrun = (tdata->total_cpus < test->num_cpus) ? 0 :
-			((tdata->index < test->num_cpus) ? 1 : 0);
+		int doIrun = (worker->total_cpus < test->num_cpus) ? 0 :
+			((worker->idx < test->num_cpus) ? 1 : 0);
 
 		test_buffers = test->num_buffers;
 		test_start = test->num_buffers - NUM_IGNORE;
 		rel_jam = acq_jam = 0;
 
 		if (doIrun) {
-			params.bpid = TEST_BPID(tdata->index);
-			params.flags = 0;
+			params.flags = BMAN_POOL_FLAG_DYNAMIC_BPID;
 			if (test->stockpiling)
 				params.flags |= BMAN_POOL_FLAG_STOCKPILE;
 			pool = bman_new_pool(&params);
@@ -279,6 +259,6 @@ void blastman(thread_data_t *tdata)
 	}
 	sync_all();
 	pr_info("BLAST: --- finished high-level test (cpu %d) ---\n",
-		tdata->cpu);
+		worker->cpu);
 }
 
