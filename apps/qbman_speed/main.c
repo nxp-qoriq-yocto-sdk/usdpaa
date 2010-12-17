@@ -109,10 +109,10 @@ static void *worker_fn(void *__worker)
 		err = qman_setup_allocator(0, &fqid_allocator);
 		if (err)
 			fprintf(stderr, "Continuing despite FQID failure\n");
-		/* map shmem */
-		err = fsl_shmem_setup();
+		/* Map the DMA-able memory */
+		err = dma_mem_setup();
 		if (err)
-			fprintf(stderr, "Continuing despite shmem failure\n");
+			fprintf(stderr, "Continuing despite dma_mem failure\n");
 		/* The main thread is waiting on this */
 		pthread_barrier_wait(&worker->global_init_barrier);
 	}

@@ -31,7 +31,7 @@
  */
 
 #include <compat.h>
-#include <fsl_shmem.h>
+#include <dma_mem.h>
 #include <fman.h>
 #include <bigatomic.h>
 
@@ -287,7 +287,7 @@ static inline void dump_if_percpu(struct rfl_if_percpu *to,
  * pointers, most of which are NULL. */
 static struct bman_pool *pool[64];
 
-/* This array is allocated from the shmem region so that it DMAs OK */
+/* This array is allocated from the dma_mem region so that it DMAs OK */
 static struct rfl_if *ifs;
 
 /* A per-cpu shadown structure for keeping stats */
@@ -420,7 +420,7 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(
 	struct ether_header *prot_eth;
 
 	BUG_ON(fd->format != qm_fd_contig);
-	addr = fsl_shmem_ptov(fd->addr_lo);
+	addr = dma_mem_ptov(fd->addr_lo);
 	TRACE("Rx: 2fwd	 fqid=%d\n", fq->fqid);
 	TRACE("	     phys=0x%08x, virt=%p, offset=%d, len=%d, bpid=%d\n",
 		fd->addr_lo, addr, fd->offset, fd->length20, fd->bpid);
@@ -716,12 +716,12 @@ static noinline int process_msg(struct worker *worker, struct worker_msg *msg)
 		err = qman_setup_allocator(0, &fqid_allocator);
 		if (err)
 			fprintf(stderr, "Continuing despite FQID failure\n");
-		/* map shmem */
-		err = fsl_shmem_setup();
+		/* Map the DMA-able memory */
+		err = dma_mem_setup();
 		if (err)
-			fprintf(stderr, "Continuing despite shmem failure\n");
-		/* allocate interface structs in shmem region */
-		ifs = fsl_shmem_memalign(64, RFL_IF_NUM * sizeof(*ifs));
+			fprintf(stderr, "Continuing despite dma_mem failure\n");
+		/* allocate interface structs in dma_mem region */
+		ifs = dma_mem_memalign(64, RFL_IF_NUM * sizeof(*ifs));
 		BUG_ON(!ifs);
 		memset(ifs, 0, RFL_IF_NUM * sizeof(*ifs));
 		for (loop = 0; loop < RFL_IF_NUM; loop++) {
@@ -1047,7 +1047,7 @@ int main(int argc, char *argv[])
 	struct worker *worker, *tmpworker;
 	int first, last, loop;
 	int rcode;
-	
+
 	ncpus = (unsigned long)sysconf(_SC_NPROCESSORS_ONLN);
 
 	/* Parse the args */

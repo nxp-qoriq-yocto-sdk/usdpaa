@@ -64,14 +64,14 @@ static void DUMP(void)
 #define DUMP()		do { ; } while(0)
 #endif
 
-void *fsl_shmem_memalign(size_t align, size_t size)
+void *dma_mem_memalign(size_t align, size_t size)
 {
 	struct alloc_node *i = NULL;
 	unsigned long base, num = 0;
 	struct alloc_node *margin_left, *margin_right;
 	void *result = NULL;
 
-	DPRINT("shmem_memalign(align=%d,size=%d)\n", align, size);
+	DPRINT("dma_mem_memalign(align=%d,size=%d)\n", align, size);
 	DUMP();
 	/* If 'align' is 0, it should behave as though it was 1 */
 	if (!align)
@@ -124,14 +124,14 @@ err:
 	DUMP();
 	return result;
 }
-EXPORT_SYMBOL(fsl_shmem_memalign);
+EXPORT_SYMBOL(dma_mem_memalign);
 
-static int shmem_free(void *ptr, size_t size)
+static int _dma_mem_free(void *ptr, size_t size)
 {
 	struct alloc_node *i, *node = kmalloc(sizeof(*node), GFP_KERNEL);
 	if (!node)
 		return -ENOMEM;
-	DPRINT("shmem_free(ptr=%p,sz=%d)\n", ptr, size);
+	DPRINT("dma_mem_free(ptr=%p,sz=%d)\n", ptr, size);
 	DUMP();
 	spin_lock_irq(&alloc_lock);
 	node->base = (unsigned long)ptr;
@@ -165,15 +165,14 @@ done:
 	DUMP();
 	return 0;
 }
-void fsl_shmem_free(void *ptr, size_t size)
+void dma_mem_free(void *ptr, size_t size)
 {
-	__maybe_unused int ret = shmem_free(ptr, size);
+	__maybe_unused int ret = _dma_mem_free(ptr, size);
 	BUG_ON(ret);
 }
-EXPORT_SYMBOL(fsl_shmem_free);
+EXPORT_SYMBOL(dma_mem_free);
 
-int shmem_alloc_init(void *bar, size_t sz)
+int dma_mem_alloc_init(void *bar, size_t sz)
 {
-	return shmem_free(bar, sz);
+	return _dma_mem_free(bar, sz);
 }
-

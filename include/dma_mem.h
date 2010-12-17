@@ -30,9 +30,36 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <compat.h>
-#include <fsl_shmem.h>
+#ifndef __DMA_MEM_H
+#define __DMA_MEM_H
 
-/* Hook to allocator.c */
-int shmem_alloc_init(void *bar, size_t sz);
+/* For an efficient conversion between user-space virtual address map(s) and bus
+ * addresses required by hardware for DMA, we use a single contiguous mmap() on
+ * the /dev/mem device, a pre-arranged physical base address (and
+ * similarly reserved from regular linux use by a "mem=<...>" kernel boot
+ * parameter). See conf.h for the hard-coded constants that are used. */
 
+/* drain buffer pools of any stale entries (assumes FMan is quiesced),
+ * mmap() the device,
+ * carve out bman buffers and seed them into buffer pools,
+ * initialise ad-hoc DMA allocation memory.
+ *    -> returns non-zero on failure.
+ */
+int dma_mem_setup(void);
+
+/* Ad-hoc DMA allocation (not optimised for speed...). NB, the size must be
+ * provided to 'free'. */
+void *dma_mem_memalign(size_t boundary, size_t size);
+void dma_mem_free(void *ptr, size_t size);
+
+/* Conversion between user-virtual ("v") and physical ("p") address */
+static inline void *dma_mem_ptov(dma_addr_t p)
+{
+	return __dma_mem_ptov(p);
+}
+static inline dma_addr_t dma_mem_vtop(void *v)
+{
+	return __dma_mem_vtop(v);
+}
+
+#endif	/* __DMA_MEM_H */

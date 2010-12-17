@@ -19,7 +19,7 @@ bin_PROGRAMS = qbman_speed
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/include
 
 qbman_speed_SOURCES := main.c speed.c blastman.c
-qbman_speed_LDADD := usdpaa_qbman usdpaa_shmem
+qbman_speed_LDADD := usdpaa_qbman usdpaa_dma_mem
 qbman_speed_sys_LDADD := pthread
 
 
@@ -36,4 +36,3 @@ lib_LIBRARIES = usdpaa_qbman
 
 usdpaa_qbman_SOURCES := bman_high.c bman_driver.c \
 		qman_high.c qman_fqalloc.c qman_utility.c qman_driver.c
-

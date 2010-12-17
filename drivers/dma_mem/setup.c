@@ -40,37 +40,36 @@
 
 static int fd;
 
-/* Present "carve up" is to use the first 0x5b80000 bytes of shmem for buffer
- * pools and the rest of shmem (which is 256MB total) for ad-hoc allocations. */
-#define SHMEM_ALLOC_BAR	((void *)FSL_SHMEM_VIRT + 0x5b80000)
-#define SHMEM_ALLOC_SZ	(0x10000000 - 0x05b80000)
+/* Present "carve up" is to use the first 0x5b80000 bytes of dma_mem for buffer
+ * pools and the rest of dma_mem (which is 256MB total) for ad-hoc allocations. */
+#define DMA_MEM_ALLOC_BAR	((void *)DMA_MEM_VIRT + 0x5b80000)
+#define DMA_MEM_ALLOC_SZ	(0x10000000 - 0x05b80000)
 
-int fsl_shmem_setup(void)
+int dma_mem_setup(void)
 {
 	void *p;
 	int ret = -ENODEV;
-	fd = open(FSL_SHMEM_PATH, O_RDWR);
+	fd = open(DMA_MEM_PATH, O_RDWR);
 	if (fd < 0) {
-		perror("can't open shmem device");
+		perror("can't open dma_mem device");
 		return ret;
 	}
-	p = mmap((void *)FSL_SHMEM_VIRT, FSL_SHMEM_SIZE, PROT_READ | PROT_WRITE,
-		MAP_SHARED | MAP_FIXED, fd, FSL_SHMEM_PHYS);
+	p = mmap((void *)DMA_MEM_VIRT, DMA_MEM_SIZE, PROT_READ | PROT_WRITE,
+		MAP_SHARED | MAP_FIXED, fd, DMA_MEM_PHYS);
 	if (p == MAP_FAILED) {
-		perror("can't mmap() shmem device");
+		perror("can't mmap() dma_mem device");
 		goto err;
 	}
-	if (p != (void *)FSL_SHMEM_VIRT)
+	if (p != (void *)DMA_MEM_VIRT)
 		goto err;
-	ret = shmem_alloc_init(SHMEM_ALLOC_BAR, SHMEM_ALLOC_SZ);
+	ret = dma_mem_alloc_init(DMA_MEM_ALLOC_BAR, DMA_MEM_ALLOC_SZ);
 	if (ret)
 		goto err;
-	printf("FSL shmem device mapped (phys=0x%x,virt=%p,sz=0x%x)\n",
-		FSL_SHMEM_PHYS, p, FSL_SHMEM_SIZE);
+	printf("FSL dma_mem device mapped (phys=0x%x,virt=%p,sz=0x%x)\n",
+		DMA_MEM_PHYS, p, DMA_MEM_SIZE);
 	return 0;
 err:
-	fprintf(stderr, "ERROR; FSL shmem setup failed, ret = %d\n", ret);
+	fprintf(stderr, "ERROR: dma_mem setup failed, ret = %d\n", ret);
 	close(fd);
 	return ret;
 }
-

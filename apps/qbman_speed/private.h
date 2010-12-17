@@ -33,7 +33,7 @@
 #include <compat.h>
 #include <linux/fsl_qman.h>
 #include <linux/fsl_bman.h>
-#include <fsl_shmem.h>
+#include <dma_mem.h>
 
 struct worker {
 	int cpu, do_global_init;
@@ -49,4 +49,3 @@ void qman_test_high(struct worker *worker);
 void bman_test_high(struct worker *worker);
 void speed(struct worker *worker);
 void blastman(struct worker *worker);
-

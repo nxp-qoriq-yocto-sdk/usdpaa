@@ -207,7 +207,7 @@ void speed(struct worker *worker)
 
 	pr_info("SPEED: --- starting high-level test (cpu %d) ---\n",
 		worker->cpu);
-	fq = fsl_shmem_memalign(64, sizeof(*fq));
+	fq = dma_mem_memalign(64, sizeof(*fq));
 	BUG_ON(!fq);
 	memcpy(fq, &fq_base, sizeof(fq_base));
 	sync_all();
@@ -273,4 +273,3 @@ void speed(struct worker *worker)
 	pr_info("SPEED: --- finished high-level test (cpu %d) ---\n",
 		worker->cpu);
 }
-

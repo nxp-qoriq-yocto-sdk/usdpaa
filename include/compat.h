@@ -506,9 +506,9 @@ static inline dma_addr_t dma_map_single(void *dev __always_unused,
 				size_t size __maybe_unused,
 				enum dma_data_direction direction __always_unused)
 {
-	BUG_ON((u32)cpu_addr < FSL_SHMEM_VIRT);
-	BUG_ON(((u32)cpu_addr + size) > (FSL_SHMEM_VIRT + FSL_SHMEM_SIZE));
-	return __shmem_vtop(cpu_addr);
+	BUG_ON((u32)cpu_addr < DMA_MEM_VIRT);
+	BUG_ON(((u32)cpu_addr + size) > (DMA_MEM_VIRT + DMA_MEM_SIZE));
+	return __dma_mem_vtop(cpu_addr);
 }
 static inline int dma_mapping_error(void *dev __always_unused,
 				dma_addr_t dma_addr __always_unused)
