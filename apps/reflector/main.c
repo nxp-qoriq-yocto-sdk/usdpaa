@@ -667,15 +667,15 @@ struct worker_msg {
 	pthread_barrier_t barr;
 	/* ifs_percpu[] is copied to this by worker_msg_dump_* */
 	struct rfl_if_percpu dump[RFL_IF_NUM];
-};
+} ____cacheline_aligned;
 
 struct worker {
+	struct worker_msg *msg;
 	int cpu;
 	pthread_t id;
 	int result;
-	struct worker_msg msg;
 	struct list_head node;
-};
+} ____cacheline_aligned;
 
 /* -------------------------------- */
 /* msg-processing within the worker */
@@ -770,7 +770,7 @@ static noinline int process_msg(struct worker *worker, struct worker_msg *msg)
 /* the worker's polling loop calls this function to drive the message pump */
 static inline int check_msg(struct worker *worker)
 {
-	struct worker_msg *msg = &worker->msg;
+	struct worker_msg *msg = worker->msg;
 	if (likely(msg->msg == worker_msg_none))
 		return 1;
 	return process_msg(worker, msg);
@@ -833,21 +833,21 @@ end:
 
 static void msg_list(struct worker *worker)
 {
-	struct worker_msg *msg = &worker->msg;
+	struct worker_msg *msg = worker->msg;
 	msg->msg = worker_msg_list;
 	pthread_barrier_wait(&msg->barr);
 }
 
 static void msg_quit(struct worker *worker)
 {
-	struct worker_msg *msg = &worker->msg;
+	struct worker_msg *msg = worker->msg;
 	msg->msg = worker_msg_quit;
 	pthread_barrier_wait(&msg->barr);
 }
 
 static void msg_do_global_init(struct worker *worker)
 {
-	struct worker_msg *msg = &worker->msg;
+	struct worker_msg *msg = worker->msg;
 	msg->msg = worker_msg_do_global_init;
 	pthread_barrier_wait(&msg->barr);
 }
@@ -855,7 +855,7 @@ static void msg_do_global_init(struct worker *worker)
 #ifdef RFL_COUNTERS
 static void msg_dump_if_percpu(struct worker *worker)
 {
-	struct worker_msg *msg = &worker->msg;
+	struct worker_msg *msg = worker->msg;
 	int loop;
 
 	msg->msg = worker_msg_dump_if_percpu;
@@ -868,7 +868,7 @@ static void msg_dump_if_percpu(struct worker *worker)
 }
 static void msg_reset_if_percpu(struct worker *worker)
 {
-	struct worker_msg *msg = &worker->msg;
+	struct worker_msg *msg = worker->msg;
 	msg->msg = worker_msg_reset_if_percpu;
 	pthread_barrier_wait(&msg->barr);
 }
@@ -893,8 +893,14 @@ static struct worker *worker_new(int cpu)
 	int err = posix_memalign((void **)&ret, 64, sizeof(*ret));
 	if (err)
 		goto out;
+	err = posix_memalign((void **)&ret->msg, 64, sizeof(*ret->msg));
+	if (err) {
+		free(ret);
+		goto out;
+	}
 	ret->cpu = cpu;
-	pthread_barrier_init(&ret->msg.barr, NULL, 2);
+	ret->msg->msg = worker_msg_none;
+	pthread_barrier_init(&ret->msg->barr, NULL, 2);
 	err = pthread_create(&ret->id, NULL, worker_fn, ret);
 	if (err) {
 		free(ret);
@@ -920,6 +926,7 @@ static void __worker_free(struct worker *worker)
 		fprintf(stderr, "Failed to join thread %d\n", worker->cpu);
 		return;
 	}
+	free(worker->msg);
 	free(worker);
 }
 
