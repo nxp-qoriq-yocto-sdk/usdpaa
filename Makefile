@@ -41,7 +41,7 @@ ifneq (distclean,$(MAKECMDGOALS))
    $(ARCH)_SPEC_INC_PATH:=
    $(ARCH)_SPEC_LIB_PATH:=
    $(ARCH)_SPEC_CFLAGS	:= -mcpu=e500mc -pthread -O2 -Wall -Wshadow
-   $(ARCH)_SPEC_LDFLAGS	:=
+   $(ARCH)_SPEC_LDFLAGS	:= -pthread
  else
    $(error "ARCH not defined.")
  endif

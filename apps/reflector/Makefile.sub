@@ -5,4 +5,3 @@ my_CFLAGS := -I$(TOP_LEVEL)/apps/include
 
 reflector_SOURCES := main.c
 reflector_LDADD := usdpaa_qbman usdpaa_fman usdpaa_shmem usdpaa_of
-reflector_sys_LDADD := pthread
