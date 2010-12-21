@@ -232,16 +232,16 @@ debug:
 
 clean:
 	$(Q)echo "---- clean ----"
-	$(Q)rm -f $(foreach a,$(BINS) $(LIBS),$($(a)_objs))
+	$(Q)$(RM) $(foreach a,$(BINS) $(LIBS),$($(a)_objs))
 
 distclean:
 	$(Q)echo "---- distclean ----"
-	$(Q)rm -fr $(BIN_DIR)
-	$(Q)rm -fr $(LIB_DIR)
-	$(Q)rm -fr $(TOP_LEVEL)/test_install
-	$(Q)find -name $(OBJ_DIR) |xargs rm -fr
-	$(Q)find -name \*.o |xargs rm -f
-	$(Q)find -name \*.d |xargs rm -f
+	$(Q)$(RM) -r $(BIN_DIR)
+	$(Q)$(RM) -r $(LIB_DIR)
+	$(Q)$(RM) -r $(TOP_LEVEL)/test_install
+	$(Q)find -name $(OBJ_DIR) | xargs $(RM) -r
+	$(Q)find -name \*.o | xargs $(RM)
+	$(Q)find -name \*.d | xargs $(RM)
 
 # ----=[ Include auto-generated dependencies ]=---- 
 -include $(foreach lib,$(LIBS),$(patsubst %.o,%.d,$($(lib)_objs)))
