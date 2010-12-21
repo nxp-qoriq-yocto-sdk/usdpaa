@@ -40,7 +40,7 @@ ifneq (distclean,$(MAKECMDGOALS))
    $(ARCH)_SPEC_DEFINE	:= _FILE_OFFSET_BITS=64
    $(ARCH)_SPEC_INC_PATH:=
    $(ARCH)_SPEC_LIB_PATH:=
-   $(ARCH)_SPEC_CFLAGS	:= -mcpu=e500mc -D_GCCPORT_ -D__POWERPC__ -D__PPC_EABI__ -mmultiple -mno-altivec -pthread -O2 -Wall -Wshadow
+   $(ARCH)_SPEC_CFLAGS	:= -mcpu=e500mc -pthread -O2 -Wall -Wshadow
    $(ARCH)_SPEC_LDFLAGS	:=
  else
    $(error "ARCH not defined.")
