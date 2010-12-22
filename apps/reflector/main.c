@@ -599,16 +599,29 @@ static void rfl_fq_2fwd_init(struct rfl_fq_2fwd *p,
  * 'modulo'. This should help us avoid any bad harmonies, eg. if we just
  * scrolled round the pool channels in order, we could have all Rx errors come
  * to the same channel, or end up with hot flows "just happening" to beat on the
- * same channel. */
+ * same channel.
+ *
+ * Update: for fear of this not balancing the assignment of FQs to pool channels
+ * in an even way, I'm making sure that each sequence of RFL_POOLCHANNEL_NUM FQs
+ * is assigned 1-to-1 with the same number of pool channels, and just using the
+ * LFSR to randomise the order at that level.
+ */
 static u32 my_lfsr = 0xabbaf00d;
+static unsigned long my_rxc_mask;
+static int my_rxc_mask_used;
 static enum qm_channel get_rxc(void)
 {
-	u32 tmp;
-	int n;
-	my_lfsr = (my_lfsr >> 1) ^ (-(my_lfsr & 1u) & 0xd0000001u);
-	tmp = (my_lfsr & 0x00ffff00) >> 8;
-	n = RFL_POOLCHANNEL_FIRST + (tmp % RFL_POOLCHANNEL_NUM);
-	return qm_channel_pool1 + (n - 1);
+	unsigned int choice;
+	/* Find an unset bit in my_rxc_mask */
+	do {
+		my_lfsr = (my_lfsr >> 1) ^ (-(my_lfsr & 1u) & 0xd0000001u);
+		choice = my_lfsr % RFL_POOLCHANNEL_NUM;
+	} while (test_bit(choice, &my_rxc_mask));
+	if (++my_rxc_mask_used == RFL_POOLCHANNEL_NUM) {
+		my_rxc_mask_used = 0;
+		clear_bits(~(unsigned long)0, &my_rxc_mask);
+	}
+	return qm_channel_pool1 + RFL_POOLCHANNEL_FIRST + choice - 1;
 }
 
 static void rfl_if_init(struct rfl_if *i, struct rfl_if_percpu *pc, int idx)
