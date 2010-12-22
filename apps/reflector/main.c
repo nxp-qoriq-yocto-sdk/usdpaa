@@ -91,8 +91,8 @@ static const struct qman_fqid_ranges fqid_allocator = {
 #define RFL_2FWD_TX_PREFERINCACHE /* keep tx FQDs in-cache even when empty */
 #undef RFL_2FWD_RX_TD		/* whether to enable taildrop */
 #define RFL_2FWD_RX_TD_THRESH 64000
-#undef RFL_BACKOFF		/* consume cycles when EQCR/RCR is full */
-#define RFL_BACKOFF_CYCLES	200
+#define RFL_BACKOFF		/* consume cycles when EQCR/RCR is full */
+#define RFL_BACKOFF_CYCLES	512
 #define RFL_COUNTERS		/* enable counters */
 #undef RFL_COUNTERS_SUCCESS	/*   not just errors, count everything */
 #undef RFL_DATA_DCBF		/* cache flush modified data during Tx */
