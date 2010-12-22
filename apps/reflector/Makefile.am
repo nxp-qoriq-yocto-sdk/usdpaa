@@ -1,7 +1,7 @@
 bin_PROGRAMS = reflector
-my_DATA = us_config_serdes_0xe.xml us_policy_hash_ipv4_src_dst.xml
+dist_DATA = us_config_serdes_0xe.xml us_policy_hash_ipv4_src_dst.xml
 
-my_CFLAGS := -I$(TOP_LEVEL)/apps/include
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/include
 
 reflector_SOURCES := main.c
 reflector_LDADD := usdpaa_qbman usdpaa_fman usdpaa_shmem usdpaa_of

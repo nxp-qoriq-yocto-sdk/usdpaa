@@ -1,6 +1,6 @@
 bin_PROGRAMS = qbman_speed
 
-my_CFLAGS := -I$(TOP_LEVEL)/apps/include
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/include
 
 qbman_speed_SOURCES := main.c speed.c blastman.c
 qbman_speed_LDADD := usdpaa_qbman usdpaa_shmem

@@ -30,7 +30,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-# All "Makefile.sub"s found beneath these directories are procssed;
+# All "Makefile.am"s found beneath these directories are processed;
 DIRS := apps drivers
 
 # ----=[ Arch specific definitions ]=----
@@ -112,7 +112,7 @@ define print_debug_install
  echo
 endef
 
-# ----=[ Processing Makefile.sub input ]=----
+# ----=[ Processing Makefile.am input ]=----
 define process_install
 do_install_$(1):$($(1)_install_from)/$($(1)_install_name)
 	$$(Q)echo " [INSTALL] $(1)"
@@ -152,7 +152,7 @@ define pre_process_target
 endef
 
 define process_obj
-$($(1)_pref)$(3).o:$($(1)_dir)/$(2) $(4)/Makefile.sub $(TOP_LEVEL)/Makefile
+$($(1)_pref)$(3).o:$($(1)_dir)/$(2) $(4)/Makefile.am $(TOP_LEVEL)/Makefile
 	$$(Q)mkdir -p $$(dir $$@)
 	$$(Q)echo " [CC] $$(shell printf '%- 16s (%s:%s)' $(2) $($(1)_type) $(1))"
 	$$(Q)touch  $$(patsubst %.o,%.d,$$@)
@@ -181,20 +181,20 @@ endef
 define process_makefile
   $(eval include $(1))
   $(eval thisdir := $(2:%/=%))
-  $(eval cflags := $(my_CFLAGS))
+  $(eval cflags := $(AM_CFLAGS))
   $(foreach B,$(bin_PROGRAMS),$(eval $(call process_bin,$(B),$(thisdir),$(cflags))))
   $(foreach L,$(lib_LIBRARIES),$(eval $(call process_lib,$(L),$(thisdir),$(cflags))))
-  $(foreach x,$(my_DATA),$(eval $(call pre_process_target,$(x),$(thisdir),\
+  $(foreach x,$(dist_DATA),$(eval $(call pre_process_target,$(x),$(thisdir),\
   	$(cflags),$(x),$(INSTALL_OTHER),,$(INSTALL_OTHER_FLAGS))))
   BINS += $(bin_PROGRAMS)
   LIBS += $(lib_LIBRARIES)
   bin_PROGRAMS :=
   lib_LIBRARIES :=
-  my_DATA :=
-  my_CFLAGS :=
+  dist_DATA :=
+  AM_CFLAGS :=
 endef
 
-ALL_MAKEFILES := $(foreach d,$(DIRS),$(shell find $(d) -name Makefile.sub))
+ALL_MAKEFILES := $(foreach d,$(DIRS),$(shell find $(d) -name Makefile.am))
 $(foreach M,$(ALL_MAKEFILES), $(eval $(call process_makefile,$(M),$(dir $(M)))))
 $(foreach x,$(TO_INSTALL),$(eval $(call process_install,$(x))))
 

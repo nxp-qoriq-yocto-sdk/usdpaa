@@ -2,12 +2,12 @@ The build-system supports a directory tree with arbitrary hierarchy. The
 top-level Makefile declares which sub-directories are to be covered by the
 build, the following is the default value (if not overriden externally);
 
-# All "Makefile.sub"s found beneath these directories are procssed;
+# All "Makefile.am"s found beneath these directories are procssed;
 DIRS := apps drivers
 
-The build system will find any "Makefile.sub" files in all sub-directories of
+The build system will find any "Makefile.am" files in all sub-directories of
 the directories named in "DIR" and will process them all for building. All such
-Makefile.sub files are sourced and processed to form a global dependency graph
+Makefile.am files are sourced and processed to form a global dependency graph
 before any building begins, so there is no particular "build order" that has to
 be observed as is usually the case with recursive builds, ie. builds that
 execute "make" child processes in sub-directories. In particular, the following
@@ -28,8 +28,8 @@ second type should correctly regenerate only the relevant targets, but this
 should include (for example) relinking all dependent apps if a library (or its
 source code) is affected.
 
-For information on writing "Makefile.sub" files for use within the source-tree,
-please consult "Makefile.sub.example" for basic examples, and
+For information on writing "Makefile.am" files for use within the source-tree,
+please consult "Makefile.am.example" for basic examples, and
 "README.MakefileTemplate" for a comprehensive list of all the options supported
 by the build system.
 
@@ -48,9 +48,9 @@ Section: DIRS
 -------------
 
 As described above, this is defines which top-level sub-directories should be
-searched for "Makefile.sub" files describing build targets. Unless some global
+searched for "Makefile.am" files describing build targets. Unless some global
 change to the build system is required, no other part of the top-level Makefile
-should need editing. Each "Makefile.sub" should have sufficient control over its
+should need editing. Each "Makefile.am" should have sufficient control over its
 build targets. Please note that the build-system supports various environment
 variables that can be set to supplement or override behaviour of the
 build-system - they are listed here, and more information can be found for each
@@ -160,14 +160,14 @@ composed of some static settings (eg. "-Wall"), arch-specific as well as
 externally-supplied CFLAGS, arch-specific as well as externally-supplied DEFINE
 options (each prefixed with "-D"), a top-level include path, and arch-specific
 INC_PATH options (each prefixed with "-I"). Note, additional compiler options
-can be provided in the Makefile.sub files, both at a Makefile.sub scope and/or
+can be provided in the Makefile.am files, both at a Makefile.am scope and/or
 per-target.
 
 LDFLAGS contains the global options to be passed to the linker, which are
 composed of arch-specific as well as externally-supplied LDFLAGS, a top-level
 linker path, and arch-specific LIB_PATH options (each prefixed with "-L"). Note,
-additional linker options can be provided in the Makefile.sub files, both at a
-Makefile.sub scope and/or per-target.
+additional linker options can be provided in the Makefile.am files, both at a
+Makefile.am scope and/or per-target.
 
 ARFLAGS contains the flags to pass to the "ar" archive tool, it is set to "rcs".
 
@@ -203,30 +203,30 @@ Section: Helpers for "make debug"
 These functions are used when running "make debug", see the "debug:" target to
 see how they are called (and run "make debug" to see the result).
 
---------------------------------------
-Section: Processing Makefile.sub input
---------------------------------------
+-------------------------------------
+Section: Processing Makefile.am input
+-------------------------------------
 
-This is the meat of the build system. It reads all Makefile.sub input, computes
+This is the meat of the build system. It reads all Makefile.am input, computes
 the corresponding build and installation information as it goes, and generates
 the resulting dependencies and build rules. This processing will be described
 (and should be read) in the reverse order to how it appears in the Makefile.
 
-The parsing of Makefile.sub files and generation of all build and install rules
+The parsing of Makefile.am files and generation of all build and install rules
 are are driven by these lines;
 
-ALL_MAKEFILES := $(foreach d,$(DIRS),$(shell find $(d) -name Makefile.sub))
+ALL_MAKEFILES := $(foreach d,$(DIRS),$(shell find $(d) -name Makefile.am))
 $(foreach M,$(ALL_MAKEFILES), $(eval $(call process_makefile,$(M),$(dir $(M)))))
 $(foreach x,$(TO_INSTALL),$(eval $(call process_install,$(x))))
 
-The "process_makefile" function is called for each Makefile.sub file, passing
-the directory for each Makefile.sub as the second parameter. The
+The "process_makefile" function is called for each Makefile.am file, passing
+the directory for each Makefile.am as the second parameter. The
 "process_install" function is then called for the list of installable objects
 that was produced from the processing of the Makefiles.
 
 	==== process_makefile ====
 
-This function is called for each Makefile.sub file and;
+This function is called for each Makefile.am file and;
 
   * calls "process_bin" for each executable defined in bin_PROGRAMS
   * calls "process_lib" for each library defined in lib_LIBRARIES
@@ -279,11 +279,11 @@ file for the compilation).
 	==== pre_process_target ====
 
 This function is called for each library, executable, and installable file
-parsed out of Makefile.sub file. The parameters passed are;
+parsed out of Makefile.am file. The parameters passed are;
 
   * $(1) = target (bin/lib name, or misc file)
-  * $(2) = directory of the Makefile.sub
-  * $(3) = "my_CFLAGS" from Makefile.sub
+  * $(2) = directory of the Makefile.am
+  * $(3) = "my_CFLAGS" from Makefile.am
   * $(4) = target filename (for libs, this is lib$(1).a)
   * $(5) = default install dir (if not overriden by the target itself)
   * $(6) = path to compiled file (or empty for copy of source file)
@@ -292,28 +292,28 @@ parsed out of Makefile.sub file. The parameters passed are;
 For each target "tgt", this function defines a variety of target properties of
 the form "tgt_foo" (ie. where "foo" represents the property name);
 
-  * tgt_dir: the directory of the Makefile.sub that defines "tgt"
-  * tgt_mk_cflags: the "my_CFLAGS" setting from the Makefile.sub
+  * tgt_dir: the directory of the Makefile.am that defines "tgt"
+  * tgt_mk_cflags: the "my_CFLAGS" setting from the Makefile.am
   * tgt_pref: the path-prefix for objects built for this target
       This defaults to "$(tgt_dir)/obj_powerpc/tgt_", ie. if a common.c file is
       compiled for executables "foo" and "bar", the object files would be
       "foo_common.o" and "bar_common.o" respectively.
   * tgt_objs: the list of object files used for this target. This is calculated
-      from the "tgt_SOURCES" symbol defined in the Makefile.sub, by substituting
+      from the "tgt_SOURCES" symbol defined in the Makefile.am, by substituting
       the .c suffixes with .o and by prefixing with "$(tgt_pref)".
 
-Furthermore, if the Makefile.sub did *not* specify the "tgt_install := none"
+Furthermore, if the Makefile.am did *not* specify the "tgt_install := none"
 property, then the target will be added to the global list of installable
 targets $(TO_INSTALL), and the following additional properties are defined;
 
   * tgt_install_to: the location (relative to DESTDIR) where this target should
-      be installed. If the Makefile.sub defined "tgt_install", that will be
+      be installed. If the Makefile.am defined "tgt_install", that will be
       used, otherwise a default location passed in from "process_makefile" is
       used (which will be $(INSTALL_BIN), $(INSTALL_LIB), [etc] as appropriate).
   * tgt_install_from: the location the file should be copied from. This is the
       6th parameter if it is non-empty, otherwise it's the 2nd parameter.
   * tgt_install_flags: the flags to pass to the $(INSTALL) command for this
-      target. If the Makefile.sub specifies "tgt_install_flags", that will be
+      target. If the Makefile.am specifies "tgt_install_flags", that will be
       used, otherwise the default flags are passed in from "process_makefile"
       are used (which will be $(INSTALL_BIN_FLAGS), $(INSTALL_LIB_FLAGS), [etc]
       as appropriate).
@@ -347,14 +347,14 @@ libraries and executables are created.
 	==== build ====
 
 This target is declared as a dependency on all the defined library and
-executable targets accumulated from the processing of all Makefile.sub files.
+executable targets accumulated from the processing of all Makefile.am files.
 The default target ("all:") is declared as dependent on this target, ensuring
 that the default action of "make" is to build all libraries and executables.
 
 	==== install ====
 
 This target is declared as being dependent on all the "do_install_*" targets
-built up from processing Makefile.sub files (as produced by the
+built up from processing Makefile.am files (as produced by the
 "process_install" function). As those targets are in turn declared as dependent
 on the objects being installed, this ensures the targets are built (if
 necessary) before being installed.
@@ -375,7 +375,7 @@ This target formats a detailed layout of;
   * all the executables,
   * all the objects and libraries the executables are built out of, (see the
     "print_debug_bin" function),
-  * all the Makefile.sub files (see the "print_debug_mk" function),
+  * all the Makefile.am files (see the "print_debug_mk" function),
   * all the install actions to be performed (libraries, executables and other
     files) for each installable target (see the "print_debug_install"
     function). The output for each target includes;
@@ -412,7 +412,7 @@ Section: Include auto-generated dependencies
 --------------------------------------------
 
 This section simply includes all the dependency files for all the compiler
-targets produced during processing of Makefile.sub files. These won't exist yet
+targets produced during processing of Makefile.am files. These won't exist yet
 if nothing has been compiled (in which case no dependency is needed to indicate
 that they should be rebuilt!), so the includes are prefixed with "-".
 

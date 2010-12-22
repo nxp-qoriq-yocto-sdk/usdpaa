@@ -1,5 +1,5 @@
 lib_LIBRARIES = usdpaa_of
-my_DATA = of.sh
+dist_DATA = of.sh
 
 usdpaa_of_SOURCES := of.c
 

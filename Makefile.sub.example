@@ -7,7 +7,7 @@
 # This example was taken from apps/qbman_speed.
 # This makefile says that:
 #   1. It will generate an executable "qbman_speed uses" (bin_PROGRAMS).
-#   2. It will add an include dir to the build include path (my_CFLAGS).
+#   2. It will add an include dir to the build include path (AM_CFLAGS).
 #   3. It will compile 3 source files (qbman_speed_SOURCES).
 #   4. It will link 4 of our libs (qbman_speed_LDADD).
 #   5. It will link 1 external lib (qbman_speed_sys_LDADD).
@@ -16,7 +16,7 @@
 # -------------------------------------------------------------------------
 bin_PROGRAMS = qbman_speed
 
-my_CFLAGS := -I$(TOP_LEVEL)/apps/include
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/include
 
 qbman_speed_SOURCES := main.c speed.c blastman.c
 qbman_speed_LDADD := usdpaa_qbman usdpaa_shmem

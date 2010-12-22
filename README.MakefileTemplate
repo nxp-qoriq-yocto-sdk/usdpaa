@@ -1,7 +1,7 @@
-# The following is a template for "Makefile.sub" files going into source
+# The following is a template for "Makefile.am" files going into source
 # directories within the build tree. This template documents all the supported
 # functionality with contrived examples, but most options shouldn't be needed in
-# 99% of the cases, and the Makefile.sub files should usually be very simple,
+# 99% of the cases, and the Makefile.am files should usually be very simple,
 # trivial even. Please consult the examples in the source-tree for guidance,
 # this template is intended to be comprehensive rather than brief.
 
