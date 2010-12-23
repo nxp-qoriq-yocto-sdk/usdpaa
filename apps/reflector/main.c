@@ -728,15 +728,11 @@ static noinline int process_msg(struct worker *worker, struct worker_msg *msg)
 		/* Set up the bpid allocator */
 		err = bman_setup_allocator(0, &bpid_allocator);
 		if (err)
-			fprintf(stderr, "Continuing despite BPID failure\n");
+			fprintf(stderr, "error: BPID init, continuing\n");
 		/* Set up the fqid allocator */
 		err = qman_setup_allocator(0, &fqid_allocator);
 		if (err)
-			fprintf(stderr, "Continuing despite FQID failure\n");
-		/* Map the DMA-able memory */
-		err = dma_mem_setup();
-		if (err)
-			fprintf(stderr, "Continuing despite dma_mem failure\n");
+			fprintf(stderr, "error: FQID init, continuing\n");
 		/* allocate interface structs in dma_mem region */
 		ifs = dma_mem_memalign(64, RFL_IF_NUM * sizeof(*ifs));
 		BUG_ON(!ifs);
@@ -762,8 +758,6 @@ static noinline int process_msg(struct worker *worker, struct worker_msg *msg)
 			pool[bpids[loop]] = bman_new_pool(&params);
 			BUG_ON(!pool[bpids[loop]]);
 		}
-		/* ready to go, open the flood-gates */
-		__mac_enable_all();
 	}
 
 	/* Dump interface stats */
@@ -1079,6 +1073,18 @@ int main(int argc, char *argv[])
 	} else if (argc != 1)
 		usage();
 
+	/* Do global init that doesn't require portal access; */
+	/* - map shmem */
+	TRACE("Initialising shmem\n");
+	rcode = dma_mem_setup();
+	if (rcode)
+		fprintf(stderr, "error: shmem init, continuing\n");
+	/* - discover+map MAC devices */
+	TRACE("Initialising MACs\n");
+	rcode = __mac_init();
+	if (rcode)
+		fprintf(stderr, "error: MAC init, continuing\n");
+
 	/* Create the threads */
 	TRACE("Starting %d threads for cpu-range '%s'\n",
 		last - first + 1, argv[1]);
@@ -1088,12 +1094,16 @@ int main(int argc, char *argv[])
 			rcode = -1;
 			goto leave;
 		}
-		/* Do interface-initialisation in the first thread (we can't do
-		 * it before, because we need portals to do it) */
+		/* Do datapath initialisation in the first thread (we can't do
+		 * it here, because it requires access to portals) */
 		if (loop == first)
 			msg_do_global_init(worker);
 		worker_add(worker);
 	}
+	TRACE("Enabling MACs\n");
+	rcode = __mac_enable_all();
+	if (rcode)
+		fprintf(stderr, "error: MAC enable, continuing\n");
 
 	/* TODO: catch dead threads - for now, we rely on the dying thread to
 	 * print an error, and for the CLI user to then "remove" it. */
@@ -1161,6 +1171,20 @@ int main(int argc, char *argv[])
 			}
 		}
 
+		/* Disable MACs */
+		else if (!strncmp(cli, "macs_off", 8)) {
+			rcode = __mac_disable_all();
+			if (rcode)
+				fprintf(stderr, "error: MAC disable, continuing\n");
+		}
+
+		/* Enable MACs */
+		else if (!strncmp(cli, "macs_on", 7)) {
+			rcode = __mac_enable_all();
+			if (rcode)
+				fprintf(stderr, "error: MAC enable, continuing\n");
+		}
+
 		/* try again */
 		else
 			fprintf(stderr, "unknown cmd: %s\n", cli);
@@ -1170,5 +1194,6 @@ int main(int argc, char *argv[])
 leave:
 	list_for_each_entry_safe(worker, tmpworker, &workers, node)
 		worker_free(worker);
+	__mac_finish();
 	return rcode;
 }
