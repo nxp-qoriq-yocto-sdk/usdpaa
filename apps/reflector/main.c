@@ -90,7 +90,8 @@ static const struct qman_fqid_ranges fqid_allocator = {
 #define RFL_2FWD_RX_PREFERINCACHE /* keep rx FQDs in-cache even when empty */
 #define RFL_2FWD_TX_PREFERINCACHE /* keep tx FQDs in-cache even when empty */
 #undef RFL_2FWD_RX_TD		/* whether to enable taildrop */
-#define RFL_2FWD_RX_TD_THRESH 64000
+#define RFL_2FWD_RX_TD_THRESH 	295 /* keep ingress SFDR-only (<= 5 frames) */
+#undef RFL_2FWD_TX_FORCESFDR	/* priority allocation of SFDRs to egress */
 #define RFL_BACKOFF		/* consume cycles when EQCR/RCR is full */
 #define RFL_BACKOFF_CYCLES	512
 #define RFL_COUNTERS		/* enable counters */
@@ -552,6 +553,9 @@ static void rfl_fq_2fwd_init(struct rfl_fq_2fwd *p,
 	opts.fqd.fq_ctrl =
 #ifdef RFL_2FWD_TX_PREFERINCACHE
 		QM_FQCTRL_PREFERINCACHE |
+#endif
+#ifdef RFL_2FWD_TX_FORCESFDR
+		QM_FQCTRL_FORCESFDR |
 #endif
 		0;
 	opts.fqd.context_b = 0;
