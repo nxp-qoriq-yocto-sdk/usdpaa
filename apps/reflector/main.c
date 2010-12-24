@@ -67,11 +67,12 @@
 		foolen = 3; \
 	foolen; \
 })
-#define RFL_BPIDS		{7, 8, 9}
 #define RFL_CLI_BUFFER		(2*1024)
+#define RFL_BPIDS		{7, 8, 9}
+#define RFL_FQIDS		{4, 7, 8, 9}
 
-//static const uint8_t ifid[] = {0, 1, 2, 3, 9};
-static const uint8_t ifid[] = {4, 7, 8, 9};
+static const uint8_t bpids[] = RFL_BPIDS;
+static const uint8_t ifid[] = RFL_FQIDS;
 static const struct bman_bpid_range bpid_range[] =
 	{ {FSL_BPID_RANGE_START, FSL_BPID_RANGE_LENGTH} };
 static const struct bman_bpid_ranges bpid_allocator = {
@@ -98,6 +99,7 @@ static const struct qman_fqid_ranges fqid_allocator = {
 #undef RFL_COUNTERS_SUCCESS	/*   not just errors, count everything */
 #undef RFL_DATA_DCBF		/* cache flush modified data during Tx */
 #define RFL_DEBUG_DEPLETION	/* trace depletion entry/exit */
+#undef RFL_DEBUG_DEPLETION_FLOW /* flow-control MACs based on bpool depl */
 
 /**********/
 /* macros */
@@ -652,14 +654,36 @@ static void rfl_if_init(struct rfl_if *i, struct rfl_if_percpu *pc, int idx)
 /*************************/
 
 #ifdef RFL_DEBUG_DEPLETION
+#ifdef RFL_DEBUG_DEPLETION_FLOW
+/* If doing flow-control, depletion entry/exit may thrash quickly. So
+ * the "freq_xctl" CLI command can modify the throttling of logging.
+ * NB, we do flow-control via the first buffer pool. */
+static unsigned int num_xctl;
+static unsigned int freq_xctl = 1;
+#endif
 static void bp_depletion(struct bman_portal *bm __always_unused,
 			struct bman_pool *p,
 			void *cb_ctx __maybe_unused,
 			int depleted)
 {
+	u8 bpid = bman_get_params(p)->bpid;
 	BUG_ON(p != *(typeof(&p))cb_ctxt);
 
-	pr_info("%s: BP%u -> %s\n", __func__, bman_get_params(p)->bpid,
+#ifdef RFL_DEBUG_DEPLETION_FLOW
+	if (bpid == bpids[0]) {
+		if (depleted) {
+			__mac_disable_all();
+			num_xctl++;
+		} else
+			__mac_enable_all();
+		/* bypass pr_info()s when appropriate */
+		if (num_xctl % freq_xctl)
+			return;
+		if (depleted)
+			pr_info("%s: num_xctl = %u\n", __func__, num_xctl);
+	}
+#endif
+	pr_info("%s: BP%u -> %s\n", __func__, bpid,
 		depleted ? "entry" : "exit");
 }
 #endif
@@ -721,7 +745,6 @@ static noinline int process_msg(struct worker *worker, struct worker_msg *msg)
 
 	/* Do global init */
 	else if (msg->msg == worker_msg_do_global_init) {
-		u8 bpids[] = RFL_BPIDS;
 		unsigned int loop;
 		int err;
 
@@ -1183,6 +1206,25 @@ int main(int argc, char *argv[])
 			rcode = __mac_enable_all();
 			if (rcode)
 				fprintf(stderr, "error: MAC enable, continuing\n");
+		}
+
+		/* Modify 'freq_xctl' */
+		else if (!strncmp(cli, "freq_xctl", 9)) {
+#if defined(RFL_DEBUG_DEPLETION) && defined(RFL_DEBUG_DEPLETION_FLOW)
+			char *endptr;
+			unsigned long tmp = strtoul(cli + 9, &endptr, 0);
+			if ((tmp == ULONG_MAX) || (endptr == (cli + 9)) ||
+						(*endptr != '\0'))
+				fprintf(stderr, "error: bad freq_xctl '%s'\n",
+					cli + 9);
+			/* the cast handles sizeof(long)!=sizeof(freq_xctl) */
+			else if (!(unsigned int)tmp)
+				fprintf(stderr, "error: freq_xctl must be non-zero\n");
+			else
+				freq_xctl = tmp;
+#else
+			fprintf(stderr, "error: no 'freq_xctl' support\n");
+#endif
 		}
 
 		/* try again */
