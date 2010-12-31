@@ -532,7 +532,6 @@ struct qm_cgr_cs_thres {
 	u16 TA:8;
 	u16 Tn:5;
 } __packed;
-
 /* This identical structure of CGR fields is present in the "Init/Modify CGR"
  * commands and the "Query CGR" result. It's suctioned out here into its own
  * struct. */
@@ -547,13 +546,36 @@ struct __qm_mc_cgr {
 	u32 cscn_targ;	/* use QM_CGR_TARG_* */
 	u8 cstd_en;	/* boolean, use QM_CGR_EN */
 	u8 cs;		/* boolean, only used in query response */
-	struct qm_cgr_cs_thres cs_thres;
+	struct qm_cgr_cs_thres cs_thres; /* use qm_cgr_cs_thres_set() */
 	u8 mode;	/* QMAN_CGR_MODE_FRAME not supported in rev1.0 */
 } __packed;
 #define QM_CGR_EN		0x01 /* For wr_en_*, cscn_en, cstd_en */
 #define QM_CGR_TARG_PORTAL(n)	(0x80000000 >> (n)) /* s/w portal, 0-9 */
 #define QM_CGR_TARG_FMAN0	0x00200000 /* direct-connect portal: fman0 */
 #define QM_CGR_TARG_FMAN1	0x00100000 /*                      : fman1 */
+/* Convert CGR thresholds to/from "cs_thres" format */
+static inline int qm_cgr_cs_thres_set(struct qm_cgr_cs_thres *th, u32 val,
+					int roundup)
+{
+	u32 e = 0;
+	int oddbit = 0;
+	while (val > 0xff) {
+		oddbit = val & 1;
+		val >>= 1;
+		e++;
+		if (roundup && oddbit)
+			val++;
+	}
+	th->Tn = e;
+	th->TA = val;
+	return 0;
+}
+/* and the other direction */
+static inline u32 qm_cgr_cs_thres_get(const struct qm_cgr_cs_thres *th)
+{
+	return (u32)th->TA << th->Tn;
+}
+
 
 /* See 1.5.8.5.1: "Initialize FQ" */
 /* See 1.5.8.5.2: "Query FQ" */
