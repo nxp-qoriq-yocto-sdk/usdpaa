@@ -99,7 +99,7 @@ static const struct qman_fqid_ranges fqid_allocator = {
 #undef RFL_COUNTERS_SUCCESS	/*   not just errors, count everything */
 #undef RFL_DATA_DCBF		/* cache flush modified data during Tx */
 #define RFL_DEBUG_DEPLETION	/* trace depletion entry/exit */
-#undef RFL_DEBUG_DEPLETION_FLOW /* flow-control MACs based on bpool depl */
+#define RFL_DEBUG_DEPLETION_FLOW /* flow-control MACs based on bpool depl */
 
 /**********/
 /* macros */
