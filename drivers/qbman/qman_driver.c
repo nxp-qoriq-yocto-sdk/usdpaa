@@ -34,7 +34,7 @@
 
 /* Global variable containing revision id (even on non-control plane systems
  * where CCSR isn't available). FIXME: hard-coded. */
-u16 qman_ip_rev = QMAN_REV1;
+u16 qman_ip_rev = QMAN_REV2;
 
 /*****************/
 /* Portal driver */
