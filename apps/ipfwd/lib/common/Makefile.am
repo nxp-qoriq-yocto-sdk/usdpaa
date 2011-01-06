@@ -1,6 +1,6 @@
-lib_LIBRARIES = app_net
+lib_LIBRARIES = app_refcount
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipfwd/lib -I$(TOP_LEVEL)/apps/ipfwd/include
 
-app_net_SOURCES := net_dev.c neigh.c ll_cache.c rt.c
-app_net_sys_LDADD := pthread
+app_refcount_SOURCES := refcount.c
+app_refcount_sys_LDADD := pthread
