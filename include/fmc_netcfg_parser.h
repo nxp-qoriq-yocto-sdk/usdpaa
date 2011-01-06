@@ -1,4 +1,4 @@
-/* Copyright (c) 2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -57,6 +57,9 @@ struct fmc_netcfg_fqs {
  * configuration information in a data structure.
  * */
 int fmc_netcfg_parser_init(char *pcd_file, char *cfg_file);
+
+/* Free the resources used by FMC NETCFG driver layer */
+int fmc_netcfg_parser_exit(void);
 
 /* port_id@:	Port id for which the configuration information is requested.
  * *cfg@:	structure pointer in which the information will be returned.

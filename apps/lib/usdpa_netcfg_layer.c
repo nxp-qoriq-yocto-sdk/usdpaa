@@ -1,4 +1,4 @@
-/* Copyright (c) 2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,7 +44,7 @@ void dump_usdpa_netcfg(struct usdpa_netcfg_info *cfg_ptr)
 	uint32_t port_id, bpool_id;
 	struct fm_eth_port_cfg *p_cfg;
 	struct fm_ethport_fq *pfq;
-	struct bm_bpool_info *p_bpool;
+	struct bpool_data *p_bpool;
 
 	printf("..........   FMAN PORT Configuration  ..........\n");
 	for (port_id = 0; port_id < cfg_ptr->num_ethports; port_id++) {
@@ -67,9 +67,9 @@ void dump_usdpa_netcfg(struct usdpa_netcfg_info *cfg_ptr)
 
 		printf(" Rx channel id =  %x\n", p_cfg->qm_rx_channel_id);
 		printf(" Tx channel id =  %x\n", p_cfg->qm_tx_channel_id);
-		for (bpool_id = 0; bpool_id < p_cfg->bm_num_of_bpool;
+		for (bpool_id = 0; bpool_id < p_cfg->mac_bpools->num_bpools;
 							bpool_id++) {
-			p_bpool = &p_cfg->bpool[bpool_id];
+			p_bpool = &p_cfg->mac_bpools->bpool[bpool_id];
 			printf("bpid = %x\n", p_bpool->bpid);
 			printf("addr = %llx\n", p_bpool->addr);
 			printf("size = %x\n", p_bpool->size);
@@ -167,6 +167,93 @@ static int fman_mac_port_idx(struct device_node *mac_node, uint32_t *port_num)
 	return 0;
 }
 
+static struct fm_mac_bpools *fman_mac_bpools(struct device_node *node)
+{
+	struct device_node *bpool_node;
+	const phandle *bpool_phandle;
+	uint32_t *bpool_addr;
+	struct bpool_data bp_info[MAX_BPOOL_PER_PORT];
+	struct fm_mac_bpools *mac_bps;
+	uint32_t bpid, count = 0;
+	uint64_t data;
+	size_t lenp, len;
+
+	bpool_phandle = of_get_property(node,
+				"fsl,bman-buffer-pools", &lenp);
+	if (unlikely(bpool_phandle == NULL)) {
+		fprintf(stderr, "%s:%hu:%s(): of_get_property(%s,"
+			"fsl,bman-buffer-pools failed\n", __FILE__,
+			__LINE__, __func__, node->full_name);
+		return NULL;
+	}
+
+	count = 0;
+	while (lenp) {
+		bpool_node = of_find_node_by_phandle(*bpool_phandle++);
+		if (unlikely(bpool_node == NULL)) {
+			fprintf(stderr, "%s:%hu:%s(): of_find_node_by_phandle"
+				"(fsl,bman-buffer-pools) failed\n",
+				__FILE__, __LINE__, __func__);
+			return NULL;
+		}
+
+		bpool_addr = of_get_property(bpool_node, "fsl,bpid", &len);
+		if (unlikely(bpool_addr == NULL)) {
+			fprintf(stderr, "%s:%hu:%s(): of_get_property(fsl,bpid)"
+				" failed\n", __FILE__, __LINE__, __func__);
+			return NULL;
+		}
+
+		bpid = *bpool_addr;
+
+		bpool_addr = of_get_property(bpool_node, "fsl,bpool-cfg", &len);
+		if (unlikely(bpool_addr == NULL)) {
+			fprintf(stderr, "%s:%hu:%s(): of_get_property"
+				"(fsl,bpool-cfg) failed\n", __FILE__,
+				__LINE__, __func__);
+			return NULL;
+		}
+
+		/* buffer pool id */
+		bp_info[count].bpid = bpid;
+
+		/* number of buffers */
+		data = *bpool_addr++;
+		data = (data << 32) | *bpool_addr++;
+		bp_info[count].count = data;
+
+		/* size of buffer */
+		data = *bpool_addr++;
+		data = (data << 32) | *bpool_addr++;
+		bp_info[count].size = data;
+
+		/* buffer address */
+		data = *bpool_addr++;
+		data = (data << 32) | *bpool_addr++;
+		bp_info[count].addr = data;
+
+		count++;
+		lenp -= sizeof(uint32_t);
+	}
+
+	mac_bps = (struct fm_mac_bpools *)malloc(sizeof(struct fm_mac_bpools) +
+					sizeof(struct bpool_data) * count);
+	if (unlikely(mac_bps == NULL)) {
+		fprintf(stderr, "%s:%hu:%s(): malloc failed\n",
+			__FILE__, __LINE__, __func__);
+		return NULL;
+	}
+
+	mac_bps->num_bpools = count;
+	for (count = 0; count < mac_bps->num_bpools; count++) {
+		mac_bps->bpool[count].bpid = bp_info[count].bpid;
+		mac_bps->bpool[count].count = bp_info[count].count;
+		mac_bps->bpool[count].size = bp_info[count].size;
+		mac_bps->bpool[count].addr = bp_info[count].addr;
+	}
+	return mac_bps;
+}
+
 static inline uint8_t fman_num_enabled_macports(void)
 {
 	uint8_t count = 0;
@@ -181,40 +268,93 @@ static inline uint8_t fman_num_enabled_macports(void)
 	return count;
 }
 
-static int dt_parse_eth_info(void)
+static int fman_mac_qm_txchannel(struct device_node *node, uint32_t *channel)
 {
-	size_t lenp, len;
-	struct fmc_netcfg_fqs xmlcfg;
-	struct device_node *dpa_node, *mac_node, *port_node;
-	struct device_node *channel_node, *bpool_node;
-	uint32_t *rx_frame_queue, *tx_frame_queue;
-	const phandle *channel_phandle;
-	const phandle *port_phandle, *bpool_phandle;
-	uint8_t *mac_addr;
-	uint32_t *port_addr, *channel_addr, *bpool_addr;
-	int _errno = 0;
-	struct fm_eth_port_cfg *p_cfg;
-	uint32_t bpid, count = 0;
-	uint64_t data;
-	uint32_t fman_num, port_type, port_index;
-	struct bm_bpool_info bp_info[MAX_BPOOL_PER_PORT];
-	uint8_t num_ports, curr = 0;
-	size_t size;
+	const phandle *port_phandle;
+	struct device_node *port_node;
+	uint32_t *port_addr;
+	size_t lenp;
 
-	/* Number of MAC ports */
-	num_ports = fman_num_enabled_macports();
-	size = sizeof(*usdpa_netcfg) +
-		(num_ports * sizeof(struct fm_eth_port_cfg));
-
-	/* Allocate space for all enabled mac ports */
-	usdpa_netcfg = calloc(size, 1);
-	if (unlikely(usdpa_netcfg == NULL)) {
-		fprintf(stderr, "%s:%hu:%s(): calloc failed\n",
-			__FILE__, __LINE__, __func__);
-		return -ENOMEM;
+	port_phandle = of_get_property(node, "fsl,port-handles", &lenp);
+	if (unlikely(port_phandle == NULL)) {
+		fprintf(stderr, "%s:%hu:%s(): of_get_property(%s,"
+			"fsl,port-handles failed\n", __FILE__,
+			__LINE__, __func__, node->full_name);
+		return -ENXIO;
 	}
 
-	usdpa_netcfg->num_ethports = num_ports;
+	port_node = of_find_node_by_phandle(port_phandle[1]);
+	if (unlikely(port_node == NULL)) {
+		fprintf(stderr, "%s:%hu:%s(): "
+			"of_find_node_by_phandle(fsl,port-handles)"
+			"failed\n", __FILE__, __LINE__, __func__);
+		return -ENXIO;
+	}
+
+	port_addr = of_get_property(port_node,
+				"fsl,qman-channel-id", &lenp);
+	if (unlikely(port_addr == NULL)) {
+		fprintf(stderr, "%s:%hu:%s(): of_get_property(%s,"
+			"fsl,qman-channel-id failed\n", __FILE__,
+			__LINE__, __func__, port_node->full_name);
+		return -ENXIO;
+	}
+
+	*channel = *port_addr;
+	return 0;
+}
+
+static int fman_mac_qm_rxchannel(struct device_node *node, uint32_t *channel_id)
+{
+	const phandle *channel_phandle ;
+	struct device_node *channel_node;
+	uint32_t *channel_addr;
+	size_t lenp;
+
+	channel_phandle = of_get_property(node,
+				"fsl,qman-channel", &lenp);
+	if (unlikely(channel_phandle == NULL)) {
+		fprintf(stderr, "%s:%hu:%s(): of_get_property(%s,"
+			"fsl,qman-channel failed\n", __FILE__,
+			__LINE__, __func__, node->full_name);
+		return -ENXIO;
+	}
+
+	channel_node = of_find_node_by_phandle(*channel_phandle);
+	if (unlikely(channel_node == NULL)) {
+		fprintf(stderr, "%s:%hu:%s(): "
+			"of_find_node_by_phandle(fsl,qman-channel)"
+			"failed\n", __FILE__, __LINE__, __func__);
+		return -ENXIO;
+	}
+
+	channel_addr = of_get_property(channel_node,
+				"fsl,qman-channel-id", &lenp);
+	if (unlikely(channel_addr == NULL)) {
+		fprintf(stderr, "%s:%hu:%s(): of_get_property(%s,"
+			"fsl,qman-channel-id failed\n", __FILE__,
+			__LINE__, __func__, channel_node->full_name);
+		return -ENXIO;
+	}
+
+	*channel_id = *channel_addr;
+	return 0;
+}
+
+static int parse_dpa_config_data(struct usdpa_netcfg_info *cfg)
+{
+	struct fm_eth_port_cfg *p_cfg;
+	struct fm_mac_bpools *mac_bpools;
+	struct device_node *dpa_node, *mac_node;
+	uint32_t *rx_frame_queue, *tx_frame_queue;
+	uint8_t *mac_addr;
+	struct fmc_netcfg_fqs xmlcfg;
+	uint32_t count = 0;
+	uint32_t fman_num, port_type, port_index;
+	uint32_t tx_channel, rx_channel;
+	uint8_t curr = 0;
+	int _errno = 0;
+	size_t lenp;
 
 	/* Read for all enabled MAC ports */
 	for_each_compatible_node(dpa_node, NULL, "fsl,dpa-ethernet-init") {
@@ -237,7 +377,7 @@ static int dt_parse_eth_info(void)
 		if (unlikely(_errno))
 			goto error;
 
-		p_cfg = &usdpa_netcfg->port_cfg[curr++];
+		p_cfg = &cfg->port_cfg[curr++];
 
 		rx_frame_queue = of_get_property(dpa_node,
 					"fsl,qman-frame-queues-rx", &lenp);
@@ -255,6 +395,8 @@ static int dt_parse_eth_info(void)
 		p_cfg->fq.rx_err.start = rx_frame_queue[0];
 		p_cfg->fq.rx_err.count = rx_frame_queue[1];
 
+		/* Get the RX default and PCD FQs from FMC NETCFG driver
+		 * layer */
 		_errno = fmc_netcfg_get_info(fman_num, port_type,
 					port_index, &xmlcfg);
 		if (unlikely(_errno)) {
@@ -265,10 +407,10 @@ static int dt_parse_eth_info(void)
 
 		p_cfg->fq.pcd.start = xmlcfg.pcd.start;
 		p_cfg->fq.pcd.count = xmlcfg.pcd.count;
-		/* RX default FQs are overwritten here */
 		p_cfg->fq.rx_def.start = xmlcfg.rxdef.start;
 		p_cfg->fq.rx_def.count = xmlcfg.rxdef.count;
 
+		/* Get TX FQs from Device Tree */
 		tx_frame_queue = of_get_property(dpa_node,
 					"fsl,qman-frame-queues-tx", &lenp);
 		if (unlikely(tx_frame_queue == NULL)) {
@@ -284,6 +426,7 @@ static int dt_parse_eth_info(void)
 		p_cfg->fq.tx_confirm.start = tx_frame_queue[2];
 		p_cfg->fq.tx_confirm.count = tx_frame_queue[3];
 
+		/* Get MAC Address */
 		mac_addr = (uint8_t *)of_get_property(mac_node,
 					"local-mac-address", &lenp);
 		if (unlikely(mac_addr == NULL)) {
@@ -294,170 +437,48 @@ static int dt_parse_eth_info(void)
 			goto error;
 		}
 
-		memcpy(&(p_cfg->fm_mac_addr[0]), mac_addr, 6);
+		memcpy(&(p_cfg->fm_mac_addr[0]), mac_addr, ETHER_ADDR_LEN);
 
-		port_phandle = of_get_property(mac_node,
-					"fsl,port-handles", &lenp);
-		if (unlikely(port_phandle == NULL)) {
-			_errno = -ENXIO;
-			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s,"
-				"fsl,port-handles failed\n", __FILE__,
-				__LINE__, __func__, mac_node->full_name);
+		/* Extract Transmit Channel ID */
+		_errno = fman_mac_qm_txchannel(mac_node, &tx_channel);
+		if (unlikely(_errno))
 			goto error;
-		}
 
-		port_node = of_find_node_by_phandle(port_phandle[1]);
-		if (unlikely(port_node == NULL)) {
-			_errno = -ENXIO;
-			fprintf(stderr, "%s:%hu:%s(): "
-				"of_find_node_by_phandle(fsl,port-handles)"
-				"failed\n", __FILE__, __LINE__, __func__);
+		p_cfg->qm_tx_channel_id = tx_channel;
+
+		/* Extract RX Channel ID */
+		_errno = fman_mac_qm_rxchannel(dpa_node, &rx_channel);
+		if (unlikely(_errno))
 			goto error;
-		}
 
-		port_addr = of_get_property(port_node,
-					"fsl,qman-channel-id", &lenp);
-		if (unlikely(port_addr == NULL)) {
+		p_cfg->qm_rx_channel_id = rx_channel;
+
+		/* Extract buffer pools information */
+		mac_bpools = fman_mac_bpools(dpa_node);
+		if (unlikely(mac_bpools == NULL)) {
 			_errno = -ENXIO;
-			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s,"
-				"fsl,qman-channel-id failed\n", __FILE__,
-				__LINE__, __func__, port_node->full_name);
-			goto error;
-		}
-
-		p_cfg->qm_tx_channel_id = *port_addr;
-
-		channel_phandle = of_get_property(dpa_node,
-					"fsl,qman-channel", &lenp);
-		if (unlikely(channel_phandle == NULL)) {
-			_errno = -ENXIO;
-			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s,"
-				"fsl,qman-channel failed\n", __FILE__,
+			fprintf(stderr, "%s:%hu:%s(): Reading mac port(%s)"
+				" bpool info failed\n", __FILE__,
 				__LINE__, __func__, dpa_node->full_name);
 			goto error;
 		}
-
-		channel_node = of_find_node_by_phandle(*channel_phandle);
-		if (unlikely(channel_node == NULL)) {
-			_errno = -ENXIO;
-			fprintf(stderr, "%s:%hu:%s(): "
-				"of_find_node_by_phandle(fsl,qman-channel)"
-				"failed\n", __FILE__, __LINE__, __func__);
-			goto error;
-		}
-
-		channel_addr = of_get_property(channel_node,
-					"fsl,qman-channel-id", &lenp);
-		if (unlikely(channel_addr == NULL)) {
-			_errno = -ENXIO;
-			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s,"
-				"fsl,qman-channel-id failed\n", __FILE__,
-				__LINE__, __func__, channel_node->full_name);
-			goto error;
-		}
-
-		p_cfg->qm_rx_channel_id = *channel_addr;
-
-		bpool_phandle = of_get_property(dpa_node,
-					"fsl,bman-buffer-pools", &lenp);
-		if (unlikely(bpool_phandle == NULL)) {
-			_errno = -ENXIO;
-			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s,"
-				"fsl,bman-buffer-pools failed\n", __FILE__,
-				__LINE__, __func__, dpa_node->full_name);
-			goto error;
-		}
-
-		count = 0;
-		while (lenp) {
-			bpool_node = of_find_node_by_phandle(*bpool_phandle++);
-			if (unlikely(bpool_node == NULL)) {
-				_errno = -ENXIO;
-				fprintf(stderr, "%s:%hu:%s(): "
-					"of_find_node_by_phandle("
-					"fsl,bman-buffer-pools) failed\n",
-					__FILE__, __LINE__, __func__);
-				goto error;
-			}
-
-			bpool_addr = of_get_property(bpool_node,
-							"fsl,bpid", &len);
-			if (unlikely(bpool_addr == NULL)) {
-				_errno = -ENXIO;
-				fprintf(stderr, "%s:%hu:%s(): "
-					"of_get_property(fsl,bpid) failed\n",
-					__FILE__, __LINE__, __func__);
-				goto error;
-			}
-
-			bpid = *bpool_addr;
-
-			bpool_addr = of_get_property(bpool_node,
-						"fsl,bpool-cfg", &len);
-			if (unlikely(bpool_addr == NULL)) {
-				_errno = -ENXIO;
-				fprintf(stderr, "%s:%hu:%s(): "
-					"of_get_property(fsl,bpool-cfg)"
-					"failed\n",
-					__FILE__, __LINE__, __func__);
-				goto error;
-			}
-
-			/* buffer pool id */
-			bp_info[count].bpid = bpid;
-
-			/* number of buffers */
-			data = *bpool_addr++;
-			data = (data << 32) | *bpool_addr++;
-			bp_info[count].count = data;
-
-			/* size of buffer */
-			data = *bpool_addr++;
-			data = (data << 32) | *bpool_addr++;
-			bp_info[count].size = data;
-
-			/* buffer address */
-			data = *bpool_addr++;
-			data = (data << 32) | *bpool_addr++;
-			bp_info[count].addr = data;
-
-			count++;
-
-			lenp -= sizeof(uint32_t);
-		}
-
-		p_cfg->bm_num_of_bpool = count;
-		p_cfg->bpool = (struct bm_bpool_info *)malloc(
-			sizeof(struct bm_bpool_info) * p_cfg->bm_num_of_bpool);
-
-		if (unlikely(p_cfg->bpool == NULL)) {
-			fprintf(stderr, "%s:%hu:%s(): malloc failed\n",
-				__FILE__, __LINE__, __func__);
-			_errno = -ENOMEM;
-			goto error;
-		}
-
-		for (count = 0; count < p_cfg->bm_num_of_bpool; count++) {
-			p_cfg->bpool[count].bpid = bp_info[count].bpid;
-			p_cfg->bpool[count].count = bp_info[count].count;
-			p_cfg->bpool[count].size = bp_info[count].size;
-			p_cfg->bpool[count].addr = bp_info[count].addr;
-		}
+		p_cfg->mac_bpools = mac_bpools;
 	}
 
 	return 0;
 error:
-	for (count = 0; count < num_ports; count++)
-		free(usdpa_netcfg->port_cfg[count].bpool);
+	for (count = 0; count < curr; count++)
+		free(usdpa_netcfg->port_cfg[count].mac_bpools);
 
 	free(usdpa_netcfg);
-
 	return _errno;
 }
 
 struct usdpa_netcfg_info *usdpa_netcfg_acquire(char *pcd_file, char *cfg_file)
 {
 	int _errno;
+	uint8_t num_ports;
+	size_t size;
 
 	/* Initialise the XML parser */
 	_errno = fmc_netcfg_parser_init(pcd_file, cfg_file);
@@ -467,23 +488,46 @@ struct usdpa_netcfg_info *usdpa_netcfg_acquire(char *pcd_file, char *cfg_file)
 		return NULL;
 	}
 
-	/* Parse device tree */
-	_errno = dt_parse_eth_info();
-	if (unlikely(_errno)) {
-		fprintf(stderr, "%s:%hu:%s(): Device Tree parsing failed "
-			"(ERRNO = %d)\n", __FILE__, __LINE__, __func__, _errno);
-		return NULL;
+	/* Extract dpa configuration from device tree and FMC configuration
+	   file */
+	/* Number of MAC ports */
+	num_ports = fman_num_enabled_macports();
+	size = sizeof(*usdpa_netcfg) +
+		(num_ports * sizeof(struct fm_eth_port_cfg));
+
+	/* Allocate space for all enabled mac ports */
+	usdpa_netcfg = calloc(size, 1);
+	if (unlikely(usdpa_netcfg == NULL)) {
+		fprintf(stderr, "%s:%hu:%s(): calloc failed\n",
+			__FILE__, __LINE__, __func__);
+		goto error;
 	}
 
+	usdpa_netcfg->num_ethports = num_ports;
+
+	/* Extract the dpa configuration data */
+	_errno = parse_dpa_config_data(usdpa_netcfg);
+	if (unlikely(_errno)) {
+		fprintf(stderr, "%s:%hu:%s(): Extracting dpa config data"
+			"failed (errno = %d)\n",
+			 __FILE__, __LINE__, __func__, _errno);
+		goto error;
+	}
 	return usdpa_netcfg;
+
+error:
+	fmc_netcfg_parser_exit();
+	return NULL;
 }
 
 void usdpa_netcfg_release(struct usdpa_netcfg_info *cfg_ptr)
 {
 	uint32_t port_id;
 
+	fmc_netcfg_parser_exit();
+
 	for (port_id = 0; port_id < cfg_ptr->num_ethports; port_id++)
-		free(cfg_ptr->port_cfg[port_id].bpool);
+		free(cfg_ptr->port_cfg[port_id].mac_bpools);
 
 	free(cfg_ptr);
 }

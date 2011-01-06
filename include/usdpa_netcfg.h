@@ -1,4 +1,4 @@
-/* Copyright (c) 2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,11 +46,16 @@ struct fm_ethport_fq {
 	struct fmc_netcfg_fqrange tx;		/* TX FQs */
 };
 
-struct bm_bpool_info {
-	uint8_t bpid; /* Buffer pool id */
-	uint32_t count; /* Number of buffers */
-	uint32_t size; /* Size of each buffer */
-	off_t addr; /* Start address of the bpool */
+struct fm_mac_bpools {
+	unsigned int num_bpools;
+	struct bpool_data {
+		uint32_t bpid; /* Buffer pool id */
+		uint32_t count; /* Number of buffers */
+		uint32_t size; /* Size of each buffer */
+		off_t addr; /* Start address of the bpool */
+	} bpool[0];	/* Variable structure array of size num_bpools.
+			This have buffer pool configuration details of
+			all bpools attched to ETH port */
 };
 
 /* Configuration information related to a specific ethernet port */
@@ -59,11 +64,9 @@ struct fm_eth_port_cfg {
 	uint8_t fm_mac_addr[ETHER_ADDR_LEN]; /* MAC Address of the ETH port */
 	uint8_t qm_rx_channel_id; /* RX qman pool channel id */
 	uint8_t qm_tx_channel_id; /* Tx qman pool channel id */
-	uint8_t bm_num_of_bpool; /* Number of bpools attached to ETH port */
-	struct bm_bpool_info *bpool;/* Variable structure array of size
-				bm_num_of_bpool. This have buffer pool
-				configuration details of all bpools attched
-				to ETH port */
+	struct fm_mac_bpools *mac_bpools; /* Points to the buffer pools
+					     configurations attached to this
+					     mac port */
 };
 
 /* This structure contains the network configuration information for USDPAA.
