@@ -97,7 +97,6 @@ static const struct qman_fqid_ranges fqid_allocator = {
 #define RFL_2FWD_RX_PREFERINCACHE /* keep rx FQDs in-cache even when empty */
 #define RFL_2FWD_TX_PREFERINCACHE /* keep tx FQDs in-cache even when empty */
 #undef RFL_2FWD_TX_FORCESFDR	/* priority allocation of SFDRs to egress */
-#undef RFL_DATA_DCBF		/* cache flush modified data during Tx */
 #define RFL_DEPLETION		/* trace depletion entry/exit */
 #define RFL_CGR			/* track rx and tx fill-levels via CGR */
 
@@ -252,19 +251,6 @@ static inline void ether_header_swap(struct ether_header *prot_eth)
 	overlay[2] = (a << 16) | (b >> 16);
 }
 
-#ifdef RFL_DATA_DCBF
-/* Flush cacheline(s) containing the data starting at addr, size len */
-static inline void cache_flush(void *addr, unsigned long len)
-{
-	void *s = (void *)((unsigned long)addr & ~(unsigned long)63);
-	addr += len;
-	while (s < addr) {
-		dcbf(s);
-		s += 64;
-	}
-}
-#endif
-
 static enum qman_cb_dqrr_result cb_dqrr_2fwd(
 					struct qman_portal *qm __always_unused,
 					struct qman_fq *fq,
@@ -322,10 +308,6 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(
 		iphdr->saddr = tmp;
 		/* switch ethernet src/dest MAC addresses */
 		ether_header_swap(prot_eth);
-#ifdef RFL_DATA_DCBF
-		cache_flush(addr, (unsigned long)iphdr + 12 -
-				(unsigned long)addr);
-#endif
 		TRACE("Tx: 2fwd	 fqid=%d\n", p->fq_tx.fqid);
 		TRACE("	     phys=0x%08x, offset=%d, len=%d, bpid=%d\n",
 			fd->addr_lo, fd->offset, fd->length20, fd->bpid);
