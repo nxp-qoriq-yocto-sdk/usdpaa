@@ -32,7 +32,14 @@
 
 #include <compat.h>
 #include <of.h>
-#include "usdpa_netcfg_layer.h"
+#include <usdpa_netcfg.h>
+
+#define MAX_BPOOL_PER_PORT	8
+
+/* Format a MAC address (printf() string and args) */
+#define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x\n"
+#define NMAC_STR(buf) \
+	buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]
 
 /* This data structure contaings all configurations information
  * related to usages of DPA devices.
