@@ -100,8 +100,6 @@ static const struct qman_fqid_ranges fqid_allocator = {
 #undef RFL_2FWD_TX_FORCESFDR	/* priority allocation of SFDRs to egress */
 #define RFL_BACKOFF		/* consume cycles when EQCR/RCR is full */
 #define RFL_BACKOFF_CYCLES	512
-#define RFL_COUNTERS		/* enable counters */
-#undef RFL_COUNTERS_SUCCESS	/*   not just errors, count everything */
 #undef RFL_DATA_DCBF		/* cache flush modified data during Tx */
 #define RFL_DEPLETION		/* trace depletion entry/exit */
 #undef RFL_DEPLETION_SWFLOW 	/* flow-control MACs based on bpool depl */
@@ -145,167 +143,30 @@ static const struct qman_fqid_ranges fqid_allocator = {
 #define TRACE(x...)	do { ; } while(0)
 #endif
 
-#ifdef RFL_COUNTERS
-#define CNT(a)	    struct bigatomic a
-#define CNT_INC(a)  bigatomic_inc(a)
-static inline void CNT_ADD(struct bigatomic *a, const struct bigatomic *b)
-{
-	if (a)
-		bigatomic_set(a, bigatomic_read(a) + bigatomic_read(b));
-}
-#else
-#define CNT(a)	    struct { }
-#define CNT_INC(a)  do { ; } while (0)
-#endif
-
 /*********************************/
 /* Net interface data structures */
 /*********************************/
 
-/* Rx FQs that count packets and drop (ie. "Rx error", "Rx default", "Tx
- * error", "Tx confirm"). */
+/* Rx FQs that always drop (ie. "Rx error", "Rx default", "Tx error",
+ * "Tx confirm"). */
 struct rfl_fq_2drop {
 	struct qman_fq fq;
-	size_t percpu_offset;
 };
-struct rfl_fq_2drop_percpu {
-	CNT(cnt);
-};
-#define set_fq_2drop_percpu(p,pc) \
-do { \
-	struct rfl_fq_2drop *__foo = (p); \
-	struct rfl_fq_2drop_percpu *__foo2 = (pc); \
-	__foo->percpu_offset = (unsigned long)__foo2 - \
-			(unsigned long)&ifs_percpu[0]; \
-} while (0)
-#define get_fq_2drop_percpu(p) \
-(struct rfl_fq_2drop_percpu *)({ \
-	struct rfl_fq_2drop *__foo = (p); \
-	(void *)ifs_percpu + __foo->percpu_offset; \
-})
-#ifdef RFL_COUNTERS
-static inline void dump_fq_2drop(const char *prefix, struct rfl_fq_2drop_percpu *to,
-			const struct rfl_fq_2drop_percpu *pc)
-{
-	if (prefix)
-		printf("%s:%llu", prefix, bigatomic_read(&pc->cnt));
-	CNT_ADD(to ? &to->cnt : NULL, &pc->cnt);
-}
-#endif
 
-/* Rx FQs that fwd, count packets and drop-decisions. */
+/* Rx FQs that fwd (or drop selectively). */
 struct rfl_fq_2fwd {
 	struct qman_fq fq_rx;
 	struct qman_fq fq_tx;
-	size_t percpu_offset;
 };
-struct rfl_fq_2fwd_percpu {
-#ifdef RFL_COUNTERS_SUCCESS
-	CNT(cnt);
-	CNT(cnt_tx);
-#endif
-	CNT(cnt_tx_ern);
-	CNT(cnt_drop_bcast);
-	CNT(cnt_drop_arp);
-	CNT(cnt_drop_other);
-} ____cacheline_aligned;
-#define set_fq_2fwd_percpu(p,pc) \
-do { \
-	struct rfl_fq_2fwd *__foo = (p); \
-	struct rfl_fq_2fwd_percpu *__foo2 = (pc); \
-	__foo->percpu_offset = (unsigned long)__foo2 - \
-			(unsigned long)&ifs_percpu[0]; \
-} while (0)
-#define get_fq_2fwd_percpu(p) \
-(struct rfl_fq_2fwd_percpu *)({ \
-	struct rfl_fq_2fwd *__foo = (p); \
-	(void *)ifs_percpu + __foo->percpu_offset; \
-})
-#ifdef RFL_COUNTERS
-static inline void dump_fq_2fwd(struct rfl_fq_2fwd_percpu *to,
-			const struct rfl_fq_2fwd_percpu *pc, int log)
-{
-#ifdef RFL_COUNTERS_SUCCESS
-	if (log) {
-		printf("        rx:%llu,", bigatomic_read(&pc->cnt));
-		printf("fwd:%llu,", bigatomic_read(&pc->cnt_tx));
-	}
-	CNT_ADD(to ? &to->cnt : NULL, &pc->cnt);
-	CNT_ADD(to ? &to->cnt_tx : NULL, &pc->cnt_tx);
-#else
-	if (log)
-		printf("        ");
-#endif
-	if (log) {
-		printf("ern:%llu,", bigatomic_read(&pc->cnt_tx_ern));
-		printf("d_bcast:%llu,", bigatomic_read(&pc->cnt_drop_bcast));
-		printf("d_arp:%llu,", bigatomic_read(&pc->cnt_drop_arp));
-		printf("d_other:%llu\n", bigatomic_read(&pc->cnt_drop_other));
-	}
-	CNT_ADD(to ? &to->cnt_tx_ern : NULL, &pc->cnt_tx_ern);
-	CNT_ADD(to ? &to->cnt_drop_bcast : NULL, &pc->cnt_drop_bcast);
-	CNT_ADD(to ? &to->cnt_drop_arp : NULL, &pc->cnt_drop_arp);
-	CNT_ADD(to ? &to->cnt_drop_other : NULL, &pc->cnt_drop_other);
-}
-#endif
 
-/* Each DTSEC i/face (fm1-dtsec[0123]) has one of these */
+/* Each Fman i/face has one of these */
 struct rfl_if {
 	struct rfl_fq_2fwd rx_hash[RFL_RX_HASH_SIZE];
 	struct rfl_fq_2drop rx_error;
 	struct rfl_fq_2drop rx_default;
 	struct rfl_fq_2drop tx_error;
 	struct rfl_fq_2drop tx_confirm;
-	size_t percpu_offset;
 } ____cacheline_aligned;
-struct rfl_if_percpu {
-	struct rfl_fq_2fwd_percpu rx_hash[RFL_RX_HASH_SIZE];
-	struct rfl_fq_2drop_percpu rx_error;
-	struct rfl_fq_2drop_percpu rx_default;
-	struct rfl_fq_2drop_percpu tx_error;
-	struct rfl_fq_2drop_percpu tx_confirm;
-};
-#define set_if_percpu(p,pc) \
-do { \
-	struct rfl_if *__foo = (p); \
-	struct rfl_if_percpu *__foo2 = (pc); \
-	__foo->percpu_offset = (unsigned long)__foo2 - \
-			(unsigned long)&ifs_percpu[0]; \
-} while (0)
-#define get_if_percpu(p) \
-(struct rfl_if_percpu *)({ \
-	struct rfl_if *__foo = (p); \
-	(void *)ifs_percpu + __foo->percpu_offset; \
-})
-#ifdef RFL_COUNTERS
-static inline void dump_if_percpu(struct rfl_if_percpu *to,
-			const struct rfl_if_percpu *pc, int log, int verbose)
-{
-	struct rfl_fq_2fwd_percpu my_total;
-	int loop;
-	memset(&my_total, 0, sizeof(my_total));
-	if (log)
-		printf("        ");
-	dump_fq_2drop(log ? "rx_error" : NULL, to ? &to->rx_error : NULL,
-			&pc->rx_error);
-	dump_fq_2drop(log ? ",rx_default" : NULL, to ? &to->rx_default : NULL,
-			&pc->rx_default);
-	dump_fq_2drop(log ? ",tx_error" : NULL, to ? &to->tx_error : NULL,
-			&pc->tx_error);
-	dump_fq_2drop(log ? ",tx_confirm" : NULL, to ? &to->tx_confirm : NULL,
-			&pc->tx_confirm);
-	if (log)
-		printf("\n");
-	for (loop = 0; loop < RFL_RX_HASH_SIZE; loop++) {
-		dump_fq_2fwd(&my_total, &pc->rx_hash[loop], 0);
-		dump_fq_2fwd(to ? &to->rx_hash[loop] : NULL,
-			&pc->rx_hash[loop], verbose ? log : 0);
-	}
-	if (log && verbose)
-		printf("      total;\n");
-	dump_fq_2fwd(NULL, &my_total, log);
-}
-#endif
 
 /***************/
 /* Global data */
@@ -317,9 +178,6 @@ static struct bman_pool *pool[64];
 
 /* This array is allocated from the dma_mem region so that it DMAs OK */
 static struct rfl_if *ifs;
-
-/* A per-cpu shadown structure for keeping stats */
-static __PERCPU struct rfl_if_percpu ifs_percpu[RFL_IF_NUM];
 
 #ifdef RFL_CGR
 /* A congestion group to hold FQs */
@@ -387,22 +245,17 @@ static enum qman_cb_dqrr_result cb_dqrr_2drop(
 					struct qman_fq *fq,
 					const struct qm_dqrr_entry *dqrr)
 {
-	__maybe_unused struct rfl_fq_2drop *p = container_of(fq,
-					struct rfl_fq_2drop, fq);
-	__maybe_unused struct rfl_fq_2drop_percpu *pc = get_fq_2drop_percpu(p);
 	TRACE("Rx: 2drop fqid=%d\tfd_status = 0x%08x\n", fq->fqid, dqrr->fd.status);
-	CNT_INC(&pc->cnt);
 	drop_frame(&dqrr->fd);
 	return qman_cb_dqrr_consume;
 }
 
-static void rfl_fq_2drop_init(struct rfl_fq_2drop *p,
-				struct rfl_fq_2drop_percpu *pc, u32 fqid,
+static void rfl_fq_2drop_init(struct rfl_fq_2drop *p, u32 fqid,
 				enum qm_channel channel)
 {
 	struct qm_mcc_initfq opts;
 	int ret;
-	set_fq_2drop_percpu(p, pc);
+
 	p->fq.cb.dqrr = cb_dqrr_2drop;
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_NO_ENQUEUE, &p->fq);
 	BUG_ON(ret);
@@ -454,7 +307,6 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(
 					const struct qm_dqrr_entry *dqrr)
 {
 	struct rfl_fq_2fwd *p = container_of(fq, struct rfl_fq_2fwd, fq_rx);
-	__maybe_unused struct rfl_fq_2fwd_percpu *pc = get_fq_2fwd_percpu(p);
 	const struct qm_fd *fd = &dqrr->fd;
 	void *addr;
 	struct ether_header *prot_eth;
@@ -466,9 +318,6 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(
 		fd->addr_lo, addr, fd->offset, fd->length20, fd->bpid);
 	addr += fd->offset;
 	prot_eth = addr;
-#ifdef RFL_COUNTERS_SUCCESS
-	CNT_INC(&pc->cnt);
-#endif
 	TRACE("	     dhost=%02x:%02x:%02x:%02x:%02x:%02x\n",
 		prot_eth->ether_dhost[0], prot_eth->ether_dhost[1],
 		prot_eth->ether_dhost[2], prot_eth->ether_dhost[3],
@@ -479,10 +328,9 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(
 		prot_eth->ether_shost[4], prot_eth->ether_shost[5]);
 	TRACE("	     ether_type=%04x\n", prot_eth->ether_type);
 	/* Eliminate ethernet broadcasts. */
-	if (prot_eth->ether_dhost[0] & 0x01) {
+	if (prot_eth->ether_dhost[0] & 0x01)
 		TRACE("	     -> dropping broadcast packet\n");
-		CNT_INC(&pc->cnt_drop_bcast);
-	} else
+	else
 	switch (prot_eth->ether_type)
 	{
 	case ETH_P_IP:
@@ -517,9 +365,6 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(
 		TRACE("Tx: 2fwd	 fqid=%d\n", p->fq_tx.fqid);
 		TRACE("	     phys=0x%08x, offset=%d, len=%d, bpid=%d\n",
 			fd->addr_lo, fd->offset, fd->length20, fd->bpid);
-#ifdef RFL_COUNTERS_SUCCESS
-		CNT_INC(&pc->cnt_tx);
-#endif
 		send_frame(&p->fq_tx, fd);
 		}
 		return qman_cb_dqrr_consume;
@@ -534,13 +379,11 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(
 		}
 #endif
 		TRACE("		  -> dropping ARP packet\n");
-		CNT_INC(&pc->cnt_drop_arp);
 		break;
 	default:
 		TRACE("	       -> it's UNKNOWN (!!) type 0x%04x\n",
 			prot_eth->ether_type);
 		TRACE("		  -> dropping unknown packet\n");
-		CNT_INC(&pc->cnt_drop_other);
 	}
 	drop_frame(fd);
 	return qman_cb_dqrr_consume;
@@ -550,20 +393,14 @@ static void cb_ern_2fwd(struct qman_portal *qm __always_unused,
 			struct qman_fq *fq,
 			const struct qm_mr_entry *msg)
 {
-	__maybe_unused struct rfl_fq_2fwd *p = container_of(fq,
-					struct rfl_fq_2fwd, fq_tx);
-	__maybe_unused struct rfl_fq_2fwd_percpu *pc = get_fq_2fwd_percpu(p);
-	CNT_INC(&pc->cnt_tx_ern);
 	drop_frame(&msg->ern.fd);
 }
 
-static void rfl_fq_2fwd_init(struct rfl_fq_2fwd *p,
-			struct rfl_fq_2fwd_percpu *pc, u32 rx_fqid, u32 tx_fqid,
+static void rfl_fq_2fwd_init(struct rfl_fq_2fwd *p, u32 rx_fqid, u32 tx_fqid,
 			enum qm_channel channel, enum qm_channel tx_channel)
 {
 	struct qm_mcc_initfq opts;
 	int ret;
-	set_fq_2fwd_percpu(p, pc);
 	/* Each Rx FQ object has its own Tx FQ object, but that doesn't mean
 	 * that each Rx FQID has its own Tx FQ FQID. As such, the Tx FQ object
 	 * we're initialising here may be for a FQID that is already fronted by
@@ -691,23 +528,16 @@ static enum qm_channel get_rxc(void)
 	return qm_channel_pool1 + RFL_POOLCHANNEL_FIRST + choice - 1;
 }
 
-static void rfl_if_init(struct rfl_if *i, struct rfl_if_percpu *pc, int idx)
+static void rfl_if_init(struct rfl_if *i, int idx)
 {
 	int loop;
-	set_if_percpu(i, pc);
-	rfl_fq_2drop_init(&i->rx_error, &pc->rx_error,
-			RFL_FQID_RX_ERROR(idx), get_rxc());
-	rfl_fq_2drop_init(&i->rx_default, &pc->rx_default,
-			RFL_FQID_RX_DEFAULT(idx), get_rxc());
-	rfl_fq_2drop_init(&i->tx_error, &pc->tx_error,
-			RFL_FQID_TX_ERROR(idx), get_rxc());
-	rfl_fq_2drop_init(&i->tx_confirm, &pc->tx_confirm,
-			RFL_FQID_TX_CONFIRM(idx), get_rxc());
+	rfl_fq_2drop_init(&i->rx_error, RFL_FQID_RX_ERROR(idx), get_rxc());
+	rfl_fq_2drop_init(&i->rx_default, RFL_FQID_RX_DEFAULT(idx), get_rxc());
+	rfl_fq_2drop_init(&i->tx_error, RFL_FQID_TX_ERROR(idx), get_rxc());
+	rfl_fq_2drop_init(&i->tx_confirm, RFL_FQID_TX_CONFIRM(idx), get_rxc());
 	for (loop = 0; loop < RFL_RX_HASH_SIZE; loop++)
-		rfl_fq_2fwd_init(&i->rx_hash[loop], &pc->rx_hash[loop],
-				RFL_FQID_RX_HASH(idx, loop),
-				RFL_FQID_TX(idx, loop),
-				get_rxc(), RFL_CHANNEL_TX(idx));
+		rfl_fq_2fwd_init(&i->rx_hash[loop], RFL_FQID_RX_HASH(idx, loop),
+			RFL_FQID_TX(idx, loop), get_rxc(), RFL_CHANNEL_TX(idx));
 }
 
 /******************************************************/
@@ -816,25 +646,21 @@ struct worker_msg {
 		worker_msg_list,
 		worker_msg_quit,
 		worker_msg_do_global_init,
-		worker_msg_dump_if_percpu,
-		worker_msg_reset_if_percpu,
 #ifdef RFL_CGR
 		worker_msg_query_cgr
 #endif
 	} msg;
 	pthread_barrier_t barr;
-	union {
-		/* ifs_percpu[] is copied to this by worker_msg_dump_* */
-		struct rfl_if_percpu dump[RFL_IF_NUM];
 #ifdef RFL_CGR
+	union {
 		struct {
 			struct qm_mcr_querycgr res;
 #if !defined(RFL_CGR_SWFLOW)
 			struct qm_mcr_querycgr res_txmon;
 #endif
 		} query_cgr;
-#endif
 	};
+#endif
 } ____cacheline_aligned;
 
 struct worker {
@@ -944,7 +770,7 @@ static noinline int process_msg(struct worker *worker, struct worker_msg *msg)
 		memset(ifs, 0, RFL_IF_NUM * sizeof(*ifs));
 		for (loop = 0; loop < RFL_IF_NUM; loop++) {
 			TRACE("Initialising interface %d\n", ifid[loop]);
-			rfl_if_init(&ifs[loop], &ifs_percpu[loop], ifid[loop]);
+			rfl_if_init(&ifs[loop], ifid[loop]);
 		}
 		/* initialise buffer pools */
 		for (loop = 0; loop < sizeof(bpids); loop++) {
@@ -964,14 +790,6 @@ static noinline int process_msg(struct worker *worker, struct worker_msg *msg)
 			BUG_ON(!pool[bpids[loop]]);
 		}
 	}
-
-	/* Dump interface stats */
-	else if (msg->msg == worker_msg_dump_if_percpu)
-		memcpy(msg->dump, ifs_percpu, sizeof(ifs_percpu));
-
-	/* Reset interface stats */
-	else if (msg->msg == worker_msg_reset_if_percpu)
-		memset(ifs_percpu, 0, sizeof(ifs_percpu));
 
 #ifdef RFL_CGR
 	/* Query the CGR state */
@@ -1016,7 +834,6 @@ static void *worker_fn(void *__worker)
 	int s;
 
 	TRACE("This is the thread on cpu %d\n", worker->cpu);
-	memset(ifs_percpu, 0, sizeof(ifs_percpu));
 
 	/* Set this cpu-affinity */
 	CPU_ZERO(&cpuset);
@@ -1081,38 +898,6 @@ static void msg_do_global_init(struct worker *worker)
 	msg->msg = worker_msg_do_global_init;
 	pthread_barrier_wait(&msg->barr);
 }
-
-#ifdef RFL_COUNTERS
-static void msg_dump_if_percpu(struct worker *worker)
-{
-	struct worker_msg *msg = worker->msg;
-	int loop;
-
-	msg->msg = worker_msg_dump_if_percpu;
-	pthread_barrier_wait(&msg->barr);
-	printf("Dumping thread %d;\n", worker->cpu);
-	for (loop = 0; loop < RFL_IF_NUM; loop++) {
-		printf("    Interface %d;\n", loop);
-		dump_if_percpu(NULL, &msg->dump[loop], 1, 0);
-	}
-}
-static void msg_reset_if_percpu(struct worker *worker)
-{
-	struct worker_msg *msg = worker->msg;
-	msg->msg = worker_msg_reset_if_percpu;
-	pthread_barrier_wait(&msg->barr);
-}
-#else
-#define no_joy() fprintf(stderr, "No counters compiled in\n")
-static void msg_dump_if_percpu(struct worker *worker)
-{
-	no_joy();
-}
-static void msg_reset_if_percpu(struct worker *worker)
-{
-	no_joy();
-}
-#endif
 
 #ifdef RFL_CGR
 static void dump_cgr(const struct qm_mcr_querycgr *res)
@@ -1395,14 +1180,6 @@ int main(int argc, char *argv[])
 				list_for_each_entry(worker, &workers, node)
 					msg_list(worker);
 		}
-
-		/* Dump percpu info */
-		else if (!strncmp(cli, "dump", 4))
-			call_for_each_worker(cli + 4, msg_dump_if_percpu);
-
-		/* Reset percpu info */
-		else if (!strncmp(cli, "reset", 5))
-			call_for_each_worker(cli + 5, msg_reset_if_percpu);
 
 		/* Add a cpu */
 		else if (!strncmp(cli, "add", 3)) {
