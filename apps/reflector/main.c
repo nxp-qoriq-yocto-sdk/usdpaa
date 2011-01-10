@@ -75,6 +75,7 @@
 #define RFL_CGRID_TX		13
 #define RFL_CGR_RX_PERFQ_THRESH	32
 #define RFL_CGR_TX_PERFQ_THRESH 64
+#define RFL_BACKOFF_CYCLES	512
 
 static const uint8_t bpids[] = RFL_BPIDS;
 static const uint8_t ifid[] = RFL_IFIDS;
@@ -96,8 +97,6 @@ static const struct qman_fqid_ranges fqid_allocator = {
 #define RFL_2FWD_RX_PREFERINCACHE /* keep rx FQDs in-cache even when empty */
 #define RFL_2FWD_TX_PREFERINCACHE /* keep tx FQDs in-cache even when empty */
 #undef RFL_2FWD_TX_FORCESFDR	/* priority allocation of SFDRs to egress */
-#define RFL_BACKOFF		/* consume cycles when EQCR/RCR is full */
-#define RFL_BACKOFF_CYCLES	512
 #undef RFL_DATA_DCBF		/* cache flush modified data during Tx */
 #define RFL_DEPLETION		/* trace depletion entry/exit */
 #define RFL_CGR			/* track rx and tx fill-levels via CGR */
@@ -185,11 +184,7 @@ static inline void drop_frame(const struct qm_fd *fd)
 retry:
 	ret = bman_release(pool[fd->bpid], &buf, 1, 0);
 	if (ret) {
-#ifdef RFL_BACKOFF
 		cpu_spin(RFL_BACKOFF_CYCLES);
-#else
-		barrier();
-#endif
 		goto retry;
 	}
 }
@@ -200,11 +195,7 @@ static inline void send_frame(struct qman_fq *fq, const struct qm_fd *fd)
 retry:
 	ret = qman_enqueue(fq, fd, 0);
 	if (ret) {
-#ifdef RFL_BACKOFF
 		cpu_spin(RFL_BACKOFF_CYCLES);
-#else
-		barrier();
-#endif
 		goto retry;
 	}
 }
