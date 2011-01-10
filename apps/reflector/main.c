@@ -71,8 +71,8 @@
 #define RFL_CLI_BUFFER		(2*1024)
 #define RFL_BPIDS		{7, 8, 9}
 #define RFL_IFIDS		{4, 7, 8, 9}
-#define RFL_CGRID		12
-#define RFL_CGRID_TXMON		13
+#define RFL_CGRID_RX		12
+#define RFL_CGRID_TX		13
 #define RFL_CGR_RX_PERFQ_THRESH	32
 #define RFL_CGR_TX_PERFQ_THRESH 64
 
@@ -95,34 +95,12 @@ static const struct qman_fqid_ranges fqid_allocator = {
 #undef RFL_2FWD_HOLDACTIVE	/* process each FQ on one cpu at a time */
 #define RFL_2FWD_RX_PREFERINCACHE /* keep rx FQDs in-cache even when empty */
 #define RFL_2FWD_TX_PREFERINCACHE /* keep tx FQDs in-cache even when empty */
-#undef RFL_2FWD_RX_TD		/* whether to enable taildrop */
-#define RFL_2FWD_RX_TD_THRESH 	295 /* keep ingress SFDR-only (<= 5 frames) */
 #undef RFL_2FWD_TX_FORCESFDR	/* priority allocation of SFDRs to egress */
 #define RFL_BACKOFF		/* consume cycles when EQCR/RCR is full */
 #define RFL_BACKOFF_CYCLES	512
 #undef RFL_DATA_DCBF		/* cache flush modified data during Tx */
 #define RFL_DEPLETION		/* trace depletion entry/exit */
-#undef RFL_DEPLETION_SWFLOW 	/* flow-control MACs based on bpool depl */
-#define RFL_CGR			/* add rx and tx FQDs to the CGR */
-#undef RFL_CGR_SWFLOW		/* flow-control MACs based on CGR notifs */
-#undef RFL_CGR_HWFLOW		/* h/w flow-control using CGR taildrop */
-
-/* Run checks */
-#if defined(RFL_DEPLETION_SWFLOW) && !defined(RFL_DEPLETION)
-#error "RFL_DEPLETION_SWFLOW depends on RFL_DEPLETION"
-#endif
-#if defined(RFL_CGR_SWFLOW) && !defined(RFL_CGR)
-#error "RFL_CGR_SWFLOW depends on RFL_CGR"
-#endif
-#if defined(RFL_CGR_HWFLOW) && !defined(RFL_CGR)
-#error "RFL_CGR_HWFLOW depends on RFL_CGR"
-#endif
-
-#if (defined(RFL_DEPLETION_SWFLOW) && \
-	(defined(RFL_CGR_SWFLOW) || defined(RFL_CGR_HWFLOW))) || \
-	(defined(RFL_CGR_SWFLOW) && defined(RFL_CGR_HWFLOW))
-#error "only one kind of flow-control may be used at once"
-#endif
+#define RFL_CGR			/* track rx and tx fill-levels via CGR */
 
 /**********/
 /* macros */
@@ -180,15 +158,10 @@ static struct bman_pool *pool[64];
 static struct rfl_if *ifs;
 
 #ifdef RFL_CGR
-/* A congestion group to hold FQs */
-static struct qman_cgr cgr;
-#if !defined(RFL_CGR_SWFLOW)
-/* Tx FQs go into a separate CGR unless doing s/w flow-control, which should be
- * based on total Rx+Tx build-up. (For h/w flow-control, we don't want to
- * trigger ERNs to s/w egress, and for no flow-control, we want to be able to
- * query Rx and Tx build-up independently.) */
-static struct qman_cgr cgr_txmon;
-#endif
+/* A congestion group to hold Rx FQs */
+static struct qman_cgr cgr_rx;
+/* Tx FQs go into a separate CGR. */
+static struct qman_cgr cgr_tx;
 #endif
 
 /********************/
@@ -435,22 +408,9 @@ static void rfl_fq_2fwd_init(struct rfl_fq_2fwd *p, u32 rx_fqid, u32 tx_fqid,
 #endif
 		0;
 #if defined(RFL_CGR)
-#if defined(RFL_CGR_SWFLOW)
-	/* Only subscribe Tx to the same CGR as Rx if CGR s/w flow-control is
-	 * enabled. Otherwise, for h/w flow-control, we want that CGR to have
-	 * only Rx, and for no flow-control we want the same but simply because
-	 * that lets us query the level of Rx and Tx build-up independently. */
 	opts.we_mask |= QM_INITFQ_WE_CGID;
-	opts.fqd.cgid = cgr.cgrid;
+	opts.fqd.cgid = cgr_tx.cgrid;
 	opts.fqd.fq_ctrl |= QM_FQCTRL_CGE;
-	pr_info("Adding Tx FQ %d to CGR %d\n", tx_fqid, cgr.cgrid);
-#else
-	/* But if tail-drop *is* enabled, we can subscribe Tx to the *txmon* CGR
-	 * if desired. */
-	opts.we_mask |= QM_INITFQ_WE_CGID;
-	opts.fqd.cgid = cgr_txmon.cgrid;
-	opts.fqd.fq_ctrl |= QM_FQCTRL_CGE;
-#endif
 #endif
 	opts.fqd.context_b = 0;
 	opts.fqd.context_a.hi = 0x80000000;
@@ -467,7 +427,7 @@ static void rfl_fq_2fwd_init(struct rfl_fq_2fwd *p, u32 rx_fqid, u32 tx_fqid,
 	BUG_ON(ret);
 	/* FIXME: no taildrop/holdactive for "2fwd" FQs */
 	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
-			QM_INITFQ_WE_CONTEXTA | QM_INITFQ_WE_TDTHRESH;
+			QM_INITFQ_WE_CONTEXTA;
 	opts.fqd.dest.channel = channel;
 	opts.fqd.dest.wq = RFL_PRIO_2FWD;
 	opts.fqd.fq_ctrl =
@@ -477,20 +437,14 @@ static void rfl_fq_2fwd_init(struct rfl_fq_2fwd *p, u32 rx_fqid, u32 tx_fqid,
 #ifdef RFL_2FWD_RX_PREFERINCACHE
 		QM_FQCTRL_PREFERINCACHE |
 #endif
-#ifdef RFL_2FWD_RX_TD
-		QM_FQCTRL_TDE |
-#endif
 		QM_FQCTRL_CTXASTASHING;
 #ifdef RFL_CGR
-	/* If there is a CGR, Rx is always subscribed to it */
 	opts.we_mask |= QM_INITFQ_WE_CGID;
-	opts.fqd.cgid = cgr.cgrid;
+	opts.fqd.cgid = cgr_rx.cgrid;
 	opts.fqd.fq_ctrl |= QM_FQCTRL_CGE;
 #endif
 	opts.fqd.context_a.stashing.data_cl = 1;
 	opts.fqd.context_a.stashing.context_cl = RFL_STASH_CTX_CL(p);
-	ret = qm_fqd_taildrop_set(&opts.fqd.td, RFL_2FWD_RX_TD_THRESH, 0);
-	BUG_ON(ret);
 	ret = qman_init_fq(&p->fq_rx, QMAN_INITFQ_FLAG_SCHED, &opts);
 	BUG_ON(ret);
 }
@@ -540,47 +494,11 @@ static void rfl_if_init(struct rfl_if *i, int idx)
 			RFL_FQID_TX(idx, loop), get_rxc(), RFL_CHANNEL_TX(idx));
 }
 
-/******************************************************/
-/* S/w flow-control, whether bpool-based or CGR-based */
-/******************************************************/
-
-/* If doing flow-control, depletion/congestion entry/exit may thrash quickly. So
- * the "freq_xctl" CLI command can modify the throttling of logging. */
-static unsigned int freq_xctl = 1;
-#define XCTL_EVENT_ACTIVE(pref, is_entry) \
-	do { \
-		if (is_entry) { \
-			__mac_disable_all(); \
-			pref##_num_xctl++; \
-		} else \
-			__mac_enable_all(); \
-		/* bypass pr_info()s when appropriate */ \
-		if (pref##_num_xctl % freq_xctl) \
-			return; \
-		if (is_entry) \
-			pr_info("%s: num_xctl = %u\n", __func__, \
-				pref##_num_xctl); \
-	} while (0)
-#define XCTL_EVENT_PASSIVE(pref, is_entry) \
-	do { \
-		if (is_entry) \
-			pref##_num_xctl++; \
-		/* bypass pr_info()s when appropriate */ \
-		if (pref##_num_xctl % freq_xctl) \
-			return; \
-		if (is_entry) \
-			pr_info("%s: num_xctl = %u\n", __func__, \
-				pref##_num_xctl); \
-	} while (0)
-
 /*************************/
 /* buffer-pool depletion */
 /*************************/
 
 #ifdef RFL_DEPLETION
-#ifdef RFL_DEPLETION_SWFLOW
-static unsigned int bp_num_xctl;
-#endif
 static void bp_depletion(struct bman_portal *bm __always_unused,
 			struct bman_pool *p,
 			void *cb_ctx __maybe_unused,
@@ -589,10 +507,6 @@ static void bp_depletion(struct bman_portal *bm __always_unused,
 	u8 bpid = bman_get_params(p)->bpid;
 	BUG_ON(p != *(typeof(&p))cb_ctxt);
 
-#ifdef RFL_DEPLETION_SWFLOW
-	if (bpid == bpids[0])
-		XCTL_EVENT_ACTIVE(bp, depleted);
-#endif
 	pr_info("%s: BP%u -> %s\n", __func__, bpid,
 		depleted ? "entry" : "exit");
 }
@@ -603,33 +517,20 @@ static void bp_depletion(struct bman_portal *bm __always_unused,
 /*********************************/
 
 #ifdef RFL_CGR
-#if defined(RFL_CGR_SWFLOW) || defined(RFL_CGR_HWFLOW)
-static unsigned int cgr_num_xctl;
-#endif
-static void cgr_cb(struct qman_portal *qm, struct qman_cgr *c, int congested)
+static void cgr_rx_cb(struct qman_portal *qm, struct qman_cgr *c, int congested)
 {
-	BUG_ON(c != &cgr);
+	BUG_ON(c != &cgr_rx);
 
-#ifdef RFL_CGR_SWFLOW
-	XCTL_EVENT_ACTIVE(cgr, congested);
-#elif defined(RFL_CGR_HWFLOW)
-	XCTL_EVENT_PASSIVE(cgr, congested);
-#endif
-	pr_info("%s: CGR -> congestion %s\n", __func__,
+	pr_info("%s: rx CGR -> congestion %s\n", __func__,
 		congested ? "entry" : "exit");
 }
-#if !defined(RFL_CGR_SWFLOW)
-static unsigned int cgr_txmon_num_xctl;
-static void cgr_cb_txmon(struct qman_portal *qm, struct qman_cgr *c,
-			int congested)
+static void cgr_tx_cb(struct qman_portal *qm, struct qman_cgr *c, int congested)
 {
-	BUG_ON(c != &cgr_txmon);
+	BUG_ON(c != &cgr_tx);
 
-	XCTL_EVENT_PASSIVE(cgr_txmon, congested);
-	pr_info("%s: txmon CGR -> congestion %s\n", __func__,
+	pr_info("%s: tx CGR -> congestion %s\n", __func__,
 		congested ? "entry" : "exit");
 }
-#endif
 #endif
 
 /******************/
@@ -654,10 +555,8 @@ struct worker_msg {
 #ifdef RFL_CGR
 	union {
 		struct {
-			struct qm_mcr_querycgr res;
-#if !defined(RFL_CGR_SWFLOW)
-			struct qm_mcr_querycgr res_txmon;
-#endif
+			struct qm_mcr_querycgr res_rx;
+			struct qm_mcr_querycgr res_tx;
 		} query_cgr;
 	};
 #endif
@@ -710,42 +609,7 @@ static noinline int process_msg(struct worker *worker, struct worker_msg *msg)
 		if (err)
 			fprintf(stderr, "error: FQID init, continuing\n");
 #ifdef RFL_CGR
-		/* Set up the CGR for Rx (and possibly Tx) monitoring. If
-		 * CGR_HWFLOW is enabled, Tx is not included because we don't
-		 * want ERNs in the s/w egress path. */
-		{
-		struct qm_mcc_initcgr opts = {
-			.we_mask = QM_CGR_WE_CSCN_EN | QM_CGR_WE_CSTD_EN |
-				QM_CGR_WE_CS_THRES | QM_CGR_WE_MODE,
-			.cgr = {
-				.cscn_en = QM_CGR_EN,
-#ifdef RFL_CGR_HWFLOW
-				/* Enable CGR tail-drop, in this mode only Rx
-				 * FQs will be subscribed to the CGR. */
-				.cstd_en = QM_CGR_EN,
-#endif
-				.mode = QMAN_CGR_MODE_FRAME
-			}
-		};
-#ifdef RFL_CGR_HWFLOW
-		qm_cgr_cs_thres_set64(&opts.cgr.cs_thres, RFL_IF_NUM *
-			(RFL_CGR_RX_PERFQ_THRESH * RFL_RX_HASH_SIZE), 0);
-#else
-		qm_cgr_cs_thres_set64(&opts.cgr.cs_thres, RFL_IF_NUM *
-			((RFL_CGR_RX_PERFQ_THRESH * RFL_RX_HASH_SIZE) +
-				(RFL_CGR_TX_PERFQ_THRESH * RFL_TX_NUM)), 0);
-#endif
-		/* initialise congestion group */
-		cgr.cgrid = RFL_CGRID;
-		cgr.cb = cgr_cb;
-		err = qman_create_cgr(&cgr, QMAN_CGR_FLAG_USE_INIT, &opts);
-		if (err)
-			fprintf(stderr, "error: CGR init, continuing\n");
-		}
-#endif
-#if !defined(RFL_CGR_SWFLOW)
-		/* Set up the CGR for Tx monitoring. */
-		{
+	{
 		struct qm_mcc_initcgr opts = {
 			.we_mask = QM_CGR_WE_CSCN_EN | QM_CGR_WE_CS_THRES |
 					QM_CGR_WE_MODE,
@@ -754,15 +618,25 @@ static noinline int process_msg(struct worker *worker, struct worker_msg *msg)
 				.mode = QMAN_CGR_MODE_FRAME
 			}
 		};
+
+		/* Set up Rx CGR */
+		qm_cgr_cs_thres_set64(&opts.cgr.cs_thres, RFL_IF_NUM *
+			(RFL_CGR_RX_PERFQ_THRESH * RFL_RX_HASH_SIZE), 0);
+		cgr_rx.cgrid = RFL_CGRID_RX;
+		cgr_rx.cb = cgr_rx_cb;
+		err = qman_create_cgr(&cgr_rx, QMAN_CGR_FLAG_USE_INIT, &opts);
+		if (err)
+			fprintf(stderr, "error: rx CGR init, continuing\n");
+
+		/* Set up Tx CGR */
 		qm_cgr_cs_thres_set64(&opts.cgr.cs_thres, RFL_IF_NUM *
 			(RFL_CGR_TX_PERFQ_THRESH * RFL_TX_NUM), 0);
-		/* initialise congestion group */
-		cgr_txmon.cgrid = RFL_CGRID_TXMON;
-		cgr_txmon.cb = cgr_cb_txmon;
-		err = qman_create_cgr(&cgr_txmon, QMAN_CGR_FLAG_USE_INIT, &opts);
+		cgr_tx.cgrid = RFL_CGRID_TX;
+		cgr_tx.cb = cgr_tx_cb;
+		err = qman_create_cgr(&cgr_tx, QMAN_CGR_FLAG_USE_INIT, &opts);
 		if (err)
-			fprintf(stderr, "error: CGR (txmon) init, continuing\n");
-		}
+			fprintf(stderr, "error: tx CGR init, continuing\n");
+	}
 #endif
 		/* allocate interface structs in dma_mem region */
 		ifs = dma_mem_memalign(64, RFL_IF_NUM * sizeof(*ifs));
@@ -794,14 +668,12 @@ static noinline int process_msg(struct worker *worker, struct worker_msg *msg)
 #ifdef RFL_CGR
 	/* Query the CGR state */
 	else if (msg->msg == worker_msg_query_cgr) {
-		int err = qman_query_cgr(&cgr, &msg->query_cgr.res);
+		int err = qman_query_cgr(&cgr_rx, &msg->query_cgr.res_rx);
 		if (err)
-			fprintf(stderr, "error: query CGR, continuing\n");
-#if !defined(RFL_CGR_SWFLOW)
-		err = qman_query_cgr(&cgr_txmon, &msg->query_cgr.res_txmon);
+			fprintf(stderr, "error: query rx CGR, continuing\n");
+		err = qman_query_cgr(&cgr_tx, &msg->query_cgr.res_tx);
 		if (err)
-			fprintf(stderr, "error: query txmon CGR, continuing\n");
-#endif
+			fprintf(stderr, "error: query tx CGR, continuing\n");
 	}
 #endif
 
@@ -923,12 +795,10 @@ static void msg_query_cgr(struct worker *worker)
 	struct worker_msg *msg = worker->msg;
 	msg->msg = worker_msg_query_cgr;
 	pthread_barrier_wait(&msg->barr);
-	printf("CGR ID: %d, selected fields;\n", cgr.cgrid);
-	dump_cgr(&worker->msg->query_cgr.res);
-#if !defined(RFL_CGR_SWFLOW)
-	printf("txmon CGR ID: %d, selected fields;\n", cgr_txmon.cgrid);
-	dump_cgr(&worker->msg->query_cgr.res_txmon);
-#endif
+	printf("Rx CGR ID: %d, selected fields;\n", cgr_rx.cgrid);
+	dump_cgr(&worker->msg->query_cgr.res_rx);
+	printf("Tx CGR ID: %d, selected fields;\n", cgr_tx.cgrid);
+	dump_cgr(&worker->msg->query_cgr.res_tx);
 }
 #endif
 
@@ -1209,39 +1079,16 @@ int main(int argc, char *argv[])
 
 		/* Disable MACs */
 		else if (!strncmp(cli, "macs_off", 8)) {
-#if defined(RFL_DEPLETION_SWFLOW) || defined(RFL_CGR_SWFLOW)
-			fprintf(stderr, "error: s/w flow-control drives MACs\n");
-#else
 			rcode = __mac_disable_all();
 			if (rcode)
 				fprintf(stderr, "error: MAC disable, continuing\n");
-#endif
 		}
 
 		/* Enable MACs */
 		else if (!strncmp(cli, "macs_on", 7)) {
-#if defined(RFL_DEPLETION_SWFLOW) || defined(RFL_CGR_SWFLOW)
-			fprintf(stderr, "error: s/w flow-control drives MACs\n");
-#else
 			rcode = __mac_enable_all();
 			if (rcode)
 				fprintf(stderr, "error: MAC enable, continuing\n");
-#endif
-		}
-
-		/* Modify 'freq_xctl' */
-		else if (!strncmp(cli, "freq_xctl", 9)) {
-			char *endptr;
-			unsigned long tmp = strtoul(cli + 9, &endptr, 0);
-			if ((tmp == ULONG_MAX) || (endptr == (cli + 9)) ||
-						(*endptr != '\0'))
-				fprintf(stderr, "error: bad freq_xctl '%s'\n",
-					cli + 9);
-			/* the cast handles sizeof(long)!=sizeof(freq_xctl) */
-			else if (!(unsigned int)tmp)
-				fprintf(stderr, "error: freq_xctl must be non-zero\n");
-			else
-				freq_xctl = tmp;
 		}
 
 		/* Dump the CGR state */
