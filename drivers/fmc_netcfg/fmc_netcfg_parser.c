@@ -1,4 +1,4 @@
-/* Copyright (c) 2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,12 +35,29 @@
 #include <of.h>
 #include <fmc_netcfg_parser.h>
 
-static void fmc_netcfg_parse_error(void *ctx, xmlErrorPtr error)
-{
-	fprintf(stderr, "%s:%hu:%s() fmc_netcfg_parse_error(context(%p),"
-			"error pointer %p\n", __FILE__, __LINE__, __func__,
-			ctx, error);
-}
+#define CFG_FILE_ROOT_NODE		("cfgdata")
+#define CFG_NETCONFIG_NODE		("config")
+#define CFG_FMAN_NODE			("engine")
+#define CFG_FMAN_NA_name		("name")
+#define CFG_PORT_NODE			("port")
+#define CFG_PORT_NA_type		("type")
+#define CFG_PORT_NA_number		("number")
+#define CFG_PORT_NA_policy		("policy")
+
+#define NPCD_FILE_ROOT_NODE		("netpcd")
+#define NPCD_POLICY_NODE		("policy")
+#define NPCD_POLICY_NA_name		("name")
+#define NPCD_POLICY_DISTORDER_NODE	("dist_order")
+#define NPCD_POLICY_DISTREF_NODE	("distributionref")
+#define NPCD_POLICY_DISTREF_NA_name	("name")
+#define NPCD_DIST_NODE			("distribution")
+#define NPCD_DIST_NA_name		("name")
+#define NPCD_DIST_FQ_NODE		("queue")
+#define NPCD_DIST_FQ_NA_count		("count")
+#define NPCD_DIST_FQ_NA_base		("base")
+
+#define for_all_sibling_nodes(node)	\
+	for (; unlikely(node != NULL); node = node->next)
 
 /* Structure contains the information about the MAC interface
  * This does not have the information about the Error Frame queues
@@ -50,7 +67,7 @@ static void fmc_netcfg_parse_error(void *ctx, xmlErrorPtr error)
  * */
 struct interface_info {
 	uint8_t fman_num;		/* 0 => FMAN0, 1 => FMAN1 and so on */
-	uint8_t port_type;		/* 1 => "1G" or 10 => "10G" */
+	uint8_t port_type;		/* 1 => "1G" or 10 => "10G" ,so on*/
 	uint8_t port_num;		/* 0 onwards */
 	struct fmc_netcfg_fqrange pcd;	/* FIXME multiple PCD support */
 	struct fmc_netcfg_fqrange rxdef;/* default RX fq range */
@@ -69,35 +86,22 @@ struct fmc_netcfg_info {
 struct fmc_netcfg_info *netcfg_info;
 xmlNodePtr netpcd_root_node;
 
-#if 0
-static void dump_fmc_netcfg_info(void)
+static void fmc_netcfg_parse_error(void *ctx, xmlErrorPtr error)
 {
-	int i;
-	struct interface_info *i_info;
-
-	for (i = 0; i < netcfg_info->numof_interface; i++) {
-		i_info = &netcfg_info->interface_info[i];
-		if (!(i_info)) {
-			printf("%s,%s: corrupted data structure\n",
-					__FILE__, __func__);
-			continue;
-		}
-
-		printf(" FMAN number = %d\n", i_info->fman_num);
-		printf(" port type = %d\n ", i_info->port_type);
-		printf(" Port number = %d\n", i_info->port_num);
-		printf(" PCD FQ start = 0x%x\n ", i_info->pcd.start);
-		printf(" PCD FQ count = %d\n ", i_info->pcd.count);
-		printf(" RXDEF FQ start = 0x%x\n ", i_info->rxdef.start);
-		printf(" RXDEF FQ count = %d\n ", i_info->rxdef.count);
-	}
+	fprintf(stderr, "%s:%hu:%s() fmc_netcfg_parse_error(context(%p),"
+			"error pointer %p\n", __FILE__, __LINE__, __func__,
+			ctx, error);
 }
-#endif
 
-static void *get_attributes(xmlNodePtr node, const char *attr)
+static inline bool is_node(xmlNodePtr node, xmlChar *name)
 {
-	char *atr = (char *)xmlGetProp(node, BAD_CAST attr);
-	if (atr == NULL)
+	return xmlStrcmp(node->name, name) ? false : true;
+}
+
+static void *get_attributes(xmlNodePtr node, xmlChar *attr)
+{
+	char *atr = (char *)xmlGetProp(node, attr);
+	if (unlikely(atr == NULL))
 		fprintf(stderr, "%s:%hu:%s() error: xmlGetProp(%s) not found\n",
 				__FILE__, __LINE__, __func__,  attr);
 	return atr;
@@ -116,14 +120,14 @@ static void strip_blanks(char *str)
 	str[j] = '\0';
 }
 
-static char *distribution_ref(xmlNodePtr dnode)
+static char *distribution_ref(xmlNodePtr nd)
 {
-	if (xmlStrcmp(dnode->name, BAD_CAST "distributionref")) {
-		fprintf(stderr, "%s:%hu:%s() error: distributionref not"
-				" found\n", __FILE__, __LINE__, __func__);
+	if (unlikely(!is_node(nd, BAD_CAST NPCD_POLICY_DISTREF_NODE))) {
+		fprintf(stderr, "%s:%hu:%s() error: (%s) node not found\n",
+			__FILE__, __LINE__, __func__, NPCD_POLICY_DISTREF_NODE);
 		return NULL;
 	}
-	return (char *)get_attributes(dnode, "name");
+	return (char *)get_attributes(nd, BAD_CAST NPCD_POLICY_DISTREF_NA_name);
 }
 
 static int pcdinfo(char *dist_name, struct fmc_netcfg_fqrange *fqr)
@@ -136,34 +140,33 @@ static int pcdinfo(char *dist_name, struct fmc_netcfg_fqrange *fqr)
 	xmlNodePtr cur;
 
 	cur = netpcd_root_node->xmlChildrenNode;
-	while (cur != NULL) {
-		if (xmlStrcmp(cur->name, BAD_CAST "distribution")) {
-			cur = cur->next;
+	for_all_sibling_nodes(cur) {
+		if (unlikely(!is_node(cur, BAD_CAST NPCD_DIST_NODE)))
 			continue;
-		}
 
 		len = strnlen(dist_name, 100);
-		name = (char *)get_attributes(cur, "name");
-		if (!name || (strncmp(name, dist_name, len))) {
-			cur = cur->next;
+		name = (char *)get_attributes(cur, BAD_CAST NPCD_DIST_NA_name);
+		if (unlikely(!name) || unlikely(strncmp(name, dist_name, len)))
 			continue;
-		}
 
 		distp = cur->xmlChildrenNode;
-		for (; distp != NULL; distp = distp->next) {
-			if (xmlStrcmp(distp->name, BAD_CAST "queue"))
+		for_all_sibling_nodes(distp) {
+			if (unlikely(!is_node(distp,
+						BAD_CAST NPCD_DIST_FQ_NODE)))
 				continue;
 
 			/* Extract the number of FQs */
-			ptr = get_attributes(distp, "count");
-			if (!ptr)
+			ptr = get_attributes(distp,
+					BAD_CAST NPCD_DIST_FQ_NA_count);
+			if (unlikely(ptr == NULL))
 				break;
 
 			fqr->count = strtoul(ptr, NULL, 0);
 
 			/* Extract the starting number of FQs */
-			ptr = get_attributes(distp, "base");
-			if (!ptr)
+			ptr = get_attributes(distp,
+					BAD_CAST NPCD_DIST_FQ_NA_base);
+			if (unlikely(ptr == NULL))
 				break;
 
 			fqr->start = strtoul(ptr, NULL, 0);
@@ -184,31 +187,32 @@ static int parse_policy(xmlNodePtr cur, struct fmc_netcfg_fqrange *pcd,
 
 	distp = cur->xmlChildrenNode;
 	while (distp) {
-		if (xmlStrcmp(distp->name, BAD_CAST "dist_order")) {
+		if (unlikely(!is_node(distp,
+					BAD_CAST NPCD_POLICY_DISTORDER_NODE))) {
 			distp = distp->next;
 			continue;
 		}
 		dist_node = distp->xmlChildrenNode;
-		if (dist_node != NULL) {
+		if (unlikely(dist_node != NULL)) {
 			/* FIXME:  Assuming that PCD FQs will
 			 * always be first entry and default
 			 * FQ range will be next entry
 			 * */
 			name = distribution_ref(dist_node);
-			if (!name)
+			if (unlikely(name == NULL))
 				break;
 
 			_errno = pcdinfo(name, pcd);
-			if (_errno)
+			if (unlikely(_errno))
 				break;
 
 			dist_node = dist_node->next;
 			name = distribution_ref(dist_node);
-			if (!name)
+			if (unlikely(name == NULL))
 				break;
 
 			_errno = pcdinfo(name, rxdef);
-			if (_errno)
+			if (unlikely(_errno))
 				break;
 		}
 		break;
@@ -230,7 +234,7 @@ static int process_pcdfile(char *filename, char *policy_name,
 	xmlKeepBlanksDefault(0);
 
 	xmlDocPtr doc = xmlParseFile(filename);
-	if (doc == NULL) {
+	if (unlikely(doc == NULL)) {
 		fprintf(stderr, "%s:%hu:%s() error: xmlParseFile(%s)\n",
 				__FILE__, __LINE__, __func__, filename);
 		return -EINVAL;
@@ -239,28 +243,32 @@ static int process_pcdfile(char *filename, char *policy_name,
 	netpcd_root_node = xmlDocGetRootElement(doc);
 	xmlNodePtr cur = netpcd_root_node;
 
-	if (cur == NULL) {
+	if (unlikely(cur == NULL)) {
 		fprintf(stderr, "%s:%hu:%s() error: xml file(%s) empty\n",
 				__FILE__, __LINE__, __func__, filename);
 		xmlFreeDoc(doc);
 		return -EINVAL;
 	}
 
-	if (xmlStrcmp(cur->name, BAD_CAST "netpcd")) {
+	if (unlikely(!is_node(cur, BAD_CAST NPCD_FILE_ROOT_NODE))) {
 		fprintf(stderr, "%s:%hu:%s() error: xml file(%s) is not "
-			"netpcd\n", __FILE__, __LINE__, __func__, filename);
+			"%s\n", __FILE__, __LINE__, __func__,
+			filename, NPCD_FILE_ROOT_NODE);
 		xmlFreeDoc(doc);
 		return -EINVAL;
 	}
 
 	cur = cur->xmlChildrenNode;
-	while (cur != NULL) {
-		if (!xmlStrcmp(cur->name, BAD_CAST "policy")) {
-			name = (char *)get_attributes(cur, "name");
-			if (name && !(strcmp(name, policy_name)))
-				_errno = parse_policy(cur, pcd, rxdef);
-		}
-		cur = cur->next;
+	for_all_sibling_nodes(cur) {
+		if (unlikely(!is_node(cur, BAD_CAST NPCD_POLICY_NODE)))
+			continue;
+
+		name = (char *)get_attributes(cur,
+					BAD_CAST NPCD_POLICY_NA_name);
+		if (unlikely(!name) || unlikely(strcmp(name, policy_name)))
+			continue;
+
+		_errno = parse_policy(cur, pcd, rxdef);
 	}
 
 	return _errno;
@@ -276,62 +284,52 @@ static int parse_engine(xmlNodePtr enode, char *pcd_file)
 	static uint8_t p_curr;
 	uint8_t fman, p_type, p_num;
 
-	if (xmlStrcmp(enode->name, BAD_CAST "engine")) {
-		fprintf(stderr, "%s:%hu:%s() error: (engine) node not found"
-				"in XMLFILE(%s)\n",
-				__FILE__, __LINE__, __func__, pcd_file);
+	if (unlikely(!is_node(enode, BAD_CAST CFG_FMAN_NODE))) {
+		fprintf(stderr, "%s:%hu:%s() error: (%s) node not found"
+				"in XMLFILE(%s)\n", __FILE__, __LINE__,
+				__func__, CFG_FMAN_NODE, pcd_file);
 		return -EINVAL;
 	}
-	tmp = (char *)get_attributes(enode, "name");
-	if (!tmp || strncmp(tmp, "fm", 2) || !isdigit(tmp[2])) {
-		fprintf(stderr, "%s:%hu:%s() error: (engine) name is neither"
-				"<fm0> nor <fm1> in XMLFILE(%s)\n",
-				__FILE__, __LINE__, __func__, pcd_file);
+	tmp = (char *)get_attributes(enode, BAD_CAST CFG_FMAN_NA_name);
+	if (unlikely(!tmp) || unlikely(strncmp(tmp, "fm", 2)) ||
+				unlikely(!isdigit(tmp[2]))) {
+		fprintf(stderr, "%s:%hu:%s() error: attrtibute name in %s node"
+				"is neither <fm0> nor <fm1> in XMLFILE(%s)\n",
+				__FILE__, __LINE__, __func__,
+				CFG_FMAN_NODE, pcd_file);
 		return -EINVAL;
 	}
 
 	fman = tmp[2] - '0';
 
 	xmlNodePtr cur = enode->xmlChildrenNode;
-	while (cur != NULL) {
-		if (xmlStrcmp(cur->name, BAD_CAST "port")) {
-			cur = cur->next;
-			continue;
-		}
 
-		tmp = (char *)get_attributes(cur, "number");
-		if (!tmp) {
-			cur = cur->next;
+	for_all_sibling_nodes(cur) {
+		if (unlikely(!is_node(cur, BAD_CAST CFG_PORT_NODE)))
 			continue;
-		}
 
+		/* Get the MAC port number from PORT node attribute "number" */
+		tmp = (char *)get_attributes(cur, BAD_CAST CFG_PORT_NA_number);
+		if (unlikely(tmp == NULL))
+			continue;
 		p_num = strtoul(tmp, NULL, 0);
 
-		tmp = (char *)get_attributes(cur, "type");
-		if (!tmp) {
-			cur = cur->next;
+		/* Get the MAC port type from PORT node attribute "type" */
+		tmp = (char *)get_attributes(cur, BAD_CAST CFG_PORT_NA_type);
+		if (unlikely(tmp == NULL))
 			continue;
-		}
-		strip_blanks(tmp);
+		p_type = strtoul(tmp, NULL, 0);
 
-		/* FIXME : Remove assumption of only two type of ports */
-		if (!(strcmp(tmp, "10G")))
-			p_type = 10;
-		else
-			p_type = 1;
-
-		tmp = (char *)get_attributes(cur, "policy");
-		if (!tmp) {
-			cur = cur->next;
+		/* Get the policy applied with the MAC port from PORT node
+		 attribute "policy" */
+		tmp = (char *)get_attributes(cur, BAD_CAST CFG_PORT_NA_policy);
+		if (unlikely(tmp == NULL))
 			continue;
-		}
-		strip_blanks(tmp);
 
+		strip_blanks(tmp);
 		_errno = process_pcdfile(pcd_file, tmp, &pcd, &rxdef);
-		if (_errno) {
-			cur = cur->next;
+		if (unlikely(_errno))
 			continue;
-		}
 
 		i_info = &(netcfg_info->interface_info[p_curr]);
 		p_curr++;
@@ -343,9 +341,8 @@ static int parse_engine(xmlNodePtr enode, char *pcd_file)
 		i_info->pcd.count = pcd.count;
 		i_info->rxdef.start = rxdef.start;
 		i_info->rxdef.count = rxdef.count;
-
-		cur = cur->next;
 	}
+
 	return _errno;
 }
 
@@ -355,8 +352,8 @@ static inline uint8_t ports_in_engine_node(xmlNodePtr enode)
 	uint8_t count = 0;
 
 	pnode = enode->xmlChildrenNode;
-	while (pnode != NULL) {
-		if (!xmlStrcmp(pnode->name, BAD_CAST "port"))
+	while (likely(pnode != NULL)) {
+		if (is_node(pnode, BAD_CAST CFG_PORT_NODE))
 			count++;
 		pnode = pnode->next;
 	}
@@ -371,25 +368,27 @@ static inline uint8_t get_num_of_interface(xmlNodePtr cur)
 	xmlNodePtr enode;
 
 	enode = cur->xmlChildrenNode;
-	while (enode) {
-		if (!xmlStrcmp(enode->name, BAD_CAST "engine")) {
-			tmp = (char *)get_attributes(enode, "name");
-			if (!strcmp(tmp, "fm0") || !strcmp(tmp, "fm1"))
-				count += ports_in_engine_node(enode);
-		}
-		enode = enode->next;
-	}
+	for_all_sibling_nodes(enode) {
+		if (unlikely(!is_node(enode, BAD_CAST CFG_FMAN_NODE)))
+			continue;
 
+		tmp = (char *)get_attributes(enode, BAD_CAST CFG_FMAN_NA_name);
+		if (unlikely(!tmp) || unlikely(strncmp(tmp, "fm", 2)) ||
+					unlikely(!isdigit(tmp[2])))
+			continue;
+
+		count += ports_in_engine_node(enode);
+	}
 	return count;
 }
 
 static int parse_cfgfile(char *cfg_file, char *pcd_file)
 {
 	xmlErrorPtr error;
-	xmlNodePtr engineNode;
+	xmlNodePtr fman_node;
 	xmlDocPtr doc;
 	xmlNodePtr cur;
-	int _errno = 0;
+	int _errno = -ENXIO;
 	uint8_t	numof_interface;
 
 	xmlInitParser();
@@ -398,33 +397,32 @@ static int parse_cfgfile(char *cfg_file, char *pcd_file)
 	xmlKeepBlanksDefault(0);
 
 	doc = xmlParseFile(cfg_file);
-	if (doc == NULL) {
+	if (unlikely(doc == NULL)) {
 		fprintf(stderr, "%s:%hu:%s() error: xmlParseFile(%s)\n",
 				__FILE__, __LINE__, __func__, cfg_file);
 		return -EINVAL;
 	}
 
 	cur = xmlDocGetRootElement(doc);
-	if (cur == NULL) {
+	if (unlikely(cur == NULL)) {
 		fprintf(stderr, "%s:%hu:%s() error: xml file(%s) empty\n",
 				__FILE__, __LINE__, __func__, cfg_file);
 		xmlFreeDoc(doc);
 		return -EINVAL;
 	}
 
-	if (xmlStrcmp(cur->name, BAD_CAST "cfgdata")) {
-		fprintf(stderr, "%s:%hu:%s() error: xml file(%s) is not "
-			"cfgdata\n", __FILE__, __LINE__, __func__, cfg_file);
+	if (unlikely(!is_node(cur, BAD_CAST CFG_FILE_ROOT_NODE))) {
+		fprintf(stderr, "%s:%hu:%s() error: xml file(%s) does not"
+			"have %s node\n", __FILE__, __LINE__, __func__,
+			cfg_file, CFG_FILE_ROOT_NODE);
 		xmlFreeDoc(doc);
 		return -EINVAL;
 	}
 
 	cur = cur->xmlChildrenNode;
-	while (cur != NULL) {
-		if (xmlStrcmp(cur->name, BAD_CAST "config")) {
-			cur = cur->xmlChildrenNode;
+	for_all_sibling_nodes(cur) {
+		if (unlikely(!is_node(cur, BAD_CAST CFG_NETCONFIG_NODE)))
 			continue;
-		}
 
 		numof_interface = get_num_of_interface(cur);
 
@@ -434,14 +432,15 @@ static int parse_cfgfile(char *cfg_file, char *pcd_file)
 
 		netcfg_info->numof_interface = numof_interface;
 
-		engineNode = cur->xmlChildrenNode;
-		while (engineNode) {
-			if (!xmlStrcmp(engineNode->name, BAD_CAST "engine"))
-				_errno = parse_engine(engineNode, pcd_file);
+		fman_node = cur->xmlChildrenNode;
+		while (fman_node) {
+			if (likely(is_node(fman_node, BAD_CAST CFG_FMAN_NODE)))
+				_errno = parse_engine(fman_node, pcd_file);
 
-			engineNode = engineNode->next;
+			fman_node = fman_node->next;
 		}
-		cur = cur->xmlChildrenNode;
+		/* There can not be more than one "config" node */
+		break;
 	}
 	return _errno;
 }
@@ -449,12 +448,18 @@ static int parse_cfgfile(char *cfg_file, char *pcd_file)
 int fmc_netcfg_parser_init(char *pcd_file, char *cfg_file)
 {
 	int _errno;
-	if (pcd_file == NULL || cfg_file == NULL)
+	if (unlikely(pcd_file == NULL) || unlikely(cfg_file == NULL))
 		return -EINVAL;
 
 	_errno = parse_cfgfile(cfg_file, pcd_file);
 
 	return _errno;
+}
+
+int fmc_netcfg_parser_exit(void)
+{
+	free(netcfg_info);
+	return 0;
 }
 
 int fmc_netcfg_get_info(uint8_t fman, uint8_t p_type, uint8_t p_num,

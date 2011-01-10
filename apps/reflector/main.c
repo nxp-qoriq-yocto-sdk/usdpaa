@@ -44,6 +44,7 @@
 
 /* application configuration */
 #define RFL_RX_HASH_SIZE	0x20
+#define RFL_TX_NUM		0x10
 #define RFL_IF_NUM		ARRAY_SIZE(ifid)
 #define RFL_POOLCHANNEL_NUM	4
 #define RFL_POOLCHANNEL_FIRST	4
@@ -53,7 +54,7 @@
 #define RFL_FQID_TX_ERROR(n)	(0x70 + 2*(n))
 #define RFL_FQID_TX_CONFIRM(n)	(0x71 + 2*(n))
 #define RFL_FQID_RX_HASH(n,x)	(0x400 + 0x100*(n) + (x))
-#define RFL_FQID_TX(n,x)	(0x480 + 0x100*(n) + (x & 15))
+#define RFL_FQID_TX(n,x)	(0x480 + 0x100*(n) + (x & (RFL_TX_NUM - 1)))
 #define RFL_PRIO_2DROP		3 /* error/default/etc */
 #define RFL_PRIO_2FWD		4 /* rx-hash */
 #define RFL_PRIO_2TX		4 /* consumed by Fman */
@@ -69,10 +70,14 @@
 })
 #define RFL_CLI_BUFFER		(2*1024)
 #define RFL_BPIDS		{7, 8, 9}
-#define RFL_FQIDS		{4, 7, 8, 9}
+#define RFL_IFIDS		{4, 7, 8, 9}
+#define RFL_CGRID		12
+#define RFL_CGRID_TXMON		13
+#define RFL_CGR_RX_PERFQ_THRESH	32
+#define RFL_CGR_TX_PERFQ_THRESH 64
 
 static const uint8_t bpids[] = RFL_BPIDS;
-static const uint8_t ifid[] = RFL_FQIDS;
+static const uint8_t ifid[] = RFL_IFIDS;
 static const struct bman_bpid_range bpid_range[] =
 	{ {FSL_BPID_RANGE_START, FSL_BPID_RANGE_LENGTH} };
 static const struct bman_bpid_ranges bpid_allocator = {
@@ -98,8 +103,28 @@ static const struct qman_fqid_ranges fqid_allocator = {
 #define RFL_COUNTERS		/* enable counters */
 #undef RFL_COUNTERS_SUCCESS	/*   not just errors, count everything */
 #undef RFL_DATA_DCBF		/* cache flush modified data during Tx */
-#define RFL_DEBUG_DEPLETION	/* trace depletion entry/exit */
-#define RFL_DEBUG_DEPLETION_FLOW /* flow-control MACs based on bpool depl */
+#define RFL_DEPLETION		/* trace depletion entry/exit */
+#undef RFL_DEPLETION_SWFLOW 	/* flow-control MACs based on bpool depl */
+#define RFL_CGR			/* add rx and tx FQDs to the CGR */
+#undef RFL_CGR_SWFLOW		/* flow-control MACs based on CGR notifs */
+#undef RFL_CGR_HWFLOW		/* h/w flow-control using CGR taildrop */
+
+/* Run checks */
+#if defined(RFL_DEPLETION_SWFLOW) && !defined(RFL_DEPLETION)
+#error "RFL_DEPLETION_SWFLOW depends on RFL_DEPLETION"
+#endif
+#if defined(RFL_CGR_SWFLOW) && !defined(RFL_CGR)
+#error "RFL_CGR_SWFLOW depends on RFL_CGR"
+#endif
+#if defined(RFL_CGR_HWFLOW) && !defined(RFL_CGR)
+#error "RFL_CGR_HWFLOW depends on RFL_CGR"
+#endif
+
+#if (defined(RFL_DEPLETION_SWFLOW) && \
+	(defined(RFL_CGR_SWFLOW) || defined(RFL_CGR_HWFLOW))) || \
+	(defined(RFL_CGR_SWFLOW) && defined(RFL_CGR_HWFLOW))
+#error "only one kind of flow-control may be used at once"
+#endif
 
 /**********/
 /* macros */
@@ -295,6 +320,18 @@ static struct rfl_if *ifs;
 
 /* A per-cpu shadown structure for keeping stats */
 static __PERCPU struct rfl_if_percpu ifs_percpu[RFL_IF_NUM];
+
+#ifdef RFL_CGR
+/* A congestion group to hold FQs */
+static struct qman_cgr cgr;
+#if !defined(RFL_CGR_SWFLOW)
+/* Tx FQs go into a separate CGR unless doing s/w flow-control, which should be
+ * based on total Rx+Tx build-up. (For h/w flow-control, we don't want to
+ * trigger ERNs to s/w egress, and for no flow-control, we want to be able to
+ * query Rx and Tx build-up independently.) */
+static struct qman_cgr cgr_txmon;
+#endif
+#endif
 
 /********************/
 /* common functions */
@@ -560,6 +597,24 @@ static void rfl_fq_2fwd_init(struct rfl_fq_2fwd *p,
 		QM_FQCTRL_FORCESFDR |
 #endif
 		0;
+#if defined(RFL_CGR)
+#if defined(RFL_CGR_SWFLOW)
+	/* Only subscribe Tx to the same CGR as Rx if CGR s/w flow-control is
+	 * enabled. Otherwise, for h/w flow-control, we want that CGR to have
+	 * only Rx, and for no flow-control we want the same but simply because
+	 * that lets us query the level of Rx and Tx build-up independently. */
+	opts.we_mask |= QM_INITFQ_WE_CGID;
+	opts.fqd.cgid = cgr.cgrid;
+	opts.fqd.fq_ctrl |= QM_FQCTRL_CGE;
+	pr_info("Adding Tx FQ %d to CGR %d\n", tx_fqid, cgr.cgrid);
+#else
+	/* But if tail-drop *is* enabled, we can subscribe Tx to the *txmon* CGR
+	 * if desired. */
+	opts.we_mask |= QM_INITFQ_WE_CGID;
+	opts.fqd.cgid = cgr_txmon.cgrid;
+	opts.fqd.fq_ctrl |= QM_FQCTRL_CGE;
+#endif
+#endif
 	opts.fqd.context_b = 0;
 	opts.fqd.context_a.hi = 0x80000000;
 	opts.fqd.context_a.lo = 0;
@@ -589,6 +644,12 @@ static void rfl_fq_2fwd_init(struct rfl_fq_2fwd *p,
 		QM_FQCTRL_TDE |
 #endif
 		QM_FQCTRL_CTXASTASHING;
+#ifdef RFL_CGR
+	/* If there is a CGR, Rx is always subscribed to it */
+	opts.we_mask |= QM_INITFQ_WE_CGID;
+	opts.fqd.cgid = cgr.cgrid;
+	opts.fqd.fq_ctrl |= QM_FQCTRL_CGE;
+#endif
 	opts.fqd.context_a.stashing.data_cl = 1;
 	opts.fqd.context_a.stashing.context_cl = RFL_STASH_CTX_CL(p);
 	ret = qm_fqd_taildrop_set(&opts.fqd.td, RFL_2FWD_RX_TD_THRESH, 0);
@@ -649,17 +710,46 @@ static void rfl_if_init(struct rfl_if *i, struct rfl_if_percpu *pc, int idx)
 				get_rxc(), RFL_CHANNEL_TX(idx));
 }
 
+/******************************************************/
+/* S/w flow-control, whether bpool-based or CGR-based */
+/******************************************************/
+
+/* If doing flow-control, depletion/congestion entry/exit may thrash quickly. So
+ * the "freq_xctl" CLI command can modify the throttling of logging. */
+static unsigned int freq_xctl = 1;
+#define XCTL_EVENT_ACTIVE(pref, is_entry) \
+	do { \
+		if (is_entry) { \
+			__mac_disable_all(); \
+			pref##_num_xctl++; \
+		} else \
+			__mac_enable_all(); \
+		/* bypass pr_info()s when appropriate */ \
+		if (pref##_num_xctl % freq_xctl) \
+			return; \
+		if (is_entry) \
+			pr_info("%s: num_xctl = %u\n", __func__, \
+				pref##_num_xctl); \
+	} while (0)
+#define XCTL_EVENT_PASSIVE(pref, is_entry) \
+	do { \
+		if (is_entry) \
+			pref##_num_xctl++; \
+		/* bypass pr_info()s when appropriate */ \
+		if (pref##_num_xctl % freq_xctl) \
+			return; \
+		if (is_entry) \
+			pr_info("%s: num_xctl = %u\n", __func__, \
+				pref##_num_xctl); \
+	} while (0)
+
 /*************************/
 /* buffer-pool depletion */
 /*************************/
 
-#ifdef RFL_DEBUG_DEPLETION
-#ifdef RFL_DEBUG_DEPLETION_FLOW
-/* If doing flow-control, depletion entry/exit may thrash quickly. So
- * the "freq_xctl" CLI command can modify the throttling of logging.
- * NB, we do flow-control via the first buffer pool. */
-static unsigned int num_xctl;
-static unsigned int freq_xctl = 1;
+#ifdef RFL_DEPLETION
+#ifdef RFL_DEPLETION_SWFLOW
+static unsigned int bp_num_xctl;
 #endif
 static void bp_depletion(struct bman_portal *bm __always_unused,
 			struct bman_pool *p,
@@ -669,23 +759,47 @@ static void bp_depletion(struct bman_portal *bm __always_unused,
 	u8 bpid = bman_get_params(p)->bpid;
 	BUG_ON(p != *(typeof(&p))cb_ctxt);
 
-#ifdef RFL_DEBUG_DEPLETION_FLOW
-	if (bpid == bpids[0]) {
-		if (depleted) {
-			__mac_disable_all();
-			num_xctl++;
-		} else
-			__mac_enable_all();
-		/* bypass pr_info()s when appropriate */
-		if (num_xctl % freq_xctl)
-			return;
-		if (depleted)
-			pr_info("%s: num_xctl = %u\n", __func__, num_xctl);
-	}
+#ifdef RFL_DEPLETION_SWFLOW
+	if (bpid == bpids[0])
+		XCTL_EVENT_ACTIVE(bp, depleted);
 #endif
 	pr_info("%s: BP%u -> %s\n", __func__, bpid,
 		depleted ? "entry" : "exit");
 }
+#endif
+
+/*********************************/
+/* CGR state-change notification */
+/*********************************/
+
+#ifdef RFL_CGR
+#if defined(RFL_CGR_SWFLOW) || defined(RFL_CGR_HWFLOW)
+static unsigned int cgr_num_xctl;
+#endif
+static void cgr_cb(struct qman_portal *qm, struct qman_cgr *c, int congested)
+{
+	BUG_ON(c != &cgr);
+
+#ifdef RFL_CGR_SWFLOW
+	XCTL_EVENT_ACTIVE(cgr, congested);
+#elif defined(RFL_CGR_HWFLOW)
+	XCTL_EVENT_PASSIVE(cgr, congested);
+#endif
+	pr_info("%s: CGR -> congestion %s\n", __func__,
+		congested ? "entry" : "exit");
+}
+#if !defined(RFL_CGR_SWFLOW)
+static unsigned int cgr_txmon_num_xctl;
+static void cgr_cb_txmon(struct qman_portal *qm, struct qman_cgr *c,
+			int congested)
+{
+	BUG_ON(c != &cgr_txmon);
+
+	XCTL_EVENT_PASSIVE(cgr_txmon, congested);
+	pr_info("%s: txmon CGR -> congestion %s\n", __func__,
+		congested ? "entry" : "exit");
+}
+#endif
 #endif
 
 /******************/
@@ -703,11 +817,24 @@ struct worker_msg {
 		worker_msg_quit,
 		worker_msg_do_global_init,
 		worker_msg_dump_if_percpu,
-		worker_msg_reset_if_percpu
+		worker_msg_reset_if_percpu,
+#ifdef RFL_CGR
+		worker_msg_query_cgr
+#endif
 	} msg;
 	pthread_barrier_t barr;
-	/* ifs_percpu[] is copied to this by worker_msg_dump_* */
-	struct rfl_if_percpu dump[RFL_IF_NUM];
+	union {
+		/* ifs_percpu[] is copied to this by worker_msg_dump_* */
+		struct rfl_if_percpu dump[RFL_IF_NUM];
+#ifdef RFL_CGR
+		struct {
+			struct qm_mcr_querycgr res;
+#if !defined(RFL_CGR_SWFLOW)
+			struct qm_mcr_querycgr res_txmon;
+#endif
+		} query_cgr;
+#endif
+	};
 } ____cacheline_aligned;
 
 struct worker {
@@ -756,6 +883,61 @@ static noinline int process_msg(struct worker *worker, struct worker_msg *msg)
 		err = qman_setup_allocator(0, &fqid_allocator);
 		if (err)
 			fprintf(stderr, "error: FQID init, continuing\n");
+#ifdef RFL_CGR
+		/* Set up the CGR for Rx (and possibly Tx) monitoring. If
+		 * CGR_HWFLOW is enabled, Tx is not included because we don't
+		 * want ERNs in the s/w egress path. */
+		{
+		struct qm_mcc_initcgr opts = {
+			.we_mask = QM_CGR_WE_CSCN_EN | QM_CGR_WE_CSTD_EN |
+				QM_CGR_WE_CS_THRES | QM_CGR_WE_MODE,
+			.cgr = {
+				.cscn_en = QM_CGR_EN,
+#ifdef RFL_CGR_HWFLOW
+				/* Enable CGR tail-drop, in this mode only Rx
+				 * FQs will be subscribed to the CGR. */
+				.cstd_en = QM_CGR_EN,
+#endif
+				.mode = QMAN_CGR_MODE_FRAME
+			}
+		};
+#ifdef RFL_CGR_HWFLOW
+		qm_cgr_cs_thres_set64(&opts.cgr.cs_thres, RFL_IF_NUM *
+			(RFL_CGR_RX_PERFQ_THRESH * RFL_RX_HASH_SIZE), 0);
+#else
+		qm_cgr_cs_thres_set64(&opts.cgr.cs_thres, RFL_IF_NUM *
+			((RFL_CGR_RX_PERFQ_THRESH * RFL_RX_HASH_SIZE) +
+				(RFL_CGR_TX_PERFQ_THRESH * RFL_TX_NUM)), 0);
+#endif
+		/* initialise congestion group */
+		cgr.cgrid = RFL_CGRID;
+		cgr.cb = cgr_cb;
+		err = qman_create_cgr(&cgr, QMAN_CGR_FLAG_USE_INIT, &opts);
+		if (err)
+			fprintf(stderr, "error: CGR init, continuing\n");
+		}
+#endif
+#if !defined(RFL_CGR_SWFLOW)
+		/* Set up the CGR for Tx monitoring. */
+		{
+		struct qm_mcc_initcgr opts = {
+			.we_mask = QM_CGR_WE_CSCN_EN | QM_CGR_WE_CS_THRES |
+					QM_CGR_WE_MODE,
+			.cgr = {
+				.cscn_en = QM_CGR_EN,
+				.mode = QMAN_CGR_MODE_FRAME
+			}
+		};
+		qm_cgr_cs_thres_set64(&opts.cgr.cs_thres, RFL_IF_NUM *
+			(RFL_CGR_TX_PERFQ_THRESH * RFL_TX_NUM), 0);
+		/* initialise congestion group */
+		cgr_txmon.cgrid = RFL_CGRID_TXMON;
+		cgr_txmon.cb = cgr_cb_txmon;
+		err = qman_create_cgr(&cgr_txmon, QMAN_CGR_FLAG_USE_INIT, &opts);
+		if (err)
+			fprintf(stderr, "error: CGR (txmon) init, continuing\n");
+		}
+#endif
 		/* allocate interface structs in dma_mem region */
 		ifs = dma_mem_memalign(64, RFL_IF_NUM * sizeof(*ifs));
 		BUG_ON(!ifs);
@@ -768,7 +950,7 @@ static noinline int process_msg(struct worker *worker, struct worker_msg *msg)
 		for (loop = 0; loop < sizeof(bpids); loop++) {
 			struct bman_pool_params params = {
 				.bpid	= bpids[loop],
-#ifdef RFL_DEBUG_DEPLETION
+#ifdef RFL_DEPLETION
 				.flags	= BMAN_POOL_FLAG_ONLY_RELEASE |
 					BMAN_POOL_FLAG_DEPLETION,
 				.cb	= bp_depletion,
@@ -790,6 +972,20 @@ static noinline int process_msg(struct worker *worker, struct worker_msg *msg)
 	/* Reset interface stats */
 	else if (msg->msg == worker_msg_reset_if_percpu)
 		memset(ifs_percpu, 0, sizeof(ifs_percpu));
+
+#ifdef RFL_CGR
+	/* Query the CGR state */
+	else if (msg->msg == worker_msg_query_cgr) {
+		int err = qman_query_cgr(&cgr, &msg->query_cgr.res);
+		if (err)
+			fprintf(stderr, "error: query CGR, continuing\n");
+#if !defined(RFL_CGR_SWFLOW)
+		err = qman_query_cgr(&cgr_txmon, &msg->query_cgr.res_txmon);
+		if (err)
+			fprintf(stderr, "error: query txmon CGR, continuing\n");
+#endif
+	}
+#endif
 
 	/* What did you want? */
 	else
@@ -915,6 +1111,39 @@ static void msg_dump_if_percpu(struct worker *worker)
 static void msg_reset_if_percpu(struct worker *worker)
 {
 	no_joy();
+}
+#endif
+
+#ifdef RFL_CGR
+static void dump_cgr(const struct qm_mcr_querycgr *res)
+{
+	u64 val64;
+	printf("      cscn_en: %d\n", res->cgr.cscn_en);
+	printf("    cscn_targ: 0x%08x\n", res->cgr.cscn_targ);
+	printf("      cstd_en: %d\n", res->cgr.cstd_en);
+	printf("           cs: %d\n", res->cgr.cs);
+	val64 = qm_cgr_cs_thres_get64(&res->cgr.cs_thres);
+	printf("    cs_thresh: 0x%02x_%04x_%04x\n", (u32)(val64 >> 32),
+		(u32)(val64 >> 16) & 0xffff, (u32)val64 & 0xffff);
+	printf("         mode: %d\n", res->cgr.mode);
+	val64 = qm_mcr_querycgr_i_get64(res);
+	printf("       i_bcnt: 0x%02x_%04x_%04x\n", (u32)(val64 >> 32),
+		(u32)(val64 >> 16) & 0xffff, (u32)val64 & 0xffff);
+	val64 = qm_mcr_querycgr_a_get64(res);
+	printf("       a_bcnt: 0x%02x_%04x_%04x\n", (u32)(val64 >> 32),
+		(u32)(val64 >> 16) & 0xffff, (u32)val64 & 0xffff);
+}
+static void msg_query_cgr(struct worker *worker)
+{
+	struct worker_msg *msg = worker->msg;
+	msg->msg = worker_msg_query_cgr;
+	pthread_barrier_wait(&msg->barr);
+	printf("CGR ID: %d, selected fields;\n", cgr.cgrid);
+	dump_cgr(&worker->msg->query_cgr.res);
+#if !defined(RFL_CGR_SWFLOW)
+	printf("txmon CGR ID: %d, selected fields;\n", cgr_txmon.cgrid);
+	dump_cgr(&worker->msg->query_cgr.res_txmon);
+#endif
 }
 #endif
 
@@ -1069,6 +1298,13 @@ static struct worker *worker_find(int cpu, int want)
 		} \
 	} while (0)
 
+static struct worker *worker_first(void)
+{
+	if (list_empty(&workers))
+		return NULL;
+	return list_entry(workers.next, struct worker, node);
+}
+
 static void usage(void)
 {
 	fprintf(stderr, "usage: reflector [cpu-range]\n");
@@ -1196,21 +1432,28 @@ int main(int argc, char *argv[])
 
 		/* Disable MACs */
 		else if (!strncmp(cli, "macs_off", 8)) {
+#if defined(RFL_DEPLETION_SWFLOW) || defined(RFL_CGR_SWFLOW)
+			fprintf(stderr, "error: s/w flow-control drives MACs\n");
+#else
 			rcode = __mac_disable_all();
 			if (rcode)
 				fprintf(stderr, "error: MAC disable, continuing\n");
+#endif
 		}
 
 		/* Enable MACs */
 		else if (!strncmp(cli, "macs_on", 7)) {
+#if defined(RFL_DEPLETION_SWFLOW) || defined(RFL_CGR_SWFLOW)
+			fprintf(stderr, "error: s/w flow-control drives MACs\n");
+#else
 			rcode = __mac_enable_all();
 			if (rcode)
 				fprintf(stderr, "error: MAC enable, continuing\n");
+#endif
 		}
 
 		/* Modify 'freq_xctl' */
 		else if (!strncmp(cli, "freq_xctl", 9)) {
-#if defined(RFL_DEBUG_DEPLETION) && defined(RFL_DEBUG_DEPLETION_FLOW)
 			char *endptr;
 			unsigned long tmp = strtoul(cli + 9, &endptr, 0);
 			if ((tmp == ULONG_MAX) || (endptr == (cli + 9)) ||
@@ -1222,8 +1465,15 @@ int main(int argc, char *argv[])
 				fprintf(stderr, "error: freq_xctl must be non-zero\n");
 			else
 				freq_xctl = tmp;
+		}
+
+		/* Dump the CGR state */
+		else if (!strncmp(cli, "cgr", 3)) {
+#ifdef RFL_CGR
+			worker = worker_first();
+			msg_query_cgr(worker);
 #else
-			fprintf(stderr, "error: no 'freq_xctl' support\n");
+			fprintf(stderr, "error: no CGR support\n");
 #endif
 		}
 
