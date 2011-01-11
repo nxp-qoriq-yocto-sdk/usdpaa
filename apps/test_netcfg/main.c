@@ -1,7 +1,6 @@
 #include <compat.h>
 #include <dma_mem.h>
 #include <fman.h>
-#include <bigatomic.h>
 #include <net/ethernet.h>
 #include <net/if_arp.h>
 #include <linux/ip.h>
