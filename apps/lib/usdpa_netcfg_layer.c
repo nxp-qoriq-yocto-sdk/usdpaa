@@ -33,6 +33,7 @@
 #include <compat.h>
 #include <of.h>
 #include <usdpa_netcfg.h>
+#include <fmc_netcfg_parser.h>
 
 #define MAX_BPOOL_PER_PORT	8
 
@@ -59,16 +60,10 @@ void dump_usdpa_netcfg(struct usdpa_netcfg_info *cfg_ptr)
 		pfq = &p_cfg->fq;
 		printf("pcd start = %x , count = %x\n",
 			pfq->pcd.start, pfq->pcd.count);
-		printf("dfault start = %x , count = %x\n",
-			pfq->rx_def.start, pfq->rx_def.count);
-		printf("rx error start = %x , count = %x\n",
-			pfq->rx_err.start, pfq->rx_err.count);
-		printf("tx error start = %x , count = %x\n",
-			pfq->tx_err.start, pfq->tx_err.count);
-		printf("tx confirm start = %x , count = %x\n",
-			pfq->tx_confirm.start, pfq->tx_confirm.count);
-		printf("tx start = %x , count = %x\n",
-			pfq->tx.start, pfq->tx.count);
+		printf("default fqid = %x\n", pfq->rx_def);
+		printf("rx error fqid = %x\n", pfq->rx_err);
+		printf("tx error fqid = %x\n", pfq->tx_err);
+		printf("tx confirm fqid = %x\n", pfq->tx_confirm);
 
 		printf("MAC address" MAC_FMT, NMAC_STR(p_cfg->fm_mac_addr));
 
@@ -399,8 +394,15 @@ static int parse_dpa_config_data(struct usdpa_netcfg_info *cfg)
 		/* Rx default Frame Queues are not picked up from device tree.
 		 * Rx default is taken from the FMC config file.
 		 * */
-		p_cfg->fq.rx_err.start = rx_frame_queue[0];
-		p_cfg->fq.rx_err.count = rx_frame_queue[1];
+		p_cfg->fq.rx_err = rx_frame_queue[0];
+		count = rx_frame_queue[1];
+		if (count != 1) {
+			_errno = -EINVAL;
+			fprintf(stderr, "%s:%hu:%s(): %s: count != 1\n",
+				__FILE__, __LINE__, __func__,
+				dpa_node->full_name);
+			goto error;
+		}
 
 		/* Get the RX default and PCD FQs from FMC NETCFG driver
 		 * layer */
@@ -414,8 +416,7 @@ static int parse_dpa_config_data(struct usdpa_netcfg_info *cfg)
 
 		p_cfg->fq.pcd.start = xmlcfg.pcd.start;
 		p_cfg->fq.pcd.count = xmlcfg.pcd.count;
-		p_cfg->fq.rx_def.start = xmlcfg.rxdef.start;
-		p_cfg->fq.rx_def.count = xmlcfg.rxdef.count;
+		p_cfg->fq.rx_def = xmlcfg.rxdef;
 
 		/* Get TX FQs from Device Tree */
 		tx_frame_queue = of_get_property(dpa_node,
@@ -428,10 +429,24 @@ static int parse_dpa_config_data(struct usdpa_netcfg_info *cfg)
 			goto error;
 		}
 
-		p_cfg->fq.tx_err.start = tx_frame_queue[0];
-		p_cfg->fq.tx_err.count = tx_frame_queue[1];
-		p_cfg->fq.tx_confirm.start = tx_frame_queue[2];
-		p_cfg->fq.tx_confirm.count = tx_frame_queue[3];
+		p_cfg->fq.tx_err = tx_frame_queue[0];
+		count = tx_frame_queue[1];
+		if (count != 1) {
+			_errno = -EINVAL;
+			fprintf(stderr, "%s:%hu:%s(): %s: count != 1\n",
+				__FILE__, __LINE__, __func__,
+				dpa_node->full_name);
+			goto error;
+		}
+		p_cfg->fq.tx_confirm = tx_frame_queue[2];
+		count = tx_frame_queue[3];
+		if (count != 1) {
+			_errno = -EINVAL;
+			fprintf(stderr, "%s:%hu:%s(): %s: count != 1\n",
+				__FILE__, __LINE__, __func__,
+				dpa_node->full_name);
+			goto error;
+		}
 
 		/* Get MAC Address */
 		mac_addr = (uint8_t *)of_get_property(mac_node,

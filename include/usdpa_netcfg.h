@@ -34,16 +34,17 @@
 #define	__CONFIG_H
 
 #include <stdint.h>
-#include <fmc_netcfg_parser.h>
 #include <net/ethernet.h>
 
 struct fm_ethport_fq {
-	struct fmc_netcfg_fqrange pcd;		/* PCD FQs */
-	struct fmc_netcfg_fqrange rx_def;	/* RX default FQs */
-	struct fmc_netcfg_fqrange rx_err;	/* RX error FQs */
-	struct fmc_netcfg_fqrange tx_err;	/* TX error FQs */
-	struct fmc_netcfg_fqrange tx_confirm;	/* TX confirm FQs */
-	struct fmc_netcfg_fqrange tx;		/* TX FQs */
+	struct  {
+		uint32_t start;
+		uint32_t count;
+	} pcd;					/* PCD FQIDs */
+	uint32_t rx_def;			/* RX default FQID */
+	uint32_t rx_err;			/* RX error FQID */
+	uint32_t tx_err;			/* TX error FQID */
+	uint32_t tx_confirm;			/* TX confirm FQID */
 };
 
 struct fm_mac_bpools {
