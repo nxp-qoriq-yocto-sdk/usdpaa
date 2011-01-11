@@ -33,7 +33,7 @@
 #include <compat.h>
 #include <of.h>
 #include <usdpa_netcfg.h>
-#include <fmc_netcfg_parser.h>
+#include "fmc_netcfg_parser.h"
 
 #define MAX_BPOOL_PER_PORT	8
 

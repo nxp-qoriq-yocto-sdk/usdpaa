@@ -33,7 +33,7 @@
 #include <compat.h>
 #include <libxml/parser.h>
 #include <of.h>
-#include <fmc_netcfg_parser.h>
+#include "fmc_netcfg_parser.h"
 
 #define CFG_FILE_ROOT_NODE		("cfgdata")
 #define CFG_NETCONFIG_NODE		("config")
@@ -134,7 +134,7 @@ static int pcdinfo(char *dist_name, struct fmc_netcfg_fqrange *fqr)
 {
 	uint8_t len;
 	char *name;
-	int _errno = 0;
+	int _errno = -ENXIO;
 	char *ptr;
 	xmlNodePtr distp;
 	xmlNodePtr cur;
@@ -158,18 +158,29 @@ static int pcdinfo(char *dist_name, struct fmc_netcfg_fqrange *fqr)
 			/* Extract the number of FQs */
 			ptr = get_attributes(distp,
 					BAD_CAST NPCD_DIST_FQ_NA_count);
-			if (unlikely(ptr == NULL))
-				break;
+			if (unlikely(ptr == NULL)) {
+				fprintf(stderr, "%s:%hu:%s() error: "
+					"(Node(%s)->Attribute (%s) not found\n",
+					__FILE__, __LINE__, __func__,
+					distp->name, NPCD_DIST_FQ_NA_count);
+				return -EINVAL;
+			}
 
 			fqr->count = strtoul(ptr, NULL, 0);
 
 			/* Extract the starting number of FQs */
 			ptr = get_attributes(distp,
 					BAD_CAST NPCD_DIST_FQ_NA_base);
-			if (unlikely(ptr == NULL))
-				break;
+			if (unlikely(ptr == NULL)) {
+				fprintf(stderr, "%s:%hu:%s() error: "
+					"(Node(%s)->Attribute (%s) not found\n",
+					__FILE__, __LINE__, __func__,
+					distp->name, NPCD_DIST_FQ_NA_base);
+				return -EINVAL;
+			}
 
 			fqr->start = strtoul(ptr, NULL, 0);
+			_errno = 0;
 			break;
 		}
 		break;
@@ -181,7 +192,7 @@ static int rxdefinfo(char *dist_name, uint32_t *rxdef)
 {
 	uint8_t len;
 	char *name;
-	int _errno = 0;
+	int _errno = -ENXIO;
 	char *ptr;
 	xmlNodePtr distp;
 	xmlNodePtr cur;
@@ -206,8 +217,13 @@ static int rxdefinfo(char *dist_name, uint32_t *rxdef)
 			/* Extract the number of FQs */
 			ptr = get_attributes(distp,
 					BAD_CAST NPCD_DIST_FQ_NA_count);
-			if (unlikely(ptr == NULL))
-				break;
+			if (unlikely(ptr == NULL)) {
+				fprintf(stderr, "%s:%hu:%s() error: "
+					"(Node(%s)->Attribute (%s) not found\n",
+					__FILE__, __LINE__, __func__,
+					distp->name, NPCD_DIST_FQ_NA_count);
+				return -EINVAL;
+			}
 
 			count = strtoul(ptr, NULL, 0);
 			if( count != 1) {
@@ -221,10 +237,16 @@ static int rxdefinfo(char *dist_name, uint32_t *rxdef)
 			/* Extract the starting number of FQs */
 			ptr = get_attributes(distp,
 					BAD_CAST NPCD_DIST_FQ_NA_base);
-			if (unlikely(ptr == NULL))
-				break;
+			if (unlikely(ptr == NULL)) {
+				fprintf(stderr, "%s:%hu:%s() error: "
+					"(Node(%s)->Attribute (%s) not found\n",
+					__FILE__, __LINE__, __func__,
+					distp->name, NPCD_DIST_FQ_NA_base);
+				return -EINVAL;
+			}
 
 			*rxdef = strtoul(ptr, NULL, 0);
+			_errno = 0;
 			break;
 		}
 		break;
@@ -235,7 +257,7 @@ static int rxdefinfo(char *dist_name, uint32_t *rxdef)
 static int parse_policy(xmlNodePtr cur, struct fmc_netcfg_fqs *fqs)
 {
 	char *name;
-	int _errno = 0;
+	int _errno = -ENXIO;
 	xmlNodePtr distp;
 	xmlNodePtr dist_node;
 
@@ -246,29 +268,38 @@ static int parse_policy(xmlNodePtr cur, struct fmc_netcfg_fqs *fqs)
 			distp = distp->next;
 			continue;
 		}
+
 		dist_node = distp->xmlChildrenNode;
-		if (unlikely(dist_node != NULL)) {
-			/* FIXME:  Assuming that PCD FQs will
-			 * always be first entry and default
-			 * FQ range will be next entry
-			 * */
-			name = distribution_ref(dist_node);
-			if (unlikely(name == NULL))
-				break;
-
-			_errno = pcdinfo(name, &fqs->pcd);
-			if (unlikely(_errno))
-				break;
-
-			dist_node = dist_node->next;
-			name = distribution_ref(dist_node);
-			if (unlikely(name == NULL))
-				break;
-
-			_errno = rxdefinfo(name, &fqs->rxdef);
-			if (unlikely(_errno))
-				break;
+		if (unlikely(dist_node == NULL)) {
+			fprintf(stderr, "%s:%hu:%s() error: (Node(%s) have no "
+				"child node\n", __FILE__, __LINE__, __func__,
+				distp->name);
+			return -EINVAL;
 		}
+		/* FIXME:  Assuming that PCD FQs will always be first entry
+		 * and default FQ range will be next entry
+		 */
+		name = distribution_ref(dist_node);
+		if (unlikely(name == NULL))
+			break;
+
+		_errno = pcdinfo(name, &fqs->pcd);
+		if (unlikely(_errno))
+			break;
+
+		dist_node = dist_node->next;
+		if (unlikely(dist_node == NULL)) {
+			fprintf(stderr, "%s:%hu:%s() error: Node RXdef not"
+				" found in Node(%s)\n", __FILE__, __LINE__,
+				__func__, distp->name);
+			return -EINVAL;
+		}
+
+		name = distribution_ref(dist_node);
+		if (unlikely(name == NULL))
+			break;
+
+		_errno = rxdefinfo(name, &fqs->rxdef);
 		break;
 	}
 	return _errno;
@@ -278,7 +309,7 @@ static int process_pcdfile(char *filename, char *policy_name,
 				struct fmc_netcfg_fqs *fqs)
 {
 	xmlErrorPtr error;
-	int _errno = 0;
+	int _errno = -ENXIO;
 	char *name;
 
 	xmlInitParser();
@@ -322,14 +353,14 @@ static int process_pcdfile(char *filename, char *policy_name,
 			continue;
 
 		_errno = parse_policy(cur, fqs);
+		break;
 	}
-
 	return _errno;
 }
 
 static int parse_engine(xmlNodePtr enode, char *pcd_file)
 {
-	int _errno = 0;
+	int _errno = -ENXIO;
 	struct interface_info *i_info;
 	struct fmc_netcfg_fqs fqs;
 	char *tmp;
@@ -363,25 +394,25 @@ static int parse_engine(xmlNodePtr enode, char *pcd_file)
 		/* Get the MAC port number from PORT node attribute "number" */
 		tmp = (char *)get_attributes(cur, BAD_CAST CFG_PORT_NA_number);
 		if (unlikely(tmp == NULL))
-			continue;
+			break;
 		p_num = strtoul(tmp, NULL, 0);
 
 		/* Get the MAC port type from PORT node attribute "type" */
 		tmp = (char *)get_attributes(cur, BAD_CAST CFG_PORT_NA_type);
 		if (unlikely(tmp == NULL))
-			continue;
+			break;
 		p_type = strtoul(tmp, NULL, 0);
 
 		/* Get the policy applied with the MAC port from PORT node
 		 attribute "policy" */
 		tmp = (char *)get_attributes(cur, BAD_CAST CFG_PORT_NA_policy);
 		if (unlikely(tmp == NULL))
-			continue;
+			break;
 
 		strip_blanks(tmp);
 		_errno = process_pcdfile(pcd_file, tmp, &fqs);
 		if (unlikely(_errno))
-			continue;
+			break;
 
 		i_info = &(netcfg_info->interface_info[p_curr]);
 		p_curr++;
@@ -393,7 +424,6 @@ static int parse_engine(xmlNodePtr enode, char *pcd_file)
 		i_info->pcd.count = fqs.pcd.count;
 		i_info->rxdef = fqs.rxdef;
 	}
-
 	return _errno;
 }
 
