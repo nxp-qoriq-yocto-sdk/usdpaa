@@ -1,0 +1,15 @@
+# Bash-style exports, to be sourced from within the "usdpaa" tree
+# when developing and building locally (rather than via ltib).
+#
+# Note, it hard-codes a toolchain path to that currently installed
+# by ltib (so adjust as required).
+#
+# Note also, it hard-codes include and lib paths to the rootfs
+# staging area managed by ltib, assuming that this usdpaa tree
+# is a sibling of the ltib tree (again, adjust as required).
+
+export ARCH=powerpc
+export CROSS_COMPILE=powerpc-linux-gnu-
+export PATH=/opt/freescale/usr/local/gcc-4.4.78-eglibc-2.10.78/powerpc-linux-gnu/bin:$PATH
+export EXTRA_CFLAGS=-I`pwd`/../ltib/rootfs/usr/include/libxml2
+export EXTRA_LDFLAGS=-L`pwd`/../ltib/rootfs/usr/lib
