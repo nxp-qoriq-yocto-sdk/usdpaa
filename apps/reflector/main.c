@@ -98,7 +98,7 @@ static const struct qman_fqid_ranges fqid_allocator = {
 #define RFL_2FWD_TX_PREFERINCACHE /* keep tx FQDs in-cache even when empty */
 #undef RFL_2FWD_TX_FORCESFDR	/* priority allocation of SFDRs to egress */
 #define RFL_DEPLETION		/* trace depletion entry/exit */
-#define RFL_CGR			/* track rx and tx fill-levels via CGR */
+#undef RFL_CGR			/* track rx and tx fill-levels via CGR */
 
 /**********/
 /* macros */
@@ -926,12 +926,15 @@ static struct worker *worker_find(int cpu, int want)
 		} \
 	} while (0)
 
+#ifdef RFL_CGR
+/* This function is, so far, only used by CGR-specific code. */
 static struct worker *worker_first(void)
 {
 	if (list_empty(&workers))
 		return NULL;
 	return list_entry(workers.next, struct worker, node);
 }
+#endif
 
 static void usage(void)
 {
