@@ -70,7 +70,7 @@ struct interface_info {
 	uint8_t port_type;		/* 1 => "1G" or 10 => "10G" ,so on*/
 	uint8_t port_num;		/* 0 onwards */
 	struct fmc_netcfg_fqrange pcd;	/* FIXME multiple PCD support */
-	struct fmc_netcfg_fqrange rxdef;/* default RX fq range */
+	uint32_t rxdef;			/* default RX fq range */
 };
 
 /* Structure contains information about the MAC interfaces
@@ -177,8 +177,62 @@ static int pcdinfo(char *dist_name, struct fmc_netcfg_fqrange *fqr)
 	return _errno;
 }
 
-static int parse_policy(xmlNodePtr cur, struct fmc_netcfg_fqrange *pcd,
-					struct fmc_netcfg_fqrange *rxdef)
+static int rxdefinfo(char *dist_name, uint32_t *rxdef)
+{
+	uint8_t len;
+	char *name;
+	int _errno = 0;
+	char *ptr;
+	xmlNodePtr distp;
+	xmlNodePtr cur;
+
+	cur = netpcd_root_node->xmlChildrenNode;
+	for_all_sibling_nodes(cur) {
+		if (unlikely(!is_node(cur, BAD_CAST NPCD_DIST_NODE)))
+			continue;
+
+		len = strnlen(dist_name, 100);
+		name = (char *)get_attributes(cur, BAD_CAST NPCD_DIST_NA_name);
+		if (unlikely(!name) || unlikely(strncmp(name, dist_name, len)))
+			continue;
+
+		distp = cur->xmlChildrenNode;
+		for_all_sibling_nodes(distp) {
+			uint32_t count;
+			if (unlikely(!is_node(distp,
+						BAD_CAST NPCD_DIST_FQ_NODE)))
+				continue;
+
+			/* Extract the number of FQs */
+			ptr = get_attributes(distp,
+					BAD_CAST NPCD_DIST_FQ_NA_count);
+			if (unlikely(ptr == NULL))
+				break;
+
+			count = strtoul(ptr, NULL, 0);
+			if( count != 1) {
+				fprintf(stderr, "%s:%hu:%s() error: "
+					"(%s:%c != 1)\n",
+					__FILE__, __LINE__, __func__, name,
+					count);
+				return -EINVAL;
+			}
+
+			/* Extract the starting number of FQs */
+			ptr = get_attributes(distp,
+					BAD_CAST NPCD_DIST_FQ_NA_base);
+			if (unlikely(ptr == NULL))
+				break;
+
+			*rxdef = strtoul(ptr, NULL, 0);
+			break;
+		}
+		break;
+	}
+	return _errno;
+}
+
+static int parse_policy(xmlNodePtr cur, struct fmc_netcfg_fqs *fqs)
 {
 	char *name;
 	int _errno = 0;
@@ -202,7 +256,7 @@ static int parse_policy(xmlNodePtr cur, struct fmc_netcfg_fqrange *pcd,
 			if (unlikely(name == NULL))
 				break;
 
-			_errno = pcdinfo(name, pcd);
+			_errno = pcdinfo(name, &fqs->pcd);
 			if (unlikely(_errno))
 				break;
 
@@ -211,7 +265,7 @@ static int parse_policy(xmlNodePtr cur, struct fmc_netcfg_fqrange *pcd,
 			if (unlikely(name == NULL))
 				break;
 
-			_errno = pcdinfo(name, rxdef);
+			_errno = rxdefinfo(name, &fqs->rxdef);
 			if (unlikely(_errno))
 				break;
 		}
@@ -221,8 +275,7 @@ static int parse_policy(xmlNodePtr cur, struct fmc_netcfg_fqrange *pcd,
 }
 
 static int process_pcdfile(char *filename, char *policy_name,
-				struct fmc_netcfg_fqrange *pcd,
-				struct fmc_netcfg_fqrange *rxdef)
+				struct fmc_netcfg_fqs *fqs)
 {
 	xmlErrorPtr error;
 	int _errno = 0;
@@ -268,7 +321,7 @@ static int process_pcdfile(char *filename, char *policy_name,
 		if (unlikely(!name) || unlikely(strcmp(name, policy_name)))
 			continue;
 
-		_errno = parse_policy(cur, pcd, rxdef);
+		_errno = parse_policy(cur, fqs);
 	}
 
 	return _errno;
@@ -278,8 +331,7 @@ static int parse_engine(xmlNodePtr enode, char *pcd_file)
 {
 	int _errno = 0;
 	struct interface_info *i_info;
-	struct fmc_netcfg_fqrange pcd;
-	struct fmc_netcfg_fqrange rxdef;
+	struct fmc_netcfg_fqs fqs;
 	char *tmp;
 	static uint8_t p_curr;
 	uint8_t fman, p_type, p_num;
@@ -327,7 +379,7 @@ static int parse_engine(xmlNodePtr enode, char *pcd_file)
 			continue;
 
 		strip_blanks(tmp);
-		_errno = process_pcdfile(pcd_file, tmp, &pcd, &rxdef);
+		_errno = process_pcdfile(pcd_file, tmp, &fqs);
 		if (unlikely(_errno))
 			continue;
 
@@ -337,10 +389,9 @@ static int parse_engine(xmlNodePtr enode, char *pcd_file)
 		i_info->fman_num = fman;
 		i_info->port_num = p_num;
 		i_info->port_type = p_type;
-		i_info->pcd.start = pcd.start;
-		i_info->pcd.count = pcd.count;
-		i_info->rxdef.start = rxdef.start;
-		i_info->rxdef.count = rxdef.count;
+		i_info->pcd.start = fqs.pcd.start;
+		i_info->pcd.count = fqs.pcd.count;
+		i_info->rxdef = fqs.rxdef;
 	}
 
 	return _errno;
@@ -476,8 +527,7 @@ int fmc_netcfg_get_info(uint8_t fman, uint8_t p_type, uint8_t p_num,
 
 		cfg->pcd.start = i_info->pcd.start;
 		cfg->pcd.count = i_info->pcd.count;
-		cfg->rxdef.start = i_info->rxdef.start;
-		cfg->rxdef.count = i_info->rxdef.count;
+		cfg->rxdef = i_info->rxdef;
 
 		return 0;
 	}
