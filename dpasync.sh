@@ -19,7 +19,7 @@ LIN_QMAN=$TOPDIR/linux-2.6/drivers/staging/fsl_qbman
 #LIN_PME2=$TOPDIR/linux-2.6/drivers/staging/fsl_pme2
 
 # Location of files in usd
-LWE_INCL=$TOPDIR/usdpaa/include/linux
+LWE_INCL=$TOPDIR/usdpaa/include
 LWE_BMAN=$TOPDIR/usdpaa/drivers/qbman
 LWE_QMAN=$TOPDIR/usdpaa/drivers/qbman
 #LWE_PME2=$TOPDIR/usdpaa/drivers/pme2
