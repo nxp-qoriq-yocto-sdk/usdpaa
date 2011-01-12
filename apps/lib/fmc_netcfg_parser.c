@@ -32,7 +32,6 @@
 
 #include <compat.h>
 #include <libxml/parser.h>
-#include <of.h>
 #include "fmc_netcfg_parser.h"
 
 #define CFG_FILE_ROOT_NODE		("cfgdata")
@@ -93,9 +92,9 @@ static void fmc_netcfg_parse_error(void *ctx, xmlErrorPtr error)
 			ctx, error);
 }
 
-static inline bool is_node(xmlNodePtr node, xmlChar *name)
+static inline int is_node(xmlNodePtr node, xmlChar *name)
 {
-	return xmlStrcmp(node->name, name) ? false : true;
+	return xmlStrcmp(node->name, name) ? 0 : 1;
 }
 
 static void *get_attributes(xmlNodePtr node, xmlChar *attr)
