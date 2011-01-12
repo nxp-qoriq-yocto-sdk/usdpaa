@@ -34,7 +34,7 @@
 #include <of.h>
 #include <fman.h>
 
-struct fman_mac {
+struct fman_if {
 	char node_path[PATH_MAX];
 	uint64_t regs_size;
 	void *dev_mem;
@@ -48,14 +48,14 @@ struct fman_mac {
 static int dev_mem_fd = -1;
 static LIST_HEAD(macs);
 
-int __mac_init(void)
+int fman_if_init(void)
 {
 	int			 _errno;
 	struct device_node	*dpa_node, *mac_node;
 	const uint32_t		*regs_addr;
 	uint64_t		phys_addr;
 	const phandle		*mac_phandle;
-	struct fman_mac		*mac;
+	struct fman_if		*mac;
 	size_t			 lenp;
 
 	assert(dev_mem_fd == -1);
@@ -147,13 +147,13 @@ int __mac_init(void)
 	return 0;
 err:
 	free(mac);
-	__mac_finish();
+	fman_if_finish();
 	return _errno;
 }
 
-void __mac_finish(void)
+void fman_if_finish(void)
 {
-	struct fman_mac *mac, *tmpmac;
+	struct fman_if *mac, *tmpmac;
 
 	assert(dev_mem_fd != -1);
 
@@ -181,9 +181,9 @@ void __mac_finish(void)
 	dev_mem_fd = -1;
 }
 
-int __mac_enable_all(void)
+int fman_if_enable_all_rx(void)
 {
-	struct fman_mac *mac;
+	struct fman_if *mac;
 
 	assert(dev_mem_fd != -1);
 
@@ -199,9 +199,9 @@ int __mac_enable_all(void)
 	return 0;
 }
 
-int __mac_disable_all(void)
+int fman_if_disable_all_rx(void)
 {
-	struct fman_mac *mac;
+	struct fman_if *mac;
 
 	assert(dev_mem_fd != -1);
 

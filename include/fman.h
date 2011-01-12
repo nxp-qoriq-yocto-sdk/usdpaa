@@ -33,9 +33,9 @@
 #ifndef __FMAN_H
 #define __FMAN_H
 
-int __mac_init(void);
-void __mac_finish(void);
-int __mac_enable_all(void);
-int __mac_disable_all(void);
+int fman_if_init(void);
+void fman_if_finish(void);
+int fman_if_enable_all_rx(void);
+int fman_if_disable_all_rx(void);
 
 #endif	/* __FMAN_H */

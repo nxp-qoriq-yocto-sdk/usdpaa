@@ -970,8 +970,8 @@ int main(int argc, char *argv[])
 	if (rcode)
 		fprintf(stderr, "error: shmem init, continuing\n");
 	/* - discover+map MAC devices */
-	TRACE("Initialising MACs\n");
-	rcode = __mac_init();
+	TRACE("Initialising Fman MACs\n");
+	rcode = fman_if_init();
 	if (rcode)
 		fprintf(stderr, "error: MAC init, continuing\n");
 
@@ -991,7 +991,7 @@ int main(int argc, char *argv[])
 		worker_add(worker);
 	}
 	TRACE("Enabling MACs\n");
-	rcode = __mac_enable_all();
+	rcode = fman_if_enable_all_rx();
 	if (rcode)
 		fprintf(stderr, "error: MAC enable, continuing\n");
 
@@ -1055,14 +1055,14 @@ int main(int argc, char *argv[])
 
 		/* Disable MACs */
 		else if (!strncmp(cli, "macs_off", 8)) {
-			rcode = __mac_disable_all();
+			rcode = fman_if_disable_all_rx();
 			if (rcode)
 				fprintf(stderr, "error: MAC disable, continuing\n");
 		}
 
 		/* Enable MACs */
 		else if (!strncmp(cli, "macs_on", 7)) {
-			rcode = __mac_enable_all();
+			rcode = fman_if_enable_all_rx();
 			if (rcode)
 				fprintf(stderr, "error: MAC enable, continuing\n");
 		}
@@ -1086,6 +1086,6 @@ int main(int argc, char *argv[])
 leave:
 	list_for_each_entry_safe(worker, tmpworker, &workers, node)
 		worker_free(worker);
-	__mac_finish();
+	fman_if_finish();
 	return rcode;
 }
