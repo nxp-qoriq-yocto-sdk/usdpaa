@@ -65,11 +65,11 @@ INSTALL_OTHER	?= $(PREFIX)/etc
 OBJ_DIR		:= objs_$(ARCH)
 BIN_DIR		:= $(TOP_LEVEL)/bin_$(ARCH)
 LIB_DIR		:= $(TOP_LEVEL)/lib_$(ARCH)
-CFLAGS		:= $(EXTRA_CFLAGS) $($(ARCH)_SPEC_CFLAGS)
+CFLAGS		:= -I$(TOP_LEVEL)/include $(addprefix -I,$($(ARCH)_SPEC_INC_PATH))
 CFLAGS		+= $(addprefix -D,$($(ARCH)_SPEC_DEFINE) $(EXTRA_DEFINE))
-CFLAGS		+= -I$(TOP_LEVEL)/include $(addprefix -I,$($(ARCH)_SPEC_INC_PATH))
-LDFLAGS		:= $(EXTRA_LDFLAGS) $($(ARCH)_SPEC_LDFLAGS)
-LDFLAGS		+= $(addprefix -L,$(LIB_DIR)) $(addprefix -L,$($(ARCH)_SPEC_LIB_PATH))
+CFLAGS		+= $($(ARCH)_SPEC_CFLAGS) $(EXTRA_CFLAGS)
+LDFLAGS		:= $(addprefix -L,$(LIB_DIR)) $(addprefix -L,$($(ARCH)_SPEC_LIB_PATH))
+LDFLAGS		+= $($(ARCH)_SPEC_LDFLAGS) $(EXTRA_LDFLAGS)
 ARFLAGS		:= rcs
 INSTALL_FLAGS	?= -D
 INSTALL_BIN_FLAGS ?= --mode=755
