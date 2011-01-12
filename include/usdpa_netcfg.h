@@ -62,8 +62,8 @@ struct fm_mac_bpools {
 /* Configuration information related to a specific ethernet port */
 struct fm_eth_port_cfg {
 	struct fm_ethport_fq fq;	/* FQs attached to ETH port */
-	struct ether_addr fm_mac_addr; /* MAC Address of the ETH port */
-	uint8_t qm_tx_channel_id; /* Tx qman pool channel id */
+	struct ether_addr fm_mac_addr;	/* MAC Address of the ETH port */
+	uint8_t qm_tx_channel_id;	/* Tx qman channel id */
 	struct fm_mac_bpools *mac_bpools; /* Points to the buffer pools
 					     configurations attached to this
 					     mac port */
