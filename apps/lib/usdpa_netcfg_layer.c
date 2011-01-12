@@ -36,6 +36,14 @@
 #include "fmc_netcfg_parser.h"
 
 #define MAX_BPOOL_PER_PORT	8
+/* FIXME: Hardcoded values should be replaced.
+Currently soem random values are used */
+#define QM_POOL_CHANNELS	{qm_channel_pool4, qm_channel_pool7,		\
+					qm_channel_pool8, qm_channel_pool9}
+#define QM_CGRIDS		{10, 12, 13, 17}
+
+static const uint8_t qm_pool_channels[] = QM_POOL_CHANNELS;
+static const uint8_t qm_cgrid[] = QM_CGRIDS;
 
 /* Format a MAC address (printf() string and args) */
 #define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x\n"
@@ -53,6 +61,8 @@ void dump_usdpa_netcfg(struct usdpa_netcfg_info *cfg_ptr)
 	struct fm_eth_port_cfg *p_cfg;
 	struct fm_ethport_fq *pfq;
 	struct bpool_data *p_bpool;
+	int i;
+
 
 	printf("..........   FMAN PORT Configuration  ..........\n");
 	for (port_id = 0; port_id < cfg_ptr->num_ethports; port_id++) {
@@ -65,9 +75,9 @@ void dump_usdpa_netcfg(struct usdpa_netcfg_info *cfg_ptr)
 		printf("tx error fqid = %x\n", pfq->tx_err);
 		printf("tx confirm fqid = %x\n", pfq->tx_confirm);
 
-		printf("MAC address" MAC_FMT, NMAC_STR(p_cfg->fm_mac_addr));
+		printf("MAC address" MAC_FMT,
+			NMAC_STR(p_cfg->fm_mac_addr.ether_addr_octet));
 
-		printf(" Rx channel id =  %x\n", p_cfg->qm_rx_channel_id);
 		printf(" Tx channel id =  %x\n", p_cfg->qm_tx_channel_id);
 		for (bpool_id = 0; bpool_id < p_cfg->mac_bpools->num_bpools;
 							bpool_id++) {
@@ -78,6 +88,14 @@ void dump_usdpa_netcfg(struct usdpa_netcfg_info *cfg_ptr)
 			printf("count = %x\n", p_bpool->count);
 		}
 	}
+
+	printf("Number of cgrs = %d\n", cfg_ptr->num_cgrids);
+	for (i = 0; i < cfg_ptr->num_cgrids; i++)
+		printf("cgrid = %d\n", cfg_ptr->cgrids[i]);
+
+	printf("Number of pool channles = %d\n", cfg_ptr->num_pool_channels);
+	for (i = 0; i < cfg_ptr->num_pool_channels; i++)
+		printf("pool channel id = %d\n", cfg_ptr->pool_channels[i]);
 }
 
 static struct device_node *fman_port_mac_node(struct device_node *node)
@@ -306,43 +324,6 @@ static int fman_mac_qm_txchannel(struct device_node *node, uint32_t *channel)
 	return 0;
 }
 
-static int fman_mac_qm_rxchannel(struct device_node *node, uint32_t *channel_id)
-{
-	const phandle *channel_phandle ;
-	struct device_node *channel_node;
-	uint32_t *channel_addr;
-	size_t lenp;
-
-	channel_phandle = of_get_property(node,
-				"fsl,qman-channel", &lenp);
-	if (unlikely(channel_phandle == NULL)) {
-		fprintf(stderr, "%s:%hu:%s(): of_get_property(%s,"
-			"fsl,qman-channel failed\n", __FILE__,
-			__LINE__, __func__, node->full_name);
-		return -ENXIO;
-	}
-
-	channel_node = of_find_node_by_phandle(*channel_phandle);
-	if (unlikely(channel_node == NULL)) {
-		fprintf(stderr, "%s:%hu:%s(): "
-			"of_find_node_by_phandle(fsl,qman-channel)"
-			"failed\n", __FILE__, __LINE__, __func__);
-		return -ENXIO;
-	}
-
-	channel_addr = of_get_property(channel_node,
-				"fsl,qman-channel-id", &lenp);
-	if (unlikely(channel_addr == NULL)) {
-		fprintf(stderr, "%s:%hu:%s(): of_get_property(%s,"
-			"fsl,qman-channel-id failed\n", __FILE__,
-			__LINE__, __func__, channel_node->full_name);
-		return -ENXIO;
-	}
-
-	*channel_id = *channel_addr;
-	return 0;
-}
-
 static int parse_dpa_config_data(struct usdpa_netcfg_info *cfg)
 {
 	struct fm_eth_port_cfg *p_cfg;
@@ -353,7 +334,7 @@ static int parse_dpa_config_data(struct usdpa_netcfg_info *cfg)
 	struct fmc_netcfg_fqs xmlcfg;
 	uint32_t count = 0;
 	uint32_t fman_num, port_type, port_index;
-	uint32_t tx_channel, rx_channel;
+	uint32_t tx_channel;
 	uint8_t curr = 0;
 	int _errno = 0;
 	size_t lenp;
@@ -459,7 +440,7 @@ static int parse_dpa_config_data(struct usdpa_netcfg_info *cfg)
 			goto error;
 		}
 
-		memcpy(&(p_cfg->fm_mac_addr[0]), mac_addr, ETHER_ADDR_LEN);
+		memcpy(p_cfg->fm_mac_addr.ether_addr_octet, mac_addr, ETHER_ADDR_LEN);
 
 		/* Extract Transmit Channel ID */
 		_errno = fman_mac_qm_txchannel(mac_node, &tx_channel);
@@ -467,13 +448,6 @@ static int parse_dpa_config_data(struct usdpa_netcfg_info *cfg)
 			goto error;
 
 		p_cfg->qm_tx_channel_id = tx_channel;
-
-		/* Extract RX Channel ID */
-		_errno = fman_mac_qm_rxchannel(dpa_node, &rx_channel);
-		if (unlikely(_errno))
-			goto error;
-
-		p_cfg->qm_rx_channel_id = rx_channel;
 
 		/* Extract buffer pools information */
 		mac_bpools = fman_mac_bpools(dpa_node);
@@ -494,6 +468,41 @@ error:
 
 	free(usdpa_netcfg);
 	return _errno;
+}
+
+static int qm_init_cgr_values(struct usdpa_netcfg_info *cfgptr)
+{
+	uint32_t *ptr;
+	int i;
+
+	cfgptr->num_cgrids = ARRAY_SIZE(qm_cgrid);
+	cfgptr->cgrids  = malloc(sizeof(*(cfgptr->cgrids)) * cfgptr->num_cgrids);
+	if (unlikely(cfgptr->cgrids == NULL))
+		return -ENOMEM;
+
+	ptr = cfgptr->cgrids;
+	for (i = 0; i < cfgptr->num_cgrids; i++)
+		cfgptr->cgrids[i] = qm_cgrid[i];
+
+	return 0;
+}
+
+static int qm_init_pool_channel_values(struct usdpa_netcfg_info *cfgptr)
+{
+	uint32_t *ptr;
+	int i;
+
+	cfgptr->num_pool_channels = ARRAY_SIZE(qm_pool_channels);
+	cfgptr->pool_channels = malloc(sizeof(*cfgptr->pool_channels) *
+						cfgptr->num_pool_channels);
+	if (unlikely(cfgptr->pool_channels == NULL))
+		return -ENOMEM;
+
+	ptr = cfgptr->pool_channels;
+	for (i = 0; i < cfgptr->num_pool_channels; i++)
+		cfgptr->pool_channels[i] = qm_pool_channels[i];
+
+	return 0;
 }
 
 struct usdpa_netcfg_info *usdpa_netcfg_acquire(char *pcd_file, char *cfg_file)
@@ -535,6 +544,10 @@ struct usdpa_netcfg_info *usdpa_netcfg_acquire(char *pcd_file, char *cfg_file)
 			 __FILE__, __LINE__, __func__, _errno);
 		goto error;
 	}
+
+	qm_init_cgr_values(usdpa_netcfg);
+	qm_init_pool_channel_values(usdpa_netcfg);
+
 	return usdpa_netcfg;
 
 error:
@@ -551,5 +564,7 @@ void usdpa_netcfg_release(struct usdpa_netcfg_info *cfg_ptr)
 	for (port_id = 0; port_id < cfg_ptr->num_ethports; port_id++)
 		free(cfg_ptr->port_cfg[port_id].mac_bpools);
 
+	free(cfg_ptr->pool_channels);
+	free(cfg_ptr->cgrids);
 	free(cfg_ptr);
 }
