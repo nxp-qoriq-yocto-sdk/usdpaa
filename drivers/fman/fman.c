@@ -34,19 +34,23 @@
 #include <of.h>
 #include <fman.h>
 
-struct fman_if {
+/* The exported "struct fman_if" type contains the subset of fields we want
+ * exposed. This struct is embedded in a larger "struct __fman_if" which
+ * contains the extra bits we *don't* want exposed. */
+struct __fman_if {
+	struct fman_if __if;
 	char node_path[PATH_MAX];
 	uint64_t regs_size;
 	void *dev_mem;
-	enum {
-		fman_mac_1g,
-		fman_mac_10g
-	} mac_type;
-	struct list_head list_node;
+	struct list_head node;
 };
 
 static int dev_mem_fd = -1;
-static LIST_HEAD(macs);
+static LIST_HEAD(__ifs);
+
+/* This is the (const) global variable that callers have read-only access to.
+ * Internally, we have read-write access directly to __ifs. */
+const struct list_head *fman_if_list = &__ifs;
 
 int fman_if_init(void)
 {
@@ -55,7 +59,7 @@ int fman_if_init(void)
 	const uint32_t		*regs_addr;
 	uint64_t		phys_addr;
 	const phandle		*mac_phandle;
-	struct fman_if		*mac;
+	struct __fman_if	*__if;
 	size_t			 lenp;
 
 	assert(dev_mem_fd == -1);
@@ -71,13 +75,13 @@ int fman_if_init(void)
 		if (of_device_is_available(dpa_node) == false)
 			continue;
 
-		mac = malloc(sizeof(*mac));
-		if (!mac) {
+		__if = malloc(sizeof(*__if));
+		if (!__if) {
 			_errno = -ENOMEM;
 			goto err;
 		}
-		strncpy(mac->node_path, dpa_node->full_name, PATH_MAX - 1);
-		mac->node_path[PATH_MAX - 1] = '\0';
+		strncpy(__if->node_path, dpa_node->full_name, PATH_MAX - 1);
+		__if->node_path[PATH_MAX - 1] = '\0';
 
 		mac_phandle = of_get_property(dpa_node, "fsl,fman-mac", &lenp);
 		if (unlikely(mac_phandle == NULL)) {
@@ -97,7 +101,7 @@ int fman_if_init(void)
 			goto err;
 		}
 
-		regs_addr = of_get_address(mac_node, 0, &mac->regs_size, NULL);
+		regs_addr = of_get_address(mac_node, 0, &__if->regs_size, NULL);
 		if (unlikely(regs_addr == NULL)) {
 			_errno = -EINVAL;
 			fprintf(stderr, "%s:%hu:%s(): "
@@ -117,10 +121,10 @@ int fman_if_init(void)
 			goto err;
 		}
 
-		mac->dev_mem = mmap(NULL, mac->regs_size,
+		__if->dev_mem = mmap(NULL, __if->regs_size,
 				PROT_READ | PROT_WRITE, MAP_SHARED,
 				dev_mem_fd, phys_addr);
-		if (unlikely(mac->dev_mem == MAP_FAILED)) {
+		if (unlikely(__if->dev_mem == MAP_FAILED)) {
 			_errno = -ENOMEM;
 			fprintf(stderr, "%s:%hu:%s(): mmap() = %d (%s)\n",
 				__FILE__, __LINE__, __func__,
@@ -129,9 +133,9 @@ int fman_if_init(void)
 		}
 
 		if (of_device_is_compatible(mac_node, "fsl,fman-1g-mac"))
-			mac->mac_type = fman_mac_1g;
+			__if->__if.mac_type = fman_mac_1g;
 		else if (of_device_is_compatible(mac_node, "fsl,fman-10g-mac"))
-			mac->mac_type = fman_mac_10g;
+			__if->__if.mac_type = fman_mac_10g;
 		else {
 			_errno = -EINVAL;
 			fprintf(stderr, "%s:%hu:%s: %s:0x%09llx: unknown MAC type\n",
@@ -141,79 +145,72 @@ int fman_if_init(void)
 		}
 
 		printf("Found %s\n", dpa_node->full_name);
-		list_add(&mac->list_node, &macs);
+		list_add(&__if->__if.node, &__ifs);
 	}
 
 	return 0;
 err:
-	free(mac);
+	free(__if);
 	fman_if_finish();
 	return _errno;
 }
 
 void fman_if_finish(void)
 {
-	struct fman_if *mac, *tmpmac;
+	struct __fman_if *__if, *tmpif;
 
 	assert(dev_mem_fd != -1);
 
-	list_for_each_entry_safe(mac, tmpmac, &macs, list_node) {
+	list_for_each_entry_safe(__if, tmpif, &__ifs, __if.node) {
 		int _errno;
 		/* disable Rx and Tx */
-		if (mac->mac_type == fman_mac_1g)
-			out_be32(mac->dev_mem + 0x100,
-				in_be32(mac->dev_mem + 0x100) & ~(u32)0x5);
+		if (__if->__if.mac_type == fman_mac_1g)
+			out_be32(__if->dev_mem + 0x100,
+				in_be32(__if->dev_mem + 0x100) & ~(u32)0x5);
 		else
-			out_be32(mac->dev_mem + 8,
-				in_be32(mac->dev_mem + 8) & ~(u32)3);
+			out_be32(__if->dev_mem + 8,
+				in_be32(__if->dev_mem + 8) & ~(u32)3);
 		/* release the mapping */
-		_errno = munmap(mac->dev_mem, mac->regs_size);
+		_errno = munmap(__if->dev_mem, __if->regs_size);
 		if (unlikely(_errno < 0))
 			fprintf(stderr, "%s:%hu:%s(): munmap() = %d (%s)\n",
 				__FILE__, __LINE__, __func__,
 				-errno, strerror(errno));
-		printf("Tearing down %s\n", mac->node_path);
-		list_del(&mac->list_node);
-		free(mac);
+		printf("Tearing down %s\n", __if->node_path);
+		list_del(&__if->__if.node);
+		free(__if);
 	}
 
 	close(dev_mem_fd);
 	dev_mem_fd = -1;
 }
 
-int fman_if_enable_all_rx(void)
+void fman_if_enable_rx(const struct fman_if *p)
 {
-	struct fman_if *mac;
+	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
 
 	assert(dev_mem_fd != -1);
 
 	/* enable Rx and Tx */
-	list_for_each_entry(mac, &macs, list_node) {
-		if (mac->mac_type == fman_mac_1g)
-			out_be32(mac->dev_mem + 0x100,
-				in_be32(mac->dev_mem + 0x100) | 0x5);
-		else
-			out_be32(mac->dev_mem + 8,
-				in_be32(mac->dev_mem + 8) | 3);
-	}
-	return 0;
+	if (__if->__if.mac_type == fman_mac_1g)
+		out_be32(__if->dev_mem + 0x100,
+			in_be32(__if->dev_mem + 0x100) | 0x5);
+	else
+		out_be32(__if->dev_mem + 8,
+			in_be32(__if->dev_mem + 8) | 3);
 }
 
-int fman_if_disable_all_rx(void)
+void fman_if_disable_rx(const struct fman_if *p)
 {
-	struct fman_if *mac;
+	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
 
 	assert(dev_mem_fd != -1);
 
-	list_for_each_entry(mac, &macs, list_node) {
-		/* only disable Rx, not Tx */
-		if (mac->mac_type == fman_mac_1g)
-			out_be32(mac->dev_mem + 0x100,
-				in_be32(mac->dev_mem + 0x100) & ~(u32)0x4);
-		else
-			out_be32(mac->dev_mem + 8,
-				in_be32(mac->dev_mem + 8) & ~(u32)2);
-	}
-
-	return 0;
+	/* only disable Rx, not Tx */
+	if (__if->__if.mac_type == fman_mac_1g)
+		out_be32(__if->dev_mem + 0x100,
+			in_be32(__if->dev_mem + 0x100) & ~(u32)0x4);
+	else
+		out_be32(__if->dev_mem + 8,
+			in_be32(__if->dev_mem + 8) & ~(u32)2);
 }

@@ -33,9 +33,39 @@
 #ifndef __FMAN_H
 #define __FMAN_H
 
+/* This struct exports parameters about an Fman network interface */
+struct fman_if {
+	enum {
+		fman_mac_1g,
+		fman_mac_10g
+	} mac_type;
+	struct list_head node;
+};
+
+/* And this is the base list node that the interfaces are added to. (See
+ * fman_if_enable_all_rx() below for an example of its use.) */
+const struct list_head *fman_if_list;
+
+/* "init" discovers all Fman interfaces. "finish" tears down the driver. */
 int fman_if_init(void);
 void fman_if_finish(void);
-int fman_if_enable_all_rx(void);
-int fman_if_disable_all_rx(void);
+
+/* Enable/disable Rx on specific interfaces */
+void fman_if_enable_rx(const struct fman_if *);
+void fman_if_disable_rx(const struct fman_if *);
+
+/* Enable/disable Rx on all interfaces */
+static inline void fman_if_enable_all_rx(void)
+{
+	const struct fman_if *__if;
+	list_for_each_entry(__if, fman_if_list, node)
+		fman_if_enable_rx(__if);
+}
+static inline void fman_if_disable_all_rx(void)
+{
+	const struct fman_if *__if;
+	list_for_each_entry(__if, fman_if_list, node)
+		fman_if_disable_rx(__if);
+}
 
 #endif	/* __FMAN_H */

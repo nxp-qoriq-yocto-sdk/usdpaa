@@ -991,9 +991,7 @@ int main(int argc, char *argv[])
 		worker_add(worker);
 	}
 	TRACE("Enabling MACs\n");
-	rcode = fman_if_enable_all_rx();
-	if (rcode)
-		fprintf(stderr, "error: MAC enable, continuing\n");
+	fman_if_enable_all_rx();
 
 	/* TODO: catch dead threads - for now, we rely on the dying thread to
 	 * print an error, and for the CLI user to then "remove" it. */
@@ -1054,18 +1052,12 @@ int main(int argc, char *argv[])
 		}
 
 		/* Disable MACs */
-		else if (!strncmp(cli, "macs_off", 8)) {
-			rcode = fman_if_disable_all_rx();
-			if (rcode)
-				fprintf(stderr, "error: MAC disable, continuing\n");
-		}
+		else if (!strncmp(cli, "macs_off", 8))
+			fman_if_disable_all_rx();
 
 		/* Enable MACs */
-		else if (!strncmp(cli, "macs_on", 7)) {
-			rcode = fman_if_enable_all_rx();
-			if (rcode)
-				fprintf(stderr, "error: MAC enable, continuing\n");
-		}
+		else if (!strncmp(cli, "macs_on", 7))
+			fman_if_enable_all_rx();
 
 		/* Dump the CGR state */
 		else if (!strncmp(cli, "cgr", 3)) {
