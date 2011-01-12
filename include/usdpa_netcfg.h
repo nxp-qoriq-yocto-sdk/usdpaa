@@ -62,8 +62,7 @@ struct fm_mac_bpools {
 /* Configuration information related to a specific ethernet port */
 struct fm_eth_port_cfg {
 	struct fm_ethport_fq fq;	/* FQs attached to ETH port */
-	uint8_t fm_mac_addr[ETHER_ADDR_LEN]; /* MAC Address of the ETH port */
-	uint8_t qm_rx_channel_id; /* RX qman pool channel id */
+	struct ether_addr fm_mac_addr; /* MAC Address of the ETH port */
 	uint8_t qm_tx_channel_id; /* Tx qman pool channel id */
 	struct fm_mac_bpools *mac_bpools; /* Points to the buffer pools
 					     configurations attached to this
@@ -76,6 +75,10 @@ struct fm_eth_port_cfg {
  * device tree of XML file or command line arguments can be placed in this
  * structure if required by application. */
 struct usdpa_netcfg_info {
+	uint8_t num_cgrids;
+	uint32_t *cgrids;
+	uint8_t num_pool_channels;
+	enum qm_channel *pool_channels;
 	uint8_t num_ethports;	/* Number of ports */
 	struct fm_eth_port_cfg port_cfg[0]; /* variable structure array of size
 					num_ethports. */
