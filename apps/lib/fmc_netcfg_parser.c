@@ -312,7 +312,7 @@ static int parse_policy(xmlNodePtr cur, struct fmc_netcfg_fqs *fqs)
 	return 0;
 }
 
-static int process_pcdfile(char *filename, char *policy_name,
+static int process_pcdfile(const char *filename, char *policy_name,
 				struct fmc_netcfg_fqs *fqs)
 {
 	xmlErrorPtr error;
@@ -365,7 +365,7 @@ static int process_pcdfile(char *filename, char *policy_name,
 	return _errno;
 }
 
-static int parse_engine(xmlNodePtr enode, char *pcd_file)
+static int parse_engine(xmlNodePtr enode, const char *pcd_file)
 {
 	int _errno = -ENXIO;
 	struct interface_info *i_info;
@@ -470,7 +470,7 @@ static inline uint8_t get_num_of_interface(xmlNodePtr cur)
 	return count;
 }
 
-static int parse_cfgfile(char *cfg_file, char *pcd_file)
+static int parse_cfgfile(const char *cfg_file, const char *pcd_file)
 {
 	xmlErrorPtr error;
 	xmlNodePtr fman_node;
@@ -533,7 +533,7 @@ static int parse_cfgfile(char *cfg_file, char *pcd_file)
 	return _errno;
 }
 
-int fmc_netcfg_parser_init(char *pcd_file, char *cfg_file)
+int fmc_netcfg_parser_init(const char *pcd_file, const char *cfg_file)
 {
 	int _errno;
 	if (unlikely(pcd_file == NULL) || unlikely(cfg_file == NULL))

@@ -56,7 +56,7 @@ struct fmc_netcfg_fqs {
  * Parse the FMC configuration files (XML) and extract the required
  * configuration information in a data structure.
  * */
-int fmc_netcfg_parser_init(char *pcd_file, char *cfg_file);
+int fmc_netcfg_parser_init(const char *pcd_file, const char *cfg_file);
 
 /* Free the resources used by FMC NETCFG driver layer */
 int fmc_netcfg_parser_exit(void);

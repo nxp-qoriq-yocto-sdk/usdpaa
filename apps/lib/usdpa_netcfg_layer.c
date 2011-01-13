@@ -132,7 +132,8 @@ static int qm_init_pool_channel_values(struct usdpa_netcfg_info *cfgptr)
 	return 0;
 }
 
-struct usdpa_netcfg_info *usdpa_netcfg_acquire(char *pcd_file, char *cfg_file)
+struct usdpa_netcfg_info *usdpa_netcfg_acquire(const char *pcd_file,
+					const char *cfg_file)
 {
 	struct fman_if *__if;
 	int _errno, idx;
