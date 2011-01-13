@@ -118,7 +118,11 @@ static inline void qm_fq_free(u32 fqid)
 
 /* For qman_static_dequeue_*** APIs */
 #define QM_SDQCR_CHANNELS_POOL_MASK	0x00007fff
+/* for n in [1,15] */
 #define QM_SDQCR_CHANNELS_POOL(n)	(0x00008000 >> (n))
+/* for conversion from n of type "enum qm_channel" */
+#define QM_SDQCR_CHANNELS_POOL_CONV(c) \
+	QM_SDQCR_CHANNELS_POOL((c) + 1 - qm_channel_pool1)
 
 /* For qman_volatile_dequeue(); Choose one PRECEDENCE. EXACT is optional. Use
  * NUMFRAMES(n) (6-bit) or NUMFRAMES_TILLEMPTY to fill in the frame-count. Use
