@@ -256,52 +256,60 @@ static int rxdefinfo(char *dist_name, uint32_t *rxdef)
 static int parse_policy(xmlNodePtr cur, struct fmc_netcfg_fqs *fqs)
 {
 	char *name;
-	int _errno = -ENXIO;
 	xmlNodePtr distp;
 	xmlNodePtr dist_node;
 
 	distp = cur->xmlChildrenNode;
 	while (distp) {
-		if (unlikely(!is_node(distp,
-					BAD_CAST NPCD_POLICY_DISTORDER_NODE))) {
-			distp = distp->next;
-			continue;
-		}
-
-		dist_node = distp->xmlChildrenNode;
-		if (unlikely(dist_node == NULL)) {
-			fprintf(stderr, "%s:%hu:%s() error: (Node(%s) have no "
-				"child node\n", __FILE__, __LINE__, __func__,
-				distp->name);
-			return -EINVAL;
-		}
-		/* FIXME:  Assuming that PCD FQs will always be first entry
-		 * and default FQ range will be next entry
-		 */
-		name = distribution_ref(dist_node);
-		if (unlikely(name == NULL))
+		if (likely(is_node(distp, BAD_CAST NPCD_POLICY_DISTORDER_NODE)))
 			break;
-
-		_errno = pcdinfo(name, &fqs->pcd);
-		if (unlikely(_errno))
-			break;
-
-		dist_node = dist_node->next;
-		if (unlikely(dist_node == NULL)) {
-			fprintf(stderr, "%s:%hu:%s() error: Node RXdef not"
-				" found in Node(%s)\n", __FILE__, __LINE__,
-				__func__, distp->name);
-			return -EINVAL;
-		}
-
-		name = distribution_ref(dist_node);
-		if (unlikely(name == NULL))
-			break;
-
-		_errno = rxdefinfo(name, &fqs->rxdef);
-		break;
+		distp = distp->next;
 	}
-	return _errno;
+	if (unlikely(distp == NULL)) {
+		fprintf(stderr, "%s:%hu:%s() error: (Node(%s) not found\n",
+			__FILE__, __LINE__, __func__,
+			NPCD_POLICY_DISTORDER_NODE);
+		return -ENXIO;
+	}
+
+	dist_node = distp->xmlChildrenNode;
+	if (unlikely(dist_node == NULL)) {
+		fprintf(stderr, "%s:%hu:%s() error: (Node(%s) have no "
+			"child node\n", __FILE__, __LINE__, __func__,
+			distp->name);
+		return -ENXIO;
+	}
+	/* FIXME:  Assuming that PCD FQs will always be first entry
+	 * and default FQ range will be next entry
+	 */
+	name = distribution_ref(dist_node);
+	if (unlikely(name == NULL))
+		return -ENXIO;
+
+	if(pcdinfo(name, &fqs->pcd)) {
+		fprintf(stderr, "%s:%hu:%s() error: PCD %s information not"
+			" found\n", __FILE__, __LINE__, __func__, name);
+		return -ENXIO;
+	}
+
+	dist_node = dist_node->next;
+	if (unlikely(dist_node == NULL)) {
+		fprintf(stderr, "%s:%hu:%s() error: Node RXdef not"
+			" found in Node(%s)\n", __FILE__, __LINE__,
+			__func__, distp->name);
+		return -EINVAL;
+	}
+
+	name = distribution_ref(dist_node);
+	if (unlikely(name == NULL))
+		return -ENXIO;
+
+	if (rxdefinfo(name, &fqs->rxdef)) {
+		fprintf(stderr, "%s:%hu:%s() error: DEFRX %s information not"
+			" found\n", __FILE__, __LINE__, __func__, name);
+		return -ENXIO;
+	}
+	return 0;
 }
 
 static int process_pcdfile(char *filename, char *policy_name,
