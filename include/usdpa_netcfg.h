@@ -36,44 +36,19 @@
 #include <stdint.h>
 #include <net/ethernet.h>
 
-struct fm_ethport_fq {
+/* Configuration information related to a specific ethernet port */
+struct fm_eth_port_cfg {
+	/* PCD and "Rx default" FQIDs, obtained from FMC configuration */
 	struct  {
 		uint32_t start;
 		uint32_t count;
-	} pcd;					/* PCD FQIDs */
-	uint32_t rx_def;			/* RX default FQID */
-	uint32_t rx_err;			/* RX error FQID */
-	uint32_t tx_err;			/* TX error FQID */
-	uint32_t tx_confirm;			/* TX confirm FQID */
+	} pcd;
+	uint32_t rx_def;
+	/* Other interface details are in the fman driver interface */
+	struct fman_if *fman_if;
 };
 
-struct fm_mac_bpools {
-	unsigned int num_bpools;
-	struct bpool_data {
-		uint32_t bpid; /* Buffer pool id */
-		uint32_t count; /* Number of buffers */
-		uint32_t size; /* Size of each buffer */
-		off_t addr; /* Start address of the bpool */
-	} bpool[0];	/* Variable structure array of size num_bpools.
-			This have buffer pool configuration details of
-			all bpools attched to ETH port */
-};
-
-/* Configuration information related to a specific ethernet port */
-struct fm_eth_port_cfg {
-	struct fm_ethport_fq fq;	/* FQs attached to ETH port */
-	struct ether_addr fm_mac_addr;	/* MAC Address of the ETH port */
-	uint8_t qm_tx_channel_id;	/* Tx qman channel id */
-	struct fm_mac_bpools *mac_bpools; /* Points to the buffer pools
-					     configurations attached to this
-					     mac port */
-};
-
-/* This structure contains the network configuration information for USDPAA.
- * Currently this have configuration information related to
- * Ethernet ports only. More configuration informations, which is there in
- * device tree of XML file or command line arguments can be placed in this
- * structure if required by application. */
+/* This structure contains the configuration information for the USDPAA app. */
 struct usdpa_netcfg_info {
 	uint8_t num_cgrids;
 	uint32_t *cgrids;
@@ -84,20 +59,20 @@ struct usdpa_netcfg_info {
 					num_ethports. */
 };
 
-/* pcd_file@ : netpcd xml file which have a PCD information.
- * cfg_file@ : cfgdata XML file
- * truct cfg * @: Returns the information in structure pointer.
- * Initialize the configuration layer and returns the port information.
- * */
+/* pcd_file: FMC netpcd XML ("policy") file, that contains PCD information.
+ * cfg_file: FMC config XML file
+ * Returns the configuration information in newly allocated memory.
+ */
 struct usdpa_netcfg_info *usdpa_netcfg_acquire(char *pcd_file, char *cfg_file);
 
-/* cfg_ptr@ configuration information pointer which was returned
- * in responce to usdpa_netcfg_acquire() api described above.
- * Frees the resources allocated for configuration layer */
+/* cfg_ptr: configuration information pointer.
+ * Frees the resources allocated by the configuration layer.
+ */
 void usdpa_netcfg_release(struct usdpa_netcfg_info *cfg_ptr);
 
-/* cfg_ptr@ configuration information pointer. This should be pointer
- * returned in responce to usdpa_netcfg_acquire() api described above.
- * This function dumps configuration data pointed by cfg_ptr */
+/* cfg_ptr: configuration information pointer.
+ * This function dumps configuration data to stdout.
+ */
 void dump_usdpa_netcfg(struct usdpa_netcfg_info *cfg_ptr);
+
 #endif

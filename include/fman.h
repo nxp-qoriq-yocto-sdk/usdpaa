@@ -39,13 +39,17 @@
 /* This struct exports parameters about an Fman network interface, determined
  * from the device-tree. */
 struct fman_if {
-	/* The MAC address */
-	struct ether_addr mac_addr;
+	/* Which Fman this interface belongs to */
+	uint8_t fman_idx;
 	/* The type/speed of the interface */
 	enum {
 		fman_mac_1g,
 		fman_mac_10g
 	} mac_type;
+	/* The index of this MAC (within the Fman it belongs to) */
+	uint8_t mac_idx;
+	/* The MAC address */
+	struct ether_addr mac_addr;
 	/* The Qman channel to schedule Tx FQs to */
 	enum qm_channel tx_channel_id;
 	/* The hard-coded FQIDs for this interface. Note: this doesn't cover the

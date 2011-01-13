@@ -66,16 +66,20 @@ int fman_if_init(void)
 {
 	int			 _errno;
 	struct device_node	*dpa_node, *mac_node, *tx_node, *pool_node;
+	struct device_node	*fman_node;
 	const uint32_t		*regs_addr;
 	uint64_t		phys_addr;
 	const phandle		*mac_phandle, *ports_phandle, *pools_phandle;
 	const phandle		*tx_channel_id, *mac_addr;
-	const phandle		*rx_phandle, *tx_phandle;
+	const phandle		*rx_phandle, *tx_phandle, *cell_idx;
 	struct __fman_if	*__if;
 	size_t			 lenp;
 	struct fman_if_bpool	*bpool;
 
-	assert(ccsr_map_fd == -1);
+	/* If multiple dependencies try to initialise the Fman driver, don't
+	 * panic. */
+	if (ccsr_map_fd != -1)
+		return 0;
 
 	ccsr_map_fd = open("/dev/mem", O_RDWR);
 	if (unlikely(ccsr_map_fd < 0)) {
@@ -146,18 +150,24 @@ int fman_if_init(void)
 			goto err;
 		}
 
-		/* Extract the MAC address */
-		mac_addr = of_get_property(mac_node, "local-mac-address",
-					&lenp);
-		if (!mac_addr) {
-			_errno = -EINVAL;
-			fprintf(stderr, "%s:%hu:%s: %s:0x%09llx: unknown MAC "
-				"address\n", __FILE__, __LINE__, __func__,
-				mac_node->full_name, phys_addr);
+		/* Get the index of the Fman this i/f belongs to */
+		fman_node = of_get_parent(mac_node);
+		if (!fman_node) {
+			_errno = -ENXIO;
+			fprintf(stderr, "%s:%hu:%s(): of_get_parent(%s)\n",
+				__FILE__, __LINE__, __func__, mac_node->name);
 			goto err;
 		}
-		/* TODO: assert(lenp == ??!!) */
-		memcpy(&__if->__if.mac_addr, mac_addr, ETH_ALEN);
+		cell_idx = of_get_property(fman_node, "cell-index", &lenp);
+		if (!cell_idx) {
+			_errno = -ENXIO;
+			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s, "
+				"cell-index) failed\n", __FILE__, __LINE__,
+				__func__, fman_node->full_name);
+			goto err;
+		}
+		assert(lenp == sizeof(*cell_idx));
+		__if->__if.fman_idx = *cell_idx;
 
 		/* Is the MAC node 1G or 10G? */
 		if (of_device_is_compatible(mac_node, "fsl,fman-1g-mac"))
@@ -171,6 +181,31 @@ int fman_if_init(void)
 				mac_node->full_name, phys_addr);
 			goto err;
 		}
+
+		/* Extract the index of the MAC */
+		cell_idx = of_get_property(mac_node, "cell-index", &lenp);
+		if (!cell_idx) {
+			_errno = -ENXIO;
+			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s, "
+				"cell-index) failed\n", __FILE__, __LINE__,
+				__func__, mac_node->full_name);
+			goto err;
+		}
+		assert(lenp == sizeof(*cell_idx));
+		__if->__if.mac_idx = *cell_idx;
+
+		/* Extract the MAC address */
+		mac_addr = of_get_property(mac_node, "local-mac-address",
+					&lenp);
+		if (!mac_addr) {
+			_errno = -EINVAL;
+			fprintf(stderr, "%s:%hu:%s: %s:0x%09llx: unknown MAC "
+				"address\n", __FILE__, __LINE__, __func__,
+				mac_node->full_name, phys_addr);
+			goto err;
+		}
+		/* TODO: assert(lenp == ??!!) */
+		memcpy(&__if->__if.mac_addr, mac_addr, ETH_ALEN);
 
 		/* Extract the Tx port (it's the second of the two port handles)
 		 * and get its channel ID */
@@ -295,21 +330,6 @@ int fman_if_init(void)
 		/* Parsing of the network interface is complete, add it to the
 		 * list. */
 		printf("Found %s\n", dpa_node->full_name);
-		printf("          mac_addr: " ETH_MAC_PRINTF_FMT "\n",
-			ETH_MAC_PRINTF_ARGS(&__if->__if.mac_addr));
-		printf("          mac_type: %s\n",
-			__if->__if.mac_type == fman_mac_1g ? "1G" : "10G");
-		printf("     tx_channel_id: 0x%02x\n",
-			__if->__if.tx_channel_id);
-		printf("       fqid_rx_err: 0x%x\n", __if->__if.fqid_rx_err);
-		printf("       fqid_tx_err: 0x%x\n", __if->__if.fqid_tx_err);
-		printf("   fqid_tx_confirm: 0x%x\n",
-			__if->__if.fqid_tx_confirm);
-		fman_if_for_each_bpool(bpool, &__if->__if)
-			printf("       buffer pool: (bpid=%d,count=%lld,"
-				"size=%lld,addr=0x%llx)\n",
-				bpool->bpid, bpool->count, bpool->size,
-				bpool->addr);
 		list_add_tail(&__if->__if.node, &__ifs);
 	}
 
