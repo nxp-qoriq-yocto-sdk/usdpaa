@@ -33,7 +33,7 @@
 #include <compat.h>
 #include <dma_mem.h>
 #include <fman.h>
-#include <bigatomic.h>
+#include <usdpa_netcfg.h>
 
 #include <net/ethernet.h>
 #include <net/if_arp.h>
@@ -43,42 +43,17 @@
 #undef RFL_TRACE
 
 /* application configuration */
-#define RFL_RX_HASH_SIZE	0x20
-#define RFL_TX_NUM		0x10
-#define RFL_IF_NUM		ARRAY_SIZE(ifid)
-#define RFL_POOLCHANNEL_NUM	4
-#define RFL_POOLCHANNEL_FIRST	4
-/* n==interface, x=[0..(RFL_RX_HASH_SIZE-1)] */
-#define RFL_FQID_RX_ERROR(n)	(0x50 + 2*(n))
-#define RFL_FQID_RX_DEFAULT(n)	(0x51 + 2*(n))
-#define RFL_FQID_TX_ERROR(n)	(0x70 + 2*(n))
-#define RFL_FQID_TX_CONFIRM(n)	(0x71 + 2*(n))
-#define RFL_FQID_RX_HASH(n,x)	(0x400 + 0x100*(n) + (x))
-#define RFL_FQID_TX(n,x)	(0x480 + 0x100*(n) + (x & (RFL_TX_NUM - 1)))
+#define RFL_TX_FQS_10G		16
+#define RFL_TX_FQS_1G		16
 #define RFL_PRIO_2DROP		3 /* error/default/etc */
 #define RFL_PRIO_2FWD		4 /* rx-hash */
 #define RFL_PRIO_2TX		4 /* consumed by Fman */
-#define RFL_CHANNEL_TX(n)	((qm_channel_fman0_sp0 + 0x20 * ((n) / 5)) + ((n) + 1) % 5)
 #define RFL_STASH_DATA_CL	1
-#define RFL_STASH_CTX_CL(p) \
-({ \
-	__always_unused const typeof(*(p)) *foo = (p); \
-	int foolen = sizeof(*foo) / 64; \
-	if (foolen > 3) \
-		foolen = 3; \
-	foolen; \
-})
 #define RFL_CLI_BUFFER		(2*1024)
-#define RFL_BPIDS		{7, 8, 9}
-#define RFL_IFIDS		{4, 7, 8, 9}
-#define RFL_CGRID_RX		12
-#define RFL_CGRID_TX		13
 #define RFL_CGR_RX_PERFQ_THRESH	32
 #define RFL_CGR_TX_PERFQ_THRESH 64
 #define RFL_BACKOFF_CYCLES	512
 
-static const uint8_t bpids[] = RFL_BPIDS;
-static const uint8_t ifid[] = RFL_IFIDS;
 static const struct bman_bpid_range bpid_range[] =
 	{ {FSL_BPID_RANGE_START, FSL_BPID_RANGE_LENGTH} };
 static const struct bman_bpid_ranges bpid_allocator = {
@@ -104,15 +79,6 @@ static const struct qman_fqid_ranges fqid_allocator = {
 /* macros */
 /**********/
 
-/* Construct the SDQCR mask */
-#define RFL_CPU_SDQCR() \
-({ \
-	u32 __foo = 0, __foo2 = RFL_POOLCHANNEL_FIRST; \
-	while (__foo2 < (RFL_POOLCHANNEL_FIRST + RFL_POOLCHANNEL_NUM)) \
-		__foo |= QM_SDQCR_CHANNELS_POOL(__foo2++); \
-	__foo; \
-})
-
 #ifdef RFL_TRACE
 #define TRACE		printf
 #else
@@ -132,33 +98,78 @@ struct rfl_fq_2drop {
 /* Rx FQs that fwd (or drop selectively). */
 struct rfl_fq_2fwd {
 	struct qman_fq fq_rx;
-	struct qman_fq fq_tx;
-};
+	/* A more general network processing application (eg. routing) would
+	 * take into account the contents of the recieved frame when computing
+	 * the appropriate Tx FQID. These wrapper structures around each Rx FQ
+	 * would typically contain state to assist/optimise that choice of Tx
+	 * FQID, as that's one of the reasons for hashing Rx traffic to multiple
+	 * FQIDs - each FQID carries proportionally fewer flows than the network
+	 * interface itself, and a proportionally higher likelihood of bursts
+	 * from the same flow. In "reflector" though, the choice of Tx FQID is
+	 * constant for each Rx FQID, and so the only "optimisation" we can do
+	 * is to store tx_fqid itself! */
+	uint32_t tx_fqid;
+} ____cacheline_aligned;
 
 /* Each Fman i/face has one of these */
 struct rfl_if {
-	struct rfl_fq_2fwd rx_hash[RFL_RX_HASH_SIZE];
+	struct list_head node;
+	size_t sz;
+	const struct fm_eth_port_cfg *port_cfg;
+	/* NB: the Tx FQs kept here are created to (a) initialise and schedule
+	 * the FQIDs on startup, and (b) be able to clean them up on shutdown.
+	 * The forwarding logic doesn't use them for its enqueues, as that's not
+	 * in keeping with how a "generic network processing application" would
+	 * work (see the comment for rfl_fq_2fwd::tx_fqid). Instead, we "choose"
+	 * the Tx FQID for each recieved packet (let's ignore the fact it's a
+	 * constant), and the frame is then enqueued via a "local_fq" object
+	 * that acts on behalf of any Tx FQID. There's one such object for each
+	 * cpu so it's cache-local and doesn't need locking. See "local_fq"
+	 * below for more info. */
+	unsigned int num_tx_fqs;
+	struct qman_fq *tx_fqs;
 	struct rfl_fq_2drop rx_error;
 	struct rfl_fq_2drop rx_default;
 	struct rfl_fq_2drop tx_error;
 	struct rfl_fq_2drop tx_confirm;
+	struct rfl_fq_2fwd rx_hash[0];
 } ____cacheline_aligned;
 
 /***************/
 /* Global data */
 /***************/
 
+/* Configuration */
+static struct usdpa_netcfg_info *cfg;
+/* Default paths to configuration files - these are determined from the build,
+ * but can be overriden at run-time using "DEF_PCD_PATH" and "DEF_CFG_PATH"
+ * environment variables. */
+static const char default_pcd_path[] = __stringify(DEF_PCD_PATH);
+static const char default_cfg_path[] = __stringify(DEF_CFG_PATH);
+
+/* The SDQCR mask to use (computed from cfg's pool-channels) */
+static uint32_t sdqcr;
+
 /* We want a trivial mapping from bpid->pool, so just have a 64-wide array of
  * pointers, most of which are NULL. */
 static struct bman_pool *pool[64];
 
-/* This array is allocated from the dma_mem region so that it DMAs OK */
-static struct rfl_if *ifs;
+/* The interfaces in this list are allocated from dma_mem (stashing==DMA) */
+static LIST_HEAD(ifs);
+
+/* The forwarding logic uses a per-cpu FQ object for handling enqueues (and
+ * ERNs), irrespective of the destination FQID. In this way, cache-locality is
+ * more assured, and any ERNs that do occur will show up on the same CPUs they
+ * were enqueued from. This works because ERN messages contain the FQID of the
+ * original enqueue operation, so in principle any demux that's required by the
+ * ERN callback can be based on that. Ie. the FQID set within "local_fq" is from
+ * whatever the last executed enqueue was, the ERN handler can ignore it. */
+static __PERCPU struct qman_fq local_fq;
 
 #ifdef RFL_CGR
-/* A congestion group to hold Rx FQs */
+/* A congestion group to hold Rx FQs (uses cfg::cgrids[0]) */
 static struct qman_cgr cgr_rx;
-/* Tx FQs go into a separate CGR. */
+/* Tx FQs go into a separate CGR (uses cfg::cgrids[1]) */
 static struct qman_cgr cgr_tx;
 #endif
 
@@ -199,6 +210,34 @@ retry:
 	}
 }
 
+static void teardown_fq(struct qman_fq *fq)
+{
+	u32 flags;
+	int s = qman_retire_fq(fq, &flags);
+	if (s == 1) {
+		/* Retire is non-blocking, poll for completion */
+		enum qman_fq_state state;
+		do {
+			qman_poll();
+			qman_fq_state(fq, &state, &flags);
+		} while (state != qman_fq_state_retired);
+		if (flags & QMAN_FQ_STATE_NE) {
+			/* FQ isn't empty, drain it */
+			s = qman_volatile_dequeue(fq, 0,
+				QM_VDQCR_NUMFRAMES_TILLEMPTY);
+			BUG_ON(s);
+			/* Poll for completion */
+			do {
+				qman_poll();
+				qman_fq_state(fq, &state, &flags);
+			} while (flags & QMAN_FQ_STATE_VDQCR);
+		}
+	}
+	s = qman_oos_fq(fq);
+	BUG_ON(s);
+	qman_destroy_fq(fq, 0);
+}
+
 /***********************/
 /* struct rfl_fq_2drop */
 /***********************/
@@ -229,9 +268,14 @@ static void rfl_fq_2drop_init(struct rfl_fq_2drop *p, u32 fqid,
 	opts.fqd.dest.wq = RFL_PRIO_2DROP;
 	opts.fqd.fq_ctrl = QM_FQCTRL_CTXASTASHING;
 	opts.fqd.context_a.stashing.data_cl = 1;
-	opts.fqd.context_a.stashing.context_cl = RFL_STASH_CTX_CL(p);
+	opts.fqd.context_a.stashing.context_cl = 0;
 	ret = qman_init_fq(&p->fq, QMAN_INITFQ_FLAG_SCHED, &opts);
 	BUG_ON(ret);
+}
+
+static void rfl_fq_2drop_finish(struct rfl_fq_2drop *p)
+{
+	teardown_fq(&p->fq);
 }
 
 /**********************/
@@ -308,10 +352,11 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(
 		iphdr->saddr = tmp;
 		/* switch ethernet src/dest MAC addresses */
 		ether_header_swap(prot_eth);
-		TRACE("Tx: 2fwd	 fqid=%d\n", p->fq_tx.fqid);
+		local_fq.fqid = p->tx_fqid;
+		TRACE("Tx: 2fwd	 fqid=%d\n", p->tx_fqid);
 		TRACE("	     phys=0x%08x, offset=%d, len=%d, bpid=%d\n",
 			fd->addr_lo, fd->offset, fd->length20, fd->bpid);
-		send_frame(&p->fq_tx, fd);
+		send_frame(&local_fq, fd);
 		}
 		return qman_cb_dqrr_consume;
 	case ETH_P_ARP:
@@ -342,59 +387,21 @@ static void cb_ern_2fwd(struct qman_portal *qm __always_unused,
 	drop_frame(&msg->ern.fd);
 }
 
+static enum qman_cb_dqrr_result cb_tx_drain_2fwd(
+					struct qman_portal *qm __always_unused,
+					struct qman_fq *fq __always_unused,
+					const struct qm_dqrr_entry *dqrr)
+{
+	drop_frame(&dqrr->fd);
+	return qman_cb_dqrr_consume;
+}
+
 static void rfl_fq_2fwd_init(struct rfl_fq_2fwd *p, u32 rx_fqid, u32 tx_fqid,
-			enum qm_channel channel, enum qm_channel tx_channel)
+				enum qm_channel channel)
 {
 	struct qm_mcc_initfq opts;
 	int ret;
-	/* Each Rx FQ object has its own Tx FQ object, but that doesn't mean
-	 * that each Rx FQID has its own Tx FQ FQID. As such, the Tx FQ object
-	 * we're initialising here may be for a FQID that is already fronted by
-	 * another FQ object, and thus the FQD would already be initialised.
-	 * Before an enqueue may be attempted against a FQ object, the Qman API
-	 * requires that it complete a successful qman_init_fq() operation or
-	 * that the FQ object be declared with the QMAN_FQ_FLAG_NO_MODIFY flag.
-	 * An application that has a single well-defined configuration could
-	 * just initialise all the FQ objects such that the first occurance of a
-	 * FQID perform the init() and the others use NO_MODIFY. But to allow
-	 * this application to support wildly different configurations, it's
-	 * preferable here to "discover" on-the-fly whether or not we're the
-	 * first object for a given Tx FQID. We do this by handling failure of
-	 * qman_init_fq() to imply that we're not the first user of the FQID (so
-	 * revert to NO_MODIFY). The weakness of this scheme is that a real
-	 * failure to initialise the Tx FQD (eg. if it's out of bounds or
-	 * conflicts with some other FQ), will not be detected, and subsequent
-	 * forwarding actions will have undefined consequences. */
-	p->fq_tx.cb.ern = cb_ern_2fwd;
-	ret = qman_create_fq(tx_fqid, QMAN_FQ_FLAG_TO_DCPORTAL, &p->fq_tx);
-	BUG_ON(ret);
-	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
-		       QM_INITFQ_WE_CONTEXTB | QM_INITFQ_WE_CONTEXTA;
-	opts.fqd.dest.channel = tx_channel;
-	opts.fqd.dest.wq = RFL_PRIO_2TX;
-	opts.fqd.fq_ctrl =
-#ifdef RFL_2FWD_TX_PREFERINCACHE
-		QM_FQCTRL_PREFERINCACHE |
-#endif
-#ifdef RFL_2FWD_TX_FORCESFDR
-		QM_FQCTRL_FORCESFDR |
-#endif
-		0;
-#if defined(RFL_CGR)
-	opts.we_mask |= QM_INITFQ_WE_CGID;
-	opts.fqd.cgid = cgr_tx.cgrid;
-	opts.fqd.fq_ctrl |= QM_FQCTRL_CGE;
-#endif
-	opts.fqd.context_b = 0;
-	opts.fqd.context_a.hi = 0x80000000;
-	opts.fqd.context_a.lo = 0;
-	ret = qman_init_fq(&p->fq_tx, QMAN_INITFQ_FLAG_SCHED, &opts);
-	if (ret) {
-		/* revert to NO_MODIFY */
-		qman_destroy_fq(&p->fq_tx, 0);
-		ret = qman_create_fq(tx_fqid, QMAN_FQ_FLAG_NO_MODIFY, &p->fq_tx);
-		BUG_ON(ret);
-	}
+	p->tx_fqid = tx_fqid;
 	p->fq_rx.cb.dqrr = cb_dqrr_2fwd;
 	ret = qman_create_fq(rx_fqid, QMAN_FQ_FLAG_NO_ENQUEUE, &p->fq_rx);
 	BUG_ON(ret);
@@ -417,54 +424,14 @@ static void rfl_fq_2fwd_init(struct rfl_fq_2fwd *p, u32 rx_fqid, u32 tx_fqid,
 	opts.fqd.fq_ctrl |= QM_FQCTRL_CGE;
 #endif
 	opts.fqd.context_a.stashing.data_cl = 1;
-	opts.fqd.context_a.stashing.context_cl = RFL_STASH_CTX_CL(p);
+	opts.fqd.context_a.stashing.context_cl = 0;
 	ret = qman_init_fq(&p->fq_rx, QMAN_INITFQ_FLAG_SCHED, &opts);
 	BUG_ON(ret);
 }
 
-/*****************/
-/* struct rfl_if */
-/*****************/
-
-/* Pick which pool channel to schedule a(ny) Rx FQ to using a 32-bit LFSR and
- * 'modulo'. This should help us avoid any bad harmonies, eg. if we just
- * scrolled round the pool channels in order, we could have all Rx errors come
- * to the same channel, or end up with hot flows "just happening" to beat on the
- * same channel.
- *
- * Update: for fear of this not balancing the assignment of FQs to pool channels
- * in an even way, I'm making sure that each sequence of RFL_POOLCHANNEL_NUM FQs
- * is assigned 1-to-1 with the same number of pool channels, and just using the
- * LFSR to randomise the order at that level.
- */
-static u32 my_lfsr = 0xabbaf00d;
-static unsigned long my_rxc_mask;
-static int my_rxc_mask_used;
-static enum qm_channel get_rxc(void)
+static void rfl_fq_2fwd_finish(struct rfl_fq_2fwd *p)
 {
-	unsigned int choice;
-	/* Find an unset bit in my_rxc_mask */
-	do {
-		my_lfsr = (my_lfsr >> 1) ^ (-(my_lfsr & 1u) & 0xd0000001u);
-		choice = my_lfsr % RFL_POOLCHANNEL_NUM;
-	} while (test_bit(choice, &my_rxc_mask));
-	if (++my_rxc_mask_used == RFL_POOLCHANNEL_NUM) {
-		my_rxc_mask_used = 0;
-		clear_bits(~(unsigned long)0, &my_rxc_mask);
-	}
-	return qm_channel_pool1 + RFL_POOLCHANNEL_FIRST + choice - 1;
-}
-
-static void rfl_if_init(struct rfl_if *i, int idx)
-{
-	int loop;
-	rfl_fq_2drop_init(&i->rx_error, RFL_FQID_RX_ERROR(idx), get_rxc());
-	rfl_fq_2drop_init(&i->rx_default, RFL_FQID_RX_DEFAULT(idx), get_rxc());
-	rfl_fq_2drop_init(&i->tx_error, RFL_FQID_TX_ERROR(idx), get_rxc());
-	rfl_fq_2drop_init(&i->tx_confirm, RFL_FQID_TX_CONFIRM(idx), get_rxc());
-	for (loop = 0; loop < RFL_RX_HASH_SIZE; loop++)
-		rfl_fq_2fwd_init(&i->rx_hash[loop], RFL_FQID_RX_HASH(idx, loop),
-			RFL_FQID_TX(idx, loop), get_rxc(), RFL_CHANNEL_TX(idx));
+	teardown_fq(&p->fq_rx);
 }
 
 /*************************/
@@ -506,6 +473,142 @@ static void cgr_tx_cb(struct qman_portal *qm, struct qman_cgr *c, int congested)
 }
 #endif
 
+/*****************/
+/* struct rfl_if */
+/*****************/
+
+static uint32_t pchannel_idx;
+
+static enum qm_channel get_rxc(void)
+{
+	enum qm_channel ret = cfg->pool_channels[pchannel_idx];
+	pchannel_idx = (pchannel_idx + 1) % cfg->num_pool_channels;
+	return ret;
+}
+
+static int lazy_init_bpool(const struct fman_if_bpool *bpool)
+{
+	struct bman_pool_params params = {
+		.bpid	= bpool->bpid,
+#ifdef RFL_DEPLETION
+		.flags	= BMAN_POOL_FLAG_ONLY_RELEASE |
+			BMAN_POOL_FLAG_DEPLETION,
+		.cb	= bp_depletion,
+		.cb_ctx	= &pool[bpool->bpid]
+#else
+		.flags	= BMAN_POOL_FLAG_ONLY_RELEASE
+#endif
+	};
+	if (pool[bpool->bpid])
+		/* this BPID is already handled */
+		return 0;
+	pool[bpool->bpid] = bman_new_pool(&params);
+	if (!pool[bpool->bpid]) {
+		fprintf(stderr, "error: bman_new_pool(%d) failed\n",
+			bpool->bpid);
+		return -ENOMEM;
+	}
+	return 0;
+}
+
+static int rfl_if_init(unsigned int idx)
+{
+	struct rfl_if *i;
+	const struct fman_if_bpool *bp;
+	int loop;
+	const struct fm_eth_port_cfg *port = &cfg->port_cfg[idx];
+	size_t sz = sizeof(struct rfl_if) +
+		(port->pcd.count * sizeof(struct rfl_fq_2fwd));
+
+	/* Handle any pools used by this i/f that are not already handled */
+	fman_if_for_each_bpool(bp, port->fman_if) {
+		int err = lazy_init_bpool(bp);
+		if (err)
+			return err;
+	}
+	/* allocate stashable memory for the interface object */
+	i = dma_mem_memalign(64, sz);
+	if (!i)
+		return -ENOMEM;
+	memset(i, 0, sz);
+	i->sz = sz;
+	i->port_cfg = port;
+	/* allocate and initialise Tx FQs for this interface */
+	i->num_tx_fqs = (port->fman_if->mac_type == fman_mac_10g) ?
+			RFL_TX_FQS_10G : RFL_TX_FQS_1G;
+	i->tx_fqs = malloc(sizeof(*i->tx_fqs) * i->num_tx_fqs);
+	if (!i->tx_fqs) {
+		dma_mem_free(i, sz);
+		return -ENOMEM;
+	}
+	memset(i->tx_fqs, 0, sizeof(*i->tx_fqs) * i->num_tx_fqs);
+	for (loop = 0; loop < i->num_tx_fqs; loop++) {
+		struct qm_mcc_initfq opts;
+		struct qman_fq *fq = &i->tx_fqs[loop];
+		int err;
+		/* These FQ objects need to be able to handle DQRR callbacks,
+		 * when cleaning up. */
+		fq->cb.dqrr = cb_tx_drain_2fwd;
+		err = qman_create_fq(0, QMAN_FQ_FLAG_DYNAMIC_FQID |
+					QMAN_FQ_FLAG_TO_DCPORTAL, fq);
+		BUG_ON(err);
+		opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
+			       QM_INITFQ_WE_CONTEXTB | QM_INITFQ_WE_CONTEXTA;
+		opts.fqd.dest.channel = port->fman_if->tx_channel_id;
+		opts.fqd.dest.wq = RFL_PRIO_2TX;
+		opts.fqd.fq_ctrl =
+#ifdef RFL_2FWD_TX_PREFERINCACHE
+			QM_FQCTRL_PREFERINCACHE |
+#endif
+#ifdef RFL_2FWD_TX_FORCESFDR
+			QM_FQCTRL_FORCESFDR |
+#endif
+			0;
+#if defined(RFL_CGR)
+		opts.we_mask |= QM_INITFQ_WE_CGID;
+		opts.fqd.cgid = cgr_tx.cgrid;
+		opts.fqd.fq_ctrl |= QM_FQCTRL_CGE;
+#endif
+		opts.fqd.context_b = 0;
+		opts.fqd.context_a.hi = 0x80000000;
+		opts.fqd.context_a.lo = 0;
+		err = qman_init_fq(fq, QMAN_INITFQ_FLAG_SCHED, &opts);
+		BUG_ON(err);
+		TRACE("I/F %d, using Tx FQID %d\n", idx, fq->fqid);
+	}
+	rfl_fq_2drop_init(&i->rx_error, port->fman_if->fqid_rx_err, get_rxc());
+	rfl_fq_2drop_init(&i->rx_default, port->rx_def, get_rxc());
+	rfl_fq_2drop_init(&i->tx_error, port->fman_if->fqid_tx_err, get_rxc());
+	rfl_fq_2drop_init(&i->tx_confirm, port->fman_if->fqid_tx_confirm,
+		get_rxc());
+	for (loop = 0; loop < port->pcd.count; loop++) {
+		enum qm_channel c = get_rxc();
+		rfl_fq_2fwd_init(&i->rx_hash[loop], port->pcd.start + loop,
+			i->tx_fqs[loop % i->num_tx_fqs].fqid, c);
+	}
+	list_add_tail(&i->node, &ifs);
+	return 0;
+}
+
+static void rfl_if_finish(struct rfl_if *i)
+{
+	int loop;
+	list_del(&i->node);
+	for (loop = 0; loop < i->num_tx_fqs; loop++) {
+		struct qman_fq *fq = &i->tx_fqs[loop];
+		teardown_fq(fq);
+		TRACE("I/F %d, destroying Tx FQID %d\n", idx, fq->fqid);
+	}
+	free(i->tx_fqs);
+	rfl_fq_2drop_finish(&i->rx_error);
+	rfl_fq_2drop_finish(&i->rx_default);
+	rfl_fq_2drop_finish(&i->tx_error);
+	rfl_fq_2drop_finish(&i->tx_confirm);
+	for (loop = 0; loop < i->port_cfg->pcd.count; loop++)
+		rfl_fq_2fwd_finish(&i->rx_hash[loop]);
+	dma_mem_free(i, i->sz);
+}
+
 /******************/
 /* Worker threads */
 /******************/
@@ -520,6 +623,7 @@ struct worker_msg {
 		worker_msg_list,
 		worker_msg_quit,
 		worker_msg_do_global_init,
+		worker_msg_do_global_finish,
 #ifdef RFL_CGR
 		worker_msg_query_cgr
 #endif
@@ -546,6 +650,74 @@ struct worker {
 /* -------------------------------- */
 /* msg-processing within the worker */
 
+static void do_global_finish(void)
+{
+	struct rfl_if *i, *tmpi;
+	int loop;
+
+	/* Tear down interfaces */
+	list_for_each_entry_safe(i, tmpi, &ifs, node)
+		rfl_if_finish(i);
+	/* Tear down buffer pools */
+	for (loop = 0; loop < 64; loop++) {
+		if (pool[loop]) {
+			bman_free_pool(pool[loop]);
+			pool[loop] = NULL;
+		}
+	}
+}
+
+static void do_global_init(void)
+{
+	unsigned int loop;
+	int err;
+
+#ifdef RFL_CGR
+	struct qm_mcc_initcgr opts = {
+		.we_mask = QM_CGR_WE_CSCN_EN | QM_CGR_WE_CS_THRES |
+				QM_CGR_WE_MODE,
+		.cgr = {
+			.cscn_en = QM_CGR_EN,
+			.mode = QMAN_CGR_MODE_FRAME
+		}
+	};
+	if (cfg->num_cgrids < 2) {
+		fprintf(stderr, "error: insufficient CGRIDs available\n");
+		exit(-1);
+	}
+
+	/* Set up Rx CGR */
+	qm_cgr_cs_thres_set64(&opts.cgr.cs_thres, RFL_IF_NUM *
+		(RFL_CGR_RX_PERFQ_THRESH * RFL_RX_HASH_SIZE), 0);
+	cgr_rx.cgrid = cfg->cgrids[0];
+	cgr_rx.cb = cgr_rx_cb;
+	err = qman_create_cgr(&cgr_rx, QMAN_CGR_FLAG_USE_INIT, &opts);
+	if (err)
+		fprintf(stderr, "error: rx CGR init, continuing\n");
+
+	/* Set up Tx CGR */
+	qm_cgr_cs_thres_set64(&opts.cgr.cs_thres, RFL_IF_NUM *
+		(RFL_CGR_TX_PERFQ_THRESH * RFL_TX_NUM), 0);
+	cgr_tx.cgrid = cfg->cgrids[1];
+	cgr_tx.cb = cgr_tx_cb;
+	err = qman_create_cgr(&cgr_tx, QMAN_CGR_FLAG_USE_INIT, &opts);
+	if (err)
+		fprintf(stderr, "error: tx CGR init, continuing\n");
+#endif
+	/* Initialise interface objects (internally, this takes care of
+	 * initialising buffer pool objects for any BPIDs used by the Fman Rx
+	 * ports). */
+	for (loop = 0; loop < cfg->num_ethports; loop++) {
+		TRACE("Initialising interface %d\n", loop);
+		err = rfl_if_init(loop);
+		if (err) {
+			fprintf(stderr, "error: interface %d failed\n", loop);
+			do_global_finish();
+			return;
+		}
+	}
+}
+
 static noinline int process_msg(struct worker *worker, struct worker_msg *msg)
 {
 	int ret = 1;
@@ -555,88 +727,16 @@ static noinline int process_msg(struct worker *worker, struct worker_msg *msg)
 		printf("Thread alive on cpu %d\n", worker->cpu);
 
 	/* Quit */
-	else if (msg->msg == worker_msg_quit) {
-		int calm_down = 16;
-		qman_static_dequeue_del(~(u32)0);
-		while (calm_down--) {
-			qman_poll_slow();
-			qman_poll_dqrr(16);
-		}
-		qman_thread_finish();
-		bman_thread_finish();
-		printf("Stopping thread on cpu %d\n", worker->cpu);
+	else if (msg->msg == worker_msg_quit)
 		ret = 0;
-	}
 
 	/* Do global init */
-	else if (msg->msg == worker_msg_do_global_init) {
-		unsigned int loop;
-		int err;
+	else if (msg->msg == worker_msg_do_global_init)
+		do_global_init();
 
-		/* Set up the bpid allocator */
-		err = bman_setup_allocator(0, &bpid_allocator);
-		if (err)
-			fprintf(stderr, "error: BPID init, continuing\n");
-		/* Set up the fqid allocator */
-		err = qman_setup_allocator(0, &fqid_allocator);
-		if (err)
-			fprintf(stderr, "error: FQID init, continuing\n");
-#ifdef RFL_CGR
-	{
-		struct qm_mcc_initcgr opts = {
-			.we_mask = QM_CGR_WE_CSCN_EN | QM_CGR_WE_CS_THRES |
-					QM_CGR_WE_MODE,
-			.cgr = {
-				.cscn_en = QM_CGR_EN,
-				.mode = QMAN_CGR_MODE_FRAME
-			}
-		};
-
-		/* Set up Rx CGR */
-		qm_cgr_cs_thres_set64(&opts.cgr.cs_thres, RFL_IF_NUM *
-			(RFL_CGR_RX_PERFQ_THRESH * RFL_RX_HASH_SIZE), 0);
-		cgr_rx.cgrid = RFL_CGRID_RX;
-		cgr_rx.cb = cgr_rx_cb;
-		err = qman_create_cgr(&cgr_rx, QMAN_CGR_FLAG_USE_INIT, &opts);
-		if (err)
-			fprintf(stderr, "error: rx CGR init, continuing\n");
-
-		/* Set up Tx CGR */
-		qm_cgr_cs_thres_set64(&opts.cgr.cs_thres, RFL_IF_NUM *
-			(RFL_CGR_TX_PERFQ_THRESH * RFL_TX_NUM), 0);
-		cgr_tx.cgrid = RFL_CGRID_TX;
-		cgr_tx.cb = cgr_tx_cb;
-		err = qman_create_cgr(&cgr_tx, QMAN_CGR_FLAG_USE_INIT, &opts);
-		if (err)
-			fprintf(stderr, "error: tx CGR init, continuing\n");
-	}
-#endif
-		/* allocate interface structs in dma_mem region */
-		ifs = dma_mem_memalign(64, RFL_IF_NUM * sizeof(*ifs));
-		BUG_ON(!ifs);
-		memset(ifs, 0, RFL_IF_NUM * sizeof(*ifs));
-		for (loop = 0; loop < RFL_IF_NUM; loop++) {
-			TRACE("Initialising interface %d\n", ifid[loop]);
-			rfl_if_init(&ifs[loop], ifid[loop]);
-		}
-		/* initialise buffer pools */
-		for (loop = 0; loop < sizeof(bpids); loop++) {
-			struct bman_pool_params params = {
-				.bpid	= bpids[loop],
-#ifdef RFL_DEPLETION
-				.flags	= BMAN_POOL_FLAG_ONLY_RELEASE |
-					BMAN_POOL_FLAG_DEPLETION,
-				.cb	= bp_depletion,
-				.cb_ctx	= pool + bpids[loop]
-#else
-				.flags	= BMAN_POOL_FLAG_ONLY_RELEASE
-#endif
-			};
-			TRACE("Initialising pool for bpid %d\n", bpids[loop]);
-			pool[bpids[loop]] = bman_new_pool(&params);
-			BUG_ON(!pool[bpids[loop]]);
-		}
-	}
+	/* Do global finish */
+	else if (msg->msg == worker_msg_do_global_finish)
+		do_global_finish();
 
 #ifdef RFL_CGR
 	/* Query the CGR state */
@@ -677,6 +777,7 @@ static void *worker_fn(void *__worker)
 	struct worker *worker = __worker;
 	cpu_set_t cpuset;
 	int s;
+	int calm_down = 16;
 
 	TRACE("This is the thread on cpu %d\n", worker->cpu);
 
@@ -703,9 +804,17 @@ static void *worker_fn(void *__worker)
 			worker->cpu, s);
 		goto end;
 	}
+	/* Initialise the enqueue-only FQ object for this cpu/thread. NB, the
+	 * fqid argument ("1") is superfluous, the point is to mark the object
+	 * as ready for enqueuing and handling ERNs, but unfit for any FQD
+	 * modifications. The forwarding logic will substitute in the required
+	 * FQID. */
+	local_fq.cb.ern = cb_ern_2fwd;
+	s = qman_create_fq(1, QMAN_FQ_FLAG_NO_MODIFY, &local_fq);
+	BUG_ON(s);
 
 	/* Set the qman portal's SDQCR mask */
-	qman_static_dequeue_add(RFL_CPU_SDQCR());
+	qman_static_dequeue_add(sdqcr);
 
 	/* Run! */
 	TRACE("Starting poll loop on cpu %d\n", worker->cpu);
@@ -715,6 +824,13 @@ static void *worker_fn(void *__worker)
 	}
 
 end:
+	qman_static_dequeue_del(~(u32)0);
+	while (calm_down--) {
+		qman_poll_slow();
+		qman_poll_dqrr(16);
+	}
+	qman_thread_finish();
+	bman_thread_finish();
 	TRACE("Leaving thread on cpu %d\n", worker->cpu);
 	/* TODO: tear down the portal! */
 	pthread_exit(NULL);
@@ -741,6 +857,13 @@ static void msg_do_global_init(struct worker *worker)
 {
 	struct worker_msg *msg = worker->msg;
 	msg->msg = worker_msg_do_global_init;
+	pthread_barrier_wait(&msg->barr);
+}
+
+static void msg_do_global_finish(struct worker *worker)
+{
+	struct worker_msg *msg = worker->msg;
+	msg->msg = worker_msg_do_global_finish;
 	pthread_barrier_wait(&msg->barr);
 }
 
@@ -828,10 +951,15 @@ static void __worker_free(struct worker *worker)
 static LIST_HEAD(workers);
 static unsigned long ncpus;
 
-/* Keep "workers" ordered by cpu on insert */
+/* This worker is the first one created, must not be deleted, and must be the
+ * last one to exit. (The buffer pools objects are initialised against its
+ * portal.) */
+static struct worker *primary;
+
 static void worker_add(struct worker *worker)
 {
 	struct worker *i;
+	/* Keep workers ordered by cpu */
 	list_for_each_entry(i, &workers, node) {
 		if (i->cpu >= worker->cpu) {
 			list_add_tail(&worker->node, &i->node);
@@ -843,6 +971,7 @@ static void worker_add(struct worker *worker)
 
 static void worker_free(struct worker *worker)
 {
+	BUG_ON(worker == primary);
 	list_del(&worker->node);
 	__worker_free(worker);
 }
@@ -946,6 +1075,9 @@ static void usage(void)
 int main(int argc, char *argv[])
 {
 	struct worker *worker, *tmpworker;
+	const char *pcd_path = default_pcd_path;
+	const char *cfg_path = default_cfg_path;
+	const char *envp;
 	int first, last, loop;
 	int rcode;
 
@@ -964,16 +1096,51 @@ int main(int argc, char *argv[])
 		usage();
 
 	/* Do global init that doesn't require portal access; */
+	/* - load the config (includes discovery and mapping of MAC devices) */
+	TRACE("Loading configuration\n");
+	envp = getenv("DEF_PCD_PATH");
+	if (envp)
+		pcd_path = envp;
+	envp = getenv("DEF_CFG_PATH");
+	if (envp)
+		cfg_path = envp;
+	cfg = usdpa_netcfg_acquire(pcd_path, cfg_path);
+	if (!cfg) {
+		fprintf(stderr, "error: failed to load configuration\n");
+		return -1;
+	}
+	/* - validate the config */
+	if (!cfg->num_ethports) {
+		fprintf(stderr, "error: no network interfaces available\n");
+		return -1;
+	}
+	if (!cfg->num_pool_channels) {
+		fprintf(stderr, "error: no pool channels available\n");
+		return -1;
+	}
+	printf("Configuring for %d network interface%s and %d pool channel%s\n",
+		cfg->num_ethports, cfg->num_ethports > 1 ? "s" : "",
+		cfg->num_pool_channels, cfg->num_pool_channels > 1 ? "s" : "");
+	/* - compute SDQCR */
+	for (loop = 0; loop < cfg->num_pool_channels; loop++) {
+		sdqcr |= QM_SDQCR_CHANNELS_POOL_CONV(cfg->pool_channels[loop]);
+		TRACE("Adding 0x%08x to SDQCR -> 0x%08x\n",
+			QM_SDQCR_CHANNELS_POOL_CONV(cfg->pool_channels[loop]),
+			sdqcr);
+	}
+	/* Set up the bpid allocator */
+	rcode = bman_setup_allocator(0, &bpid_allocator);
+	if (rcode)
+		fprintf(stderr, "error: BPID init, continuing\n");
+	/* Set up the fqid allocator */
+	rcode = qman_setup_allocator(0, &fqid_allocator);
+	if (rcode)
+		fprintf(stderr, "error: FQID init, continuing\n");
 	/* - map shmem */
 	TRACE("Initialising shmem\n");
 	rcode = dma_mem_setup();
 	if (rcode)
 		fprintf(stderr, "error: shmem init, continuing\n");
-	/* - discover+map MAC devices */
-	TRACE("Initialising Fman MACs\n");
-	rcode = fman_if_init();
-	if (rcode)
-		fprintf(stderr, "error: MAC init, continuing\n");
 
 	/* Create the threads */
 	TRACE("Starting %d threads for cpu-range '%s'\n",
@@ -984,10 +1151,12 @@ int main(int argc, char *argv[])
 			rcode = -1;
 			goto leave;
 		}
-		/* Do datapath initialisation in the first thread (we can't do
-		 * it here, because it requires access to portals) */
-		if (loop == first)
+		if (!primary) {
+			/* Do datapath-dependent global init on "primary" */
 			msg_do_global_init(worker);
+			primary = worker;
+
+		}
 		worker_add(worker);
 	}
 	TRACE("Enabling MACs\n");
@@ -1046,7 +1215,12 @@ int main(int argc, char *argv[])
 					worker = worker_find(loop, 1);
 					if (!worker)
 						continue;
-					worker_free(worker);
+					if (worker != primary) {
+						worker_free(worker);
+						continue;
+					}
+					fprintf(stderr, "skipping cpu %d, it "
+						"has responsibilities\n", loop);
 				}
 			}
 		}
@@ -1076,8 +1250,15 @@ int main(int argc, char *argv[])
 	/* success */
 	rcode = 0;
 leave:
+	/* Remove all workers except the primary */
 	list_for_each_entry_safe(worker, tmpworker, &workers, node)
-		worker_free(worker);
+		if (worker != primary)
+			worker_free(worker);
+	/* Do datapath dependent cleanup before removing the primary worker */
+	msg_do_global_finish(primary);
+	worker = primary;
+	primary = NULL;
+	worker_free(worker);
 	fman_if_finish();
 	return rcode;
 }
