@@ -517,11 +517,12 @@ static int rfl_if_init(unsigned int idx)
 	const struct fman_if_bpool *bp;
 	int loop;
 	const struct fm_eth_port_cfg *port = &cfg->port_cfg[idx];
+	const struct fman_if *fif = port->fman_if;
 	size_t sz = sizeof(struct rfl_if) +
 		(port->pcd.count * sizeof(struct rfl_fq_2fwd));
 
 	/* Handle any pools used by this i/f that are not already handled */
-	fman_if_for_each_bpool(bp, port->fman_if) {
+	fman_if_for_each_bpool(bp, fif) {
 		int err = lazy_init_bpool(bp);
 		if (err)
 			return err;
@@ -534,7 +535,7 @@ static int rfl_if_init(unsigned int idx)
 	i->sz = sz;
 	i->port_cfg = port;
 	/* allocate and initialise Tx FQs for this interface */
-	i->num_tx_fqs = (port->fman_if->mac_type == fman_mac_10g) ?
+	i->num_tx_fqs = (fif->mac_type == fman_mac_10g) ?
 			RFL_TX_FQS_10G : RFL_TX_FQS_1G;
 	i->tx_fqs = malloc(sizeof(*i->tx_fqs) * i->num_tx_fqs);
 	if (!i->tx_fqs) {
@@ -554,7 +555,7 @@ static int rfl_if_init(unsigned int idx)
 		BUG_ON(err);
 		opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
 			       QM_INITFQ_WE_CONTEXTB | QM_INITFQ_WE_CONTEXTA;
-		opts.fqd.dest.channel = port->fman_if->tx_channel_id;
+		opts.fqd.dest.channel = fif->tx_channel_id;
 		opts.fqd.dest.wq = RFL_PRIO_2TX;
 		opts.fqd.fq_ctrl =
 #ifdef RFL_2FWD_TX_PREFERINCACHE
@@ -576,36 +577,41 @@ static int rfl_if_init(unsigned int idx)
 		BUG_ON(err);
 		TRACE("I/F %d, using Tx FQID %d\n", idx, fq->fqid);
 	}
-	rfl_fq_2drop_init(&i->rx_error, port->fman_if->fqid_rx_err, get_rxc());
+	rfl_fq_2drop_init(&i->rx_error, fif->fqid_rx_err, get_rxc());
 	rfl_fq_2drop_init(&i->rx_default, port->rx_def, get_rxc());
-	rfl_fq_2drop_init(&i->tx_error, port->fman_if->fqid_tx_err, get_rxc());
-	rfl_fq_2drop_init(&i->tx_confirm, port->fman_if->fqid_tx_confirm,
+	rfl_fq_2drop_init(&i->tx_error, fif->fqid_tx_err, get_rxc());
+	rfl_fq_2drop_init(&i->tx_confirm, fif->fqid_tx_confirm,
 		get_rxc());
 	for (loop = 0; loop < port->pcd.count; loop++) {
 		enum qm_channel c = get_rxc();
 		rfl_fq_2fwd_init(&i->rx_hash[loop], port->pcd.start + loop,
 			i->tx_fqs[loop % i->num_tx_fqs].fqid, c);
 	}
+	TRACE("Interface %d:%d, enabling RX\n", fif->fman_idx, fif->mac_idx);
+	fman_if_enable_rx(fif);
 	list_add_tail(&i->node, &ifs);
 	return 0;
 }
 
 static void rfl_if_finish(struct rfl_if *i)
 {
+	const struct fman_if *fif = i->port_cfg->fman_if;
 	int loop;
 	list_del(&i->node);
-	for (loop = 0; loop < i->num_tx_fqs; loop++) {
-		struct qman_fq *fq = &i->tx_fqs[loop];
-		teardown_fq(fq);
-		TRACE("I/F %d, destroying Tx FQID %d\n", idx, fq->fqid);
-	}
-	free(i->tx_fqs);
+	fman_if_disable_rx(fif);
+	TRACE("Interface %d:%d, disabled RX\n", fif->fman_idx, fif->mac_idx);
 	rfl_fq_2drop_finish(&i->rx_error);
 	rfl_fq_2drop_finish(&i->rx_default);
 	rfl_fq_2drop_finish(&i->tx_error);
 	rfl_fq_2drop_finish(&i->tx_confirm);
 	for (loop = 0; loop < i->port_cfg->pcd.count; loop++)
 		rfl_fq_2fwd_finish(&i->rx_hash[loop]);
+	for (loop = 0; loop < i->num_tx_fqs; loop++) {
+		struct qman_fq *fq = &i->tx_fqs[loop];
+		teardown_fq(fq);
+		TRACE("I/F %d, destroying Tx FQID %d\n", idx, fq->fqid);
+	}
+	free(i->tx_fqs);
 	dma_mem_free(i, i->sz);
 }
 
@@ -1159,8 +1165,6 @@ int main(int argc, char *argv[])
 		}
 		worker_add(worker);
 	}
-	TRACE("Enabling MACs\n");
-	fman_if_enable_all_rx();
 
 	/* TODO: catch dead threads - for now, we rely on the dying thread to
 	 * print an error, and for the CLI user to then "remove" it. */
@@ -1226,12 +1230,24 @@ int main(int argc, char *argv[])
 		}
 
 		/* Disable MACs */
-		else if (!strncmp(cli, "macs_off", 8))
-			fman_if_disable_all_rx();
+		else if (!strncmp(cli, "macs_off", 8)) {
+			struct rfl_if *i;
+			list_for_each_entry(i, &ifs, node) {
+				fman_if_disable_rx(i->port_cfg->fman_if);
+				TRACE("Interface %d:%d, disabled RX\n",
+					fif->fman_idx, fif->mac_idx);
+			}
+		}
 
 		/* Enable MACs */
-		else if (!strncmp(cli, "macs_on", 7))
-			fman_if_enable_all_rx();
+		else if (!strncmp(cli, "macs_on", 7)) {
+			struct rfl_if *i;
+			list_for_each_entry(i, &ifs, node) {
+				TRACE("Interface %d:%d, enabling RX\n",
+					fif->fman_idx, fif->mac_idx);
+				fman_if_enable_rx(i->port_cfg->fman_if);
+			}
+		}
 
 		/* Dump the CGR state */
 		else if (!strncmp(cli, "cgr", 3)) {
@@ -1259,6 +1275,6 @@ leave:
 	worker = primary;
 	primary = NULL;
 	worker_free(worker);
-	fman_if_finish();
+	usdpa_netcfg_release(cfg);
 	return rcode;
 }
