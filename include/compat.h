@@ -742,6 +742,8 @@ static inline int name##_push(struct dpa_rbtree *tree, type *obj) \
 		if (obj->val_field < item->val_field) { \
 			if (tree->head == node) \
 				tree->head = &obj->node_field; \
+			else \
+				node->prev->next = &obj->node_field; \
 			obj->node_field.prev = node->prev; \
 			obj->node_field.next = node; \
 			node->prev = &obj->node_field; \
