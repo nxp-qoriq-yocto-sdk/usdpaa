@@ -11,5 +11,8 @@
 export ARCH=powerpc
 export CROSS_COMPILE=powerpc-linux-gnu-
 export PATH=/opt/freescale/usr/local/gcc-4.5.55-eglibc-2.11.55/powerpc-linux-gnu/bin:$PATH
-export EXTRA_CFLAGS=-I`pwd`/../ltib/rootfs/usr/include/libxml2
-export EXTRA_LDFLAGS=-L`pwd`/../ltib/rootfs/usr/lib
+ROOTFS_PATH=$PWD/../ltib/rootfs
+export PKG_CONFIG_PATH=$ROOTFS_PATH/usr/lib/pkgconfig
+export LIBXML2_CFLAGS=$(pkg-config --define-variable=prefix=$ROOTFS_PATH$(pkg-config --variable=prefix libxml-2.0) --cflags libxml-2.0)
+export LIBXML2_LDFLAGS=$(pkg-config --define-variable=prefix=$ROOTFS_PATH$(pkg-config --variable=prefix libxml-2.0) --libs --static libxml-2.0)
+unset ROOTFS_PATH PKG_CONFIG_PATH
