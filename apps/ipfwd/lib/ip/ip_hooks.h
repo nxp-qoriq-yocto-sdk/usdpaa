@@ -29,11 +29,10 @@
 #ifndef __LIB_IP_IP_HOOKS_H
 #define __LIB_IP_IP_HOOKS_H
 
-#include <stdint.h>
+#include "mm/mem_cache.h"
 #ifdef IP_RCU_ENABLE
 #include "rcu_lock.h"
 #endif
-#include "mm/mem_cache.h"
 #include "ip/ip_common.h"
 #include "ip/ip_context.h"
 #include "net/annotations.h"

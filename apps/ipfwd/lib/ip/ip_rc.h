@@ -28,8 +28,6 @@
 #ifndef LIB_IP_IP_RC_H
 #define LIB_IP_IP_RC_H 1
 
-#include <stdint.h>
-#include <stdbool.h>
 #include "ip/ip.h"
 #include "crc64.h"
 

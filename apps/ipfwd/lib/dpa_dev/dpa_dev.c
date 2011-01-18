@@ -60,8 +60,10 @@ void dpa_dev_xmit(struct net_dev_t *dev, struct qm_fd *fd,
 				void *ll_hdr __UNUSED)
 {
 	struct dpa_dev_t *dpa_dev = (struct dpa_dev_t *)dev;
+#ifdef STATS_TBD
 	volatile void *stat_addr = &(dev->stats->tx_frames.acc.words.lo);
 	uint32_t len = get_single_fd_length(fd);
+#endif
 	uint32_t ret;
 
 #ifdef STATS_TBD

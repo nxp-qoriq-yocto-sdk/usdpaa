@@ -31,7 +31,6 @@
 #include <linux/fsl_qman.h>
 #include <app_common.h>
 #include <dma_mem.h>
-#include <usdpa_netcfg.h>
 
 struct ipfwd_eth_t ipfwd_fq_range[MAX_NUM_PORTS]; /* num of ports */
 #define SIZE_TO_STASH_LINES(s) ((s >> 6) + ((s & 0x3F) ? 1 : 0))
@@ -149,11 +148,11 @@ static int ipfwd_fq_create(struct usdpa_netcfg_info *cfg_ptr,
 		}
 
 		/* This would come from config */
-		ipfwd_fq_range[port_id].rx_def.fq_start = pfq->rx_def.start;
-		ipfwd_fq_range[port_id].rx_def.fq_count = pfq->rx_err.count;
+		ipfwd_fq_range[port_id].rx_def.fq_start = pfq->rx_def;
+		ipfwd_fq_range[port_id].rx_def.fq_count = 1;
 		ipfwd_fq_range[port_id].rx_def.work_queue = 3;
 		ipfwd_fq_range[port_id].rx_def.channel =
-					p_cfg->qm_rx_channel_id;
+					cfg_ptr->pool_channels[port_id];
 		flags = QMAN_FQ_FLAG_NO_ENQUEUE | QMAN_FQ_FLAG_LOCKED;
 		ret = create_fqs(&ipfwd_fq_range[port_id].rx_def, flags,
 				 rx_default_cb, "Rx default", priv_data_size);
@@ -162,11 +161,11 @@ static int ipfwd_fq_create(struct usdpa_netcfg_info *cfg_ptr,
 			return -1;
 		}
 
-		ipfwd_fq_range[port_id].rx_err.fq_start = pfq->rx_err.start;
-		ipfwd_fq_range[port_id].rx_err.fq_count = pfq->rx_err.count;
+		ipfwd_fq_range[port_id].rx_err.fq_start = pfq->rx_err;
+		ipfwd_fq_range[port_id].rx_err.fq_count = 1;
 		ipfwd_fq_range[port_id].rx_err.work_queue = 1;
 		ipfwd_fq_range[port_id].rx_err.channel =
-					p_cfg->qm_rx_channel_id;
+					cfg_ptr->pool_channels[port_id];
 		ret = create_fqs(&ipfwd_fq_range[port_id].rx_err, flags,
 				 rx_err_cb, "Rx err", priv_data_size);
 		if (unlikely(0 != ret)) {
@@ -177,7 +176,8 @@ static int ipfwd_fq_create(struct usdpa_netcfg_info *cfg_ptr,
 		ipfwd_fq_range[port_id].pcd.fq_start = pfq->pcd.start;
 		ipfwd_fq_range[port_id].pcd.fq_count = pfq->pcd.count;
 		ipfwd_fq_range[port_id].pcd.work_queue = 3;
-		ipfwd_fq_range[port_id].pcd.channel = p_cfg->qm_rx_channel_id;
+		ipfwd_fq_range[port_id].pcd.channel =
+				cfg_ptr->pool_channels[port_id];
 		ret = create_fqs(&ipfwd_fq_range[port_id].pcd, flags,
 				 rx_pcd_cb, "Rx PCD", priv_data_size);
 		if (unlikely(0 != ret)) {
@@ -186,12 +186,11 @@ static int ipfwd_fq_create(struct usdpa_netcfg_info *cfg_ptr,
 		}
 
 		ipfwd_fq_range[port_id].tx_err.fq_start =
-					pfq->tx_err.start;
-		ipfwd_fq_range[port_id].tx_err.fq_count =
-					pfq->tx_err.count;
+					pfq->tx_err;
+		ipfwd_fq_range[port_id].tx_err.fq_count = 1;
 		ipfwd_fq_range[port_id].tx_err.work_queue = 1;
 		ipfwd_fq_range[port_id].tx_err.channel =
-					p_cfg->qm_rx_channel_id;
+					cfg_ptr->pool_channels[port_id];
 		ret = create_fqs(&ipfwd_fq_range[port_id].tx_err, flags,
 				 tx_err_cb, "Tx err", priv_data_size);
 		if (unlikely(0 != ret)) {
@@ -200,12 +199,11 @@ static int ipfwd_fq_create(struct usdpa_netcfg_info *cfg_ptr,
 		}
 
 		ipfwd_fq_range[port_id].tx_confirm.fq_start =
-					pfq->tx_confirm.start;
-		ipfwd_fq_range[port_id].tx_confirm.fq_count =
-					pfq->tx_confirm.count;
+					pfq->tx_confirm;
+		ipfwd_fq_range[port_id].tx_confirm.fq_count = 1;
 		ipfwd_fq_range[port_id].tx_confirm.work_queue = 1;
 		ipfwd_fq_range[port_id].tx_confirm.channel =
-					p_cfg->qm_rx_channel_id;
+					cfg_ptr->pool_channels[port_id];
 		ret = create_fqs(&ipfwd_fq_range[port_id].tx_confirm, flags,
 				 tx_confirm_cb, "Tx confirm", priv_data_size);
 		if (unlikely(0 != ret)) {
@@ -400,14 +398,16 @@ int init_interface(struct usdpa_netcfg_info *cfg_ptr,
 
 	APP_DEBUG("Init interface: Enter");
 
+	printf("Available of pool channels = %d\n", cfg_ptr->num_pool_channels);
+
 	*recv_channel_map = 0;
 	g_num_dpa_eth_ports = cfg_ptr->num_ethports;
 	for (port_id = 0; port_id < g_num_dpa_eth_ports; port_id++) {
 		p_cfg = &cfg_ptr->port_cfg[port_id];
 		pfq = &p_cfg->fq;
 		memcpy(&ipfwd_fq_range[port_id].mac_addr,
-				p_cfg->fm_mac_addr, ETHER_ADDR_LEN);
-		recv_channel_id = p_cfg->qm_rx_channel_id;
+			p_cfg->fm_mac_addr.ether_addr_octet, ETHER_ADDR_LEN);
+		recv_channel_id = cfg_ptr->pool_channels[port_id];
 		if (recv_channel_id >= qm_channel_swportal0 &&
 		    recv_channel_id <= qm_channel_swportal9) {
 			recv_channel_id = 0;	/*Dedicated channel case */

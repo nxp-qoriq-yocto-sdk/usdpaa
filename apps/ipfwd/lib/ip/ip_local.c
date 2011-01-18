@@ -24,10 +24,8 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <string.h>
-#include <stdint.h>
-#include "compiler.h"
 #include "net/annotations.h"
+#include "compiler.h"
 #include "ip/ip_local.h"
 #include "ip/ip_common.h"
 #include "ip/ip_hooks.h"
@@ -54,7 +52,8 @@ enum IP_STATUS ip_local_deliver(struct ip_context_t *ctxt,
 
 enum IP_STATUS ip_local_deliver_finish(struct ip_context_t *ctxt,
 				       struct annotations_t *notes,
-				       struct ip_header_t *ip_hdr)
+				       struct ip_header_t *ip_hdr,
+				       enum state source)
 {
 #ifdef STATS_TBD
 	decorated_notify_inc_32(&(ctxt->stats->ip_local_delivery));

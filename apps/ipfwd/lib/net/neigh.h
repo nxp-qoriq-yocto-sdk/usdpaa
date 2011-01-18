@@ -89,7 +89,7 @@ struct neigh_func_t {
 	void (*full_output) (struct neigh_t *, void *, void *);
 	void (*reachable_output) (struct neigh_t *, void *, void *);
 	/* Set by Netdevice Init Function */
-	void (*xmit) (struct net_dev_t *, void *, void *);
+	void (*xmit) (struct net_dev_t *, struct qm_fd *, void *);
 };
 
 /**

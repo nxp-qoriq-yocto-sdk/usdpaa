@@ -133,7 +133,6 @@ static enum qman_cb_dqrr_result dqrr_entry_handler_pcd(struct qman_portal *qm,
 	struct ip_fq_context_t *ip_fq_ctxt = (struct ip_fq_context_t *)fq;
 	struct fq_context_t *context =
 	    (struct fq_context_t *)(ip_fq_ctxt->ip_ctxt);
-	struct sg_entry_t *sg;
 	uint8_t *data;
 
 	switch (dqrr->fd.format) {
@@ -167,7 +166,6 @@ static enum qman_cb_dqrr_result dqrr_entry_handler(struct qman_portal *qm,
 	struct ip_fq_context_t *ip_fq_ctxt = (struct ip_fq_context_t *)fq;
 	struct fq_context_t *context =
 	    (struct fq_context_t *)(ip_fq_ctxt->ip_ctxt);
-	struct sg_entry_t *sg;
 	uint8_t *data;
 	struct ethernet_header_t *eth_hdr;
 
@@ -196,10 +194,20 @@ done:
 /**
  \brief Dummy function for unsupported handlers
  */
-static void my_cb_notimplemented(struct qman_portal *qm, struct qman_fq *fq,
-				 const struct qm_mr_entry *msg)
+static void my_cb_notimplemented(struct qman_portal *qm,
+				struct qman_fq *fq,
+				const struct qm_mr_entry *msg)
 {
 	APP_INFO("In %s", __func__);
+}
+
+static enum qman_cb_dqrr_result dqrr_cb_notimplemented(struct qman_portal *qm,
+						   struct qman_fq *fq,
+						   const struct qm_dqrr_entry
+						   *dqrr)
+{
+	APP_INFO("In %s", __func__);
+	return 0;
 }
 
 /**
@@ -256,7 +264,7 @@ const struct qman_fq_cb ipfwd_rx_cb = {
  \brief IPFwd Transmit FQ Callback Handler
  */
 const struct qman_fq_cb ipfwd_tx_cb = {
-	.dqrr = my_cb_notimplemented,
+	.dqrr = dqrr_cb_notimplemented,
 	.ern = ipfwd_ern_handler,
 	.dc_ern = my_cb_notimplemented,
 	.fqs = ip_fq_state_chg

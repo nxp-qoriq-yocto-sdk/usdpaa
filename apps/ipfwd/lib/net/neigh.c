@@ -24,7 +24,7 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <stdint.h>
+#include "net/neigh.h"
 #ifdef NEIGH_RCU_ENABLE
 #include "rcu_lock.h"
 #endif
@@ -454,7 +454,7 @@ static struct neigh_bucket_t *__neigh_find_bucket(struct neigh_table_t *nt,
 {
 	uint32_t hash;
 
-	hash = compute_neigh_hash(key, keylen);
+	hash = compute_neigh_hash((void *)key, keylen);
 	if (unlikely(hash >= NEIGH_TABLE_BUCKETS))
 		return NULL;
 	return &(nt->buckets[hash]);

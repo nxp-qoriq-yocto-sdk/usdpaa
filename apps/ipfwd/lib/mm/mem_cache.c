@@ -24,13 +24,9 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <stddef.h>
-#include <stdlib.h>
-#include <stdint.h>
 #include "mm/mem_cache.h"
 #include "malloc.h"
 #include <assert.h>
-#include "compat.h"
 #include "app_common.h"
 
 struct mem_cache_t *cache_cache;
@@ -110,14 +106,14 @@ struct mem_cache_t *mem_cache_create(size_t objsize, uint32_t capacity)
  */
 void *mem_cache_alloc(struct mem_cache_t *cachep)
 {
-	int32_t index;
+	int32_t idx;
 	void *retval;
 
 	spin_lock(&(cachep->mmlock));
-	index = cachep->next_free - 1;
-	if (likely(index >= 0)) {
-		retval = cachep->ptr_stack[index];
-		cachep->next_free = index;
+	idx = cachep->next_free - 1;
+	if (likely(idx >= 0)) {
+		retval = cachep->ptr_stack[idx];
+		cachep->next_free = idx;
 		cachep->obj_allocated += 1;
 	} else {
 		retval = NULL;
@@ -132,12 +128,12 @@ void *mem_cache_alloc(struct mem_cache_t *cachep)
  */
 int32_t mem_cache_free(struct mem_cache_t *cachep, void *objp)
 {
-	int32_t index, retval;
+	int32_t idx, retval;
 
 	spin_lock(&(cachep->mmlock));
-	index = cachep->next_free;
-	if (likely(index < (int32_t) cachep->free_limit)) {
-		cachep->ptr_stack[index] = objp;
+	idx = cachep->next_free;
+	if (likely(idx < (int32_t) cachep->free_limit)) {
+		cachep->ptr_stack[idx] = objp;
 		cachep->next_free++;
 		cachep->obj_allocated -= 1;
 		retval = 0;
@@ -195,18 +191,18 @@ static void *__mem_cache_slab_alloc(uint32_t size)
 static uint32_t __mem_cache_refill(struct mem_cache_t *cachep,
 				   uint32_t count, void *refill_mem)
 {
-	uint32_t index, new_index, objs_added;
+	uint32_t idx, new_index, objs_added;
 	void *objp;
 
 	assert(refill_mem != NULL);
 
-	index = cachep->next_free;
-	new_index = ((index + count) <= cachep->free_limit) ?
-	    (index + count) : cachep->free_limit;
-	objs_added = (new_index - index);
+	idx = cachep->next_free;
+	new_index = ((idx + count) <= cachep->free_limit) ?
+	    (idx + count) : cachep->free_limit;
+	objs_added = (new_index - idx);
 	objp = refill_mem;
-	for (; index < new_index; index++) {
-		cachep->ptr_stack[index] = objp;
+	for (; idx < new_index; idx++) {
+		cachep->ptr_stack[idx] = objp;
 		objp = (void *)((uint32_t) objp + cachep->objsize);
 	}
 	cachep->next_free = new_index;

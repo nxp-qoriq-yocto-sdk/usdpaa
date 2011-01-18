@@ -26,6 +26,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "compat.h"
 #include <stdio.h>
 #include <argp.h>
 #include <stdlib.h>
@@ -38,7 +39,6 @@
 #include <sys/mman.h>
 #include "ipc_send.h"
 #include "ip/ip_appconf.h"
-#include "compat.h"
 #include <sys/stat.h>
 #include <mqueue.h>
 #include <errno.h>
@@ -105,10 +105,6 @@ void send_to_mq(struct lwe_ctrl_op_info *saInfo)
 {
 	int ret;
 	struct lwe_ctrl_op_info *ip_info;
-	unsigned int result = LWE_CTRL_RSLT_SUCCESSFULL;
-	unsigned int res;
-	struct mq_attr attr, old_attr;
-	ssize_t size;
 
 	saInfo->state = LWE_CTRL_CMD_STATE_BUSY;
 	ip_info = (struct lwe_ctrl_op_info *)malloc
@@ -119,8 +115,7 @@ void send_to_mq(struct lwe_ctrl_op_info *saInfo)
 	/* Send message to message queue */
 	ret = mq_send(mq_fd_wr, (const char *)ip_info, sizeof(struct lwe_ctrl_op_info), 10);
 	if (ret != 0) {
-		printf("%s : %d error in sending mesage on MQ: errno = %m\n",
-					__FILE__, __LINE__, errno);
+		printf("%s : Error in sending mesage on MQ\n", __FILE__);
 	}
 	while (response_flag == 0);
 	free(ip_info);
@@ -498,7 +493,7 @@ int receive_from_mq(mqd_t mqdes)
 {
 	ssize_t size;
 	struct lwe_ctrl_op_info *ip_info = NULL;
-	struct mq_attr attr, old_attr;
+	struct mq_attr attr;
 	int ret;
 	unsigned int result = LWE_CTRL_RSLT_SUCCESSFULL;
 
@@ -507,17 +502,13 @@ int receive_from_mq(mqd_t mqdes)
 	/* Get attributes of the Receive Message queue */
 	ret = mq_getattr(mqdes, &attr);
 	if (ret) {
-		printf("%s: %d error getting attributes: errno = %m\n", errno);
+		printf("%s:Error getting attributes\n",
+				__FILE__);
 	}
 	/* Read the message from receive queue */
 	size = mq_receive(mqdes, (char *)ip_info, attr.mq_msgsize, 0);
-		if (size == -1 && errno == EAGAIN) {
-			printf("Receive msgque errno = %m\n", errno);
-			printf("%s: %d size = %x\n", __FILE__, __LINE__, size);
-			return -1;
-		}
 		if (size == -1) {
-			printf("Error in receiving on MQ errno = %m \n", errno);
+			printf("%s:Rcv msgque error\n", __FILE__);
 			return -1;
 		}
 	result = ip_info->result;
@@ -586,21 +577,19 @@ int main(int argc, char **argv)
 	char *tmp_argv = "-O";
 	struct lwe_ctrl_op_info route_info;
 	int ret, tmp;
-	ssize_t rx_data_len = 0;
-	struct mq_attr attr;
 
 	response_flag = 0;
 	/* Opens message queue to write */
 	mq_fd_wr = mq_open("/mq_rcv",  O_WRONLY);
 	if (mq_fd_wr == -1) {
-		printf("SND mq err in opening the msgque errno %m\n", errno);
+		printf("SND mq err in opening the msgque errno\n");
 		return -1;
 	}
 
 	/* Opens message queue to read */
 	mq_fd_rd = mq_open("/mq_snd", O_RDONLY);
 	if (mq_fd_rd == -1) {
-		printf("RX mq err in opening the msgque errno is %m\n", errno);
+		printf("RX mq err in opening the msgque errno\n");
 		return -1;
 	}
 
@@ -610,8 +599,8 @@ int main(int argc, char **argv)
 	notification.sigev_notify_attributes = NULL;
 	tmp = mq_notify(mq_fd_rd, &notification);
 	if (tmp)
-		printf("%sError in mq_notify call : errno = %m\n",
-				 __FILE__, errno);
+		printf("%sError in mq_notify call\n",
+				 __FILE__);
 
 	memset(&sa_info, 0, sizeof(struct lwe_ctrl_op_info));
 

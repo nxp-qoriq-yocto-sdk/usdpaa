@@ -28,9 +28,8 @@
 #ifndef _LIB_NET_NET_DEV_H
 #define _LIB_NET_NET_DEV_H   1
 
-#include <stdbool.h>
-#include "string.h"
 #include "common/refcount.h"
+#include "string.h"
 #include "notify.h"
 #include "ll_cache.h"
 #include "compat.h"
@@ -144,7 +143,7 @@ struct net_dev_t {
 	/* Driver Section: 10B */
 	struct net_dev_stats_t *stats;
 	/**< Device related Stats */
-	void (*xmit) (struct net_dev_t *, void *, void *);
+	void (*xmit) (struct net_dev_t *, struct qm_fd *, void *);
 	/**< Function pointer for transmission of frame*/
 	uint16_t iflink;
 

@@ -36,6 +36,7 @@
 #include <mqueue.h>
 #include <errno.h>
 #include <signal.h>
+#include <fman.h>
 #include <bigatomic.h>
 #include <dma_mem.h>
 #include <usdpa_netcfg.h>
@@ -50,7 +51,6 @@ struct sigevent notification;
 static bool infinit_fcnt;
 uint32_t initial_frame_count = INITIAL_FRAME_COUNT;
 volatile uint32_t GO_FLAG;
-static pthread_barrier_t barr;
 static const struct bman_bpid_range bpid_range[] = {
 	{FSL_BPID_RANGE_START, FSL_BPID_RANGE_LENGTH} };
 static const struct bman_bpid_ranges bpid_allocator = {
@@ -67,13 +67,6 @@ static __thread struct thread_data_t *__my_thread_data;
 #define IPFWD_BPIDS		{7, 8, 9}
 struct bman_pool *pool[MAX_NUM_BMAN_POOLS];
 __PERCPU uint32_t rx_errors;
-int init_interface(struct fm_eth_port_cfg *cfg, uint32_t * recv_channel_map,
-		      struct qman_fq_cb *rx_default_cb,
-		      struct qman_fq_cb *rx_pcd_cb,
-		      struct qman_fq_cb *rx_err_cb,
-		      struct qman_fq_cb *tx_cb,
-		      struct qman_fq_cb *tx_confirm_cb,
-		      struct qman_fq_cb *tx_err_cb, uint32_t priv_data_size);
 #define MAX_THREADS 8
 uint32_t recv_channel_map;
 
@@ -87,7 +80,6 @@ void ip_fq_state_chg(struct qman_portal *qm,
 
 static int worker_fn(struct thread_data_t *tdata)
 {
-	int err;
 
 	APP_INFO("This is the thread on cpu %d\n", tdata->cpu);
 
@@ -102,7 +94,6 @@ static int worker_fn(struct thread_data_t *tdata)
 	while (1)
 		qman_poll();
 
-end:
 	APP_INFO("Leaving thread on cpu %d\n", tdata->cpu);
 	pthread_exit(NULL);
 }
@@ -164,7 +155,7 @@ struct node_t *ipfwd_get_iface_for_ip(uint32_t ip_addr)
 	}
 
 	if (unlikely(port == g_num_dpa_eth_ports)) {
-		APP_ERROR("%s: Exit: Failed: Not a valid IP addr");
+		APP_ERROR("%s: Exit: Failed: Not a valid IP addr", __FILE__);
 		return NULL;
 	}
 
@@ -457,8 +448,8 @@ int32_t ipfwd_del_arp(struct lwe_ctrl_op_info *route_info)
 	 ** Delete the ARP Entry
 	 */
 	if (false == neigh_remove(stack.arp_table,
-				  (void *)(route_info->ip_info.
-					   src_ipaddr),
+				  route_info->ip_info.
+					   src_ipaddr,
 				  stack.arp_table->proto_len)) {
 		APP_ERROR("Could not delete neighbor entry");
 		return -1;
@@ -496,14 +487,14 @@ static int32_t ip_edit_num_cnt(struct lwe_ctrl_op_info *cp_info)
  */
 static inline void
 initialize_contexts(struct ip_context_t *ip_ctxt, struct net_dev_t *dev,
-		    struct ip_stack_t *stack)
+		    struct ip_stack_t *ip_stack)
 {
 	ip_ctxt->fq_ctxt.handler = &ip_handler;
 	ip_ctxt->fq_ctxt.dev = dev;
-	ip_ctxt->stats = stack->ip_stats;
-	ip_ctxt->hooks = stack->hooks;
-	ip_ctxt->protos = stack->protos;
-	ip_ctxt->rc = stack->rc;
+	ip_ctxt->stats = ip_stack->ip_stats;
+	ip_ctxt->hooks = ip_stack->hooks;
+	ip_ctxt->protos = ip_stack->protos;
+	ip_ctxt->rc = ip_stack->rc;
 }
 
 /**
@@ -543,7 +534,9 @@ void create_iface_nodes(struct node_t *arr, struct usdpa_netcfg_info *cfg_ptr)
 
 	for (port = 0, if_idx = 0; port < g_num_dpa_eth_ports; port++, if_idx++) {
 		p_cfg = &cfg_ptr->port_cfg[port];
-		memcpy(arr[if_idx].mac.bytes, p_cfg[port].fm_mac_addr, 6);
+		memcpy(arr[if_idx].mac.bytes,
+			p_cfg[port].fm_mac_addr.ether_addr_octet,
+			ETHER_ADDR_LEN);
 		arr[if_idx].ip.word = (0xc0a80001 + (iface_subnet[port] << 8));
 		APP_DEBUG("PortID = %d is %s interface node with IP Address "
 			 "%d.%d.%d.%d and MAC Address " MAC_FMT, port,
@@ -600,14 +593,14 @@ void dpa_dev_rx_init(struct dpa_dev_t *dev, struct ipfwd_fq_range_t *fq_range,
  \param[out] return status
  */
 static int32_t
-create_devices(struct ip_stack_t *stack, struct node_t *link_nodes)
+create_devices(struct ip_stack_t *ip_stack, struct node_t *link_nodes)
 {
 	uint32_t port;
 	struct net_dev_t *dev;
 	struct ip_context_t *ctxt;
 
-	stack->nt = net_dev_init();
-	if (unlikely(!stack->nt)) {
+	ip_stack->nt = net_dev_init();
+	if (unlikely(!ip_stack->nt)) {
 		APP_ERROR("No memory available for neighbor table");
 		return -ENOMEM;
 	}
@@ -618,7 +611,7 @@ create_devices(struct ip_stack_t *stack, struct node_t *link_nodes)
 			APP_ERROR("No Memory for IP context");
 			return -ENOMEM;
 		}
-		dev = dpa_dev_allocate(stack->nt);
+		dev = dpa_dev_allocate(ip_stack->nt);
 		if (unlikely(dev == NULL)) {
 			APP_ERROR("Unable to allocate net device Structure");
 			free(ctxt);
@@ -629,15 +622,15 @@ create_devices(struct ip_stack_t *stack, struct node_t *link_nodes)
 		dev->set_ll_address(dev, &link_nodes[port].mac);
 		dev->set_mtu(dev, IFACE_MTU);
 
-		initialize_contexts(ctxt, dev, stack);
+		initialize_contexts(ctxt, dev, ip_stack);
 		dpa_dev_rx_init((struct dpa_dev_t *)dev,
 				&ipfwd_fq_range[port].pcd, ctxt);
 		dpa_dev_rx_init((struct dpa_dev_t *)dev,
 				&ipfwd_fq_range[port].rx_def, ctxt);
-		stack->ctxt[port] = ctxt;
+		ip_stack->ctxt[port] = ctxt;
 		dpa_dev_tx_init((struct dpa_dev_t *)dev,
 				&ipfwd_fq_range[port].tx);
-		if (!net_dev_register(stack->nt, dev)) {
+		if (!net_dev_register(ip_stack->nt, dev)) {
 			APP_ERROR("%s: Netdev Register Failed", __func__);
 			return -EINVAL;
 		}
@@ -651,21 +644,21 @@ create_devices(struct ip_stack_t *stack, struct node_t *link_nodes)
  \param[in] struct node_t * Link Node
  \param[out] 0 on success, otherwise -ve value
  */
-int populate_arp_cache(struct ip_stack_t *stack, struct node_t *local_nodes)
+int populate_arp_cache(struct ip_stack_t *ip_stack, struct node_t *loc_nodes)
 {
 	uint32_t i, j, node_idx;
 	struct net_dev_t *dev;
-	const struct node_t *node;
+	struct node_t *node;
 
-	dev = stack->nt->device_head;
+	dev = ip_stack->nt->device_head;
 	for (j = 0, node_idx = 0; j < g_num_dpa_eth_ports; j++) {
 		for (i = 0; i < local_node_count[j]; i++) {
-			node = &local_nodes[node_idx];
+			node = &loc_nodes[node_idx];
 			if (dev == NULL) {
-				dev = stack->nt->device_head;
+				dev = ip_stack->nt->device_head;
 			}
 
-			if (0 > add_arp_entry(stack->arp_table, dev, node)) {
+			if (0 > add_arp_entry(ip_stack->arp_table, dev, node)) {
 				APP_ERROR("%s: failed to add ARP entry",
 					  __func__);
 				return -EINVAL;
@@ -692,43 +685,43 @@ struct ip_statistics_t *ipfwd_stats_init(void)
  \param[in] struct ip_stack_t * IPFwd Stack pointer
  \param[out] Return Status
  */
-static int32_t initialize_ip_stack(struct ip_stack_t *stack)
+static int32_t initialize_ip_stack(struct ip_stack_t *ip_stack)
 {
-	stack->arp_table = arp_table_create();
-	if (!(stack->arp_table)) {
+	ip_stack->arp_table = arp_table_create();
+	if (!(ip_stack->arp_table)) {
 		APP_ERROR("Failed to create ARP Table");
 		return -1;
 	}
-	if (!(neigh_table_init(stack->arp_table))) {
+	if (!(neigh_table_init(ip_stack->arp_table))) {
 		APP_ERROR("Failed to init ARP Table");
 		return -1;
 	}
-	stack->rt = rt_create();
-	if (!(stack->rt)) {
+	ip_stack->rt = rt_create();
+	if (!(ip_stack->rt)) {
 		APP_ERROR("Failed in Route table initialized");
 		return -1;
 	}
-	stack->rc = rc_create(IP_RC_EXPIRE_JIFFIES, IP_ADDRESS_BYTES);
-	if (!(stack->rc)) {
+	ip_stack->rc = rc_create(IP_RC_EXPIRE_JIFFIES, IP_ADDRESS_BYTES);
+	if (!(ip_stack->rc)) {
 		APP_ERROR("Failed in Route cache initialized");
 		return -1;
 	}
-	stack->hooks = ip_hooks_create();
-	if (!(stack->hooks)) {
+	ip_stack->hooks = ip_hooks_create();
+	if (!(ip_stack->hooks)) {
 		APP_ERROR("Failed in IP Stack hooks initialized");
 		return -1;
 	}
-	stack->protos = ip_protos_create();
-	if (!(stack->protos)) {
+	ip_stack->protos = ip_protos_create();
+	if (!(ip_stack->protos)) {
 		APP_ERROR("IP Stack L4 Protocols initialized");
 		return -1;
 	}
-	stack->ip_stats = ipfwd_stats_init();
-	if (!(stack->ip_stats)) {
+	ip_stack->ip_stats = ipfwd_stats_init();
+	if (!(ip_stack->ip_stats)) {
 		APP_ERROR("Unable to allocate ip stats structure for stack");
 		return -1;
 	}
-	memset(stack->ip_stats, 0, sizeof(struct ip_statistics_t));
+	memset(ip_stack->ip_stats, 0, sizeof(struct ip_statistics_t));
 
 	APP_DEBUG("IP Statistics initialized\n");
 	return 0;
@@ -785,9 +778,47 @@ void process_req_from_mq(struct lwe_ctrl_op_info *sa_info)
 	return;
 }
 
+int receive_data(mqd_t mqdes)
+{
+	ssize_t size;
+	struct lwe_ctrl_op_info *ip_info = NULL;
+	struct mq_attr attr;
+	int _err = 0;
+
+	ip_info = (struct lwe_ctrl_op_info *)malloc
+			(sizeof(struct lwe_ctrl_op_info));
+	memset(ip_info, 0, sizeof(struct lwe_ctrl_op_info));
+
+	_err = mq_getattr(mqdes, &attr);
+	if (unlikely(_err)) {
+		APP_ERROR("%s: %dError getting MQ attributes\n",
+			 __FILE__, __LINE__);
+		goto error;
+	}
+	size = mq_receive(mqdes, (char *)ip_info, attr.mq_msgsize, 0);
+	if (unlikely(size == -1)) {
+		APP_ERROR("%s: %dRcv msgque error\n", __FILE__, __LINE__);
+		goto error;
+	}
+	process_req_from_mq(ip_info);
+	/* Sending result to application configurator tool */
+	_err = mq_send(mq_fd_snd, (const char *)ip_info,
+			sizeof(struct lwe_ctrl_op_info), 10);
+	if (unlikely(_err != 0)) {
+		APP_ERROR("%s: %d Error in sending msg on MQ\n",
+			__FILE__, __LINE__);
+		goto error;
+	}
+
+	return 0;
+error:
+	free(ip_info);
+	return _err;
+}
+
 void mq_handler(union sigval sval)
 {
-	APP_DEBUG("mq_handler called %d \n", sval.sival_int);
+	APP_DEBUG("mq_handler called %d\n", sval.sival_int);
 
 	receive_data(mq_fd_rcv);
 	mq_notify(mq_fd_rcv, &notification);
@@ -796,7 +827,7 @@ void mq_handler(union sigval sval)
 int create_mq(void)
 {
 	struct mq_attr attr_snd, attr_rcv;
-	int err;
+	int _err = 0, ret;
 
 	APP_DEBUG("Create mq: Enter");
 	memset(&attr_snd, 0, sizeof(attr_snd));
@@ -807,9 +838,10 @@ int create_mq(void)
 	mq_fd_snd = mq_open("/mq_snd", O_CREAT | O_WRONLY,
 				(S_IRWXU | S_IRWXG | S_IRWXO), &attr_snd);
 	if (mq_fd_snd == -1) {
-		APP_ERROR("%s: %d error in opening the msgque errno is %m\n",
-						__FILE__, __LINE__);
-		return -1;
+		APP_ERROR("%s: %dError opening SND MQ\n",
+				__FILE__, __LINE__);
+		_err = -errno;
+		goto error;
 	}
 
 	memset(&attr_rcv, 0, sizeof(attr_rcv));
@@ -819,23 +851,33 @@ int create_mq(void)
 	attr_rcv.mq_msgsize = 8192;
 	mq_fd_rcv = mq_open("/mq_rcv", O_CREAT | O_RDONLY, (S_IRWXU | S_IRWXG | S_IRWXO), &attr_rcv);
 	if (mq_fd_rcv == -1) {
-		APP_ERROR("%s: %d error in opening the msgque errno = %m\n",
-						__FILE__, __LINE__, errno);
-		return -1;
+		APP_ERROR("%s: %dError opening RCV MQ\n",
+				 __FILE__, __LINE__);
+		_err = -errno;
+		goto error;
 	}
 
 	notification.sigev_notify = SIGEV_THREAD;
 	notification.sigev_notify_function = mq_handler;
 	notification.sigev_value.sival_ptr = &mq_fd_rcv;
 	notification.sigev_notify_attributes = NULL;
-	 err =  mq_notify(mq_fd_rcv, &notification);
-	if (err) {
-		APP_ERROR("%sError in mq_notify call : errno = %m\n",
-				 __FILE__, errno);
-		return -1;
+	ret =  mq_notify(mq_fd_rcv, &notification);
+	if (ret) {
+		APP_ERROR("%s: %dError in mq_notify call\n",
+				 __FILE__, __LINE__);
+		_err = -errno;
+		goto error;
 	}
 	APP_DEBUG("Create mq: Exit");
 	return 0;
+error:
+	if (mq_fd_snd)
+		mq_close(mq_fd_snd);
+
+	if (mq_fd_rcv)
+		mq_close(mq_fd_rcv);
+
+	return _err;
 }
 
 int global_init(struct usdpa_netcfg_info *uscfg_info, int cpu, int first, int last)
@@ -930,45 +972,9 @@ int global_init(struct usdpa_netcfg_info *uscfg_info, int cpu, int first, int la
 	/* Populate static arp entries */
 	populate_arp_cache(&stack, local_nodes);
 	APP_INFO
-	    ("ARP Cache Populated, Stack pointer is %x and its size = %x",
+	    ("ARP Cache Populated, Stack pointer is %p and its size = %d",
 	     &stack, sizeof(stack));
 	APP_DEBUG("Global initialisation: Exit");
-
-	return 0;
-}
-
-int receive_data(mqd_t mqdes)
-{
-	ssize_t size;
-	struct lwe_ctrl_op_info *ip_info = NULL;
-	struct mq_attr attr;
-	int ret;
-
-	ip_info = (struct lwe_ctrl_op_info *)malloc(sizeof(struct lwe_ctrl_op_info));
-	memset(ip_info, 0, sizeof(struct lwe_ctrl_op_info));
-
-	ret = mq_getattr(mqdes, &attr);
-	if (ret) {
-		APP_ERROR("%s: %d error getting attributes of MQ: errno = %d\n",
-						__FILE__, __LINE__, errno);
-	}
-	size = mq_receive(mqdes, (char *)ip_info, attr.mq_msgsize, 0);
-	if (size == -1 && errno == EAGAIN) {
-		APP_ERROR("error 1 msgque errno = %m\n", errno);
-		APP_ERROR("%s: %d size = %x\n", __FILE__, __LINE__, size);
-		return -1;
-	}
-	if (size == -1) {
-		APP_ERROR("error in receiving on the msgque errno = %m \n", errno);
-		return -1;
-	}
-	process_req_from_mq(ip_info);
-	/* Sending result to application configurator tool */
-	ret = mq_send(mq_fd_snd, (const char *)ip_info, sizeof(struct lwe_ctrl_op_info), 10);
-	if (ret != 0) {
-		APP_ERROR("%s : %d error in sending mesage on MQ: errno = %m \n",
-				__FILE__, __LINE__, errno);
-	}
 
 	return 0;
 }
@@ -1069,7 +1075,6 @@ int main(int argc, char *argv[])
 	long ncpus;
 	int err, ret;
 	struct usdpa_netcfg_info *uscfg_info;
-	uint32_t port_id, bpool_id;
 
 	/* Get the number of cpus */
 	ncpus = sysconf(_SC_NPROCESSORS_ONLN);
@@ -1105,7 +1110,6 @@ int main(int argc, char *argv[])
 	}
 
 	APP_INFO("\n** Welcome to IPFWD application! **");
-	APP_INFO("Number of CPUs: %d", ncpus);
 
 	uscfg_info = usdpa_netcfg_acquire(argv[2], argv[3]);
 	if (uscfg_info == NULL) {
@@ -1129,8 +1133,6 @@ int main(int argc, char *argv[])
 	err = start_threads(thread_data, last - first + 1, first, worker_fn);
 	if (err != 0)
 		APP_INFO("start_threads failed");
-
-	APP_INFO("Frames to be recv on channel map: 0x%x", recv_channel_map);
 
 	APP_INFO("Waiting for Configuration Command");
 	/* Wait for initial IPFWD related configuration to be done */

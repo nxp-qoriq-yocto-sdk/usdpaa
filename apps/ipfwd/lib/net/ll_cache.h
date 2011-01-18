@@ -28,9 +28,9 @@
 #ifndef _LIB_NET_LL_CACHE_H
 #define _LIB_NET_LL_CACHE_H   1
 
+#include "common/common.h"
 #include <stdint.h>
 #include "string.h"
-#include "common/common.h"
 #include "net/net.h"
 
 /**

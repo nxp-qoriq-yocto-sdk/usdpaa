@@ -28,9 +28,9 @@
 #ifndef LIB_COMMON_REFCOUNT_H
 #define LIB_COMMON_REFCOUNT_H 1
 
+#include <compat.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <compat.h>
 #include "statistics.h"
 #include <bigatomic.h>
 

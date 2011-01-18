@@ -28,9 +28,9 @@
 #ifndef __LIB_ETHERNET_ETH_H
 #define __LIB_ETHERNET_ETH_H
 
+#include "compat.h"
 #include <stdint.h>
 #include <stdbool.h>
-#include "compat.h"
 #include "net/net_dev.h"
 
 /**

@@ -28,15 +28,15 @@
 #ifndef __LIB_ARP_ARP_H
 #define __LIB_ARP_ARP_H
 
-#include <stdint.h>
-#include <stdbool.h>
-#include "compiler.h"
-#include "net/net_dev.h"
 #include "net/neigh.h"
+#include "net/net_dev.h"
+#include "compiler.h"
 #include "net/annotations.h"
 #include "ip/ip.h"
 
 extern struct ip_stack_t stack;
+extern struct net_dev_t *ipfwd_get_dev_for_ip(unsigned int ip_addr);
+extern int is_iface_ip(uint32_t ip_addr);
 
 #define	ARP_HDR_LEN	28	/**<ARP Header Length */
 #define	ARP_HTYPE_ETH	1	/**<Link layer protocol type Ethenet */

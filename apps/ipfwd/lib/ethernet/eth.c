@@ -24,10 +24,6 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <stddef.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include "string.h"
 #include "ethernet/eth.h"
 #include "net/net_dev.h"
 #include "net/ll_cache.h"

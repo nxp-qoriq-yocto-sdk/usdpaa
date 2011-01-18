@@ -29,8 +29,6 @@
 #ifndef __LIB_IP_IP_H
 #define __LIB_IP_IP_H
 
-#include <stdint.h>
-#include <stdbool.h>
 #include "ethernet/eth.h"
 
 #define IP_ADDRESS_BYTES                (4)

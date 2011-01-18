@@ -28,6 +28,7 @@
 
 #include <stdbool.h>
 #include <net/ethernet.h>
+#include <usdpa_netcfg.h>
 
 #define MAX_NUM_FQ      1024
 #define MAX_NUM_PORTS	12
@@ -82,3 +83,11 @@ struct td_param {
 	qman_cb_cgr cgr_cb;
 } __packed;
 
+extern int init_interface(struct usdpa_netcfg_info *cfg_ptr,
+		      uint32_t *recv_channel_map,
+		      struct qman_fq_cb *rx_default_cb,
+		      struct qman_fq_cb *rx_pcd_cb,
+		      struct qman_fq_cb *rx_err_cb,
+		      struct qman_fq_cb *tx_cb,
+		      struct qman_fq_cb *tx_confirm_cb,
+		      struct qman_fq_cb *tx_err_cb, uint32_t priv_data_size);

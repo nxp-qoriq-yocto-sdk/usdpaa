@@ -24,9 +24,6 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <string.h>
-#include <stdbool.h>
-#include <stdint.h>
 #include <compat.h>
 #include <bigatomic.h>
 #include "compiler.h"
@@ -43,7 +40,9 @@ void ip_handler(struct fq_context_t *ctxt, struct annotations_t *notes,
 		void *data)
 {
 	struct ip_header_t *ip_hdr;
+#ifdef STATS_TBD
 	struct ip_context_t *ip_ctxt = (struct ip_context_t *)ctxt;
+#endif
 
 	markpoint(6);
 #ifdef STATS_TBD

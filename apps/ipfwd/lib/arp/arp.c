@@ -24,10 +24,8 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <stdint.h>
 #include "arp.h"
 #include <linux/if_ether.h>
-#include "net/neigh.h"
 #include "ip/ip_common.h"
 #include "ether.h"
 #undef ARP_ENABLE
@@ -78,12 +76,12 @@ uint32_t arp_handle_request(struct ethernet_header_t *eth_hdr,
 	return 0;
 }
 
-int add_arp_entry(struct neigh_table_t *arp_table, struct net_dev_t *dev,
+int add_arp_entry(struct neigh_table_t *arp_tab, struct net_dev_t *dev,
 			struct node_t *node)
 {
 	struct neigh_t *n;
 
-	n = neigh_create(arp_table);
+	n = neigh_create(arp_tab);
 	if (NULL == n) {
 		APP_ERROR("%s: Unable to create Neigh Entry", __func__);
 		return -EINVAL;
@@ -97,12 +95,12 @@ int add_arp_entry(struct neigh_table_t *arp_table, struct net_dev_t *dev,
 		}
 	}
 
-	if (NULL == neigh_init(arp_table, n, dev,
+	if (NULL == neigh_init(arp_tab, n, dev,
 				(uint32_t *) &node->ip.word)) {
 		APP_ERROR("%s: Unable to init Neigh Entry", __func__);
 		return -EINVAL;
 	}
-	if (false == neigh_add(arp_table, n)) {
+	if (false == neigh_add(arp_tab, n)) {
 		APP_ERROR("%s: Unable to add Neigh Entry", __func__);
 		return -EINVAL;
 	}
@@ -177,8 +175,8 @@ void arp_handler(struct annotations_t *notes, void *data)
 	if (!merge_flag) {
 		memcpy(new_node.mac.bytes,
 			(uint8_t *) &arp_hdr->arp_senderaddr, ETH_ADDR_LEN);
-		memcpy(new_node.ip.word,
-			(uint8_t *) &arp_hdr->arp_senderip, IP_ADDRESS_BYTES);
+		memcpy(&new_node.ip.word,
+			 (uint8_t *) &arp_hdr->arp_senderip, IP_ADDRESS_BYTES);
 		if (0 > add_arp_entry(stack.arp_table, NULL, &new_node)) {
 			APP_ERROR("%s: failed to add ARP entry", __func__);
 			free_buff(notes->fd);

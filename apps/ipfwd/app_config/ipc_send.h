@@ -91,15 +91,6 @@ static struct argp_option route_del_options[] = {
 	{0, 0, 0, 0, 0, 0}
 };
 
-static struct argp_option intf_conf_options[] = {
-	{"i", 'i', "IFNAME", 0, "If Name", 0},
-	{"a", 'a', "IPADDR", 0, "IP Address", 0},
-	{"m", 'm', "MACADDR", 0, "MAC Address", 0},
-	{"t", 't', "MTU", 0, "MTU", 0},
-	{"e", 'e', "ENABLE", 0, "Admin Status - true/ false", 0},
-	{0, 0, 0, 0, 0, 0}
-};
-
 #define LWE_CTRL_PARAM_BMASK_ARP_IPADDR		(1 << 0)	/**< Bit Mask for ARP IP Address */
 #define LWE_CTRL_PARAM_BMASK_ARP_MACADDR		(1 << 1)	/**< Bit Mask for MAC Address */
 #define LWE_CTRL_PARAM_BMASK_ARP_REPLACE		(1 << 2)	/**< Bit Mask for Replace variable */
@@ -127,10 +118,5 @@ static struct argp_option arp_del_options[] = {
 
 static struct argp_option framecnt_edit_options[] = {
 	{"n", 'n', "FRAMECNT", 0, "Frame Count", 0},
-	{0, 0, 0, 0, 0, 0}
-};
-
-static struct argp_option intf_init_options[] = {
-	{"i", 'i', "IFNAME", 0, "If Name", 0},
 	{0, 0, 0, 0, 0, 0}
 };

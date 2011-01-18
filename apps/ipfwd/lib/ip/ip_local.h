@@ -54,7 +54,8 @@ enum IP_STATUS ip_local_deliver(struct ip_context_t *ctxt,
  */
 enum IP_STATUS ip_local_deliver_finish(struct ip_context_t *ctxt,
 				       struct annotations_t *notes,
-				       struct ip_header_t *ip_hdr);
+				       struct ip_header_t *ip_hdr,
+				       enum state source);
 
 /**
  \brief Defragment a datagram

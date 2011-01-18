@@ -25,7 +25,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "ip/ip_hooks.h"
-#include "mm/mem_cache.h"
 
 struct ip_hooks_t *ip_hooks_create(void)
 {

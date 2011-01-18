@@ -62,6 +62,7 @@ enum IP_STATUS ip_output(struct ip_context_t *ctxt,
  */
 enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt,
 				struct annotations_t *notes,
-				struct ip_header_t *ip_hdr);
+				struct ip_header_t *ip_hdr,
+				enum state source);
 
 #endif /* ifndef LIB_IP_IP_OUTPUT_H */

@@ -25,12 +25,9 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <stdint.h>
-#include <stddef.h>
 #include "net/net_dev.h"
 #include "malloc.h"
 #include <assert.h>
-#include "compat.h"
 
 struct net_dev_table_t *net_dev_init()
 {

@@ -146,8 +146,6 @@
 
  DELETING ENTRIES
  */
-#include <stdint.h>
-#include <stddef.h>
 #include "ip/ip_rc.h"
 #ifdef IP_RCU_ENABLE
 #include "rcu_lock.h"
@@ -178,14 +176,14 @@ struct rt_dest_t *__rc_lookup(struct rc_t *rc,
 struct rc_entry_t *rc_entry_fast_lookup(struct rc_t *rc,
 					uint32_t saddr,
 					uint32_t daddr,
-					uint8_t tos, uint32_t index)
+					uint8_t tos, uint32_t idx)
 {
 	struct rc_entry_t *entry = NULL;
 	struct rc_entry_t **entry_ptr;
 	struct rc_bucket_t *bucket;
 
-	assert(index < RC_BUCKETS);
-	bucket = &(rc->buckets[index]);
+	assert(idx < RC_BUCKETS);
+	bucket = &(rc->buckets[idx]);
 #ifdef IP_RCU_ENABLE
 	rcu_read_lock();
 #endif
@@ -339,13 +337,13 @@ struct rt_dest_t *rc_lookup(struct rc_t *rc, uint32_t saddr, uint32_t daddr,
 }
 
 struct rt_dest_t *rc_fast_lookup(struct rc_t *rc, uint32_t saddr,
-				 uint32_t daddr, uint8_t tos, uint32_t index)
+				 uint32_t daddr, uint8_t tos, uint32_t idx)
 {
 	struct rc_bucket_t *bucket;
 	struct rt_dest_t *dest;
 
-	assert(index < RC_BUCKETS);
-	bucket = &(rc->buckets[index]);
+	assert(idx < RC_BUCKETS);
+	bucket = &(rc->buckets[idx]);
 	dest = __rc_lookup(rc, bucket, saddr, daddr, tos);
 	/*
 	   Do not need to hold a reference here - it is not held across

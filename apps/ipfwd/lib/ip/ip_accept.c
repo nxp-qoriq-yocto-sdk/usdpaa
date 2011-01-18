@@ -27,7 +27,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdint.h>
 #include "ip/ip_accept.h"
 #include "ip/ip_common.h"
 #include "ip/ip_hooks.h"

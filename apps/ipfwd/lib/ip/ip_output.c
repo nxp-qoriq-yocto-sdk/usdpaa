@@ -24,10 +24,8 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <stdbool.h>
-#include <stdint.h>
-#include "app_common.h"
 #include "net/neigh.h"
+#include "app_common.h"
 #include "ip/ip.h"
 #include "net/rt.h"
 #include "ip/ip_common.h"
@@ -41,7 +39,6 @@
 #include "ip/ip_common.h"
 #include "arp/arp.h"
 #include <linux/if_ether.h>
-#include "compat.h"
 #include <assert.h>
 
 #ifdef NOT_USDPAA
@@ -83,9 +80,6 @@ void arp_retransmit_cb(uint32_t timer_id, void *p_data)
 	}
 }
 #endif
-static void __ip_fragment(struct ip_context_t *ctxt,
-			  struct annotations_t *notes,
-			  struct ip_header_t *ip_hdr, uint32_t mtu);
 
 /*
  * If packet length > next_hop mtu, call ip_fragment
@@ -119,14 +113,17 @@ enum IP_STATUS ip_output(struct ip_context_t *ctxt,
  */
 enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt __UNUSED,
 				struct annotations_t *notes,
-				struct ip_header_t *ip_hdr)
+				struct ip_header_t *ip_hdr,
+				enum state source)
 {
 	struct ll_cache_t *ll_cache;
 	struct neigh_t *neighbor;
 	struct net_dev_t *dev;
 	enum IP_STATUS retval;
 	struct ethernet_header_t *ll_hdr;
+#ifdef NOT_USDPAA
 	uint32_t timer_id;
+#endif
 #ifdef IPSECFWD_HYBRID_GENERATOR
 	uint8_t mac_temp[6];
 	uint32_t temp;
@@ -189,22 +186,4 @@ enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt __UNUSED,
 	}
 
 	return retval;
-}
-
-/**
- \brief Fragments the IP Packet based on the MTU
- \param[in] ctxt IP Context
- \param[in] notes Annotations
- \param[in] ip_hdr Pointer to the IP Header
- \param[in] mtu MTU
- */
-static void __ip_fragment(struct ip_context_t *ctxt,
-			  struct annotations_t *notes,
-			  struct ip_header_t *ip_hdr __UNUSED,
-			  uint32_t mtu __UNUSED)
-{
-#ifdef STATS_TBD
-	decorated_notify_inc_64(&(ctxt->stats->ip_output_create_fragments));
-#endif
-	free_buff(notes->fd);
 }

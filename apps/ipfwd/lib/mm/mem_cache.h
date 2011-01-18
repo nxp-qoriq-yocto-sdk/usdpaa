@@ -28,10 +28,10 @@
 #ifndef __LIB_MM_MEM_CACHE_H
 #define __LIB_MM_MEM_CACHE_H 1
 
+#include "compat.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include "compat.h"
 
 /*!
  We assume that our caches cannot ever grow or shrink in size, so the

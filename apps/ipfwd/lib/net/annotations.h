@@ -29,7 +29,6 @@
 #define LIB_COMMON_ANNOTATIONS_H 1
 
 #include "compat.h"
-#include <stdint.h>
 #include "frame_desc.h"
 #include <linux/fsl_qman.h>
 #include "rt.h"

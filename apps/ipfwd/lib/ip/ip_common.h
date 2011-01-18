@@ -28,9 +28,9 @@
 #ifndef __LIB_IP_IP_COMMON_H
 #define __LIB_IP_IP_COMMON_H
 
+#include "ip/ip.h"
 #include <stdbool.h>
 #include "statistics.h"
-#include "ip/ip.h"
 
 /**
 \brief Status values

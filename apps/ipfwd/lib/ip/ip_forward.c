@@ -25,9 +25,9 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#include "ip/ip_common.h"
 #include <stdint.h>
 #include "app_common.h"
-#include "ip/ip_common.h"
 #include "ip/ip_context.h"
 #include "ip/ip_forward.h"
 #include "ip/ip_output.h"
@@ -94,7 +94,8 @@ enum IP_STATUS ip_forward(struct ip_context_t *ctxt,
 
 enum IP_STATUS ip_forward_finish(struct ip_context_t *ctxt,
 				 struct annotations_t *notes,
-				 struct ip_header_t *ip_hdr)
+				 struct ip_header_t *ip_hdr,
+				 enum state source)
 {
 	markpoint(12);
 #ifdef STATS_TBD
