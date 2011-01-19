@@ -32,7 +32,6 @@
 
 #include <compat.h>
 #include <libxml/parser.h>
-#include <of.h>
 #include "fmc_netcfg_parser.h"
 
 #define CFG_FILE_ROOT_NODE		("cfgdata")
@@ -93,9 +92,9 @@ static void fmc_netcfg_parse_error(void *ctx, xmlErrorPtr error)
 			ctx, error);
 }
 
-static inline bool is_node(xmlNodePtr node, xmlChar *name)
+static inline int is_node(xmlNodePtr node, xmlChar *name)
 {
-	return xmlStrcmp(node->name, name) ? false : true;
+	return xmlStrcmp(node->name, name) ? 0 : 1;
 }
 
 static void *get_attributes(xmlNodePtr node, xmlChar *attr)
@@ -257,55 +256,63 @@ static int rxdefinfo(char *dist_name, uint32_t *rxdef)
 static int parse_policy(xmlNodePtr cur, struct fmc_netcfg_fqs *fqs)
 {
 	char *name;
-	int _errno = -ENXIO;
 	xmlNodePtr distp;
 	xmlNodePtr dist_node;
 
 	distp = cur->xmlChildrenNode;
 	while (distp) {
-		if (unlikely(!is_node(distp,
-					BAD_CAST NPCD_POLICY_DISTORDER_NODE))) {
-			distp = distp->next;
-			continue;
-		}
-
-		dist_node = distp->xmlChildrenNode;
-		if (unlikely(dist_node == NULL)) {
-			fprintf(stderr, "%s:%hu:%s() error: (Node(%s) have no "
-				"child node\n", __FILE__, __LINE__, __func__,
-				distp->name);
-			return -EINVAL;
-		}
-		/* FIXME:  Assuming that PCD FQs will always be first entry
-		 * and default FQ range will be next entry
-		 */
-		name = distribution_ref(dist_node);
-		if (unlikely(name == NULL))
+		if (likely(is_node(distp, BAD_CAST NPCD_POLICY_DISTORDER_NODE)))
 			break;
-
-		_errno = pcdinfo(name, &fqs->pcd);
-		if (unlikely(_errno))
-			break;
-
-		dist_node = dist_node->next;
-		if (unlikely(dist_node == NULL)) {
-			fprintf(stderr, "%s:%hu:%s() error: Node RXdef not"
-				" found in Node(%s)\n", __FILE__, __LINE__,
-				__func__, distp->name);
-			return -EINVAL;
-		}
-
-		name = distribution_ref(dist_node);
-		if (unlikely(name == NULL))
-			break;
-
-		_errno = rxdefinfo(name, &fqs->rxdef);
-		break;
+		distp = distp->next;
 	}
-	return _errno;
+	if (unlikely(distp == NULL)) {
+		fprintf(stderr, "%s:%hu:%s() error: (Node(%s) not found\n",
+			__FILE__, __LINE__, __func__,
+			NPCD_POLICY_DISTORDER_NODE);
+		return -ENXIO;
+	}
+
+	dist_node = distp->xmlChildrenNode;
+	if (unlikely(dist_node == NULL)) {
+		fprintf(stderr, "%s:%hu:%s() error: (Node(%s) have no "
+			"child node\n", __FILE__, __LINE__, __func__,
+			distp->name);
+		return -ENXIO;
+	}
+	/* FIXME:  Assuming that PCD FQs will always be first entry
+	 * and default FQ range will be next entry
+	 */
+	name = distribution_ref(dist_node);
+	if (unlikely(name == NULL))
+		return -ENXIO;
+
+	if(pcdinfo(name, &fqs->pcd)) {
+		fprintf(stderr, "%s:%hu:%s() error: PCD %s information not"
+			" found\n", __FILE__, __LINE__, __func__, name);
+		return -ENXIO;
+	}
+
+	dist_node = dist_node->next;
+	if (unlikely(dist_node == NULL)) {
+		fprintf(stderr, "%s:%hu:%s() error: Node RXdef not"
+			" found in Node(%s)\n", __FILE__, __LINE__,
+			__func__, distp->name);
+		return -EINVAL;
+	}
+
+	name = distribution_ref(dist_node);
+	if (unlikely(name == NULL))
+		return -ENXIO;
+
+	if (rxdefinfo(name, &fqs->rxdef)) {
+		fprintf(stderr, "%s:%hu:%s() error: DEFRX %s information not"
+			" found\n", __FILE__, __LINE__, __func__, name);
+		return -ENXIO;
+	}
+	return 0;
 }
 
-static int process_pcdfile(char *filename, char *policy_name,
+static int process_pcdfile(const char *filename, char *policy_name,
 				struct fmc_netcfg_fqs *fqs)
 {
 	xmlErrorPtr error;
@@ -358,7 +365,7 @@ static int process_pcdfile(char *filename, char *policy_name,
 	return _errno;
 }
 
-static int parse_engine(xmlNodePtr enode, char *pcd_file)
+static int parse_engine(xmlNodePtr enode, const char *pcd_file)
 {
 	int _errno = -ENXIO;
 	struct interface_info *i_info;
@@ -463,7 +470,7 @@ static inline uint8_t get_num_of_interface(xmlNodePtr cur)
 	return count;
 }
 
-static int parse_cfgfile(char *cfg_file, char *pcd_file)
+static int parse_cfgfile(const char *cfg_file, const char *pcd_file)
 {
 	xmlErrorPtr error;
 	xmlNodePtr fman_node;
@@ -526,7 +533,7 @@ static int parse_cfgfile(char *cfg_file, char *pcd_file)
 	return _errno;
 }
 
-int fmc_netcfg_parser_init(char *pcd_file, char *cfg_file)
+int fmc_netcfg_parser_init(const char *pcd_file, const char *cfg_file)
 {
 	int _errno;
 	if (unlikely(pcd_file == NULL) || unlikely(cfg_file == NULL))
