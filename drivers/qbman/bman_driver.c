@@ -102,17 +102,24 @@ void bm_pool_free(u32 bpid)
 static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 {
 	struct bm_portal_config cfg, *pconfig;
-	char name[8], *path;
+	int suffix = 0;
+	char name[20]; /* Big enough for "/dev/bman-uio-99:99" */
 
-	snprintf(name, 7, "BMAN%d", cpu);
-	path = getenv(name);
-	if (!path) {
-		pr_err("Bman cpu %d needs %s set\n", cpu, name);
-		return -ENODEV;
-	}
-	fd = open(path, O_RDWR);
+	/* Loop the possible portal devices for the required cpu until we
+	 * succeed or fail with something other than -EBUSY=="in use". */
+	do {
+		int numchars;
+		if (!suffix)
+			numchars = snprintf(name, 19, "/dev/bman-uio-%d", cpu);
+		else
+			numchars = snprintf(name, 19, "/dev/bman-uio-%d:%d",
+				cpu, suffix);
+		name[numchars] = '\0';
+		fd = open(name, O_RDWR);
+		suffix++;
+	} while (fd == -EBUSY);
 	if (fd < 0) {
-		perror("can't open Bman portal UIO device");
+		perror("no available Bman portal device");
 		return -ENODEV;
 	}
 	cfg.addr.addr_ce = mmap(BMAN_CENA(cpu), 16*1024,

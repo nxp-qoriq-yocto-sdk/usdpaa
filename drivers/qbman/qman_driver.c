@@ -98,17 +98,24 @@ static const struct qman_fq_cb null_cb = {
 static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 {
 	struct qm_portal_config cfg, *pconfig;
-	char name[8], *path;
+	int suffix = 0;
+	char name[20]; /* Big enough for "/dev/qman-uio-99:99" */
 
-	snprintf(name, 7, "QMAN%d", cpu);
-	path = getenv(name);
-	if (!path) {
-		pr_err("Qman cpu %d needs %s set\n", cpu, name);
-		return -ENODEV;
-	}
-	fd = open(path, O_RDWR);
+	/* Loop the possible portal devices for the required cpu until we
+	 * succeed or fail with something other than -EBUSY=="in use". */
+	do {
+		int numchars;
+		if (!suffix)
+			numchars = snprintf(name, 19, "/dev/qman-uio-%d", cpu);
+		else
+			numchars = snprintf(name, 19, "/dev/qman-uio-%d:%d",
+				cpu, suffix);
+		name[numchars] = '\0';
+		fd = open(name, O_RDWR);
+		suffix++;
+	} while (fd == -EBUSY);
 	if (fd < 0) {
-		perror("can't open Qman portal UIO device");
+		perror("no available Qman portal device");
 		return -ENODEV;
 	}
 	cfg.addr.addr_ce = mmap(QMAN_CENA(cpu), 16*1024, PROT_READ | PROT_WRITE,
