@@ -189,11 +189,12 @@ retry:
 	}
 }
 
-static inline void send_frame(struct qman_fq *fq, const struct qm_fd *fd)
+static inline void send_frame(u32 fqid, const struct qm_fd *fd)
 {
 	int ret;
+	local_fq.fqid = fqid;
 retry:
-	ret = qman_enqueue(fq, fd, 0);
+	ret = qman_enqueue(&local_fq, fd, 0);
 	if (ret) {
 		cpu_spin(RFL_BACKOFF_CYCLES);
 		goto retry;
@@ -342,11 +343,10 @@ static enum qman_cb_dqrr_result cb_dqrr_2fwd(
 		iphdr->saddr = tmp;
 		/* switch ethernet src/dest MAC addresses */
 		ether_header_swap(prot_eth);
-		local_fq.fqid = p->tx_fqid;
 		TRACE("Tx: 2fwd	 fqid=%d\n", p->tx_fqid);
 		TRACE("	     phys=0x%08x, offset=%d, len=%d, bpid=%d\n",
 			fd->addr_lo, fd->offset, fd->length20, fd->bpid);
-		send_frame(&local_fq, fd);
+		send_frame(p->tx_fqid, fd);
 		}
 		return qman_cb_dqrr_consume;
 	case ETH_P_ARP:
