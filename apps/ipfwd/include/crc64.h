@@ -5,7 +5,7 @@
 */
 
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -335,9 +335,9 @@ static inline uint64_t
 crc64_compute_word(uint32_t data, uint64_t seed)
 {
 	uint64_t crc = seed;
-	uint8_t bdata[4];
+	uint8_t *bdata;
 
-	*((uint32_t *) bdata) = data;
+	bdata = (uint8_t *) &data;
 
 	crc =
 	    CRC64_ECMA_182.table[(crc ^ bdata[0]) & CRC64_BYTE_MASK] ^ (crc >>
@@ -371,9 +371,9 @@ static inline uint64_t
 crc64_compute_hword(uint16_t data, uint64_t seed)
 {
 	uint64_t crc = seed;
-	uint8_t bdata[2];
+	uint8_t *bdata;
 
-	*((uint16_t *) bdata) = data;
+	bdata = (uint8_t *) &data;
 
 	crc =
 	    CRC64_ECMA_182.table[(crc ^ bdata[0]) & CRC64_BYTE_MASK] ^ (crc >>
