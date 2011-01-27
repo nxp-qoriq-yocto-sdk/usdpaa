@@ -1,4 +1,4 @@
-/* Copyright (c) 2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010,2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -56,19 +56,6 @@
 #define RFL_CGR_RX_PERFQ_THRESH	32
 #define RFL_CGR_TX_PERFQ_THRESH 64
 #define RFL_BACKOFF_CYCLES	512
-
-static const struct bman_bpid_range bpid_range[] =
-	{ {FSL_BPID_RANGE_START, FSL_BPID_RANGE_LENGTH} };
-static const struct bman_bpid_ranges bpid_allocator = {
-	.num_ranges = 1,
-	.ranges = bpid_range
-};
-static const struct qman_fqid_range fqid_range[] =
-	{ {FSL_FQID_RANGE_START, FSL_FQID_RANGE_LENGTH} };
-static const struct qman_fqid_ranges fqid_allocator = {
-	.num_ranges = 1,
-	.ranges = fqid_range
-};
 
 /* application options */
 #undef RFL_2FWD_HOLDACTIVE	/* process each FQ on one cpu at a time */
@@ -1138,14 +1125,6 @@ int main(int argc, char *argv[])
 			QM_SDQCR_CHANNELS_POOL_CONV(cfg->pool_channels[loop]),
 			sdqcr);
 	}
-	/* Set up the bpid allocator */
-	rcode = bman_setup_allocator(0, &bpid_allocator);
-	if (rcode)
-		fprintf(stderr, "error: BPID init, continuing\n");
-	/* Set up the fqid allocator */
-	rcode = qman_setup_allocator(0, &fqid_allocator);
-	if (rcode)
-		fprintf(stderr, "error: FQID init, continuing\n");
 	/* - map shmem */
 	TRACE("Initialising shmem\n");
 	rcode = dma_mem_setup();
