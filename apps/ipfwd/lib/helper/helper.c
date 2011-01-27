@@ -3,7 +3,7 @@
  \brief helper functions
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 #include <linux/fsl_qman.h>
 #include <app_common.h>
 #include <dma_mem.h>
+#include <fman.h>
 
 struct ipfwd_eth_t ipfwd_fq_range[MAX_NUM_PORTS]; /* num of ports */
 #define SIZE_TO_STASH_LINES(s) ((s >> 6) + ((s & 0x3F) ? 1 : 0))
@@ -126,19 +127,19 @@ static int ipfwd_fq_create(struct usdpa_netcfg_info *cfg_ptr,
 {
 	uint32_t port_id;
 	struct fm_eth_port_cfg *p_cfg;
-	struct fm_ethport_fq *pfq;
+	const struct fman_if *fif;
 	uint32_t flags;
 	int ret;
 
 	APP_DEBUG("IPFWD FQ CREATE: Enter");
 	for (port_id = 0; port_id < g_num_dpa_eth_ports; port_id++) {
 		p_cfg = &cfg_ptr->port_cfg[port_id];
-		pfq = &p_cfg->fq;
+		fif = p_cfg->fman_if;
 		/* Assigning fqid as not using FQID allocator for TX FQ */
 		ipfwd_fq_range[port_id].tx.fq_start = IPFWD_FQID_TX(port_id);
 		ipfwd_fq_range[port_id].tx.fq_count = 1;
 		ipfwd_fq_range[port_id].tx.work_queue = 1;
-		ipfwd_fq_range[port_id].tx.channel = p_cfg->qm_tx_channel_id;
+		ipfwd_fq_range[port_id].tx.channel = fif->tx_channel_id;
 		flags = QMAN_FQ_FLAG_LOCKED | QMAN_FQ_FLAG_TO_DCPORTAL;
 		ret = create_fqs(&ipfwd_fq_range[port_id].tx, flags,
 				 tx_cb, "Tx default", priv_data_size);
@@ -148,7 +149,7 @@ static int ipfwd_fq_create(struct usdpa_netcfg_info *cfg_ptr,
 		}
 
 		/* This would come from config */
-		ipfwd_fq_range[port_id].rx_def.fq_start = pfq->rx_def;
+		ipfwd_fq_range[port_id].rx_def.fq_start = p_cfg->rx_def;
 		ipfwd_fq_range[port_id].rx_def.fq_count = 1;
 		ipfwd_fq_range[port_id].rx_def.work_queue = 3;
 		ipfwd_fq_range[port_id].rx_def.channel =
@@ -161,7 +162,7 @@ static int ipfwd_fq_create(struct usdpa_netcfg_info *cfg_ptr,
 			return -1;
 		}
 
-		ipfwd_fq_range[port_id].rx_err.fq_start = pfq->rx_err;
+		ipfwd_fq_range[port_id].rx_err.fq_start = fif->fqid_rx_err;
 		ipfwd_fq_range[port_id].rx_err.fq_count = 1;
 		ipfwd_fq_range[port_id].rx_err.work_queue = 1;
 		ipfwd_fq_range[port_id].rx_err.channel =
@@ -173,8 +174,8 @@ static int ipfwd_fq_create(struct usdpa_netcfg_info *cfg_ptr,
 			return -1;
 		}
 
-		ipfwd_fq_range[port_id].pcd.fq_start = pfq->pcd.start;
-		ipfwd_fq_range[port_id].pcd.fq_count = pfq->pcd.count;
+		ipfwd_fq_range[port_id].pcd.fq_start = p_cfg->pcd.start;
+		ipfwd_fq_range[port_id].pcd.fq_count = p_cfg->pcd.count;
 		ipfwd_fq_range[port_id].pcd.work_queue = 3;
 		ipfwd_fq_range[port_id].pcd.channel =
 				cfg_ptr->pool_channels[port_id];
@@ -186,7 +187,7 @@ static int ipfwd_fq_create(struct usdpa_netcfg_info *cfg_ptr,
 		}
 
 		ipfwd_fq_range[port_id].tx_err.fq_start =
-					pfq->tx_err;
+					fif->fqid_tx_err;
 		ipfwd_fq_range[port_id].tx_err.fq_count = 1;
 		ipfwd_fq_range[port_id].tx_err.work_queue = 1;
 		ipfwd_fq_range[port_id].tx_err.channel =
@@ -199,7 +200,7 @@ static int ipfwd_fq_create(struct usdpa_netcfg_info *cfg_ptr,
 		}
 
 		ipfwd_fq_range[port_id].tx_confirm.fq_start =
-					pfq->tx_confirm;
+					fif->fqid_tx_confirm;
 		ipfwd_fq_range[port_id].tx_confirm.fq_count = 1;
 		ipfwd_fq_range[port_id].tx_confirm.work_queue = 1;
 		ipfwd_fq_range[port_id].tx_confirm.channel =
@@ -391,8 +392,8 @@ int init_interface(struct usdpa_netcfg_info *cfg_ptr,
 {
 	uint32_t port_id;
 	struct fm_eth_port_cfg *p_cfg;
+	const struct fman_if *fif;
 	int32_t recv_channel_id;
-	struct fm_ethport_fq *pfq;
 	struct td_param pcd_td_param;
 	struct td_param *pcd_td_ptr = NULL;
 
@@ -404,9 +405,9 @@ int init_interface(struct usdpa_netcfg_info *cfg_ptr,
 	g_num_dpa_eth_ports = cfg_ptr->num_ethports;
 	for (port_id = 0; port_id < g_num_dpa_eth_ports; port_id++) {
 		p_cfg = &cfg_ptr->port_cfg[port_id];
-		pfq = &p_cfg->fq;
+		fif = p_cfg->fman_if;
 		memcpy(&ipfwd_fq_range[port_id].mac_addr,
-			p_cfg->fm_mac_addr.ether_addr_octet, ETHER_ADDR_LEN);
+			fif->mac_addr.ether_addr_octet, ETHER_ADDR_LEN);
 		recv_channel_id = cfg_ptr->pool_channels[port_id];
 		if (recv_channel_id >= qm_channel_swportal0 &&
 		    recv_channel_id <= qm_channel_swportal9) {

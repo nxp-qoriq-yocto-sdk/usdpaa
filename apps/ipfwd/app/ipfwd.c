@@ -3,7 +3,7 @@
  \brief Basic IP Forwarding Application
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -531,11 +531,13 @@ void create_iface_nodes(struct node_t *arr, struct usdpa_netcfg_info *cfg_ptr)
 {
 	uint32_t port, if_idx;
 	struct fm_eth_port_cfg *p_cfg;
+	const struct fman_if *fif;
 
 	for (port = 0, if_idx = 0; port < g_num_dpa_eth_ports; port++, if_idx++) {
 		p_cfg = &cfg_ptr->port_cfg[port];
+		fif = p_cfg->fman_if;
 		memcpy(arr[if_idx].mac.bytes,
-			p_cfg[port].fm_mac_addr.ether_addr_octet,
+			fif->mac_addr.ether_addr_octet,
 			ETHER_ADDR_LEN);
 		arr[if_idx].ip.word = (0xc0a80001 + (iface_subnet[port] << 8));
 		APP_DEBUG("PortID = %d is %s interface node with IP Address "
@@ -902,10 +904,7 @@ int global_init(struct usdpa_netcfg_info *uscfg_info, int cpu, int first, int la
 		APP_ERROR("shmem setup failure\n");
 		return err;
 	}
-	/* Initialising MACs */
-	err = __mac_init();
-	if (err)
-		fprintf(stderr, "error: MAC init, continuing\n");
+
 	/* initialise buffer pools to release buffers*/
 	for (loop = 0; loop < sizeof(bpids); loop++) {
 		struct bman_pool_params params = {
@@ -1137,11 +1136,10 @@ int main(int argc, char *argv[])
 	APP_INFO("Waiting for Configuration Command");
 	/* Wait for initial IPFWD related configuration to be done */
 	while (0 == GO_FLAG);
+
 	/* Enable all the ethernet ports*/
-	if (unlikely(0 != __mac_enable_all())) {
-		APP_ERROR("_mac_enable_all Failed");
-		return -EINVAL;
-	}
+	fman_if_enable_all_rx();
+
 	/* Wait for other threads before start qman poll */
 	pthread_barrier_wait(&init_barrier);
 
@@ -1149,6 +1147,5 @@ int main(int argc, char *argv[])
 	wait_threads(thread_data, last - first + 1);
 
 	usdpa_netcfg_release(uscfg_info);
-	__mac_finish();
 	return 0;
 }
