@@ -41,6 +41,9 @@
 
 /* if defined, be lippy about everything */
 #undef RFL_TRACE
+#ifdef ENABLE_TRACE
+#define RFL_TRACE
+#endif
 
 /* application configuration */
 #define RFL_TX_FQS_10G		16
@@ -609,7 +612,8 @@ static void rfl_if_finish(struct rfl_if *i)
 	for (loop = 0; loop < i->num_tx_fqs; loop++) {
 		struct qman_fq *fq = &i->tx_fqs[loop];
 		teardown_fq(fq);
-		TRACE("I/F %d, destroying Tx FQID %d\n", idx, fq->fqid);
+		TRACE("I/F %d, destroying Tx FQID %d\n", fif->fman_idx,
+				fq->fqid);
 	}
 	free(i->tx_fqs);
 	dma_mem_free(i, i->sz);
@@ -1235,7 +1239,8 @@ int main(int argc, char *argv[])
 			list_for_each_entry(i, &ifs, node) {
 				fman_if_disable_rx(i->port_cfg->fman_if);
 				TRACE("Interface %d:%d, disabled RX\n",
-					fif->fman_idx, fif->mac_idx);
+					i->port_cfg->fman_if->fman_idx,
+					i->port_cfg->fman_if->mac_idx);
 			}
 		}
 
@@ -1244,7 +1249,8 @@ int main(int argc, char *argv[])
 			struct rfl_if *i;
 			list_for_each_entry(i, &ifs, node) {
 				TRACE("Interface %d:%d, enabling RX\n",
-					fif->fman_idx, fif->mac_idx);
+					i->port_cfg->fman_if->fman_idx,
+					i->port_cfg->fman_if->mac_idx);
 				fman_if_enable_rx(i->port_cfg->fman_if);
 			}
 		}
