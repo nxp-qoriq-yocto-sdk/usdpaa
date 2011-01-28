@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2008-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -122,10 +122,15 @@ static inline u8 readb(volatile u8 *p)
 #define printk(fmt, args...)	do_not_use_printk
 #define nada(fmt, args...)	do { ; } while(0)
 
-#define pr_crit(fmt, args...)	printf(fmt, ##args)
-#define pr_err(fmt, args...)	printf(fmt, ##args)
-#define pr_warning(fmt, args...) printf(fmt, ##args)
-#define pr_info(fmt, args...)	printf(fmt, ##args)
+#define prflush(fmt, args...) \
+	do { \
+		printf(fmt, ##args); \
+		fflush(stdout); \
+	} while (0)
+#define pr_crit(fmt, args...)    prflush("CRIT:" fmt, ##args)
+#define pr_err(fmt, args...)     prflush("ERR:" fmt, ##args)
+#define pr_warning(fmt, args...) prflush("WARN:" fmt, ##args)
+#define pr_info(fmt, args...)    prflush(fmt, ##args)
 
 /* Debug stuff */
 #define BUG()	abort()
