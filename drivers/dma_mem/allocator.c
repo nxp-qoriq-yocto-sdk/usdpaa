@@ -1,4 +1,4 @@
-/* Copyright (c) 2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,6 +32,11 @@
 
 #include "private.h"
 
+#undef ALLOC_DEBUG
+#ifdef DEBUG_DMA_ALLOC
+#define ALLOC_DEBUG
+#endif
+
 /* Global state for the allocator */
 static DEFINE_SPINLOCK(alloc_lock);
 static LIST_HEAD(alloc_list);
@@ -43,8 +48,6 @@ struct alloc_node {
 	unsigned long sz;
 };
 
-#undef ALLOC_DEBUG
-
 #ifdef ALLOC_DEBUG
 #define DPRINT		pr_info
 static void DUMP(void)
@@ -52,11 +55,14 @@ static void DUMP(void)
 	int off = 0;
 	char buf[256];
 	struct alloc_node *p;
-	list_for_each_entry(p, &alloc_list, list) {
+	if (list_empty(&alloc_list))
+		off = snprintf(buf, 255, "<empty>");
+	else list_for_each_entry(p, &alloc_list, list) {
 		if (off < 255)
 			off += snprintf(buf + off, 255-off, "{%lx,%lx}",
 				p->base, p->sz);
 	}
+	buf[off] = '\0';
 	pr_info("%s\n", buf);
 }
 #else
@@ -133,34 +139,50 @@ static int _dma_mem_free(void *ptr, size_t size)
 		return -ENOMEM;
 	DPRINT("dma_mem_free(ptr=%p,sz=%d)\n", ptr, size);
 	DUMP();
+
 	spin_lock_irq(&alloc_lock);
 	node->base = (unsigned long)ptr;
 	node->sz = size;
 	list_for_each_entry(i, &alloc_list, list) {
+		DPRINT("  comparing with (ptr=%lx,sz=%ld)\n",
+			i->base, i->sz);
 		if (i->base >= node->base) {
+			DPRINT("  yes, we'll prepend to that\n");
 			list_add_tail(&node->list, &i->list);
 			goto done;
-		}
+		} else
+			DPRINT("  no, keep looking\n");
 	}
+	DPRINT("  we're to the right of everything\n");
 	list_add_tail(&node->list, &alloc_list);
 done:
-	/* Merge to the left */
-	for (i = list_entry(node->list.prev, struct alloc_node, list);
-		(&i->list != &alloc_list) && (i->base + i->sz == (unsigned long)ptr);
-		i = list_entry(node->list.prev, struct alloc_node, list)) {
-		node->base = i->base;
-		node->sz += i->sz;
-		list_del(&i->list);
-		kfree(i);
+	DUMP();
+	/* Merge to the left if they match */
+	i = list_entry(node->list.prev, struct alloc_node, list);
+	if (node->list.prev != &alloc_list) {
+		BUG_ON((i->base + i->sz) > node->base);
+		if ((i->base + i->sz) == node->base) {
+			DPRINT("  merging to the left with (ptr=%lx,sz=%ld)\n",
+				i->base, i->sz);
+			node->base = i->base;
+			node->sz += i->sz;
+			list_del(&i->list);
+			kfree(i);
+		}
 	}
 	/* Merge to the right */
-	for (i = list_entry(node->list.next, struct alloc_node, list);
-		(&i->list != &alloc_list) && (i->base == (unsigned long)ptr + size);
-		i = list_entry(node->list.prev, struct alloc_node, list)) {
-		node->sz += i->sz;
-		list_del(&i->list);
-		kfree(i);
+	i = list_entry(node->list.next, struct alloc_node, list);
+	if (node->list.next != &alloc_list) {
+		BUG_ON((node->base + node->sz) > i->base);
+		if ((node->base + node->sz) == i->base) {
+			DPRINT("  merging to the right with (ptr=%lx,sz=%ld)\n",
+				i->base, i->sz);
+			node->sz += i->sz;
+			list_del(&i->list);
+			kfree(i);
+		}
 	}
+	DPRINT("  done\n");
 	spin_unlock_irq(&alloc_lock);
 	DUMP();
 	return 0;
