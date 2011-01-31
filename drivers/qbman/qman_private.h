@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2008-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -98,7 +98,11 @@ struct qm_pool_channel {
 /* Hooks from qman_driver.c in to qman_high.c */
 #define QMAN_PORTAL_FLAG_RSTASH      0x00000001 /* enable DQRR entry stashing */
 #define QMAN_PORTAL_FLAG_DSTASH      0x00000002 /* enable data stashing */
-int qman_have_affine_portal(void);
+const struct qm_portal_config *qman_get_affine_portal_config(void);
+static inline int qman_have_affine_portal(void)
+{
+	return qman_get_affine_portal_config() ? 1 : 0;
+}
 int qman_create_affine_portal(const struct qm_portal_config *config, u32 flags,
 			const struct qman_cgrs *cgrs,
 			const struct qman_fq_cb *null_cb,
@@ -121,12 +125,6 @@ int qman_testwrite_cgr(struct qman_cgr *cgr, u64 i_bcnt,
 /* Note: most functions are only used by the high-level interface, so are
  * inlined from qman_low.h. The stuff below is for use by other parts of the
  * driver. */
-
-/* Obtain the number of portals available */
-u8 qm_portal_num(void);
-
-/* Obtain a portal handle and configuration information about it */
-const struct qm_portal_config *qm_portal_config(u8 idx);
 
 /* Obtain a mask of the available pool channels, expressed using
  * QM_SDQCR_CHANNELS_POOL(n). */

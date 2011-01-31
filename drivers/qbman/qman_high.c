@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2008-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -230,12 +230,11 @@ static inline void qman_stop_dequeues_ex(struct qman_portal *p)
 	local_irq_restore(irqflags);
 }
 
-int qman_have_affine_portal(void)
+const struct qm_portal_config *qman_get_affine_portal_config(void)
 {
 	struct qman_portal *qm = get_affine_portal();
-	int ret = (qm->config ? 1 : 0);
 	put_affine_portal();
-	return ret;
+	return qm->config;
 }
 
 static int drain_mr_fqrni(struct qm_portal *p)

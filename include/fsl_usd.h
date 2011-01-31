@@ -1,4 +1,4 @@
-/* Copyright (c) 2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -59,8 +59,8 @@ struct qman_fqid_ranges {
 /* Thread-entry/exit hooks; */
 int qman_thread_init(int cpu, int recovery_mode);
 int bman_thread_init(int cpu, int recovery_mode);
-void qman_thread_finish(void);
-void bman_thread_finish(void);
+int qman_thread_finish(void);
+int bman_thread_finish(void);
 
 /* Global setup, must be called on an initialised thread if recovery_mode!=0 */
 int qman_setup_allocator(int recovery_mode,

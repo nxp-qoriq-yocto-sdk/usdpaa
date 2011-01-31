@@ -1,4 +1,4 @@
-/* Copyright (c) 2008, 2009 Freescale Semiconductor, Inc.
+/* Copyright (c) 2008-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,7 +39,7 @@
 #define PORTAL_MAX	10
 #define POOL_MAX	64
 
-static __thread int fd;
+static __thread int fd = -1;
 
 static struct bm_portal_config configs[PORTAL_MAX];
 static u8 num_portals;
@@ -56,19 +56,6 @@ static struct bm_portal_config *__bm_portal_add(
 	ret = &configs[num_portals++];
 	*ret = *config;
 	return ret;
-}
-
-u8 bm_portal_num(void)
-{
-	return num_portals;
-}
-
-const struct bm_portal_config *bm_portal_config(u8 idx)
-{
-	if (unlikely(idx >= num_portals))
-		return NULL;
-
-	return &configs[idx];
 }
 
 int bm_pool_new(u32 *bpid)
@@ -102,9 +89,14 @@ void bm_pool_free(u32 bpid)
 static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 {
 	struct bm_portal_config cfg, *pconfig;
-	int suffix = 0;
+	u32 irq_sources = 0;
+	int ret = 0, suffix = 0;
 	char name[20]; /* Big enough for "/dev/bman-uio-99:99" */
 
+	if (fd >= 0) {
+		pr_err("%s: on already-initialised thread\n", __func__);
+		return -EBUSY;
+	}
 	/* Loop the possible portal devices for the required cpu until we
 	 * succeed or fail with something other than -EBUSY=="in use". */
 	do {
@@ -120,7 +112,8 @@ static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 	} while (fd == -EBUSY);
 	if (fd < 0) {
 		perror("no available Bman portal device");
-		return -ENODEV;
+		ret = -ENODEV;
+		goto end;
 	}
 	cfg.addr.addr_ce = mmap(BMAN_CENA(cpu), 16*1024,
 			PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, fd, 0);
@@ -131,34 +124,70 @@ static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 		pr_err("Bman mmap()s failed with %p:%p\n",
 			cfg.addr.addr_ce, cfg.addr.addr_ci);
 		perror("mmap of CENA or CINH failed");
-		close(fd);
-		return -ENODEV;
+		ret = -ENODEV;
+		goto end;
 	}
 	cfg.public_cfg.cpu = cpu;
 	cfg.public_cfg.irq = -1;
 	bman_depletion_fill(&cfg.public_cfg.mask);
 	pconfig = __bm_portal_add(&cfg);
 	if (!pconfig) {
-		close(fd);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto end;
 	}
-	pr_info("Bman portal at %p:%p (%d)\n", cfg.addr.addr_ce,
-		cfg.addr.addr_ci, cfg.public_cfg.cpu);
 	if (cfg.public_cfg.cpu == -1)
-		return 0;
-	if (!bman_have_affine_portal()) {
-		u32 irq_sources = 0;
+		goto end;
+
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
-		irq_sources = BM_PIRQ_RCRI | BM_PIRQ_BSCN;
+	irq_sources = BM_PIRQ_RCRI | BM_PIRQ_BSCN;
 #endif
-		if (bman_create_affine_portal(pconfig, irq_sources,
-						recovery_mode))
-			pr_err("Bman portal auto-initialisation failed\n");
-		else
-			pr_info("Bman portal %d auto-initialised\n",
-				cfg.public_cfg.cpu);
+	ret = bman_create_affine_portal(pconfig, irq_sources, recovery_mode);
+	if (ret)
+		pr_err("Bman portal initialisation failed (%d), ret=%d\n",
+			cfg.public_cfg.cpu, ret);
+	else
+		pr_info("Bman portal initialised at %p:%p (%d)\n",
+			cfg.addr.addr_ce, cfg.addr.addr_ci, cfg.public_cfg.cpu);
+end:
+	if (ret) {
+		if (fd >= 0) {
+			close(fd);
+			fd = -1;
+		}
 	}
-	return 0;
+	return ret;
+}
+
+static int fsl_bman_portal_finish(void)
+{
+	int ret;
+	const struct bm_portal_config *cfg = bman_get_affine_portal_config();
+	if (!cfg) {
+		pr_err("Bman portal cleanup, no portal!\n");
+		return -ENODEV;
+	}
+	bman_destroy_affine_portal();
+	ret = munmap(cfg->addr.addr_ce, 16*1024);
+	if (ret) {
+		perror("munmap() of Bman ADDR_CE failed");
+		goto end;
+	}
+	ret = munmap(cfg->addr.addr_ci, 4*1024);
+	if (ret) {
+		perror("munmap() of Bman ADDR_CI failed");
+		goto end;
+	}
+end:
+	close(fd);
+	if (ret)
+		pr_err("Bman portal cleanup failed (%d), ret=%d\n",
+			cfg->public_cfg.cpu, ret);
+	else
+		pr_info("Bman portal cleanup (%d) at %p:%p (%d)\n",
+			cfg->public_cfg.cpu, cfg->addr.addr_ce,
+			cfg->addr.addr_ci, fd);
+	fd = -1;
+	return ret;
 }
 
 static int fsl_bpool_range_init(int recovery_mode,
@@ -202,20 +231,12 @@ static int fsl_bpool_range_init(int recovery_mode,
 
 int bman_thread_init(int cpu, int recovery_mode)
 {
-	/* Load the core-affine portal */
-	int ret = fsl_bman_portal_init(cpu, recovery_mode);
-	if (ret) {
-		pr_err("Bman portal failed initialisation (%d), ret=%d\n",
-			cpu, ret);
-		return ret;
-	}
-	return 0;
+	return fsl_bman_portal_init(cpu, recovery_mode);
 }
 
-void bman_thread_finish(void)
+int bman_thread_finish(void)
 {
-	if (!bman_have_affine_portal())
-		bman_destroy_affine_portal();
+	return fsl_bman_portal_finish();
 }
 
 int bman_setup_allocator(int recovery_mode,

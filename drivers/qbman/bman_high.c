@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2008-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -167,12 +167,11 @@ static irqreturn_t portal_isr(__always_unused int irq, void *ptr)
 }
 #endif
 
-int bman_have_affine_portal(void)
+const struct bm_portal_config *bman_get_affine_portal_config(void)
 {
 	struct bman_portal *bm = get_affine_portal();
-	int ret = (bm->config ? 1 : 0);
 	put_affine_portal();
-	return ret;
+	return bm->config;
 }
 
 int bman_create_affine_portal(const struct bm_portal_config *config,

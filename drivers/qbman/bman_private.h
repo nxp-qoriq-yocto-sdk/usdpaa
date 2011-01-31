@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2008-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -57,7 +57,11 @@ struct bm_portal_config {
 int bman_init_error_int(struct device_node *node);
 #endif
 
-int bman_have_affine_portal(void);
+const struct bm_portal_config *bman_get_affine_portal_config(void);
+static inline int bman_have_affine_portal(void)
+{
+	return bman_get_affine_portal_config() ? 1 : 0;
+}
 int bman_create_affine_portal(const struct bm_portal_config *config,
 				u32 irq_sources, int recovery_mode);
 void bman_destroy_affine_portal(void);
@@ -96,12 +100,6 @@ int bman_have_ccsr(void);
 /*************************************************/
 /*   BMan s/w corenet portal, low-level i/face   */
 /*************************************************/
-
-/* Obtain the number of portals available */
-u8 bm_portal_num(void);
-
-/* Obtain a portal handle */
-const struct bm_portal_config *bm_portal_config(u8 idx);
 
 /* Used by all portal interrupt registers except 'inhibit'. NB, some of these
  * definitions are exported for use by the bman_irqsource_***() APIs, so are
