@@ -973,6 +973,21 @@ static void worker_free(struct worker *worker)
 	__worker_free(worker);
 }
 
+static void worker_reap(struct worker *worker)
+{
+	if (!pthread_tryjoin_np(worker->id, NULL)) {
+		if (worker == primary) {
+			pr_crit("Primary thread died!\n");
+			abort();
+		}
+		list_del(&worker->node);
+		__worker_free(worker);
+		pr_info("Caught dead thread, cpu %d\n", worker->cpu);
+		free(worker->msg);
+		free(worker);
+	}
+}
+
 /* Parse a cpu id. On entry legit/len contain acceptable "next char" values, on
  * exit *legit points to the "next char" we found. Return -1 for bad * parse. */
 static int parse_cpu(const char *str, const char **legit, int legitlen)
@@ -1156,6 +1171,10 @@ int main(int argc, char *argv[])
 	while (1) {
 		char cli[RFL_CLI_BUFFER];
 
+		/* Reap any dead threads */
+		list_for_each_entry_safe(worker, tmpworker, &workers, node)
+			worker_reap(worker);
+
 		/* Command prompt */
 		printf("reflector> ");
 		fflush(stdout);
@@ -1252,9 +1271,10 @@ int main(int argc, char *argv[])
 	rcode = 0;
 leave:
 	/* Remove all workers except the primary */
-	list_for_each_entry_safe(worker, tmpworker, &workers, node)
+	list_for_each_entry_safe(worker, tmpworker, &workers, node) {
 		if (worker != primary)
 			worker_free(worker);
+	}
 	/* Do datapath dependent cleanup before removing the primary worker */
 	msg_do_global_finish(primary);
 	worker = primary;
