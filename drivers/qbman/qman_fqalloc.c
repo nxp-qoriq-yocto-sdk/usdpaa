@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2009-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -221,21 +221,25 @@ void qman_release_fqid_range(u32 fqid, u32 count)
 	list_add_tail(&node->list, &alloc_list);
 done:
 	/* Merge to the left */
-	for (i = list_entry(node->list.prev, struct alloc_node, list);
-		(&i->list != &alloc_list) && (i->base + i->num == fqid);
-		i = list_entry(node->list.prev, struct alloc_node, list)) {
-		node->base = i->base;
-		node->num += i->num;
-		list_del(&i->list);
-		kfree(i);
+	i = list_entry(node->list.prev, struct alloc_node, list);
+	if (node->list.prev != &alloc_list) {
+		BUG_ON((i->base + i->num) > node->base);
+		if ((i->base + i->num) == node->base) {
+			node->base = i->base;
+			node->num += i->num;
+			list_del(&i->list);
+			kfree(i);
+		}
 	}
 	/* Merge to the right */
-	for (i = list_entry(node->list.next, struct alloc_node, list);
-		(&i->list != &alloc_list) && (i->base == fqid + count);
-		i = list_entry(node->list.prev, struct alloc_node, list)) {
-		node->num += i->num;
-		list_del(&i->list);
-		kfree(i);
+	i = list_entry(node->list.next, struct alloc_node, list);
+	if (node->list.next != &alloc_list) {
+		BUG_ON((node->base + node->num) > i->base);
+		if ((node->base + node->num) == i->base) {
+			node->num += i->num;
+			list_del(&i->list);
+			kfree(i);
+		}
 	}
 	spin_unlock_irq(&alloc_lock);
 	DUMP();
