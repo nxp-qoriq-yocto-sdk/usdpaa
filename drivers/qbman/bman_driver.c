@@ -41,22 +41,9 @@
 
 static __thread int fd = -1;
 
-static struct bm_portal_config configs[PORTAL_MAX];
-static u8 num_portals;
-
 static struct bman_depletion pools = BMAN_DEPLETION_FULL;
 static u8 num_pools = 64;
 static DEFINE_SPINLOCK(pools_lock);
-
-static struct bm_portal_config *__bm_portal_add(
-					const struct bm_portal_config *config)
-{
-	struct bm_portal_config *ret;
-	BUG_ON((num_portals + 1) > PORTAL_MAX);
-	ret = &configs[num_portals++];
-	*ret = *config;
-	return ret;
-}
 
 int bm_pool_new(u32 *bpid)
 {
@@ -88,7 +75,7 @@ void bm_pool_free(u32 bpid)
 
 static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 {
-	struct bm_portal_config cfg, *pconfig;
+	struct bm_portal_config *pcfg;
 	u32 irq_sources = 0;
 	int ret = 0, suffix = 0;
 	char name[20]; /* Big enough for "/dev/bman-uio-99:99" */
@@ -96,6 +83,12 @@ static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 	if (fd >= 0) {
 		pr_err("%s: on already-initialised thread\n", __func__);
 		return -EBUSY;
+	}
+	pcfg = malloc(sizeof(*pcfg));
+	if (!pcfg) {
+		perror("can't allocate portal config");
+		ret = -ENOMEM;
+		goto end;
 	}
 	/* Loop the possible portal devices for the required cpu until we
 	 * succeed or fail with something other than -EBUSY=="in use". */
@@ -115,58 +108,58 @@ static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 		ret = -ENODEV;
 		goto end;
 	}
-	cfg.addr.addr_ce = mmap(BMAN_CENA(cpu), 16*1024,
+	pcfg->addr.addr_ce = mmap(BMAN_CENA(cpu), 16*1024,
 			PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, fd, 0);
-	cfg.addr.addr_ci = mmap(BMAN_CINH(cpu), 4*1024,
+	pcfg->addr.addr_ci = mmap(BMAN_CINH(cpu), 4*1024,
 			PROT_READ | PROT_WRITE, MAP_SHARED, fd, 4*1024);
-	if ((cfg.addr.addr_ce == MAP_FAILED) ||
-			(cfg.addr.addr_ci == MAP_FAILED)) {
+	if ((pcfg->addr.addr_ce == MAP_FAILED) ||
+			(pcfg->addr.addr_ci == MAP_FAILED)) {
 		pr_err("Bman mmap()s failed with %p:%p\n",
-			cfg.addr.addr_ce, cfg.addr.addr_ci);
+			pcfg->addr.addr_ce, pcfg->addr.addr_ci);
 		perror("mmap of CENA or CINH failed");
 		ret = -ENODEV;
 		goto end;
 	}
-	cfg.public_cfg.cpu = cpu;
-	cfg.public_cfg.irq = -1;
-	bman_depletion_fill(&cfg.public_cfg.mask);
-	pconfig = __bm_portal_add(&cfg);
-	if (!pconfig) {
-		ret = -ENOMEM;
-		goto end;
-	}
-	if (cfg.public_cfg.cpu == -1)
+	pcfg->public_cfg.cpu = cpu;
+	pcfg->public_cfg.irq = -1;
+	bman_depletion_fill(&pcfg->public_cfg.mask);
+
+	if (pcfg->public_cfg.cpu == -1)
 		goto end;
 
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
 	irq_sources = BM_PIRQ_RCRI | BM_PIRQ_BSCN;
 #endif
-	ret = bman_create_affine_portal(pconfig, irq_sources, recovery_mode);
+	ret = bman_create_affine_portal(pcfg, irq_sources, recovery_mode);
 	if (ret)
 		pr_err("Bman portal initialisation failed (%d), ret=%d\n",
-			cfg.public_cfg.cpu, ret);
+			pcfg->public_cfg.cpu, ret);
 	else
 		pr_info("Bman portal initialised at %p:%p (%d)\n",
-			cfg.addr.addr_ce, cfg.addr.addr_ci, cfg.public_cfg.cpu);
+			pcfg->addr.addr_ce, pcfg->addr.addr_ci,
+			pcfg->public_cfg.cpu);
 end:
 	if (ret) {
 		if (fd >= 0) {
 			close(fd);
 			fd = -1;
 		}
+		if (pcfg)
+			free(pcfg);
 	}
 	return ret;
 }
 
 static int fsl_bman_portal_finish(void)
 {
+	struct bm_portal_config *cfg;
 	int ret;
-	const struct bm_portal_config *cfg = bman_get_affine_portal_config();
-	if (!cfg) {
+
+	if (!bman_have_affine_portal()) {
 		pr_err("Bman portal cleanup, no portal!\n");
 		return -ENODEV;
 	}
-	bman_destroy_affine_portal();
+	cfg = bman_destroy_affine_portal();
 	ret = munmap(cfg->addr.addr_ce, 16*1024);
 	if (ret) {
 		perror("munmap() of Bman ADDR_CE failed");
@@ -178,7 +171,6 @@ static int fsl_bman_portal_finish(void)
 		goto end;
 	}
 end:
-	close(fd);
 	if (ret)
 		pr_err("Bman portal cleanup failed (%d), ret=%d\n",
 			cfg->public_cfg.cpu, ret);
@@ -186,6 +178,8 @@ end:
 		pr_info("Bman portal cleanup (%d) at %p:%p (%d)\n",
 			cfg->public_cfg.cpu, cfg->addr.addr_ce,
 			cfg->addr.addr_ci, fd);
+	free(cfg);
+	close(fd);
 	fd = -1;
 	return ret;
 }

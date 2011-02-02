@@ -52,7 +52,7 @@ struct bman_portal {
 	struct tasklet_struct tasklet;
 #endif
 	/* When the cpu-affine portal is activated, this is non-NULL */
-	const struct bm_portal_config *config;
+	struct bm_portal_config *config;
 	/* 64-entry hash-table of pool objects that are tracking depletion
 	 * entry/exit (ie. BMAN_POOL_FLAG_DEPLETION). This isn't fast-path, so
 	 * we're not fussy about cache-misses and so forth - whereas the above
@@ -174,9 +174,8 @@ const struct bm_portal_config *bman_get_affine_portal_config(void)
 	return bm->config;
 }
 
-int bman_create_affine_portal(const struct bm_portal_config *config,
-				u32 irq_sources,
-				int recovery_mode __maybe_unused)
+int bman_create_affine_portal(struct bm_portal_config *config,
+			u32 irq_sources, int recovery_mode __maybe_unused)
 {
 	struct bman_portal *portal = get_affine_portal();
 	struct bm_portal *__p = &portal->p;
@@ -284,9 +283,10 @@ fail_rcr:
 	return -EINVAL;
 }
 
-void bman_destroy_affine_portal(void)
+struct bm_portal_config *bman_destroy_affine_portal(void)
 {
 	struct bman_portal *bm = get_affine_portal();
+	struct bm_portal_config *cfg = bm->config;
 	bm_rcr_cce_update(&bm->p);
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
 	free_irq(bm->config->public_cfg.irq, bm);
@@ -300,6 +300,7 @@ void bman_destroy_affine_portal(void)
 	spin_unlock(&affine_mask_lock);
 	bm->config = NULL;
 	put_affine_portal();
+	return cfg;
 }
 
 /* When release logic waits on available RCR space, we need a global waitqueue
