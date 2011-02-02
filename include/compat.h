@@ -533,9 +533,10 @@ static inline void *kzalloc(size_t sz, gfp_t foo __always_unused)
 }
 static inline unsigned long get_zeroed_page(gfp_t foo __always_unused)
 {
-	void *p = memalign(4096, 4096);
-	if (p)
-		memset(p, 0, 4096);
+	void *p;
+	if (posix_memalign(&p, 4096, 4096))
+		return 0;
+	memset(p, 0, 4096);
 	return (unsigned long)p;
 }
 struct kmem_cache {
@@ -560,7 +561,10 @@ static inline void kmem_cache_destroy(struct kmem_cache *c)
 }
 static inline void *kmem_cache_alloc(struct kmem_cache *c, gfp_t f __always_unused)
 {
-	return memalign(c->align, c->sz);
+	void *p;
+	if (posix_memalign(&p, c->align, c->sz))
+		return NULL;
+	return p;
 }
 static inline void kmem_cache_free(struct kmem_cache *c __always_unused, void *p)
 {
