@@ -3,7 +3,7 @@
  \brief helper functions
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010-2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,7 +51,7 @@ struct ipfwd_eth_t {
 	struct ipfwd_fq_range_t tx_err;		/* TX error FQs */
 	struct ipfwd_fq_range_t tx_confirm;	/* TX confirm FQs */
 	struct ipfwd_fq_range_t tx;		/* TX FQs */
-	uint32_t mac_addr[ETHER_ADDR_LEN];
+	uint8_t mac_addr[ETHER_ADDR_LEN];
 };
 
 struct qman_orp_pcd {

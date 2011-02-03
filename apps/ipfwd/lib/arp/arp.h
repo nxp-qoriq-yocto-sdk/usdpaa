@@ -3,7 +3,7 @@
  \brief This file contains functions for managing the arp table
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,7 @@
 #include "compiler.h"
 #include "net/annotations.h"
 #include "ip/ip.h"
+#include <net/ethernet.h>
 
 extern struct ip_stack_t stack;
 extern struct net_dev_t *ipfwd_get_dev_for_ip(unsigned int ip_addr);
@@ -56,9 +57,9 @@ struct arp_header_t {
 	uint8_t arp_hrdlen;	/**<Hardware Address Length */
 	uint8_t arp_protolen;	/**<Protocol Length */
 	uint16_t arp_opcode;	/**<OpCode*/
-	union mac_address_t arp_senderaddr;	/**<Sender Mac Address */
+	struct ether_addr arp_senderaddr;	/**<Sender Mac Address */
 	uint32_t arp_senderip;	/**<Sender IP Address */
-	union mac_address_t arp_targetaddr;	/**<Target Mac Address */
+	struct ether_addr arp_targetaddr;	/**<Target Mac Address */
 	uint32_t arp_targetip;	/**<Target IP Address */
 } __attribute__ ((packed));
 
@@ -69,7 +70,7 @@ struct arp_header_t {
  \return    0 Arp request successfull
  -1 Arp request failed
  */
-uint32_t arp_handle_request(struct ethernet_header_t *eth_hdr,
+uint32_t arp_handle_request(struct ether_header *eth_hdr,
 				   struct node_t *node);
 
 /**

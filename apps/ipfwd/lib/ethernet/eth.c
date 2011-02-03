@@ -2,7 +2,7 @@
  \file eth.c
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,8 +40,8 @@ void eth_net_dev_setup(struct net_dev_t *dev)
 	dev->set_header = &eth_set_header;
 	dev->cache_header = &eth_cache_header;
 	dev->mtu = ETH_MAX_MTU;
-	dev->header_len = ETH_HDR_LEN;
-	dev->dev_addr_len = ETH_ADDR_LEN;
+	dev->header_len = ETHER_HDR_LEN;
+	dev->dev_addr_len = ETHER_ADDR_LEN;
 }
 
 /**
@@ -54,19 +54,19 @@ void eth_net_dev_setup(struct net_dev_t *dev)
 void *eth_set_header(struct net_dev_t *dev, void *ll_payload, void *saddr,
 		     void *daddr)
 {
-	struct ethernet_header_t *eth;
+	struct ether_header *eth;
 
 	assert(ll_payload != NULL);
 	assert(dev != NULL);
 	assert(daddr != NULL);
 
-	eth = (void *)((uint32_t) ll_payload - ETH_HDR_LEN);
+	eth = (void *)((uint32_t) ll_payload - ETHER_HDR_LEN);
 
 	if (saddr == NULL)
 		saddr = dev->dev_addr;
-	eth->proto = ETHERNET_FRAME_TYPE_IP;
-	memcpy(&eth->source, saddr, dev->dev_addr_len);
-	memcpy(&eth->destination, daddr, dev->dev_addr_len);
+	eth->ether_type = ETHERTYPE_IP;
+	memcpy(&eth->ether_shost, saddr, dev->dev_addr_len);
+	memcpy(&eth->ether_dhost, daddr, dev->dev_addr_len);
 
 	return eth;
 }
@@ -78,14 +78,14 @@ void *eth_set_header(struct net_dev_t *dev, void *ll_payload, void *saddr,
  */
 void eth_cache_header(struct ll_cache_t *llc, void *eth_hdr)
 {
-	struct ethernet_header_t *eth = eth_hdr;
+	struct ether_header *eth = eth_hdr;
 	assert(eth_hdr != NULL);
 	assert(llc != NULL);
 
-	llc->ll_addr_len = ETH_ADDR_LEN;
-	llc->ll_hdr_len = ETH_HDR_LEN;
-	eth->proto = ETHERNET_FRAME_TYPE_IP;
-	memcpy(llc->ll_data, eth_hdr, ETH_HDR_LEN);
+	llc->ll_addr_len = ETHER_ADDR_LEN;
+	llc->ll_hdr_len = ETHER_HDR_LEN;
+	eth->ether_type = ETHERTYPE_IP;
+	memcpy(llc->ll_data, eth_hdr, ETHER_HDR_LEN);
 }
 
 /**
@@ -106,23 +106,5 @@ void eth_set_mac_addr(struct net_dev_t *dev, void *addr)
 	assert(dev != NULL);
 	assert(addr != NULL);
 
-	memcpy(dev->dev_addr, addr, ETH_ADDR_LEN);
-}
-
-bool mac_address_equal(const union mac_address_t *addr1,
-		       const union mac_address_t *addr2)
-{
-	return ((addr1->hilo.address_hi == addr2->hilo.address_hi) &&
-		(addr1->hilo.address_lo == addr2->hilo.address_lo));
-}
-
-union mac_address_t *mac_address_copy(union mac_address_t *dst,
-				      const union mac_address_t *src)
-{
-	return memcpy(dst, src, ETH_ADDR_LEN);
-}
-
-bool eth_is_multicast_addr(const union mac_address_t *addr)
-{
-	return ((addr->hilo.address_hi & MULTICAST_ADDRESS_HI_MASK) != 0);
+	memcpy(dev->dev_addr, addr, ETHER_ADDR_LEN);
 }

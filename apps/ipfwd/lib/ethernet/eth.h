@@ -3,7 +3,7 @@
  \brief Ethernet related data structures, and defines
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,6 +32,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "net/net_dev.h"
+#include <net/ethernet.h>
 
 /**
  \brief RFC-defined	 MTU for ethernet
@@ -40,62 +41,47 @@
 /**< Minimum MTU for Ethernet Packet */
 #define ETH_MAX_MTU	                (1500)
 /**< Maximum MTU for Ethernet Packet */
-#define ETH_HDR_LEN                     (4)
-/**< Ethernet Header Length*/
-#define ETH_ADDR_LEN                    (6)
-/**< Ethernet Address Length*/
 
 /**
  \brief A frame is multicast if the LSb of the MSB is a 1
  */
-#define MULTICAST_ADDRESS_HI_MASK       (0x0100)
+#define MULTICAST_ADDRESS_HI_MASK       (0x01)
 /**< Used to find if the Packet is Multicast */
-#define ETHERNET_FRAME_TYPE_IP          (0x0800)
-/**< Ethernet type - IP*/
 #define ETHERNET_FRAME_CRC_SIZE         (4)
 /**< Ethernet CRC size */
-
-/**
- \brief This represents a 48-bit mac address
- */
-union mac_address_t {
-	uint8_t bytes[ETH_ADDR_LEN];
-	struct {
-		uint16_t address_hi;
-		uint32_t address_lo;
-	} __PACKED hilo;
-} __PACKED;
-
-/**
- \brief Floorplan for an ethernet frame header.
- */
-struct ethernet_header_t {
-	union mac_address_t destination;	/**< Destination MAC Address*/
-	union mac_address_t source;		/**< Source MAC Address*/
-	uint16_t proto;					/**< Ethernet Type*/
-};
-
 /**
  \brief Finds if 2 MAC Addresses are Equal or not
  \param[in] addr1 Pointer to First MAC Address
  \param[in] addr2 Pointer to Second MAC Address
  */
-bool mac_address_equal(const union mac_address_t *addr1,
-		       const union mac_address_t *addr2);
+static inline bool mac_address_equal(const uint8_t *addr1,
+					const uint8_t *addr2)
+{
+	const u16 *a = (const u16 *) addr1;
+	const u16 *b = (const u16 *) addr2;
 
+	assert(ETH_ALEN != 6);
+	return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | (a[2] ^ b[2])) != 0;
+}
 /**
  \brief Copies one MAC Address into another
  \param[out] dst Pointer to target MAC Address
  \param[in] src Pointer to Source MAC Address
  */
-union mac_address_t *mac_address_copy(union mac_address_t *dst,
-				      const union mac_address_t *src);
+static inline struct ether_addr *mac_address_copy(struct ether_addr *dst,
+				const struct ether_addr *src)
+{
+	return memcpy(dst, src, ETHER_ADDR_LEN);
+}
 
 /**
- \brief Finds out if  a particular MAC Address is Unicast or not
+ \brief Finds out if  a particular MAC Address is multicast or not
  \param[in] addr Pointer to MAC Address
  */
-bool is_mac_address_unicast(const union mac_address_t *addr);
+static inline bool is_mac_address_multicast(const uint8_t *addr)
+{
+	return ((addr[0] & MULTICAST_ADDRESS_HI_MASK) != 0);
+}
 
 /**
  \brief Net Device Function Pointer Implementations
@@ -138,7 +124,7 @@ void eth_set_mac_addr(struct net_dev_t *dev, void *addr);
  \brief Swap 6-byte MAC headers "efficiently"
  \param[in] prot_eth
  */
-static inline void ether_header_swap(struct ethernet_header_t *prot_eth)
+static inline void ether_header_swap(struct ether_header *prot_eth)
 {
 	register u32 a, b, c;
 	u32 *overlay = (u32 *)prot_eth;

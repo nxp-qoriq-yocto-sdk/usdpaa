@@ -399,14 +399,14 @@ int init_interface(struct usdpa_netcfg_info *cfg_ptr,
 
 	APP_DEBUG("Init interface: Enter");
 
-	printf("Available of pool channels = %d\n", cfg_ptr->num_pool_channels);
+	printf("Available pool channels = %d\n", cfg_ptr->num_pool_channels);
 
 	*recv_channel_map = 0;
 	g_num_dpa_eth_ports = cfg_ptr->num_ethports;
 	for (port_id = 0; port_id < g_num_dpa_eth_ports; port_id++) {
 		p_cfg = &cfg_ptr->port_cfg[port_id];
 		fif = p_cfg->fman_if;
-		memcpy(&ipfwd_fq_range[port_id].mac_addr,
+		memcpy(ipfwd_fq_range[port_id].mac_addr,
 			fif->mac_addr.ether_addr_octet, ETHER_ADDR_LEN);
 		recv_channel_id = cfg_ptr->pool_channels[port_id];
 		if (recv_channel_id >= qm_channel_swportal0 &&

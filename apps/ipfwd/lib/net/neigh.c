@@ -2,7 +2,7 @@
  \file neigh.c
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,6 +35,7 @@
 #include "app_common.h"
 #include <assert.h>
 #include "bigatomic.h"
+#include <net/ethernet.h>
 
 static bool __neigh_add(struct neigh_table_t *nt, struct neigh_t **cur_ptr,
 			struct neigh_t *new_n, bool replace);
@@ -161,7 +162,7 @@ struct neigh_t *neigh_init(struct neigh_table_t *nt, struct neigh_t *n,
 struct neigh_t *neigh_update(struct neigh_t *n, uint8_t * lladdr, uint8_t state)
 {
 	struct net_dev_t *dev;
-	struct ethernet_header_t eth_hdr;
+	struct ether_header eth_hdr;
 
 	spin_lock(&n->wlock);
 	if (n->neigh_state == NEIGH_STATE_UNKNOWN) {
@@ -173,8 +174,8 @@ struct neigh_t *neigh_update(struct neigh_t *n, uint8_t * lladdr, uint8_t state)
 			spin_unlock(&n->wlock);
 			return NULL;
 		}
-		memcpy(eth_hdr.destination.bytes, lladdr, ETH_ADDR_LEN);
-		memcpy(eth_hdr.source.bytes, dev->dev_addr, ETH_ADDR_LEN);
+		memcpy(eth_hdr.ether_dhost, lladdr, ETHER_ADDR_LEN);
+		memcpy(eth_hdr.ether_shost, dev->dev_addr, ETHER_ADDR_LEN);
 		if (dev->cache_header != NULL)
 			dev->cache_header(n->ll_cache, &eth_hdr);
 		n->output = n->funcs->reachable_output;

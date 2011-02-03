@@ -2,7 +2,7 @@
  \file ip_handler.c
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,7 +50,7 @@ void ip_handler(struct fq_context_t *ctxt, struct annotations_t *notes,
 #endif
 	ip_hdr =
 	    (struct ip_header_t *)((uint8_t *) data +
-				   sizeof(struct ethernet_header_t));
+				   sizeof(struct ether_header));
 	notes->dest = NULL;
 	ip_accept_preparsed((struct ip_context_t *)ctxt, notes, ip_hdr,
 			SOURCE_POST_FMAN);

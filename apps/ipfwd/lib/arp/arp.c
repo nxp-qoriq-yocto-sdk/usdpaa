@@ -2,7 +2,7 @@
  \file arp.c
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,14 +51,14 @@ struct neigh_table_t *arp_table_create()
 	return table;
 }
 
-uint32_t arp_handle_request(struct ethernet_header_t *eth_hdr,
+uint32_t arp_handle_request(struct ether_header *eth_hdr,
 			    struct node_t *node)
 {
 	struct arp_header_t *arp_header;
 
 	arp_header =
 	    (struct arp_header_t *)((uint32_t) eth_hdr +
-				    sizeof(struct ethernet_header_t));
+				    sizeof(struct ether_header));
 	if (memcmp(&arp_header->arp_targetip, &node->ip.word,
 		 IP_ADDRESS_BYTES))
 		return -1;
@@ -67,12 +67,13 @@ uint32_t arp_handle_request(struct ethernet_header_t *eth_hdr,
 	       IP_ADDRESS_BYTES);
 	memcpy(&arp_header->arp_senderip, &node->ip.word, IP_ADDRESS_BYTES);
 	arp_header->arp_opcode = ARPOP_REPLY;
-	memcpy(eth_hdr->destination.bytes, eth_hdr->source.bytes, ETH_ADDR_LEN);
-	memcpy(eth_hdr->source.bytes, node->mac.bytes, ETH_ADDR_LEN);
-	memcpy(arp_header->arp_targetaddr.bytes,
-	       eth_hdr->destination.bytes, ETH_ADDR_LEN);
-	memcpy(arp_header->arp_senderaddr.bytes, eth_hdr->source.bytes,
-	       ETH_ADDR_LEN);
+	memcpy(eth_hdr->ether_dhost, eth_hdr->ether_shost, ETHER_ADDR_LEN);
+	memcpy(eth_hdr->ether_shost, node->mac.ether_addr_octet,
+		ETHER_ADDR_LEN);
+	memcpy(arp_header->arp_targetaddr.ether_addr_octet,
+		eth_hdr->ether_dhost, ETHER_ADDR_LEN);
+	memcpy(arp_header->arp_senderaddr.ether_addr_octet,
+		eth_hdr->ether_shost, ETHER_ADDR_LEN);
 	return 0;
 }
 
@@ -104,7 +105,7 @@ int add_arp_entry(struct neigh_table_t *arp_tab, struct net_dev_t *dev,
 		APP_ERROR("%s: Unable to add Neigh Entry", __func__);
 		return -EINVAL;
 	}
-	if (NULL ==  neigh_update(n, (uint8_t *) node->mac.bytes,
+	if (NULL ==  neigh_update(n, (uint8_t *) node->mac.ether_addr_octet,
 				NEIGH_STATE_PERMANENT)) {
 		APP_ERROR("%s: Unable to update Neigh Entry", __func__);
 		return -EINVAL;
@@ -121,7 +122,7 @@ void arp_handler(struct annotations_t *notes, void *data)
 	struct net_dev_t *dev;
 	int merge_flag = 0;
 
-	arp_hdr = (struct arp_header_t *)((uint8_t *) data + ETH_HDR_LEN);
+	arp_hdr = (struct arp_header_t *)((uint8_t *) data + ETHER_HDR_LEN);
 	dev = ipfwd_get_dev_for_ip(arp_hdr->arp_targetip);
 
 	if (unlikely(!dev))
@@ -155,8 +156,9 @@ void arp_handler(struct annotations_t *notes, void *data)
 
 		/* Update ARP cache entry */
 		n->neigh_state = NEIGH_STATE_UNKNOWN;
-		if (NULL == neigh_update(n, arp_hdr->arp_senderaddr.bytes,
-						NEIGH_STATE_PERMANENT)) {
+		if (NULL == neigh_update(n,
+				arp_hdr->arp_senderaddr.ether_addr_octet,
+				NEIGH_STATE_PERMANENT)) {
 			APP_ERROR("%s: unable to update neigh entry",
 				__func__);
 			spin_unlock(&arp_lock);
@@ -173,8 +175,8 @@ void arp_handler(struct annotations_t *notes, void *data)
 	}
 
 	if (!merge_flag) {
-		memcpy(new_node.mac.bytes,
-			(uint8_t *) &arp_hdr->arp_senderaddr, ETH_ADDR_LEN);
+		memcpy(new_node.mac.ether_addr_octet,
+			(uint8_t *) &arp_hdr->arp_senderaddr, ETHER_ADDR_LEN);
 		memcpy(&new_node.ip.word,
 			 (uint8_t *) &arp_hdr->arp_senderip, IP_ADDRESS_BYTES);
 		if (0 > add_arp_entry(stack.arp_table, NULL, &new_node)) {
@@ -191,10 +193,11 @@ void arp_handler(struct annotations_t *notes, void *data)
 	if (arp_hdr->arp_opcode == ARPOP_REQUEST) {
 		APP_INFO("Got ARP request from IP 0x%x", arp_hdr->arp_senderip);
 
-		memcpy(new_node.mac.bytes, dev->dev_addr, ETH_ADDR_LEN);
+		memcpy(new_node.mac.ether_addr_octet, dev->dev_addr,
+			ETHER_ADDR_LEN);
 		memcpy((uint8_t *)&new_node.ip.word,
 			(uint8_t *)&arp_hdr->arp_targetip, IP_ADDRESS_BYTES);
-		arp_handle_request((struct ethernet_header_t *) data,
+		arp_handle_request((struct ether_header *) data,
 				&new_node);
 		dev->xmit(dev, notes->fd, NULL);
 		APP_INFO("Sent ARP reply for IP 0x%x", arp_hdr->arp_targetip);
@@ -211,13 +214,13 @@ int arp_send_request(struct net_dev_t *dev, uint32_t target_ip)
 	struct node_t *target_iface_node;
 	struct bm_buffer bman_buf;
 	struct qm_fd fd;
-	struct ethernet_header_t *eth_hdr;
+	struct ether_header *eth_hdr;
 	phys_addr_t addr = 0;
 	uint32_t addr;
 	uint32_t len;
 	struct eth_port_cfg *p_cfg;
 
-	len = ETH_HDR_LEN + ARP_HDR_LEN + ETH_FCS_LEN;
+	len = ETHER_HDR_LEN + ARP_HDR_LEN + ETH_FCS_LEN;
 	if (0 >= dpa_allocator_get_buff(buff_allocator, len, &bman_buf)) {
 		APP_ERROR("%s: couldn't allocate buf of size %d",
 			__func__, len);
@@ -235,14 +238,14 @@ int arp_send_request(struct net_dev_t *dev, uint32_t target_ip)
 	addr = (addr << 32) | (uint32_t) bman_buf.lo;
 	eth_hdr = ptov(addr);
 	p_cfg = &config_info.port[dev->ifindex].port_cfg;
-	memset(eth_hdr->destination.bytes, ETH_DST_BROADCAST, ETH_ADDR_LEN);
-	memcpy(eth_hdr->source.bytes, p_cfg->mac_addr,
-		ETH_ADDR_LEN);
+	memset(eth_hdr->ether_dhost, ETH_DST_BROADCAST, ETHER_ADDR_LEN);
+	memcpy(eth_hdr->ether_shost, p_cfg->mac_addr,
+		ETHER_ADDR_LEN);
 	eth_hdr->proto = ETH_P_ARP;
 
 	arp_header =
 	    (struct arp_header_t *)((uint8_t *) eth_hdr +
-				sizeof(struct ethernet_header_t));
+				sizeof(struct ether_header));
 	arp_header->arp_hrd = ARP_HTYPE_ETH;
 	arp_header->arp_proto = ARP_PTYPE_IP;
 	arp_header->arp_hrdlen = ARP_HLEN_ETH;
@@ -256,9 +259,9 @@ int arp_send_request(struct net_dev_t *dev, uint32_t target_ip)
 	}
 
 	memcpy(arp_header->arp_senderaddr.bytes, eth_hdr->source.bytes,
-						ETH_ADDR_LEN);
+						ETHER_ADDR_LEN);
 	arp_header->arp_senderip = target_iface_node->ip.word;
-	memset(arp_header->arp_targetaddr.bytes, 0, ETH_ADDR_LEN);
+	memset(arp_header->arp_targetaddr.bytes, 0, ETHER_ADDR_LEN);
 	arp_header->arp_targetip = target_ip;
 
 	APP_INFO("Sending ARP request for IP %x", target_ip);

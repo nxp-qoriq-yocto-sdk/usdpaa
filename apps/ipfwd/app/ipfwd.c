@@ -510,12 +510,13 @@ void create_local_nodes(struct node_t *arr)
 	uint32_t port, node, node_idx;
 
 	for (port = 0, node_idx = 0; port < g_num_dpa_eth_ports; port++) {
-		for (node = 0; node < local_node_count[port];
-		     node++, node_idx++) {
-			arr[node_idx].mac.hilo.address_hi = ETHERNET_ADDR_MAGIC;
-			arr[node_idx].mac.hilo.address_lo =
-			    arr[node_idx].ip.word =
-			    0xc0a80002 + (iface_subnet[port] << 8) + node;
+		for (node = 0; node < local_node_count[port]; node++,
+			node_idx++) {
+			arr[node_idx].mac.ether_addr_octet[0] =
+				ETHERNET_ADDR_MAGIC;
+			arr[node_idx].mac.ether_addr_octet[2] =
+				arr[node_idx].ip.word =
+				0xc0a80002 + (iface_subnet[port] << 8) + node;
 		}
 	}
 }
@@ -536,7 +537,7 @@ void create_iface_nodes(struct node_t *arr, struct usdpa_netcfg_info *cfg_ptr)
 	for (port = 0, if_idx = 0; port < g_num_dpa_eth_ports; port++, if_idx++) {
 		p_cfg = &cfg_ptr->port_cfg[port];
 		fif = p_cfg->fman_if;
-		memcpy(arr[if_idx].mac.bytes,
+		memcpy(arr[if_idx].mac.ether_addr_octet,
 			fif->mac_addr.ether_addr_octet,
 			ETHER_ADDR_LEN);
 		arr[if_idx].ip.word = (0xc0a80001 + (iface_subnet[port] << 8));
@@ -545,7 +546,7 @@ void create_iface_nodes(struct node_t *arr, struct usdpa_netcfg_info *cfg_ptr)
 			 "FMAN",
 			 arr[if_idx].ip.bytes[0], arr[if_idx].ip.bytes[1],
 			 arr[if_idx].ip.bytes[2], arr[if_idx].ip.bytes[3],
-			 NMAC_STR(arr[if_idx].mac.bytes));
+			 NMAC_STR(arr[if_idx].mac.ether_addr_octet));
 	}
 }
 
