@@ -71,7 +71,7 @@ __PERCPU uint32_t rx_errors;
 uint32_t recv_channel_map;
 
 static pthread_barrier_t init_barrier;
-
+int cpu0_only;
 void ip_fq_state_chg(struct qman_portal *qm,
 		     struct qman_fq *fq, const struct qm_mr_entry *msg)
 {
@@ -916,9 +916,12 @@ int global_init(struct usdpa_netcfg_info *uscfg_info, int cpu, int first, int la
 		BUG_ON(!pool[bpids[loop]]);
 	}
 	/* Initialise barrier for all the threads including main thread */
-	err = pthread_barrier_init(&init_barrier, NULL, last - first + 2);
-	if (err != 0)
-		APP_INFO("pthread_barrier_init failed");
+	if (!cpu0_only) {
+		err = pthread_barrier_init(&init_barrier, NULL,
+			last - first + 2);
+		if (err != 0)
+			APP_INFO("pthread_barrier_init failed");
+	}
 
 	/* Initialise Bman/Qman portal */
 	err = bman_thread_init(cpu, 0);
@@ -1070,20 +1073,19 @@ int main(int argc, char *argv[])
 {
 	struct thread_data_t thread_data[MAX_THREADS];
 	char *endptr;
-	int first, last, my_cpu;
+	int first, last, my_cpu = 0, cpu0_poll_on = 0;
 	long ncpus;
 	int err, ret;
 	struct usdpa_netcfg_info *uscfg_info;
 
 	/* Get the number of cpus */
 	ncpus = sysconf(_SC_NPROCESSORS_ONLN);
-	my_cpu = 0;
 	if (ncpus == 1) {
 		first = last = 0;
 	} else {
-		first = 1;
-		last = ncpus - 1;
+		first = last = 1;
 	}
+	/* Parse the arguments */
 	if (argc == 4) {
 		first = my_toul(argv[1], &endptr, ncpus);
 		if (*endptr == '\0') {
@@ -1107,6 +1109,13 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "where [cpu-range] is 'n' or 'm..n'\n");
 		exit(-1);
 	}
+	if (first == 0) {
+		cpu0_poll_on = 1;
+		if (first != last)
+			first = first + 1;
+		else
+			cpu0_only = 1;
+	}
 
 	APP_INFO("\n** Welcome to IPFWD application! **");
 
@@ -1129,9 +1138,18 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	err = start_threads(thread_data, last - first + 1, first, worker_fn);
-	if (err != 0)
-		APP_INFO("start_threads failed");
+	if (!cpu0_only) {
+		err = start_threads(thread_data, last - first + 1, first,
+			 worker_fn);
+		if (err != 0)
+			APP_INFO("start_threads failed");
+	}
+
+	if (cpu0_poll_on) {
+		APP_INFO("Frames to be recv on channel map: 0x%x",
+				 recv_channel_map);
+		qman_static_dequeue_add(recv_channel_map);
+	}
 
 	APP_INFO("Waiting for Configuration Command");
 	/* Wait for initial IPFWD related configuration to be done */
@@ -1141,10 +1159,18 @@ int main(int argc, char *argv[])
 	fman_if_enable_all_rx();
 
 	/* Wait for other threads before start qman poll */
-	pthread_barrier_wait(&init_barrier);
+	if (!cpu0_only)
+		pthread_barrier_wait(&init_barrier);
 
+	/* CPU0 going for qman poll */
+	if (cpu0_poll_on) {
+		APP_INFO("Going for qman poll cpu %d\n", my_cpu);
+		while (1)
+			qman_poll();
+	}
 	/* Wait for all the threads to finish */
-	wait_threads(thread_data, last - first + 1);
+	if (!cpu0_only)
+		wait_threads(thread_data, last - first + 1);
 
 	usdpa_netcfg_release(uscfg_info);
 	return 0;

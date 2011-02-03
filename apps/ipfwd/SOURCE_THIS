@@ -1,21 +1,4 @@
 
-export BMAN1=/dev/uio0
-export BMAN2=/dev/uio1
-export BMAN3=/dev/uio2
-export BMAN4=/dev/uio3
-export BMAN5=/dev/uio4
-export BMAN6=/dev/uio5
-export BMAN7=/dev/uio6
-export BMAN0=/dev/uio7
-export QMAN1=/dev/uio8
-export QMAN2=/dev/uio9
-export QMAN3=/dev/uio10
-export QMAN4=/dev/uio11
-export QMAN5=/dev/uio12
-export QMAN6=/dev/uio13
-export QMAN7=/dev/uio14
-export QMAN0=/dev/uio15
-
 cd /usr/etc
 fmc -c config-20G.xml -p sample-32.xml -a
 ipfwd_app 1..7 sample-32.xml config-20G.xml &
