@@ -542,6 +542,9 @@ static int rfl_if_init(unsigned int idx)
 		fq->cb.dqrr = cb_tx_drain_2fwd;
 		err = qman_create_fq(0, QMAN_FQ_FLAG_DYNAMIC_FQID |
 					QMAN_FQ_FLAG_TO_DCPORTAL, fq);
+		/* TODO: handle errors here, BUG_ON()s are compiled out in
+		 * performance builds (ie. the default) and this code isn't even
+		 * performance-sensitive. */
 		BUG_ON(err);
 		opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
 			       QM_INITFQ_WE_CONTEXTB | QM_INITFQ_WE_CONTEXTA;
@@ -1130,6 +1133,13 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "error: no pool channels available\n");
 		return -1;
 	}
+	/* - initialise DPAA */
+	rcode = qman_global_init(0);
+	if (rcode)
+		fprintf(stderr, "error: qman global init, continuing\n");
+	rcode = bman_global_init(0);
+	if (rcode)
+		fprintf(stderr, "error: bman global init, continuing\n");
 	printf("Configuring for %d network interface%s and %d pool channel%s\n",
 		cfg->num_ethports, cfg->num_ethports > 1 ? "s" : "",
 		cfg->num_pool_channels, cfg->num_pool_channels > 1 ? "s" : "");

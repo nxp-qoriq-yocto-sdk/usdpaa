@@ -31,6 +31,7 @@
  */
 
 #include "bman_private.h"
+#include <fsl_usd.h>
 
 /*****************/
 /* Portal driver */
@@ -44,6 +45,20 @@ static __thread int fd = -1;
 static struct bman_depletion pools = BMAN_DEPLETION_FULL;
 static u8 num_pools = 64;
 static DEFINE_SPINLOCK(pools_lock);
+
+struct bman_bpid_ranges {
+	unsigned int num_ranges;
+	const struct bman_bpid_range {
+		u32 start;
+		u32 num;
+	} *ranges;
+};
+static const struct bman_bpid_range bpid_range[] =
+	{ {FSL_BPID_RANGE_START, FSL_BPID_RANGE_LENGTH} };
+static const struct bman_bpid_ranges bpid_allocator = {
+	.num_ranges = 1,
+	.ranges = bpid_range
+};
 
 int bm_pool_new(u32 *bpid)
 {
@@ -233,8 +248,10 @@ int bman_thread_finish(void)
 	return fsl_bman_portal_finish();
 }
 
-int bman_setup_allocator(int recovery_mode,
-			const struct bman_bpid_ranges *bpids)
+int bman_global_init(int recovery_mode)
 {
-	return fsl_bpool_range_init(recovery_mode, bpids);
+	static int done = 0;
+	if (done)
+		return -EBUSY;
+	return fsl_bpool_range_init(recovery_mode, &bpid_allocator);
 }

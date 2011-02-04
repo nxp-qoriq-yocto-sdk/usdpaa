@@ -46,19 +46,6 @@
 static const uint8_t qm_pool_channels[] = QM_POOL_CHANNELS;
 static const uint8_t qm_cgrid[] = QM_CGRIDS;
 
-static const struct bman_bpid_range bpid_range[] =
-	{ {FSL_BPID_RANGE_START, FSL_BPID_RANGE_LENGTH} };
-static const struct bman_bpid_ranges bpid_allocator = {
-	.num_ranges = 1,
-	.ranges = bpid_range
-};
-static const struct qman_fqid_range fqid_range[] =
-	{ {FSL_FQID_RANGE_START, FSL_FQID_RANGE_LENGTH} };
-static const struct qman_fqid_ranges fqid_allocator = {
-	.num_ranges = 1,
-	.ranges = fqid_range
-};
-
 /* This data structure contaings all configurations information
  * related to usages of DPA devices.
  * */
@@ -162,14 +149,6 @@ struct usdpa_netcfg_info *usdpa_netcfg_acquire(const char *pcd_file,
 			"(ERRNO = %d)\n", __FILE__, __LINE__, __func__, _errno);
 		return NULL;
 	}
-
-	/* Initialise Qman/Bman drivers */
-	_errno = bman_setup_allocator(0, &bpid_allocator);
-	if (_errno)
-		fprintf(stderr, "error: BPID init, continuing\n");
-	_errno = qman_setup_allocator(0, &fqid_allocator);
-	if (_errno)
-		fprintf(stderr, "error: FQID init, continuing\n");
 
 	/* Initialise the Fman driver */
 	_errno = fman_if_init();

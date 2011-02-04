@@ -31,10 +31,27 @@
  */
 
 #include "qman_private.h"
+#include <fsl_usd.h>
 
 /* Global variable containing revision id (even on non-control plane systems
  * where CCSR isn't available). FIXME: hard-coded. */
 u16 qman_ip_rev = QMAN_REV2;
+
+struct qman_fqid_ranges {
+	unsigned int num_ranges;
+	const struct qman_fqid_range {
+		u32 start;
+		u32 num;
+	} *ranges;
+};
+
+static const struct qman_fqid_range fqid_range[] =
+	{ {FSL_FQID_RANGE_START, FSL_FQID_RANGE_LENGTH} };
+static const struct qman_fqid_ranges fqid_allocator = {
+	.num_ranges = 1,
+	.ranges = fqid_range
+};
+
 
 /*****************/
 /* Portal driver */
@@ -230,8 +247,10 @@ int qman_thread_finish(void)
 	return fsl_qman_portal_finish();
 }
 
-int qman_setup_allocator(int recovery_mode,
-			const struct qman_fqid_ranges *fqids)
+int qman_global_init(int recovery_mode)
 {
-	return fsl_fqid_range_init(recovery_mode, fqids);
+	static int done = 0;
+	if (done)
+		return -EBUSY;
+	return fsl_fqid_range_init(recovery_mode, &fqid_allocator);
 }

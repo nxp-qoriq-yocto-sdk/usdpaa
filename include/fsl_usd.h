@@ -37,22 +37,6 @@
 extern "C" {
 #endif
 
-/* Global (ie. not per-thread/cpu) settings for the app... */
-struct bman_bpid_ranges {
-	unsigned int num_ranges;
-	const struct bman_bpid_range {
-		u32 start;
-		u32 num;
-	} *ranges;
-};
-struct qman_fqid_ranges {
-	unsigned int num_ranges;
-	const struct qman_fqid_range {
-		u32 start;
-		u32 num;
-	} *ranges;
-};
-
 /***********************************/
 /* USDPAA-specific initialisation: */
 
@@ -63,10 +47,8 @@ int qman_thread_finish(void);
 int bman_thread_finish(void);
 
 /* Global setup, must be called on an initialised thread if recovery_mode!=0 */
-int qman_setup_allocator(int recovery_mode,
-			const struct qman_fqid_ranges *fqids);
-int bman_setup_allocator(int recovery_mode,
-			const struct bman_bpid_ranges *bpids);
+int qman_global_init(int recovery_mode);
+int bman_global_init(int recovery_mode);
 
 #ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
 /* Rev1-specific instrumentation to throttle (per-cpu) EQCR_CI updates */
