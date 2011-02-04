@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2008-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,88 +37,82 @@
 /***************************/
 
 /* Cache-inhibited register offsets */
-#define REG_EQCR_PI_CINH	(void *)0x0000
-#define REG_EQCR_CI_CINH	(void *)0x0004
-#define REG_EQCR_ITR		(void *)0x0008
-#define REG_DQRR_PI_CINH	(void *)0x0040
-#define REG_DQRR_CI_CINH	(void *)0x0044
-#define REG_DQRR_ITR		(void *)0x0048
-#define REG_DQRR_DCAP		(void *)0x0050
-#define REG_DQRR_SDQCR		(void *)0x0054
-#define REG_DQRR_VDQCR		(void *)0x0058
-#define REG_DQRR_PDQCR		(void *)0x005c
-#define REG_MR_PI_CINH		(void *)0x0080
-#define REG_MR_CI_CINH		(void *)0x0084
-#define REG_MR_ITR		(void *)0x0088
-#define REG_CFG			(void *)0x0100
-#define REG_ISR			(void *)0x0e00
-#define REG_ITPR		(void *)0x0e14
+#define REG_EQCR_PI_CINH	0x0000
+#define REG_EQCR_CI_CINH	0x0004
+#define REG_EQCR_ITR		0x0008
+#define REG_DQRR_PI_CINH	0x0040
+#define REG_DQRR_CI_CINH	0x0044
+#define REG_DQRR_ITR		0x0048
+#define REG_DQRR_DCAP		0x0050
+#define REG_DQRR_SDQCR		0x0054
+#define REG_DQRR_VDQCR		0x0058
+#define REG_DQRR_PDQCR		0x005c
+#define REG_MR_PI_CINH		0x0080
+#define REG_MR_CI_CINH		0x0084
+#define REG_MR_ITR		0x0088
+#define REG_CFG			0x0100
+#define REG_ISR			0x0e00
+#define REG_ITPR		0x0e14
 
 /* Cache-enabled register offsets */
-#define CL_EQCR			(void *)0x0000
-#define CL_DQRR			(void *)0x1000
-#define CL_MR			(void *)0x2000
-#define CL_EQCR_PI_CENA		(void *)0x3000
-#define CL_EQCR_CI_CENA		(void *)0x3100
-#define CL_DQRR_PI_CENA		(void *)0x3200
-#define CL_DQRR_CI_CENA		(void *)0x3300
-#define CL_MR_PI_CENA		(void *)0x3400
-#define CL_MR_CI_CENA		(void *)0x3500
-#define CL_CR			(void *)0x3800
-#define CL_RR0			(void *)0x3900
-#define CL_RR1			(void *)0x3940
+#define CL_EQCR			0x0000
+#define CL_DQRR			0x1000
+#define CL_MR			0x2000
+#define CL_EQCR_PI_CENA		0x3000
+#define CL_EQCR_CI_CENA		0x3100
+#define CL_DQRR_PI_CENA		0x3200
+#define CL_DQRR_CI_CENA		0x3300
+#define CL_MR_PI_CENA		0x3400
+#define CL_MR_CI_CENA		0x3500
+#define CL_CR			0x3800
+#define CL_RR0			0x3900
+#define CL_RR1			0x3940
 
-/* The h/w design requires mappings to be size-aligned so that "add"s can be
- * reduced to "or"s. The primitives below do the same for s/w. */
-
-/* Bitwise-OR two pointers */
-static inline void *ptr_OR(void *a, void *b)
+/* Cache-inhibited register access. BTW, we do not need the "sync()" inherent in
+ * in_be32()/out_be32() operations, so our register accesses use a volatile
+ * dereference instead. */
+static inline u32 __qm_in(struct qm_addr *qm, unsigned long offset)
 {
-	return (void *)((unsigned long)a | (unsigned long)b);
+	return *((volatile u32 *)(qm->addr_ci + offset));
 }
-
-/* Cache-inhibited register access */
-static inline u32 __qm_in(struct qm_addr *qm, void *offset)
+static inline void __qm_out(struct qm_addr *qm, unsigned long offset, u32 val)
 {
-	return in_be32(ptr_OR(qm->addr_ci, offset));
-}
-static inline void __qm_out(struct qm_addr *qm, void *offset, u32 val)
-{
-	out_be32(ptr_OR(qm->addr_ci, offset), val);
+	*((volatile u32 *)(qm->addr_ci + offset)) = val;
 }
 #define qm_in(reg)		__qm_in(&portal->addr, REG_##reg)
 #define qm_out(reg, val)	__qm_out(&portal->addr, REG_##reg, val)
 
-/* Convert 'n' cachelines to a pointer value for bitwise OR */
-#define qm_cl(n)		(void *)((n) << 6)
-
 /* Cache-enabled (index) register access */
-static inline void __qm_cl_touch_ro(struct qm_addr *qm, void *offset)
+static inline void __qm_cl_touch_ro(struct qm_addr *qm, unsigned long offset)
 {
-	dcbt_ro(ptr_OR(qm->addr_ce, offset));
+	dcbt_ro(qm->addr_ce + offset);
 }
-static inline void __qm_cl_touch_rw(struct qm_addr *qm, void *offset)
+static inline void __qm_cl_touch_rw(struct qm_addr *qm, unsigned long offset)
 {
-	dcbt_rw(ptr_OR(qm->addr_ce, offset));
+	dcbt_rw(qm->addr_ce + offset);
 }
-static inline u32 __qm_cl_in(struct qm_addr *qm, void *offset)
+static inline u32 __qm_cl_in(struct qm_addr *qm, unsigned long offset)
 {
-	return in_be32(ptr_OR(qm->addr_ce, offset));
+	return *((volatile u32 *)(qm->addr_ce + offset));
 }
-static inline void __qm_cl_out(struct qm_addr *qm, void *offset, u32 val)
+static inline void __qm_cl_out(struct qm_addr *qm, unsigned long offset,
+				u32 val)
 {
-	out_be32(ptr_OR(qm->addr_ce, offset), val);
-	dcbf(ptr_OR(qm->addr_ce, offset));
+	*((volatile u32 *)(qm->addr_ce + offset)) = val;
+	dcbf(qm->addr_ce + offset);
 }
-static inline void __qm_cl_invalidate(struct qm_addr *qm, void *offset)
+static inline void __qm_cl_invalidate(struct qm_addr *qm, unsigned long offset)
 {
-	dcbi(ptr_OR(qm->addr_ce, offset));
+	dcbi(qm->addr_ce + offset);
 }
 #define qm_cl_touch_ro(reg)	__qm_cl_touch_ro(&portal->addr, CL_##reg##_CENA)
 #define qm_cl_touch_rw(reg)	__qm_cl_touch_rw(&portal->addr, CL_##reg##_CENA)
 #define qm_cl_in(reg)		__qm_cl_in(&portal->addr, CL_##reg##_CENA)
 #define qm_cl_out(reg, val)	__qm_cl_out(&portal->addr, CL_##reg##_CENA, val)
 #define qm_cl_invalidate(reg) __qm_cl_invalidate(&portal->addr, CL_##reg##_CENA)
+
+/* Cache-enabled ring access */
+#define qm_cl(base, idx)	((void *)base + ((idx) << 6))
 
 /* Cyclic helper for rings. FIXME: once we are able to do fine-grain perf
  * analysis, look at using the "extra" bit in the ring index registers to avoid
@@ -239,9 +233,10 @@ struct qm_mc {
  * present on the corresponding h/w data structs (specifically, there is a
  * zero-bit present above the range required to address the ring, so that
  * iteration can be achieved by incrementing a ring pointer and clearing the
- * carry-bit). The "portal" struct needs the same alignment, as this type goes
- * at its head. */
-#define QM_PORTAL_ALIGNMENT __attribute__((aligned(16*64)))
+ * carry-bit). The "portal" struct needs the same alignment because this type
+ * goes at its head, so it has a more radical alignment requirement if this
+ * structure is used. */
+#define QM_PORTAL_ALIGNMENT __attribute__((aligned(32*64)))
 struct qm_portal_bugs {
 	/* shadow MR ring, for QMAN9 workaround, 8-CL-aligned */
 	struct qm_mr_entry mr[QM_MR_SIZE];
@@ -310,7 +305,7 @@ static inline int qm_eqcr_init(struct qm_portal *portal,
 	u32 cfg;
 	u8 pi;
 
-	eqcr->ring = ptr_OR(portal->addr.addr_ce, CL_EQCR);
+	eqcr->ring = portal->addr.addr_ce + CL_EQCR;
 	eqcr->ci = qm_in(EQCR_CI_CINH) & (QM_EQCR_SIZE - 1);
 	qm_cl_invalidate(EQCR_CI);
 	pi = qm_in(EQCR_PI_CINH) & (QM_EQCR_SIZE - 1);
@@ -568,7 +563,7 @@ static inline int qm_dqrr_init(struct qm_portal *portal,
 	qm_out(DQRR_SDQCR, 0);
 	qm_out(DQRR_VDQCR, 0);
 	qm_out(DQRR_PDQCR, 0);
-	dqrr->ring = ptr_OR(portal->addr.addr_ce, CL_DQRR);
+	dqrr->ring = portal->addr.addr_ce + CL_DQRR;
 	dqrr->pi = qm_in(DQRR_PI_CINH) & (QM_DQRR_SIZE - 1);
 	dqrr->ci = qm_in(DQRR_CI_CINH) & (QM_DQRR_SIZE - 1);
 	dqrr->cursor = dqrr->ring + dqrr->ci;
@@ -661,7 +656,7 @@ static inline u8 qm_dqrr_pce_update(struct qm_portal *portal)
 static inline void qm_dqrr_pvb_update(struct qm_portal *portal, int coherent)
 {
 	register struct qm_dqrr *dqrr = &portal->dqrr;
-	struct qm_dqrr_entry *res = ptr_OR(dqrr->ring, qm_cl(dqrr->pi));
+	struct qm_dqrr_entry *res = qm_cl(dqrr->ring, dqrr->pi);
 	DPA_ASSERT(dqrr->pmode == qm_dqrr_pvb);
 	if ((readb(&res->verb) & QM_DQRR_VERB_VBIT) == dqrr->vbit) {
 		dqrr->pi = (dqrr->pi + 1) & (QM_DQRR_SIZE - 1);
@@ -863,8 +858,8 @@ static inline struct qm_mr_entry *MR_INC(struct qm_mr_entry *e)
 static inline void __mr_copy_and_fixup(struct qm_portal *p, u8 idx)
 {
 	if (qman_ip_rev == QMAN_REV1) {
-		struct qm_mr_entry *shadow = ptr_OR(p->bugs.mr, qm_cl(idx));
-		struct qm_mr_entry *res = ptr_OR(p->mr.ring, qm_cl(idx));
+		struct qm_mr_entry *shadow = qm_cl(p->bugs.mr, idx);
+		struct qm_mr_entry *res = qm_cl(p->mr.ring, idx);
 		copy_words(shadow, res, sizeof(*res));
 		/* Bypass the QM_MR_RC_*** definitions, and check the byte value
 		 * directly to handle the erratum. */
@@ -889,7 +884,7 @@ static inline int qm_mr_init(struct qm_portal *portal, enum qm_mr_pmode pmode,
 		return -EINVAL;
 	}
 #endif
-	mr->ring = ptr_OR(portal->addr.addr_ce, CL_MR);
+	mr->ring = portal->addr.addr_ce + CL_MR;
 	mr->pi = qm_in(MR_PI_CINH) & (QM_MR_SIZE - 1);
 	mr->ci = qm_in(MR_CI_CINH) & (QM_MR_SIZE - 1);
 #ifdef CONFIG_FSL_QMAN_BUG_AND_FEATURE_REV1
@@ -978,7 +973,7 @@ static inline u8 qm_mr_pce_update(struct qm_portal *portal)
 static inline void qm_mr_pvb_update(struct qm_portal *portal)
 {
 	register struct qm_mr *mr = &portal->mr;
-	struct qm_mr_entry *res = ptr_OR(mr->ring, qm_cl(mr->pi));
+	struct qm_mr_entry *res = qm_cl(mr->ring, mr->pi);
 	DPA_ASSERT(mr->pmode == qm_mr_pvb);
 	if ((readb(&res->verb) & QM_MR_VERB_VBIT) == mr->vbit) {
 		__mr_copy_and_fixup(portal, mr->pi);
@@ -1055,8 +1050,8 @@ static inline void qm_mr_set_ithresh(struct qm_portal *portal, u8 ithresh)
 static inline int qm_mc_init(struct qm_portal *portal)
 {
 	register struct qm_mc *mc = &portal->mc;
-	mc->cr = ptr_OR(portal->addr.addr_ce, CL_CR);
-	mc->rr = ptr_OR(portal->addr.addr_ce, CL_RR0);
+	mc->cr = portal->addr.addr_ce + CL_CR;
+	mc->rr = portal->addr.addr_ce + CL_RR0;
 	mc->rridx = (readb(&mc->cr->__dont_write_directly__verb) &
 			QM_MCC_VERB_VBIT) ?  0 : 1;
 	mc->vbit = mc->rridx ? QM_MCC_VERB_VBIT : 0;

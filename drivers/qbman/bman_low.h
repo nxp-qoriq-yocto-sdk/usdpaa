@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2008-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,72 +37,66 @@
 /***************************/
 
 /* Cache-inhibited register offsets */
-#define REG_RCR_PI_CINH		(void *)0x0000
-#define REG_RCR_CI_CINH		(void *)0x0004
-#define REG_RCR_ITR		(void *)0x0008
-#define REG_CFG			(void *)0x0100
-#define REG_SCN(n)		((void *)(0x0200 + ((n) << 2)))
-#define REG_ISR			(void *)0x0e00
+#define REG_RCR_PI_CINH		0x0000
+#define REG_RCR_CI_CINH		0x0004
+#define REG_RCR_ITR		0x0008
+#define REG_CFG			0x0100
+#define REG_SCN(n)		(0x0200 + ((n) << 2))
+#define REG_ISR			0x0e00
 
 /* Cache-enabled register offsets */
-#define CL_CR			(void *)0x0000
-#define CL_RR0			(void *)0x0100
-#define CL_RR1			(void *)0x0140
-#define CL_RCR			(void *)0x1000
-#define CL_RCR_PI_CENA		(void *)0x3000
-#define CL_RCR_CI_CENA		(void *)0x3100
+#define CL_CR			0x0000
+#define CL_RR0			0x0100
+#define CL_RR1			0x0140
+#define CL_RCR			0x1000
+#define CL_RCR_PI_CENA		0x3000
+#define CL_RCR_CI_CENA		0x3100
 
-/* The h/w design requires mappings to be size-aligned so that "add"s can be
- * reduced to "or"s. The primitives below do the same for s/w. */
-
-/* Bitwise-OR two pointers */
-static inline void *ptr_OR(void *a, void *b)
+/* Cache-inhibited register access. BTW, we do not need the "sync()" inherent in
+ * in_be32()/out_be32() operations, so our register accesses use a volatile
+ * dereference instead. */
+static inline u32 __bm_in(struct bm_addr *bm, unsigned long offset)
 {
-	return (void *)((unsigned long)a | (unsigned long)b);
+	return *((volatile u32 *)(bm->addr_ci + offset));
 }
-
-/* Cache-inhibited register access */
-static inline u32 __bm_in(struct bm_addr *bm, void *offset)
+static inline void __bm_out(struct bm_addr *bm, unsigned long offset, u32 val)
 {
-	return in_be32(ptr_OR(bm->addr_ci, offset));
-}
-static inline void __bm_out(struct bm_addr *bm, void *offset, u32 val)
-{
-	out_be32(ptr_OR(bm->addr_ci, offset), val);
+	*((volatile u32 *)(bm->addr_ci + offset)) = val;
 }
 #define bm_in(reg)		__bm_in(&portal->addr, REG_##reg)
 #define bm_out(reg, val)	__bm_out(&portal->addr, REG_##reg, val)
 
-/* Convert 'n' cachelines to a pointer value for bitwise OR */
-#define bm_cl(n)		(void *)((n) << 6)
-
 /* Cache-enabled (index) register access */
-static inline void __bm_cl_touch_ro(struct bm_addr *bm, void *offset)
+static inline void __bm_cl_touch_ro(struct bm_addr *bm, unsigned long offset)
 {
-	dcbt_ro(ptr_OR(bm->addr_ce, offset));
+	dcbt_ro(bm->addr_ce + offset);
 }
-static inline void __bm_cl_touch_rw(struct bm_addr *bm, void *offset)
+static inline void __bm_cl_touch_rw(struct bm_addr *bm, unsigned long offset)
 {
-	dcbt_rw(ptr_OR(bm->addr_ce, offset));
+	dcbt_rw(bm->addr_ce + offset);
 }
-static inline u32 __bm_cl_in(struct bm_addr *bm, void *offset)
+static inline u32 __bm_cl_in(struct bm_addr *bm, unsigned long offset)
 {
-	return in_be32(ptr_OR(bm->addr_ce, offset));
+	return *((volatile u32 *)(bm->addr_ce + offset));
 }
-static inline void __bm_cl_out(struct bm_addr *bm, void *offset, u32 val)
+static inline void __bm_cl_out(struct bm_addr *bm, unsigned long offset,
+				u32 val)
 {
-	out_be32(ptr_OR(bm->addr_ce, offset), val);
-	dcbf(ptr_OR(bm->addr_ce, offset));
+	*((volatile u32 *)(bm->addr_ce + offset)) = val;
+	dcbf(bm->addr_ce + offset);
 }
-static inline void __bm_cl_invalidate(struct bm_addr *bm, void *offset)
+static inline void __bm_cl_invalidate(struct bm_addr *bm, unsigned long offset)
 {
-	dcbi(ptr_OR(bm->addr_ce, offset));
+	dcbi(bm->addr_ce + offset);
 }
 #define bm_cl_touch_ro(reg)	__bm_cl_touch_ro(&portal->addr, CL_##reg##_CENA)
 #define bm_cl_touch_rw(reg)	__bm_cl_touch_rw(&portal->addr, CL_##reg##_CENA)
 #define bm_cl_in(reg)		__bm_cl_in(&portal->addr, CL_##reg##_CENA)
 #define bm_cl_out(reg, val)	__bm_cl_out(&portal->addr, CL_##reg##_CENA, val)
 #define bm_cl_invalidate(reg) __bm_cl_invalidate(&portal->addr, CL_##reg##_CENA)
+
+/* Cache-enabled ring access */
+#define bm_cl(base, idx)	((void *)base + ((idx) << 6))
 
 /* Cyclic helper for rings. FIXME: once we are able to do fine-grain perf
  * analysis, look at using the "extra" bit in the ring index registers to avoid
@@ -210,7 +204,7 @@ static inline int bm_rcr_init(struct bm_portal *portal, enum bm_rcr_pmode pmode,
 	u32 cfg;
 	u8 pi;
 
-	rcr->ring = ptr_OR(portal->addr.addr_ce, CL_RCR);
+	rcr->ring = portal->addr.addr_ce + CL_RCR;
 	rcr->ci = bm_in(RCR_CI_CINH) & (BM_RCR_SIZE - 1);
 	pi = bm_in(RCR_PI_CINH) & (BM_RCR_SIZE - 1);
 	rcr->cursor = rcr->ring + pi;
@@ -396,8 +390,8 @@ static inline u8 bm_rcr_get_fill(struct bm_portal *portal)
 static inline int bm_mc_init(struct bm_portal *portal)
 {
 	register struct bm_mc *mc = &portal->mc;
-	mc->cr = ptr_OR(portal->addr.addr_ce, CL_CR);
-	mc->rr = ptr_OR(portal->addr.addr_ce, CL_RR0);
+	mc->cr = portal->addr.addr_ce + CL_CR;
+	mc->rr = portal->addr.addr_ce + CL_RR0;
 	mc->rridx = (readb(&mc->cr->__dont_write_directly__verb) &
 			BM_MCC_VERB_VBIT) ?  0 : 1;
 	mc->vbit = mc->rridx ? BM_MCC_VERB_VBIT : 0;
