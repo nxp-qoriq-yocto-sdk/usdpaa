@@ -121,9 +121,9 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 		ret = -ENODEV;
 		goto end;
 	}
-	pcfg->addr.addr_ce = mmap(QMAN_CENA(cpu), 16*1024,
-			PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, fd, 0);
-	pcfg->addr.addr_ci = mmap(QMAN_CINH(cpu), 4*1024,
+	pcfg->addr.addr_ce = mmap(NULL, 16*1024,
+			PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	pcfg->addr.addr_ci = mmap(NULL, 4*1024,
 			PROT_READ | PROT_WRITE, MAP_SHARED, fd, 4*1024);
 	if ((pcfg->addr.addr_ce == MAP_FAILED) ||
 			(pcfg->addr.addr_ci == MAP_FAILED)) {

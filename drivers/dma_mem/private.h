@@ -1,4 +1,4 @@
-/* Copyright (c) 2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,7 +31,6 @@
  */
 
 #include <compat.h>
-#include <dma_mem.h>
 
 /* Hook to allocator.c */
 int dma_mem_alloc_init(void *bar, size_t sz);

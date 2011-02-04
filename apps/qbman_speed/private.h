@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2008-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,7 +33,6 @@
 #include <compat.h>
 #include <linux/fsl_qman.h>
 #include <linux/fsl_bman.h>
-#include <dma_mem.h>
 
 struct worker {
 	int cpu, do_global_init;

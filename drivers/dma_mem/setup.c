@@ -1,4 +1,4 @@
-/* Copyright (c) 2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,33 +40,51 @@
 
 static int fd;
 
-/* Present "carve up" is to use the first 0x5b80000 bytes of dma_mem for buffer
- * pools and the rest of dma_mem (which is 256MB total) for ad-hoc allocations. */
-#define DMA_MEM_ALLOC_BAR	((void *)DMA_MEM_VIRT + 0x5b80000)
-#define DMA_MEM_ALLOC_SZ	(0x10000000 - 0x05b80000)
+/* This global is exported for use in ptov/vtop inlines. It is the result of the
+ * mmap(), but pre-cast to dma_addr_t, so if we have 64-bit physical addresses
+ * the ptov/vtop inlines will have less conversion to do. */
+dma_addr_t __dma_virt;
+/* This is the same value, but it's the pointer type */
+static void *virt;
 
 int dma_mem_setup(void)
 {
-	void *p;
+	void *trial;
 	int ret = -ENODEV;
 	fd = open(DMA_MEM_PATH, O_RDWR);
 	if (fd < 0) {
 		perror("can't open dma_mem device");
 		return ret;
 	}
-	p = mmap((void *)DMA_MEM_VIRT, DMA_MEM_SIZE, PROT_READ | PROT_WRITE,
-		MAP_SHARED | MAP_FIXED, fd, DMA_MEM_PHYS);
-	if (p == MAP_FAILED) {
+	/* TODO: this needs to be improved but may not be possible until
+	 * hugetlbfs is available. If we let the kernel choose the virt address,
+	 * it will only guarantee page-alignment, yet our TLB1 hack in the
+	 * kernel requires that this mapping be *size*-aligned. With this in
+	 * mind, we'll do a trial-and-error proposing addresses to the kernel
+	 * until we find one that works or give up. */
+	for (trial = (void *)0x70000000; (unsigned long)trial < 0xc0000000;
+				trial += DMA_MEM_SIZE) {
+		pr_info("trial=%p\n", trial);
+		virt = mmap(trial, DMA_MEM_SIZE, PROT_READ | PROT_WRITE,
+				MAP_SHARED | MAP_FIXED, fd, DMA_MEM_PHYS);
+		pr_info("  -> %p\n", virt);
+		if (virt != MAP_FAILED)
+			break;
+		pr_info("nah, try again\n");
+	}
+	if (virt == MAP_FAILED) {
 		perror("can't mmap() dma_mem device");
 		goto err;
 	}
-	if (p != (void *)DMA_MEM_VIRT)
-		goto err;
-	ret = dma_mem_alloc_init(DMA_MEM_ALLOC_BAR, DMA_MEM_ALLOC_SZ);
+	/* Present "carve up" is to use the first DMA_MEM_BPOOL bytes of dma_mem
+	 * for buffer pools and the rest of dma_mem for ad-hoc allocations. */
+	ret = dma_mem_alloc_init(virt + DMA_MEM_BPOOL,
+				DMA_MEM_SIZE - DMA_MEM_BPOOL);
 	if (ret)
 		goto err;
+	__dma_virt = (dma_addr_t)virt;
 	printf("FSL dma_mem device mapped (phys=0x%x,virt=%p,sz=0x%x)\n",
-		DMA_MEM_PHYS, p, DMA_MEM_SIZE);
+		DMA_MEM_PHYS, virt, DMA_MEM_SIZE);
 	return 0;
 err:
 	fprintf(stderr, "ERROR: dma_mem setup failed, ret = %d\n", ret);

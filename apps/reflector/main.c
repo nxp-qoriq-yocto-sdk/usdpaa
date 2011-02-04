@@ -31,9 +31,10 @@
  */
 
 #include <compat.h>
-#include <dma_mem.h>
-#include <fman.h>
 #include <usdpa_netcfg.h>
+#include <fsl_bman.h>
+#include <fsl_qman.h>
+#include <fsl_usd.h>
 
 #include <net/ethernet.h>
 #include <net/if_arp.h>

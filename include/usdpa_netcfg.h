@@ -34,6 +34,7 @@
 #define	__CONFIG_H
 
 #include <stdint.h>
+#include <fman.h>
 #include <net/ethernet.h>
 
 /* Configuration information related to a specific ethernet port */

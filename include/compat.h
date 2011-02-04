@@ -493,34 +493,6 @@ static inline void platform_device_put(struct platform_device *pdev)
 	free(pdev);
 }
 
-/* DMA stuff */
-typedef u32 dma_addr_t;
-enum dma_data_direction {
-	DMA_BIDIRECTIONAL = 0,
-	DMA_TO_DEVICE = 1,
-	DMA_FROM_DEVICE = 2,
-	DMA_NONE = 3,
-};
-#define DMA_BIT_MASK(n) (((u64)1 << (n)) - 1)
-static inline int dma_set_mask(void *dev __always_unused, u64 v __always_unused)
-{
-	return 0;
-}
-static inline dma_addr_t dma_map_single(void *dev __always_unused,
-				void *cpu_addr,
-				size_t size __maybe_unused,
-				enum dma_data_direction direction __always_unused)
-{
-	BUG_ON((u32)cpu_addr < DMA_MEM_VIRT);
-	BUG_ON(((u32)cpu_addr + size) > (DMA_MEM_VIRT + DMA_MEM_SIZE));
-	return __dma_mem_vtop(cpu_addr);
-}
-static inline int dma_mapping_error(void *dev __always_unused,
-				dma_addr_t dma_addr __always_unused)
-{
-	return 0;
-}
-
 /* Allocator stuff */
 #define kmalloc(sz, t)	malloc(sz)
 #define kfree(p)	free(p)
@@ -803,9 +775,10 @@ static inline type *name##_find(struct dpa_rbtree *tree, u32 val) \
 	return NULL; \
 }
 
-/* Ensure the code that includes us gets these headers */
-#include <linux/fsl_bman.h>
-#include <linux/fsl_qman.h>
-#include <fsl_usd.h>
+/* We force the inclusion of dma_mem.h here, because some of the
+ * definitions there provide linux-compatibility interfaces, and we can't
+ * include it explicitly from the single-source drivers, as this wouldn't
+ * compile on linux. */
+#include <dma_mem.h>
 
 #endif /* HEADER_COMPAT_H */

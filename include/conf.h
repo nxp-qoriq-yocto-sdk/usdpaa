@@ -1,5 +1,5 @@
-/*
- * Copyright (c) 2008-2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2008-2011 Freescale Semiconductor, Inc.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,32 +34,20 @@
 extern "C" {
 #endif
 
-/* The driver requires that CENA spaces be 16KB-aligned, whereas mmap() only
- * guarantees 4KB-alignment. Hmm. Workaround is to require *these*
- * [BQ]MAN_*** addresses for now.
-
+/*
  * The contiguous memory map for 'dma_mem' uses the DMA_MEM_*** constants, the
  * _PHYS and _SIZE values *must* agree with the "mem=<...>" kernel boot
  * parameter as well as the device-tree's "fsl-shmem" node.
  *
- * So the virt-address space we use for all of this is;
- *  BM_CENA     0x6ff00000 - 0x6f3fffff    at (1.75G - 1M); sz=256K
- *  QM_CENA     0x6ff40000 - 0x6f7fffff                     sz=256K
- *  BM_CINH     0x6ff80000 - 0x6fbfffff                     sz=256K
- *  QM_CINH     0x6ffc0000 - 0x6fffffff                     sz=256K
- *  dma_mem       0x70000000 - 0x7fffffff    at 1.75G; sz=256M
+ * Also, the first part of that memory map is used to seed buffer pools, as
+ * indicated by DMA_MEM_BPOOL. The ad-hoc buffer allocation will be confined to
+ * the area following that range, in order to not conflict with buffer pool
+ * usage.
  */
-#define BMAN_CENA(n)	(void *)(0x6ff00000 + (n)*16*1024)
-#define QMAN_CENA(n)	(void *)(0x6ff40000 + (n)*16*1024)
-#define BMAN_CINH(n)	(void *)(0x6ff80000 + (n)*4*1024)
-#define QMAN_CINH(n)	(void *)(0x6ffc0000 + (n)*4*1024)
-
 #define DMA_MEM_PATH	"/dev/fsl-shmem"
-#define DMA_MEM_VIRT	(u32)0x70000000
-#define DMA_MEM_PHYS	(u32)0x70000000 /* 1.75G */
-#define DMA_MEM_SIZE	(u32)0x10000000 /* 256M */
-#define __dma_mem_ptov(p) (void *)(p + (DMA_MEM_VIRT - DMA_MEM_PHYS))
-#define __dma_mem_vtop(v) ((dma_addr_t)v - (DMA_MEM_VIRT - DMA_MEM_PHYS))
+#define DMA_MEM_PHYS	0x70000000 /* 1.75G */
+#define DMA_MEM_SIZE	0x10000000 /* 256M */
+#define DMA_MEM_BPOOL	0x05b80000 /* ~92M */
 
 /* Until device-trees (or device-tree replacements) are available, another thing
  * to hard-code is the FQID and BPID range allocation. */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010 - 2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,7 +31,6 @@
  */
 
 #include <compat.h>
-#include <dma_mem.h>
 #include <fman.h>
 #include <net/ethernet.h>
 #include <net/if_arp.h>
