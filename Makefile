@@ -87,6 +87,9 @@ all: $(BIN_DIR) $(LIB_DIR) build
 
 #----=[ Helpers for "make debug" ]=----
 print_obj = echo "	     (compile) $(2) -> $(3)$(1)";
+define print_debug_dir
+ echo "	  $(1)";
+endef
 define print_debug_lib
  echo "	  $(1): $(addsuffix .o,$(basename $($(1)_SOURCES)))";
  echo "	     (path) $($(1)_dir)/";
@@ -99,9 +102,6 @@ define print_debug_bin
 $(foreach s,$($(1)_SOURCES), $(call print_obj,$(basename $(s)).o,$(s),$($(1)_pref)))
  echo "	     (link with) $($(1)_LDADD)"
  echo;
-endef
-define print_debug_mk
- echo "	  $(1)";
 endef
 define print_debug_install
  $(eval DESTDIR?=<DESTDIR>)
@@ -178,40 +178,45 @@ $(LIB_DIR)/lib$(1).a:$($(1)_objs)
 	$(Q)$(AR) $(ARFLAGS) $$@ $($(1)_objs)
 endef
 
-define process_makefile
-  $(eval include $(1))
-  $(eval thisdir := $(2:%/=%))
-  $(eval cflags := $(AM_CFLAGS))
-  $(foreach B,$(bin_PROGRAMS),$(eval $(call process_bin,$(B),$(thisdir),$(cflags))))
-  $(foreach L,$(lib_LIBRARIES),$(eval $(call process_lib,$(L),$(thisdir),$(cflags))))
-  $(foreach x,$(dist_DATA),$(eval $(call pre_process_target,$(x),$(thisdir),\
-  	$(cflags),$(x),$(INSTALL_OTHER),,$(INSTALL_OTHER_FLAGS))))
+define process_dir
+  $(eval bin_PROGRAMS :=)
+  $(eval lib_LIBRARIES := )
+  $(eval SUBDIRS := )
+  $(eval dist_DATA := )
+  $(eval AM_CFLAGS := )
+  $(eval include $(1)/Makefile.am)
+  $(foreach B,$(bin_PROGRAMS),$(eval $(call process_bin,$(B),$(1),$(AM_CFLAGS))))
+  $(foreach L,$(lib_LIBRARIES),$(eval $(call process_lib,$(L),$(1),$(AM_CFLAGS))))
+  $(foreach x,$(dist_DATA),$(eval $(call pre_process_target,$(x),$(1),\
+  	$(AM_CFLAGS),$(x),$(INSTALL_OTHER),,$(INSTALL_OTHER_FLAGS))))
+  $(eval ALLDIRS += $(1))
+  $(foreach s,$(SUBDIRS),$(eval $(call process_dir,$(1)/$(s))))
   BINS += $(bin_PROGRAMS)
   LIBS += $(lib_LIBRARIES)
-  bin_PROGRAMS :=
-  lib_LIBRARIES :=
-  dist_DATA :=
-  AM_CFLAGS :=
 endef
 
-ALL_MAKEFILES := $(foreach d,$(DIRS),$(shell find $(d) -name Makefile.am))
-$(foreach M,$(ALL_MAKEFILES), $(eval $(call process_makefile,$(M),$(dir $(M)))))
+# ----=[ Parse Makefiles, define build targets ]=----
+$(foreach d,$(DIRS), $(eval $(call process_dir,$(d))))
+
+# ----=[ Define install targets ]=----
 $(foreach x,$(TO_INSTALL),$(eval $(call process_install,$(x))))
 
-# ----=[ Other make targets ]=----
+# ----=[ Rules to create the required build directories. ]=----
 $(BIN_DIR):
 	$(Q)mkdir -p $(BIN_DIR)
-
 $(LIB_DIR):
 	$(Q)mkdir -p $(LIB_DIR)
 
+# ----=["All targets" targets ]=----
+
 build:$(foreach lib,$(LIBS),$(LIB_DIR)/lib$(lib).a) $(foreach bin,$(BINS),$(BIN_DIR)/$(bin))
-
 install: $(addprefix do_install_,$(TO_INSTALL))
-
 uninstall: $(addprefix do_uninstall_,$(TO_INSTALL))
 
 debug:
+	@echo "ALLDIRS"
+	@$(foreach d,$(ALLDIRS),$(call print_debug_dir,$(d)))
+	@echo
 	@echo "LIBS"
 	@echo "	  $(LIBS)"
 	@echo
@@ -223,9 +228,6 @@ debug:
 	@echo
 	@echo "BIN_DEPS"
 	@$(foreach bin,$(BINS),$(call print_debug_bin,$(bin)))
-	@echo
-	@echo "ALL_MAKEFILES"
-	@$(foreach mk,$(ALL_MAKEFILES),$(call print_debug_mk,$(mk)))
 	@echo
 	@echo "TO BE INSTALLED"
 	@$(foreach i,$(TO_INSTALL),$(call print_debug_install,$(i)))

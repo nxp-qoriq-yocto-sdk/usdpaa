@@ -1,4 +1,4 @@
-# Copyright (c) 2010 Freescale Semiconductor, Inc.
+# Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -31,9 +31,20 @@
 
 # -------------------------------------------------------------------------
 # Copy this makefile to your directory under "apps" or "drivers" as
-# "Makfile.sub".  The build system will find it automatically.	For a detailed
-# description of the Makefile primatives, please see the README.MakfileTemplate.
-#
+# "Makfile.am". Make sure to add the directory to the SUBDIRS entry of the
+# Makefile.am file in the parent directory so that the build system will include
+# it. For a detailed description of the Makefile primatives, please see the
+# README.BuildSystem.
+# -------------------------------------------------------------------------
+
+
+# -------------------------------------------------------------------------
+# Declare sub-directories with "Makefile.am" files to be processed:
+# -------------------------------------------------------------------------
+SUBDIRS = a_child_directory and-another-one
+
+
+# -------------------------------------------------------------------------
 # Build an Executable:
 # This example was taken from apps/qbman_speed.
 # This makefile says that:

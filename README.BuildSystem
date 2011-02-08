@@ -36,14 +36,17 @@ build, the following is the default value (if not overriden externally);
 # All "Makefile.am"s found beneath these directories are procssed;
 DIRS := apps drivers
 
-The build system will find any "Makefile.am" files in all sub-directories of
-the directories named in "DIR" and will process them all for building. All such
-Makefile.am files are sourced and processed to form a global dependency graph
-before any building begins, so there is no particular "build order" that has to
-be observed as is usually the case with recursive builds, ie. builds that
-execute "make" child processes in sub-directories. In particular, the following
-dependencies are fully expanded within a single make process before building
-begins;
+The build system will load "Makefile.am" files from those directories, and if
+those makefiles declare "SUBDIRS" values, it will walk those sub-directories
+too. As each makefile may declare SUBDIRS, an arbitrary-depth build tree can be
+declared and used. As the tree is walked, the Makefile.am files are sourced and
+processed to form a global dependency graph before any building begins, so there
+is no particular "build order" that has to be respected as is usually the case
+with recursive builds (ie. for builds that execute "make" child processes in
+sub-directories).
+
+In particular, the following dependencies are fully expanded within a single
+make process before building begins;
   * applications and the libraries and objects they are dependent on,
   * libraries and the objects they are dependent on,
   * objects and the source files they are dependent on,
@@ -145,12 +148,14 @@ supplement the options passed to the tool-chain;
 Section: Tools
 --------------
 
-This section defines the tool options. MAKE and INSTALL default to "make" and
-"install" respectively, which are assumed to be host tools accessible within the
-host's PATH environment. They can be overriden.
+This section defines the tool options.
 
-CC/LD/AR are assumed to be part of a cross-toolchain as
-indicated via CROSS_COMPILE.
+MAKE and INSTALL default to "make" and "install" respectively, which are assumed
+to be host tools accessible within the host's PATH environment. They can be
+overriden.
+
+CC/LD/AR are assumed to be part of a cross-toolchain as indicated via
+CROSS_COMPILE.
 
 --------------------------------
 Section: Directories and defines
@@ -180,7 +185,7 @@ whether to do so relative to PREFIX or not. Note that changes PREFIX will
 implicitly change these defaults.
 
 OBJ_DIR defines the sub-directory to create in each source directory where
-compilation occurs. For ARCH=powerpc, this is "obj_powerpc".
+compilation occurs. For ARCH=powerpc, this is "objs_powerpc".
 
 BIN_DIR and LIB_DIR define the directories where executables and libraries will
 be placed. For ARCH=powerpc, these will be "bin_powerpc" and "lib_powerpc"
@@ -243,27 +248,38 @@ the corresponding build and installation information as it goes, and generates
 the resulting dependencies and build rules. This processing will be described
 (and should be read) in the reverse order to how it appears in the Makefile.
 
-The parsing of Makefile.am files and generation of all build and install rules
-are are driven by these lines;
+The parsing of Makefile.am files and generation of all build rules is driven by
+this line;
 
-ALL_MAKEFILES := $(foreach d,$(DIRS),$(shell find $(d) -name Makefile.am))
-$(foreach M,$(ALL_MAKEFILES), $(eval $(call process_makefile,$(M),$(dir $(M)))))
+$(foreach d,$(DIRS), $(eval $(call process_dir,$(d))))
+
+The "process_dir" function is called for each Makefile.am file, passing the
+directory for each Makefile.am as the parameter.
+
+The above step also generates a list of all installable objects, which the
+following line uses to generate install rules for each such object;
+
 $(foreach x,$(TO_INSTALL),$(eval $(call process_install,$(x))))
 
-The "process_makefile" function is called for each Makefile.am file, passing
-the directory for each Makefile.am as the second parameter. The
-"process_install" function is then called for the list of installable objects
-that was produced from the processing of the Makefiles.
+	==== process_dir ====
 
-	==== process_makefile ====
-
-This function is called for each Makefile.am file and;
+This function is called for each directory. It loads the directory's
+"Makefile.am", and for the parameters found within it;
 
   * calls "process_bin" for each executable defined in bin_PROGRAMS
   * calls "process_lib" for each library defined in lib_LIBRARIES
-  * calls "pre_process_target" for each installable file defined in my_DATA
-  * add bin_PROGRAMS to the global list of executables BINS
-  * add lib_LIBRARIES to the global list of libraries LIBS
+  * calls "pre_process_target" for each installable file defined in dist_DATA
+  * adds the directory to the global list of directories ALLDIRS
+  * calls "process_dir" for each sub-directory defined in SUBDIRS
+  * adds bin_PROGRAMS to the global list of executables BINS
+  * adds lib_LIBRARIES to the global list of libraries LIBS
+
+Note, the fact that "process_dir" calls itself for SUBDIRS entries is how the
+tree is parsed recursively. The routine takes care to ensure that local
+parameters are emptied on entry, so they don't get inherited during recursion
+(causing infinite loops). Also, "process_dir" builds relative directory paths up
+as it recurses, and uses these when processing entries, so "Makefile.am" files
+do not need to be aware of where they are in the overall directory structure.
 
 	==== process_bin ====
 
@@ -296,8 +312,8 @@ This function is called for each library target "tgt";
 
 	==== process_obj ====
 
-This function is called for each C source file, and is passed parameters describing
-the target it is being compiled for (an executable or a library);
+This function is called for each C source file, and is passed parameters
+describing the target it is being compiled for (an executable or a library);
 
   * $(1) = the target (bin/lib name) the C file is compiled for
   * $(2) = the C source file name
@@ -372,8 +388,8 @@ The following targets are defined;
 
 These targets ensure the corresponding output directories for libraries and
 executables are created. The rules defining executables and directories are
-declared as dependent on these targets, ensuring they're created before
-libraries and executables are created.
+declared as dependent on these targets, ensuring they're created before being
+populated by libraries and executables.
 
 	==== build ====
 
@@ -385,31 +401,36 @@ that the default action of "make" is to build all libraries and executables.
 	==== install ====
 
 This target is declared as being dependent on all the "do_install_*" targets
-built up from processing Makefile.am files (as produced by the
-"process_install" function). As those targets are in turn declared as dependent
-on the objects being installed, this ensures the targets are built (if
-necessary) before being installed.
+built up from processing Makefile.am files (as produced by the "process_install"
+function). As those targets are in turn declared as dependent on the objects
+being installed, this ensures the targets are built (if necessary) before being
+installed.
+
+Note, though it would be tempting to make the install rules take into account
+the destination as well as the source (ie. so that files are only installed if
+previously-installed files are stale), we intentionally do not do this. In
+particular, a packaging system may meddle with time-stamps when staging root
+filesystems, which could lead to a previously installed but out of date file to
+appearing up-to-date. For this reason, "make install" will always install files
+even if the files had already been installed and were up to date.
 
 	==== uninstall ====
 
-This target is similar to "install", except is dependent on all the
-"do_uninstall_*" targets, which are also produced by the "process_install"
-function.
+This target is similar to "install", except that is dependent on all the
+corresponding "do_uninstall_*" targets (which are also produced by the
+"process_install" function).
 
 	==== debug ====
 
 This target formats a detailed layout of;
 
+  * all the directories,
   * all the libraries,
-  * all the objects the libraries are built out of (see the "print_debug_lib"
-    function),
+  * all the objects the libraries are built out of,
   * all the executables,
-  * all the objects and libraries the executables are built out of, (see the
-    "print_debug_bin" function),
-  * all the Makefile.am files (see the "print_debug_mk" function),
+  * all the objects and libraries the executables are built out of,
   * all the install actions to be performed (libraries, executables and other
-    files) for each installable target (see the "print_debug_install"
-    function). The output for each target includes;
+    files) for each installable target. The output for each target includes;
       * the installable file name ("libtgt.a" for libraries),
       * the path to be installed from,
       * the path to be installed to,
