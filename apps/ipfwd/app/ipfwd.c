@@ -100,10 +100,10 @@ static int worker_fn(struct thread_data_t *tdata)
 
 /**
  \brief Change Interface Configuration
- \param[out] lwe_ctrl_route_info contains Route parameters
+ \param[out] app_ctrl_route_info contains Route parameters
  \return Integer status
  */
-int32_t ipfwd_conf_intf(struct lwe_ctrl_op_info *route_info)
+int32_t ipfwd_conf_intf(struct app_ctrl_op_info *route_info)
 {
 	pr_dbg("ipfwd_conf_intf: Enter\n");
 
@@ -220,10 +220,10 @@ _TEMP:
 
 /**
  \brief Adds a new Route Cache entry
- \param[out] lwe_ctrl_route_info contains Route parameters
+ \param[out] app_ctrl_route_info contains Route parameters
  \return Integer status
  */
-int32_t ipfwd_add_route(struct lwe_ctrl_op_info *route_info)
+int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
 {
 	struct rc_entry_t *entry;
 	struct rt_dest_t *dest;
@@ -313,10 +313,10 @@ int32_t ipfwd_add_route(struct lwe_ctrl_op_info *route_info)
 
 /**
  \brief Deletes a Route Cache entry
- \param[out] lwe_ctrl_route_info contains Route parameters
+ \param[out] app_ctrl_route_info contains Route parameters
  \return Integer status
  */
-int32_t ipfwd_del_route(struct lwe_ctrl_op_info * route_info)
+int32_t ipfwd_del_route(struct app_ctrl_op_info *route_info)
 {
 	struct rt_dest_t *dest;
 	pr_dbg("ipfwd_del_route: Enter\n");
@@ -348,10 +348,10 @@ int32_t ipfwd_del_route(struct lwe_ctrl_op_info * route_info)
 
 /**
  \brief Adds a new Arp Cache entry
- \param[out] lwe_ctrl_route_info contains ARP parameters
+ \param[out] app_ctrl_route_info contains ARP parameters
  \return Integer status
  */
-int32_t ipfwd_add_arp(struct lwe_ctrl_op_info * route_info)
+int32_t ipfwd_add_arp(struct app_ctrl_op_info *route_info)
 {
 	unsigned char *c = route_info->ip_info.mac_addr;
 	unsigned int ip_addr = route_info->ip_info.src_ipaddr;
@@ -416,10 +416,10 @@ int32_t ipfwd_add_arp(struct lwe_ctrl_op_info * route_info)
 
 /**
  \brief Deletes an Arp Cache entry
- \param[out] lwe_ctrl_route_info contains ARP parameters
+ \param[out] app_ctrl_route_info contains ARP parameters
  \return Integer status
  */
-int32_t ipfwd_del_arp(struct lwe_ctrl_op_info *route_info)
+int32_t ipfwd_del_arp(struct app_ctrl_op_info *route_info)
 {
 	struct neigh_t *neighbor = NULL;
 	pr_dbg("ipfwd_del_arp: Enter\n");
@@ -465,7 +465,7 @@ int32_t ipfwd_del_arp(struct lwe_ctrl_op_info *route_info)
 	If frame_cnt specified is 0, then application would run indefinitely
 	else would come out after printing stats after certain number of pkts.
  */
-static int32_t ip_edit_num_cnt(struct lwe_ctrl_op_info *cp_info)
+static int32_t ip_edit_num_cnt(struct app_ctrl_op_info *cp_info)
 {
 	infinit_fcnt = (cp_info->ip_info.frame_cnt == 0) ?
 	    true : false;
@@ -739,37 +739,37 @@ static int32_t initialize_ip_stack(struct ip_stack_t *ip_stack)
 
 /**
  \brief Message handler for message coming from Control plane
- \param[in] lwe_ctrl_op_info contains SA parameters
+ \param[in] app_ctrl_op_info contains SA parameters
  \return NULL
 */
-void process_req_from_mq(struct lwe_ctrl_op_info *sa_info)
+void process_req_from_mq(struct app_ctrl_op_info *sa_info)
 {
 	int32_t s32Result = 0;
-	sa_info->result = LWE_CTRL_RSLT_FAILURE;
+	sa_info->result = IPC_CTRL_RSLT_FAILURE;
 
 	pr_dbg("process_req_from_mq: Enter\n");
 	switch (sa_info->msg_type) {
-	case LWE_CTRL_CMD_TYPE_ROUTE_ADD:
+	case IPC_CTRL_CMD_TYPE_ROUTE_ADD:
 		s32Result = ipfwd_add_route(sa_info);
 		break;
 
-	case LWE_CTRL_CMD_TYPE_ROUTE_DEL:
+	case IPC_CTRL_CMD_TYPE_ROUTE_DEL:
 		s32Result = ipfwd_del_route(sa_info);
 		break;
 
-	case LWE_CTRL_CMD_TYPE_ARP_ADD:
+	case IPC_CTRL_CMD_TYPE_ARP_ADD:
 		s32Result = ipfwd_add_arp(sa_info);
 		break;
 
-	case LWE_CTRL_CMD_TYPE_ARP_DEL:
+	case IPC_CTRL_CMD_TYPE_ARP_DEL:
 		s32Result = ipfwd_del_arp(sa_info);
 		break;
 
-	case LWE_CTRL_CMD_TYPE_FRAMECNT_EDIT:
+	case IPC_CTRL_CMD_TYPE_FRAMECNT_EDIT:
 		s32Result = ip_edit_num_cnt(sa_info);
 		break;
 
-	case LWE_CTRL_CMD_TYPE_GO:
+	case IPC_CTRL_CMD_TYPE_GO:
 		s32Result = 0;
 		GO_FLAG = 1;
 		break;
@@ -779,7 +779,7 @@ void process_req_from_mq(struct lwe_ctrl_op_info *sa_info)
 	}
 
 	if (s32Result == 0) {
-		sa_info->result = LWE_CTRL_RSLT_SUCCESSFULL;
+		sa_info->result = IPC_CTRL_RSLT_SUCCESSFULL;
 	} else {
 		pr_err("%s: CP Request can't be handled\n", __func__);
 	}
@@ -791,13 +791,13 @@ void process_req_from_mq(struct lwe_ctrl_op_info *sa_info)
 int receive_data(mqd_t mqdes)
 {
 	ssize_t size;
-	struct lwe_ctrl_op_info *ip_info = NULL;
+	struct app_ctrl_op_info *ip_info = NULL;
 	struct mq_attr attr;
 	int _err = 0;
 
-	ip_info = (struct lwe_ctrl_op_info *)malloc
-			(sizeof(struct lwe_ctrl_op_info));
-	memset(ip_info, 0, sizeof(struct lwe_ctrl_op_info));
+	ip_info = (struct app_ctrl_op_info *)malloc
+			(sizeof(struct app_ctrl_op_info));
+	memset(ip_info, 0, sizeof(struct app_ctrl_op_info));
 
 	_err = mq_getattr(mqdes, &attr);
 	if (unlikely(_err)) {
@@ -813,7 +813,7 @@ int receive_data(mqd_t mqdes)
 	process_req_from_mq(ip_info);
 	/* Sending result to application configurator tool */
 	_err = mq_send(mq_fd_snd, (const char *)ip_info,
-			sizeof(struct lwe_ctrl_op_info), 10);
+			sizeof(struct app_ctrl_op_info), 10);
 	if (unlikely(_err != 0)) {
 		pr_err("%s: %d Error in sending msg on MQ\n",
 			__FILE__, __LINE__);

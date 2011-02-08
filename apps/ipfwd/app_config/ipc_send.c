@@ -3,7 +3,7 @@
  \brief Basic IPfwd Config Tool
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,12 +42,7 @@
 #include <sys/stat.h>
 #include <mqueue.h>
 #include <errno.h>
-
-#ifdef DEBUG
-#define APP_LOG             printf
-#else
-#define APP_LOG(a, ...)
-#endif
+#include "app_common.h"
 
 unsigned int g_mndtr_param;
 error_t g_parse_error;
@@ -101,21 +96,22 @@ static struct argp argp = {
  to the message queue
  \return none
  */
-void send_to_mq(struct lwe_ctrl_op_info *saInfo)
+void send_to_mq(struct app_ctrl_op_info *saInfo)
 {
 	int ret;
-	struct lwe_ctrl_op_info *ip_info;
+	struct app_ctrl_op_info *ip_info;
 
-	saInfo->state = LWE_CTRL_CMD_STATE_BUSY;
-	ip_info = (struct lwe_ctrl_op_info *)malloc
-			(sizeof(struct lwe_ctrl_op_info));
-	memset(ip_info, 0, sizeof(struct lwe_ctrl_op_info));
+	saInfo->state = IPC_CTRL_CMD_STATE_BUSY;
+	ip_info = (struct app_ctrl_op_info *)malloc
+			(sizeof(struct app_ctrl_op_info));
+	memset(ip_info, 0, sizeof(struct app_ctrl_op_info));
 	memcpy(ip_info, saInfo,
-	       sizeof(struct lwe_ctrl_op_info));
+	       sizeof(struct app_ctrl_op_info));
 	/* Send message to message queue */
-	ret = mq_send(mq_fd_wr, (const char *)ip_info, sizeof(struct lwe_ctrl_op_info), 10);
+	ret = mq_send(mq_fd_wr, (const char *)ip_info,
+			sizeof(struct app_ctrl_op_info), 10);
 	if (ret != 0) {
-		printf("%s : Error in sending mesage on MQ\n", __FILE__);
+		pr_err("%s : Error in sending mesage on MQ\n", __FILE__);
 	}
 	while (response_flag == 0);
 	free(ip_info);
@@ -127,12 +123,12 @@ void send_to_mq(struct lwe_ctrl_op_info *saInfo)
  \param[in] type Message Type for the CP request - Route Add or delete
  \return none
  */
-void lwe_ip_add_del_command(int argc, char **argv, char *type)
+void ipc_add_del_command(int argc, char **argv, char *type)
 {
 	unsigned int i = 0;
-	struct lwe_ctrl_op_info route_info;
-	unsigned int mndtr_param_map[] = { LWE_CTRL_ROUTE_ADD_MDTR_PARAM_MAP,
-		LWE_CTRL_ROUTE_DEL_MDTR_PARAM_MAP
+	struct app_ctrl_op_info route_info;
+	unsigned int mndtr_param_map[] = { IPC_CTRL_ROUTE_ADD_MDTR_PARAM_MAP,
+		IPC_CTRL_ROUTE_DEL_MDTR_PARAM_MAP
 	};
 	struct argp *route_argp[] = { &route_add_argp, &route_del_argp };
 
@@ -140,16 +136,16 @@ void lwe_ip_add_del_command(int argc, char **argv, char *type)
 	 ** Initializing the route info structure
 	 */
 	memset(&route_info, 0, sizeof(route_info));
-	route_info.state = LWE_CTRL_CMD_STATE_IDLE;
+	route_info.state = IPC_CTRL_CMD_STATE_IDLE;
 	route_info.msg_type = (unsigned int)type;
-	route_info.result = LWE_CTRL_RSLT_FAILURE;
+	route_info.result = IPC_CTRL_RSLT_FAILURE;
 
 	g_mndtr_param = 0;
 	g_parse_error = 0;
 
 	/* Where the magic happens */
 	argp_parse(route_argp
-		   [route_info.msg_type - LWE_CTRL_CMD_TYPE_ROUTE_ADD], argc,
+		   [route_info.msg_type - IPC_CTRL_CMD_TYPE_ROUTE_ADD], argc,
 		   argv, 0, 0, &route_info);
 
 	if (g_parse_error != 0)
@@ -161,25 +157,25 @@ void lwe_ip_add_del_command(int argc, char **argv, char *type)
 	 */
 	if ((g_mndtr_param &
 	     mndtr_param_map[route_info.msg_type -
-			     LWE_CTRL_CMD_TYPE_ROUTE_ADD]) ==
-	    mndtr_param_map[route_info.msg_type - LWE_CTRL_CMD_TYPE_ROUTE_ADD])
+			     IPC_CTRL_CMD_TYPE_ROUTE_ADD]) ==
+	    mndtr_param_map[route_info.msg_type - IPC_CTRL_CMD_TYPE_ROUTE_ADD])
 		goto copy;
 
 	/*
 	 ** Check for the mandatory parameter which is misisng
 	 */
-	for (i = 0; i < LWE_CTRL_PARAM_MAX_IP_BIT_NO; i++) {
+	for (i = 0; i < IPC_CTRL_PARAM_MAX_IP_BIT_NO; i++) {
 		if (((mndtr_param_map
 		      [route_info.msg_type -
-		       LWE_CTRL_CMD_TYPE_ROUTE_ADD] & (1 << i)) != 0)
+		       IPC_CTRL_CMD_TYPE_ROUTE_ADD] & (1 << i)) != 0)
 		    && ((g_mndtr_param & (1 << i)) == 0)) {
-			printf
+			pr_err
 			    ("Route Entry Operation failed as mandatory parameters missing; --%s or -%c\n",
 			     route_add_options[i].name,
 			     route_add_options[i].key);
 			return;
 		}
-	}			/* end of for (i = 0; i < LWE_CTRL_PARAM_MAX_B .... */
+	} /* end of for (i = 0; i < IPC_CTRL_PARAM_MAX_B .... */
 
 copy:
 	send_to_mq(&route_info);
@@ -194,32 +190,31 @@ copy:
  \param[in] type Message Type for the CP request - ARP Add or delete
  \return none
  */
-void lwe_arp_add_del_command(int argc, char **argv, char *type)
+void ipc_arp_add_del_command(int argc, char **argv, char *type)
 {
 	unsigned int i = 0;
-	struct lwe_ctrl_op_info route_info;
-	unsigned int mndtr_param_map[] = { LWE_CTRL_ARP_ADD_MDTR_PARAM_MAP,
-		LWE_CTRL_ARP_DEL_MDTR_PARAM_MAP
+	struct app_ctrl_op_info route_info;
+	unsigned int mndtr_param_map[] = { IPC_CTRL_ARP_ADD_MDTR_PARAM_MAP,
+		IPC_CTRL_ARP_DEL_MDTR_PARAM_MAP
 	};
 	struct argp *route_argp[] = { &arp_add_argp, &arp_del_argp };
 
-	APP_LOG("\r\nlwe_arp_add_del_command: Enter");
+	pr_dbg("\r\n%s: Enter", __func__);
 	/*
 	 ** Initializing the route info structure
 	 */
 	memset(&route_info, 0, sizeof(route_info));
-	route_info.state = LWE_CTRL_CMD_STATE_IDLE;
+	route_info.state = IPC_CTRL_CMD_STATE_IDLE;
 	route_info.msg_type = (unsigned int)type;
-	route_info.result = LWE_CTRL_RSLT_FAILURE;
+	route_info.result = IPC_CTRL_RSLT_FAILURE;
 
 	g_mndtr_param = 0;
 
-	if (route_info.msg_type == LWE_CTRL_CMD_TYPE_ARP_ADD) {
+	if (route_info.msg_type == IPC_CTRL_CMD_TYPE_ARP_ADD)
 		route_info.ip_info.replace_entry = 0;
-	}
 
 	/* Where the magic happens */
-	argp_parse(route_argp[route_info.msg_type - LWE_CTRL_CMD_TYPE_ARP_ADD],
+	argp_parse(route_argp[route_info.msg_type - IPC_CTRL_CMD_TYPE_ARP_ADD],
 		   argc, argv, 0, 0, &route_info);
 
 	/*
@@ -228,29 +223,29 @@ void lwe_arp_add_del_command(int argc, char **argv, char *type)
 	 */
 	if ((g_mndtr_param &
 	     mndtr_param_map[route_info.msg_type -
-			     LWE_CTRL_CMD_TYPE_ARP_ADD]) ==
-	    mndtr_param_map[route_info.msg_type - LWE_CTRL_CMD_TYPE_ARP_ADD])
+			     IPC_CTRL_CMD_TYPE_ARP_ADD]) ==
+	    mndtr_param_map[route_info.msg_type - IPC_CTRL_CMD_TYPE_ARP_ADD])
 		goto copy;
 
 	/*
 	 ** Check for the mandatory parameter which is misisng
 	 */
-	for (i = 0; i < LWE_CTRL_PARAM_ARP_MAX_BIT_NO; i++) {
+	for (i = 0; i < IPC_CTRL_PARAM_ARP_MAX_BIT_NO; i++) {
 		if (((mndtr_param_map
 		      [route_info.msg_type -
-		       LWE_CTRL_CMD_TYPE_ARP_ADD] & (1 << i)) != 0)
+		       IPC_CTRL_CMD_TYPE_ARP_ADD] & (1 << i)) != 0)
 		    && ((g_mndtr_param & (1 << i)) == 0)) {
-			printf
+			pr_err
 			    ("ARP Entry Operation failed as mandatory parameters missing; --%s or -%c\n",
 			     arp_add_options[i].name, arp_add_options[i].key);
 			return;
 		}
-	}			/* end of for (i = 0; i < LWE_CTRL_PARAM_MAX_B .... */
+	} /* end of for (i = 0; i < IPC_CTRL_PARAM_MAX_B .... */
 
 copy:
 	send_to_mq(&route_info);
 
-	APP_LOG("\r\nlwe_arp_add_del_command: Exit");
+	pr_dbg("\r\n%s: Exit", __func__);
 	return;
 }
 
@@ -261,23 +256,23 @@ copy:
  \param[in] type Message Type for the CP request - Edit Frame Count
  \return none
  */
-void lwe_ip_edit_frame_cnt_command(int argc, char **argv, char *type)
+void ipc_edit_frame_cnt_command(int argc, char **argv, char *type)
 {
-	struct lwe_ctrl_op_info route_info;
+	struct app_ctrl_op_info route_info;
 	struct argp *route_argp[] = { &framecnt_argp };
 
 	/*
 	 ** Initializing the route info structure
 	 */
 	memset(&route_info, 0, sizeof(route_info));
-	route_info.state = LWE_CTRL_CMD_STATE_IDLE;
+	route_info.state = IPC_CTRL_CMD_STATE_IDLE;
 	route_info.msg_type = (unsigned int)type;
-	route_info.result = LWE_CTRL_RSLT_FAILURE;
+	route_info.result = IPC_CTRL_RSLT_FAILURE;
 
 	/* Where the magic happens */
 	argp_parse(route_argp
-		   [route_info.msg_type - LWE_CTRL_CMD_TYPE_FRAMECNT_EDIT], argc,
-		   argv, 0, 0, &route_info);
+		   [route_info.msg_type - IPC_CTRL_CMD_TYPE_FRAMECNT_EDIT],
+			argc, argv, 0, 0, &route_info);
 
 	send_to_mq(&route_info);
 
@@ -295,42 +290,42 @@ void lwe_ip_edit_frame_cnt_command(int argc, char **argv, char *type)
  */
 static error_t parse_opt(int key, char *arg, struct argp_state *state)
 {
-	struct lwe_ctrl_op_info *sa_info = state->input;
+	struct app_ctrl_op_info *sa_info = state->input;
 
 	switch (key) {
 		/* Request for Route Entry Addition */
 	case 'B':
-		sa_info->msg_type = LWE_CTRL_CMD_TYPE_ROUTE_ADD;
-		APP_LOG
+		sa_info->msg_type = IPC_CTRL_CMD_TYPE_ROUTE_ADD;
+		pr_dbg
 		    ("\n::FILE: %s : LINE: %d :IN PARSE_OPT::ADD OPTION SELECTED",
 		     __FILE__, __LINE__);
 		break;
 
 		/* Request for route Entry Deletion */
 	case 'C':
-		sa_info->msg_type = LWE_CTRL_CMD_TYPE_ROUTE_DEL;
-		APP_LOG
+		sa_info->msg_type = IPC_CTRL_CMD_TYPE_ROUTE_DEL;
+		pr_dbg
 		    ("\nFILE: %s : LINE: %d :IN PARSE_OPT::DELETE OPTION SELECTED",
 		     __FILE__, __LINE__);
 		break;
 
 	case 'G':
-		sa_info->msg_type = LWE_CTRL_CMD_TYPE_ARP_ADD;
-		APP_LOG
+		sa_info->msg_type = IPC_CTRL_CMD_TYPE_ARP_ADD;
+		pr_dbg
 		    ("\nFILE: %s : LINE: %d :IN PARSE_OPT::ARP ADD OPTION SELECTED",
 		     __FILE__, __LINE__);
 		break;
 
 	case 'H':
-		sa_info->msg_type = LWE_CTRL_CMD_TYPE_ARP_DEL;
-		APP_LOG
+		sa_info->msg_type = IPC_CTRL_CMD_TYPE_ARP_DEL;
+		pr_dbg
 		    ("\nFILE: %s : LINE: %d :IN PARSE_OPT::ARP DEL OPTION SELECTED",
 		     __FILE__, __LINE__);
 		break;
 
 	case 'N':
-		sa_info->msg_type = LWE_CTRL_CMD_TYPE_FRAMECNT_EDIT;
-		APP_LOG
+		sa_info->msg_type = IPC_CTRL_CMD_TYPE_FRAMECNT_EDIT;
+		pr_dbg
 		    ("\nFILE: %s : LINE: %d :IN PARSE_OPT::FRAME COUNT EDIT OPTION SELECTED",
 		     __FILE__, __LINE__);
 		break;
@@ -354,7 +349,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
  */
 static error_t parse_route_add_opt(int key, char *arg, struct argp_state *state)
 {
-	struct lwe_ctrl_op_info *route_info = state->input;
+	struct app_ctrl_op_info *route_info = state->input;
 	struct in_addr in_addr;
 
 	switch (key) {
@@ -362,22 +357,22 @@ static error_t parse_route_add_opt(int key, char *arg, struct argp_state *state)
 	case 's':
 		inet_aton(arg, &in_addr);
 		route_info->ip_info.src_ipaddr = in_addr.s_addr;
-		g_mndtr_param |= LWE_CTRL_PARAM_BMASK_SRCIP;
+		g_mndtr_param |= IPC_CTRL_PARAM_BMASK_SRCIP;
 		break;
 
 	case 'd':
 		inet_aton(arg, &in_addr);
 		route_info->ip_info.dst_ipaddr = in_addr.s_addr;
-		g_mndtr_param |= LWE_CTRL_PARAM_BMASK_DESTIP;
-		APP_LOG("\nkey = %c; value = %s", key, arg);
+		g_mndtr_param |= IPC_CTRL_PARAM_BMASK_DESTIP;
+		pr_dbg("\nkey = %c; value = %s", key, arg);
 		break;
 
 	case 'g':
 
 		inet_aton(arg, &in_addr);
 		route_info->ip_info.gw_ipaddr = in_addr.s_addr;
-		g_mndtr_param |= LWE_CTRL_PARAM_BMASK_GWIP;
-		APP_LOG("\nkey = %c; value = %s", key, arg);
+		g_mndtr_param |= IPC_CTRL_PARAM_BMASK_GWIP;
+		pr_dbg("\nkey = %c; value = %s", key, arg);
 		break;
 
 	case 't':
@@ -386,15 +381,15 @@ static error_t parse_route_add_opt(int key, char *arg, struct argp_state *state)
 		 ** setting it as 0 in the starting -
 		 ** route_info->tos = atoi(arg);
 		 */
-		if ((atoi(arg) < LWE_CTRL_ROUTE_TOS_MIN) ||
-		    (atoi(arg) > LWE_CTRL_ROUTE_TOS_MAX)) {
-			printf("Invalid Value \"%s\" for '%c'\n", arg, key);
+		if ((atoi(arg) < IPC_CTRL_ROUTE_TOS_MIN) ||
+		    (atoi(arg) > IPC_CTRL_ROUTE_TOS_MAX)) {
+			pr_info("Invalid Value \"%s\" for '%c'\n", arg, key);
 			g_parse_error = ERANGE;
 			return ERANGE;
 		}
 
-		g_mndtr_param |= LWE_CTRL_PARAM_BMASK_TOS;
-		APP_LOG("\nkey = %c; value = %s", key, arg);
+		g_mndtr_param |= IPC_CTRL_PARAM_BMASK_TOS;
+		pr_dbg("\nkey = %c; value = %s", key, arg);
 		break;
 
 	default:
@@ -415,7 +410,7 @@ static error_t parse_route_add_opt(int key, char *arg, struct argp_state *state)
  */
 static error_t parse_arp_add_opt(int key, char *arg, struct argp_state *state)
 {
-	struct lwe_ctrl_op_info *route_info = state->input;
+	struct app_ctrl_op_info *route_info = state->input;
 	struct in_addr in_addr;
 
 	switch (key) {
@@ -423,7 +418,7 @@ static error_t parse_arp_add_opt(int key, char *arg, struct argp_state *state)
 	case 's':
 		inet_aton(arg, &in_addr);
 		route_info->ip_info.src_ipaddr = in_addr.s_addr;
-		g_mndtr_param |= LWE_CTRL_PARAM_BMASK_ARP_IPADDR;
+		g_mndtr_param |= IPC_CTRL_PARAM_BMASK_ARP_IPADDR;
 		break;
 
 	case 'm':
@@ -439,7 +434,7 @@ static error_t parse_arp_add_opt(int key, char *arg, struct argp_state *state)
 				pch = strtok(NULL, ":");
 				i++;
 			}
-			g_mndtr_param |= LWE_CTRL_PARAM_BMASK_ARP_MACADDR;
+			g_mndtr_param |= IPC_CTRL_PARAM_BMASK_ARP_MACADDR;
 			break;
 		}
 
@@ -448,7 +443,7 @@ static error_t parse_arp_add_opt(int key, char *arg, struct argp_state *state)
 			route_info->ip_info.replace_entry = 1;
 		else
 			route_info->ip_info.replace_entry = 0;
-		g_mndtr_param |= LWE_CTRL_PARAM_BMASK_ARP_REPLACE;
+		g_mndtr_param |= IPC_CTRL_PARAM_BMASK_ARP_REPLACE;
 		break;
 
 	default:
@@ -470,7 +465,7 @@ static error_t parse_arp_add_opt(int key, char *arg, struct argp_state *state)
 static error_t parse_framecnt_edit_opt(int key, char *arg,
 					struct argp_state *state)
 {
-	struct lwe_ctrl_op_info *route_info = state->input;
+	struct app_ctrl_op_info *route_info = state->input;
 
 	switch (key) {
 
@@ -492,64 +487,57 @@ static error_t parse_framecnt_edit_opt(int key, char *arg,
 int receive_from_mq(mqd_t mqdes)
 {
 	ssize_t size;
-	struct lwe_ctrl_op_info *ip_info = NULL;
+	struct app_ctrl_op_info *ip_info = NULL;
 	struct mq_attr attr;
 	int ret;
-	unsigned int result = LWE_CTRL_RSLT_SUCCESSFULL;
+	unsigned int result = IPC_CTRL_RSLT_SUCCESSFULL;
 
-	ip_info = (struct lwe_ctrl_op_info *)malloc(sizeof(struct lwe_ctrl_op_info));
-	memset(ip_info, 0, sizeof(struct lwe_ctrl_op_info));
+	ip_info = (struct app_ctrl_op_info *)malloc
+			(sizeof(struct app_ctrl_op_info));
+	memset(ip_info, 0, sizeof(struct app_ctrl_op_info));
 	/* Get attributes of the Receive Message queue */
 	ret = mq_getattr(mqdes, &attr);
 	if (ret) {
-		printf("%s:Error getting attributes\n",
+		pr_err("%s:Error getting attributes\n",
 				__FILE__);
 	}
 	/* Read the message from receive queue */
 	size = mq_receive(mqdes, (char *)ip_info, attr.mq_msgsize, 0);
 		if (size == -1) {
-			printf("%s:Rcv msgque error\n", __FILE__);
+			pr_err("%s:Rcv msgque error\n", __FILE__);
 			return -1;
 		}
 	result = ip_info->result;
-	if (ip_info->msg_type == LWE_CTRL_CMD_TYPE_ROUTE_ADD) {
-		if (result == LWE_CTRL_RSLT_SUCCESSFULL) {
-			printf("Route Entry Added successfully\n");
-
-		} else {
-			printf("Route Entry Addition failed\n");
-		}
-	} else if (ip_info->msg_type == LWE_CTRL_CMD_TYPE_ROUTE_DEL) {
-		if (result == LWE_CTRL_RSLT_SUCCESSFULL) {
-			printf("Route Entry Deleted successfully\n");
-		} else {
-			printf("Route Entry Deletion failed\n");
-		}
-	} else if (ip_info->msg_type == LWE_CTRL_CMD_TYPE_ARP_ADD) {
-		if (result == LWE_CTRL_RSLT_SUCCESSFULL) {
-			printf("ARP Entry Added successfully\n");
-
-		} else {
-			printf("ARP Entry Addition failed\n");
-		}
-	} else if (ip_info->msg_type == LWE_CTRL_CMD_TYPE_ARP_DEL) {
-		if (result == LWE_CTRL_RSLT_SUCCESSFULL) {
-			printf("ARP Entry Deleted successfully\n");
-		} else {
-			printf("ARP Entry Deletion failed\n");
-		}
-	} else if (ip_info->msg_type == LWE_CTRL_CMD_TYPE_FRAMECNT_EDIT) {
-		if (result == LWE_CTRL_RSLT_SUCCESSFULL) {
-			printf("Frame count edited successfully\n");
-		} else {
-			printf("Frame count edition failed\n");
-		}
-	} else if (ip_info->msg_type == LWE_CTRL_CMD_TYPE_GO) {
-		if (result == LWE_CTRL_RSLT_SUCCESSFULL) {
-			printf("Application Started successfully\n");
-		} else {
-			printf("Application failed\n");
-		}
+	if (ip_info->msg_type == IPC_CTRL_CMD_TYPE_ROUTE_ADD) {
+		if (result == IPC_CTRL_RSLT_SUCCESSFULL)
+			pr_info("Route Entry Added successfully\n");
+		else
+			pr_info("Route Entry Addition failed\n");
+	} else if (ip_info->msg_type == IPC_CTRL_CMD_TYPE_ROUTE_DEL) {
+		if (result == IPC_CTRL_RSLT_SUCCESSFULL)
+			pr_info("Route Entry Deleted successfully\n");
+		else
+			pr_info("Route Entry Deletion failed\n");
+	} else if (ip_info->msg_type == IPC_CTRL_CMD_TYPE_ARP_ADD) {
+		if (result == IPC_CTRL_RSLT_SUCCESSFULL)
+			pr_info("ARP Entry Added successfully\n");
+		else
+			pr_info("ARP Entry Addition failed\n");
+	} else if (ip_info->msg_type == IPC_CTRL_CMD_TYPE_ARP_DEL) {
+		if (result == IPC_CTRL_RSLT_SUCCESSFULL)
+			pr_info("ARP Entry Deleted successfully\n");
+		else
+			pr_info("ARP Entry Deletion failed\n");
+	} else if (ip_info->msg_type == IPC_CTRL_CMD_TYPE_FRAMECNT_EDIT) {
+		if (result == IPC_CTRL_RSLT_SUCCESSFULL)
+			pr_info("Frame count edited successfully\n");
+		else
+			pr_info("Frame count edition failed\n");
+	} else if (ip_info->msg_type == IPC_CTRL_CMD_TYPE_GO) {
+		if (result == IPC_CTRL_RSLT_SUCCESSFULL)
+			pr_info("Application Started successfully\n");
+		else
+			pr_info("Application failed\n");
 	}
 
 	response_flag = 1;
@@ -559,7 +547,7 @@ int receive_from_mq(mqd_t mqdes)
 
 void mq_handler(union sigval sval)
 {
-	APP_LOG("mq_handler called %d\n", sval.sival_int);
+	pr_dbg("mq_handler called %d\n", sval.sival_int);
 
 	receive_from_mq(mq_fd_rd);
 	mq_notify(mq_fd_rd, &notification);
@@ -573,23 +561,23 @@ void mq_handler(union sigval sval)
 */
 int main(int argc, char **argv)
 {
-	struct lwe_ctrl_op_info sa_info;
+	struct app_ctrl_op_info sa_info;
 	char *tmp_argv = "-O";
-	struct lwe_ctrl_op_info route_info;
+	struct app_ctrl_op_info route_info;
 	int ret, tmp;
 
 	response_flag = 0;
 	/* Opens message queue to write */
 	mq_fd_wr = mq_open("/mq_rcv",  O_WRONLY);
 	if (mq_fd_wr == -1) {
-		printf("SND mq err in opening the msgque errno\n");
+		pr_err("SND mq err in opening the msgque errno\n");
 		return -1;
 	}
 
 	/* Opens message queue to read */
 	mq_fd_rd = mq_open("/mq_snd", O_RDONLY);
 	if (mq_fd_rd == -1) {
-		printf("RX mq err in opening the msgque errno\n");
+		pr_err("RX mq err in opening the msgque errno\n");
 		return -1;
 	}
 
@@ -599,28 +587,28 @@ int main(int argc, char **argv)
 	notification.sigev_notify_attributes = NULL;
 	tmp = mq_notify(mq_fd_rd, &notification);
 	if (tmp)
-		printf("%sError in mq_notify call\n",
+		pr_err("%sError in mq_notify call\n",
 				 __FILE__);
 
-	memset(&sa_info, 0, sizeof(struct lwe_ctrl_op_info));
+	memset(&sa_info, 0, sizeof(struct app_ctrl_op_info));
 
 	if (argc == 1) {
-		printf("Mandatory Parameter missing\n");
-		printf("Try `ipfwd_config --help' for more information\n");
+		pr_info("Mandatory Parameter missing\n");
+		pr_info("Try `ipfwd_config --help' for more information\n");
 		goto _close;
 	}
 	if (strcmp(argv[1], tmp_argv) == 0) {
-		sa_info.msg_type = LWE_CTRL_CMD_TYPE_GO;
-		APP_LOG
+		sa_info.msg_type = IPC_CTRL_CMD_TYPE_GO;
+		pr_dbg
 		    ("\nFILE:%s :LINE %d:IN MAIN:TYPE PROVIDED FOR GO OPT: %d",
 		     __FILE__, __LINE__, sa_info.msg_type);
 		/*
 		** Initializing the route info structure
 		*/
 		memset(&route_info, 0, sizeof(route_info));
-		route_info.state = LWE_CTRL_CMD_STATE_IDLE;
+		route_info.state = IPC_CTRL_CMD_STATE_IDLE;
 		route_info.msg_type = (unsigned int)sa_info.msg_type;
-		route_info.result = LWE_CTRL_RSLT_FAILURE;
+		route_info.result = IPC_CTRL_RSLT_FAILURE;
 
 		send_to_mq(&route_info);
 		goto _close;
@@ -630,69 +618,69 @@ int main(int argc, char **argv)
 	argp_parse(&argp, argc, argv, 0, 0, &sa_info);
 
 	switch (sa_info.msg_type) {
-	case LWE_CTRL_CMD_TYPE_ROUTE_ADD:
+	case IPC_CTRL_CMD_TYPE_ROUTE_ADD:
 		{
-			APP_LOG
+			pr_dbg
 			    ("\nFILE: %s : LINE %d : IN MAIN : THE TYPE PROVIDED FOR ADD OPTION IS : %d",
 			     __FILE__, __LINE__, sa_info.msg_type);
-			lwe_ip_add_del_command(argc - 1, &argv[1],
+			ipc_add_del_command(argc - 1, &argv[1],
 					       (char *)sa_info.msg_type);
 		}
 		break;
 
-	case LWE_CTRL_CMD_TYPE_ROUTE_DEL:
+	case IPC_CTRL_CMD_TYPE_ROUTE_DEL:
 		{
-			APP_LOG
+			pr_dbg
 			    ("\nFILE: %s : LINE %d : IN MAIN : THE TYPE PROVIDED FOR DELETE OPTION IS : %d",
 			     __FILE__, __LINE__, sa_info.msg_type);
-			lwe_ip_add_del_command(argc - 1, &argv[1],
+			ipc_add_del_command(argc - 1, &argv[1],
 					       (char *)sa_info.msg_type);
 		}
 		break;
 
-	case LWE_CTRL_CMD_TYPE_ARP_ADD:
+	case IPC_CTRL_CMD_TYPE_ARP_ADD:
 		{
-			APP_LOG
+			pr_dbg
 			    ("\nFILE: %s : LINE %d : IN MAIN : THE TYPE PROVIDED FOR ADD OPTION IS : %d",
 			     __FILE__, __LINE__, sa_info.msg_type);
-			lwe_arp_add_del_command(argc - 1, &argv[1],
+			ipc_arp_add_del_command(argc - 1, &argv[1],
 						(char *)sa_info.msg_type);
 		}
 		break;
 
-	case LWE_CTRL_CMD_TYPE_ARP_DEL:
+	case IPC_CTRL_CMD_TYPE_ARP_DEL:
 		{
-			APP_LOG
+			pr_dbg
 			    ("\nFILE: %s : LINE %d : IN MAIN : THE TYPE PROVIDED FOR DELETE OPTION IS : %d",
 			     __FILE__, __LINE__, sa_info.msg_type);
-			lwe_arp_add_del_command(argc - 1, &argv[1],
+			ipc_arp_add_del_command(argc - 1, &argv[1],
 						(char *)sa_info.msg_type);
 		}
 		break;
 
-	case LWE_CTRL_CMD_TYPE_FRAMECNT_EDIT:
+	case IPC_CTRL_CMD_TYPE_FRAMECNT_EDIT:
 		{
-			APP_LOG
+			pr_dbg
 			    ("\nFILE: %s : LINE %d : IN MAIN : THE TYPE PROVIDED FOR EDIT OPTION IS : %d",
 			     __FILE__, __LINE__, sa_info.msg_type);
-			lwe_ip_edit_frame_cnt_command(argc - 1, &argv[1],
+			ipc_edit_frame_cnt_command(argc - 1, &argv[1],
 						(char *)sa_info.msg_type);
 		}
 		break;
 
 	default:
-		APP_LOG("Invalid Option\n");
+		pr_dbg("Invalid Option\n");
 	}
 
 _close:
 	ret = mq_close(mq_fd_wr);
 	if (ret) {
-		printf("%s: %d error in closing MQ: errno = %d \n",
+		pr_err("%s: %d error in closing MQ: errno = %d\n",
 					__FILE__, __LINE__, errno);
 	}
 	ret = mq_close(mq_fd_rd);
 	if (ret) {
-		printf("%s: %d error in closing MQ: errno = %d \n",
+		pr_err("%s: %d error in closing MQ: errno = %d\n",
 					__FILE__, __LINE__, errno);
 	}
 	return 0;

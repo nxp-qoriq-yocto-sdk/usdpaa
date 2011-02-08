@@ -63,7 +63,6 @@ extern __PERCPU uint64_t atb_start;
 extern volatile enum application_state ipsec_app_state;
 extern int32_t num_fq_close_pending;
 extern __PERCPU uint64_t total_cycles;
-extern uint32_t g_boot_lwe_core;
 
 struct thread_data_t {
 	/* Inputs to run_threads_custom() */

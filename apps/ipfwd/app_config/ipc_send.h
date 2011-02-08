@@ -3,7 +3,7 @@
  \brief Basic IPfwd Config Tool defines and Data structures
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,47 +29,63 @@
 
 const char *argp_program_version = "argex 1.0";
 
-#define LWE_CTRL_PARAM_BIT_SRCIP	(1 << 0)	/**< Bit Mask for Src IP */
-#define LWE_CTRL_PARAM_BIT_DESTIP	(1 << 1)	/**< Bit Mask for Dst IP */
-#define LWE_CTRL_PARAM_BIT_SRCGW	(1 << 2)	/**< Bit Mask for Tunnel Src IP */
-#define LWE_CTRL_PARAM_BIT_DESTGW	(1 << 3)	/**< Bit Mask for Tunnel Dst IP */
-#define LWE_CTRL_PARAM_BIT_PROTO	(1 << 4)	/**< Bit Mask for Protocol */
-#define LWE_CTRL_PARAM_BIT_EKEY	(1 << 5)	/**< Bit Mask for Encryption Key */
-#define LWE_CTRL_PARAM_BIT_AKEY	(1 << 6)	/**< Bit Mask for Authentication Key */
-#define LWE_CTRL_PARAM_BIT_SPI	(1 << 7)	/**< Bit Mask for Security Policy Index */
-#define LWE_CTRL_PARAM_BIT_DIR	(1 << 8)	/**< Bit Mask for Direction */
-#define LWE_CTRL_PARAM_BIT_ETYPE	(1 << 9)	/**< Bit Mask for Encryption type */
-#define LWE_CTRL_PARAM_BIT_ATYPE	(1 << 10)	/**< Bit Mask for Authentication type */
-#define LWE_CTRL_PARAM_BIT_FLOWID       (1 << 11)
-#define LWE_CTRL_PARAM_MAX_IPSEC_BIT_NO	12
+#define IPC_CTRL_PARAM_BIT_SRCIP	(1 << 0)
+/**< Bit Mask for Src IP */
+#define IPC_CTRL_PARAM_BIT_DESTIP	(1 << 1)
+/**< Bit Mask for Dst IP */
+#define IPC_CTRL_PARAM_BIT_SRCGW	(1 << 2)
+/**< Bit Mask for Tunnel Src IP */
+#define IPC_CTRL_PARAM_BIT_DESTGW	(1 << 3)
+/**< Bit Mask for Tunnel Dst IP */
+#define IPC_CTRL_PARAM_BIT_PROTO	(1 << 4)
+/**< Bit Mask for Protocol */
+#define IPC_CTRL_PARAM_BIT_EKEY	(1 << 5)
+/**< Bit Mask for Encryption Key */
+#define IPC_CTRL_PARAM_BIT_AKEY	(1 << 6)
+/**< Bit Mask for Authentication Key */
+#define IPC_CTRL_PARAM_BIT_SPI	(1 << 7)
+/**< Bit Mask for Security Policy Index */
+#define IPC_CTRL_PARAM_BIT_DIR	(1 << 8)
+/**< Bit Mask for Direction */
+#define IPC_CTRL_PARAM_BIT_ETYPE	(1 << 9)
+/**< Bit Mask for Encryption type */
+#define IPC_CTRL_PARAM_BIT_ATYPE	(1 << 10)
+/**< Bit Mask for Authentication type */
+#define IPC_CTRL_PARAM_BIT_FLOWID       (1 << 11)
+#define IPC_CTRL_PARAM_MAX_IPSEC_BIT_NO	12
 
 /**< Mandatory Parameters needed for creating SA */
-#define LWE_CTRL_ADD_MDTR_PARAM_MAP (LWE_CTRL_PARAM_BIT_SRCIP | \
-				LWE_CTRL_PARAM_BIT_DESTIP | \
-				LWE_CTRL_PARAM_BIT_SRCGW | \
-				LWE_CTRL_PARAM_BIT_DESTGW | \
-				LWE_CTRL_PARAM_BIT_DIR | \
-				LWE_CTRL_PARAM_BIT_SPI)
+#define IPC_CTRL_ADD_MDTR_PARAM_MAP (IPC_CTRL_PARAM_BIT_SRCIP | \
+				IPC_CTRL_PARAM_BIT_DESTIP | \
+				IPC_CTRL_PARAM_BIT_SRCGW | \
+				IPC_CTRL_PARAM_BIT_DESTGW | \
+				IPC_CTRL_PARAM_BIT_DIR | \
+				IPC_CTRL_PARAM_BIT_SPI)
 
-#define LWE_CTRL_PARAM_BMASK_SRCIP		(1 << 0)	/**< Bit Mask for Src IP */
-#define LWE_CTRL_PARAM_BMASK_DESTIP	(1 << 1)	/**< Bit Mask for Dst IP */
-#define LWE_CTRL_PARAM_BMASK_GWIP		(1 << 2)	/**< Bit Mask for Gateway IP */
-#define LWE_CTRL_PARAM_BMASK_TOS		(1 << 3)	/**< Bit Mask for TOS */
-#define LWE_CTRL_PARAM_BMASK_FLOWID	(1 << 4)	/**< Bit Mask for Flow ID */
-#define LWE_CTRL_PARAM_MAX_IP_BIT_NO		5
+#define IPC_CTRL_PARAM_BMASK_SRCIP		(1 << 0)
+/**< Bit Mask for Src IP */
+#define IPC_CTRL_PARAM_BMASK_DESTIP	(1 << 1)
+/**< Bit Mask for Dst IP */
+#define IPC_CTRL_PARAM_BMASK_GWIP		(1 << 2)
+/**< Bit Mask for Gateway IP */
+#define IPC_CTRL_PARAM_BMASK_TOS		(1 << 3)
+/**< Bit Mask for TOS */
+#define IPC_CTRL_PARAM_BMASK_FLOWID	(1 << 4)
+/**< Bit Mask for Flow ID */
+#define IPC_CTRL_PARAM_MAX_IP_BIT_NO		5
 
-#define LWE_CTRL_ROUTE_TOS_MIN 					0
-#define LWE_CTRL_ROUTE_TOS_MAX 					256
-#define LWE_CTRL_ROUTE_TOS_DEF					0
+#define IPC_CTRL_ROUTE_TOS_MIN					0
+#define IPC_CTRL_ROUTE_TOS_MAX					256
+#define IPC_CTRL_ROUTE_TOS_DEF					0
 
-#define LWE_CTRL_ROUTE_FLOWID_MIN 					0
-#define LWE_CTRL_ROUTE_FLOWID_MAX					1024
-#define LWE_CTRL_ROUTE_FLOWID_DEF					0
+#define IPC_CTRL_ROUTE_FLOWID_MIN				0
+#define IPC_CTRL_ROUTE_FLOWID_MAX				1024
+#define IPC_CTRL_ROUTE_FLOWID_DEF				0
 
 /**< Mandatory Parameters needed for creating Route */
-#define LWE_CTRL_ROUTE_ADD_MDTR_PARAM_MAP (LWE_CTRL_PARAM_BMASK_SRCIP | \
-				LWE_CTRL_PARAM_BMASK_DESTIP | \
-				LWE_CTRL_PARAM_BMASK_GWIP)
+#define IPC_CTRL_ROUTE_ADD_MDTR_PARAM_MAP (IPC_CTRL_PARAM_BMASK_SRCIP | \
+				IPC_CTRL_PARAM_BMASK_DESTIP | \
+				IPC_CTRL_PARAM_BMASK_GWIP)
 
 static struct argp_option route_add_options[] = {
 	{"s", 's', "SRCIP", 0, "Source IP", 0},
@@ -81,8 +97,8 @@ static struct argp_option route_add_options[] = {
 };
 
 /**< Mandatory Parameters needed for deleting Route */
-#define LWE_CTRL_ROUTE_DEL_MDTR_PARAM_MAP (LWE_CTRL_PARAM_BMASK_SRCIP | \
-				LWE_CTRL_PARAM_BMASK_DESTIP)
+#define IPC_CTRL_ROUTE_DEL_MDTR_PARAM_MAP (IPC_CTRL_PARAM_BMASK_SRCIP | \
+				IPC_CTRL_PARAM_BMASK_DESTIP)
 
 static struct argp_option route_del_options[] = {
 	{"s", 's', "SRCIP", 0, "Source IP", 0},
@@ -91,14 +107,17 @@ static struct argp_option route_del_options[] = {
 	{0, 0, 0, 0, 0, 0}
 };
 
-#define LWE_CTRL_PARAM_BMASK_ARP_IPADDR		(1 << 0)	/**< Bit Mask for ARP IP Address */
-#define LWE_CTRL_PARAM_BMASK_ARP_MACADDR		(1 << 1)	/**< Bit Mask for MAC Address */
-#define LWE_CTRL_PARAM_BMASK_ARP_REPLACE		(1 << 2)	/**< Bit Mask for Replace variable */
-#define LWE_CTRL_PARAM_ARP_MAX_BIT_NO		3
+#define IPC_CTRL_PARAM_BMASK_ARP_IPADDR		(1 << 0)
+/**< Bit Mask for ARP IP Address */
+#define IPC_CTRL_PARAM_BMASK_ARP_MACADDR		(1 << 1)
+/**< Bit Mask for MAC Address */
+#define IPC_CTRL_PARAM_BMASK_ARP_REPLACE		(1 << 2)
+/**< Bit Mask for Replace variable */
+#define IPC_CTRL_PARAM_ARP_MAX_BIT_NO		3
 
 /**< Mandatory Parameters needed for creating ARP */
-#define LWE_CTRL_ARP_ADD_MDTR_PARAM_MAP (LWE_CTRL_PARAM_BMASK_ARP_IPADDR | \
-				LWE_CTRL_PARAM_BMASK_ARP_MACADDR)
+#define IPC_CTRL_ARP_ADD_MDTR_PARAM_MAP (IPC_CTRL_PARAM_BMASK_ARP_IPADDR | \
+				IPC_CTRL_PARAM_BMASK_ARP_MACADDR)
 
 static struct argp_option arp_add_options[] = {
 	{"s", 's', "IPADDR", 0, "IP Address", 0},
@@ -109,7 +128,7 @@ static struct argp_option arp_add_options[] = {
 };
 
 /**< Mandatory Parameters needed for deleting ARP */
-#define LWE_CTRL_ARP_DEL_MDTR_PARAM_MAP (LWE_CTRL_PARAM_BMASK_ARP_IPADDR)
+#define IPC_CTRL_ARP_DEL_MDTR_PARAM_MAP (IPC_CTRL_PARAM_BMASK_ARP_IPADDR)
 
 static struct argp_option arp_del_options[] = {
 	{"s", 's', "IPADDR", 0, "IP Address", 0},

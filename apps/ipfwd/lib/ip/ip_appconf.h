@@ -1,9 +1,9 @@
 /**
- \file ipsec_cpdp.h
+ \file ip_appconf.h
  \brief Implements a simple, fast cache for looking up IPSec tunnels.
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,31 +25,31 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef LIB_IPSEC_IPSEC_CPDP_H
-#define LIB_IPSEC_IPSEC_CPDP_H
+#ifndef LIB_IP_APPCONF_H
+#define LIB_IP_APPCONF_H
 
 /**
  \brief	Structure for configuring an Interface
  */
-struct lwe_ctrl_intf_conf {
+struct app_ctrl_intf_conf {
 	uint32_t ip_addr; /**< IP Address */
 	uint32_t mtu; /**< MTU */
 	uint32_t enable; /**< Enabling the interface */
 	unsigned char mac_addr[6];  /**< MAC Address of the interface */
 	char ifname[10];  /**< Interface Name */
-#define LWE_CTRL_PARAM_BMASK_IFNAME		(1 << 0)
-#define LWE_CTRL_PARAM_BMASK_IPADDR		(1 << 1)
-#define LWE_CTRL_PARAM_BMASK_MACADDR		(1 << 2)
-#define LWE_CTRL_PARAM_BMASK_MTU			(1 << 3)
-#define LWE_CTRL_PARAM_BMASK_ENABLE		(1 << 4)
-#define LWE_CTRL_PARAM_MAX_INTF_BIT_NO			5
+#define IPC_CTRL_PARAM_BMASK_IFNAME		(1 << 0)
+#define IPC_CTRL_PARAM_BMASK_IPADDR		(1 << 1)
+#define IPC_CTRL_PARAM_BMASK_MACADDR		(1 << 2)
+#define IPC_CTRL_PARAM_BMASK_MTU			(1 << 3)
+#define IPC_CTRL_PARAM_BMASK_ENABLE		(1 << 4)
+#define IPC_CTRL_PARAM_MAX_INTF_BIT_NO			5
 
-#define LWE_CTRL_INTF_CONF_MDTR_PARAM_MAP (LWE_CTRL_PARAM_BMASK_IFNAME)
+#define IPC_CTRL_INTF_CONF_MDTR_PARAM_MAP (IPC_CTRL_PARAM_BMASK_IFNAME)
 
 	uint32_t bitmask;
 };
 
-struct lwe_ctrl_ip_info {
+struct app_ctrl_ip_info {
 	unsigned int src_ipaddr;			/**<Source IP Address>*/
 	unsigned int dst_ipaddr;			/**<Destination IP Address>*/
 	unsigned int gw_ipaddr;				/**<Gateway IP Address>*/
@@ -58,40 +58,40 @@ struct lwe_ctrl_ip_info {
 	unsigned int flow_id; /**< Flow Id */
 	unsigned int frame_cnt; /**<Frame Count */
 	unsigned int replace_entry;  /**< Used for overwriting an existing ARP entry */
-	struct lwe_ctrl_intf_conf intf_conf; /**< Interface Configuration */
+	struct app_ctrl_intf_conf intf_conf; /**< Interface Configuration */
 };
 
 /**
  \brief	Structure used for communicating with USDPAA process through
 posix message queue.
  */
-struct lwe_ctrl_op_info {
+struct app_ctrl_op_info {
 
-#define LWE_CTRL_CMD_STATE_IDLE 0
-#define LWE_CTRL_CMD_STATE_BUSY 1
+#define IPC_CTRL_CMD_STATE_IDLE 0
+#define IPC_CTRL_CMD_STATE_BUSY 1
 	unsigned int state;
 	/**< State of Command */
 
-#define LWE_CTRL_CMD_TYPE_ROUTE_ADD		1
-#define LWE_CTRL_CMD_TYPE_ROUTE_DEL		2
-#define LWE_CTRL_CMD_TYPE_INTF_CONF_CHNG	3
-#define LWE_CTRL_CMD_TYPE_ARP_ADD		4
-#define LWE_CTRL_CMD_TYPE_ARP_DEL		5
-#define LWE_CTRL_CMD_TYPE_FRAMECNT_EDIT		6
-#define LWE_CTRL_CMD_TYPE_GO			7
+#define IPC_CTRL_CMD_TYPE_ROUTE_ADD		1
+#define IPC_CTRL_CMD_TYPE_ROUTE_DEL		2
+#define IPC_CTRL_CMD_TYPE_INTF_CONF_CHNG	3
+#define IPC_CTRL_CMD_TYPE_ARP_ADD		4
+#define IPC_CTRL_CMD_TYPE_ARP_DEL		5
+#define IPC_CTRL_CMD_TYPE_FRAMECNT_EDIT		6
+#define IPC_CTRL_CMD_TYPE_GO			7
 
 	unsigned int msg_type;
 	/**<Type of Request>*/
 
-#define LWE_CTRL_RSLT_SUCCESSFULL		1
-#define LWE_CTRL_RSLT_FAILURE		0
+#define IPC_CTRL_RSLT_SUCCESSFULL		1
+#define IPC_CTRL_RSLT_FAILURE		0
 	unsigned int result;
 	/**<Result - Successful, Failure>*/
 
-	struct lwe_ctrl_ip_info ip_info;
+	struct app_ctrl_ip_info ip_info;
 	/**< IPfwd Info structure */
 };
 
-extern struct lwe_ctrl_op_info g_sLweCtrlSaInfo;
+extern struct app_ctrl_op_info g_sLweCtrlSaInfo;
 
-#endif /* ifndef LIB_IPSEC_IPSEC_CPDP_H */
+#endif /* ifndef LIB_IP_APPCONF_H */

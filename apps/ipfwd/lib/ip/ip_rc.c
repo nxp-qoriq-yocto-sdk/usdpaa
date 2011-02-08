@@ -373,7 +373,7 @@ bool rc_add_entry(struct rc_t *rc, struct rc_entry_t *new_entry)
 	bool success;
 
 	success = false;
-	/* No decorated api required as Control LWE partition
+	/* No decorated api required as USDPAA application
 	 would update rc table */
 	count = rc->stats->entry_count;
 	if (count < MAX_RC_ENTRIES) {
