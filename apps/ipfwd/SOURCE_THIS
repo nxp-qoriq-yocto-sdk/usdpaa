@@ -1,0 +1,14 @@
+
+cd /usr/etc
+fmc -c config-20G.xml -p sample-32.xml -a
+ipfwd_app 1..7 sample-32.xml config-20G.xml &
+cd /usr/bin
+./ipfwd_20G_nosgmii_script.sh
+
+##For 1024 FQs
+#cd /usr/etc
+#fmc -c config-20G.xml -p sample-1024.xml -a
+#ipfwd_app 1..7 sample-1024.xml config-20G.xml &
+#cd /usr/bin
+#./ipfwd_20G_nosgmii_script.sh
+
