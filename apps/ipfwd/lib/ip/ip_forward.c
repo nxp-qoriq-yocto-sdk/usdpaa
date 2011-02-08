@@ -3,7 +3,7 @@
  \brief Implements forwarding function if routelookup is successful
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,7 +39,7 @@
 
 enum IP_STATUS ip_forward(struct ip_context_t *ctxt,
 			  struct annotations_t *notes,
-			  struct ip_header_t *ip_hdr)
+			  struct iphdr *ip_hdr)
 {
 	struct net_dev_t *dev;
 
@@ -47,9 +47,9 @@ enum IP_STATUS ip_forward(struct ip_context_t *ctxt,
 	dev = notes->dest->dev;
 	if (likely(ip_hdr->ttl > 1)) {
 		ip_hdr->ttl -= 1;
-		ip_hdr->hdr_chksum += 0x100;
-		if (unlikely((ip_hdr->hdr_chksum & 0xff00) == 0))
-			ip_hdr->hdr_chksum += 0x1;
+		ip_hdr->check += 0x100;
+		if (unlikely((ip_hdr->check & 0xff00) == 0))
+			ip_hdr->check += 0x1;
 
 	} else {
 #ifdef STATS_TBD
@@ -64,9 +64,8 @@ enum IP_STATUS ip_forward(struct ip_context_t *ctxt,
 	   is uneccessarily in the "DROP" path if the above tests fail - should
 	   not do it if status is not ACCEPT.
 	 */
-	if (unlikely(notes->fd->length20 > dev->mtu) &&
-	    unlikely(ip_hdr->frag.bits.df == 1)) {
-		APP_ERROR("%s: Dropping pkt, mtu exceeded|fragmented",
+	if (unlikely(notes->fd->length20 > dev->mtu)) {
+		APP_ERROR("%s: Dropping pkt, mtu exceeded",
 			  __func__);
 #ifdef STATS_TBD
 		decorated_notify_inc_64(&
@@ -94,7 +93,7 @@ enum IP_STATUS ip_forward(struct ip_context_t *ctxt,
 
 enum IP_STATUS ip_forward_finish(struct ip_context_t *ctxt,
 				 struct annotations_t *notes,
-				 struct ip_header_t *ip_hdr,
+				 struct iphdr *ip_hdr,
 				 enum state source)
 {
 	markpoint(12);

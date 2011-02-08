@@ -4,7 +4,7 @@
  packet during different stages of its Life in a system
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -85,7 +85,7 @@ enum IP_HOOK_PRAGMA {
 /**< Definition for the Hook Funciton to be called */
 typedef enum IP_STATUS (*hookfn_t) (struct ip_context_t *,
 				    struct annotations_t *,
-				    struct ip_header_t *,
+				    struct iphdr *,
 				    enum state);
 
 /**
@@ -163,7 +163,7 @@ static inline enum IP_STATUS exec_hook(struct ip_hooks_t *hooks,
 				       enum IP_HOOK hook,
 				       struct ip_context_t *ctxt,
 				       struct annotations_t *notes,
-				       struct ip_header_t *data,
+				       struct iphdr *data,
 				       hookfn_t callback,
 				       enum state source)
 {

@@ -30,6 +30,7 @@
 #define __LIB_IP_IP_H
 
 #include "ethernet/eth.h"
+#include <linux/ip.h>
 
 #define IP_ADDRESS_BYTES                (4)
 /**< Number of Bytes in IP Address*/
@@ -37,8 +38,6 @@
 /**< Length in bytes of the IP Header without the Optional fields*/
 #define IP_HEADER_LENGTH_NO_OPTIONS_WORDS \
 	(IP_HEADER_LENGTH_NO_OPTIONS / BYTES_PER_WORD)
-#define IP_HEADER_VERSION_4             (4)
-/**< IP Version*/
 #define IP_HEADER_DEFAULT_TOS           (0)
 /**< default value of IP TOS*/
 #define IP_HEADER_FRAG_NO_FRAG          (0)
@@ -102,54 +101,15 @@ struct ip_option_t {
 	 as part of the option */
 };
 
-/**
-\brief IP Header Structure
-*/
-struct ip_header_t {
-	unsigned version:4;
-	/**< Version of IP used to generate the datagram */
-	unsigned hdr_len:4;
-	/**< Length of the IP header, in 32-bit words */
-	uint8_t tos;
-	/**< Type of Service Field */
-	uint16_t total_len;
-	/**< Specifies the total length of the IP datagram, in bytes */
-	uint16_t id;
-	/**< 16-bit value that is common to each of the fragments belonging
-	 to a particular message */
-	union {
-		uint16_t word;
-		struct {
-			uint32_t __reserved:1;
-			uint32_t df:1;
-			/**< Dont Frament Bit - when set to 1, the datagram
-			 should not be fragmented*/
-			uint32_t mf:1;
-			/**< More Fragment Bit - when set 0, its the last
-			 fragment*/
-			uint32_t frag_offset:13;	/**< Fragment offset */
-		} __PACKED bits;
-		struct {
-			uint32_t __reserved:2;
-			uint32_t is_frag:14;
-		} __PACKED check;
-	} __PACKED frag;
-	uint8_t ttl;		/**< Time to Live*/
-	uint8_t proto;		/**< Identifies the higher layer protocol */
-	uint16_t hdr_chksum;	/**< Header checksum */
-	union ip_address_t src_addr;	/**< Source IP Address */
-	union ip_address_t dst_addr;	/**< Destination IP Address */
-} __PACKED;
-
  /**
  \brief Specifies if the IP Header contains Optional fields or not
  \param[in] ip_hdr Pointer to the IP Header Structure
  \return true - ip header has options
  false - ip header does not have options
  */
-static inline bool has_options(struct ip_header_t *ip_hdr)
+static inline bool has_options(struct iphdr *ip_hdr)
 {
-	return ((ip_hdr->hdr_len) > IP_HEADER_LENGTH_NO_OPTIONS);
+	return ((ip_hdr->ihl) > IP_HEADER_LENGTH_NO_OPTIONS);
 }
 
  /**
@@ -158,9 +118,9 @@ static inline bool has_options(struct ip_header_t *ip_hdr)
  \return true - ip packet is a fragment of a bigger ip packet
  false - ip packet is non-fragmented
  */
-static inline bool is_fragment(struct ip_header_t *ip_hdr)
+static inline bool is_fragment(struct iphdr *ip_hdr)
 {
-	return (ip_hdr->frag.check.is_frag != 0);
+	return (ip_hdr->frag_off != 1);
 }
 
 /**

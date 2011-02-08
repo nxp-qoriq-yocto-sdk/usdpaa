@@ -3,7 +3,7 @@
  \brief IPv4 Route lookup is done for forwarding decision.
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,7 +42,7 @@
 
 enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,
 			      struct annotations_t *notes,
-			      struct ip_header_t *ip_hdr, enum state source)
+			      struct iphdr *ip_hdr, enum state source)
 {
 	enum IP_STATUS retval = IP_STATUS_DROP;
 
@@ -51,22 +51,22 @@ enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,
 	{
 		struct rc_entry_t *entry;
 		entry = rc_entry_fast_lookup(ctxt->rc,
-					ip_hdr->src_addr.word,
-					ip_hdr->dst_addr.word,
+					ip_hdr->saddr,
+					ip_hdr->daddr,
 					ip_hdr->tos,
 					RC_BUCKET_INDEX(notes));
 		APP_DEBUG("Hash index= %x", RC_BUCKET_INDEX(notes));
 
 		if (entry == NULL) {
 			entry = rc_entry_lookup(ctxt->rc,
-					ip_hdr->src_addr.word,
-					ip_hdr->dst_addr.word,
+					ip_hdr->saddr,
+					ip_hdr->daddr,
 					ip_hdr->tos);
 			if (entry == NULL) {
 				APP_DEBUG("Fast Lookup Failed, going slow \
 				   for Src = 0x%x; Dest = 0x%x; TOS = 0x%x",
-				   ip_hdr->src_addr.word,
-				   ip_hdr->dst_addr.word, ip_hdr->tos);
+				   ip_hdr->saddr,
+				   ip_hdr->daddr, ip_hdr->tos);
 				retval =
 				ip_route_input_slow(ctxt, notes, ip_hdr);
 				return retval;
@@ -90,7 +90,7 @@ enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,
 
 enum IP_STATUS ip_route_input_slow(struct ip_context_t *ctxt,
 				   struct annotations_t *notes,
-				   struct ip_header_t *ip_hdr __UNUSED)
+				   struct iphdr *ip_hdr __UNUSED)
 {
 #ifdef STATS_TBD
 	decorated_notify_inc_64(&(ctxt->stats->ip_route_input_slow));
@@ -101,7 +101,7 @@ enum IP_STATUS ip_route_input_slow(struct ip_context_t *ctxt,
 
 enum IP_STATUS ip_route_finish(struct ip_context_t *ctxt,
 				struct annotations_t *notes,
-				struct ip_header_t *ip_hdr)
+				struct iphdr *ip_hdr)
 {
 	struct rt_dest_t *dest;
 

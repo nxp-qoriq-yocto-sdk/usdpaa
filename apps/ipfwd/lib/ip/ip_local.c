@@ -2,7 +2,7 @@
  \file ip_local.c
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,7 @@
 
 enum IP_STATUS ip_local_deliver(struct ip_context_t *ctxt,
 				struct annotations_t *notes,
-				struct ip_header_t *ip_hdr)
+				struct iphdr *ip_hdr)
 {
 	enum IP_STATUS retval;
 
@@ -52,19 +52,19 @@ enum IP_STATUS ip_local_deliver(struct ip_context_t *ctxt,
 
 enum IP_STATUS ip_local_deliver_finish(struct ip_context_t *ctxt,
 				       struct annotations_t *notes,
-				       struct ip_header_t *ip_hdr,
+				       struct iphdr *ip_hdr,
 				       enum state source)
 {
 #ifdef STATS_TBD
 	decorated_notify_inc_32(&(ctxt->stats->ip_local_delivery));
 #endif
-	return ip_protos_exec(ctxt->protos, (enum IP_PROTO)ip_hdr->proto, ctxt,
-			      notes, ip_hdr);
+	return ip_protos_exec(ctxt->protos, (enum IP_PROTO)ip_hdr->protocol,
+				ctxt, notes, ip_hdr);
 }
 
 void ip_defragment(struct ip_context_t *ctxt,
 		   struct annotations_t *notes,
-		   struct ip_header_t *ip_hdr __UNUSED)
+		   struct iphdr *ip_hdr __UNUSED)
 {
 #ifdef STATS_TBD
 	decorated_notify_inc_32(&(ctxt->stats->ip_local_frag_reassem_started));

@@ -4,7 +4,7 @@
  to different IP Protocol Types
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -100,7 +100,7 @@ static inline enum IP_STATUS ip_protos_exec(struct ip_protos_t *protos,
 					    enum IP_PROTO proto_id,
 					    struct ip_context_t *ctxt,
 					    struct annotations_t *notes,
-					    struct ip_header_t *ip_hdr)
+					    struct iphdr *ip_hdr)
 {
 	void *ip_data;
 	void *user_data;
@@ -113,7 +113,7 @@ static inline enum IP_STATUS ip_protos_exec(struct ip_protos_t *protos,
 	if (unlikely(handler == NULL)) {
 		printf("HANDLER IS NULL");
 	} else {
-		ip_data = (void *)((char *) ip_hdr + ((ip_hdr->hdr_len) * 4));
+		ip_data = (void *)((char *) ip_hdr + ((ip_hdr->ihl) * 4));
 		ctxt->user_data = user_data;
 		retval = handler(ctxt, notes, ip_data);
 	}

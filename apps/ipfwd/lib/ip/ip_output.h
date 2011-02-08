@@ -4,7 +4,7 @@
  transmission of the IP packet
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,7 +42,7 @@
  \param[in] ip_hdr Pointer to the IP Header
  */
 enum IP_STATUS ip_send(struct ip_context_t *ctxt,
-		       struct annotations_t *notes, struct ip_header_t *ip_hdr);
+		       struct annotations_t *notes, struct iphdr *ip_hdr);
 
 /**
  \brief  Call intervening POSTROUTING hooks for each frame
@@ -52,7 +52,7 @@ enum IP_STATUS ip_send(struct ip_context_t *ctxt,
  */
 enum IP_STATUS ip_output(struct ip_context_t *ctxt,
 			 struct annotations_t *notes,
-			 struct ip_header_t *ip_hdr);
+			 struct iphdr *ip_hdr);
 
 /**
  \brief Find the correct neighbor for this frame, using ARP tables
@@ -62,7 +62,7 @@ enum IP_STATUS ip_output(struct ip_context_t *ctxt,
  */
 enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt,
 				struct annotations_t *notes,
-				struct ip_header_t *ip_hdr,
+				struct iphdr *ip_hdr,
 				enum state source);
 
 #endif /* ifndef LIB_IP_IP_OUTPUT_H */

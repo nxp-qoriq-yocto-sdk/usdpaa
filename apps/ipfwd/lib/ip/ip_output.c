@@ -2,7 +2,7 @@
  \file ip_output.c
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -85,7 +85,7 @@ void arp_retransmit_cb(uint32_t timer_id, void *p_data)
  * If packet length > next_hop mtu, call ip_fragment
  */
 enum IP_STATUS ip_send(struct ip_context_t *ctxt,
-		       struct annotations_t *notes, struct ip_header_t *ip_hdr)
+		       struct annotations_t *notes, struct iphdr *ip_hdr)
 {
 	struct annotations_t *cur_notes;
 
@@ -101,7 +101,7 @@ enum IP_STATUS ip_send(struct ip_context_t *ctxt,
  */
 enum IP_STATUS ip_output(struct ip_context_t *ctxt,
 			 struct annotations_t *notes,
-			 struct ip_header_t *ip_hdr)
+			 struct iphdr *ip_hdr)
 {
 	markpoint(14);
 	return exec_hook(ctxt->hooks, IP_HOOK_POSTROUTING, ctxt, notes,
@@ -113,7 +113,7 @@ enum IP_STATUS ip_output(struct ip_context_t *ctxt,
  */
 enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt __UNUSED,
 				struct annotations_t *notes,
-				struct ip_header_t *ip_hdr,
+				struct iphdr *ip_hdr,
 				enum state source)
 {
 	struct ll_cache_t *ll_cache;

@@ -508,15 +508,21 @@ initialize_contexts(struct ip_context_t *ip_ctxt, struct net_dev_t *dev,
 void create_local_nodes(struct node_t *arr)
 {
 	uint32_t port, node, node_idx;
+	uint16_t *addr_hi;
+	uint32_t *addr_lo;
 
+	addr_hi = (uint16_t *)malloc(sizeof(*addr_hi));
+	*addr_hi = ETHERNET_ADDR_MAGIC;
+	addr_lo = (uint32_t *)malloc(sizeof(*addr_lo));
 	for (port = 0, node_idx = 0; port < g_num_dpa_eth_ports; port++) {
 		for (node = 0; node < local_node_count[port]; node++,
 			node_idx++) {
-			arr[node_idx].mac.ether_addr_octet[0] =
-				ETHERNET_ADDR_MAGIC;
-			arr[node_idx].mac.ether_addr_octet[2] =
-				arr[node_idx].ip.word =
+			memcpy(&arr[node_idx].mac.ether_addr_octet[0], addr_hi,
+				2);
+			*addr_lo = arr[node_idx].ip.word =
 				0xc0a80002 + (iface_subnet[port] << 8) + node;
+			memcpy(&arr[node_idx].mac.ether_addr_octet[2], addr_lo,
+				4);
 		}
 	}
 }

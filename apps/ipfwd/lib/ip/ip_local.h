@@ -4,7 +4,7 @@
  self terminated packets
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,7 +43,7 @@
  */
 enum IP_STATUS ip_local_deliver(struct ip_context_t *ctxt,
 				struct annotations_t *notes,
-				struct ip_header_t *ip_hdr);
+				struct iphdr *ip_hdr);
 
 /**
  \brief Handles Self terminated Packet. Updates the stats, and Processes the Packet.
@@ -54,7 +54,7 @@ enum IP_STATUS ip_local_deliver(struct ip_context_t *ctxt,
  */
 enum IP_STATUS ip_local_deliver_finish(struct ip_context_t *ctxt,
 				       struct annotations_t *notes,
-				       struct ip_header_t *ip_hdr,
+				       struct iphdr *ip_hdr,
 				       enum state source);
 
 /**
@@ -65,6 +65,6 @@ enum IP_STATUS ip_local_deliver_finish(struct ip_context_t *ctxt,
  \return none
  */
 void ip_defragment(struct ip_context_t *ctxt,
-		   struct annotations_t *notes, struct ip_header_t *ip_hdr);
+		   struct annotations_t *notes, struct iphdr *ip_hdr);
 
 #endif /* ifndef LIB_IP_IP_LOCAL_H */

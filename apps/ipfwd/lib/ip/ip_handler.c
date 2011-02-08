@@ -39,7 +39,7 @@
 void ip_handler(struct fq_context_t *ctxt, struct annotations_t *notes,
 		void *data)
 {
-	struct ip_header_t *ip_hdr;
+	struct iphdr *ip_hdr;
 #ifdef STATS_TBD
 	struct ip_context_t *ip_ctxt = (struct ip_context_t *)ctxt;
 #endif
@@ -49,7 +49,7 @@ void ip_handler(struct fq_context_t *ctxt, struct annotations_t *notes,
 	decorated_notify_inc_32(&(ip_ctxt->stats->ip_in_received));
 #endif
 	ip_hdr =
-	    (struct ip_header_t *)((uint8_t *) data +
+	    (struct iphdr *)((uint8_t *) data +
 				   sizeof(struct ether_header));
 	notes->dest = NULL;
 	ip_accept_preparsed((struct ip_context_t *)ctxt, notes, ip_hdr,

@@ -3,7 +3,7 @@
  \brief This file contains the functionality related to Route Cache LookUp
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,7 +42,7 @@
  */
 enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,
 			      struct annotations_t *notes,
-			      struct ip_header_t *ip_hdr,
+			      struct iphdr *ip_hdr,
 			      enum state);
 
 /**
@@ -54,7 +54,7 @@ enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,
  */
 enum IP_STATUS ip_route_input_slow(struct ip_context_t *ctxt,
 				   struct annotations_t *notes,
-				   struct ip_header_t *ip_hdr);
+				   struct iphdr *ip_hdr);
 
 /**
  \brief Check if the packet is for self or needs to be routed forward, and calls a handling API accordingly
@@ -65,6 +65,6 @@ enum IP_STATUS ip_route_input_slow(struct ip_context_t *ctxt,
  */
 enum IP_STATUS ip_route_finish(struct ip_context_t *ctxt,
 			       struct annotations_t *notes,
-			       struct ip_header_t *ip_hdr);
+			       struct iphdr *ip_hdr);
 
 #endif /* ifndef LIB_IP_IP_ROUTE_H */

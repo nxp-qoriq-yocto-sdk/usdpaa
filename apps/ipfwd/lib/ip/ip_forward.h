@@ -4,7 +4,7 @@
  forwarding attributes before sending out the packet
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,7 +41,7 @@
 		calculated
  \return Returns calculated Checksum
  */
-static inline uint16_t ip_checksum(struct ip_header_t *ip_hdr, uint8_t len)
+static inline uint16_t ip_checksum(struct iphdr *ip_hdr, uint8_t len)
 {
 	uint32_t sum;
 	sum = 0;
@@ -76,7 +76,7 @@ static inline uint16_t ip_checksum(struct ip_header_t *ip_hdr, uint8_t len)
  */
 enum IP_STATUS ip_forward(struct ip_context_t *ctxt,
 			  struct annotations_t *notes,
-			  struct ip_header_t *ip_hdr);
+			  struct iphdr *ip_hdr);
 
 /**
  \brief Handle any Optional field updation in the IP Header, Updates the Stats, and Sends the Packet
@@ -87,7 +87,7 @@ enum IP_STATUS ip_forward(struct ip_context_t *ctxt,
  */
 enum IP_STATUS ip_forward_finish(struct ip_context_t *ctxt,
 				 struct annotations_t *notes,
-				 struct ip_header_t *ip_hdr,
+				 struct iphdr *ip_hdr,
 				 enum state source);
 
 #endif /* ifndef LIB_IP_IP_FORWARD_H */
