@@ -30,6 +30,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 SUBDIRS = lib reflector qbman_speed
+#SUBDIRS += ipfwd
 
 dist_DATA = SOURCE_THIS
 
