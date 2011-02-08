@@ -46,7 +46,7 @@ void ip_fq_state_chg(struct qman_portal *qm, struct qman_fq *fq,
 static void ipfwd_dc_ern_handler(struct qman_portal *qm, struct qman_fq *fq,
 				const struct qm_mr_entry *msg)
 {
-	APP_ERROR("%s: RC = %x, FQID = %x", __func__,\
+	pr_err("%s: RC = %x, FQID = %x\n", __func__,
 		 msg->dcern.rc, msg->dcern.fqid);
 	free_buff(&msg->dcern.fd);
 	return;
@@ -60,7 +60,7 @@ static void ipfwd_dc_ern_handler(struct qman_portal *qm, struct qman_fq *fq,
 static void ipfwd_ern_handler(struct qman_portal *qm, struct qman_fq *fq,
 				const struct qm_mr_entry *msg)
 {
-	APP_ERROR("%s: RC = %x, seqnum = %x", __func__,\
+	pr_err("%s: RC = %x, seqnum = %x\n", __func__,\
 		 msg->ern.rc, msg->ern.seqnum);
 	free_buff(&msg->ern.fd);
 	return;
@@ -76,7 +76,7 @@ static enum qman_cb_dqrr_result dqrr_handler_tx_err(struct qman_portal *qm,
 						   const struct qm_dqrr_entry
 						   *dqrr)
 {
-	APP_ERROR("In %s: Status Returned is %x on FQID %x", __func__, \
+	pr_err("In %s: Status Returned is %x on FQID %x\n", __func__, \
 			dqrr->fd.status, dqrr->fqid);
 
 	free_buff((struct qm_fd *)(&dqrr->fd));
@@ -93,7 +93,7 @@ static enum qman_cb_dqrr_result dqrr_handler_tx_confirm(struct qman_portal *qm,
 						const struct qm_dqrr_entry
 						*dqrr)
 {
-	APP_INFO("In %s: Status Returned is %x on FQID %x", __func__, \
+	pr_info("In %s: Status Returned is %x on FQID %x\n", __func__,
 			dqrr->fd.status, dqrr->fqid);
 
 	free_buff((struct qm_fd *)(&dqrr->fd));
@@ -111,7 +111,7 @@ static enum qman_cb_dqrr_result dqrr_entry_handler_err(struct qman_portal *qm,
 						   const struct qm_dqrr_entry
 						   *dqrr)
 {
-	APP_DEBUG("In %s: Status Returned is %x, on FQID = %x", __func__, \
+	pr_dbg("In %s: Status Returned is %x, on FQID = %x\n", __func__, \
 		dqrr->fd.status, dqrr->fqid);
 	free_buff((struct qm_fd *)(&dqrr->fd));
 	rx_errors++;
@@ -141,7 +141,7 @@ static enum qman_cb_dqrr_result dqrr_entry_handler_pcd(struct qman_portal *qm,
 		data = (uint8_t *)notes + dqrr->fd.offset;
 		break;
 	default:
-		APP_ERROR("Unsupported format packet came");
+		pr_err("Unsupported format packet came\n");
 		goto done;
 	}
 	notes->fd = (struct qm_fd *)(&(dqrr->fd));
@@ -176,7 +176,7 @@ static enum qman_cb_dqrr_result dqrr_entry_handler(struct qman_portal *qm,
 		data = (uint8_t *)notes + dqrr->fd.offset;
 		break;
 	default:
-		APP_ERROR("Unsupported format packet came");
+		pr_err("Unsupported format packet came\n");
 		goto done;
 	}
 	notes->fd = (struct qm_fd *)(&(dqrr->fd));
@@ -198,7 +198,7 @@ static void my_cb_notimplemented(struct qman_portal *qm,
 				struct qman_fq *fq,
 				const struct qm_mr_entry *msg)
 {
-	APP_INFO("In %s", __func__);
+	pr_info("In %s\n", __func__);
 }
 
 static enum qman_cb_dqrr_result dqrr_cb_notimplemented(struct qman_portal *qm,
@@ -206,7 +206,7 @@ static enum qman_cb_dqrr_result dqrr_cb_notimplemented(struct qman_portal *qm,
 						   const struct qm_dqrr_entry
 						   *dqrr)
 {
-	APP_INFO("In %s", __func__);
+	pr_info("In %s\n", __func__);
 	return 0;
 }
 

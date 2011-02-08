@@ -283,7 +283,7 @@ bool neigh_remove(struct neigh_table_t *nt, uint32_t key, uint32_t keylen)
 
 void neigh_print_entry(struct neigh_t *n)
 {
-	APP_DEBUG("Neighbor at %p", (void *)n);
+	pr_dbg("Neighbor at %p\n", (void *)n);
 }
 
 void neigh_exec_per_entry(struct neigh_table_t *nt, nt_execfn_t execfn)
@@ -315,7 +315,7 @@ void neigh_exec_per_entry(struct neigh_table_t *nt, nt_execfn_t execfn)
 
 void neigh_table_print(struct neigh_table_t *nt)
 {
-	APP_DEBUG("IP Address        MAC address");
+	pr_dbg("IP Address        MAC address\n");
 	neigh_exec_per_entry(nt, &neigh_print_entry);
 }
 

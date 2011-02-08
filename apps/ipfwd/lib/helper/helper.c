@@ -61,13 +61,13 @@ static int init_fqs(struct ipfwd_fq_range_t *fq_range,
 		if (unlikely(0 != qman_init_fq(fq_range->fq[count],
 						 flags, opts))) {
 			fq_id = fq_range->fq_start + count;
-			APP_ERROR("qm_init_fq failed for fq_id: %u", fq_id);
+			pr_err("qm_init_fq failed for fq_id: %u\n", fq_id);
 			return -1;
 		}
 	}
 
-	APP_INFO("Init %s FQs Base: %u, Count: %u, "
-		 "Channel: %u, WQ: %u", fq_type,
+	pr_info("Init %s FQs Base: %u, Count: %u, "
+		 "Channel: %u, WQ: %u\n", fq_type,
 		 fq_range->fq_start, fq_range->fq_count,
 		 fq_range->channel, fq_range->work_queue);
 
@@ -95,14 +95,14 @@ static int create_fqs(struct ipfwd_fq_range_t *fq_range, const uint32_t flags,
 		fq = (struct qman_fq *)dma_mem_memalign(CACHE_LINE_SIZE,
 				 sizeof(struct qman_fq) + priv_data_size);
 		if (unlikely(NULL == fq)) {
-			APP_ERROR("malloc failed in create_fqs for FQ ID: %u",
+			pr_err("malloc failed in create_fqs for FQ ID: %u\n",
 			     fq_id);
 			return -1;
 		}
 		fq->cb = *cb;
 
 		if (unlikely(0 != qman_create_fq(fq_id, flags, fq))) {
-			APP_ERROR("qman_create_fq failed for FQ ID: %u",
+			pr_err("qman_create_fq failed for FQ ID: %u\n",
 					fq_id);
 			return -1;
 		}
@@ -111,7 +111,7 @@ static int create_fqs(struct ipfwd_fq_range_t *fq_range, const uint32_t flags,
 		fq_id++;
 	}
 
-	APP_INFO("Created %s Base: %u, Count: %u", fq_type,
+	pr_info("Created %s Base: %u, Count: %u\n", fq_type,
 		 fq_range->fq_start, fq_range->fq_count);
 
 	return 0;
@@ -131,7 +131,7 @@ static int ipfwd_fq_create(struct usdpa_netcfg_info *cfg_ptr,
 	uint32_t flags;
 	int ret;
 
-	APP_DEBUG("IPFWD FQ CREATE: Enter");
+	pr_dbg("IPFWD FQ CREATE: Enter\n");
 	for (port_id = 0; port_id < g_num_dpa_eth_ports; port_id++) {
 		p_cfg = &cfg_ptr->port_cfg[port_id];
 		fif = p_cfg->fman_if;
@@ -144,7 +144,7 @@ static int ipfwd_fq_create(struct usdpa_netcfg_info *cfg_ptr,
 		ret = create_fqs(&ipfwd_fq_range[port_id].tx, flags,
 				 tx_cb, "Tx default", priv_data_size);
 		if (unlikely(0 != ret)) {
-			APP_ERROR("create_fqs failed for Tx");
+			pr_err("create_fqs failed for Tx\n");
 			return -1;
 		}
 
@@ -158,7 +158,7 @@ static int ipfwd_fq_create(struct usdpa_netcfg_info *cfg_ptr,
 		ret = create_fqs(&ipfwd_fq_range[port_id].rx_def, flags,
 				 rx_default_cb, "Rx default", priv_data_size);
 		if (unlikely(0 != ret)) {
-			APP_ERROR("create_fqs failed for Rx default");
+			pr_err("create_fqs failed for Rx default\n");
 			return -1;
 		}
 
@@ -170,7 +170,7 @@ static int ipfwd_fq_create(struct usdpa_netcfg_info *cfg_ptr,
 		ret = create_fqs(&ipfwd_fq_range[port_id].rx_err, flags,
 				 rx_err_cb, "Rx err", priv_data_size);
 		if (unlikely(0 != ret)) {
-			APP_ERROR("create_fqs failed for Rx err");
+			pr_err("create_fqs failed for Rx err\n");
 			return -1;
 		}
 
@@ -182,7 +182,7 @@ static int ipfwd_fq_create(struct usdpa_netcfg_info *cfg_ptr,
 		ret = create_fqs(&ipfwd_fq_range[port_id].pcd, flags,
 				 rx_pcd_cb, "Rx PCD", priv_data_size);
 		if (unlikely(0 != ret)) {
-			APP_ERROR("create_fqs failed for Rx PCD");
+			pr_err("create_fqs failed for Rx PCD\n");
 			return -1;
 		}
 
@@ -195,7 +195,7 @@ static int ipfwd_fq_create(struct usdpa_netcfg_info *cfg_ptr,
 		ret = create_fqs(&ipfwd_fq_range[port_id].tx_err, flags,
 				 tx_err_cb, "Tx err", priv_data_size);
 		if (unlikely(0 != ret)) {
-			APP_ERROR("create_fqs failed for Tx err");
+			pr_err("create_fqs failed for Tx err\n");
 			return -1;
 		}
 
@@ -208,11 +208,11 @@ static int ipfwd_fq_create(struct usdpa_netcfg_info *cfg_ptr,
 		ret = create_fqs(&ipfwd_fq_range[port_id].tx_confirm, flags,
 				 tx_confirm_cb, "Tx confirm", priv_data_size);
 		if (unlikely(0 != ret)) {
-			APP_ERROR("create_fqs failed Tx confirm");
+			pr_err("create_fqs failed Tx confirm\n");
 			return -1;
 		}
 	}
-	APP_DEBUG("IPFWD FQ CREATE: Exit");
+	pr_dbg("IPFWD FQ CREATE: Exit\n");
 	return 0;
 }
 
@@ -231,7 +231,7 @@ static int ipfwd_fq_init(uint32_t data_stash_size,
 	struct qm_mcc_initfq opts;
 
 	for (port_id = 0; port_id < g_num_dpa_eth_ports; port_id++) {
-		APP_INFO("Initializing FQs for port id: %u", port_id);
+		pr_info("Initializing FQs for port id: %u\n", port_id);
 
 		flags = QMAN_INITFQ_FLAG_SCHED;
 		opts.we_mask = QM_INITFQ_WE_DESTWQ |
@@ -261,7 +261,7 @@ static int ipfwd_fq_init(uint32_t data_stash_size,
 
 		if (unlikely(0 != init_fqs(&ipfwd_fq_range[port_id].rx_def,
 				 flags, &opts, "Rx default"))) {
-			APP_ERROR("init_fqs failed for Rx default FQs");
+			pr_err("init_fqs failed for Rx default FQs\n");
 			return -1;
 		}
 
@@ -272,7 +272,7 @@ static int ipfwd_fq_init(uint32_t data_stash_size,
 				opts.we_mask |= QM_INITFQ_WE_TDTHRESH;
 				opts.fqd.td.exp = pcd_td->exp;
 				opts.fqd.td.mant = pcd_td->mant;
-				APP_INFO("Init PCDFQs TD mant = %hu exp = %hu",
+				pr_info("Init PCDFQs TD mant = %hu exp = %hu\n",
 					pcd_td->mant, pcd_td->exp);
 			}
 		else if (pcd_td->flag == QM_FQCTRL_CGE) {
@@ -281,7 +281,7 @@ static int ipfwd_fq_init(uint32_t data_stash_size,
 				/* Currently hardcoding all ingress pcd FQs
 				 to single CGR */
 				opts.fqd.cgid = pcd_td->cgr_id;
-				APP_INFO("Enabling Congestion Group %x",
+				pr_info("Enabling Congestion Group %x\n",
 					 opts.fqd.cgid);
 			}
 		}
@@ -289,7 +289,7 @@ static int ipfwd_fq_init(uint32_t data_stash_size,
 		opts.fqd.fq_ctrl |= QM_FQCTRL_HOLDACTIVE;
 		if (unlikely(0 != init_fqs(&ipfwd_fq_range[port_id].pcd, flags,
 				  &opts, "Rx PCD"))) {
-			APP_ERROR("init_fqs failed for Rx PCD FQs");
+			pr_err("init_fqs failed for Rx PCD FQs\n");
 			return -1;
 		}
 
@@ -298,19 +298,19 @@ static int ipfwd_fq_init(uint32_t data_stash_size,
 		opts.we_mask = QM_INITFQ_WE_DESTWQ;
 		if (unlikely(0 != init_fqs(&ipfwd_fq_range[port_id].rx_err,
 			 flags, &opts, "Rx err"))) {
-			APP_ERROR("init_fqs failed for Rx err FQs");
+			pr_err("init_fqs failed for Rx err FQs\n");
 			return -1;
 		}
 
 		if (unlikely(0 != init_fqs(&ipfwd_fq_range[port_id].tx_err,
 				 flags, &opts, "Tx err"))) {
-			APP_ERROR("init_fqs failed for Tx err FQs");
+			pr_err("init_fqs failed for Tx err FQs\n");
 			return -1;
 		}
 
 		if (unlikely(0 != init_fqs(&ipfwd_fq_range[port_id].tx_confirm,
 				 flags, &opts, "Tx confirm"))) {
-			APP_ERROR("init_fqs failed for Tx confirm FQs");
+			pr_err("init_fqs failed for Tx confirm FQs\n");
 			return -1;
 		}
 
@@ -323,7 +323,7 @@ static int ipfwd_fq_init(uint32_t data_stash_size,
 		opts.fqd.context_b = 0;	/*By default no confirmation needed */
 		if (unlikely(0 != init_fqs(&ipfwd_fq_range[port_id].tx, flags,
 				  &opts, "Tx"))) {
-			APP_ERROR("init_fqs failed for Tx FQs");
+			pr_err("init_fqs failed for Tx FQs\n");
 			return -1;
 		}
 	}
@@ -346,14 +346,14 @@ static struct qman_cgr *init_cgr(struct td_param *cgr_param)
 	cgr = (struct qman_cgr *)dma_mem_memalign(CACHE_LINE_SIZE,
 			 sizeof(struct qman_cgr));
 	if (cgr == NULL) {
-		APP_ERROR("%s: Memory for CGR not available", __func__);
+		pr_err("%s: Memory for CGR not available\n", __func__);
 		return NULL;
 	}
 	memset(cgr, 0, sizeof(struct qman_cgr));
 
 	cgr->cgrid = cgr_param->cgr_id;
 	memset(&cgr_state, 0, sizeof(struct qm_mcc_initcgr));
-	APP_INFO("%s: Congestion Record ID being created is %x", __func__,\
+	pr_info("%s: Congestion Record ID being created is %x\n", __func__,
 		 cgr_param->cgr_id);
 	cgr_state.we_mask = QM_CGR_WE_CS_THRES | QM_CGR_WE_CSTD_EN |
 			 QM_CGR_WE_MODE;
@@ -368,7 +368,7 @@ static struct qman_cgr *init_cgr(struct td_param *cgr_param)
 	cgr_state.cgr.cs_thres.Tn = cgr_param->exp;
 	res = qman_create_cgr(cgr, QMAN_CGR_FLAG_USE_INIT, &cgr_state);
 	if (res) {
-		APP_ERROR("%s: Error Creating CGR", __func__);
+		pr_err("%s: Error Creating CGR\n", __func__);
 		dma_mem_free(cgr, sizeof(struct qman_cgr));
 		return NULL;
 	}
@@ -397,7 +397,7 @@ int init_interface(struct usdpa_netcfg_info *cfg_ptr,
 	struct td_param pcd_td_param;
 	struct td_param *pcd_td_ptr = NULL;
 
-	APP_DEBUG("Init interface: Enter");
+	pr_dbg("Init interface: Enter\n");
 
 	printf("Available pool channels = %d\n", cfg_ptr->num_pool_channels);
 
@@ -418,7 +418,7 @@ int init_interface(struct usdpa_netcfg_info *cfg_ptr,
 			recv_channel_id = recv_channel_id -
 			    qm_channel_pool1 + 1;
 		} else {
-			APP_ERROR("Invalid recv channel id: %d",
+			pr_err("Invalid recv channel id: %d\n",
 				  recv_channel_id);
 			return -1;
 		}
@@ -429,7 +429,7 @@ int init_interface(struct usdpa_netcfg_info *cfg_ptr,
 	if (0 !=
 		ipfwd_fq_create(cfg_ptr, rx_default_cb, rx_pcd_cb, rx_err_cb,
 			tx_cb, tx_confirm_cb, tx_err_cb, priv_data_size)) {
-		APP_ERROR("Unable to Create FQs");
+		pr_err("Unable to Create FQs\n");
 		return -EINVAL;
 	}
 #ifdef CGR_SUPPORT
@@ -441,15 +441,15 @@ int init_interface(struct usdpa_netcfg_info *cfg_ptr,
 	pcd_td_param.cgr_cb = NULL;
 	pcd_td_param.cgr_id = 1;
 	if (!init_cgr(pcd_td_ptr)) {
-		APP_ERROR("Unabled to create Congestion Group");
+		pr_err("Unabled to create Congestion Group\n");
 		return -EINVAL;
 	}
 #endif
 
 	if (0 != ipfwd_fq_init(64, 64, 64, NULL, pcd_td_ptr)) {
-		APP_ERROR("Unable to initialize FQs");
+		pr_err("Unable to initialize FQs\n");
 		return -EINVAL;
 	}
-	APP_DEBUG("Init interface: Exit");
+	pr_dbg("Init interface: Exit\n");
 	return 0;
 }

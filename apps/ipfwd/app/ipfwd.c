@@ -75,26 +75,26 @@ int cpu0_only;
 void ip_fq_state_chg(struct qman_portal *qm,
 		     struct qman_fq *fq, const struct qm_mr_entry *msg)
 {
-	APP_INFO("FQ STATE CHANGE");
+	pr_info("%s:FQ STATE CHANGE\n", __func__);
 }
 
 static int worker_fn(struct thread_data_t *tdata)
 {
 
-	APP_INFO("This is the thread on cpu %d\n", tdata->cpu);
+	pr_info("This is the thread on cpu %d\n", tdata->cpu);
 
 	/* Set the qman portal's SDQCR mask */
-	APP_INFO("Frames to be recv on channel map: 0x%x", recv_channel_map);
+	pr_info("Frames to be recv on channel map: 0x%x\n", recv_channel_map);
 	qman_static_dequeue_add(recv_channel_map);
 
 	/* Wait till the main thread enables all the ethernet ports */
 	pthread_barrier_wait(&init_barrier);
 
-	APP_INFO("Going for qman poll cpu %d\n", tdata->cpu);
+	pr_info("Going for qman poll cpu %d\n", tdata->cpu);
 	while (1)
 		qman_poll();
 
-	APP_INFO("Leaving thread on cpu %d\n", tdata->cpu);
+	pr_info("Leaving thread on cpu %d\n", tdata->cpu);
 	pthread_exit(NULL);
 }
 
@@ -105,16 +105,16 @@ static int worker_fn(struct thread_data_t *tdata)
  */
 int32_t ipfwd_conf_intf(struct lwe_ctrl_op_info *route_info)
 {
-	APP_DEBUG("ipfwd_conf_intf: Enter");
+	pr_dbg("ipfwd_conf_intf: Enter\n");
 
-	APP_DEBUG("ipfwd_conf_intf: Bitmask = 0x%x",
+	pr_dbg("ipfwd_conf_intf: Bitmask = 0x%x\n",
 		  route_info->ip_info.intf_conf.bitmask);
 
-	APP_DEBUG("ipfwd_conf_intf: Ifname = %s",
+	pr_dbg("ipfwd_conf_intf: Ifname = %s\n",
 		  route_info->ip_info.intf_conf.ifname);
-	APP_DEBUG("ipfwd_conf_intf: IPAddr = 0x%x",
+	pr_dbg("ipfwd_conf_intf: IPAddr = 0x%x\n",
 		  route_info->ip_info.intf_conf.ip_addr);
-	APP_DEBUG("ipfwd_conf_intf: MAC Addr = %x:%x:%x:%x:%x:%x",
+	pr_dbg("ipfwd_conf_intf: MAC Addr = %x:%x:%x:%x:%x:%x\n",
 		  route_info->ip_info.intf_conf.mac_addr[0],
 		  route_info->ip_info.intf_conf.mac_addr[1],
 		  route_info->ip_info.intf_conf.mac_addr[2],
@@ -122,7 +122,7 @@ int32_t ipfwd_conf_intf(struct lwe_ctrl_op_info *route_info)
 		  route_info->ip_info.intf_conf.mac_addr[4],
 		  route_info->ip_info.intf_conf.mac_addr[5]);
 
-	APP_DEBUG("ipfwd_conf_intf: Exit");
+	pr_dbg("ipfwd_conf_intf: Exit\n");
 	return 0;
 }
 
@@ -155,7 +155,7 @@ struct node_t *ipfwd_get_iface_for_ip(uint32_t ip_addr)
 	}
 
 	if (unlikely(port == g_num_dpa_eth_ports)) {
-		APP_ERROR("%s: Exit: Failed: Not a valid IP addr", __FILE__);
+		pr_err("%s: Exit: Failed: Not a valid IP addr\n", __FILE__);
 		return NULL;
 	}
 
@@ -181,7 +181,7 @@ struct net_dev_t *ipfwd_get_dev_for_ip(unsigned int ip_addr)
 		}
 	}
 
-	APP_DEBUG("%s: Not a Local Node", __func__);
+	pr_dbg("%s: Not a Local Node\n", __func__);
 
 _TEMP:
 
@@ -196,7 +196,8 @@ _TEMP:
 	}
 
 	if (unlikely(port == g_num_dpa_eth_ports)) {
-		APP_INFO("%s: Exit: Failed: Not in any iface subnet", __func__);
+		pr_info("%s: Exit: Failed: Not in any iface subnet\n",
+			__func__);
 		return NULL;
 	}
 
@@ -229,12 +230,12 @@ int32_t ipfwd_add_route(struct lwe_ctrl_op_info *route_info)
 	struct net_dev_t *dev = NULL;
 	unsigned int gw_ipaddr = route_info->ip_info.gw_ipaddr;
 
-	APP_DEBUG("ipfwd_add_route: Enter");
+	pr_dbg("ipfwd_add_route: Enter\n");
 
 	dest = rt_dest_alloc(stack.rt);
 	if (dest == NULL) {
-		APP_ERROR
-		    ("Could not allocate route cache related data structure");
+		pr_err
+		    ("Could not allocate route cache related data structure\n");
 		return -1;
 	}
 
@@ -242,36 +243,36 @@ int32_t ipfwd_add_route(struct lwe_ctrl_op_info *route_info)
 	dest->neighbor = neigh_lookup(stack.arp_table, gw_ipaddr,
 				      stack.arp_table->proto_len);
 	if (dest->neighbor == NULL) {
-		APP_DEBUG
-		    ("%s: Could not find neighbor entry for link-local address",
+		pr_dbg
+		    ("%s: Could not find neighbor entry for link-local addr\n",
 		     __func__);
 
 		dev = ipfwd_get_dev_for_ip(gw_ipaddr);
 		if (dev == NULL) {
-			APP_ERROR("%s: not a valid gateway for any subnet",
+			pr_err("%s: not a valid gateway for any subnet\n",
 				  __func__);
 			return -1;
 		}
 
 		dest->neighbor = neigh_create(stack.arp_table);
 		if (unlikely(!dest->neighbor)) {
-			APP_ERROR("%s: Unable to create Neigh Entry", __func__);
+			pr_err("%s: Unable to create Neigh Entry\n", __func__);
 			return -1;
 		}
 
 		if (NULL == neigh_init(stack.arp_table, dest->neighbor, dev,
 				       (uint32_t *) &gw_ipaddr)) {
-			APP_ERROR("%s: Unable to init Neigh Entry", __func__);
+			pr_err("%s: Unable to init Neigh Entry\n", __func__);
 			return -1;
 		}
 
 		if (false == neigh_add(stack.arp_table, dest->neighbor)) {
-			APP_ERROR("%s: Unable to add Neigh Entry", __func__);
+			pr_err("%s: Unable to add Neigh Entry\n", __func__);
 			return -1;
 		}
 		/* MAC addr would be updated later through ARP request */
 
-		APP_DEBUG("%s: Created neighbor entry, IP addr = %x",
+		pr_dbg("%s: Created neighbor entry, IP addr = %x\n",
 			  __func__, gw_ipaddr);
 	}
 
@@ -280,7 +281,7 @@ int32_t ipfwd_add_route(struct lwe_ctrl_op_info *route_info)
 
 	entry = rc_create_entry(stack.rc);
 	if (entry == NULL) {
-		APP_ERROR("Could not allocate route cache entry");
+		pr_err("Could not allocate route cache entry\n");
 		rt_dest_free(stack.rt, dest);
 		return -1;
 	}
@@ -291,7 +292,7 @@ int32_t ipfwd_add_route(struct lwe_ctrl_op_info *route_info)
 	    memalign(CACHE_LINE_SIZE,
 			   sizeof(struct rc_entry_statistics_t));
 	if (entry->stats == NULL) {
-		APP_ERROR("Unable to allocate route entry stats");
+		pr_err("Unable to allocate route entry stats\n");
 		return -ENOMEM;
 	}
 	memset(entry->stats, 0, sizeof(struct rc_entry_statistics_t));
@@ -302,11 +303,11 @@ int32_t ipfwd_add_route(struct lwe_ctrl_op_info *route_info)
 	entry->tos = IP_TOS;
 
 	if (rc_add_update_entry(stack.rc, entry) == false) {
-		APP_ERROR("Route cache entry updated");
+		pr_err("Route cache entry updated\n");
 		rc_free_entry(stack.rc, entry);
 	}
 
-	APP_DEBUG("ipfwd_add_route: Exit");
+	pr_dbg("ipfwd_add_route: Exit\n");
 	return 0;
 }
 
@@ -318,14 +319,14 @@ int32_t ipfwd_add_route(struct lwe_ctrl_op_info *route_info)
 int32_t ipfwd_del_route(struct lwe_ctrl_op_info * route_info)
 {
 	struct rt_dest_t *dest;
-	APP_DEBUG("ipfwd_del_route: Enter");
+	pr_dbg("ipfwd_del_route: Enter\n");
 
 	dest = rc_lookup(stack.rc,
 			 route_info->ip_info.src_ipaddr,
 			 route_info->ip_info.dst_ipaddr,
 			 (uint8_t)route_info->ip_info.tos);
 	if (dest == NULL) {
-		APP_ERROR("Could not find route cache entry to be deleted");
+		pr_err("Could not find route cache entry to be deleted\n");
 		return -1;
 	}
 
@@ -336,12 +337,12 @@ int32_t ipfwd_del_route(struct lwe_ctrl_op_info * route_info)
 			    route_info->ip_info.dst_ipaddr,
 			    (uint8_t)route_info->ip_info.tos)
 				== false) {
-		APP_ERROR("Could not delete route cache entry");
+		pr_err("Could not delete route cache entry\n");
 		return -1;
 	}
 
 	rt_dest_free(stack.rt, dest);
-	APP_DEBUG("ipfwd_del_route: Exit");
+	pr_dbg("ipfwd_del_route: Exit\n");
 	return 0;
 }
 
@@ -359,9 +360,9 @@ int32_t ipfwd_add_arp(struct lwe_ctrl_op_info * route_info)
 
 #if (LOG_LEVEL > 3)
 	unsigned char *ip = (unsigned char *)&(ip_addr);
-	APP_DEBUG("ipfwd_add_arp: Enter");
+	pr_dbg("ipfwd_add_arp: Enter\n");
 
-	APP_DEBUG("IP = %d.%d.%d.%d ; MAC = %x:%x:%x:%x:%x:%x", ip[0],
+	pr_dbg("IP = %d.%d.%d.%d ; MAC = %x:%x:%x:%x:%x:%x\n", ip[0],
 		  ip[1], ip[2], ip[3], c[0], c[1], c[2], c[3], c[4], c[5]);
 #endif
 
@@ -369,47 +370,47 @@ int32_t ipfwd_add_arp(struct lwe_ctrl_op_info * route_info)
 				stack.arp_table->proto_len);
 
 	if (n == NULL) {
-		APP_DEBUG
-		    ("%s: Could not find neighbor entry for link-local address",
+		pr_dbg
+		    ("%s: Could not find neighbor entry for link-local addr\n",
 		     __func__);
 
 		dev = ipfwd_get_dev_for_ip(ip_addr);
 		if (dev == NULL) {
-			APP_DEBUG("ipfwd_add_arp: Exit: Failed");
+			pr_dbg("ipfwd_add_arp: Exit: Failed\n");
 			return -1;
 		}
 
 		n = neigh_create(stack.arp_table);
 		if (unlikely(!n)) {
-			APP_DEBUG("ipfwd_add_arp: Exit: Failed");
+			pr_dbg("ipfwd_add_arp: Exit: Failed\n");
 			return -1;
 		}
 		if (NULL == neigh_init(stack.arp_table, n, dev,
 					(uint32_t *) &ip_addr)) {
-			APP_ERROR("ipfwd_add_arp: Exit: Failed");
+			pr_err("ipfwd_add_arp: Exit: Failed\n");
 			return -1;
 		}
 
 		if (false == neigh_add(stack.arp_table, n)) {
-			APP_ERROR("ipfwd_add_arp: Exit: Failed");
+			pr_err("ipfwd_add_arp: Exit: Failed\n");
 			return -1;
 		}
 	} else {
 		n->neigh_state = NEIGH_STATE_UNKNOWN;
 		if (route_info->ip_info.replace_entry) {
 			if (false == neigh_replace(stack.arp_table, n)) {
-				APP_ERROR("ipfwd_add_arp: Exit: Failed");
+				pr_err("ipfwd_add_arp: Exit: Failed\n");
 				return -1;
 			}
 		}
 	}
 	/* Update ARP cache entry */
 	if (NULL == neigh_update(n, c, NEIGH_STATE_PERMANENT)) {
-		APP_ERROR("ipfwd_add_arp: Exit: Failed");
+		pr_err("ipfwd_add_arp: Exit: Failed\n");
 		return -1;
 	}
 
-	APP_DEBUG("ipfwd_add_arp: Exit");
+	pr_dbg("ipfwd_add_arp: Exit\n");
 	return 0;
 }
 
@@ -421,7 +422,7 @@ int32_t ipfwd_add_arp(struct lwe_ctrl_op_info * route_info)
 int32_t ipfwd_del_arp(struct lwe_ctrl_op_info *route_info)
 {
 	struct neigh_t *neighbor = NULL;
-	APP_DEBUG("ipfwd_del_arp: Enter");
+	pr_dbg("ipfwd_del_arp: Enter\n");
 
 	/*
 	 ** Do a Neighbour LookUp for the entry to be deleted
@@ -430,8 +431,8 @@ int32_t ipfwd_del_arp(struct lwe_ctrl_op_info *route_info)
 				(route_info->ip_info.src_ipaddr),
 				stack.arp_table->proto_len);
 	if (neighbor == NULL) {
-		APP_ERROR
-		    ("Could not find neighbor entry for link-local address");
+		pr_err
+		    ("Could not find neighbor entry for link-local address\n");
 		return -1;
 	}
 
@@ -439,8 +440,8 @@ int32_t ipfwd_del_arp(struct lwe_ctrl_op_info *route_info)
 	 ** Find out if anyone is using this entry
 	 */
 	if (*(neighbor->refcnt) != 0) {
-		APP_ERROR
-		    ("Could not delete neighbor entry as it is being used");
+		pr_err
+		    ("Could not delete neighbor entry as it is being used\n");
 		return -1;
 	}
 
@@ -451,11 +452,11 @@ int32_t ipfwd_del_arp(struct lwe_ctrl_op_info *route_info)
 				  route_info->ip_info.
 					   src_ipaddr,
 				  stack.arp_table->proto_len)) {
-		APP_ERROR("Could not delete neighbor entry");
+		pr_err("Could not delete neighbor entry\n");
 		return -1;
 	}
 
-	APP_DEBUG("ipfwd_del_arp: Exit");
+	pr_dbg("ipfwd_del_arp: Exit\n");
 	return 0;
 }
 
@@ -470,11 +471,11 @@ static int32_t ip_edit_num_cnt(struct lwe_ctrl_op_info *cp_info)
 	    true : false;
 
 	initial_frame_count = cp_info->ip_info.frame_cnt;
-	APP_INFO("Frame count changed to %d", initial_frame_count);
+	pr_info("Frame count changed to %d\n", initial_frame_count);
 	if (infinit_fcnt == true)
-		APP_INFO("Application is going in infinite_mode");
+		pr_info("Application is going in infinite_mode\n");
 	else
-		APP_INFO("Application is going to finite_mode");
+		pr_info("Application is going to finite_mode\n");
 
 	return 0;
 }
@@ -547,9 +548,9 @@ void create_iface_nodes(struct node_t *arr, struct usdpa_netcfg_info *cfg_ptr)
 			fif->mac_addr.ether_addr_octet,
 			ETHER_ADDR_LEN);
 		arr[if_idx].ip.word = (0xc0a80001 + (iface_subnet[port] << 8));
-		APP_DEBUG("PortID = %d is %s interface node with IP Address "
-			 "%d.%d.%d.%d and MAC Address " MAC_FMT, port,
-			 "FMAN",
+		pr_dbg("PortID = %d is %s interface node with IP Address\n"
+			 "%d.%d.%d.%d and MAC Address\n" MAC_FMT, port,
+			 "FMAN\n",
 			 arr[if_idx].ip.bytes[0], arr[if_idx].ip.bytes[1],
 			 arr[if_idx].ip.bytes[2], arr[if_idx].ip.bytes[3],
 			 NMAC_STR(arr[if_idx].mac.ether_addr_octet));
@@ -564,7 +565,7 @@ void dpa_dev_tx_init(struct dpa_dev_t *dev, struct ipfwd_fq_range_t *fq_range)
 	uint32_t fq_idx;
 
 	if (unlikely(fq_range->fq_count == 0)) {
-		APP_ERROR("FQ Count is zero");
+		pr_err("FQ Count is zero\n");
 		return;
 	}
 
@@ -583,7 +584,7 @@ void dpa_dev_rx_init(struct dpa_dev_t *dev, struct ipfwd_fq_range_t *fq_range,
 	struct ip_fq_context_t *fq_ctxt;
 
 	if (unlikely(fq_range->fq_count == 0)) {
-		APP_ERROR("FQ Count is zero");
+		pr_err("FQ Count is zero\n");
 		return;
 	}
 
@@ -610,19 +611,19 @@ create_devices(struct ip_stack_t *ip_stack, struct node_t *link_nodes)
 
 	ip_stack->nt = net_dev_init();
 	if (unlikely(!ip_stack->nt)) {
-		APP_ERROR("No memory available for neighbor table");
+		pr_err("No memory available for neighbor table\n");
 		return -ENOMEM;
 	}
 	for (port = 0; port < g_num_dpa_eth_ports; port++) {
 		ctxt =
 		     memalign(CACHE_LINE_SIZE, sizeof(struct ip_context_t));
 		if (!ctxt) {
-			APP_ERROR("No Memory for IP context");
+			pr_err("No Memory for IP context\n");
 			return -ENOMEM;
 		}
 		dev = dpa_dev_allocate(ip_stack->nt);
 		if (unlikely(dev == NULL)) {
-			APP_ERROR("Unable to allocate net device Structure");
+			pr_err("Unable to allocate net device Structure\n");
 			free(ctxt);
 			return -ENOMEM;
 		}
@@ -640,7 +641,7 @@ create_devices(struct ip_stack_t *ip_stack, struct node_t *link_nodes)
 		dpa_dev_tx_init((struct dpa_dev_t *)dev,
 				&ipfwd_fq_range[port].tx);
 		if (!net_dev_register(ip_stack->nt, dev)) {
-			APP_ERROR("%s: Netdev Register Failed", __func__);
+			pr_err("%s: Netdev Register Failed\n", __func__);
 			return -EINVAL;
 		}
 	}
@@ -668,7 +669,7 @@ int populate_arp_cache(struct ip_stack_t *ip_stack, struct node_t *loc_nodes)
 			}
 
 			if (0 > add_arp_entry(ip_stack->arp_table, dev, node)) {
-				APP_ERROR("%s: failed to add ARP entry",
+				pr_err("%s: failed to add ARP entry\n",
 					  __func__);
 				return -EINVAL;
 			}
@@ -698,41 +699,41 @@ static int32_t initialize_ip_stack(struct ip_stack_t *ip_stack)
 {
 	ip_stack->arp_table = arp_table_create();
 	if (!(ip_stack->arp_table)) {
-		APP_ERROR("Failed to create ARP Table");
+		pr_err("Failed to create ARP Table\n");
 		return -1;
 	}
 	if (!(neigh_table_init(ip_stack->arp_table))) {
-		APP_ERROR("Failed to init ARP Table");
+		pr_err("Failed to init ARP Table\n");
 		return -1;
 	}
 	ip_stack->rt = rt_create();
 	if (!(ip_stack->rt)) {
-		APP_ERROR("Failed in Route table initialized");
+		pr_err("Failed in Route table initialized\n");
 		return -1;
 	}
 	ip_stack->rc = rc_create(IP_RC_EXPIRE_JIFFIES, IP_ADDRESS_BYTES);
 	if (!(ip_stack->rc)) {
-		APP_ERROR("Failed in Route cache initialized");
+		pr_err("Failed in Route cache initialized\n");
 		return -1;
 	}
 	ip_stack->hooks = ip_hooks_create();
 	if (!(ip_stack->hooks)) {
-		APP_ERROR("Failed in IP Stack hooks initialized");
+		pr_err("Failed in IP Stack hooks initialized\n");
 		return -1;
 	}
 	ip_stack->protos = ip_protos_create();
 	if (!(ip_stack->protos)) {
-		APP_ERROR("IP Stack L4 Protocols initialized");
+		pr_err("IP Stack L4 Protocols initialized\n");
 		return -1;
 	}
 	ip_stack->ip_stats = ipfwd_stats_init();
 	if (!(ip_stack->ip_stats)) {
-		APP_ERROR("Unable to allocate ip stats structure for stack");
+		pr_err("Unable to allocate ip stats structure for stack\n");
 		return -1;
 	}
 	memset(ip_stack->ip_stats, 0, sizeof(struct ip_statistics_t));
 
-	APP_DEBUG("IP Statistics initialized\n");
+	pr_dbg("IP Statistics initialized\n");
 	return 0;
 }
 
@@ -746,7 +747,7 @@ void process_req_from_mq(struct lwe_ctrl_op_info *sa_info)
 	int32_t s32Result = 0;
 	sa_info->result = LWE_CTRL_RSLT_FAILURE;
 
-	APP_DEBUG("process_req_from_mq: Enter");
+	pr_dbg("process_req_from_mq: Enter\n");
 	switch (sa_info->msg_type) {
 	case LWE_CTRL_CMD_TYPE_ROUTE_ADD:
 		s32Result = ipfwd_add_route(sa_info);
@@ -780,10 +781,10 @@ void process_req_from_mq(struct lwe_ctrl_op_info *sa_info)
 	if (s32Result == 0) {
 		sa_info->result = LWE_CTRL_RSLT_SUCCESSFULL;
 	} else {
-		APP_ERROR("%s: CP Request can't be handled", __func__);
+		pr_err("%s: CP Request can't be handled\n", __func__);
 	}
 
-	APP_DEBUG("process_req_from_mq: Exit");
+	pr_dbg("process_req_from_mq: Exit\n");
 	return;
 }
 
@@ -800,13 +801,13 @@ int receive_data(mqd_t mqdes)
 
 	_err = mq_getattr(mqdes, &attr);
 	if (unlikely(_err)) {
-		APP_ERROR("%s: %dError getting MQ attributes\n",
+		pr_err("%s: %dError getting MQ attributes\n",
 			 __FILE__, __LINE__);
 		goto error;
 	}
 	size = mq_receive(mqdes, (char *)ip_info, attr.mq_msgsize, 0);
 	if (unlikely(size == -1)) {
-		APP_ERROR("%s: %dRcv msgque error\n", __FILE__, __LINE__);
+		pr_err("%s: %dRcv msgque error\n", __FILE__, __LINE__);
 		goto error;
 	}
 	process_req_from_mq(ip_info);
@@ -814,7 +815,7 @@ int receive_data(mqd_t mqdes)
 	_err = mq_send(mq_fd_snd, (const char *)ip_info,
 			sizeof(struct lwe_ctrl_op_info), 10);
 	if (unlikely(_err != 0)) {
-		APP_ERROR("%s: %d Error in sending msg on MQ\n",
+		pr_err("%s: %d Error in sending msg on MQ\n",
 			__FILE__, __LINE__);
 		goto error;
 	}
@@ -827,7 +828,7 @@ error:
 
 void mq_handler(union sigval sval)
 {
-	APP_DEBUG("mq_handler called %d\n", sval.sival_int);
+	pr_dbg("mq_handler called %d\n", sval.sival_int);
 
 	receive_data(mq_fd_rcv);
 	mq_notify(mq_fd_rcv, &notification);
@@ -838,7 +839,7 @@ int create_mq(void)
 	struct mq_attr attr_snd, attr_rcv;
 	int _err = 0, ret;
 
-	APP_DEBUG("Create mq: Enter");
+	pr_dbg("Create mq: Enter\n");
 	memset(&attr_snd, 0, sizeof(attr_snd));
 
 	/* Create message queue to send the response */
@@ -847,7 +848,7 @@ int create_mq(void)
 	mq_fd_snd = mq_open("/mq_snd", O_CREAT | O_WRONLY,
 				(S_IRWXU | S_IRWXG | S_IRWXO), &attr_snd);
 	if (mq_fd_snd == -1) {
-		APP_ERROR("%s: %dError opening SND MQ\n",
+		pr_err("%s: %dError opening SND MQ\n",
 				__FILE__, __LINE__);
 		_err = -errno;
 		goto error;
@@ -860,7 +861,7 @@ int create_mq(void)
 	attr_rcv.mq_msgsize = 8192;
 	mq_fd_rcv = mq_open("/mq_rcv", O_CREAT | O_RDONLY, (S_IRWXU | S_IRWXG | S_IRWXO), &attr_rcv);
 	if (mq_fd_rcv == -1) {
-		APP_ERROR("%s: %dError opening RCV MQ\n",
+		pr_err("%s: %dError opening RCV MQ\n",
 				 __FILE__, __LINE__);
 		_err = -errno;
 		goto error;
@@ -872,12 +873,12 @@ int create_mq(void)
 	notification.sigev_notify_attributes = NULL;
 	ret =  mq_notify(mq_fd_rcv, &notification);
 	if (ret) {
-		APP_ERROR("%s: %dError in mq_notify call\n",
+		pr_err("%s: %dError in mq_notify call\n",
 				 __FILE__, __LINE__);
 		_err = -errno;
 		goto error;
 	}
-	APP_DEBUG("Create mq: Exit");
+	pr_dbg("Create mq: Exit\n");
 	return 0;
 error:
 	if (mq_fd_snd)
@@ -894,7 +895,7 @@ int global_init(struct usdpa_netcfg_info *uscfg_info, int cpu, int first, int la
 	int err, loop;
 	u8 bpids[] = IPFWD_BPIDS;
 
-	APP_DEBUG("Global initialisation: Enter");
+	pr_dbg("Global initialisation: Enter\n");
 	/* Set up the bpid allocator */
 	err = bman_setup_allocator(0, &bpid_allocator);
 	if (err)
@@ -902,13 +903,13 @@ int global_init(struct usdpa_netcfg_info *uscfg_info, int cpu, int first, int la
 	/* Set up the fqid allocator */
 	err = qman_setup_allocator(0, &fqid_allocator);
 	if (err) {
-		APP_ERROR("FQID allocator failure\n");
+		pr_err("FQID allocator failure\n");
 		return err;
 	}
 	/* map shmem */
 	err = dma_mem_setup();
 	if (err) {
-		APP_ERROR("shmem setup failure\n");
+		pr_err("shmem setup failure\n");
 		return err;
 	}
 
@@ -918,7 +919,7 @@ int global_init(struct usdpa_netcfg_info *uscfg_info, int cpu, int first, int la
 			.bpid	= bpids[loop],
 			.flags	= BMAN_POOL_FLAG_ONLY_RELEASE
 		};
-		APP_INFO("Initialising pool for bpid %d\n", bpids[loop]);
+		pr_info("Initialising pool for bpid %d\n", bpids[loop]);
 		pool[bpids[loop]] = bman_new_pool(&params);
 		BUG_ON(!pool[bpids[loop]]);
 	}
@@ -927,7 +928,7 @@ int global_init(struct usdpa_netcfg_info *uscfg_info, int cpu, int first, int la
 		err = pthread_barrier_init(&init_barrier, NULL,
 			last - first + 2);
 		if (err != 0)
-			APP_INFO("pthread_barrier_init failed");
+			pr_info("pthread_barrier_init failed\n");
 	}
 
 	/* Initialise Bman/Qman portal */
@@ -946,12 +947,12 @@ int global_init(struct usdpa_netcfg_info *uscfg_info, int cpu, int first, int la
 
 	/* Initializes a soft cache of buffers */
 	if (unlikely(NULL == mem_cache_init())) {
-		APP_ERROR("Cache Creation error");
+		pr_err("Cache Creation error\n");
 		return -ENOMEM;
 	}
 	/* Initializes IP stack*/
 	if (initialize_ip_stack(&stack)) {
-		APP_ERROR("Error Initializing IP Stack");
+		pr_err("Error Initializing IP Stack\n");
 		return -ENOMEM;
 	}
 	/* Initializes ethernet interfaces */
@@ -963,7 +964,7 @@ int global_init(struct usdpa_netcfg_info *uscfg_info, int cpu, int first, int la
 			(struct qman_fq_cb *)&ipfwd_tx_cb_confirm,
 			(struct qman_fq_cb *)&ipfwd_tx_cb_err,
 			sizeof(struct ip_context_t *))) {
-		APP_ERROR("Unable to initialize interface");
+		pr_err("Unable to initialize interface\n");
 		return -EINVAL;
 	}
 	/* Initializes array of network iface nodes */
@@ -974,16 +975,16 @@ int global_init(struct usdpa_netcfg_info *uscfg_info, int cpu, int first, int la
 
 	/* Creates netdev Device Nodes */
 	if (create_devices(&stack, iface_nodes)) {
-		APP_ERROR("Unable to Create Devices");
+		pr_err("Unable to Create Devices\n");
 		return -ENOMEM;
 	}
 
 	/* Populate static arp entries */
 	populate_arp_cache(&stack, local_nodes);
-	APP_INFO
-	    ("ARP Cache Populated, Stack pointer is %p and its size = %d",
+	pr_info
+	    ("ARP Cache Populated, Stack pointer is %p and its size = %d\n",
 	     &stack, sizeof(stack));
-	APP_DEBUG("Global initialisation: Exit");
+	pr_dbg("Global initialisation: Exit\n");
 
 	return 0;
 }
@@ -1005,7 +1006,7 @@ static void *thread_wrapper(void *arg)
 	CPU_SET(tdata->cpu, &cpuset);
 	s = pthread_setaffinity_np(tdata->id, sizeof(cpu_set_t), &cpuset);
 	if (s != 0) {
-		APP_ERROR("pthread_setaffinity_np failed\n");
+		pr_err("pthread_setaffinity_np failed\n");
 		goto end;
 	}
 	s = bman_thread_init(tdata->cpu, 0);
@@ -1124,7 +1125,7 @@ int main(int argc, char *argv[])
 			cpu0_only = 1;
 	}
 
-	APP_INFO("\n** Welcome to IPFWD application! **");
+	pr_info("\n** Welcome to IPFWD application! **\n");
 
 	uscfg_info = usdpa_netcfg_acquire(argv[2], argv[3]);
 	if (uscfg_info == NULL) {
@@ -1134,14 +1135,14 @@ int main(int argc, char *argv[])
 
 	err = global_init(uscfg_info, my_cpu, first, last);
 	if (err != 0) {
-		APP_ERROR("Global initialization failed");
+		pr_err("Global initialization failed\n");
 		return -1;
 	}
 
 	/* Create Message queues to send and receive */
 	err = create_mq();
 	if (err == -1) {
-		APP_ERROR("Error in creating message queues");
+		pr_err("Error in creating message queues\n");
 		return -1;
 	}
 
@@ -1149,16 +1150,16 @@ int main(int argc, char *argv[])
 		err = start_threads(thread_data, last - first + 1, first,
 			 worker_fn);
 		if (err != 0)
-			APP_INFO("start_threads failed");
+			pr_info("start_threads failed\n");
 	}
 
 	if (cpu0_poll_on) {
-		APP_INFO("Frames to be recv on channel map: 0x%x",
+		pr_info("Frames to be recv on channel map: 0x%x\n",
 				 recv_channel_map);
 		qman_static_dequeue_add(recv_channel_map);
 	}
 
-	APP_INFO("Waiting for Configuration Command");
+	pr_info("Waiting for Configuration Command\n");
 	/* Wait for initial IPFWD related configuration to be done */
 	while (0 == GO_FLAG);
 
@@ -1171,7 +1172,7 @@ int main(int argc, char *argv[])
 
 	/* CPU0 going for qman poll */
 	if (cpu0_poll_on) {
-		APP_INFO("Going for qman poll cpu %d\n", my_cpu);
+		pr_info("Going for qman poll cpu %d\n", my_cpu);
 		while (1)
 			qman_poll();
 	}

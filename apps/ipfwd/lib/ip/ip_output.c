@@ -48,13 +48,13 @@ void arp_retransmit_cb(uint32_t timer_id, void *p_data)
 	struct neigh_t *n;
 	struct net_dev_t *dev;
 
-	APP_DEBUG("%s: ARP retransmit timer ID 0x%x expired", __func__,
+	pr_dbg("%s: ARP retransmit timer ID 0x%x expired\n", __func__,
 			timer_id);
 
 	gw_ip = *(uint32_t *) p_data;
 	n = neigh_lookup(stack.arp_table, gw_ip, IP_ADDRESS_BYTES);
 	if (unlikely(NULL == n)) {
-		APP_ERROR("%s: neighbour entry not found for IP 0x%x",
+		pr_err("%s: neighbour entry not found for IP 0x%x\n",
 			__func__, gw_ip);
 		return;
 	}
@@ -65,14 +65,14 @@ void arp_retransmit_cb(uint32_t timer_id, void *p_data)
 		n->retransmit_count++;
 
 	} else {
-		APP_INFO("%s: MAX no. of %d ARP retransmission attempted",
+		pr_info("%s: MAX no. of %d ARP retransmission attempted\n",
 				__func__, n->retransmit_count);
 		if (0 != stop_timer(timer_id)) {
-			APP_ERROR("%s Stopping ARP retransmit timer failed",
+			pr_err("%s Stopping ARP retransmit timer failed\n",
 					 __func__, timer_id);
 			return;
 		} else
-			APP_INFO("%s: ARP retransmit timer 0x%x stopped...",
+			pr_info("%s: ARP retransmit timer 0x%x stopped...\n",
 					__func__, timer_id);
 
 		n->retransmit_count = 0;
@@ -138,9 +138,9 @@ enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt __UNUSED,
 
 	if (unlikely(ll_cache == NULL)) {
 		if (NEIGH_STATE_PENDING == neighbor->neigh_state) {
-			APP_DEBUG("Discarding packet destined for IP 0x%x",
+			pr_dbg("Discarding packet destined for IP 0x%x\n",
 						neighbor->proto_addr[0]);
-			APP_DEBUG("ARP entry state is pending");
+			pr_dbg("ARP entry state is pending\n");
 			/* Discard successive packet (on the assumption the
 			 * packet will be retransmitted by a higher network
 			 * layer)
@@ -149,7 +149,7 @@ enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt __UNUSED,
 			return IP_STATUS_DROP;
 		}
 
-		APP_INFO("Could not found ARP cache entries for IP 0x%x",
+		pr_info("Could not found ARP cache entries for IP 0x%x\n",
 				neighbor->proto_addr[0]);
 
 		/* Save first packet and forward it upon ARP reply */
@@ -164,9 +164,9 @@ enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt __UNUSED,
 				neighbor->proto_addr);
 
 		if (INV_TIMER_ID == timer_id)
-			APP_ERROR("%s: ARP retransmit timer failed", __func__);
+			pr_err("%s: ARP retransmit timer failed\n", __func__);
 		else {
-			APP_INFO("%s: ARP retransmit timer 0x%x started...",
+			pr_info("%s: ARP retransmit timer 0x%x started...\n",
 				__func__, timer_id);
 			neighbor->retransmit_timer = timer_id;
 		}

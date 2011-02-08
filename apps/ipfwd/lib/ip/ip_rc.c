@@ -4,7 +4,7 @@
   Currently 1024 RC entries exists in Route Cache
  */
 /*
- * Copyright (C) 2007-2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -252,13 +252,13 @@ struct rc_t *rc_create(uint32_t expire_jiffies, uint32_t proto_len)
 
 	rc = memalign(CACHE_LINE_SIZE, sizeof(struct rc_t));
 	if (rc == NULL) {
-		APP_ERROR("%s : Route Cache Creation Failed", __func__);
+		pr_err("%s : Route Cache Creation Failed\n", __func__);
 		return NULL;
 	}
 	rc->stats =
 	    memalign(CACHE_LINE_SIZE, sizeof(struct rc_statistics_t));
 	if (rc->stats == NULL) {
-		APP_ERROR("%s : Unable to allocate Route Cache Stats",
+		pr_err("%s : Unable to allocate Route Cache Stats\n",
 							 __func__);
 		free(rc);
 		return NULL;
@@ -267,8 +267,8 @@ struct rc_t *rc_create(uint32_t expire_jiffies, uint32_t proto_len)
 	rc->free_entries = mem_cache_create(sizeof(struct rc_entry_t),
 					    RC_ENTRY_POOL_SIZE);
 	if (rc->free_entries == NULL) {
-		APP_ERROR("%s : Unable to create Free Route Cache"
-				"Entries", __func__);
+		pr_err("%s : Unable to create Free Route Cache"
+				"Entries\n", __func__);
 		free(rc->stats);
 		free(rc);
 		return NULL;
@@ -587,8 +587,8 @@ struct rc_bucket_t *__rc_find_bucket(struct rc_t *rc, uint32_t saddr,
 	uint32_t hash;
 
 	hash = compute_rc_hash(saddr, daddr, tos);
-	APP_DEBUG("Bucket hash is %x", hash);
-	APP_DEBUG("Src = 0x%x Dest = 0x%x, TOS = 0x%x ",
+	pr_dbg("Bucket hash is %x\n", hash);
+	pr_dbg("Src = 0x%x Dest = 0x%x, TOS = 0x%x\n",
 		saddr, daddr, tos);
 	return &(rc->buckets[hash]);
 }

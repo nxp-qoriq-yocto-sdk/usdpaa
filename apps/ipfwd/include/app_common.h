@@ -3,7 +3,7 @@
  \brief Contains macros and inline functions common to all applications
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,59 +30,7 @@
 #define _APP_COMMON_H
 
 #include <stdbool.h>
-/*
- * \brief  LOG Levels for printing messages
- * \detail LOG_LEVEL needs to be set in the application
- * before including this file. If not set than
- * a default value of 4 is assumed.
- */
-
-#ifndef LOG_LEVEL
-#define LOG_LEVEL 2		/**< Default Log Level */
-#endif
-
-#define IDENTITY_MAPPING
-/**< For Performance keep identity mapping of virtual and phys addresses*/
-#define PRINT_INFO		/**< Info Print level is always ON */
-#if (LOG_LEVEL > 4)
-#define APP_PRINT(args...)    printf(args)
-#else
-#define APP_PRINT(args...)
-#endif
-
-#if (LOG_LEVEL > 3)
-#define APP_DEBUG     printf
-#else
-#define APP_DEBUG(args...)
-#endif
-
-#if (LOG_LEVEL > 2)
-#define APP_WARN    printf
-#else
-#define APP_WARN(args...)
-#endif
-
-#if (LOG_LEVEL > 1)
-#define APP_ERROR   printf
-#else
-#define APP_ERROR(args...)
-#endif
-
-#ifdef PRINT_INFO
-#define APP_INFO   printf
-#else
-#define APP_INFO(args...)
-#endif
-
-/* To Enable Hexdump */
-/* #define HEXDUMP_ENABLE */
-
-#ifdef HEXDUMP_ENABLE
-#define HEXDUMP(ptr, size) hexdump(ptr, size)
-#else
-#define HEXDUMP(ptr, size)
-#endif
-
+#undef DEBUG
 #define MAGIC(n) do {                                           \
 	__asm__ __volatile__ ("rlwimi %0,%0,0,%1,%2"             \
 				:: "i" (((n) >> 10) & 0x1f),       \
@@ -102,4 +50,9 @@
 
 #define MAX_NUM_BMAN_POOLS 64
 #define CACHE_LINE_SIZE 64
+#ifdef DEBUG
+#define pr_dbg     printf
+#else
+#define pr_dbg(args...)
+#endif
 #endif /* APP_COMMON__H */

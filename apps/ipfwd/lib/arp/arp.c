@@ -84,30 +84,30 @@ int add_arp_entry(struct neigh_table_t *arp_tab, struct net_dev_t *dev,
 
 	n = neigh_create(arp_tab);
 	if (NULL == n) {
-		APP_ERROR("%s: Unable to create Neigh Entry", __func__);
+		pr_err("%s: Unable to create Neigh Entry\n", __func__);
 		return -EINVAL;
 	}
 
 	if (NULL == dev) {
 		dev = ipfwd_get_dev_for_ip((unsigned int)(node->ip.word));
 		if (NULL == dev) {
-			APP_ERROR("%s: failed to get device", __func__);
+			pr_err("%s: failed to get device\n", __func__);
 			return -EINVAL;
 		}
 	}
 
 	if (NULL == neigh_init(arp_tab, n, dev,
 				(uint32_t *) &node->ip.word)) {
-		APP_ERROR("%s: Unable to init Neigh Entry", __func__);
+		pr_err("%s: Unable to init Neigh Entry\n", __func__);
 		return -EINVAL;
 	}
 	if (false == neigh_add(arp_tab, n)) {
-		APP_ERROR("%s: Unable to add Neigh Entry", __func__);
+		pr_err("%s: Unable to add Neigh Entry\n", __func__);
 		return -EINVAL;
 	}
 	if (NULL ==  neigh_update(n, (uint8_t *) node->mac.ether_addr_octet,
 				NEIGH_STATE_PERMANENT)) {
-		APP_ERROR("%s: Unable to update Neigh Entry", __func__);
+		pr_err("%s: Unable to update Neigh Entry\n", __func__);
 		return -EINVAL;
 	}
 
@@ -129,7 +129,7 @@ void arp_handler(struct annotations_t *notes, void *data)
 		return;
 
 	if (arp_hdr->arp_opcode == ARPOP_REPLY)
-		APP_INFO("Got ARP reply from IP %x", arp_hdr->arp_senderip);
+		pr_info("Got ARP reply from IP %x\n", arp_hdr->arp_senderip);
 
 	spin_lock(&arp_lock);
 	n = neigh_lookup(stack.arp_table,
@@ -140,13 +140,13 @@ void arp_handler(struct annotations_t *notes, void *data)
 			if (NEIGH_STATE_PENDING == n->neigh_state) {
 #ifdef ARP_ENABLE
 				if (0 != stop_timer(n->retransmit_timer)) {
-					APP_ERROR
-					    ("%s: stopping timer 0x%x failed",
+					pr_err
+					    ("%s: stopping timer 0x%x failed\n",
 						__func__, n->retransmit_timer);
 					return;
 
 				} else
-					APP_INFO("%s: timer 0x%x stopped...",
+					pr_info("%s: timer 0x%x stopped...\n",
 						__func__, n->retransmit_timer);
 #endif
 			/* Send first packet */
@@ -159,7 +159,7 @@ void arp_handler(struct annotations_t *notes, void *data)
 		if (NULL == neigh_update(n,
 				arp_hdr->arp_senderaddr.ether_addr_octet,
 				NEIGH_STATE_PERMANENT)) {
-			APP_ERROR("%s: unable to update neigh entry",
+			pr_err("%s: unable to update neigh entry\n",
 				__func__);
 			spin_unlock(&arp_lock);
 			return;
@@ -168,7 +168,7 @@ void arp_handler(struct annotations_t *notes, void *data)
 	}
 
 	if (is_iface_ip(arp_hdr->arp_targetip)) {
-		APP_INFO("%s: Target IP is not for own interface", __func__);
+		pr_info("%s: Target IP is not for own interface\n", __func__);
 		free_buff(notes->fd);
 		spin_unlock(&arp_lock);
 		return;
@@ -180,7 +180,7 @@ void arp_handler(struct annotations_t *notes, void *data)
 		memcpy(&new_node.ip.word,
 			 (uint8_t *) &arp_hdr->arp_senderip, IP_ADDRESS_BYTES);
 		if (0 > add_arp_entry(stack.arp_table, NULL, &new_node)) {
-			APP_ERROR("%s: failed to add ARP entry", __func__);
+			pr_err("%s: failed to add ARP entry\n", __func__);
 			free_buff(notes->fd);
 			spin_unlock(&arp_lock);
 			return;
@@ -191,7 +191,8 @@ void arp_handler(struct annotations_t *notes, void *data)
 	spin_unlock(&arp_lock);
 
 	if (arp_hdr->arp_opcode == ARPOP_REQUEST) {
-		APP_INFO("Got ARP request from IP 0x%x", arp_hdr->arp_senderip);
+		pr_info("Got ARP request from IP 0x%x\n",
+			arp_hdr->arp_senderip);
 
 		memcpy(new_node.mac.ether_addr_octet, dev->dev_addr,
 			ETHER_ADDR_LEN);
@@ -200,7 +201,7 @@ void arp_handler(struct annotations_t *notes, void *data)
 		arp_handle_request((struct ether_header *) data,
 				&new_node);
 		dev->xmit(dev, notes->fd, NULL);
-		APP_INFO("Sent ARP reply for IP 0x%x", arp_hdr->arp_targetip);
+		pr_info("Sent ARP reply for IP 0x%x\n", arp_hdr->arp_targetip);
 	} else {
 		free_buff(notes->fd);
 	}
@@ -222,7 +223,7 @@ int arp_send_request(struct net_dev_t *dev, uint32_t target_ip)
 
 	len = ETHER_HDR_LEN + ARP_HDR_LEN + ETH_FCS_LEN;
 	if (0 >= dpa_allocator_get_buff(buff_allocator, len, &bman_buf)) {
-		APP_ERROR("%s: couldn't allocate buf of size %d",
+		pr_err("%s: couldn't allocate buf of size %d\n",
 			__func__, len);
 		return -ENOMEM;
 	}
@@ -264,7 +265,7 @@ int arp_send_request(struct net_dev_t *dev, uint32_t target_ip)
 	memset(arp_header->arp_targetaddr.bytes, 0, ETHER_ADDR_LEN);
 	arp_header->arp_targetip = target_ip;
 
-	APP_INFO("Sending ARP request for IP %x", target_ip);
+	pr_info("Sending ARP request for IP %x\n", target_ip);
 	dev->xmit(dev, &fd, NULL);
 
 	return 0;

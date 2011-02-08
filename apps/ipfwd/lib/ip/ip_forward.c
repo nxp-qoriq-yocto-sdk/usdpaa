@@ -65,7 +65,7 @@ enum IP_STATUS ip_forward(struct ip_context_t *ctxt,
 	   not do it if status is not ACCEPT.
 	 */
 	if (unlikely(notes->fd->length20 > dev->mtu)) {
-		APP_ERROR("%s: Dropping pkt, mtu exceeded",
+		pr_err("%s: Dropping pkt, mtu exceeded\n",
 			  __func__);
 #ifdef STATS_TBD
 		decorated_notify_inc_64(&

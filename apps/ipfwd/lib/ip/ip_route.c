@@ -55,7 +55,7 @@ enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,
 					ip_hdr->daddr,
 					ip_hdr->tos,
 					RC_BUCKET_INDEX(notes));
-		APP_DEBUG("Hash index= %x", RC_BUCKET_INDEX(notes));
+		pr_dbg("Hash index= %x\n", RC_BUCKET_INDEX(notes));
 
 		if (entry == NULL) {
 			entry = rc_entry_lookup(ctxt->rc,
@@ -63,8 +63,8 @@ enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,
 					ip_hdr->daddr,
 					ip_hdr->tos);
 			if (entry == NULL) {
-				APP_DEBUG("Fast Lookup Failed, going slow \
-				   for Src = 0x%x; Dest = 0x%x; TOS = 0x%x",
+				pr_dbg("Fast Lookup Failed, going slow \
+				   for Src = 0x%x; Dest = 0x%x; TOS = 0x%x\n",
 				   ip_hdr->saddr,
 				   ip_hdr->daddr, ip_hdr->tos);
 				retval =
@@ -81,7 +81,7 @@ enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,
 	}
 		break;
 	default:
-		APP_ERROR("Invalid Case of routing");
+		pr_err("Invalid Case of routing\n");
 		break;
 	}
 
