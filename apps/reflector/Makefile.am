@@ -1,4 +1,4 @@
-# Copyright (c) 2010 - 2011 Freescale Semiconductor, Inc.
+# Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -34,7 +34,7 @@ dist_DATA = us_config_serdes_0xe.xml us_policy_hash_ipv4_src_dst.xml
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/include
 
-reflector_SOURCES := main.c
+reflector_SOURCES := reflector.c
 reflector_LDADD := usdpa_syscfg usdpaa_qbman usdpaa_fman usdpaa_dma_mem usdpaa_of
 reflector_LDFLAGS := $(LIBXML2_LDFLAGS)
 # Compile in default config paths
