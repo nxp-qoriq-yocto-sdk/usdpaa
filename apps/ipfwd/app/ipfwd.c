@@ -51,18 +51,6 @@ struct sigevent notification;
 static bool infinit_fcnt;
 uint32_t initial_frame_count = INITIAL_FRAME_COUNT;
 volatile uint32_t GO_FLAG;
-static const struct bman_bpid_range bpid_range[] = {
-	{FSL_BPID_RANGE_START, FSL_BPID_RANGE_LENGTH} };
-static const struct bman_bpid_ranges bpid_allocator = {
-	.num_ranges = 1,
-	.ranges = bpid_range
-};
-static const struct qman_fqid_range fqid_range[] = {
-	{FSL_FQID_RANGE_START, FSL_FQID_RANGE_LENGTH} };
-static const struct qman_fqid_ranges fqid_allocator = {
-	.num_ranges = 1,
-	.ranges = fqid_range
-};
 static __thread struct thread_data_t *__my_thread_data;
 #define IPFWD_BPIDS		{7, 8, 9}
 struct bman_pool *pool[MAX_NUM_BMAN_POOLS];
@@ -896,16 +884,6 @@ int global_init(struct usdpa_netcfg_info *uscfg_info, int cpu, int first, int la
 	u8 bpids[] = IPFWD_BPIDS;
 
 	pr_dbg("Global initialisation: Enter\n");
-	/* Set up the bpid allocator */
-	err = bman_setup_allocator(0, &bpid_allocator);
-	if (err)
-		fprintf(stderr, "Continuing despite BPID failure\n");
-	/* Set up the fqid allocator */
-	err = qman_setup_allocator(0, &fqid_allocator);
-	if (err) {
-		pr_err("FQID allocator failure\n");
-		return err;
-	}
 	/* map shmem */
 	err = dma_mem_setup();
 	if (err) {
