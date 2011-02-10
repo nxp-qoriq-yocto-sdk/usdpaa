@@ -1,4 +1,4 @@
-# Copyright (c) 2010 Freescale Semiconductor, Inc.
+# Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -30,19 +30,20 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 The build-system supports a directory tree with arbitrary hierarchy. The
-top-level Makefile declares which sub-directories are to be covered by the
-build, the following is the default value (if not overriden externally);
+top-level "Makefile" provides the logic for the build system, and the top-level
+"Makefile.am" provides the initial declaration of rules and/or sub-directories
+to process. The sub-directories to be used by the build are kicked off by the
+following deafult value in the top-level "Makefile.am";
 
-# All "Makefile.am"s found beneath these directories are procssed;
-DIRS := apps drivers
+SUBDIRS = apps drivers
 
 The build system will load "Makefile.am" files from those directories, and if
-those makefiles declare "SUBDIRS" values, it will walk those sub-directories
-too. As each makefile may declare SUBDIRS, an arbitrary-depth build tree can be
-declared and used. As the tree is walked, the Makefile.am files are sourced and
-processed to form a global dependency graph before any building begins, so there
-is no particular "build order" that has to be respected as is usually the case
-with recursive builds (ie. for builds that execute "make" child processes in
+those makefiles also declare "SUBDIRS" values, it will walk those
+sub-directories too. In this way, an arbitrary-depth build tree can be declared
+and used. As the tree is walked, the Makefile.am files are sourced and processed
+to form a global dependency graph before any building begins, so there is no
+particular "build order" that has to be respected as is usually the case with
+recursive builds (ie. for builds that execute "make" child processes in
 sub-directories).
 
 In particular, the following dependencies are fully expanded within a single
@@ -251,11 +252,20 @@ the resulting dependencies and build rules. This processing will be described
 The parsing of Makefile.am files and generation of all build rules is driven by
 this line;
 
-$(foreach d,$(DIRS), $(eval $(call process_dir,$(d),$(TOP_LEVEL)/Makefile))))
+$(eval $(call process_dir,.,./Makefile))
 
-The "process_dir" function is called for each Makefile.am file, passing the
-directory for each Makefile.am as the first parameter, and the "parent" Makefile
-as the second parameter.
+Ie. the "process_dir" function is called to include the top-level Makefile.am
+file, passing its directory path as the first parameter, and the "parent"
+Makefile as the second parameter. For this initial call, the parent is in fact
+the top-level "Makefile" that contains all the build-system logic. Recursively
+though, as SUBDIRS trigger inclusion of "Makefile.am"s in sub-directories, the
+parent parameter for each of those calls to "process_dir" will be the
+"Makefile.am" that delcared the SUBDIR. This allows a dependency chain to be
+built from lower-level "Makefile.am" files on higher-level ones, and from there,
+up to the top-level "Makefile.am" and finally to the build rules themselves in
+"Makefile". (So a modification to "Makefile" triggers all "Makefile.am" files to
+be considered out of date, whereas a modification to any "Makefile.am" triggers
+only sub-directory's "Makefile.am" files to be considered out of date.)
 
 The above step also generates a list of all installable objects, which the
 following line uses to generate install rules for each such object;

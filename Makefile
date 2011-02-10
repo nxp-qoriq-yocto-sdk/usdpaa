@@ -1,4 +1,4 @@
-# Copyright (c) 2010 Freescale Semiconductor, Inc.
+# Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -29,9 +29,6 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-
-# All "Makefile.am"s found beneath these directories are processed;
-DIRS := apps drivers
 
 # ----=[ Arch specific definitions ]=----
 ifneq (distclean,$(MAKECMDGOALS))
@@ -197,8 +194,8 @@ $(1)/Makefile.am:$(2)
 	$$(Q)touch $(1)/Makefile.am
 endef
 
-# ----=[ Parse Makefiles, define build targets ]=----
-$(foreach d,$(DIRS), $(eval $(call process_dir,$(d),$(TOP_LEVEL)/Makefile)))
+# ----=[ Parse top-level Makefile.am (and recurse), define build targets ]=----
+$(eval $(call process_dir,.,./Makefile))
 
 # ----=[ Define install targets ]=----
 $(foreach x,$(TO_INSTALL),$(eval $(call process_install,$(x))))
