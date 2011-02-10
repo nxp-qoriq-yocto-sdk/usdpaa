@@ -251,10 +251,11 @@ the resulting dependencies and build rules. This processing will be described
 The parsing of Makefile.am files and generation of all build rules is driven by
 this line;
 
-$(foreach d,$(DIRS), $(eval $(call process_dir,$(d))))
+$(foreach d,$(DIRS), $(eval $(call process_dir,$(d),$(TOP_LEVEL)/Makefile))))
 
 The "process_dir" function is called for each Makefile.am file, passing the
-directory for each Makefile.am as the parameter.
+directory for each Makefile.am as the first parameter, and the "parent" Makefile
+as the second parameter.
 
 The above step also generates a list of all installable objects, which the
 following line uses to generate install rules for each such object;
@@ -273,6 +274,7 @@ This function is called for each directory. It loads the directory's
   * calls "process_dir" for each sub-directory defined in SUBDIRS
   * adds bin_PROGRAMS to the global list of executables BINS
   * adds lib_LIBRARIES to the global list of libraries LIBS
+  * declares a dependency for the Makefile.am file on the parent makefile.
 
 Note, the fact that "process_dir" calls itself for SUBDIRS entries is how the
 tree is parsed recursively. The routine takes care to ensure that local
@@ -280,6 +282,11 @@ parameters are emptied on entry, so they don't get inherited during recursion
 (causing infinite loops). Also, "process_dir" builds relative directory paths up
 as it recurses, and uses these when processing entries, so "Makefile.am" files
 do not need to be aware of where they are in the overall directory structure.
+
+The dependencies between the Makefiles is what ensures that if a Makefile is
+modified, all Makefiles included by it are "touch"ed. As each compilable object
+is declared dependent on the Makefile that defined it, this means that touching
+a Makefile triggers recompilation of all objects beneath it.
 
 	==== process_bin ====
 
@@ -320,8 +327,10 @@ describing the target it is being compiled for (an executable or a library);
   * $(3) = the C source file name minus the ".c" suffix
 
 It instantiates a rule that makes the compiled output file dependent on the C
-source file, and defines how to build it (and implicitly updating a dependency
-file for the compilation).
+source file as well as the Makefile that defined it, with a rule that defines
+how to compile it (and implicitly update a dependency file from the
+pre-compilation, which makes it furthermore dependent on any headers it
+includes).
 
 	==== pre_process_target ====
 

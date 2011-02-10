@@ -152,7 +152,7 @@ define pre_process_target
 endef
 
 define process_obj
-$($(1)_pref)$(3).o:$($(1)_dir)/$(2) $(4)/Makefile.am $(TOP_LEVEL)/Makefile
+$($(1)_pref)$(3).o:$($(1)_dir)/$(2) $(4)/Makefile.am
 	$$(Q)mkdir -p $$(dir $$@)
 	$$(Q)echo " [CC] $$(shell printf '%- 16s (%s:%s)' $(2) $($(1)_type) $(1))"
 	$$(Q)touch  $$(patsubst %.o,%.d,$$@)
@@ -190,13 +190,15 @@ define process_dir
   $(foreach x,$(dist_DATA),$(eval $(call pre_process_target,$(x),$(1),\
   	$(AM_CFLAGS),$(x),$(INSTALL_OTHER),,$(INSTALL_OTHER_FLAGS))))
   $(eval ALLDIRS += $(1))
-  $(foreach s,$(SUBDIRS),$(eval $(call process_dir,$(1)/$(s))))
+  $(foreach s,$(SUBDIRS),$(eval $(call process_dir,$(1)/$(s),$(1)/Makefile.am)))
   BINS += $(bin_PROGRAMS)
   LIBS += $(lib_LIBRARIES)
+$(1)/Makefile.am:$(2)
+	$$(Q)touch $(1)/Makefile.am
 endef
 
 # ----=[ Parse Makefiles, define build targets ]=----
-$(foreach d,$(DIRS), $(eval $(call process_dir,$(d))))
+$(foreach d,$(DIRS), $(eval $(call process_dir,$(d),$(TOP_LEVEL)/Makefile)))
 
 # ----=[ Define install targets ]=----
 $(foreach x,$(TO_INSTALL),$(eval $(call process_install,$(x))))
