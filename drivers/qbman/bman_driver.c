@@ -41,6 +41,7 @@
 #define POOL_MAX	64
 
 static __thread int fd = -1;
+static __thread const struct qbman_uio_irq *irq;
 
 static struct bman_depletion pools = BMAN_DEPLETION_FULL;
 static u8 num_pools = 64;
@@ -136,7 +137,7 @@ static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 		goto end;
 	}
 	pcfg->public_cfg.cpu = cpu;
-	pcfg->public_cfg.irq = -1;
+	pcfg->public_cfg.irq = fd;
 	bman_depletion_fill(&pcfg->public_cfg.mask);
 
 	if (pcfg->public_cfg.cpu == -1)
@@ -146,13 +147,22 @@ static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 	irq_sources = BM_PIRQ_RCRI | BM_PIRQ_BSCN;
 #endif
 	ret = bman_create_affine_portal(pcfg, irq_sources, recovery_mode);
-	if (ret)
+	if (ret) {
 		pr_err("Bman portal initialisation failed (%d), ret=%d\n",
 			pcfg->public_cfg.cpu, ret);
-	else
-		pr_info("Bman portal initialised at %p:%p (%d)\n",
-			pcfg->addr.addr_ce, pcfg->addr.addr_ci,
+		goto end;
+	}
+	pr_info("Bman portal initialised at %p:%p (%d)\n",
+		pcfg->addr.addr_ce, pcfg->addr.addr_ci, pcfg->public_cfg.cpu);
+#ifdef CONFIG_FSL_DPA_HAVE_IRQ
+#endif
+	/* bman_create_affine_portal() will have called request_irq(), which in
+	 * USDPAA-speak, means we have to retrieve the handler here. */
+	irq = qbman_get_irq_handler(fd);
+	if (!irq)
+		pr_warning("Bman portal interrupt handling is disabled (%d)\n",
 			pcfg->public_cfg.cpu);
+
 end:
 	if (ret) {
 		if (fd >= 0) {
@@ -246,6 +256,24 @@ int bman_thread_init(int cpu, int recovery_mode)
 int bman_thread_finish(void)
 {
 	return fsl_bman_portal_finish();
+}
+
+int bman_thread_fd(void)
+{
+	return fd;
+}
+
+void bman_thread_irq(void)
+{
+	const struct bm_portal_config *cfg = bman_get_affine_portal_config();
+	if (!irq)
+		return;
+	irq->isr(fd, irq->arg);
+	/* Now we need to uninhibit interrupts. This is the only code outside
+	 * the regular portal driver that manipulates any portal register, so
+	 * rather than breaking that encapsulation I am simply hard-coding the
+	 * offset to the inhibit register here. */
+	out_be32(cfg->addr.addr_ci + 0xe0c, 0);
 }
 
 int bman_global_init(int recovery_mode)

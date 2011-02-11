@@ -60,6 +60,7 @@ static const struct qman_fqid_ranges fqid_allocator = {
 #define PORTAL_MAX	10
 
 static __thread int fd = -1;
+static __thread const struct qbman_uio_irq *irq;
 
 #ifdef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
 /* Handlers for NULL portal callbacks (ie. where the contextB field, normally
@@ -134,7 +135,7 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 		goto end;
 	}
 	pcfg->public_cfg.cpu = cpu;
-	pcfg->public_cfg.irq = -1;
+	pcfg->public_cfg.irq = fd;
 	pcfg->public_cfg.channel = qm_channel_swportal0 + (cpu ? cpu : 8);
 	pcfg->public_cfg.pools = QM_SDQCR_CHANNELS_POOL_MASK;
 	pcfg->has_hv_dma = 1;
@@ -158,14 +159,23 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 				NULL,
 #endif
 				irq_sources, recovery_mode);
-	if (ret)
+	if (ret) {
 		pr_err("Qman portal initialisation failed (%d), ret=%d\n",
 			pcfg->public_cfg.cpu, ret);
-	else
-		pr_info("Qman portal initialised at %p:%p (%d:%d,v%04x)\n",
-			pcfg->addr.addr_ce, pcfg->addr.addr_ci,
-			pcfg->public_cfg.cpu, pcfg->public_cfg.channel,
-			qman_ip_rev);
+		goto end;
+	}
+	pr_info("Qman portal initialised at %p:%p (%d:%d,v%04x)\n",
+		pcfg->addr.addr_ce, pcfg->addr.addr_ci, pcfg->public_cfg.cpu,
+		pcfg->public_cfg.channel, qman_ip_rev);
+#ifdef CONFIG_FSL_DPA_HAVE_IRQ
+	/* qman_create_affine_portal() will have called request_irq(), which in
+	 * USDPAA-speak, means we have to retrieve the handler here. */
+	irq = qbman_get_irq_handler(fd);
+	if (!irq)
+		pr_warning("Qman portal interrupt handling is disabled (%d)\n",
+			pcfg->public_cfg.cpu);
+#endif
+
 end:
 	if (ret) {
 		if (fd >= 0) {
@@ -245,6 +255,24 @@ int qman_thread_init(int cpu, int recovery_mode)
 int qman_thread_finish(void)
 {
 	return fsl_qman_portal_finish();
+}
+
+int qman_thread_fd(void)
+{
+	return fd;
+}
+
+void qman_thread_irq(void)
+{
+	const struct qm_portal_config *cfg = qman_get_affine_portal_config();
+	if (!irq)
+		return;
+	irq->isr(fd, irq->arg);
+	/* Now we need to uninhibit interrupts. This is the only code outside
+	 * the regular portal driver that manipulates any portal register, so
+	 * rather than breaking that encapsulation I am simply hard-coding the
+	 * offset to the inhibit register here. */
+	out_be32(cfg->addr.addr_ci + 0xe0c, 0);
 }
 
 int qman_global_init(int recovery_mode)

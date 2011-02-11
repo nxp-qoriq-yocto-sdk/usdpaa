@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,56 +30,71 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "compat.h"
+#include "dpa_sys.h"
 
-#ifdef CONFIG_FSL_DPA_CHECKING
-#define DPA_ASSERT(x) \
-	do { \
-		if (!(x)) { \
-			pr_crit("ASSERT: (%s:%d) %s\n", __FILE__, __LINE__, \
-				__stringify_1(x)); \
-			exit(1); \
-		} \
-	} while(0)
-#else
-#define DPA_ASSERT(x)		do { ; } while(0)
-#endif
+#ifdef CONFIG_FSL_DPA_HAVE_IRQ
 
-/* Commonly used combo */
-static inline void dcbit_ro(void *p)
+static LIST_HEAD(irqs);
+
+int qbman_request_irq(int irq, irqreturn_t (*isr)(int irq, void *arg),
+			unsigned long flags, const char *name, void *arg)
 {
-	dcbi(p);
-	dcbt_ro(p);
-}
-
-/* For trees that contain such support, these stubs are re-mapped to
- * hypervisor+failover features. */
-struct device_node {
-	int offset;
-	const char *full_name;
-};
-#define for_each_child_of_node(n1,n2) while (0)
-static inline int pamu_enable_liodn(struct device_node *n __always_unused,
-					int i __always_unused)
-{
+	struct qbman_uio_irq *it, *newirq;
+	list_for_each_entry(it, &irqs, node) {
+		if (it->irq == irq) {
+			pr_err("%s: irq %d, conflict '%s' and '%s'\n", __func__,
+				irq, it->name, name);
+			return -EINVAL;
+		}
+		if (it->irq > irq)
+			break;
+	}
+	newirq = malloc(sizeof(*newirq));
+	if (!newirq)
+		return -ENOMEM;
+	newirq->irq = irq;
+	newirq->isr = isr;
+	newirq->flags = flags;
+	newirq->name = name;
+	newirq->arg = arg;
+	/* Append to the tail. NB this works if the for() loop found no
+	 * insertion point, because in that case it->node==&irqs. */
+	list_add_tail(&newirq->node, &it->node);
+	pr_info("%s: registered irq %d:%s\n", __func__, irq, name);
 	return 0;
 }
 
-#ifdef CONFIG_FSL_DPA_HAVE_IRQ
-struct qbman_uio_irq {
-	int irq;
-	irqreturn_t (*isr)(int irq, void *arg);
-	unsigned long flags;
-	const char *name;
-	void *arg;
-	struct list_head node;
-};
-/* This is the interface from the platform-agnostic driver code to (de)register
- * interrupt handlers. We simply create/destroy corresponding structs. */
-int qbman_request_irq(int irq, irqreturn_t (*isr)(int irq, void *arg),
-			unsigned long flags, const char *name, void *arg);
-int qbman_free_irq(int irq, void *arg);
-/* This is the interface from the platform-specific driver code to obtain
- * interrupt handlers that have been registered. */
-const struct qbman_uio_irq *qbman_get_irq_handler(int irq);
+static struct qbman_uio_irq *find_irq(int irq)
+{
+	struct qbman_uio_irq *it;
+	list_for_each_entry(it, &irqs, node) {
+		if (it->irq == irq)
+			return it;
+	}
+	return NULL;
+}
+
+int qbman_free_irq(int irq, void *arg)
+{
+	struct qbman_uio_irq *it = find_irq(irq);
+	if (!it) {
+		pr_err("%s: no irq %d\n", __func__, irq);
+		return -EINVAL;
+	}
+	if (it->arg != arg) {
+		pr_err("%s: irq %d:%s arg mismatch\n", __func__, irq, it->name);
+		return -EINVAL;
+	}
+	list_del(&it->node);
+	pr_info("%s: deregistered irq %d:%s\n", __func__, it->irq, it->name);
+	free(it);
+	return 0;
+}
+
+const struct qbman_uio_irq *qbman_get_irq_handler(int irq)
+{
+	return find_irq(irq);
+}
+
 #endif
+

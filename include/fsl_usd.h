@@ -46,6 +46,17 @@ int bman_thread_init(int cpu, int recovery_mode);
 int qman_thread_finish(void);
 int bman_thread_finish(void);
 
+/* Obtain thread-local UIO file-descriptors */
+int qman_thread_fd(void);
+int bman_thread_fd(void);
+
+/* Post-process interrupts. NB, the kernel IRQ handler disables the interrupt
+ * line before notifying us, and this post-processing re-enables it once
+ * processing is complete. As such, it is essential to call this before going
+ * into another blocking read/select/poll. */
+void qman_thread_irq(void);
+void bman_thread_irq(void);
+
 /* Global setup, must be called on an initialised thread if recovery_mode!=0 */
 int qman_global_init(int recovery_mode);
 int bman_global_init(int recovery_mode);

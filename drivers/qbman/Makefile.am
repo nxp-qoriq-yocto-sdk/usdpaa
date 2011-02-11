@@ -1,4 +1,4 @@
-# Copyright (c) 2010 Freescale Semiconductor, Inc.
+# Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,7 @@ lib_LIBRARIES = usdpaa_qbman
 dist_DATA = 06-usdpaa-uio.rules
 
 usdpaa_qbman_SOURCES := bman_high.c bman_driver.c \
-		qman_high.c qman_fqalloc.c qman_utility.c qman_driver.c
+		qman_high.c qman_fqalloc.c qman_utility.c qman_driver.c \
+		uio_irq.c
 
 06-usdpaa-uio.rules_install := etc/udev/rules.d

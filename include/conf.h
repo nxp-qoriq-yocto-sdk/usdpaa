@@ -73,8 +73,8 @@ extern "C" {
 /* disable support for run-time parameter checking, assertions, etc */
 #undef CONFIG_FSL_DPA_CHECKING
 
-/* don't support IRQs (can't be enabled at run-time either) */
-#undef CONFIG_FSL_DPA_HAVE_IRQ
+/* support IRQs */
+#define CONFIG_FSL_DPA_HAVE_IRQ
 
 /* workarounds for errata and missing features in p4080 rev1 */
 #define CONFIG_FSL_QMAN_BUG_AND_FEATURE_REV1
