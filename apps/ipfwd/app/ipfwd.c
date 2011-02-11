@@ -40,6 +40,7 @@
 #include <bigatomic.h>
 #include <dma_mem.h>
 #include <usdpa_netcfg.h>
+#include <fsl_usd.h>
 
 uint32_t iface_subnet[IFACE_COUNT] = { 24, 29, 21, 22, 23, 25, 26, 27, 28 };
 uint32_t local_node_count[IFACE_COUNT] = { 23, 23, 23, 23, 23, 23, 23, 23, 1 };

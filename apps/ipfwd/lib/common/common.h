@@ -3,7 +3,7 @@
  \brief This file contains functions for managing the arp table
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,8 @@
  */
 #include "compat.h"
 #include "app_common.h"
+#include <linux/fsl_qman.h>
+#include <linux/fsl_bman.h>
 
 #define CACHE_LINE_SIZE	64
 extern struct bman_pool *pool[MAX_NUM_BMAN_POOLS];
