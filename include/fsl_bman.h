@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2008-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -311,16 +311,20 @@ const cpumask_t *bman_affine_cpus(void);
 /**
  * bman_poll_slow - process anything that isn't interrupt-driven.
  *
- * This function does any portal processing that isn't interrupt-driven. NB,
- * unlike the legacy wrapper bman_poll(), this function will deterministically
- * check for the presence of portal processing work and do it, which implies
- * some latency even if there's nothing to do. The bman_poll() wrapper on the
- * other hand (like the qman_poll() wrapper) attenuates this by checking for
- * (and doing) portal processing infrequently. Ie. such that qman_poll() and
- * bmna_poll() can be called from core-processing loops. Use bman_poll_slow()
- * when you yourself are deciding when to incur the overhead of processing.
+ * This function does any portal processing that isn't interrupt-driven. The
+ * return value is a bitmask of BM_PIRQ_* sources indicating what interrupt
+ * sources were actually processed by the call.
+ *
+ * NB, unlike the legacy wrapper bman_poll(), this function will
+ * deterministically check for the presence of portal processing work and do it,
+ * which implies some latency even if there's nothing to do. The bman_poll()
+ * wrapper on the other hand (like the qman_poll() wrapper) attenuates this by
+ * checking for (and doing) portal processing infrequently. Ie. such that
+ * qman_poll() and bmna_poll() can be called from core-processing loops. Use
+ * bman_poll_slow() when you yourself are deciding when to incur the overhead of
+ * processing.
  */
-void bman_poll_slow(void);
+u32 bman_poll_slow(void);
 
 /**
  * bman_poll - process anything that isn't interrupt-driven.

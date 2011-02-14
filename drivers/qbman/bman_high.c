@@ -445,13 +445,14 @@ const cpumask_t *bman_affine_cpus(void)
 }
 EXPORT_SYMBOL(bman_affine_cpus);
 
-void bman_poll_slow(void)
+u32 bman_poll_slow(void)
 {
 	struct bman_portal *p = get_affine_portal();
 	u32 is = bm_isr_status_read(&p->p) & ~p->irq_sources;
 	u32 active = __poll_portal_slow(p, is);
 	bm_isr_status_clear(&p->p, active);
 	put_affine_portal();
+	return active;
 }
 EXPORT_SYMBOL(bman_poll_slow);
 

@@ -902,13 +902,14 @@ unsigned int qman_poll_dqrr(unsigned int limit)
 }
 EXPORT_SYMBOL(qman_poll_dqrr);
 
-void qman_poll_slow(void)
+u32 qman_poll_slow(void)
 {
 	struct qman_portal *p = get_affine_portal();
 	u32 is = qm_isr_status_read(&p->p) & ~p->irq_sources;
 	u32 active = __poll_portal_slow(p, is);
 	qm_isr_status_clear(&p->p, active);
 	put_affine_portal();
+	return active;
 }
 EXPORT_SYMBOL(qman_poll_slow);
 

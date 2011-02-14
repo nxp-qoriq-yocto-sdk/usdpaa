@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2008-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1270,9 +1270,11 @@ unsigned int qman_poll_dqrr(unsigned int limit);
 /**
  * qman_poll_slow - process anything (except DQRR) that isn't interrupt-driven.
  *
- * This function does any portal processing that isn't interrupt-driven.
+ * This function does any portal processing that isn't interrupt-driven. The
+ * return value is a bitmask of QM_PIRQ_* sources indicating what interrupt
+ * sources were actually processed by the call.
  */
-void qman_poll_slow(void);
+u32 qman_poll_slow(void);
 
 /**
  * qman_poll - legacey wrapper for qman_poll_dqrr() and qman_poll_slow()
