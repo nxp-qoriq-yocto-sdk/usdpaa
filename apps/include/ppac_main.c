@@ -735,12 +735,32 @@ static inline int check_msg(struct worker *worker)
 /* ---------------------- */
 /* worker thread function */
 
+/* The main polling loop will adapt into interrupt mode when it has been idle
+ * for a period of time. The interrupt mode corresponds to a select() with
+ * timeout (so that we can still catch thread-messaging). We similarly handle
+ * slow-path processing based on loop counters - rather than using the implicit
+ * slow/fast-path adaptations in qman_poll() and bman_poll().
+ */
+#define WORKER_SELECT_TIMEOUT_us 1000000
+#define WORKER_SLOWPOLL_BUSY 4
+#define WORKER_SLOWPOLL_IDLE 400
+#define WORKER_FASTPOLL_DQRR 16
+#define WORKER_FASTPOLL_DOIRQ 2000
+static void drain_4_bytes(int fd, fd_set *fdset)
+{
+	if (FD_ISSET(fd, fdset)) {
+		uint32_t junk;
+		ssize_t sjunk = read(fd, &junk, sizeof(junk));
+		if (sjunk != sizeof(junk))
+			perror("UIO irq read error");
+	}
+}
 static void *worker_fn(void *__worker)
 {
 	struct worker *worker = __worker;
 	cpu_set_t cpuset;
-	int s;
-	int calm_down = 16;
+	int s, fd_qman, fd_bman, nfds;
+	int calm_down = 16, irq_mode = 0, slowpoll = 0, fastpoll = 0;
 
 	TRACE("This is the thread on cpu %d\n", worker->cpu);
 
@@ -767,6 +787,12 @@ static void *worker_fn(void *__worker)
 			worker->cpu, s);
 		goto end;
 	}
+	fd_qman = qman_thread_fd();
+	fd_bman = bman_thread_fd();
+	if (fd_qman > fd_bman)
+		nfds = fd_qman + 1;
+	else
+		nfds = fd_bman + 1;
 	/* Initialise the enqueue-only FQ object for this cpu/thread. NB, the
 	 * fqid argument ("1") is supeppacuous, the point is to mark the object
 	 * as ready for enqueuing and handling ERNs, but unfit for any FQD
@@ -782,8 +808,62 @@ static void *worker_fn(void *__worker)
 	/* Run! */
 	TRACE("Starting poll loop on cpu %d\n", worker->cpu);
 	while (check_msg(worker)) {
-		qman_poll();
-		bman_poll();
+		/* IRQ mode */
+		if (irq_mode) {
+			/* Go into (and back out of) IRQ mode for each select,
+			 * it simplifies exit-path considerations and other
+			 * potential nastiness. */
+			fd_set readset;
+			struct timeval tv = {
+				.tv_sec = WORKER_SELECT_TIMEOUT_us / 1000000,
+				.tv_usec = WORKER_SELECT_TIMEOUT_us % 1000000
+			};
+			FD_ZERO(&readset);
+			FD_SET(fd_qman, &readset);
+			FD_SET(fd_bman, &readset);
+			bman_irqsource_add(BM_PIRQ_RCRI | BM_PIRQ_BSCN);
+			qman_irqsource_add(QM_PIRQ_SLOW | QM_PIRQ_DQRI);
+			s = select(nfds, &readset, NULL, NULL, &tv);
+			/* Calling irqsource_remove() prior to thread_irq()
+			 * means thread_irq() will not process whatever caused
+			 * the interrupts, however it does ensure that, once
+			 * thread_irq() re-enables interrupts, they won't fire
+			 * again immediately. The calls to poll_slow() force
+			 * handling of whatever triggered the interrupts. */
+			bman_irqsource_remove(~0);
+			qman_irqsource_remove(~0);
+			bman_thread_irq();
+			qman_thread_irq();
+			bman_poll_slow();
+			qman_poll_slow();
+			if (s < 0) {
+				perror("QBMAN select error");
+				goto end;
+			}
+			if (!s)
+				/* timeout, stay in IRQ mode */
+				continue;
+			drain_4_bytes(fd_bman, &readset);
+			drain_4_bytes(fd_qman, &readset);
+			/* Transition out of IRQ mode */
+			irq_mode = 0;
+			fastpoll = 0;
+			slowpoll = 0;
+		}
+		/* non-IRQ mode */
+		if (!(slowpoll--)) {
+			if (qman_poll_slow() || bman_poll_slow()) {
+				slowpoll = WORKER_SLOWPOLL_BUSY;
+				fastpoll = 0;
+			} else
+				slowpoll = WORKER_SLOWPOLL_IDLE;
+		}
+		if (qman_poll_dqrr(WORKER_FASTPOLL_DQRR))
+			fastpoll = 0;
+		else
+			/* No fast-path work, do we transition to IRQ mode? */
+			if (++fastpoll > WORKER_FASTPOLL_DOIRQ)
+				irq_mode = 1;
 	}
 
 end:
