@@ -305,7 +305,7 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 		{
 		struct iphdr *iphdr = addr + 14;
 		__be32 tmp;
-#ifdef RFL_TRACE
+#ifdef ENABLE_TRACE
 		u8 *src = (void *)&iphdr->saddr;
 		u8 *dst = (void *)&iphdr->daddr;
 		TRACE("		  ver=%d,ihl=%d,tos=%d,len=%d,id=%d\n",
@@ -333,7 +333,7 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 		return;
 	case ETH_P_ARP:
 		TRACE("	       -> it's ETH_P_ARP!\n");
-#ifdef RFL_TRACE
+#ifdef ENABLE_TRACE
 		{
 		struct arphdr *arphdr = addr + 14;
 		TRACE("		  hrd=%d, pro=%d, hln=%d, pln=%d, op=%d\n",
