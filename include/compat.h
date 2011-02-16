@@ -135,6 +135,7 @@ static inline u8 readb(volatile u8 *p)
 /* Debug stuff */
 #define BUG()	abort()
 #ifdef CONFIG_BUGON
+#define pr_debug(fmt, args...)  printf(fmt, ##args)
 #define BUG_ON(c) \
 do { \
 	if (c) { \
@@ -149,6 +150,7 @@ do { \
 	exit(1); \
 } while(0)
 #else
+#define pr_debug(fmt, args...)  do { ; } while(0)
 #define BUG_ON(c)		do { ; } while(0)
 #define might_sleep_if(c)	do { ; } while(0)
 #define msleep(x)		do { ; } while(0)
