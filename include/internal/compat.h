@@ -4,13 +4,13 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
+ *	 notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
+ *	 notice, this list of conditions and the following disclaimer in the
+ *	 documentation and/or other materials provided with the distribution.
  *     * Neither the name of Freescale Semiconductor nor the
- *       names of its contributors may be used to endorse or promote products
- *       derived from this software without specific prior written permission.
+ *	 names of its contributors may be used to endorse or promote products
+ *	 derived from this software without specific prior written permission.
  *
  *
  * ALTERNATIVELY, this software may be distributed under the terms of the
@@ -80,8 +80,8 @@ typedef int		phandle;
 
 #define noinline	__attribute__((noinline))
 #define ____cacheline_aligned __attribute__((aligned(L1_CACHE_BYTES)))
-#define likely(x)       __builtin_expect(!!(x), 1)
-#define unlikely(x)     __builtin_expect(!!(x), 0)
+#define likely(x)	__builtin_expect(!!(x), 1)
+#define unlikely(x)	__builtin_expect(!!(x), 0)
 #define __iomem
 #define __stringify_1(x) #x
 #define __stringify(x)	__stringify_1(x)
@@ -119,15 +119,15 @@ static inline u8 readb(volatile u8 *p)
 		printf(fmt, ##args); \
 		fflush(stdout); \
 	} while (0)
-#define pr_crit(fmt, args...)    prflush("CRIT:" fmt, ##args)
-#define pr_err(fmt, args...)     prflush("ERR:" fmt, ##args)
+#define pr_crit(fmt, args...)	 prflush("CRIT:" fmt, ##args)
+#define pr_err(fmt, args...)	 prflush("ERR:" fmt, ##args)
 #define pr_warning(fmt, args...) prflush("WARN:" fmt, ##args)
-#define pr_info(fmt, args...)    prflush(fmt, ##args)
+#define pr_info(fmt, args...)	 prflush(fmt, ##args)
 
 /* Debug stuff */
 #define BUG()	abort()
 #ifdef CONFIG_BUGON
-#define pr_debug(fmt, args...)  printf(fmt, ##args)
+#define pr_debug(fmt, args...)	printf(fmt, ##args)
 #define BUG_ON(c) \
 do { \
 	if (c) { \
@@ -142,7 +142,7 @@ do { \
 	exit(EXIT_FAILURE); \
 } while(0)
 #else
-#define pr_debug(fmt, args...)  do { ; } while(0)
+#define pr_debug(fmt, args...)	do { ; } while(0)
 #define BUG_ON(c)		do { ; } while(0)
 #define might_sleep_if(c)	do { ; } while(0)
 #define msleep(x)		do { ; } while(0)
@@ -312,63 +312,46 @@ typedef uint32_t	irqreturn_t;
 #define irq_set_affinity(x,y)	0
 
 /* Atomic stuff */
-typedef unsigned long atomic_t;
+typedef struct {
+       volatile long v;
+} atomic_t;
 /* NB: __atomic_*() functions copied and twiddled from lwe_atomic.h */
-static inline int
-__atomic_read(unsigned long *ptr)
-{
-	int ret;
-	asm volatile ("lwz%U1%X1 %0,%1":"=r" (ret):"m"(*ptr));
-
-	return ret;
-}
-static inline void
-__atomic_set(unsigned long *ptr, int i)
-{
-	asm volatile ("stw%U0%X0 %1,%0":"=m" (*ptr):"r"(i):"memory");
-}
-static inline unsigned long
-__atomic_add(unsigned long *ptr, long val)
-{
-	unsigned long ret;
-
-	/* FIXME 64-bit */
-	asm volatile("1: lwarx %0, %y1;"
-	             "add %0, %0, %2;"
-	             "stwcx. %0, %y1;"
-	             "bne 1b;" :
-	             "=&r" (ret), "+Z" (*ptr) :
-	             "r" (val) :
-	             "memory", "cc");
-
-	return ret;
-}
-static inline int
-__atomic_dec_and_test(unsigned long *ptr)
-{
-	return (__atomic_add(ptr, -1)) == 0;
-}
-/* wrappers using atomic_t */
 static inline int atomic_read(const atomic_t *v)
 {
-	return __atomic_read((unsigned long *)v);
+	return v->v;
 }
 static inline void atomic_set(atomic_t *v, int i)
 {
-	__atomic_set((unsigned long *)v, i);
+	v->v = i;
+}
+static inline long
+__atomic_add(long *ptr, long val)
+{
+       long ret;
+
+	/* FIXME 64-bit */
+	asm volatile("1: lwarx %0, %y1;"
+		     "add %0, %0, %2;"
+		     "stwcx. %0, %y1;"
+		     "bne 1b;" :
+		     "=&r" (ret), "+Z" (*ptr) :
+		     "r" (val) :
+		     "memory", "cc");
+
+       return ret;
 }
 static inline void atomic_inc(atomic_t *v)
 {
-	__atomic_add((unsigned long *)v, 1);
+	__atomic_add((long *)&v->v, 1);
 }
 static inline int atomic_dec_and_test(atomic_t *v)
 {
-	return __atomic_dec_and_test((unsigned long *)v);
+	return __atomic_add((long *)&v->v, -1) == 0;
 }
 /* new variants not present in LWE */
 static inline int atomic_inc_and_test(atomic_t *v)
 {
-	return (__atomic_add((unsigned long *)v, 1)) == 0;
+	return __atomic_add((long *)&v->v, 1) == 0;
 }
 
 /* memcpy() stuff - when you know alignments in advance */
