@@ -794,7 +794,7 @@ static void *worker_fn(void *__worker)
 	else
 		nfds = fd_bman + 1;
 	/* Initialise the enqueue-only FQ object for this cpu/thread. NB, the
-	 * fqid argument ("1") is supeppacuous, the point is to mark the object
+	 * fqid argument ("1") is superfluous, the point is to mark the object
 	 * as ready for enqueuing and handling ERNs, but unfit for any FQD
 	 * modifications. The forwarding logic will substitute in the required
 	 * FQID. */
