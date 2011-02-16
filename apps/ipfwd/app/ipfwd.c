@@ -53,8 +53,6 @@ static bool infinit_fcnt;
 uint32_t initial_frame_count = INITIAL_FRAME_COUNT;
 volatile uint32_t GO_FLAG;
 static __thread struct thread_data_t *__my_thread_data;
-#define IPFWD_BPIDS		{7, 8, 9}
-struct bman_pool *pool[MAX_NUM_BMAN_POOLS];
 __PERCPU uint32_t rx_errors;
 #define MAX_THREADS 8
 uint32_t recv_channel_map;
@@ -881,10 +879,23 @@ error:
 
 int global_init(struct usdpa_netcfg_info *uscfg_info, int cpu, int first, int last)
 {
-	int err, loop;
-	u8 bpids[] = IPFWD_BPIDS;
+	int err;
 
 	pr_dbg("Global initialisation: Enter\n");
+	/* - initialise DPAA */
+	err = bman_global_init(0);
+	if (err) {
+		fprintf(stderr, "bman_global_init() failed, ret=%d\n",
+			err);
+		return err;
+	}
+	/* Set up the fqid allocator */
+	err = qman_global_init(0);
+	if (err) {
+		fprintf(stderr, "qman_global_init() failed, ret=%d\n",
+			err);
+		return err;
+	}
 	/* map shmem */
 	err = dma_mem_setup();
 	if (err) {
@@ -892,16 +903,6 @@ int global_init(struct usdpa_netcfg_info *uscfg_info, int cpu, int first, int la
 		return err;
 	}
 
-	/* initialise buffer pools to release buffers*/
-	for (loop = 0; loop < sizeof(bpids); loop++) {
-		struct bman_pool_params params = {
-			.bpid	= bpids[loop],
-			.flags	= BMAN_POOL_FLAG_ONLY_RELEASE
-		};
-		pr_info("Initialising pool for bpid %d\n", bpids[loop]);
-		pool[bpids[loop]] = bman_new_pool(&params);
-		BUG_ON(!pool[bpids[loop]]);
-	}
 	/* Initialise barrier for all the threads including main thread */
 	if (!cpu0_only) {
 		err = pthread_barrier_init(&init_barrier, NULL,
@@ -1111,6 +1112,21 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "error: NO Config information available\n");
 		return -ENXIO;
 	}
+
+	/* - validate the config */
+	if (!uscfg_info->num_ethports) {
+		fprintf(stderr, "error: no network interfaces available\n");
+		return -1;
+	}
+	if (!uscfg_info->num_pool_channels) {
+		fprintf(stderr, "error: no pool channels available\n");
+		return -1;
+	}
+	pr_info("Configuring for %d n/w interface%s and %d pool channel%s\n",
+		uscfg_info->num_ethports,
+		uscfg_info->num_ethports > 1 ? "s" : "",
+		uscfg_info->num_pool_channels,
+		uscfg_info->num_pool_channels > 1 ? "s" : "");
 
 	err = global_init(uscfg_info, my_cpu, first, last);
 	if (err != 0) {
