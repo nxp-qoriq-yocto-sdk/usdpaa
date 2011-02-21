@@ -36,7 +36,7 @@
 /* These types are for linux-compatibility, eg. they're used by single-source
  * qbman drivers. These aren't in compat.h because that would lead to
  * dependencies being back-to-front. */
-typedef uint32_t dma_addr_t;
+typedef uint64_t dma_addr_t;
 enum dma_data_direction {
 	DMA_BIDIRECTIONAL = 0,
 	DMA_TO_DEVICE = 1,
@@ -66,14 +66,16 @@ void dma_mem_free(void *ptr, size_t size);
  * ptov/vtop when sizeof(dma_addr_t)>sizeof(void*). */
 extern dma_addr_t __dma_virt;
 
-/* Conversion between user-virtual ("v") and physical ("p") address */
+/* Conversion between user-virtual ("v") and physical ("p") address. NB, the
+ * double-casts avoid the "cast to pointer from integer of different size" and
+ * "cast from pointer to integer of different size" warnings. */
 static inline void *dma_mem_ptov(dma_addr_t p)
 {
-	return (void *)(p + __dma_virt - DMA_MEM_PHYS);
+	return (void *)(unsigned long)(p + __dma_virt - DMA_MEM_PHYS);
 }
 static inline dma_addr_t dma_mem_vtop(void *v)
 {
-	return (dma_addr_t)v + DMA_MEM_PHYS - __dma_virt;
+	return (dma_addr_t)(unsigned long)v + DMA_MEM_PHYS - __dma_virt;
 }
 
 /* These interfaces are also for linux-compatibility, but are declared down here

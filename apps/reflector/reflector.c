@@ -279,7 +279,7 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 	struct ether_header *prot_eth;
 	const struct qm_fd *fd = &dqrr->fd;
 	BUG_ON(fd->format != qm_fd_contig);
-	addr = dma_mem_ptov(fd->addr_lo);
+	addr = dma_mem_ptov(qm_fd_addr(fd));
 	TRACE("Rx: 2fwd	 fqid=%d\n", dqrr->fqid);
 	TRACE("	     phys=0x%08x, virt=%p, offset=%d, len=%d, bpid=%d\n",
 		fd->addr_lo, addr, fd->offset, fd->length20, fd->bpid);

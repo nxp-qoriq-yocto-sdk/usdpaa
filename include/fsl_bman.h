@@ -97,11 +97,7 @@ static inline u64 bm_buffer_get64(const struct bm_buffer *buf)
 }
 static inline dma_addr_t bm_buf_addr(const struct bm_buffer *buf)
 {
-#ifdef CONFIG_PHYS_ADDR_T_64BIT
-	return ((dma_addr_t)buf->hi << 32) | (dma_addr_t)buf->lo;
-#else
-	return (dma_addr_t)buf->lo;
-#endif
+	return (dma_addr_t)bm_buffer_get64(buf);
 }
 /* Macro, so we compile better if 'v' isn't always 64-bit */
 #define bm_buffer_set64(buf, v) \

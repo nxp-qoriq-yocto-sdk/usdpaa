@@ -79,7 +79,7 @@ int dma_mem_setup(void)
 				DMA_MEM_SIZE - DMA_MEM_BPOOL);
 	if (ret)
 		goto err;
-	__dma_virt = (dma_addr_t)virt;
+	__dma_virt = (dma_addr_t)(unsigned long)virt;
 	printf("FSL dma_mem device mapped (phys=0x%x,virt=%p,sz=0x%x)\n",
 		DMA_MEM_PHYS, virt, DMA_MEM_SIZE);
 	return 0;

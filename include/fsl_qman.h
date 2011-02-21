@@ -221,11 +221,7 @@ static inline u64 qm_fd_addr_get64(const struct qm_fd *fd)
 
 static inline dma_addr_t qm_fd_addr(const struct qm_fd *fd)
 {
-#ifdef CONFIG_PHYS_ADDR_T_64BIT
-	return ((dma_addr_t)fd->addr_hi << 32) | (dma_addr_t)fd->addr_lo;
-#else
-	return (dma_addr_t)fd->addr_lo;
-#endif
+	return (dma_addr_t)qm_fd_addr_get64(fd);
 }
 /* Macro, so we compile better if 'v' isn't always 64-bit */
 #define qm_fd_addr_set64(fd, v) \
