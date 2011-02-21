@@ -824,7 +824,7 @@ loop:
 #ifdef CONFIG_FSL_QMAN_PORTAL_DISABLEAUTO_DCA
 	if (res == qman_cb_dqrr_park)
 		/* The only thing to do for non-DCA is the park-request */
-		qm_dqrr_park_ci(&p->p);
+		qm_dqrr_park_current(&p->p);
 	/* Move forward */
 	qm_dqrr_next(&p->p);
 	qm_dqrr_cci_consume(&p->p, 1);

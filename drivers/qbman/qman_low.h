@@ -596,9 +596,12 @@ static inline int qm_dqrr_init(struct qm_portal *portal,
 
 static inline void qm_dqrr_finish(struct qm_portal *portal)
 {
-	register struct qm_dqrr *dqrr = &portal->dqrr;
-	if (dqrr->ci != DQRR_PTR2IDX(dqrr->cursor))
+	__maybe_unused register struct qm_dqrr *dqrr = &portal->dqrr;
+#ifdef CONFIG_FSL_DPA_CHECKING
+	if ((dqrr->cmode != qm_dqrr_cdc) &&
+			(dqrr->ci != DQRR_PTR2IDX(dqrr->cursor)))
 		pr_crit("Ignoring completed DQRR entries\n");
+#endif
 }
 
 static inline struct qm_dqrr_entry *qm_dqrr_current(struct qm_portal *portal)
@@ -782,13 +785,13 @@ static inline void qm_dqrr_park(struct qm_portal *portal, u8 idx)
 		(idx & (QM_DQRR_SIZE - 1)));	/* DCAP_CI */
 }
 
-static inline void qm_dqrr_park_ci(struct qm_portal *portal)
+static inline void qm_dqrr_park_current(struct qm_portal *portal)
 {
 	register struct qm_dqrr *dqrr = &portal->dqrr;
 	DPA_ASSERT(dqrr->cmode != qm_dqrr_cdc);
 	qm_out(DQRR_DCAP, (0 << 8) |		/* S */
 		(1 << 6) |			/* PK */
-		(dqrr->ci & (QM_DQRR_SIZE - 1)));/* DCAP_CI */
+		DQRR_PTR2IDX(dqrr->cursor));	/* DCAP_CI */
 }
 
 static inline void qm_dqrr_sdqcr_set(struct qm_portal *portal, u32 sdqcr)
