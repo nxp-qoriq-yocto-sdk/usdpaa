@@ -559,9 +559,11 @@ static inline void *kmem_cache_zalloc(struct kmem_cache *c, gfp_t f)
 	return ret;
 }
 
-/* Bitfield stuff. TODO: need to make this safe for 64-bit... */
-#define BITS_MASK(idx)	((unsigned long)1 << ((idx) & 31))
-#define BITS_IDX(idx)	((idx) >> 5)
+/* Bitfield stuff. */
+#define BITS_PER_ULONG	(sizeof(unsigned long) << 3)
+#define SHIFT_PER_ULONG	(((1 << 5) == BITS_PER_ULONG) ? 5 : 6)
+#define BITS_MASK(idx)	((unsigned long)1 << ((idx) & (BITS_PER_ULONG - 1)))
+#define BITS_IDX(idx)	((idx) >> SHIFT_PER_ULONG)
 static inline unsigned long test_bits(unsigned long mask,
 				volatile unsigned long *p)
 {
