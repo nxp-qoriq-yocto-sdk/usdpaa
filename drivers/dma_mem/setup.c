@@ -64,13 +64,10 @@ int dma_mem_setup(void)
 	 * until we find one that works or give up. */
 	for (trial = (void *)0x70000000; (unsigned long)trial < 0xc0000000;
 				trial += DMA_MEM_SIZE) {
-		pr_info("trial=%p\n", trial);
 		virt = mmap(trial, DMA_MEM_SIZE, PROT_READ | PROT_WRITE,
 				MAP_SHARED | MAP_FIXED, fd, DMA_MEM_PHYS);
-		pr_info("  -> %p\n", virt);
 		if (virt != MAP_FAILED)
 			break;
-		pr_info("nah, try again\n");
 	}
 	if (virt == MAP_FAILED) {
 		perror("can't mmap() dma_mem device");
