@@ -41,9 +41,12 @@
 static DEFINE_SPINLOCK(alloc_lock);
 static LIST_HEAD(alloc_list);
 
-/* The allocator is a (possibly-empty) list of these; */
+/* The allocator is a (possibly-empty) list of these nodes */
 struct alloc_node {
 	struct list_head list;
+	/* What we're dealing with here are virtual addresses/pointers. However
+	 * the use of 'void*' is annoying when it comes to expressions, so we
+	 * use 'unsigned long' instead, which is always the same width. */
 	unsigned long base;
 	unsigned long sz;
 };
@@ -82,12 +85,12 @@ void *dma_mem_memalign(size_t align, size_t size)
 	/* If 'align' is 0, it should behave as though it was 1 */
 	if (!align)
 		align = 1;
-	margin_left = kmalloc(sizeof(*margin_left), GFP_KERNEL);
+	margin_left = malloc(sizeof(*margin_left));
 	if (!margin_left)
 		goto err;
-	margin_right = kmalloc(sizeof(*margin_right), GFP_KERNEL);
+	margin_right = malloc(sizeof(*margin_right));
 	if (!margin_right) {
-		kfree(margin_left);
+		free(margin_left);
 		goto err;
 	}
 	spin_lock_irq(&alloc_lock);
@@ -112,16 +115,16 @@ done:
 			margin_left->sz = base - i->base;
 			list_add_tail(&margin_left->list, &i->list);
 		} else
-			kfree(margin_left);
+			free(margin_left);
 		if ((base + num) < (i->base + i->sz)) {
 			margin_right->base = base + num;
 			margin_right->sz = (i->base + i->sz) -
 						(base + num);
 			list_add(&margin_right->list, &i->list);
 		} else
-			kfree(margin_right);
+			free(margin_right);
 		list_del(&i->list);
-		kfree(i);
+		free(i);
 		result = (void *)base;
 	}
 	spin_unlock_irq(&alloc_lock);
@@ -130,11 +133,10 @@ err:
 	DUMP();
 	return result;
 }
-EXPORT_SYMBOL(dma_mem_memalign);
 
 static int _dma_mem_free(void *ptr, size_t size)
 {
-	struct alloc_node *i, *node = kmalloc(sizeof(*node), GFP_KERNEL);
+	struct alloc_node *i, *node = malloc(sizeof(*node));
 	if (!node)
 		return -ENOMEM;
 	DPRINT("dma_mem_free(ptr=%p,sz=%d)\n", ptr, size);
@@ -167,7 +169,7 @@ done:
 			node->base = i->base;
 			node->sz += i->sz;
 			list_del(&i->list);
-			kfree(i);
+			free(i);
 		}
 	}
 	/* Merge to the right */
@@ -179,7 +181,7 @@ done:
 				i->base, i->sz);
 			node->sz += i->sz;
 			list_del(&i->list);
-			kfree(i);
+			free(i);
 		}
 	}
 	DPRINT("  done\n");
@@ -192,7 +194,6 @@ void dma_mem_free(void *ptr, size_t size)
 	__maybe_unused int ret = _dma_mem_free(ptr, size);
 	BUG_ON(ret);
 }
-EXPORT_SYMBOL(dma_mem_free);
 
 int dma_mem_alloc_init(void *bar, size_t sz)
 {
