@@ -4,13 +4,13 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
+ *	 notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
+ *	 notice, this list of conditions and the following disclaimer in the
+ *	 documentation and/or other materials provided with the distribution.
  *     * Neither the name of Freescale Semiconductor nor the
- *       names of its contributors may be used to endorse or promote products
- *       derived from this software without specific prior written permission.
+ *	 names of its contributors may be used to endorse or promote products
+ *	 derived from this software without specific prior written permission.
  *
  *
  * ALTERNATIVELY, this software may be distributed under the terms of the
@@ -76,6 +76,11 @@ do { \
 	__l298->prev->next = __p298; \
 	__l298->prev = __p298; \
 } while(0)
+#define list_for_each(i, l)				\
+	for (i = (l)->next; i != (l); i = i->next)
+#define list_for_each_safe(i, j, l)			\
+	for (i = (l)->next, j = i->next; i != (l);	\
+	     i = j, j = i->next)
 #define list_for_each_entry(i, l, name) \
 	for (i = list_entry((l)->next, typeof(*i), name); &i->name != (l); \
 		i = list_entry(i->name.next, typeof(*i), name))

@@ -30,23 +30,15 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* Maintenance note: keep this list of includes sync'd with the commented-out
- * list in ppac_main.c. */
-#include <usdpaa/compat.h>
-#include <usdpaa/fsl_bman.h>
-#include <usdpaa/fsl_qman.h>
-#include <usdpaa/fsl_usd.h>
-#include <usdpaa/dma_mem.h>
-#include <usdpaa/usdpa_netcfg.h>
-#include <internal/compat.h>
+#include <ppac.h>
 
 #include <net/if_arp.h>
-#include <linux/ip.h>
+#include <netinet/ip.h>
 
 /* All of the following things could be placed into vtables, declared as
  * "extern", implemented elsewhere, and generally made less hacky if you want.
  *
- * For this example however we want to show how ppac_main.c can be used without
+ * For this example however we want to show how ppac.c can be used without
  * any loss of execution speed due to the code separation between PPAC and an
  * application module. Ie. we want an equivalent compilation and the same
  * execution speed as a standalone implementation that has no "ppac"-style
@@ -56,25 +48,31 @@
  * indirection, dereferencing, [etc].
  *
  * To achieve this, we declare the FQ handling hooks as inlines, all prior to
- * including ppac_main.c. The code in ppac_main.c implements its own FQ handlng
+ * including ppac.c. The code in ppac.c implements its own FQ handlng
  * callbacks and simply assumes that it can "call" these hooks at the
  * appropriate places within those implementations (so our hooks don't need to
  * be real function entities with well-defined addresses that can be stored). If
  * these "hooks" are in fact macros or inlines, they will be expanded in-place
  * by the pre-compiler or compiler, respectively. Ie. the resulting compilation
- * requires no excess jumping back and forth between generic (ppac_main.c)
+ * requires no excess jumping back and forth between generic (ppac.c)
  * packet-handling logic and application-specific (reflector.c) code when
  * processing packets.
  */
 
-/* structs required by ppac_main.c */
+/* Default paths to configuration files - these are determined from the build,
+ * but can be overriden at run-time using "DEF_PCD_PATH" and "DEF_CFG_PATH"
+ * environment variables. */
+const char ppam_pcd_path[] = __stringify(DEF_PCD_PATH);
+const char ppam_cfg_path[] = __stringify(DEF_CFG_PATH);
+
+/* structs required by ppac.c */
 struct ppam_if {
 	/* We simply capture Tx FQIDs as they initialise, in order to use them
 	 * when Rx FQs initialise. Indeed, the FQID is the only info we're
 	 * passed during Tx FQ init, which is due to the programming model;
 	 * we're hooked only on receive, not transmit (it's our receive handler
 	 * that *requests* transmit), and the FQ objects used for Tx are
-	 * internal to ppac_main.c and not 1-to-1 with FQIDs. */
+	 * internal to ppac.c and not 1-to-1 with FQIDs. */
 	unsigned int num_tx_fqids;
 	uint32_t *tx_fqids;
 };
@@ -96,69 +94,16 @@ struct ppam_rx_hash {
 	uint32_t tx_fqid;
 };
 
-/* Handling for interfaces */
-static inline int ppam_if_init(struct ppam_if *p,
-			const struct fm_eth_port_cfg *cfg,
-			unsigned int num_tx_fqs);
-static inline void ppam_if_finish(struct ppam_if *p);
-static inline void ppam_if_tx_fqid(struct ppam_if *p, unsigned int idx,
-				uint32_t fqid);
-
-/* Handling for rx_error FQ */
-static inline int ppam_rx_error_init(struct ppam_rx_error *p,
-			struct ppam_if *_if);
-static inline void ppam_rx_error_finish(struct ppam_rx_error *p,
-			struct ppam_if *_if);
-static inline void ppam_rx_error_cb(struct ppam_rx_error *p,
-			struct ppam_if *_if,
-			const struct qm_dqrr_entry *dqrr);
-
-/* Same idea for rx_default, tx_error, and tx_confirm */
-static inline int ppam_rx_default_init(struct ppam_rx_default *p,
-			struct ppam_if *_if);
-static inline void ppam_rx_default_finish(struct ppam_rx_default *p,
-			struct ppam_if *_if);
-static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
-			struct ppam_if *_if,
-			const struct qm_dqrr_entry *dqrr);
-static inline int ppam_tx_error_init(struct ppam_tx_error *p,
-			struct ppam_if *_if);
-static inline void ppam_tx_error_finish(struct ppam_tx_error *p,
-			struct ppam_if *_if);
-static inline void ppam_tx_error_cb(struct ppam_tx_error *p,
-			struct ppam_if *_if,
-			const struct qm_dqrr_entry *dqrr);
-static inline int ppam_tx_confirm_init(struct ppam_tx_confirm *p,
-			struct ppam_if *_if);
-static inline void ppam_tx_confirm_finish(struct ppam_tx_confirm *p,
-			struct ppam_if *_if);
-static inline void ppam_tx_confirm_cb(struct ppam_tx_confirm *p,
-			struct ppam_if *_if,
-			const struct qm_dqrr_entry *dqrr);
-
-/* Handlers for rx_hash (PCD) */
-static inline int ppam_rx_hash_init(struct ppam_rx_hash *p,
-			struct ppam_if *_if,
-			unsigned int idx);
-static inline void ppam_rx_hash_finish(struct ppam_rx_hash *p,
-			struct ppam_if *_if,
-			unsigned int idx);
-static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
-			const struct qm_dqrr_entry *dqrr);
-
-/* The PPAC code should now have all it needs. */
-#include <ppac_main.c>
-
 /* There is no configuration that specifies how many Tx FQs to use
- * per-interface, it's an internal choice for ppac_main.c and may depend on
+ * per-interface, it's an internal choice for ppac.c and may depend on
  * optimisations, link-speeds, command-line options, etc. Also the Tx FQIDs are
- * dynamically allocated, so they're not known until ppac_main.c has already
+ * dynamically allocated, so they're not known until ppac.c has already
  * initialised them. So firstly, the # of Tx FQs is passed in as a parameter
  * here because there's no other place where it could be meaningfully captured.
  * (NB, an interesting alternative would be to have this hook *choose* how many
  * Tx FQs to use!) Secondly, the Tx FQIDs are "notified" to us post-allocation
  * but prior to Rx initialisation. */
-static inline int ppam_if_init(struct ppam_if *p,
+static int ppam_if_init(struct ppam_if *p,
 			const struct fm_eth_port_cfg *cfg,
 			unsigned int num_tx_fqs)
 {
@@ -168,97 +113,87 @@ static inline int ppam_if_init(struct ppam_if *p,
 		return -ENOMEM;
 	return 0;
 }
-static inline void ppam_if_finish(struct ppam_if *p)
+static void ppam_if_finish(struct ppam_if *p)
 {
 	free(p->tx_fqids);
 }
-static inline void ppam_if_tx_fqid(struct ppam_if *p, unsigned int idx,
-				uint32_t fqid)
+static void ppam_if_tx_fqid(struct ppam_if *p, unsigned idx, uint32_t fqid)
 {
 	p->tx_fqids[idx] = fqid;
 }
 
-/* The rx_error, rx_default, tx_error, and tx_confirm handlers all do nothing
- * except drop frames. */
-static inline int ppam_rx_error_init(struct ppam_rx_error *p,
-			struct ppam_if *_if)
+static int ppam_rx_error_init(struct ppam_rx_error *p, struct ppam_if *_if)
 {
 	return 0;
 }
-static inline void ppam_rx_error_finish(struct ppam_rx_error *p,
-			struct ppam_if *_if)
+static void ppam_rx_error_finish(struct ppam_rx_error *p, struct ppam_if *_if)
 {
 }
 static inline void ppam_rx_error_cb(struct ppam_rx_error *p,
-			struct ppam_if *_if,
-			const struct qm_dqrr_entry *dqrr)
+				    struct ppam_if *_if,
+				    const struct qm_dqrr_entry *dqrr)
 {
 	const struct qm_fd *fd = &dqrr->fd;
 	ppac_drop_frame(fd);
 }
-static inline int ppam_rx_default_init(struct ppam_rx_default *p,
-			struct ppam_if *_if)
+
+static int ppam_rx_default_init(struct ppam_rx_default *p, struct ppam_if *_if)
 {
 	return 0;
 }
-static inline void ppam_rx_default_finish(struct ppam_rx_default *p,
-			struct ppam_if *_if)
+static void ppam_rx_default_finish(struct ppam_rx_default *p, struct ppam_if *_if)
 {
 }
 static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
-			struct ppam_if *_if,
-			const struct qm_dqrr_entry *dqrr)
+				      struct ppam_if *_if,
+				      const struct qm_dqrr_entry *dqrr)
 {
 	const struct qm_fd *fd = &dqrr->fd;
 	ppac_drop_frame(fd);
 }
-static inline int ppam_tx_error_init(struct ppam_tx_error *p,
-			struct ppam_if *_if)
+
+static int ppam_tx_error_init(struct ppam_tx_error *p,	struct ppam_if *_if)
 {
 	return 0;
 }
-static inline void ppam_tx_error_finish(struct ppam_tx_error *p,
-			struct ppam_if *_if)
+static void ppam_tx_error_finish(struct ppam_tx_error *p, struct ppam_if *_if)
 {
 }
 static inline void ppam_tx_error_cb(struct ppam_tx_error *p,
-			struct ppam_if *_if,
-			const struct qm_dqrr_entry *dqrr)
+				    struct ppam_if *_if,
+				    const struct qm_dqrr_entry *dqrr)
 {
 	const struct qm_fd *fd = &dqrr->fd;
 	ppac_drop_frame(fd);
 }
-static inline int ppam_tx_confirm_init(struct ppam_tx_confirm *p,
-			struct ppam_if *_if)
+
+static int ppam_tx_confirm_init(struct ppam_tx_confirm *p, struct ppam_if *_if)
 {
 	return 0;
 }
-static inline void ppam_tx_confirm_finish(struct ppam_tx_confirm *p,
-			struct ppam_if *_if)
+static void ppam_tx_confirm_finish(struct ppam_tx_confirm *p, struct ppam_if *_if)
 {
 }
 static inline void ppam_tx_confirm_cb(struct ppam_tx_confirm *p,
-			struct ppam_if *_if,
-			const struct qm_dqrr_entry *dqrr)
+				      struct ppam_if *_if,
+				      const struct qm_dqrr_entry *dqrr)
 {
 	const struct qm_fd *fd = &dqrr->fd;
 	ppac_drop_frame(fd);
 }
 
-/* Finally, the *real* work, handling for rx_hash (PCD) FQs */
-
-static inline int ppam_rx_hash_init(struct ppam_rx_hash *p,
-			struct ppam_if *_if,
-			unsigned int idx)
+static int ppam_rx_hash_init(struct ppam_rx_hash *p,
+		      struct ppam_if *_if,
+		      unsigned idx)
 {
 	p->tx_fqid = _if->tx_fqids[idx % _if->num_tx_fqids];
 	TRACE("Mapping Rx FQ %p:%d --> Tx FQID %d\n", p, idx, p->tx_fqid);
 	return 0;
 }
 
-static inline void ppam_rx_hash_finish(struct ppam_rx_hash *p,
-			struct ppam_if *_if,
-			unsigned int idx)
+static void ppam_rx_hash_finish(struct ppam_rx_hash *p,
+			 struct ppam_if *_if,
+			 unsigned idx)
 {
 }
 
@@ -276,7 +211,7 @@ static inline void ether_header_swap(struct ether_header *prot_eth)
 }
 
 static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
-			const struct qm_dqrr_entry *dqrr)
+				   const struct qm_dqrr_entry *dqrr)
 {
 	void *addr;
 	struct ether_header *prot_eth;
@@ -353,3 +288,5 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 	}
 	ppac_drop_frame(fd);
 }
+
+#include <ppac.c>

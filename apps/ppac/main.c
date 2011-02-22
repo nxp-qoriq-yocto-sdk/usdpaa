@@ -1,4 +1,4 @@
-/* Copyright (c) 2010,2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010 - 2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,123 +30,29 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* This file should be included by exactly one of the files compiled into the
- * application, after declaring all the required definitions. */
+#include <ppac.h>
 
-/* Note about acronyms;
- *   PPAC == Packet Processing Application Core
- *   PPAM == Packet Processing Application Module
- */
+#include <stdlib.h>
+#include <unistd.h>
 
-/* The code that includes us must have already included all the following, but
- * keeping it here commented-out in case it helps someone to remember what's
- * needed... */
-#if 0
-#include <usdpaa/compat.h>
-#include <usdpaa/fsl_bman.h>
-#include <usdpaa/fsl_qman.h>
-#include <usdpaa/fsl_usd.h>
-#include <usdpaa/dma_mem.h>
-#include <usdpaa/usdpa_netcfg.h>
-#include <internal/compat.h>
-#endif
-
-/* if defined, be lippy about everything */
-#undef PPAC_TRACE
-#ifdef ENABLE_TRACE
-#define PPAC_TRACE
-#endif
-
-/* application configuration */
-#define PPAC_TX_FQS_10G		16
-#define PPAC_TX_FQS_1G		16
-#define PPAC_PRIO_2DROP		3 /* error/default/etc */
-#define PPAC_PRIO_2FWD		4 /* rx-hash */
-#define PPAC_PRIO_2TX		4 /* consumed by Fman */
-#define PPAC_STASH_DATA_CL	1
 #define PPAC_CLI_BUFFER		(2*1024)
-#define PPAC_CGR_RX_PERFQ_THRESH 32
-#define PPAC_CGR_TX_PERFQ_THRESH 64
-#define PPAC_BACKOFF_CYCLES	512
-
-/* application options */
-#undef PPAC_2FWD_HOLDACTIVE	/* process each FQ on one cpu at a time */
-#define PPAC_2FWD_RX_PREFERINCACHE /* keep rx FQDs in-cache even when empty */
-#define PPAC_2FWD_TX_PREFERINCACHE /* keep tx FQDs in-cache even when empty */
-#undef PPAC_2FWD_TX_FORCESFDR	/* priority allocation of SFDRs to egress */
-#define PPAC_DEPLETION		/* trace depletion entry/exit */
-#undef PPAC_CGR			/* track rx and tx fill-levels via CGR */
-
-/**********/
-/* macros */
-/**********/
-
-#ifdef PPAC_TRACE
-#define TRACE		printf
-#else
-#define TRACE(x...)	do { ; } while(0)
-#endif
-
-/*********************************/
-/* Net interface data structures */
-/*********************************/
-
-/* Each Fman i/face has one of these */
-struct ppac_if {
-	struct list_head node;
-	size_t sz;
-	const struct fm_eth_port_cfg *port_cfg;
-	/* NB: the Tx FQs kept here are created to (a) initialise and schedule
-	 * the FQIDs on startup, and (b) be able to clean them up on shutdown.
-	 * They aren't used for enqueues, as that's not in keeping with how a
-	 * "generic network processing application" would work. See "local_fq"
-	 * below for more info. */
-	unsigned int num_tx_fqs;
-	struct qman_fq *tx_fqs;
-	struct ppam_if module_if;
-	struct ppac_rx_error {
-		struct qman_fq fq;
-		struct ppam_rx_error s;
-	} rx_error;
-	struct ppac_rx_default {
-		struct qman_fq fq;
-		struct ppam_rx_default s;
-	} rx_default;
-	struct ppac_tx_error {
-		struct qman_fq fq;
-		struct ppam_tx_error s;
-	} tx_error;
-	struct ppac_tx_confirm {
-		struct qman_fq fq;
-		struct ppam_tx_confirm s;
-	} tx_confirm;
-	struct ppac_rx_hash {
-		struct qman_fq fq;
-		struct ppam_rx_hash s;
-	} ____cacheline_aligned rx_hash[0];
-} ____cacheline_aligned;
 
 /***************/
 /* Global data */
 /***************/
 
 /* Configuration */
-static struct usdpa_netcfg_info *netcfg;
-/* Default paths to configuration files - these are determined from the build,
- * but can be overriden at run-time using "DEF_PCD_PATH" and "DEF_CFG_PATH"
- * environment variables. */
-static const char default_pcd_path[] = __stringify(DEF_PCD_PATH);
-static const char default_cfg_path[] = __stringify(DEF_CFG_PATH);
+struct usdpa_netcfg_info *netcfg;
 
 /* The SDQCR mask to use (computed from netcfg's pool-channels) */
 static uint32_t sdqcr;
 
 /* We want a trivial mapping from bpid->pool, so just have a 64-wide array of
  * pointers, most of which are NULL. */
-static struct bman_pool *pool[64];
+struct bman_pool *pool[64];
 
 /* The interfaces in this list are allocated from dma_mem (stashing==DMA) */
-static LIST_HEAD(ifs);
+LIST_HEAD(ifs);
 
 /* The forwarding logic uses a per-cpu FQ object for handling enqueues (and
  * ERNs), irrespective of the destination FQID. In this way, cache-locality is
@@ -155,7 +61,7 @@ static LIST_HEAD(ifs);
  * original enqueue operation, so in principle any demux that's required by the
  * ERN callback can be based on that. Ie. the FQID set within "local_fq" is from
  * whatever the last executed enqueue was, the ERN handler can ignore it. */
-static __PERCPU struct qman_fq local_fq;
+__PERCPU struct qman_fq local_fq;
 
 #ifdef PPAC_CGR
 /* A congestion group to hold Rx FQs (uses netcfg::cgrids[0]) */
@@ -164,45 +70,7 @@ static struct qman_cgr cgr_rx;
 static struct qman_cgr cgr_tx;
 #endif
 
-/********************/
-/* common functions */
-/********************/
-
-/* Rx handling either leads to a forward (qman enqueue) or a drop (bman
- * release). In either case, we can't "block" and we don't want to defer until
- * outside the callback, because we still have to pushback somehow and as we're
- * a run-to-completion app, we don't have anything else to do than simply retry.
- * So ... we retry non-blocking enqueues/releases until they succeed, which
- * implicitly pushes back on dequeue handling. */
-
-static inline void ppac_drop_frame(const struct qm_fd *fd)
-{
-	struct bm_buffer buf;
-	int ret;
-	BUG_ON(fd->format != qm_fd_contig);
-	buf.hi = fd->addr_hi;
-	buf.lo = fd->addr_lo;
-retry:
-	ret = bman_release(pool[fd->bpid], &buf, 1, 0);
-	if (ret) {
-		cpu_spin(PPAC_BACKOFF_CYCLES);
-		goto retry;
-	}
-}
-
-static inline void ppac_send_frame(u32 fqid, const struct qm_fd *fd)
-{
-	int ret;
-	local_fq.fqid = fqid;
-retry:
-	ret = qman_enqueue(&local_fq, fd, 0);
-	if (ret) {
-		cpu_spin(PPAC_BACKOFF_CYCLES);
-		goto retry;
-	}
-}
-
-static void teardown_fq(struct qman_fq *fq)
+void teardown_fq(struct qman_fq *fq)
 {
 	u32 flags;
 	int s = qman_retire_fq(fq, &flags);
@@ -234,61 +102,9 @@ static void teardown_fq(struct qman_fq *fq)
 /* packet handling */
 /*******************/
 
-static enum qman_cb_dqrr_result cb_dqrr_rx_error(
-					struct qman_portal *qm __always_unused,
-					struct qman_fq *fq,
-					const struct qm_dqrr_entry *dqrr)
-{
-	struct ppac_rx_error *rxe = container_of(fq, struct ppac_rx_error,
-							fq);
-	struct ppac_if *_if = container_of(rxe, struct ppac_if, rx_error);
-	TRACE("Rx_error: fqid=%d\tfd_status = 0x%08x\n", fq->fqid, dqrr->fd.status);
-	ppam_rx_error_cb(&rxe->s, &_if->module_if, dqrr);
-	return qman_cb_dqrr_consume;
-}
-
-static enum qman_cb_dqrr_result cb_dqrr_rx_default(
-					struct qman_portal *qm __always_unused,
-					struct qman_fq *fq,
-					const struct qm_dqrr_entry *dqrr)
-{
-	struct ppac_rx_default *rxe = container_of(fq, struct ppac_rx_default,
-							fq);
-	struct ppac_if *_if = container_of(rxe, struct ppac_if, rx_default);
-	TRACE("Rx_default: fqid=%d\tfd_status = 0x%08x\n", fq->fqid, dqrr->fd.status);
-	ppam_rx_default_cb(&rxe->s, &_if->module_if, dqrr);
-	return qman_cb_dqrr_consume;
-}
-
-static enum qman_cb_dqrr_result cb_dqrr_tx_error(
-					struct qman_portal *qm __always_unused,
-					struct qman_fq *fq,
-					const struct qm_dqrr_entry *dqrr)
-{
-	struct ppac_tx_error *rxe = container_of(fq, struct ppac_tx_error,
-							fq);
-	struct ppac_if *_if = container_of(rxe, struct ppac_if, tx_error);
-	TRACE("Tx_error: fqid=%d\tfd_status = 0x%08x\n", fq->fqid, dqrr->fd.status);
-	ppam_tx_error_cb(&rxe->s, &_if->module_if, dqrr);
-	return qman_cb_dqrr_consume;
-}
-
-static enum qman_cb_dqrr_result cb_dqrr_tx_confirm(
-					struct qman_portal *qm __always_unused,
-					struct qman_fq *fq,
-					const struct qm_dqrr_entry *dqrr)
-{
-	struct ppac_tx_confirm *rxe = container_of(fq, struct ppac_tx_confirm,
-							fq);
-	struct ppac_if *_if = container_of(rxe, struct ppac_if, tx_confirm);
-	TRACE("Tx_confirm: fqid=%d\tfd_status = 0x%08x\n", fq->fqid, dqrr->fd.status);
-	ppam_tx_confirm_cb(&rxe->s, &_if->module_if, dqrr);
-	return qman_cb_dqrr_consume;
-}
-
-static void ppac_fq_nonpcd_init(struct qman_fq *fq, u32 fqid,
-				enum qm_channel channel,
-				qman_cb_dqrr cb)
+void ppac_fq_nonpcd_init(struct qman_fq *fq, u32 fqid,
+			 enum qm_channel channel,
+			 qman_cb_dqrr cb)
 {
 	struct qm_mcc_initfq opts;
 	int ret;
@@ -308,19 +124,8 @@ static void ppac_fq_nonpcd_init(struct qman_fq *fq, u32 fqid,
 	BUG_ON(ret);
 }
 
-static enum qman_cb_dqrr_result cb_dqrr_rx_hash(
-					struct qman_portal *qm __always_unused,
-					struct qman_fq *fq,
-					const struct qm_dqrr_entry *dqrr)
-{
-	struct ppac_rx_hash *p = container_of(fq, struct ppac_rx_hash, fq);
-	TRACE("Rx_hash: fqid=%d\tfd_status = 0x%08x\n", fq->fqid, dqrr->fd.status);
-	ppam_rx_hash_cb(&p->s, dqrr);
-	return qman_cb_dqrr_consume;
-}
-
-static void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
-				enum qm_channel channel)
+void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
+		      enum qm_channel channel)
 {
 	struct qm_mcc_initfq opts;
 	int ret;
@@ -351,75 +156,16 @@ static void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
 	BUG_ON(ret);
 }
 
-static void cb_ern(struct qman_portal *qm __always_unused,
-			struct qman_fq *fq,
-			const struct qm_mr_entry *msg)
-{
-	TRACE("Tx_ern: fqid=%d\tfd_status = 0x%08x\n", msg->ern.fqid,
-		msg->ern.fd.status);
-	ppac_drop_frame(&msg->ern.fd);
-}
-
-static enum qman_cb_dqrr_result cb_tx_drain(
-					struct qman_portal *qm __always_unused,
-					struct qman_fq *fq __always_unused,
-					const struct qm_dqrr_entry *dqrr)
-{
-	TRACE("Tx_drain: fqid=%d\tfd_status = 0x%08x\n", fq->fqid,
-		dqrr->fd.status);
-	ppac_drop_frame(&dqrr->fd);
-	return qman_cb_dqrr_consume;
-}
-
-/*************************/
-/* buffer-pool depletion */
-/*************************/
-
-#ifdef PPAC_DEPLETION
-static void bp_depletion(struct bman_portal *bm __always_unused,
-			struct bman_pool *p,
-			void *cb_ctx __maybe_unused,
-			int depleted)
-{
-	u8 bpid = bman_get_params(p)->bpid;
-	BUG_ON(p != *(typeof(&p))cb_ctxt);
-
-	pr_info("%s: BP%u -> %s\n", __func__, bpid,
-		depleted ? "entry" : "exit");
-}
-#endif
-
-/*********************************/
-/* CGR state-change notification */
-/*********************************/
-
-#ifdef PPAC_CGR
-static void cgr_rx_cb(struct qman_portal *qm, struct qman_cgr *c, int congested)
-{
-	BUG_ON(c != &cgr_rx);
-
-	pr_info("%s: rx CGR -> congestion %s\n", __func__,
-		congested ? "entry" : "exit");
-}
-static void cgr_tx_cb(struct qman_portal *qm, struct qman_cgr *c, int congested)
-{
-	BUG_ON(c != &cgr_tx);
-
-	pr_info("%s: tx CGR -> congestion %s\n", __func__,
-		congested ? "entry" : "exit");
-}
-#endif
-
 static uint32_t pchannel_idx;
 
-static enum qm_channel get_rxc(void)
+enum qm_channel get_rxc(void)
 {
 	enum qm_channel ret = netcfg->pool_channels[pchannel_idx];
 	pchannel_idx = (pchannel_idx + 1) % netcfg->num_pool_channels;
 	return ret;
 }
 
-static int lazy_init_bpool(const struct fman_if_bpool *bpool)
+int lazy_init_bpool(const struct fman_if_bpool *bpool)
 {
 	struct bman_pool_params params = {
 		.bpid	= bpool->bpid,
@@ -442,141 +188,6 @@ static int lazy_init_bpool(const struct fman_if_bpool *bpool)
 		return -ENOMEM;
 	}
 	return 0;
-}
-
-static int ppac_if_init(unsigned int idx)
-{
-	struct ppac_if *i;
-	const struct fman_if_bpool *bp;
-	int err, loop;
-	const struct fm_eth_port_cfg *port = &netcfg->port_cfg[idx];
-	const struct fman_if *fif = port->fman_if;
-	size_t sz = sizeof(struct ppac_if) +
-		(port->pcd.count * sizeof(struct ppac_rx_hash));
-
-	/* Handle any pools used by this i/f that are not already handled. */
-	fman_if_for_each_bpool(bp, fif) {
-		err = lazy_init_bpool(bp);
-		if (err)
-			return err;
-	}
-	/* allocate stashable memory for the interface object */
-	i = dma_mem_memalign(L1_CACHE_BYTES, sz);
-	if (!i)
-		return -ENOMEM;
-	memset(i, 0, sz);
-	i->sz = sz;
-	i->port_cfg = port;
-	/* allocate and initialise Tx FQs for this interface */
-	i->num_tx_fqs = (fif->mac_type == fman_mac_10g) ?
-			PPAC_TX_FQS_10G : PPAC_TX_FQS_1G;
-	i->tx_fqs = malloc(sizeof(*i->tx_fqs) * i->num_tx_fqs);
-	if (!i->tx_fqs) {
-		dma_mem_free(i, sz);
-		return -ENOMEM;
-	}
-	err = ppam_if_init(&i->module_if, port, i->num_tx_fqs);
-	if (err) {
-		free(i->tx_fqs);
-		dma_mem_free(i, sz);
-		return err;
-	}
-	memset(i->tx_fqs, 0, sizeof(*i->tx_fqs) * i->num_tx_fqs);
-	for (loop = 0; loop < i->num_tx_fqs; loop++) {
-		struct qm_mcc_initfq opts;
-		struct qman_fq *fq = &i->tx_fqs[loop];
-		/* These FQ objects need to be able to handle DQRR callbacks,
-		 * when cleaning up. */
-		fq->cb.dqrr = cb_tx_drain;
-		err = qman_create_fq(0, QMAN_FQ_FLAG_DYNAMIC_FQID |
-					QMAN_FQ_FLAG_TO_DCPORTAL, fq);
-		/* TODO: handle errors here, BUG_ON()s are compiled out in
-		 * performance builds (ie. the default) and this code isn't even
-		 * performance-sensitive. */
-		BUG_ON(err);
-		opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
-			       QM_INITFQ_WE_CONTEXTB | QM_INITFQ_WE_CONTEXTA;
-		opts.fqd.dest.channel = fif->tx_channel_id;
-		opts.fqd.dest.wq = PPAC_PRIO_2TX;
-		opts.fqd.fq_ctrl =
-#ifdef PPAC_2FWD_TX_PREFERINCACHE
-			QM_FQCTRL_PREFERINCACHE |
-#endif
-#ifdef PPAC_2FWD_TX_FORCESFDR
-			QM_FQCTRL_FORCESFDR |
-#endif
-			0;
-#if defined(PPAC_CGR)
-		opts.we_mask |= QM_INITFQ_WE_CGID;
-		opts.fqd.cgid = cgr_tx.cgrid;
-		opts.fqd.fq_ctrl |= QM_FQCTRL_CGE;
-#endif
-		opts.fqd.context_b = 0;
-		opts.fqd.context_a.hi = 0x80000000;
-		opts.fqd.context_a.lo = 0;
-		err = qman_init_fq(fq, QMAN_INITFQ_FLAG_SCHED, &opts);
-		BUG_ON(err);
-		TRACE("I/F %d, using Tx FQID %d\n", idx, fq->fqid);
-		ppam_if_tx_fqid(&i->module_if, loop, fq->fqid);
-	}
-	/* TODO: as above, we should handle errors and unwind */
-	err = ppam_rx_error_init(&i->rx_error.s, &i->module_if);
-	BUG_ON(err);
-	ppac_fq_nonpcd_init(&i->rx_error.fq, fif->fqid_rx_err, get_rxc(),
-				cb_dqrr_rx_error);
-	err = ppam_rx_default_init(&i->rx_default.s, &i->module_if);
-	BUG_ON(err);
-	ppac_fq_nonpcd_init(&i->rx_default.fq, fif->fqid_rx_err, get_rxc(),
-				cb_dqrr_rx_default);
-	err = ppam_tx_error_init(&i->tx_error.s, &i->module_if);
-	BUG_ON(err);
-	ppac_fq_nonpcd_init(&i->tx_error.fq, fif->fqid_rx_err, get_rxc(),
-				cb_dqrr_tx_error);
-	err = ppam_tx_confirm_init(&i->tx_confirm.s, &i->module_if);
-	BUG_ON(err);
-	ppac_fq_nonpcd_init(&i->tx_confirm.fq, fif->fqid_rx_err, get_rxc(),
-				cb_dqrr_tx_confirm);
-	for (loop = 0; loop < port->pcd.count; loop++) {
-		err = ppam_rx_hash_init(&i->rx_hash[loop].s, &i->module_if,
-			loop);
-		BUG_ON(err);
-		ppac_fq_pcd_init(&i->rx_hash[loop].fq, port->pcd.start + loop,
-				get_rxc());
-	}
-	TRACE("Interface %d:%d, enabling RX\n", fif->fman_idx, fif->mac_idx);
-	fman_if_enable_rx(fif);
-	list_add_tail(&i->node, &ifs);
-	return 0;
-}
-
-static void ppac_if_finish(struct ppac_if *i)
-{
-	const struct fman_if *fif = i->port_cfg->fman_if;
-	int loop;
-	list_del(&i->node);
-	fman_if_disable_rx(fif);
-	TRACE("Interface %d:%d, disabled RX\n", fif->fman_idx, fif->mac_idx);
-	ppam_rx_error_finish(&i->rx_error.s, &i->module_if);
-	teardown_fq(&i->rx_error.fq);
-	ppam_rx_default_finish(&i->rx_default.s, &i->module_if);
-	teardown_fq(&i->rx_default.fq);
-	ppam_tx_error_finish(&i->tx_error.s, &i->module_if);
-	teardown_fq(&i->tx_error.fq);
-	ppam_tx_confirm_finish(&i->tx_confirm.s, &i->module_if);
-	teardown_fq(&i->tx_confirm.fq);
-	for (loop = 0; loop < i->port_cfg->pcd.count; loop++) {
-		ppam_rx_hash_finish(&i->rx_hash[loop].s, &i->module_if, loop);
-		teardown_fq(&i->rx_hash[loop].fq);
-	}
-	for (loop = 0; loop < i->num_tx_fqs; loop++) {
-		struct qman_fq *fq = &i->tx_fqs[loop];
-		TRACE("I/F %d, destroying Tx FQID %d\n", fif->fman_idx,
-				fq->fqid);
-		teardown_fq(fq);
-	}
-	ppam_if_finish(&i->module_if);
-	free(i->tx_fqs);
-	dma_mem_free(i, i->sz);
 }
 
 /******************/
@@ -622,14 +233,14 @@ struct worker {
 
 static void do_global_finish(void)
 {
-	struct ppac_if *i, *tmpi;
+	struct list_head *i, *tmpi;
 	int loop;
 
 	/* Tear down interfaces */
-	list_for_each_entry_safe(i, tmpi, &ifs, node)
-		ppac_if_finish(i);
+	list_for_each_safe(i, tmpi, &ifs)
+		ppac_if_finish((struct ppac_if *)i);
 	/* Tear down buffer pools */
-	for (loop = 0; loop < 64; loop++) {
+	for (loop = 0; loop < ARRAY_SIZE(pool); loop++) {
 		if (pool[loop]) {
 			bman_free_pool(pool[loop]);
 			pool[loop] = NULL;
@@ -688,7 +299,7 @@ static void do_global_init(void)
 	}
 }
 
-static noinline int process_msg(struct worker *worker, struct worker_msg *msg)
+static int process_msg(struct worker *worker, struct worker_msg *msg)
 {
 	int ret = 1;
 
@@ -924,11 +535,11 @@ static void dump_cgr(const struct qm_mcr_querycgr *res)
 	printf("      cscn_en: %d\n", res->cgr.cscn_en);
 	printf("    cscn_targ: 0x%08x\n", res->cgr.cscn_targ);
 	printf("      cstd_en: %d\n", res->cgr.cstd_en);
-	printf("           cs: %d\n", res->cgr.cs);
+	printf("	   cs: %d\n", res->cgr.cs);
 	val64 = qm_cgr_cs_thres_get64(&res->cgr.cs_thres);
 	printf("    cs_thresh: 0x%02x_%04x_%04x\n", (u32)(val64 >> 32),
 		(u32)(val64 >> 16) & 0xffff, (u32)val64 & 0xffff);
-	printf("         mode: %d\n", res->cgr.mode);
+	printf("	 mode: %d\n", res->cgr.mode);
 	val64 = qm_mcr_querycgr_i_get64(res);
 	printf("       i_bcnt: 0x%02x_%04x_%04x\n", (u32)(val64 >> 32),
 		(u32)(val64 >> 16) & 0xffff, (u32)val64 & 0xffff);
@@ -1140,8 +751,8 @@ static void usage(void)
 int main(int argc, char *argv[])
 {
 	struct worker *worker, *tmpworker;
-	const char *pcd_path = default_pcd_path;
-	const char *cfg_path = default_cfg_path;
+	const char *pcd_path = ppam_pcd_path;
+	const char *cfg_path = ppam_cfg_path;
 	const char *envp;
 	int first, last, loop;
 	int rcode;
@@ -1294,24 +905,16 @@ int main(int argc, char *argv[])
 
 		/* Disable MACs */
 		else if (!strncmp(cli, "macs_off", 8)) {
-			struct ppac_if *i;
-			list_for_each_entry(i, &ifs, node) {
-				fman_if_disable_rx(i->port_cfg->fman_if);
-				TRACE("Interface %d:%d, disabled RX\n",
-					i->port_cfg->fman_if->fman_idx,
-					i->port_cfg->fman_if->mac_idx);
-			}
+			struct list_head *i;
+			list_for_each(i, &ifs)
+				ppac_if_disable_rx((struct ppac_if *)i);
 		}
 
 		/* Enable MACs */
 		else if (!strncmp(cli, "macs_on", 7)) {
-			struct ppac_if *i;
-			list_for_each_entry(i, &ifs, node) {
-				TRACE("Interface %d:%d, enabling RX\n",
-					i->port_cfg->fman_if->fman_idx,
-					i->port_cfg->fman_if->mac_idx);
-				fman_if_enable_rx(i->port_cfg->fman_if);
-			}
+			struct list_head *i;
+			list_for_each(i, &ifs)
+				ppac_if_enable_rx((struct ppac_if *)i);
 		}
 
 		/* Dump the CGR state */
