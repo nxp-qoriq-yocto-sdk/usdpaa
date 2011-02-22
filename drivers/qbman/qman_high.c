@@ -1336,6 +1336,14 @@ int qman_init_fq(struct qman_fq *fq, u32 flags, struct qm_mcc_initfq *opts)
 	if (unlikely(fq_isset(fq, QMAN_FQ_FLAG_NO_MODIFY)))
 		return -EINVAL;
 #endif
+	if (opts && (opts->we_mask & QM_INITFQ_WE_OAC)) {
+		/* OAC not supported on rev1 */
+		if (unlikely(qman_ip_rev == QMAN_REV1))
+			return -EINVAL;
+		/* And can't be set at the same time as TDTHRESH */
+		if (opts->we_mask & QM_INITFQ_WE_TDTHRESH)
+			return -EINVAL;
+	}
 	/* Issue an INITFQ_[PARKED|SCHED] management command */
 	p = get_affine_portal();
 	local_irq_save(irqflags);

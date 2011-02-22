@@ -402,6 +402,13 @@ struct qm_fqd_taildrop {
 	u16 mant:8;
 	u16 exp:5;
 } __packed;
+struct qm_fqd_oac {
+	/* See QM_OAC_<...> */
+	u8 oac:2; /* "Overhead Accounting Control" */
+	u8 __reserved1:6;
+	/* Two's-complement value (-128 to +127) */
+	signed char oal; /* "Overhead Accounting Length" */
+} __packed;
 struct qm_fqd {
 	union {
 		u8 orpc;
@@ -423,7 +430,14 @@ struct qm_fqd {
 	};
 	u16 __reserved2:1;
 	u16 ics_cred:15;
-	struct qm_fqd_taildrop td;
+	/* For "Initialize Frame Queue" commands, the write-enable mask
+	 * determines whether 'td' or 'oac_init' is observed. For query
+	 * commands, this field is always 'td', and 'oac_query' (below) reflects
+	 * the Overhead ACcounting values. */
+	union {
+		struct qm_fqd_taildrop td;
+		struct qm_fqd_oac oac_init;
+	};
 	u32 context_b;
 	union {
 		/* Treat it as 64-bit opaque */
@@ -442,6 +456,7 @@ struct qm_fqd {
 			u32 context_lo;
 		} __packed;
 	} context_a;
+	struct qm_fqd_oac oac_query;
 } __packed;
 /* 64-bit converters for context_hi/lo */
 static inline u64 qm_fqd_stashing_get64(const struct qm_fqd *fqd)
@@ -500,6 +515,11 @@ static inline u32 qm_fqd_taildrop_get(const struct qm_fqd_taildrop *td)
 #define QM_STASHING_EXCL_ANNOTATION	0x04
 #define QM_STASHING_EXCL_DATA		0x02
 #define QM_STASHING_EXCL_CTX		0x01
+
+/* See 1.5.5.3: "Intra Class Scheduling" */
+/* FQD field 'OAC' (Overhead ACcounting) uses these constants */
+#define QM_OAC_ICS		0x2 /* Accounting for Intra-Class Scheduling */
+#define QM_OAC_CG		0x1 /* Accounting for Congestion Groups */
 
 /* See 1.5.8.4: "FQ State Change Notification" */
 /* This struct represents the 32-bit "WR_PARM_[GYR]" parameters in CGR fields
@@ -674,7 +694,8 @@ struct qm_mc_command {
 #define QM_MCC_VERB_QUERYCGR		0x58
 #define QM_MCC_VERB_QUERYCONGESTION	0x59
 /* INITFQ-specific flags */
-#define QM_INITFQ_WE_MASK		0x00ff	/* 'Write Enable' flags; */
+#define QM_INITFQ_WE_MASK		0x01ff	/* 'Write Enable' flags; */
+#define QM_INITFQ_WE_OAC		0x0100
 #define QM_INITFQ_WE_ORPC		0x0080
 #define QM_INITFQ_WE_CGID		0x0040
 #define QM_INITFQ_WE_FQCTRL		0x0020
