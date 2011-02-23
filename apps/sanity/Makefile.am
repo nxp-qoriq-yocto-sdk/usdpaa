@@ -29,11 +29,6 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = lib reflector qbman_speed sanity
-#SUBDIRS += ipfwd
-#SUBDIRS += simple_crypto
+bin_PROGRAMS = check_types
 
-dist_DATA = SOURCE_THIS
-
-# install the SOURCE_THIS file in the 'root' home directory
-SOURCE_THIS_install := root
+check_types_SOURCES := check_types.c
