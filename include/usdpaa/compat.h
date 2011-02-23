@@ -63,9 +63,9 @@
 #define __packed	__attribute__((__packed__))
 
 /* Required types */
-typedef unsigned char   u8;
-typedef unsigned short  u16;
-typedef unsigned int    u32;
+typedef uint8_t		u8;
+typedef uint16_t	u16;
+typedef uint32_t	u32;
 typedef uint64_t	u64;
 typedef uint64_t	dma_addr_t;
 typedef cpu_set_t	cpumask_t;
