@@ -741,12 +741,47 @@ static struct worker *worker_first(void)
 }
 #endif
 
-static void usage(void)
+const char *argp_program_version = PACKAGE_VERSION;
+const char *argp_program_bug_address = "<usdpa-devel@gforge.freescale.net>";
+
+static struct argp_child _ppam_argp[] = {
+	{&ppam_argp, 0, ppam_doc},
+	{}
+};
+
+static const char argp_doc[] = "\n\
+USDPAA PPAC-based application\
+";
+static const char _ppac_args[] = "[cpu-range]";
+
+static const struct argp_option argp_opts[] = {
+	{"cpu-range", 0, 0, OPTION_DOC, "'index' or 'first'..'last'"},
+	{}
+};
+
+static error_t ppac_parse(int key, char *arg, struct argp_state *state)
 {
-	fprintf(stderr, "usage: reflector [cpu-range]\n");
-	fprintf(stderr, "where [cpu-range] is 'n' or 'm..n'\n");
-	exit(EXIT_FAILURE);
+	int _errno;
+	struct ppac_arguments *args;
+
+	switch (key) {
+	case ARGP_KEY_ARGS:
+		if (state->argc - state->next != 1)
+			argp_usage(state);
+		args = (typeof(args))state->input;
+		_errno = parse_cpus(state->argv[state->next], &args->first, &args->last);
+		if (unlikely(_errno < 0))
+			argp_usage(state);
+		break;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+	return 0;
 }
+
+static const struct argp ppac_argp = {argp_opts, ppac_parse, _ppac_args, argp_doc, _ppam_argp};
+
+struct ppac_arguments ppac_args;
 
 int main(int argc, char *argv[])
 {
@@ -759,17 +794,17 @@ int main(int argc, char *argv[])
 
 	ncpus = (unsigned long)sysconf(_SC_NPROCESSORS_ONLN);
 
-	/* Parse the args */
-	if (ncpus == 1)
-		first = last = 0;
-	else
-		first = last = 1;
-	if (argc == 2) {
-		rcode = parse_cpus(argv[1], &first, &last);
-		if (rcode)
-			usage();
-	} else if (argc != 1)
-		usage();
+	if (ncpus == 1) {
+		ppac_args.first = 0;
+		ppac_args.last = 0;
+	} else {
+		ppac_args.first = 1;
+		ppac_args.last = 1;
+	}
+
+	rcode = argp_parse(&ppac_argp, argc, argv, 0, NULL, &ppac_args);
+	if (unlikely(rcode != 0))
+		return -rcode;
 
 	/* Do global init that doesn't require portal access; */
 	/* - load the config (includes discovery and mapping of MAC devices) */
@@ -819,9 +854,9 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "error: shmem init, continuing\n");
 
 	/* Create the threads */
-	TRACE("Starting %d threads for cpu-range '%s'\n",
-		last - first + 1, argv[1]);
-	for (loop = first; loop <= last; loop++) {
+	TRACE("Starting %d threads for cpu-range '%d..%d'\n",
+	      ppac_args.last - ppac_args.first + 1, ppac_args.first, ppac_args.last);
+	for (loop = ppac_args.first; loop <= ppac_args.last; loop++) {
 		worker = worker_new(loop);
 		if (!worker) {
 			rcode = -1;

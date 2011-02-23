@@ -290,3 +290,14 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 }
 
 #include <ppac.c>
+
+struct ppam_arguments {
+};
+
+const char ppam_doc[] = "Packet reflector";
+
+static const struct argp_option argp_opts[] = {
+       {}
+};
+
+const struct argp ppam_argp = {argp_opts, 0, 0, ppam_doc};
