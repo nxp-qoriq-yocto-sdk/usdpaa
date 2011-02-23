@@ -1591,7 +1591,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 	return 0;
 }
 
-static int validate_test_set()
+static int validate_test_set(void)
 {
 	switch (crypto_info->algo) {
 	case AES_CBC:
@@ -1662,7 +1662,7 @@ err:
  * param[in]	g_cmd_params - Bit mask of all parameters provided by user
  * return	0 on success, otherwise -ve value
  */
-static int validate_params()
+static int validate_params(void)
 {
 	if (!crypto_info) {
 		pr_err("Crypto Info is NULL\n");
