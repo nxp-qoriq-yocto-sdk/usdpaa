@@ -609,7 +609,7 @@ struct qm_mcc_initfq {
 	u32 fqid;	/* 24-bit */
 	u16 count;	/* Initialises 'count+1' FQDs */
 	struct qm_fqd fqd; /* the FQD fields go here */
-	u8 __reserved3[32];
+	u8 __reserved3[30];
 } __packed;
 struct qm_mcc_queryfq {
 	u8 __reserved1[3];
@@ -732,7 +732,7 @@ struct qm_mcr_initfq {
 struct qm_mcr_queryfq {
 	u8 __reserved1[8];
 	struct qm_fqd fqd;	/* the FQD fields are here */
-	u8 __reserved2[32];
+	u8 __reserved2[30];
 } __packed;
 struct qm_mcr_queryfq_np {
 	u8 __reserved1;
