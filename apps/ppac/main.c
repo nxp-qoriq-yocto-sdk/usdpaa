@@ -34,8 +34,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
-
-#define PPAC_CLI_BUFFER		(2*1024)
+#include <readline.h>	/* libedit */
 
 /***************/
 /* Global data */
@@ -791,6 +790,7 @@ int main(int argc, char *argv[])
 	const char *envp;
 	int first, last, loop;
 	int rcode;
+	char *cli;
 
 	ncpus = (unsigned long)sysconf(_SC_NPROCESSORS_ONLN);
 
@@ -876,29 +876,21 @@ int main(int argc, char *argv[])
 
 	/* Run the CLI loop */
 	while (1) {
-		char cli[PPAC_CLI_BUFFER];
-
 		/* Reap any dead threads */
 		list_for_each_entry_safe(worker, tmpworker, &workers, node)
 			worker_reap(worker);
 
-		/* Command prompt */
-		printf("reflector> ");
-		fflush(stdout);
-
 		/* Get command */
-		if (!fgets(cli, PPAC_CLI_BUFFER, stdin))
+		cli = readline("> ");
+		if (unlikely((cli == NULL) || strncmp(cli, "q", 1) == 0))
 			break;
-		while ((cli[strlen(cli) - 1] == '\r') ||
-				(cli[strlen(cli) - 1] == '\n'))
-			cli[strlen(cli) - 1] = '\0';
-
-		/* Quit */
-		if (!strncmp(cli, "q", 1))
-			break;
+		if (cli[0] == 0) {
+			free(cli);
+			continue;
+		}
 
 		/* List cpus/threads */
-		else if (!strncmp(cli, "list", 4)) {
+		if (!strncmp(cli, "list", 4)) {
 			/* cpu-range is an optional argument */
 			if (strlen(cli) > 4)
 				call_for_each_worker(cli + 4, msg_list);
@@ -963,11 +955,18 @@ int main(int argc, char *argv[])
 		}
 
 		/* try again */
-		else
+		else {
 			fprintf(stderr, "unknown cmd: %s\n", cli);
+			free(cli);
+			continue;
+		}
+
+		add_history(cli);
+		free(cli);
 	}
 	/* success */
 	rcode = 0;
+
 leave:
 	/* Remove all workers except the primary */
 	list_for_each_entry_safe(worker, tmpworker, &workers, node) {
