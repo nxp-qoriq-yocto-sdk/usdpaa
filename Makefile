@@ -37,8 +37,8 @@ ifneq (distclean,$(MAKECMDGOALS))
    $(ARCH)_SPEC_DEFINE	:= _FILE_OFFSET_BITS=64
    $(ARCH)_SPEC_INC_PATH:=
    $(ARCH)_SPEC_LIB_PATH:=
-   $(ARCH)_SPEC_CFLAGS	:= -mcpu=e500mc -pthread -O2 -Wall -Wshadow
-   $(ARCH)_SPEC_LDFLAGS	:= -pthread
+   $(ARCH)_SPEC_CFLAGS	:= -mcpu=e500mc
+   $(ARCH)_SPEC_LDFLAGS	:=
  else
    $(error "ARCH not defined.")
  endif
@@ -62,10 +62,12 @@ INSTALL_OTHER	?= $(PREFIX)/etc
 OBJ_DIR		:= objs_$(ARCH)
 BIN_DIR		:= $(TOP_LEVEL)/bin_$(ARCH)
 LIB_DIR		:= $(TOP_LEVEL)/lib_$(ARCH)
-CFLAGS		:= -I$(TOP_LEVEL)/include $(addprefix -I,$($(ARCH)_SPEC_INC_PATH))
+CFLAGS		:= -pthread -O2 -Wall -Wshadow
+CFLAGS		+= -I$(TOP_LEVEL)/include $(addprefix -I,$($(ARCH)_SPEC_INC_PATH))
 CFLAGS		+= $(addprefix -D,$($(ARCH)_SPEC_DEFINE) $(EXTRA_DEFINE))
 CFLAGS		+= $($(ARCH)_SPEC_CFLAGS) $(EXTRA_CFLAGS)
-LDFLAGS		:= $(addprefix -L,$(LIB_DIR)) $(addprefix -L,$($(ARCH)_SPEC_LIB_PATH))
+LDFLAGS		:= -pthread
+LDFLAGS		+= $(addprefix -L,$(LIB_DIR)) $(addprefix -L,$($(ARCH)_SPEC_LIB_PATH))
 LDFLAGS		+= $($(ARCH)_SPEC_LDFLAGS) $(EXTRA_LDFLAGS)
 ARFLAGS		:= rcs
 INSTALL_FLAGS	?= -D
