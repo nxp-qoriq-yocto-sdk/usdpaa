@@ -43,6 +43,7 @@ static uint32_t __mem_cache_refill(struct mem_cache_t *cachep,
 
 struct mem_cache_t *mem_cache_init(void)
 {
+	int _errno;
 	void *cache_mem;
 	void *ptr_array_mem;
 	void *first_cache;
@@ -51,14 +52,14 @@ struct mem_cache_t *mem_cache_init(void)
 
 	/* Allocate memory for all of the caches, and zero it */
 	mem_space = sizeof(struct mem_cache_t) * (MAX_MEM_CACHES);
-	cache_mem = memalign(L1_CACHE_BYTES, mem_space);
-	if (cache_mem == NULL)
+	_errno = posix_memalign(&cache_mem, L1_CACHE_BYTES, mem_space);
+	if (unlikely(_errno < 0))
 		return NULL;
 	memset(cache_mem, 0, mem_space);
 
 	ptr_array_space = sizeof(uintptr_t) * MAX_MEM_CACHES;
-	ptr_array_mem = memalign(L1_CACHE_BYTES, ptr_array_space);
-	if (ptr_array_mem == NULL) {
+	_errno = posix_memalign(&ptr_array_mem, L1_CACHE_BYTES, ptr_array_space);
+	if (unlikely(_errno < 0)) {
 		free(cache_mem);
 		return NULL;
 	}
@@ -78,6 +79,7 @@ struct mem_cache_t *mem_cache_init(void)
 
 struct mem_cache_t *mem_cache_create(size_t objsize, uint32_t capacity)
 {
+	int _errno;
 	struct mem_cache_t *cachep;
 	void *parray_mem;
 
@@ -85,8 +87,8 @@ struct mem_cache_t *mem_cache_create(size_t objsize, uint32_t capacity)
 	if (cachep == NULL)
 		return NULL;
 
-	parray_mem = memalign(L1_CACHE_BYTES, sizeof(void *) * capacity);
-	if (parray_mem == NULL) {
+	_errno = posix_memalign(&parray_mem, L1_CACHE_BYTES, sizeof(void *) * capacity);
+	if (unlikely(_errno < 0)) {
 		mem_cache_free(cache_cache, cachep);
 		return NULL;
 	}
@@ -185,7 +187,11 @@ drop:
 
 static void *__mem_cache_slab_alloc(uint32_t size)
 {
-	return memalign(L1_CACHE_BYTES, size);
+	int _errno;
+	void *p;
+
+	_errno = posix_memalign(&p, L1_CACHE_BYTES, size);
+	return unlikely(_errno < 0) ? NULL : p;
 }
 
 static uint32_t __mem_cache_refill(struct mem_cache_t *cachep,

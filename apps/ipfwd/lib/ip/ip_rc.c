@@ -243,21 +243,21 @@ struct rc_entry_t *rc_entry_lookup(struct rc_t *rc, uint32_t saddr,
 
 struct rc_t *rc_create(uint32_t expire_jiffies, uint32_t proto_len)
 {
-	int i;
+	int _errno, i;
 	uint32_t entries;
 	struct rc_bucket_t *bucket;
 	struct rc_t *rc;
 
 	assert((proto_len % BYTES_PER_WORD) == 0);
 
-	rc = memalign(L1_CACHE_BYTES, sizeof(struct rc_t));
-	if (rc == NULL) {
+	_errno = posix_memalign((void **)&rc, L1_CACHE_BYTES, sizeof(struct rc_t));
+	if (unlikely(_errno < 0)) {
 		pr_err("%s : Route Cache Creation Failed\n", __func__);
 		return NULL;
 	}
-	rc->stats =
-	    memalign(L1_CACHE_BYTES, sizeof(struct rc_statistics_t));
-	if (rc->stats == NULL) {
+	_errno = posix_memalign((void **)&rc->stats, L1_CACHE_BYTES,
+				   sizeof(struct rc_statistics_t));
+	if (unlikely(_errno < 0)) {
 		pr_err("%s : Unable to allocate Route Cache Stats\n",
 							 __func__);
 		free(rc);

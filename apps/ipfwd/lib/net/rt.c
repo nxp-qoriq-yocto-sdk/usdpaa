@@ -33,11 +33,12 @@
 
 struct rt_t *rt_create(void)
 {
+	int _errno;
 	uint32_t entries;
 	struct rt_t *rt;
 
-	rt = memalign(L1_CACHE_BYTES, sizeof(*rt));
-	if (rt == NULL)
+	_errno = posix_memalign((void **)&rt, L1_CACHE_BYTES, sizeof(*rt));
+	if (unlikely(_errno < 0))
 		return NULL;
 	memset(rt, 0, sizeof(*rt));
 	rt->free_entries = mem_cache_create(sizeof(struct rt_dest_t),

@@ -68,10 +68,10 @@ struct neigh_table_t *neigh_table_init(struct neigh_table_t *table)
 {
 	struct neigh_bucket_t *bucket;
 	uint32_t entries;
-	int i;
+	int _errno, i;
 
-	table->stats = memalign(L1_CACHE_BYTES, sizeof(*table->stats));
-	if (table->stats == NULL)
+	_errno = posix_memalign((void **)&table->stats, L1_CACHE_BYTES, sizeof(*table->stats));
+	if (unlikely(_errno < 0))
 		return NULL;
 	memset(table->stats, 0, sizeof(*table->stats));
 

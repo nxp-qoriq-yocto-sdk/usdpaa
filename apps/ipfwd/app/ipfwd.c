@@ -216,6 +216,7 @@ int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
 	struct rt_dest_t *dest;
 	struct net_dev_t *dev = NULL;
 	unsigned int gw_ipaddr = route_info->ip_info.gw_ipaddr;
+	int _errno;
 
 	pr_dbg("ipfwd_add_route: Enter\n");
 
@@ -275,12 +276,11 @@ int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
 
 	entry->saddr = route_info->ip_info.src_ipaddr;
 	entry->daddr = route_info->ip_info.dst_ipaddr;
-	entry->stats =
-		memalign(L1_CACHE_BYTES,
+	_errno = posix_memalign((void **)&entry->stats, L1_CACHE_BYTES,
 			   sizeof(struct rc_entry_statistics_t));
-	if (entry->stats == NULL) {
+	if (unlikely(_errno < 0)) {
 		pr_err("Unable to allocate route entry stats\n");
-		return -ENOMEM;
+		return _errno;
 	}
 	memset(entry->stats, 0, sizeof(struct rc_entry_statistics_t));
 	refcount_acquire(dest->neighbor->refcnt);
@@ -595,6 +595,7 @@ create_devices(struct ip_stack_t *ip_stack, struct node_t *link_nodes)
 	uint32_t port;
 	struct net_dev_t *dev;
 	struct ip_context_t *ctxt;
+	int _errno;
 
 	ip_stack->nt = net_dev_init();
 	if (unlikely(!ip_stack->nt)) {
@@ -602,11 +603,11 @@ create_devices(struct ip_stack_t *ip_stack, struct node_t *link_nodes)
 		return -ENOMEM;
 	}
 	for (port = 0; port < g_num_dpa_eth_ports; port++) {
-		ctxt =
-		     memalign(L1_CACHE_BYTES, sizeof(struct ip_context_t));
-		if (!ctxt) {
+		_errno = posix_memalign((void **)&ctxt, L1_CACHE_BYTES,
+					sizeof(struct ip_context_t));
+		if (unlikely(_errno < 0)) {
 			pr_err("No Memory for IP context\n");
-			return -ENOMEM;
+			return _errno;
 		}
 		dev = dpa_dev_allocate(ip_stack->nt);
 		if (unlikely(dev == NULL)) {
@@ -674,7 +675,11 @@ int populate_arp_cache(struct ip_stack_t *ip_stack, struct node_t *loc_nodes)
  */
 struct ip_statistics_t *ipfwd_stats_init(void)
 {
-	return memalign(L1_CACHE_BYTES, sizeof(struct ip_statistics_t));
+	int _errno;
+	void *ip_stats;
+
+	_errno = posix_memalign(&ip_stats, L1_CACHE_BYTES, sizeof(struct ip_statistics_t));
+	return unlikely(_errno < 0) ? NULL : ip_stats;
 }
 
 /**

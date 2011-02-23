@@ -2,7 +2,7 @@
  \file refcount.c
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010-2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,18 +32,17 @@
  */
 refcount_t *refcount_create(void)
 {
-	refcount_t *count;
+	int _errno;
+	void *count;
 
-	count = memalign(16, sizeof(refcount_t));
-	if (unlikely(!count))
+	_errno = posix_memalign(&count, 16, sizeof(refcount_t));
+	if (unlikely(_errno < 0))
 		return NULL;
+
 #ifdef STATS_TBD
-	else
 		decorated_notify_clear_32(count);
 #endif
-	memset((void *)count, 0, sizeof(refcount_t));
-
-	return count;
+	return memset(count, 0, sizeof(refcount_t));
 }
 
 /*

@@ -43,12 +43,13 @@ struct net_dev_t *dpa_dev_allocate(struct net_dev_table_t *nt)
 
 struct net_dev_t *dpa_dev_init(struct net_dev_t *dev)
 {
+	int _errno;
+
 	eth_net_dev_setup(dev);
 	dev->state = NET_DEV_STATE_UNCONFIGURED;
 	dev->iflink = 0;
-	dev->stats = memalign(L1_CACHE_BYTES, sizeof(*dev->stats));
-
-	if (dev->stats == NULL)
+	_errno = posix_memalign((void **)&dev->stats, L1_CACHE_BYTES, sizeof(*dev->stats));
+	if (unlikely(_errno < 0))
 		return NULL;
 
 	memset(dev->stats, 0,  sizeof(*dev->stats));

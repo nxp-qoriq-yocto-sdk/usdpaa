@@ -29,11 +29,12 @@
 
 struct ll_cache_t *ll_cache_create()
 {
-	struct ll_cache_t *llc;
+	int _errno;
+	void *llc;
 
-	llc = memalign(L1_CACHE_BYTES, sizeof(*llc));
+	_errno = posix_memalign(&llc, L1_CACHE_BYTES, sizeof(struct ll_cache_t));
+	if (unlikely(_errno < 0))
+		return NULL;
 
-	if (llc)
-		memset(llc, 0, sizeof(*llc));
-	return llc;
+	return memset(llc, 0, sizeof(*llc));
 }

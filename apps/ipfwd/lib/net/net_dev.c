@@ -31,26 +31,31 @@
 
 struct net_dev_table_t *net_dev_init()
 {
+	int _errno;
 	struct net_dev_table_t *netdev;
 
-	netdev =  memalign(L1_CACHE_BYTES, sizeof(struct net_dev_table_t));
-	if (netdev)
-		memset(netdev, 0, sizeof(*netdev));
+	_errno = posix_memalign((void **)&netdev, L1_CACHE_BYTES, sizeof(struct net_dev_table_t));
+	if (unlikely(_errno < 0))
+		return NULL;
 
-	spin_lock_init(&(netdev->wlock));
+	memset(netdev, 0, sizeof(*netdev));
+	spin_lock_init(&netdev->wlock);
 	return netdev;
 }
 
 struct net_dev_t *net_dev_allocate(struct net_dev_table_t *table,
 				   size_t priv_size)
 {
+	int _errno;
 	struct net_dev_t *dev;
 
 	assert(table != NULL);
 	assert(table->next_ifindex < NET_DEV_MAX_COUNT);
 
-	dev = memalign(L1_CACHE_BYTES, (sizeof(*dev) + priv_size));
-	if (dev != NULL) {
+	_errno = posix_memalign((void **)&dev, L1_CACHE_BYTES, sizeof(*dev) + priv_size);
+	if (unlikely(_errno < 0))
+		return NULL;
+
 		dev->next = NULL;
 		dev->refcnt = refcount_create();
 		if (unlikely(NULL == dev->refcnt)) {
@@ -67,7 +72,6 @@ struct net_dev_t *net_dev_allocate(struct net_dev_table_t *table,
 		dev->set_ll_address = NULL;
 		dev->set_header = NULL;
 		dev->cache_header = NULL;
-	}
 
 	return dev;
 }
