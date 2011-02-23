@@ -1376,8 +1376,8 @@ enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 	}
 
 	pr_debug("%s mode: Packet dequeued ->%llu\n", mode ? "Encrypt" :
-		"Decrypt", mode ? *enc_packet_from_sec :
-		*dec_packet_from_sec);
+		"Decrypt", mode ? atomic_read(enc_packet_from_sec) :
+		atomic_read(dec_packet_from_sec));
 
 	addr = dqrr->fd.addr_lo;
 	sgentry_priv = dma_mem_ptov(addr);
@@ -1389,7 +1389,7 @@ enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 /* Poll qman DQCR for encrypted frames */
 static void enc_qman_poll(void)
 {
-	while (*enc_packet_from_sec < total_buf_num)
+	while (atomic_read(enc_packet_from_sec) < total_buf_num)
 		qman_poll();
 	return;
 }
@@ -1397,7 +1397,7 @@ static void enc_qman_poll(void)
 /** Poll qman DQCR for decrypted frames */
 static void dec_qman_poll(void)
 {
-	while (*dec_packet_from_sec < total_buf_num)
+	while (atomic_read(dec_packet_from_sec) < total_buf_num)
 		qman_poll();
 	return;
 }
@@ -1780,8 +1780,8 @@ static int worker_fn(thread_data_t *tdata)
 							" working....\n", i);
 			}
 			set_enc_buf();
-			*packet_to_sec = 0;
-			*enc_packet_from_sec = 0;
+			atomic_set(packet_to_sec, 0);
+			atomic_set(enc_packet_from_sec, 0);
 		}
 
 		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
@@ -1805,13 +1805,13 @@ static int worker_fn(thread_data_t *tdata)
 
 		if (!tdata->index)
 			pr_debug("Encrypt mode: Total packet sent"
-					" to SEC = %lu\n", *packet_to_sec);
+				 " to SEC = %lu\n", atomic_read(packet_to_sec));
 
 		/* Recieve encrypted or MAC data from SEC40 */
 		enc_qman_poll();
 		if (!tdata->index)
 			pr_debug("Encrypt mode: Total packet returned from"
-					" SEC = %lu\n", *enc_packet_from_sec);
+					" SEC = %lu\n", atomic_read(enc_packet_from_sec));
 
 		if (!tdata->index)
 			/* accumulated time difference */
@@ -1836,8 +1836,8 @@ static int worker_fn(thread_data_t *tdata)
 			else if (!authnct)
 				set_dec_buf();
 
-			*packet_to_sec = 0;
-			*dec_packet_from_sec = 0;
+			atomic_set(packet_to_sec, 0);
+			atomic_set(dec_packet_from_sec, 0);
 		}
 error2:
 		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
@@ -1867,14 +1867,14 @@ error2:
 
 		if (!tdata->index)
 			pr_debug("Decrypt mode: Total packet sent"
-					" to SEC = %lu\n", *packet_to_sec);
+				 " to SEC = %lu\n", atomic_read(packet_to_sec));
 
 		/* Recieve decrypted data from SEC40 */
 		dec_qman_poll();
 
 		if (!tdata->index)
 			pr_debug("Decrypt mode: Total packet returned from"
-					" SEC = %lu\n", *dec_packet_from_sec);
+					" SEC = %lu\n", atomic_read(dec_packet_from_sec));
 
 		if (!tdata->index)
 			/* accumulated time difference */
