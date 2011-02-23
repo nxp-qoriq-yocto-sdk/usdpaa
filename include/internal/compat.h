@@ -136,7 +136,7 @@ do { \
 #define msleep(x) \
 do { \
 	pr_crit("BUG: illegal call %s:%d\n", __FILE__, __LINE__); \
-	exit(1); \
+	exit(EXIT_FAILURE); \
 } while(0)
 #else
 #define pr_debug(fmt, args...)  do { ; } while(0)
@@ -150,7 +150,7 @@ do { \
 		if (!(x)) { \
 			pr_crit("ASSERT: (%s:%d) %s\n", __FILE__, __LINE__, \
 				__stringify_1(x)); \
-			exit(1); \
+			exit(EXIT_FAILURE); \
 		} \
 	} while(0)
 #else
@@ -162,7 +162,7 @@ do { \
 		if (!(x)) { \
 			pr_crit("ASSERT: (%s:%d) %s\n", __FILE__, __LINE__, \
 				__stringify_1(x)); \
-			exit(1); \
+			exit(EXIT_FAILURE); \
 		} \
 	} while(0)
 #else

@@ -39,7 +39,7 @@
 		if (!(x)) { \
 			pr_crit("ASSERT: (%s:%d) %s\n", __FILE__, __LINE__, \
 				__stringify_1(x)); \
-			exit(1); \
+			exit(EXIT_FAILURE); \
 		} \
 	} while(0)
 #else

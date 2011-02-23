@@ -1989,7 +1989,7 @@ int main(int argc, char *argv[])
 	/* map shmem */
 	if (unlikely(dma_mem_setup())) {
 		pr_err("Shared memory initialization failed\n");
-		exit(-1);
+		exit(EXIT_FAILURE);
 	}
 
 	/* Create the threads */
@@ -2003,7 +2003,7 @@ int main(int argc, char *argv[])
 	/* Initialize barrier for all the threads! */
 	if (unlikely(pthread_barrier_init(&app_barrier, NULL, ncpus))) {
 		pr_err("unable to initialize pthread_barrier");
-		exit(-1);
+		exit(EXIT_FAILURE);
 	}
 
 	/* Store the number of bytes for the job descriptor.
@@ -2045,7 +2045,7 @@ int main(int argc, char *argv[])
 	if (unlikely(create_compound_fd() != 0)) {
 		pr_err("%s: create_compound_fd() failed!\n",
 				__func__);
-		exit(-1);
+		exit(EXIT_FAILURE);
 	}
 
 	pr_info("Processing %s for %d Frames\n", algorithm, total_buf_num);
@@ -2058,7 +2058,7 @@ int main(int argc, char *argv[])
 	if (unlikely(start_threads(thread_data, ncpus,
 					1, worker_fn))) {
 		pr_err("start_threads failiure");
-		exit(-1);
+		exit(EXIT_FAILURE);
 	}
 
 	/* Wait for all the threads to finish */
@@ -2092,5 +2092,5 @@ int main(int argc, char *argv[])
 
 	free_fd();
 	markpoint(31);
-	exit(0);
+	exit(EXIT_SUCCESS);
 }

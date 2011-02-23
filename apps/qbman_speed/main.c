@@ -70,7 +70,7 @@ static void *worker_fn(void *__worker)
 	if (err != 0) {
 		fprintf(stderr, "pthread_setaffinity_np(%d) failed, ret=%d\n",
 			worker->cpu, err);
-		exit(-1);
+		exit(EXIT_FAILURE);
 	}
 
 	/* Initialise bman/qman portals */
@@ -78,13 +78,13 @@ static void *worker_fn(void *__worker)
 	if (err) {
 		fprintf(stderr, "bman_thread_init(%d) failed, ret=%d\n",
 			worker->cpu, err);
-		exit(-1);
+		exit(EXIT_FAILURE);
 	}
 	err = qman_thread_init(worker->cpu, 0);
 	if (err) {
 		fprintf(stderr, "qman_thread_init(%d) failed, ret=%d\n",
 			worker->cpu, err);
-		exit(-1);
+		exit(EXIT_FAILURE);
 	}
 
 	if (worker->do_global_init) {
@@ -93,14 +93,14 @@ static void *worker_fn(void *__worker)
 		if (err) {
 			fprintf(stderr, "bman_global_init() failed, ret=%d\n",
 				err);
-			exit(-1);
+			exit(EXIT_FAILURE);
 		}
 		/* Set up the fqid allocator */
 		err = qman_global_init(0);
 		if (err) {
 			fprintf(stderr, "qman_global_init() failed, ret=%d\n",
 				err);
-			exit(-1);
+			exit(EXIT_FAILURE);
 		}
 		/* Map the DMA-able memory */
 		err = dma_mem_setup();
@@ -238,7 +238,7 @@ static void usage(void)
 {
 	fprintf(stderr, "usage: qbman [cpu-range]\n");
 	fprintf(stderr, "where [cpu-range] is 'n' or 'm..n'\n");
-	exit(-1);
+	exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[])
@@ -266,7 +266,7 @@ int main(int argc, char *argv[])
 	ret = pthread_barrier_init(&barr, NULL, last - first + 1);
 	if (ret != 0) {
 		fprintf(stderr, "Failed to init barrier\n");
-		exit(-1);
+		exit(EXIT_FAILURE);
 	}
 
 	/* Create the threads */

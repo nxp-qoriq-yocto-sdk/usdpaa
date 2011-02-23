@@ -41,7 +41,7 @@ static void usage(void)
 {
 	fprintf(stderr, "usage: test_netcfg <fmc_pcd_file> "
 					"<fmc_cfgdata_file>\n");
-	exit(-1);
+	exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[])

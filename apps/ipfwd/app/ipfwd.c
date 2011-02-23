@@ -1089,13 +1089,13 @@ int main(int argc, char *argv[])
 		} else {
 			fprintf(stderr, "error: can't parse cpu-range '%s'\n",
 				argv[1]);
-			exit(-1);
+			exit(EXIT_FAILURE);
 		}
 	} else if (argc != 4) {
 		fprintf(stderr, "usage: ipfwd_app <cpu-range>" "<fmc_pcd_file> "
 					"<fmc_cfgdata_file>\n");
 		fprintf(stderr, "where [cpu-range] is 'n' or 'm..n'\n");
-		exit(-1);
+		exit(EXIT_FAILURE);
 	}
 	if (first == 0) {
 		cpu0_poll_on = 1;

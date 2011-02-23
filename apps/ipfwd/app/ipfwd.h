@@ -4,7 +4,7 @@
 	 Application
  */
 /*
- * Copyright (C) 2008-2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2008-2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -172,11 +172,11 @@ static inline int my_toul(const char *str, char **endptr, long toobig)
 	unsigned long tmp = strtoul(str, endptr, 0);
 	if ((tmp == ULONG_MAX) || (*endptr == str)) {
 		fprintf(stderr, "error: can't parsing '%s'\n", str);
-		exit(-1);
+		exit(EXIT_FAILURE);
 	}
 	if (tmp >= toobig) {
 		fprintf(stderr, "error: value %lu out of range\n", tmp);
-		exit(-1);
+		exit(EXIT_FAILURE);
 	}
 	return (int)tmp;
 }

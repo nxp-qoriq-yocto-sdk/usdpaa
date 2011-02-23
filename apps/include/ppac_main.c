@@ -653,7 +653,7 @@ static void do_global_init(void)
 	};
 	if (netcfg->num_cgrids < 2) {
 		fprintf(stderr, "error: insufficient CGRIDs available\n");
-		exit(-1);
+		exit(EXIT_FAILURE);
 	}
 
 	/* Set up Rx CGR */
@@ -1134,7 +1134,7 @@ static void usage(void)
 {
 	fprintf(stderr, "usage: reflector [cpu-range]\n");
 	fprintf(stderr, "where [cpu-range] is 'n' or 'm..n'\n");
-	exit(-1);
+	exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[])
