@@ -238,7 +238,7 @@ static inline void out_be32(volatile void *__p, u32 val)
 		asm volatile ("" : : : "memory"); \
 	} while(0)
 #define dcbi(p) dcbf(p)
-#define cpu_relax()	do { ; } while(0)
+#define cpu_relax barrier
 
 /* Alternate Time Base */
 #define SPR_ATBL	526
