@@ -276,10 +276,10 @@ uint32_t *cmd_insert_key(uint32_t *descwd, uint8_t *key, uint32_t keylen,
 		nextwd += keysz / sizeof(*nextwd);
 	} else
 		if (sizeof(dma_addr_t) == sizeof(u32)) {
-			*nextwd++ = (dma_addr_t)key;
+			*nextwd++ = dma_mem_vtop(key);
 		} else {
-			*nextwd++ = upper_32_bits((dma_addr_t)key);
-			*nextwd++ = lower_32_bits((dma_addr_t)key);
+			*nextwd++ = upper_32_bits(dma_mem_vtop(key));
+			*nextwd++ = lower_32_bits(dma_mem_vtop(key));
 		}
 	return nextwd;
 }
@@ -685,10 +685,10 @@ uint32_t *cmd_insert_seq_in_ptr(uint32_t *descwd, void *ptr,
 	*descwd = CMD_SEQ_IN_PTR | ((sgref == PTR_SGLIST) ? SQIN_SGF : 0) | len;
 
 	if (sizeof(dma_addr_t) == sizeof(u32)) {
-		*(descwd + 1) = (dma_addr_t)ptr;
+		*(descwd + 1) = dma_mem_vtop(ptr);
 	} else {
-		*(descwd + 1) = upper_32_bits((dma_addr_t)ptr);
-		*(descwd + 2) = lower_32_bits((dma_addr_t)ptr);
+		*(descwd + 1) = upper_32_bits(dma_mem_vtop(ptr));
+		*(descwd + 2) = lower_32_bits(dma_mem_vtop(ptr));
 	}
 
 	if (len > 0xffff) {
@@ -723,10 +723,10 @@ uint32_t *cmd_insert_seq_out_ptr(uint32_t *descwd, void *ptr,
 		  len;
 
 	if (sizeof(dma_addr_t) == sizeof(u32)) {
-		*(descwd + 1) = (dma_addr_t)ptr;
+		*(descwd + 1) = dma_mem_vtop(ptr);
 	} else {
-		*(descwd + 1) = upper_32_bits((dma_addr_t)ptr);
-		*(descwd + 2) = lower_32_bits((dma_addr_t)ptr);
+		*(descwd + 1) = upper_32_bits(dma_mem_vtop(ptr));
+		*(descwd + 2) = lower_32_bits(dma_mem_vtop(ptr));
 	}
 
 	if (len > 0xffff) {
@@ -800,10 +800,10 @@ uint32_t *cmd_insert_load(uint32_t *descwd, void *data,
 		}
 	} else {
 		if (sizeof(dma_addr_t) == sizeof(u32)) {
-			*descwd++ = (dma_addr_t)data;
+			*descwd++ = dma_mem_vtop(data);
 		} else {
-			*descwd++ = upper_32_bits((dma_addr_t)data);
-			*descwd++ = lower_32_bits((dma_addr_t)data);
+			*descwd++ = upper_32_bits(dma_mem_vtop(data));
+			*descwd++ = lower_32_bits(dma_mem_vtop(data));
 		}
 	}
 
@@ -996,10 +996,10 @@ uint32_t *cmd_insert_store(uint32_t *descwd, void *data,
 		}
 	} else {
 		if (sizeof(dma_addr_t) == sizeof(u32)) {
-			*descwd++ = (dma_addr_t)data;
+			*descwd++ = dma_mem_vtop(data);
 		} else {
-			*descwd++ = upper_32_bits((dma_addr_t)data);
-			*descwd++ = lower_32_bits((dma_addr_t)data);
+			*descwd++ = upper_32_bits(dma_mem_vtop(data));
+			*descwd++ = lower_32_bits(dma_mem_vtop(data));
 		}
 	}
 
@@ -1095,10 +1095,10 @@ uint32_t *cmd_insert_fifo_store(uint32_t *descwd, void *data, uint32_t len,
 		}
 	} else {
 		if (sizeof(dma_addr_t) == sizeof(u32)) {
-			*descwd++ = (dma_addr_t)data;
+			*descwd++ = dma_mem_vtop(data);
 		} else {
-			*descwd++ = upper_32_bits((dma_addr_t)data);
-			*descwd++ = lower_32_bits((dma_addr_t)data);
+			*descwd++ = upper_32_bits(dma_mem_vtop(data));
+			*descwd++ = lower_32_bits(dma_mem_vtop(data));
 		}
 	}
 

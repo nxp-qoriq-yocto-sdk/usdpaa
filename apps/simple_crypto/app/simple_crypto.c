@@ -782,7 +782,7 @@ void free_fd(void)
 
 	for (ind = 0; ind < total_buf_num; ind++) {
 		addr = fd[ind].addr_lo;
-		buf = (uint8_t *)dma_mem_ptov(addr);
+		buf = dma_mem_ptov(addr);
 		dma_mem_free(buf, total_size);
 	}
 }
@@ -864,15 +864,15 @@ static void set_enc_buf(void)
 		markpoint(1);
 
 		addr = fd[ind].addr_lo;
-		sgentry = (struct qm_sg_entry *)dma_mem_ptov(addr);
+		sgentry = dma_mem_ptov(addr);
 
 		addr = sgentry->addr_lo;
-		out_buf = (uint8_t *)dma_mem_ptov(addr);
+		out_buf = dma_mem_ptov(addr);
 		memset(out_buf, 0, output_buf_size);
 
 		sgentry++;
 		addr = sgentry->addr_lo;
-		in_buf = (uint8_t *)dma_mem_ptov(addr);
+		in_buf = dma_mem_ptov(addr);
 		memset(in_buf, 0, input_buf_capacity);
 
 
@@ -936,7 +936,7 @@ static void set_dec_buf(void)
 		markpoint(4);
 
 		addr = fd[ind].addr_lo;
-		sg_out = (struct qm_sg_entry *)dma_mem_ptov(addr);
+		sg_out = dma_mem_ptov(addr);
 		sg_in = sg_out + 1;
 
 		addr_lo = sg_out->addr_lo;
@@ -955,7 +955,7 @@ static void set_dec_buf(void)
 		sg_in->bpid = bpid;
 
 		addr = sg_out->addr_lo;
-		out_buf = (uint8_t *)dma_mem_ptov(addr);
+		out_buf = dma_mem_ptov(addr);
 		memset(out_buf, 0, crypto_info->buf_size);
 	}
 }
@@ -979,15 +979,15 @@ static void set_dec_auth_buf(void)
 		markpoint(4);
 
 		addr = fd[ind].addr_lo;
-		sg_out = (struct qm_sg_entry *)dma_mem_ptov(addr);
+		sg_out = dma_mem_ptov(addr);
 
 		addr = sg_out->addr_lo;
-		out_buf = (uint8_t *)dma_mem_ptov(addr);
+		out_buf = dma_mem_ptov(addr);
 
 		sg_in = sg_out + 1;
 
 		addr = sg_in->addr_lo;
-		in_buf = (uint8_t *)dma_mem_ptov(addr);
+		in_buf = dma_mem_ptov(addr);
 		memset(in_buf, 0, input_buf_capacity);
 
 		/* Convert the descriptor to an array of uint8_t items */
@@ -1143,7 +1143,7 @@ void print_frame_desc(struct qm_fd *frame_desc)
 			struct qm_sg_entry *sgentry;
 
 			addr = frame_desc->addr_lo;
-			sgentry = (struct qm_sg_entry *)dma_mem_ptov(addr);
+			sgentry = dma_mem_ptov(addr);
 
 			pr_err
 				(" - compound FD S/G list at 0x%04x%08x\n",
@@ -1163,7 +1163,7 @@ void print_frame_desc(struct qm_fd *frame_desc)
 			pr_err("      - Output buffer data at 0x%04x%08x\n",
 					sgentry->addr_hi, sgentry->addr_lo);
 			addr = sgentry->addr_lo;
-			v = (uint8_t *)dma_mem_ptov(addr);
+			v = dma_mem_ptov(addr);
 			for (i = 0; i < output_buf_size; i++)
 				pr_err("	0x%x\n", *v++);
 
@@ -1183,7 +1183,7 @@ void print_frame_desc(struct qm_fd *frame_desc)
 			pr_err("      - Input buffer data at 0x%04x%08x\n",
 					sgentry->addr_hi, sgentry->addr_lo);
 			addr = sgentry->addr_lo;
-			v = (uint8_t *)addr;
+			v = dma_mem_ptov(addr);
 			for (i = 0; i < crypto_info->buf_size; i++)
 				pr_err("	0x%x\n", *v++);
 		}
@@ -1204,10 +1204,10 @@ static int test_enc_match(void)
 
 	for (ind = 0; ind < total_buf_num; ind++) {
 		addr = fd[ind].addr_lo;
-		sgentry = (struct qm_sg_entry *)dma_mem_ptov(addr);
+		sgentry = dma_mem_ptov(addr);
 
 		addr = sgentry->addr_lo;
-		enc_buf = (uint8_t *)dma_mem_ptov(addr);
+		enc_buf = dma_mem_ptov(addr);
 
 		if (test_vector_match((uint32_t *) enc_buf,
 			authnct ? (uint32_t *)
@@ -1255,10 +1255,10 @@ static int test_dec_match(void)
 		markpoint(5);
 
 		addr = fd[ind].addr_lo;
-		sgentry = (struct qm_sg_entry *)dma_mem_ptov(addr);
+		sgentry = dma_mem_ptov(addr);
 
 		addr = sgentry->addr_lo;
-		dec_buf = (uint8_t *)dma_mem_ptov(addr);
+		dec_buf = dma_mem_ptov(addr);
 		if (CIPHER == crypto_info->mode) {
 			if (test_vector_match((uint32_t *) dec_buf, (uint32_t *)
 						ref_test_vector.plaintext,
@@ -1380,7 +1380,7 @@ enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 		*dec_packet_from_sec);
 
 	addr = dqrr->fd.addr_lo;
-	sgentry_priv = (struct sg_entry_priv_t *)dma_mem_ptov(addr);
+	sgentry_priv = dma_mem_ptov(addr);
 	fd[sgentry_priv->index].status = dqrr->fd.status;
 
 	return qman_cb_dqrr_consume;
