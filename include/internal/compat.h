@@ -220,31 +220,31 @@ static inline void out_be32(volatile void *__p, u32 val)
 }
 #define hwsync() \
 	do { \
-		asm __volatile__ ("sync" : : : "memory"); \
+		asm volatile ("sync" : : : "memory"); \
 	} while(0)
 #define lwsync() \
 	do { \
-		asm __volatile__ ("lwsync" : : : "memory"); \
+		asm volatile ("lwsync" : : : "memory"); \
 	} while(0)
 #define dcbzl(p) \
 	do { \
-		asm __volatile__ ("dcbzl 0,%0" : : "r" (p)); \
+		asm volatile ("dcbzl 0,%0" : : "r" (p)); \
 	} while(0)
 #define dcbf(p) \
 	do { \
-		asm __volatile__ ("dcbf 0,%0" : : "r" (p)); \
+		asm volatile ("dcbf 0,%0" : : "r" (p)); \
 	} while(0)
 #define dcbt_ro(p) \
 	do { \
-		asm __volatile__ ("dcbt 0,%0" : : "r" (p)); \
+		asm volatile ("dcbt 0,%0" : : "r" (p)); \
 	} while(0)
 #define dcbt_rw(p) \
 	do { \
-		asm __volatile__ ("dcbtst 0,%0" : : "r" (p)); \
+		asm volatile ("dcbtst 0,%0" : : "r" (p)); \
 	} while(0)
 #define barrier() \
 	do { \
-		asm __volatile__ ("" : : : "memory"); \
+		asm volatile ("" : : : "memory"); \
 	} while(0)
 #define dcbi(p) dcbf(p)
 #define cpu_relax()	do { ; } while(0)
