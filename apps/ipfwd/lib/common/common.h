@@ -30,7 +30,6 @@
 #include <linux/fsl_qman.h>
 #include <linux/fsl_bman.h>
 
-#define CACHE_LINE_SIZE	64
 extern struct bman_pool *pool[MAX_NUM_BMAN_POOLS];
 static inline void free_buff(const struct qm_fd *fd)
 {

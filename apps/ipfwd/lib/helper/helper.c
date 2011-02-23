@@ -120,7 +120,7 @@ static int create_fqs(struct ipfwd_fq_range_t *fq_range, const uint32_t flags,
 	fq_id = fq_range->fq_start;
 
 	for (count = 0; count < fq_range->fq_count; count++) {
-		fq = (struct qman_fq *)dma_mem_memalign(CACHE_LINE_SIZE,
+		fq = (struct qman_fq *)dma_mem_memalign(L1_CACHE_BYTES,
 				 sizeof(struct qman_fq) + priv_data_size);
 		if (unlikely(NULL == fq)) {
 			pr_err("malloc failed in create_fqs for FQ ID: %u\n",
@@ -368,7 +368,7 @@ static struct qman_cgr *init_cgr(struct td_param *cgr_param)
 	struct qman_cgr *cgr = NULL;
 	uint32_t res = 0;
 
-	cgr = (struct qman_cgr *)dma_mem_memalign(CACHE_LINE_SIZE,
+	cgr = (struct qman_cgr *)dma_mem_memalign(L1_CACHE_BYTES,
 			 sizeof(struct qman_cgr));
 	if (cgr == NULL) {
 		pr_err("%s: Memory for CGR not available\n", __func__);

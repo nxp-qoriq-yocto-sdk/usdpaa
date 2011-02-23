@@ -3,7 +3,7 @@
  \brief Implements a simple, fast route cache for ip forwarding.
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010-2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,7 +36,7 @@ struct rt_t *rt_create(void)
 	uint32_t entries;
 	struct rt_t *rt;
 
-	rt = memalign(CACHE_LINE_SIZE, sizeof(*rt));
+	rt = memalign(L1_CACHE_BYTES, sizeof(*rt));
 	if (rt == NULL)
 		return NULL;
 	memset(rt, 0, sizeof(*rt));

@@ -3,7 +3,7 @@
  \brief Creates Link Layer Cache
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010-2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,7 +31,7 @@ struct ll_cache_t *ll_cache_create()
 {
 	struct ll_cache_t *llc;
 
-	llc = memalign(CACHE_LINE_SIZE, sizeof(*llc));
+	llc = memalign(L1_CACHE_BYTES, sizeof(*llc));
 
 	if (llc)
 		memset(llc, 0, sizeof(*llc));

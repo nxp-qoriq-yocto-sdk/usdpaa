@@ -2,7 +2,7 @@
  \file dpa_dev.c
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010-2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,7 +46,7 @@ struct net_dev_t *dpa_dev_init(struct net_dev_t *dev)
 	eth_net_dev_setup(dev);
 	dev->state = NET_DEV_STATE_UNCONFIGURED;
 	dev->iflink = 0;
-	dev->stats = memalign(CACHE_LINE_SIZE, sizeof(*dev->stats));
+	dev->stats = memalign(L1_CACHE_BYTES, sizeof(*dev->stats));
 
 	if (dev->stats == NULL)
 		return NULL;

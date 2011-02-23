@@ -49,7 +49,6 @@
 /**< Mask for reading only the bits that would change when a jiffy passes */
 
 #define MAX_NUM_BMAN_POOLS 64
-#define CACHE_LINE_SIZE 64
 #ifdef DEBUG
 #define pr_dbg     printf
 #else

@@ -55,7 +55,6 @@
 #define BYTES_PER_WORD sizeof(int)
 #define ONE_MEGA 1000000
 #define QMAN_WAIT_CYCLES 1000
-#define CACHE_LINE_SIZE 64
 
 uint32_t g_cmd_params;  /* bit mask of all parameters provided by user */
 
@@ -382,7 +381,7 @@ static int create_compound_fd(void)
 			+ input_buf_capacity;
 
 		sg_priv_and_data = (struct sg_entry_priv_t *)dma_mem_memalign
-			(CACHE_LINE_SIZE, total_size);
+			(L1_CACHE_BYTES, total_size);
 
 		if (unlikely(!sg_priv_and_data)) {
 			pr_err("Unable to allocate memory for buffer!\n");
@@ -426,8 +425,8 @@ static void *setup_preheader(uint32_t shared_desc_len, uint32_t pool_id,
 
 	/* Request a buffer from the buffer allocator, with the
 	   preheader size */
-	prehdr = dma_mem_memalign(CACHE_LINE_SIZE, 2*CACHE_LINE_SIZE);
-	memset(prehdr, 0, 2*CACHE_LINE_SIZE);
+	prehdr = dma_mem_memalign(L1_CACHE_BYTES, 2*L1_CACHE_BYTES);
+	memset(prehdr, 0, 2*L1_CACHE_BYTES);
 
 	if (unlikely(!prehdr)) {
 		pr_err("%s: dma_mem_memalign failed for preheader\n"
@@ -461,7 +460,7 @@ static void *setup_init_descriptor(bool mode)
 	uint16_t shared_desc_len;
 	int i, ret;
 
-	prehdr_desc = dma_mem_memalign(CACHE_LINE_SIZE,
+	prehdr_desc = dma_mem_memalign(L1_CACHE_BYTES,
 				sizeof(struct sec_descriptor_t));
 	if (unlikely(!prehdr_desc)) {
 		pr_err("%s: dma_mem_memalign failed for preheader\n"
@@ -615,7 +614,7 @@ struct qman_fq *create_sec_frame_queue(uint32_t fq_id, uint16_t channel,
 	struct qman_fq *fq;
 	uint32_t flags;
 
-	fq = (struct qman_fq *)dma_mem_memalign(CACHE_LINE_SIZE,
+	fq = (struct qman_fq *)dma_mem_memalign(L1_CACHE_BYTES,
 			sizeof(struct qman_fq));
 	if (unlikely(NULL == fq)) {
 		pr_err("dma_mem_memalign failed in create_fqs for FQ ID:\n"

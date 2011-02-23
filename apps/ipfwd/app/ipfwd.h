@@ -100,7 +100,7 @@ extern struct ip_statistics_t *ipfwd_stats_init(void);
 struct ip_fq_context_t {
 	struct qman_fq fq; /**< Frame Queue Object */
 	struct ip_context_t *ip_ctxt; /**< Pointer to private context */
-} __attribute__ ((aligned(CACHE_LINE_SIZE)));
+} __attribute__((aligned(L1_CACHE_BYTES)));
 
 /*State of ipsecfwd_hybrid application*/
 enum application_state {

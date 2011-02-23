@@ -70,7 +70,7 @@ struct neigh_table_t *neigh_table_init(struct neigh_table_t *table)
 	uint32_t entries;
 	int i;
 
-	table->stats = memalign(CACHE_LINE_SIZE, sizeof(*table->stats));
+	table->stats = memalign(L1_CACHE_BYTES, sizeof(*table->stats));
 	if (table->stats == NULL)
 		return NULL;
 	memset(table->stats, 0, sizeof(*table->stats));

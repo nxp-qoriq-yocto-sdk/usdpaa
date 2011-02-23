@@ -3,7 +3,7 @@
  \brief Net dev layer routines.
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010-2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,7 @@ struct net_dev_table_t *net_dev_init()
 {
 	struct net_dev_table_t *netdev;
 
-	netdev =  memalign(CACHE_LINE_SIZE, sizeof(struct net_dev_table_t));
+	netdev =  memalign(L1_CACHE_BYTES, sizeof(struct net_dev_table_t));
 	if (netdev)
 		memset(netdev, 0, sizeof(*netdev));
 
@@ -49,7 +49,7 @@ struct net_dev_t *net_dev_allocate(struct net_dev_table_t *table,
 	assert(table != NULL);
 	assert(table->next_ifindex < NET_DEV_MAX_COUNT);
 
-	dev = memalign(CACHE_LINE_SIZE, (sizeof(*dev) + priv_size));
+	dev = memalign(L1_CACHE_BYTES, (sizeof(*dev) + priv_size));
 	if (dev != NULL) {
 		dev->next = NULL;
 		dev->refcnt = refcount_create();

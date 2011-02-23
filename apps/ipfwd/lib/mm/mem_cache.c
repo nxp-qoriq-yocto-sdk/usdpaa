@@ -2,7 +2,7 @@
  \file mem_cache.c
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010-2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,13 +51,13 @@ struct mem_cache_t *mem_cache_init(void)
 
 	/* Allocate memory for all of the caches, and zero it */
 	mem_space = sizeof(struct mem_cache_t) * (MAX_MEM_CACHES);
-	cache_mem = memalign(CACHE_LINE_SIZE, mem_space);
+	cache_mem = memalign(L1_CACHE_BYTES, mem_space);
 	if (cache_mem == NULL)
 		return NULL;
 	memset(cache_mem, 0, mem_space);
 
 	ptr_array_space = sizeof(uintptr_t) * MAX_MEM_CACHES;
-	ptr_array_mem = memalign(CACHE_LINE_SIZE, ptr_array_space);
+	ptr_array_mem = memalign(L1_CACHE_BYTES, ptr_array_space);
 	if (ptr_array_mem == NULL) {
 		free(cache_mem);
 		return NULL;
@@ -85,7 +85,7 @@ struct mem_cache_t *mem_cache_create(size_t objsize, uint32_t capacity)
 	if (cachep == NULL)
 		return NULL;
 
-	parray_mem = memalign(CACHE_LINE_SIZE, sizeof(void *) * capacity);
+	parray_mem = memalign(L1_CACHE_BYTES, sizeof(void *) * capacity);
 	if (parray_mem == NULL) {
 		mem_cache_free(cache_cache, cachep);
 		return NULL;
@@ -169,11 +169,11 @@ int32_t mem_cache_refill(struct mem_cache_t *cachep, uint32_t count)
 	}
 
 	mem = __mem_cache_slab_alloc((count * cachep->objsize) +
-				     CACHE_LINE_SIZE);
+				     L1_CACHE_BYTES);
 	if (mem == NULL) {
 		retval = 0;
 	} else {
-		mem = (void *)((uint32_t) mem + CACHE_LINE_SIZE);
+		mem = (void *)((uint32_t) mem + L1_CACHE_BYTES);
 		retval = __mem_cache_refill(cachep, count, mem);
 	}
 
@@ -185,7 +185,7 @@ drop:
 
 static void *__mem_cache_slab_alloc(uint32_t size)
 {
-	return memalign(CACHE_LINE_SIZE, size);
+	return memalign(L1_CACHE_BYTES, size);
 }
 
 static uint32_t __mem_cache_refill(struct mem_cache_t *cachep,

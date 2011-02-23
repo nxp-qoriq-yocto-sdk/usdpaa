@@ -250,13 +250,13 @@ struct rc_t *rc_create(uint32_t expire_jiffies, uint32_t proto_len)
 
 	assert((proto_len % BYTES_PER_WORD) == 0);
 
-	rc = memalign(CACHE_LINE_SIZE, sizeof(struct rc_t));
+	rc = memalign(L1_CACHE_BYTES, sizeof(struct rc_t));
 	if (rc == NULL) {
 		pr_err("%s : Route Cache Creation Failed\n", __func__);
 		return NULL;
 	}
 	rc->stats =
-	    memalign(CACHE_LINE_SIZE, sizeof(struct rc_statistics_t));
+	    memalign(L1_CACHE_BYTES, sizeof(struct rc_statistics_t));
 	if (rc->stats == NULL) {
 		pr_err("%s : Unable to allocate Route Cache Stats\n",
 							 __func__);

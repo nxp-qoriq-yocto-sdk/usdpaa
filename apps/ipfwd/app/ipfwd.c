@@ -276,7 +276,7 @@ int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
 	entry->saddr = route_info->ip_info.src_ipaddr;
 	entry->daddr = route_info->ip_info.dst_ipaddr;
 	entry->stats =
-	    memalign(CACHE_LINE_SIZE,
+		memalign(L1_CACHE_BYTES,
 			   sizeof(struct rc_entry_statistics_t));
 	if (entry->stats == NULL) {
 		pr_err("Unable to allocate route entry stats\n");
@@ -603,7 +603,7 @@ create_devices(struct ip_stack_t *ip_stack, struct node_t *link_nodes)
 	}
 	for (port = 0; port < g_num_dpa_eth_ports; port++) {
 		ctxt =
-		     memalign(CACHE_LINE_SIZE, sizeof(struct ip_context_t));
+		     memalign(L1_CACHE_BYTES, sizeof(struct ip_context_t));
 		if (!ctxt) {
 			pr_err("No Memory for IP context\n");
 			return -ENOMEM;
@@ -674,7 +674,7 @@ int populate_arp_cache(struct ip_stack_t *ip_stack, struct node_t *loc_nodes)
  */
 struct ip_statistics_t *ipfwd_stats_init(void)
 {
-	return memalign(CACHE_LINE_SIZE, sizeof(struct ip_statistics_t));
+	return memalign(L1_CACHE_BYTES, sizeof(struct ip_statistics_t));
 }
 
 /**
