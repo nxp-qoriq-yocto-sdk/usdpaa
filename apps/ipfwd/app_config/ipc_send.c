@@ -562,7 +562,7 @@ void mq_handler(union sigval sval)
 int main(int argc, char **argv)
 {
 	struct app_ctrl_op_info sa_info;
-	char *tmp_argv = "-O";
+	const char *tmp_argv = "-O";
 	struct app_ctrl_op_info route_info;
 	int ret, tmp;
 
