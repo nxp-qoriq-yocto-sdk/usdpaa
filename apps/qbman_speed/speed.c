@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2009-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -244,7 +244,7 @@ void speed(struct worker *worker)
 
 		if (doIrun) {
 			do_enqueues(fq);
-			dcbt_rw(dq_count);
+			dcbt_rw(&dq_count);
 			dcbt_rw(dq_capture);
 			if (qman_schedule_fq(fq))
 				panic("qman_schedule_fq() failed\n");
