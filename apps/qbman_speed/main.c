@@ -138,7 +138,7 @@ static struct worker *worker_new(int cpu, int do_global_init,
 				int idx, int total)
 {
 	struct worker *ret;
-	int err = posix_memalign((void **)&ret, 64, sizeof(*ret));
+	int err = posix_memalign((void **)&ret, L1_CACHE_BYTES, sizeof(*ret));
 	ret->cpu = cpu;
 	ret->do_global_init = do_global_init;
 	ret->idx = idx;

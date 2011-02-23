@@ -461,7 +461,7 @@ static int ppac_if_init(unsigned int idx)
 			return err;
 	}
 	/* allocate stashable memory for the interface object */
-	i = dma_mem_memalign(64, sz);
+	i = dma_mem_memalign(L1_CACHE_BYTES, sz);
 	if (!i)
 		return -ENOMEM;
 	memset(i, 0, sz);
@@ -954,10 +954,10 @@ static void msg_query_cgr(struct worker *worker)
 static struct worker *worker_new(int cpu)
 {
 	struct worker *ret;
-	int err = posix_memalign((void **)&ret, 64, sizeof(*ret));
+	int err = posix_memalign((void **)&ret, L1_CACHE_BYTES, sizeof(*ret));
 	if (err)
 		goto out;
-	err = posix_memalign((void **)&ret->msg, 64, sizeof(*ret->msg));
+	err = posix_memalign((void **)&ret->msg, L1_CACHE_BYTES, sizeof(*ret->msg));
 	if (err) {
 		free(ret);
 		goto out;

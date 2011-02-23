@@ -3,7 +3,7 @@
  \brief Net Device data structures and Macros
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010-2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -78,7 +78,7 @@ struct net_dev_stats_t {
 	struct stat64_pair_t tx_errors;		/**< Number of Frames which had error while transmitting*/
 	struct stat64_pair_t rx_dropped;	/**< Number of Dropped Frames which were received*/
 	struct stat64_pair_t tx_dropped;	/**< Number of Dropped Frames during transmission*/
-} __attribute__ ((aligned(64)));
+} __attribute__((aligned(L1_CACHE_BYTES)));
 
 /**
  \brief Net Device State
@@ -147,7 +147,7 @@ struct net_dev_t {
 	/**< Function pointer for transmission of frame*/
 	uint16_t iflink;
 
-} __attribute__ ((aligned(64)));
+} __attribute__((aligned(L1_CACHE_BYTES)));
 
 /**
  \brief Net Device Table
@@ -162,7 +162,7 @@ struct net_dev_table_t {
 	/**< Pointer to first NetDev entry */
 	struct net_dev_t *devices[NET_DEV_MAX_COUNT];
 	/**< Array of net devices */
-} __attribute__ ((aligned(64)));
+} __attribute__((aligned(L1_CACHE_BYTES)));
 
 /**
  \brief Allocates the Net Device table

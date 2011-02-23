@@ -3,7 +3,7 @@
  \brief This file contains the Route Cache related data structures, and defines
  */
 /*
- * Copyright (C) 2007-2009 Freescale Semiconductor, Inc.
+ * Copyright (C) 2007-2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -90,7 +90,7 @@ struct rc_entry_t {
 	/* This is placed here for alignment reasons */
 	uint8_t tos;
 	/**< Type of service */
-} __attribute__ ((aligned(64)));
+} __attribute__((aligned(L1_CACHE_BYTES)));
 
 /**
 \brief Route Cache Bucket

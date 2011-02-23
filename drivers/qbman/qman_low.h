@@ -236,7 +236,7 @@ struct qm_mc {
  * carry-bit). The "portal" struct needs the same alignment because this type
  * goes at its head, so it has a more radical alignment requirement if this
  * structure is used. */
-#define QM_PORTAL_ALIGNMENT __attribute__((aligned(32*64)))
+#define QM_PORTAL_ALIGNMENT __attribute__((aligned(32 * L1_CACHE_BYTES)))
 struct qm_portal_bugs {
 	/* shadow MR ring, for QMAN9 workaround, 8-CL-aligned */
 	struct qm_mr_entry mr[QM_MR_SIZE];

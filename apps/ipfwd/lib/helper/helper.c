@@ -471,7 +471,7 @@ int init_interface(struct usdpa_netcfg_info *cfg_ptr,
 	}
 #endif
 
-	if (0 != ipfwd_fq_init(64, 64, 64, NULL, pcd_td_ptr)) {
+	if (0 != ipfwd_fq_init(L1_CACHE_BYTES, L1_CACHE_BYTES, L1_CACHE_BYTES, NULL, pcd_td_ptr)) {
 		pr_err("Unable to initialize FQs\n");
 		return -EINVAL;
 	}

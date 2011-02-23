@@ -75,8 +75,11 @@ static inline void markpoint(const uint32_t markid) {
 /* Compiler/type stuff */
 typedef unsigned int	gfp_t;
 typedef int		phandle;
+
+#define L1_CACHE_BYTES 64
+
 #define noinline	__attribute__((noinline))
-#define ____cacheline_aligned __attribute__((aligned(64)))
+#define ____cacheline_aligned __attribute__((aligned(L1_CACHE_BYTES)))
 #define likely(x)       __builtin_expect(!!(x), 1)
 #define unlikely(x)     __builtin_expect(!!(x), 0)
 #define __iomem

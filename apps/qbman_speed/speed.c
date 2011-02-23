@@ -207,7 +207,7 @@ void speed(struct worker *worker)
 
 	pr_info("SPEED: --- starting high-level test (cpu %d) ---\n",
 		worker->cpu);
-	fq = dma_mem_memalign(64, sizeof(*fq));
+	fq = dma_mem_memalign(L1_CACHE_BYTES, sizeof(*fq));
 	BUG_ON(!fq);
 	memcpy(fq, &fq_base, sizeof(fq_base));
 	sync_all();
@@ -234,7 +234,7 @@ void speed(struct worker *worker)
 					QM_INITFQ_WE_CONTEXTA;
 			initfq.fqd.fq_ctrl = QM_FQCTRL_CTXASTASHING;
 			initfq.fqd.context_a.stashing.context_cl =
-					(sizeof(*fq) + 63) / 64;
+				(sizeof(*fq) + L1_CACHE_BYTES - 1) / L1_CACHE_BYTES;
 
 			if (qman_init_fq(fq, QMAN_INITFQ_FLAG_LOCAL, &initfq))
 				panic("qman_init_fq() failed\n");
