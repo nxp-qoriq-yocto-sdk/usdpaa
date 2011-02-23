@@ -316,13 +316,15 @@ static int process_pcdfile(const char *filename, char *policy_name,
 	xmlErrorPtr error;
 	int _errno = -ENXIO;
 	char *name;
+	xmlDocPtr doc;
+	xmlNodePtr cur;
 
 	xmlInitParser();
 	LIBXML_TEST_VERSION;
 	xmlSetStructuredErrorFunc(&error, fmc_netcfg_parse_error);
 	xmlKeepBlanksDefault(0);
 
-	xmlDocPtr doc = xmlParseFile(filename);
+	doc = xmlParseFile(filename);
 	if (unlikely(doc == NULL)) {
 		fprintf(stderr, "%s:%hu:%s() error: xmlParseFile(%s)\n",
 				__FILE__, __LINE__, __func__, filename);
@@ -330,7 +332,7 @@ static int process_pcdfile(const char *filename, char *policy_name,
 	}
 
 	netpcd_root_node = xmlDocGetRootElement(doc);
-	xmlNodePtr cur = netpcd_root_node;
+	cur = netpcd_root_node;
 
 	if (unlikely(cur == NULL)) {
 		fprintf(stderr, "%s:%hu:%s() error: xml file(%s) empty\n",
@@ -371,6 +373,7 @@ static int parse_engine(xmlNodePtr enode, const char *pcd_file)
 	char *tmp;
 	static uint8_t p_curr;
 	uint8_t fman, p_type, p_num;
+	xmlNodePtr cur;
 
 	if (unlikely(!is_node(enode, BAD_CAST CFG_FMAN_NODE))) {
 		fprintf(stderr, "%s:%hu:%s() error: (%s) node not found"
@@ -390,7 +393,7 @@ static int parse_engine(xmlNodePtr enode, const char *pcd_file)
 
 	fman = tmp[2] - '0';
 
-	xmlNodePtr cur = enode->xmlChildrenNode;
+	cur = enode->xmlChildrenNode;
 
 	for_all_sibling_nodes(cur) {
 		if (unlikely(!is_node(cur, BAD_CAST CFG_PORT_NODE)))

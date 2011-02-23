@@ -43,8 +43,7 @@
  */
 static inline uint16_t ip_checksum(struct iphdr *ip_hdr, uint8_t len)
 {
-	uint32_t sum;
-	sum = 0;
+	uint32_t sum = 0;
 	uint16_t *buff;
 
 	buff = (uint16_t *) ip_hdr;
