@@ -33,16 +33,27 @@
 #ifndef __DMA_MEM_H
 #define __DMA_MEM_H
 
+#include <usdpaa/compat.h>
+
 /* These types are for linux-compatibility, eg. they're used by single-source
- * qbman drivers. These aren't in compat.h because that would lead to
- * dependencies being back-to-front. */
-typedef uint64_t dma_addr_t;
+ * qbman drivers. Only dma_addr_t is in compat.h, because it is required by
+ * fsl_qman.h. The remaining definitions are here because they're only required
+ * by the the "dma_mem" driver interface. */
 enum dma_data_direction {
 	DMA_BIDIRECTIONAL = 0,
 	DMA_TO_DEVICE = 1,
 	DMA_FROM_DEVICE = 2,
 	DMA_NONE = 3,
 };
+#define DMA_BIT_MASK(n) (((uint64_t)1 << (n)) - 1)
+int dma_set_mask(void *dev __always_unused, uint64_t v __always_unused);
+dma_addr_t dma_map_single(void *dev __always_unused, void *cpu_addr,
+			size_t size __maybe_unused,
+			enum dma_data_direction direction __always_unused);
+int dma_mapping_error(void *dev __always_unused,
+			dma_addr_t dma_addr __always_unused);
+
+/* The following definitions and interfaces are USDPAA-specific */
 
 /* For an efficient conversion between user-space virtual address map(s) and bus
  * addresses required by hardware for DMA, we use a single contiguous mmap() on
@@ -76,29 +87,6 @@ static inline void *dma_mem_ptov(dma_addr_t p)
 static inline dma_addr_t dma_mem_vtop(void *v)
 {
 	return (dma_addr_t)(unsigned long)v + DMA_MEM_PHYS - __dma_virt;
-}
-
-/* These interfaces are also for linux-compatibility, but are declared down here
- * because the implementations are dependent on dma_mem-specific interfaces
- * above. */
-#define DMA_BIT_MASK(n) (((uint64_t)1 << (n)) - 1)
-static inline int dma_set_mask(void *dev __always_unused,
-			uint64_t v __always_unused)
-{
-	return 0;
-}
-static inline dma_addr_t dma_map_single(void *dev __always_unused,
-			void *cpu_addr, size_t size __maybe_unused,
-			enum dma_data_direction direction __always_unused)
-{
-	BUG_ON((u32)cpu_addr < DMA_MEM_VIRT);
-	BUG_ON(((u32)cpu_addr + size) > (DMA_MEM_VIRT + DMA_MEM_SIZE));
-	return dma_mem_vtop(cpu_addr);
-}
-static inline int dma_mapping_error(void *dev __always_unused,
-				dma_addr_t dma_addr __always_unused)
-{
-	return 0;
 }
 
 #endif	/* __DMA_MEM_H */

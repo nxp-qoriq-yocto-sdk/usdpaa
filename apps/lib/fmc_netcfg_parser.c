@@ -30,8 +30,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <compat.h>
-#include <libxml/parser.h>
 #include "fmc_netcfg_parser.h"
 
 #define CFG_FILE_ROOT_NODE		("cfgdata")

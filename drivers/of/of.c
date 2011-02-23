@@ -1,4 +1,4 @@
-/* Copyright (c) 2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,8 +30,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <compat.h>
-#include <of.h>
+#include <internal/of.h>
 
 #define OF_DEFAULT_NA 1
 #define OF_DEFAULT_NS 1

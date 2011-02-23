@@ -33,9 +33,9 @@
 #ifndef __FMC_NETCFG_PARSER_H
 #define	__FMC_NETCFG_PARSER_H
 
-#include <stdint.h>
-#include <fsl_usd.h>
-
+#include <usdpaa/fsl_usd.h>
+#include <internal/compat.h>
+#include <libxml/parser.h>
 
 struct fmc_netcfg_fqrange {
 	uint32_t start;

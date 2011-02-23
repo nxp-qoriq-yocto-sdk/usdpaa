@@ -30,7 +30,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <compat.h>
+#include <usdpaa/dma_mem.h>
+#include <internal/compat.h>
 
 /* Hook to allocator.c */
 int dma_mem_alloc_init(void *bar, size_t sz);

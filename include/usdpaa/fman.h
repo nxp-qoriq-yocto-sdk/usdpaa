@@ -1,4 +1,4 @@
-/* Copyright (c) 2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,8 +33,8 @@
 #ifndef __FMAN_H
 #define __FMAN_H
 
-#include <fsl_qman.h>
-#include <net/ethernet.h>
+#include <usdpaa/compat.h>
+#include <usdpaa/fsl_qman.h>
 
 /* This struct exports parameters about an Fman network interface, determined
  * from the device-tree. */

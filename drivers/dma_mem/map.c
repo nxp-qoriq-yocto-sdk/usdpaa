@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,24 +30,25 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <usdpaa/fsl_usd.h>
-#include <usdpaa/fsl_qman.h>
-#include <usdpaa/fsl_bman.h>
-#include <usdpaa/dma_mem.h>
+#include "private.h"
 
-#include <internal/compat.h>
+int dma_set_mask(void *dev __always_unused, uint64_t v __always_unused)
+{
+	return 0;
+}
 
-struct worker {
-	int cpu, do_global_init;
-	int idx, total_cpus;
-	pthread_t id;
-	struct list_head node;
-	pthread_barrier_t global_init_barrier;
-};
+dma_addr_t dma_map_single(void *dev __always_unused, void *cpu_addr,
+			size_t size __maybe_unused,
+			enum dma_data_direction direction __always_unused)
+{
+	BUG_ON((u32)cpu_addr < DMA_MEM_VIRT);
+	BUG_ON(((u32)cpu_addr + size) > (DMA_MEM_VIRT + DMA_MEM_SIZE));
+	return dma_mem_vtop(cpu_addr);
+}
 
-void sync_all(void);
+int dma_mapping_error(void *dev __always_unused,
+			dma_addr_t dma_addr __always_unused)
+{
+	return 0;
+}
 
-void qman_test_high(struct worker *worker);
-void bman_test_high(struct worker *worker);
-void speed(struct worker *worker);
-void blastman(struct worker *worker);

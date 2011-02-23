@@ -1,4 +1,4 @@
-/* Copyright (c) 2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,9 +30,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <compat.h>
-#include <of.h>
-#include <fman.h>
+#include <usdpaa/fman.h>
+
+#include <internal/of.h>
 
 /* The exported "struct fman_if" type contains the subset of fields we want
  * exposed. This struct is embedded in a larger "struct __fman_if" which

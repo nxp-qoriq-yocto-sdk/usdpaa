@@ -33,13 +33,13 @@
 #ifndef HEADER_COMPAT_H
 #define HEADER_COMPAT_H
 
-#define _GNU_SOURCE
-#include <pthread.h>
-#include <stdlib.h>
+#include <usdpaa/compat.h>
+
+/* <usdpaa/compat.h> already includes system headers and definitions required
+ * via the APIs, so these includes and definitions should only supply whatever
+ * additions are required to compile the implementations. */
 #include <stdio.h>
-#include <stdint.h>
-#include <errno.h>
-#include <string.h>
+#include <stdbool.h>
 #include <ctype.h>
 #include <malloc.h>
 #include <sys/types.h>
@@ -56,7 +56,7 @@
  * an app does not include it, it may compile ok but assume all configuration
  * choices are deselected (which may mean the driver and the app may be
  * behaviourally incompatible). */
-#include <conf.h>
+#include <internal/conf.h>
 
 /* NB: these compatibility shims are in this exported header because they're
  * required by interfaces shared with linux drivers (ie. for "single-source"
@@ -73,20 +73,13 @@ static inline void markpoint(const uint32_t markid) {
 #endif
 
 /* Compiler/type stuff */
-typedef unsigned char   u8;
 typedef unsigned char   __u8;
-typedef unsigned short  u16;
 typedef unsigned short  __u16;
-typedef unsigned int    u32;
 typedef unsigned int    __u32;
-typedef uint64_t	u64;
 typedef uint64_t	__u64;
 typedef unsigned int	gfp_t;
 typedef int		phandle;
-#define __maybe_unused	__attribute__((unused))
-#define __always_unused	__attribute__((unused))
 #define noinline	__attribute__((noinline))
-#define __packed	__attribute__((__packed__))
 #define ____cacheline_aligned __attribute__((aligned(64)))
 #define likely(x)       __builtin_expect(!!(x), 1)
 #define unlikely(x)     __builtin_expect(!!(x), 0)
@@ -288,7 +281,6 @@ static inline void cpu_spin(int cycles)
 }
 
 /* SMP stuff */
-typedef cpu_set_t cpumask_t;
 static inline int cpumask_test_cpu(int cpu, cpumask_t *mask)
 {
 	return CPU_ISSET(cpu, mask);
@@ -622,64 +614,6 @@ static inline int find_first_zero_bit(unsigned long *bits, int limit)
 	return idx;
 }
 
-/****************/
-/* Linked-lists */
-/****************/
-
-/* Allow linux linked-list-dependent code to build on LWE */
-struct list_head {
-	struct list_head *prev;
-	struct list_head *next;
-};
-#define LIST_HEAD(n) \
-struct list_head n = { \
-	.prev = &n, \
-	.next = &n \
-};
-#define INIT_LIST_HEAD(p) \
-do { \
-	struct list_head *__p298 = (p); \
-	__p298->prev = __p298->next =__p298; \
-} while(0)
-#define list_entry(node, type, member) \
-	(type *)((void *)node - offsetof(type, member))
-#define list_empty(p) \
-({ \
-	struct list_head *__p298 = (p); \
-	((__p298->next == __p298) && (__p298->prev == __p298)); \
-})
-#define list_add(p,l) \
-do { \
-	struct list_head *__p298 = (p); \
-	struct list_head *__l298 = (l); \
-	__p298->next = __l298->next; \
-	__p298->prev = __l298; \
-	__l298->next->prev = __p298; \
-	__l298->next = __p298; \
-} while(0)
-#define list_add_tail(p,l) \
-do { \
-	struct list_head *__p298 = (p); \
-	struct list_head *__l298 = (l); \
-	__p298->prev = __l298->prev; \
-	__p298->next = __l298; \
-	__l298->prev->next = __p298; \
-	__l298->prev = __p298; \
-} while(0)
-#define list_for_each_entry(i, l, name) \
-	for (i = list_entry((l)->next, typeof(*i), name); &i->name != (l); \
-		i = list_entry(i->name.next, typeof(*i), name))
-#define list_for_each_entry_safe(i, j, l, name) \
-	for (i = list_entry((l)->next, typeof(*i), name), \
-		j = list_entry(i->name.next, typeof(*j), name); \
-		&i->name != (l); \
-		i = j, j = list_entry(j->name.next, typeof(*j), name))
-#define list_del(i) \
-do { \
-	(i)->next->prev = (i)->prev; \
-	(i)->prev->next = (i)->next; \
-} while(0)
-
 /************/
 /* RB-trees */
 /************/
@@ -701,9 +635,11 @@ do { \
  * a true rb-tree.
  */
 
+#if 0 /* declared in <usdpaa/compat.h>, required by <usdpaa/fsl_qman.h> */
 struct rb_node {
 	struct rb_node *prev, *next;
 };
+#endif
 
 struct dpa_rbtree {
 	struct rb_node *head, *tail;
@@ -785,11 +721,5 @@ static inline type *name##_find(struct dpa_rbtree *tree, u32 val) \
 	} \
 	return NULL; \
 }
-
-/* We force the inclusion of dma_mem.h here, because some of the
- * definitions there provide linux-compatibility interfaces, and we can't
- * include it explicitly from the single-source drivers, as this wouldn't
- * compile on linux. */
-#include <dma_mem.h>
 
 #endif /* HEADER_COMPAT_H */

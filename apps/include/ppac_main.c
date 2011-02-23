@@ -38,11 +38,18 @@
  *   PPAM == Packet Processing Application Module
  */
 
-#include <compat.h>
-#include <usdpa_netcfg.h>
-#include <fsl_bman.h>
-#include <fsl_qman.h>
-#include <fsl_usd.h>
+/* The code that includes us must have already included all the following, but
+ * keeping it here commented-out in case it helps someone to remember what's
+ * needed... */
+#if 0
+#include <usdpaa/compat.h>
+#include <usdpaa/fsl_bman.h>
+#include <usdpaa/fsl_qman.h>
+#include <usdpaa/fsl_usd.h>
+#include <usdpaa/dma_mem.h>
+#include <usdpaa/usdpa_netcfg.h>
+#include <internal/compat.h>
+#endif
 
 /* if defined, be lippy about everything */
 #undef PPAC_TRACE

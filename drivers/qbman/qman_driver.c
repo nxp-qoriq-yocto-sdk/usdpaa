@@ -30,8 +30,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <usdpaa/fsl_usd.h>
 #include "qman_private.h"
-#include <fsl_usd.h>
 
 /* Global variable containing revision id (even on non-control plane systems
  * where CCSR isn't available). FIXME: hard-coded. */

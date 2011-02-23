@@ -30,7 +30,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "compat.h"
+#include <usdpaa/dma_mem.h>
+#include <internal/compat.h>
 
 #ifdef CONFIG_FSL_DPA_CHECKING
 #define DPA_ASSERT(x) \

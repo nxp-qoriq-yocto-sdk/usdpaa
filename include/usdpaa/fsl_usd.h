@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,24 +30,48 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <usdpaa/fsl_usd.h>
-#include <usdpaa/fsl_qman.h>
-#include <usdpaa/fsl_bman.h>
-#include <usdpaa/dma_mem.h>
+#ifndef FSL_USD_H
+#define FSL_USD_H
 
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
 
-struct worker {
-	int cpu, do_global_init;
-	int idx, total_cpus;
-	pthread_t id;
-	struct list_head node;
-	pthread_barrier_t global_init_barrier;
-};
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-void sync_all(void);
+/***********************************/
+/* USDPAA-specific initialisation: */
 
-void qman_test_high(struct worker *worker);
-void bman_test_high(struct worker *worker);
-void speed(struct worker *worker);
-void blastman(struct worker *worker);
+/* Thread-entry/exit hooks; */
+int qman_thread_init(int cpu, int recovery_mode);
+int bman_thread_init(int cpu, int recovery_mode);
+int qman_thread_finish(void);
+int bman_thread_finish(void);
+
+/* Obtain thread-local UIO file-descriptors */
+int qman_thread_fd(void);
+int bman_thread_fd(void);
+
+/* Post-process interrupts. NB, the kernel IRQ handler disables the interrupt
+ * line before notifying us, and this post-processing re-enables it once
+ * processing is complete. As such, it is essential to call this before going
+ * into another blocking read/select/poll. */
+void qman_thread_irq(void);
+void bman_thread_irq(void);
+
+/* Global setup, must be called on an initialised thread if recovery_mode!=0 */
+int qman_global_init(int recovery_mode);
+int bman_global_init(int recovery_mode);
+
+#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
+/* Rev1-specific instrumentation to throttle (per-cpu) EQCR_CI updates */
+extern __thread u32 eqcr_ci_histogram[8];
+extern __thread u32 throt_histogram[41];
+#endif
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* FSL_USD_H */
+

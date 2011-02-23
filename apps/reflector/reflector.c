@@ -30,13 +30,16 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <compat.h>
-#include <usdpa_netcfg.h>
-#include <fsl_bman.h>
-#include <fsl_qman.h>
-#include <fsl_usd.h>
+/* Maintenance note: keep this list of includes sync'd with the commented-out
+ * list in ppac_main.c. */
+#include <usdpaa/compat.h>
+#include <usdpaa/fsl_bman.h>
+#include <usdpaa/fsl_qman.h>
+#include <usdpaa/fsl_usd.h>
+#include <usdpaa/dma_mem.h>
+#include <usdpaa/usdpa_netcfg.h>
+#include <internal/compat.h>
 
-#include <net/ethernet.h>
 #include <net/if_arp.h>
 #include <linux/ip.h>
 

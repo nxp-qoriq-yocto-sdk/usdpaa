@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,15 +27,16 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __CONF_H
-#define __CONF_H
+#ifndef HEADER_USDPAA_CONF_H
+#define HEADER_USDPAA_CONF_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+/* This header is included by <usdpaa/compat.h>, and thus by all other
+ * <usdpaa/xxx.h> headers. It should provide the minimal set of configuration
+ * primitives required by these headers, and thus by any code (internal,
+ * application, or 3rd party) that includes them. */
 
-/*
- * The contiguous memory map for 'dma_mem' uses the DMA_MEM_*** constants, the
+
+/* The contiguous memory map for 'dma_mem' uses the DMA_MEM_*** constants, the
  * _PHYS and _SIZE values *must* agree with the "mem=<...>" kernel boot
  * parameter as well as the device-tree's "fsl-shmem" node.
  *
@@ -43,66 +44,14 @@ extern "C" {
  * indicated by DMA_MEM_BPOOL. The ad-hoc buffer allocation will be confined to
  * the area following that range, in order to not conflict with buffer pool
  * usage.
+ *
+ * NB: these settings are required in the exported conf.h because of the inlined
+ * dma_mem_ptov() and dma_mem_vtop() functions.
  */
 #define DMA_MEM_PATH	"/dev/fsl-shmem"
 #define DMA_MEM_PHYS	0x70000000 /* 1.75G */
 #define DMA_MEM_SIZE	0x10000000 /* 256M */
 #define DMA_MEM_BPOOL	0x05b80000 /* ~92M */
 
-/* Until device-trees (or device-tree replacements) are available, another thing
- * to hard-code is the FQID and BPID range allocation. */
-#define FSL_FQID_RANGE_START	0x200	/* 512 */
-#define FSL_FQID_RANGE_LENGTH	0x080	/* 128 */
-#define FSL_BPID_RANGE_START	56
-#define FSL_BPID_RANGE_LENGTH	8
 
-/* support for BUG_ON()s, might_sleep()s, etc */
-#undef CONFIG_BUGON
-
-/* When copying aligned words or shorts, try to avoid memcpy() */
-#define CONFIG_TRY_BETTER_MEMCPY
-
-/* don't support blocking (so, WAIT flags won't be #define'd) */
-#undef CONFIG_FSL_DPA_CAN_WAIT
-
-#ifdef CONFIG_FSL_DPA_CAN_WAIT
-/* if we can "WAIT" - can we "WAIT_SYNC" too? */
-#undef CONFIG_FSL_DPA_CAN_WAIT_SYNC
-#endif
-
-/* disable support for run-time parameter checking, assertions, etc */
-#undef CONFIG_FSL_DPA_CHECKING
-
-/* support IRQs */
-#define CONFIG_FSL_DPA_HAVE_IRQ
-
-/* workarounds for errata and missing features in p4080 rev1 */
-#define CONFIG_FSL_QMAN_BUG_AND_FEATURE_REV1
-
-/* don't use rev1-specific adaptive "backoff" for EQCR:CI updates */
-#undef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
-
-/* support FQ allocator built on top of BPID 0 */
-#define CONFIG_FSL_QMAN_FQALLOCATOR
-
-/* don't disable DCA on auto-initialised portals */
-#undef CONFIG_FSL_QMAN_PORTAL_DISABLEAUTO_DCA
-
-/* Interrupt-gating settings */
-#define CONFIG_FSL_QMAN_PIRQ_DQRR_ITHRESH 0
-#define CONFIG_FSL_QMAN_PIRQ_MR_ITHRESH 0
-#define CONFIG_FSL_QMAN_PIRQ_IPERIOD 0
-
-/* maximum number of DQRR entries to process in qman_poll() */
-#define CONFIG_FSL_QMAN_POLL_LIMIT 8
-
-/* don't compile support for NULL FQ handling */
-#undef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
-
-/* don't compile support for DQRR prefetching (so stashing is required) */
-#undef CONFIG_FSL_QMAN_DQRR_PREFETCHING
-
-#ifdef __cplusplus
-}
-#endif
-#endif
+#endif /* HEADER_USDPAA_CONF_H */

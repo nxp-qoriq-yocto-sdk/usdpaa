@@ -1,4 +1,4 @@
-# Copyright (c) 2010 Freescale Semiconductor, Inc.
+# Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -31,4 +31,4 @@
 
 lib_LIBRARIES = usdpaa_dma_mem
 
-usdpaa_dma_mem_SOURCES := setup.c allocator.c
+usdpaa_dma_mem_SOURCES := setup.c allocator.c map.c

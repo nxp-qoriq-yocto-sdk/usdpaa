@@ -30,51 +30,51 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __CONFIG_H
-#define	__CONFIG_H
+#ifndef __OF_H
+#define	__OF_H
 
-#include <stdint.h>
-#include <fman.h>
-#include <net/ethernet.h>
+#include <internal/compat.h>
 
-/* Configuration information related to a specific ethernet port */
-struct fm_eth_port_cfg {
-	/* PCD and "Rx default" FQIDs, obtained from FMC configuration */
-	struct  {
-		uint32_t start;
-		uint32_t count;
-	} pcd;
-	uint32_t rx_def;
-	/* Other interface details are in the fman driver interface */
-	struct fman_if *fman_if;
+#define of_prop_cmp	strcmp
+#define of_compat_cmp	strncasecmp
+
+struct device_node
+{
+	char	*name;
+	char	 full_name[PATH_MAX];
+
+	uint8_t	 _property[64];
 };
 
-/* This structure contains the configuration information for the USDPAA app. */
-struct usdpa_netcfg_info {
-	uint8_t num_cgrids;
-	uint32_t *cgrids;
-	uint8_t num_pool_channels;
-	enum qm_channel *pool_channels;
-	uint8_t num_ethports;	/* Number of ports */
-	struct fm_eth_port_cfg port_cfg[0]; /* variable structure array of size
-					num_ethports. */
-};
+struct device_node *of_get_parent(const struct device_node *dev_node);
 
-/* pcd_file: FMC netpcd XML ("policy") file, that contains PCD information.
- * cfg_file: FMC config XML file
- * Returns the configuration information in newly allocated memory.
- */
-struct usdpa_netcfg_info *usdpa_netcfg_acquire(const char *pcd_file,
-					const char *cfg_file);
+void *of_get_property(struct device_node *from, const char *name, size_t *lenp)
+	__attribute__((nonnull(2)));
 
-/* cfg_ptr: configuration information pointer.
- * Frees the resources allocated by the configuration layer.
- */
-void usdpa_netcfg_release(struct usdpa_netcfg_info *cfg_ptr);
+uint32_t of_n_addr_cells(const struct device_node *dev_node);
+uint32_t of_n_size_cells(const struct device_node *dev_node);
 
-/* cfg_ptr: configuration information pointer.
- * This function dumps configuration data to stdout.
- */
-void dump_usdpa_netcfg(struct usdpa_netcfg_info *cfg_ptr);
+const uint32_t *of_get_address(struct device_node	*dev_node,
+			       size_t			 index,
+			       uint64_t			*size,
+			       uint32_t			*flags);
 
-#endif
+uint64_t of_translate_address(struct device_node *dev_node, const u32 *addr)
+	__attribute__((nonnull));
+
+struct device_node *of_find_compatible_node(const struct device_node	*from,
+					    const char			*type,
+					    const char			*compatible)
+	__attribute__((nonnull(3)));
+
+#define for_each_compatible_node(dev_node, type, compatible)			\
+	for (dev_node = of_find_compatible_node(NULL, type, compatible);	\
+	     dev_node != NULL;							\
+	     dev_node = of_find_compatible_node(NULL, type, compatible))
+
+struct device_node *of_find_node_by_phandle(phandle ph);
+
+bool of_device_is_available(struct device_node *dev_node);
+bool of_device_is_compatible(struct device_node *dev_node, const char *compatible);
+
+#endif	/*  __OF_H */

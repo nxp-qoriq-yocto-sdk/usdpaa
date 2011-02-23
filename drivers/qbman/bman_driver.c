@@ -30,8 +30,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <usdpaa/fsl_usd.h>
 #include "bman_private.h"
-#include <fsl_usd.h>
 
 /*****************/
 /* Portal driver */

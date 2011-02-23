@@ -31,7 +31,6 @@
  */
 
 #include "private.h"
-#include <fsl_usd.h>
 
 /* Barrier used by tests running across all threads */
 static pthread_barrier_t barr;

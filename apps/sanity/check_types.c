@@ -30,9 +30,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <compat.h>
-#include <fsl_bman.h>
-#include <fsl_qman.h>
+#include <usdpaa/compat.h>
+#include <usdpaa/fsl_bman.h>
+#include <usdpaa/fsl_qman.h>
+
+#include <internal/compat.h>
 
 /* This code exists just to sanity-check certain API headers for regressions */
 

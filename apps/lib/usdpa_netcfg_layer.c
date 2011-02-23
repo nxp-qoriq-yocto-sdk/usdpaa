@@ -30,9 +30,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <compat.h>
-#include <usdpa_netcfg.h>
-#include <fman.h>
+#include <usdpaa/usdpa_netcfg.h>
 #include "fmc_netcfg_parser.h"
 
 #define MAX_BPOOL_PER_PORT	8
