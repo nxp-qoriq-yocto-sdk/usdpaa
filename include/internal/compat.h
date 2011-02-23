@@ -73,10 +73,6 @@ static inline void markpoint(const uint32_t markid) {
 #endif
 
 /* Compiler/type stuff */
-typedef unsigned char   __u8;
-typedef unsigned short  __u16;
-typedef unsigned int    __u32;
-typedef uint64_t	__u64;
 typedef unsigned int	gfp_t;
 typedef int		phandle;
 #define noinline	__attribute__((noinline))
