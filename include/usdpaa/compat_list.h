@@ -45,7 +45,7 @@ struct list_head {
 struct list_head n = { \
 	.prev = &n, \
 	.next = &n \
-};
+}
 #define INIT_LIST_HEAD(p) \
 do { \
 	struct list_head *__p298 = (p); \

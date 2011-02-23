@@ -332,7 +332,7 @@ __atomic_add(unsigned long *ptr, long val)
 {
 	unsigned long ret;
 
-	// FIXME 64-bit
+	/* FIXME 64-bit */
 	asm volatile("1: lwarx %0, %y1;"
 	             "add %0, %0, %2;"
 	             "stwcx. %0, %y1;"
