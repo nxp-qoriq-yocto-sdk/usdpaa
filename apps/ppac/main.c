@@ -34,7 +34,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
-#include <readline.h>	/* libedit */
+#include <readline.h>  /* libedit */
 
 /***************/
 /* Global data */
@@ -782,15 +782,133 @@ static const struct argp ppac_argp = {argp_opts, ppac_parse, _ppac_args, argp_do
 
 struct ppac_arguments ppac_args;
 
+static int ppac_cli_help(int argc, char *argv[])
+{
+	const struct cli_table_entry *cli_cmd;
+
+	puts("Available commands:");
+	foreach_cli_table_entry (cli_cmd) {
+		printf("%s ", cli_cmd->cmd);
+	}
+	puts("");
+
+	return argc != 1 ? -EINVAL: 0;
+}
+
+static int ppac_cli_add(int argc, char *argv[])
+{
+	struct worker *worker;
+	int first, last, loop;
+
+	if (argc != 2)
+		return -EINVAL;
+
+	if (parse_cpus(argv[1], &first, &last) == 0)
+		for (loop = first; loop <= last; loop++) {
+			worker = worker_find(loop, 0);
+			if (worker)
+				continue;
+			worker = worker_new(loop);
+			if (worker)
+				worker_add(worker);
+		}
+
+	return 0;
+}
+
+#ifdef PPAC_CGR
+static int ppac_cli_cgr(int argc, char *argv[])
+{
+	struct worker *worker;
+
+	if (argc != 1)
+		return -EINVAL;
+
+	worker = worker_first();
+	msg_query_cgr(worker);
+
+	return 0;
+}
+#endif
+
+static int ppac_cli_list(int argc, char *argv[])
+{
+	struct worker *worker;
+
+	if (argc > 2)
+		return -EINVAL;
+	/* cpu-range is an optional argument */
+	if (argc > 1)
+		call_for_each_worker(argv[1], msg_list);
+	else
+		list_for_each_entry(worker, &workers, node)
+			msg_list(worker);
+	return 0;
+}
+
+static int ppac_cli_macs(int argc, char *argv[])
+{
+	struct list_head *i;
+
+	if (argc != 2)
+		return -EINVAL;
+
+	if (strcmp(argv[1], "off") == 0)
+		list_for_each(i, &ifs)
+			ppac_if_disable_rx((struct ppac_if *)i);
+	else if (strcmp(argv[1], "on") == 0) {
+		list_for_each(i, &ifs)
+			ppac_if_enable_rx((struct ppac_if *)i);
+	}
+	else
+		return -EINVAL;
+
+	return 0;
+}
+
+static int ppac_cli_rm(int argc, char *argv[])
+{
+	struct worker *worker;
+	int first, last, loop;
+
+	if (argc != 2)
+		return -EINVAL;
+
+	if (parse_cpus(argv[1], &first, &last) == 0)
+		for (loop = first; loop <= last; loop++) {
+			worker = worker_find(loop, 1);
+			if (!worker)
+				continue;
+			if (worker != primary) {
+				worker_free(worker);
+				continue;
+			}
+			fprintf(stderr, "skipping cpu %d, it "
+				"has responsibilities\n", loop);
+		}
+
+	return 0;
+}
+
+cli_cmd(help, ppac_cli_help);
+cli_cmd(add, ppac_cli_add);
+#ifdef PPAC_CGR
+cli_cmd(cgr, ppac_cli_cgr);
+#endif
+cli_cmd(list, ppac_cli_list);
+cli_cmd(macs, ppac_cli_macs);
+cli_cmd(rm, ppac_cli_rm);
+
 int main(int argc, char *argv[])
 {
 	struct worker *worker, *tmpworker;
 	const char *pcd_path = ppam_pcd_path;
 	const char *cfg_path = ppam_cfg_path;
 	const char *envp;
-	int first, last, loop;
-	int rcode;
-	char *cli;
+	int loop;
+	int rcode, cli_argc;
+	char *cli, **cli_argv;
+	const struct cli_table_entry *cli_cmd;
 
 	ncpus = (unsigned long)sysconf(_SC_NPROCESSORS_ONLN);
 
@@ -889,79 +1007,31 @@ int main(int argc, char *argv[])
 			continue;
 		}
 
-		/* List cpus/threads */
-		if (!strncmp(cli, "list", 4)) {
-			/* cpu-range is an optional argument */
-			if (strlen(cli) > 4)
-				call_for_each_worker(cli + 4, msg_list);
-			else
-				list_for_each_entry(worker, &workers, node)
-					msg_list(worker);
-		}
-
-		/* Add a cpu */
-		else if (!strncmp(cli, "add", 3)) {
-			if (!parse_cpus(cli + 4, &first, &last)) {
-				for (loop = first; loop <= last; loop++) {
-					worker = worker_find(loop, 0);
-					if (worker)
-						continue;
-					worker = worker_new(loop);
-					if (worker)
-						worker_add(worker);
-				}
-			}
-		}
-
-		/* Remove a cpu */
-		else if (!strncmp(cli, "rm", 2)) {
-			if (!parse_cpus(cli + 2, &first, &last)) {
-				for (loop = first; loop <= last; loop++) {
-					worker = worker_find(loop, 1);
-					if (!worker)
-						continue;
-					if (worker != primary) {
-						worker_free(worker);
-						continue;
-					}
-					fprintf(stderr, "skipping cpu %d, it "
-						"has responsibilities\n", loop);
-				}
-			}
-		}
-
-		/* Disable MACs */
-		else if (!strncmp(cli, "macs_off", 8)) {
-			struct list_head *i;
-			list_for_each(i, &ifs)
-				ppac_if_disable_rx((struct ppac_if *)i);
-		}
-
-		/* Enable MACs */
-		else if (!strncmp(cli, "macs_on", 7)) {
-			struct list_head *i;
-			list_for_each(i, &ifs)
-				ppac_if_enable_rx((struct ppac_if *)i);
-		}
-
-		/* Dump the CGR state */
-		else if (!strncmp(cli, "cgr", 3)) {
-#ifdef PPAC_CGR
-			worker = worker_first();
-			msg_query_cgr(worker);
-#else
-			fprintf(stderr, "error: no CGR support\n");
-#endif
-		}
-
-		/* try again */
-		else {
-			fprintf(stderr, "unknown cmd: %s\n", cli);
+		cli_argv = history_tokenize(cli);
+		if (unlikely(cli_argv == NULL)) {
+			fprintf(stderr, "Out of memory while parsing: %s\n", cli);
 			free(cli);
 			continue;
 		}
+		for (cli_argc = 0; cli_argv[cli_argc] != NULL; cli_argc++);
 
-		add_history(cli);
+		foreach_cli_table_entry (cli_cmd) {
+			if (strcmp(cli_argv[0], cli_cmd->cmd) == 0) {
+				rcode = cli_cmd->handle(cli_argc, cli_argv);
+				if (unlikely(rcode < 0))
+				    fprintf(stderr, "%s: %s\n",
+					    cli_cmd->cmd, strerror(-rcode));
+				add_history(cli);
+				break;
+			}
+		}
+
+		if (cli_cmd == cli_table_end)
+			fprintf(stderr, "Unknown command: %s\n", cli);
+
+		for (cli_argc = 0; cli_argv[cli_argc] != NULL; cli_argc++)
+			free(cli_argv[cli_argc]);
+		free(cli_argv);
 		free(cli);
 	}
 	/* success */

@@ -96,6 +96,22 @@ extern const struct argp ppam_argp;
 extern const char ppam_doc[];
 extern struct ppac_arguments ppac_args;
 
+typedef int (*cli_handle_t)(int argc, char *argv[]);
+struct cli_table_entry
+{
+	const char *cmd;
+	const cli_handle_t handle;
+};
+#define cli_cmd(cmd, handle)					\
+	const struct cli_table_entry cli_table_entry_##cmd	\
+	__attribute__((used, section(".data.cli_table")))	\
+	= {__stringify(cmd), handle}
+
+extern const struct cli_table_entry cli_table_start[], cli_table_end[];
+
+#define foreach_cli_table_entry(cli_cmd)	\
+	for (cli_cmd = cli_table_start; cli_cmd < cli_table_end; cli_cmd++)
+
 /*********************************/
 /* Net interface data structures */
 /*********************************/
