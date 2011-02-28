@@ -10,13 +10,13 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
+ *	 notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
+ *	 notice, this list of conditions and the following disclaimer in the
+ *	 documentation and/or other materials provided with the distribution.
  *     * Neither the name of Freescale Semiconductor nor the
- *       names of its contributors may be used to endorse or promote products
- *       derived from this software without specific prior written permission.
+ *	 names of its contributors may be used to endorse or promote products
+ *	 derived from this software without specific prior written permission.
  *
  *
  * ALTERNATIVELY, this software may be distributed under the terms of the
@@ -38,12 +38,14 @@
 
 #include "simple_crypto.h"
 
+#include <inttypes.h>
+
 #define BITS_PER_BYTE (8)
 #define BYTES_PER_WORD sizeof(int)
 #define ONE_MEGA 1000000
 #define QMAN_WAIT_CYCLES 1000
 
-uint32_t g_cmd_params;  /* bit mask of all parameters provided by user */
+uint32_t g_cmd_params;	/* bit mask of all parameters provided by user */
 
 /* user defined parameters through CP */
 struct crypto_param *crypto_info;
@@ -317,7 +319,7 @@ static int create_compound_fd(void)
 	case SNOW_F8_F9:
 		output_buf_size = crypto_info->buf_size + SNOW_F9_DIGEST_SIZE;
 
-		/* For this algorithm a  Job Descriptor will be added to the
+		/* For this algorithm a	 Job Descriptor will be added to the
 		 * head of the SEC frame. Increase the buffer capacity and
 		 * length. The same buffer will be used for holding the
 		 * plain-text data + encrypt job descriptor and later the
@@ -427,8 +429,7 @@ static void *setup_init_descriptor(bool mode)
 
 	memset(prehdr_desc, 0, sizeof(struct sec_descriptor_t));
 
-	shared_desc = (uint32_t *) ((uint32_t) prehdr_desc
-			+ sizeof(struct preheader_s));
+	shared_desc = (typeof(shared_desc))&prehdr_desc->deschdr;
 
 	switch (crypto_info->algo) {
 	case AES_CBC:
@@ -1100,7 +1101,7 @@ void print_frame_desc(struct qm_fd *frame_desc)
 				 frame_desc->addr_hi, frame_desc->addr_lo);
 			pr_err("   - SG Entry\n");
 			pr_err
-				("      - address       0x%04x%08x\n",
+				("	- address	0x%04x%08x\n",
 				 sgentry->addr_hi, sgentry->addr_lo);
 
 			pr_err("      - F	     %d\n", sgentry->final);
@@ -1120,7 +1121,7 @@ void print_frame_desc(struct qm_fd *frame_desc)
 			sgentry++;
 			pr_err("   - Next SG Entry\n");
 			pr_err
-				("      - address       0x%04x%08x\n",
+				("	- address	0x%04x%08x\n",
 				 sgentry->addr_hi, sgentry->addr_lo);
 
 			pr_err("      - F	     %d\n", sgentry->final);
@@ -1409,7 +1410,7 @@ struct crypto_msg {
  *					      optional
  *			OPTION_ALIAS	- This option is an alias for the
  *					      previous option
- *			OPTION_HIDDEN       - Don't show this option in
+ *			OPTION_HIDDEN	    - Don't show this option in
  *						--help output
  *
  *		DOC - A documentation string for this option, shown in
@@ -1993,7 +1994,7 @@ int main(int argc, char *argv[])
 		enc_cycles_per_frame = (enc_delta) /
 			(crypto_info->itr_num * total_buf_num);
 
-		pr_info("%s: Throughput = %llu Mbps\n",
+		pr_info("%s: Throughput = %"PRIu64" Mbps\n",
 			 authnct ? "Authenticate" : "Encrypt",
 				(cpu_freq * BITS_PER_BYTE *
 				crypto_info->buf_size) /
@@ -2003,7 +2004,7 @@ int main(int argc, char *argv[])
 			dec_cycles_per_frame = (dec_delta) /
 				(crypto_info->itr_num * total_buf_num);
 
-			pr_info("%s: Throughput = %llu Mbps\n",
+			pr_info("%s: Throughput = %"PRIu64" Mbps\n",
 				"Decrypt", (cpu_freq * BITS_PER_BYTE *
 				crypto_info->buf_size) / dec_cycles_per_frame);
 		}
