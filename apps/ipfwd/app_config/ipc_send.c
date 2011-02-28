@@ -123,7 +123,7 @@ void send_to_mq(struct app_ctrl_op_info *saInfo)
  \param[in] type Message Type for the CP request - Route Add or delete
  \return none
  */
-void ipc_add_del_command(int argc, char **argv, char *type)
+void ipc_add_del_command(int argc, char **argv, unsigned type)
 {
 	unsigned int i = 0;
 	struct app_ctrl_op_info route_info;
@@ -137,7 +137,7 @@ void ipc_add_del_command(int argc, char **argv, char *type)
 	 */
 	memset(&route_info, 0, sizeof(route_info));
 	route_info.state = IPC_CTRL_CMD_STATE_IDLE;
-	route_info.msg_type = (unsigned int)type;
+	route_info.msg_type = type;
 	route_info.result = IPC_CTRL_RSLT_FAILURE;
 
 	g_mndtr_param = 0;
@@ -190,7 +190,7 @@ copy:
  \param[in] type Message Type for the CP request - ARP Add or delete
  \return none
  */
-void ipc_arp_add_del_command(int argc, char **argv, char *type)
+void ipc_arp_add_del_command(int argc, char **argv, unsigned type)
 {
 	unsigned int i = 0;
 	struct app_ctrl_op_info route_info;
@@ -205,7 +205,7 @@ void ipc_arp_add_del_command(int argc, char **argv, char *type)
 	 */
 	memset(&route_info, 0, sizeof(route_info));
 	route_info.state = IPC_CTRL_CMD_STATE_IDLE;
-	route_info.msg_type = (unsigned int)type;
+	route_info.msg_type = type;
 	route_info.result = IPC_CTRL_RSLT_FAILURE;
 
 	g_mndtr_param = 0;
@@ -256,7 +256,7 @@ copy:
  \param[in] type Message Type for the CP request - Edit Frame Count
  \return none
  */
-void ipc_edit_frame_cnt_command(int argc, char **argv, char *type)
+void ipc_edit_frame_cnt_command(int argc, char **argv, unsigned type)
 {
 	struct app_ctrl_op_info route_info;
 	struct argp *route_argp[] = { &framecnt_argp };
@@ -266,7 +266,7 @@ void ipc_edit_frame_cnt_command(int argc, char **argv, char *type)
 	 */
 	memset(&route_info, 0, sizeof(route_info));
 	route_info.state = IPC_CTRL_CMD_STATE_IDLE;
-	route_info.msg_type = (unsigned int)type;
+	route_info.msg_type = type;
 	route_info.result = IPC_CTRL_RSLT_FAILURE;
 
 	/* Where the magic happens */
@@ -607,7 +607,7 @@ int main(int argc, char **argv)
 		*/
 		memset(&route_info, 0, sizeof(route_info));
 		route_info.state = IPC_CTRL_CMD_STATE_IDLE;
-		route_info.msg_type = (unsigned int)sa_info.msg_type;
+		route_info.msg_type = sa_info.msg_type;
 		route_info.result = IPC_CTRL_RSLT_FAILURE;
 
 		send_to_mq(&route_info);
@@ -624,7 +624,7 @@ int main(int argc, char **argv)
 			    ("\nFILE: %s : LINE %d : IN MAIN : THE TYPE PROVIDED FOR ADD OPTION IS : %d",
 			     __FILE__, __LINE__, sa_info.msg_type);
 			ipc_add_del_command(argc - 1, &argv[1],
-					       (char *)sa_info.msg_type);
+					    sa_info.msg_type);
 		}
 		break;
 
@@ -634,7 +634,7 @@ int main(int argc, char **argv)
 			    ("\nFILE: %s : LINE %d : IN MAIN : THE TYPE PROVIDED FOR DELETE OPTION IS : %d",
 			     __FILE__, __LINE__, sa_info.msg_type);
 			ipc_add_del_command(argc - 1, &argv[1],
-					       (char *)sa_info.msg_type);
+					    sa_info.msg_type);
 		}
 		break;
 
@@ -644,7 +644,7 @@ int main(int argc, char **argv)
 			    ("\nFILE: %s : LINE %d : IN MAIN : THE TYPE PROVIDED FOR ADD OPTION IS : %d",
 			     __FILE__, __LINE__, sa_info.msg_type);
 			ipc_arp_add_del_command(argc - 1, &argv[1],
-						(char *)sa_info.msg_type);
+						sa_info.msg_type);
 		}
 		break;
 
@@ -654,7 +654,7 @@ int main(int argc, char **argv)
 			    ("\nFILE: %s : LINE %d : IN MAIN : THE TYPE PROVIDED FOR DELETE OPTION IS : %d",
 			     __FILE__, __LINE__, sa_info.msg_type);
 			ipc_arp_add_del_command(argc - 1, &argv[1],
-						(char *)sa_info.msg_type);
+						sa_info.msg_type);
 		}
 		break;
 
@@ -664,7 +664,7 @@ int main(int argc, char **argv)
 			    ("\nFILE: %s : LINE %d : IN MAIN : THE TYPE PROVIDED FOR EDIT OPTION IS : %d",
 			     __FILE__, __LINE__, sa_info.msg_type);
 			ipc_edit_frame_cnt_command(argc - 1, &argv[1],
-						(char *)sa_info.msg_type);
+						   sa_info.msg_type);
 		}
 		break;
 
