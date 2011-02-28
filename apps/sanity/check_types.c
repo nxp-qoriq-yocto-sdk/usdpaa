@@ -48,11 +48,11 @@
 		size_t foo_got = (unsigned long)&myvar.suffix - \
 				(unsigned long)&myvar; \
 		if (foo_expected != foo_got) { \
-			fprintf(stderr, "FAIL: sizeof(%s) == %d, not %d\n", \
+			fprintf(stderr, "FAIL: sizeof(%s) == %zu, not %zu\n", \
 				__stringify(type), foo_got, foo_expected); \
 			ret = -1; \
 		} else \
-			printf("OK: sizeof(%s) == %d\n", \
+			printf("OK: sizeof(%s) == %zu\n", \
 				__stringify(type), foo_got); \
 	} while (0)
 
@@ -78,4 +78,3 @@ int main(int argc, char *argv[])
 		printf("All checks passed\n");
 	return ret;
 }
-
