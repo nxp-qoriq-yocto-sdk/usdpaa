@@ -4,13 +4,13 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
+ *	 notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
+ *	 notice, this list of conditions and the following disclaimer in the
+ *	 documentation and/or other materials provided with the distribution.
  *     * Neither the name of Freescale Semiconductor nor the
- *       names of its contributors may be used to endorse or promote products
- *       derived from this software without specific prior written permission.
+ *	 names of its contributors may be used to endorse or promote products
+ *	 derived from this software without specific prior written permission.
  *
  *
  * ALTERNATIVELY, this software may be distributed under the terms of the
@@ -32,6 +32,8 @@
 
 #include <usdpaa/usdpa_netcfg.h>
 #include "fmc_netcfg_parser.h"
+
+#include <inttypes.h>
 
 #define MAX_BPOOL_PER_PORT	8
 
@@ -57,14 +59,14 @@ void dump_usdpa_netcfg(struct usdpa_netcfg_info *cfg_ptr)
 
 	/* CGRs */
 	printf("Available CGRS: %d\n", cfg_ptr->num_cgrids);
-	printf("        {");
+	printf("	{");
 	for (i = 0; i < cfg_ptr->num_cgrids; i++)
 		printf("%s%d", i ? "," : "", cfg_ptr->cgrids[i]);
 	printf("}\n\n");
 
 	/* Pool channels */
 	printf("Available pool channels: %d\n", cfg_ptr->num_pool_channels);
-	printf("        {");
+	printf("	{");
 	for (i = 0; i < cfg_ptr->num_pool_channels; i++)
 		printf("%s%d", i ? "," : "", cfg_ptr->pool_channels[i]);
 	printf("}\n\n");
@@ -78,7 +80,7 @@ void dump_usdpa_netcfg(struct usdpa_netcfg_info *cfg_ptr)
 		printf("\n+ Fman %d, MAC %d (%s);\n",
 			__if->fman_idx, __if->mac_idx,
 			__if->mac_type == fman_mac_1g ? "1G" : "10G");
-		printf("          mac_addr: " ETH_MAC_PRINTF_FMT "\n",
+		printf("	  mac_addr: " ETH_MAC_PRINTF_FMT "\n",
 			ETH_MAC_PRINTF_ARGS(&__if->mac_addr));
 		printf("     tx_channel_id: 0x%02x\n", __if->tx_channel_id);
 		printf("      fqid_rx_hash: (PCD: start 0x%x, count %d)\n",
@@ -88,10 +90,10 @@ void dump_usdpa_netcfg(struct usdpa_netcfg_info *cfg_ptr)
 		printf("       fqid_tx_err: 0x%x\n", __if->fqid_tx_err);
 		printf("   fqid_tx_confirm: 0x%x\n", __if->fqid_tx_confirm);
 		fman_if_for_each_bpool(bpool, __if)
-			printf("       buffer pool: (bpid=%d,count=%lld,"
-				"size=%lld,addr=0x%llx)\n",
-				bpool->bpid, bpool->count, bpool->size,
-				bpool->addr);
+			printf("       buffer pool: (bpid=%d, count=%"PRId64
+			       "size=%"PRId64", addr=0x%"PRIx64")\n",
+			       bpool->bpid, bpool->count, bpool->size,
+			       bpool->addr);
 	}
 }
 
@@ -101,7 +103,7 @@ static int qm_init_cgr_values(struct usdpa_netcfg_info *cfgptr)
 	int i;
 
 	cfgptr->num_cgrids = ARRAY_SIZE(qm_cgrid);
-	cfgptr->cgrids  = malloc(sizeof(*(cfgptr->cgrids)) * cfgptr->num_cgrids);
+	cfgptr->cgrids	= malloc(sizeof(*(cfgptr->cgrids)) * cfgptr->num_cgrids);
 	if (unlikely(cfgptr->cgrids == NULL))
 		return -ENOMEM;
 
