@@ -37,30 +37,30 @@
 #include "common/refcount.h"
 #include "statistics.h"
 
-#define NEIGH_STATE_UNKNOWN     0x00
+#define NEIGH_STATE_UNKNOWN	0x00
 /**< Entry State - Unknown*/
-#define NEIGH_STATE_NO_NEIGH    0x01				/**< Entry State - No Neighbour*/
-#define NEIGH_STATE_PERMANENT   0x02				/**< Entry State - Permanent*/
+#define NEIGH_STATE_NO_NEIGH	0x01				/**< Entry State - No Neighbour*/
+#define NEIGH_STATE_PERMANENT	0x02				/**< Entry State - Permanent*/
 #define NEIGH_STATE_PENDING	0x04				/**< Entry State - Incomplete*/
-#define NEIGH_STATE_REACHABLE   0x08				/**< Entry State - Reachable*/
-#define NEIGH_STATE_STALE       0x10					/**< Entry State - Stale*/
-#define NEIGH_STATE_QUIESCE     0x20					/**< Entry State - Quisce*/
-#define NEIGH_STATE_SOLICIT     0x40					/**< Entry State - Solicit*/
-#define NEIGH_STATE_FAILED      0x80					/**< Entry State - Failed*/
+#define NEIGH_STATE_REACHABLE	0x08				/**< Entry State - Reachable*/
+#define NEIGH_STATE_STALE	0x10					/**< Entry State - Stale*/
+#define NEIGH_STATE_QUIESCE	0x20					/**< Entry State - Quisce*/
+#define NEIGH_STATE_SOLICIT	0x40					/**< Entry State - Solicit*/
+#define NEIGH_STATE_FAILED	0x80					/**< Entry State - Failed*/
 
-#define NEIGH_TABLE_MAX_ENTRIES_2EXP    (10)
-#define NEIGH_TABLE_BUCKETS_2EXP        (10)
-#define NEIGH_POOL_SIZE_2EXP            (12)
+#define NEIGH_TABLE_MAX_ENTRIES_2EXP	(10)
+#define NEIGH_TABLE_BUCKETS_2EXP	(10)
+#define NEIGH_POOL_SIZE_2EXP		(12)
 
-#define NEIGH_TABLE_MAX_ENTRIES         (1 << NEIGH_TABLE_MAX_ENTRIES_2EXP)
+#define NEIGH_TABLE_MAX_ENTRIES		(1 << NEIGH_TABLE_MAX_ENTRIES_2EXP)
 /**< Maximum Number of entries in Neighbour Table*/
-#define NEIGH_TABLE_ENTRIES_MASK        (NEIGH_TABLE_MAX_ENTRIES - 1)
+#define NEIGH_TABLE_ENTRIES_MASK	(NEIGH_TABLE_MAX_ENTRIES - 1)
 /**< Table Mask*/
-#define NEIGH_TABLE_BUCKETS             (1 << NEIGH_TABLE_BUCKETS_2EXP)
+#define NEIGH_TABLE_BUCKETS		(1 << NEIGH_TABLE_BUCKETS_2EXP)
 /**< Maximum number of entries in a bucket of the Table*/
-#define NEIGH_TABLE_BUCKETS_MASK        (NEIGH_TABLE_BUCKETS - 1)
+#define NEIGH_TABLE_BUCKETS_MASK	(NEIGH_TABLE_BUCKETS - 1)
 /**< Buckt Mask*/
-#define NEIGH_POOL_SIZE                 (1 << NEIGH_POOL_SIZE_2EXP)
+#define NEIGH_POOL_SIZE			(1 << NEIGH_POOL_SIZE_2EXP)
 /**< Number of Entries in the Pool*/
 
 struct neigh_t;
@@ -140,7 +140,7 @@ struct neigh_t {
 	/**< State of the Entry*/
 	uint8_t solicitations_sent;
 	refcount_t *refcnt;
-	/* struct list_head_t      *solicit_q; */
+	/* struct list_head_t	   *solicit_q; */
 
 	/* Timers - 12B */
 	uint32_t last_updated;
@@ -190,12 +190,12 @@ typedef void (*nt_execfn_t) (struct neigh_t *);
  \param[in] key_len Length of the key
  \return Bucket Id (0 - (NEIGH_TABLE_BUCKETS_MASK - 1))
  */
-static inline uint32_t compute_neigh_hash(void *key, uint32_t key_len)
+static inline uint32_t compute_neigh_hash(const void *key, uint32_t key_len)
 {
 	uint64_t result;
 
 	result = crc64_init();
-	result = crc64_compute_word((uint32_t) key, result);
+	result = crc64_compute_word(*(uint32_t *)key, result);
 	result = crc64_finish(result);
 	return ((uint32_t) result) & NEIGH_TABLE_BUCKETS_MASK;
 }
@@ -254,7 +254,7 @@ bool neigh_replace(struct neigh_table_t *nt, struct neigh_t *new_n);
 /**
  \brief Removes a Neighbour Table Entry
  \param[in] nt Pointer to the Neighbour table
- \param[in] key  IP Address
+ \param[in] key	 IP Address
  \param[in] keylen Length of the Key
  \return true if removal was successful, else false
  */
@@ -288,7 +288,7 @@ void neigh_exec_per_entry(struct neigh_table_t *nt, nt_execfn_t execfn);
 /**
  \brief Looks Up for a Neighbour Table Entry gievn the IP Address
  \param[in] nt Pointer to the Neighbour table
- \param[in] key  IP Address
+ \param[in] key	 IP Address
  \param[in] keylen Length of the Key
  \return Pointer to the Entry if found, else NULL
  */

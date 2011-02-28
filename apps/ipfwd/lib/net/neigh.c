@@ -315,7 +315,7 @@ void neigh_exec_per_entry(struct neigh_table_t *nt, nt_execfn_t execfn)
 
 void neigh_table_print(struct neigh_table_t *nt)
 {
-	pr_dbg("IP Address        MAC address\n");
+	pr_dbg("IP Address	  MAC address\n");
 	neigh_exec_per_entry(nt, &neigh_print_entry);
 }
 
@@ -455,7 +455,7 @@ static struct neigh_bucket_t *__neigh_find_bucket(struct neigh_table_t *nt,
 {
 	uint32_t hash;
 
-	hash = compute_neigh_hash((void *)key, keylen);
+	hash = compute_neigh_hash(&key, keylen);
 	if (unlikely(hash >= NEIGH_TABLE_BUCKETS))
 		return NULL;
 	return &(nt->buckets[hash]);
