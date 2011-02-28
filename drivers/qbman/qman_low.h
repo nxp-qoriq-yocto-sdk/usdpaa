@@ -279,7 +279,7 @@ struct qm_portal {
 /* Bit-wise logic to convert a ring pointer to a ring index */
 static inline u8 EQCR_PTR2IDX(struct qm_eqcr_entry *e)
 {
-	return ((u32)e >> 6) & (QM_EQCR_SIZE - 1);
+	return ((uintptr_t)e >> 6) & (QM_EQCR_SIZE - 1);
 }
 
 /* Increment the 'cursor' ring pointer, taking 'vbit' into account */
@@ -532,7 +532,7 @@ static inline u8 qm_eqcr_get_fill(struct qm_portal *portal)
 
 static inline u8 DQRR_PTR2IDX(struct qm_dqrr_entry *e)
 {
-	return ((u32)e >> 6) & (QM_DQRR_SIZE - 1);
+	return ((uintptr_t)e >> 6) & (QM_DQRR_SIZE - 1);
 }
 
 static inline struct qm_dqrr_entry *DQRR_INC(struct qm_dqrr_entry *e)
@@ -849,7 +849,7 @@ static inline u8 qm_dqrr_get_maxfill(struct qm_portal *portal)
 
 static inline u8 MR_PTR2IDX(struct qm_mr_entry *e)
 {
-	return ((u32)e >> 6) & (QM_MR_SIZE - 1);
+	return ((uintptr_t)e >> 6) & (QM_MR_SIZE - 1);
 }
 
 static inline struct qm_mr_entry *MR_INC(struct qm_mr_entry *e)
@@ -1209,4 +1209,3 @@ static inline void __qm_isr_write(struct qm_portal *portal, enum qm_isr_reg n,
 {
 	__qm_out(&portal->addr, REG_ISR + (n << 2), val);
 }
-
