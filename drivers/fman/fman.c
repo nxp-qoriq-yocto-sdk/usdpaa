@@ -34,6 +34,8 @@
 
 #include <internal/of.h>
 
+#include <inttypes.h>
+
 /* The exported "struct fman_if" type contains the subset of fields we want
  * exposed. This struct is embedded in a larger "struct __fman_if" which
  * contains the extra bits we *don't* want exposed. */
@@ -176,7 +178,7 @@ int fman_if_init(void)
 			__if->__if.mac_type = fman_mac_10g;
 		else {
 			_errno = -EINVAL;
-			fprintf(stderr, "%s:%hu:%s: %s:0x%09llx: unknown MAC type\n",
+			fprintf(stderr, "%s:%hu:%s: %s:0x%09"PRIx64": unknown MAC type\n",
 				__FILE__, __LINE__, __func__,
 				mac_node->full_name, phys_addr);
 			goto err;
@@ -199,7 +201,7 @@ int fman_if_init(void)
 					&lenp);
 		if (!mac_addr) {
 			_errno = -EINVAL;
-			fprintf(stderr, "%s:%hu:%s: %s:0x%09llx: unknown MAC "
+			fprintf(stderr, "%s:%hu:%s: %s:0x%09"PRIx64": unknown MAC "
 				"address\n", __FILE__, __LINE__, __func__,
 				mac_node->full_name, phys_addr);
 			goto err;
