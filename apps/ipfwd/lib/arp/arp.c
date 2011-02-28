@@ -56,9 +56,7 @@ uint32_t arp_handle_request(struct ether_header *eth_hdr,
 {
 	struct arp_header_t *arp_header;
 
-	arp_header =
-	    (struct arp_header_t *)((uint32_t) eth_hdr +
-				    sizeof(struct ether_header));
+	arp_header = (typeof(arp_header))(eth_hdr + 1);
 	if (memcmp(&arp_header->arp_targetip, &node->ip.word,
 		 IP_ADDRESS_BYTES))
 		return -1;
@@ -294,4 +292,3 @@ void arp_constructor(struct neigh_t *n)
 	n->funcs->solicit = &arp_solicit;
 	n->funcs->error_handler = &arp_error_handler;
 }
-

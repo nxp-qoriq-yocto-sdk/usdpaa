@@ -70,8 +70,7 @@ struct mem_cache_t *mem_cache_init(void)
 					 MAX_MEM_CACHES - 1,
 					 cache_mem, ptr_array_mem);
 
-	first_cache =
-	    (void *)((uint32_t) cache_mem + sizeof(struct mem_cache_t));
+	first_cache = (struct mem_cache_t *)cache_mem + 1;
 	__mem_cache_refill(cache_cache, MAX_MEM_CACHES - 1, first_cache);
 
 	return cache_cache;
@@ -175,7 +174,7 @@ int32_t mem_cache_refill(struct mem_cache_t *cachep, uint32_t count)
 	if (mem == NULL) {
 		retval = 0;
 	} else {
-		mem = (void *)((uint32_t) mem + L1_CACHE_BYTES);
+		mem += L1_CACHE_BYTES;
 		retval = __mem_cache_refill(cachep, count, mem);
 	}
 
@@ -209,7 +208,7 @@ static uint32_t __mem_cache_refill(struct mem_cache_t *cachep,
 	objp = refill_mem;
 	for (; idx < new_index; idx++) {
 		cachep->ptr_stack[idx] = objp;
-		objp = (void *)((uint32_t) objp + cachep->objsize);
+		objp += cachep->objsize;
 	}
 	cachep->next_free = new_index;
 

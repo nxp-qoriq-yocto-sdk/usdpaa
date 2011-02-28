@@ -60,7 +60,7 @@ void *eth_set_header(struct net_dev_t *dev, void *ll_payload, void *saddr,
 	assert(dev != NULL);
 	assert(daddr != NULL);
 
-	eth = (void *)((uint32_t) ll_payload - ETHER_HDR_LEN);
+	eth = (typeof(eth))ll_payload - 1;
 
 	if (saddr == NULL)
 		saddr = dev->dev_addr;

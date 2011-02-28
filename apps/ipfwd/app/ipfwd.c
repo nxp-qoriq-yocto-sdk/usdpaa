@@ -967,7 +967,7 @@ int global_init(struct usdpa_netcfg_info *uscfg_info, int cpu, int first, int la
 	/* Populate static arp entries */
 	populate_arp_cache(&stack, local_nodes);
 	pr_info
-	    ("ARP Cache Populated, Stack pointer is %p and its size = %d\n",
+	    ("ARP Cache Populated, Stack pointer is %p and its size = %zu\n",
 	     &stack, sizeof(stack));
 	pr_dbg("Global initialisation: Exit\n");
 
