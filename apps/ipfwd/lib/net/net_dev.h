@@ -28,25 +28,27 @@
 #ifndef _LIB_NET_NET_DEV_H
 #define _LIB_NET_NET_DEV_H   1
 
+#include <usdpaa/compat.h>
+
 #include "common/refcount.h"
-#include "string.h"
 #include "notify.h"
 #include "ll_cache.h"
-#include "compat.h"
 #include "statistics.h"
 
+#include <string.h>
+
 #ifndef NET_DEV_MAX_COUNT
-#define NET_DEV_MAX_COUNT                 4096
+#define NET_DEV_MAX_COUNT		  4096
 /**< Maximum Number of Net devices in the system*/
 #endif
 
-#define LL_MAX_ADDR_LEN_BYTES           6
+#define LL_MAX_ADDR_LEN_BYTES		6
 /**< Max Address Length for L2*/
-#define L3_MAX_ADDR_LEN_WORDS           1
+#define L3_MAX_ADDR_LEN_WORDS		1
 /**< Max Address Length of L3 in Words*/
-#define LL_MAX_HEADER                   (14)
+#define LL_MAX_HEADER			(14)
 /**< Max Header Length for L2*/
-#define LL_MAX_ALIGNED_HEADER           (16)
+#define LL_MAX_ALIGNED_HEADER		(16)
 /**< Max Aligned Header Length for L2*/
 
 /**

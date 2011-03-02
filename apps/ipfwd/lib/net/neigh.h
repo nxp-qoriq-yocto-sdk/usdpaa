@@ -29,13 +29,15 @@
 #ifndef _LIB_NET_NEIGH_H
 #define _LIB_NET_NEIGH_H   1
 
-#include <compat.h>
-#include <stdint.h>
+#include <usdpaa/compat.h>
+
 #include "net_dev.h"
 #include "ll_cache.h"
 #include "crc64.h"
 #include "common/refcount.h"
 #include "statistics.h"
+
+#include <stdint.h>
 
 #define NEIGH_STATE_UNKNOWN	0x00
 /**< Entry State - Unknown*/

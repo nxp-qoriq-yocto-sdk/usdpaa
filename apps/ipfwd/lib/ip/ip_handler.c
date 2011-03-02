@@ -24,12 +24,14 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <compat.h>
-#include <bigatomic.h>
+
+#include <usdpaa/compat.h>
+
+#include <internal/compat.h>
+
+#include "bigatomic.h"
 #include "compiler.h"
 #include "app_common.h"
-#include "net/annotations.h"
-#include "net/context.h"
 #include "net/frame_handler.h"
 #include "net/net_dev.h"
 #include "ip/ip_common.h"

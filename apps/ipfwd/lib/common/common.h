@@ -25,10 +25,13 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "compat.h"
+#include <usdpaa/compat.h>
+#include <usdpaa/fsl_qman.h>
+#include <usdpaa/fsl_bman.h>
+
+#include <internal/compat.h>
+
 #include "app_common.h"
-#include <linux/fsl_qman.h>
-#include <linux/fsl_bman.h>
 
 extern struct bman_pool *pool[MAX_NUM_BMAN_POOLS];
 static inline void free_buff(const struct qm_fd *fd)

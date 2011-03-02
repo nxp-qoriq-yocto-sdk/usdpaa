@@ -30,10 +30,11 @@
 #ifndef LIB_NET_RT_H
 #define LIB_NET_RT_H 1
 
-#include <stdint.h>
-#include <stdbool.h>
 #include "mm/mem_cache.h"
 #include "statistics.h"
+
+#include <stdint.h>
+#include <stdbool.h>
 
 /**< Pool Size for Routing Table Entries */
 #define RT_DEST_POOL_SIZE	2048

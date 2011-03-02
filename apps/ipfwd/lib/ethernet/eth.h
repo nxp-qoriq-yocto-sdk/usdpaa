@@ -28,26 +28,28 @@
 #ifndef __LIB_ETHERNET_ETH_H
 #define __LIB_ETHERNET_ETH_H
 
-#include "compat.h"
+#include <usdpaa/compat.h>
+
+#include "net/net_dev.h"
+
 #include <stdint.h>
 #include <stdbool.h>
-#include "net/net_dev.h"
 #include <net/ethernet.h>
 
 /**
  \brief RFC-defined	 MTU for ethernet
  */
-#define ETH_MIN_MTU                     (68)
+#define ETH_MIN_MTU			(68)
 /**< Minimum MTU for Ethernet Packet */
-#define ETH_MAX_MTU	                (1500)
+#define ETH_MAX_MTU			(1500)
 /**< Maximum MTU for Ethernet Packet */
 
 /**
  \brief A frame is multicast if the LSb of the MSB is a 1
  */
-#define MULTICAST_ADDRESS_HI_MASK       (0x01)
+#define MULTICAST_ADDRESS_HI_MASK	(0x01)
 /**< Used to find if the Packet is Multicast */
-#define ETHERNET_FRAME_CRC_SIZE         (4)
+#define ETHERNET_FRAME_CRC_SIZE		(4)
 /**< Ethernet CRC size */
 /**
  \brief Finds if 2 MAC Addresses are Equal or not

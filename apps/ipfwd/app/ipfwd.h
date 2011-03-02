@@ -28,9 +28,11 @@
  */
 #ifndef _IPFWD_H_
 #define _IPFWD_H_
-#include "compat.h"
-#include <app_common.h>
-#include <linux/if_ether.h>
+
+#include <usdpaa/compat.h>
+#include <usdpaa/fsl_qman.h>
+
+#include "app_common.h"
 #include "ether.h"
 #include "ip/ip.h"
 #include "arp/arp.h"
@@ -43,6 +45,8 @@
 #include "ip/ip_protos.h"
 #include "ip/ip_appconf.h"
 #include "helper/helper.h"
+
+#include <linux/if_ether.h>
 
 #define ETHERNET_ADDR_MAGIC	0x0200
 #define LINKLOCAL_NODES_2EXP	10
@@ -147,7 +151,7 @@ int32_t is_iface_ip(uint32_t ip_addr);
  \brief Gets interface node corresponding to an ip address
  \param[in] ip_addr IP Address
  \return    interface node, On success
-	    NULL, 	    On failure
+	    NULL,	    On failure
  */
 struct node_t *ipfwd_get_iface_for_ip(uint32_t ip_addr);
 

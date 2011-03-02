@@ -26,13 +26,16 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "compat.h"
+#include <usdpaa/compat.h>
+#include <usdpaa/fsl_bman.h>
+#include <usdpaa/fsl_qman.h>
+#include <usdpaa/dma_mem.h>
+#include <usdpaa/fman.h>
+
+#include <internal/compat.h>
+
 #include "helper.h"
-#include <linux/fsl_qman.h>
-#include <linux/fsl_bman.h>
-#include <app_common.h>
-#include <dma_mem.h>
-#include <fman.h>
+#include "app_common.h"
 
 struct ipfwd_eth_t ipfwd_fq_range[MAX_NUM_PORTS]; /* num of ports */
 #define SIZE_TO_STASH_LINES(s) ((s >> 6) + ((s & 0x3F) ? 1 : 0))
@@ -69,7 +72,7 @@ static int init_bpool(const struct fman_if_bpool *bpool)
 }
 
 /**
-\brief  Frame queues initialisation function
+\brief	Frame queues initialisation function
 
 \details Inits a number of frame queues as requested.
 
@@ -103,7 +106,7 @@ static int init_fqs(struct ipfwd_fq_range_t *fq_range,
 }
 
 /**
-\brief  Frame queues creation function
+\brief	Frame queues creation function
 
 \details Creates a number of frame queues as requested.
 

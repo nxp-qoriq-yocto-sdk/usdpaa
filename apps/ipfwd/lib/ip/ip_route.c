@@ -26,9 +26,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "compat.h"
-#include <stdint.h>
-#include <stdbool.h>
+#include <usdpaa/compat.h>
+
 #include "app_common.h"
 #include "ip/ip_route.h"
 #include "ip/ip_forward.h"
@@ -36,9 +35,11 @@
 #include "ip/ip_rc.h"
 #include "ip/ip_protos.h"
 #include "net/rt.h"
-#include "net/annotations.h"
 #include "net/frame_handler.h"
 #include "bigatomic.h"
+
+#include <stdint.h>
+#include <stdbool.h>
 
 enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,
 			      struct annotations_t *notes,

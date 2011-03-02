@@ -28,9 +28,10 @@
 #ifndef LIB_DPA_DPA_DEV_H
 #define LIB_DPA_DPA_DEV_H
 
-#include <stdint.h>
 #include "net/net_dev.h"
 #include "net/frame_handler.h"
+
+#include <stdint.h>
 
 /**
  \brief DPA FQ and net device configuration structure

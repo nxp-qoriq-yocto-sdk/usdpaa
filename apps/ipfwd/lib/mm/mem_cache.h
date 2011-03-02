@@ -3,7 +3,7 @@
  \brief mem_cache structures
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,7 +28,8 @@
 #ifndef __LIB_MM_MEM_CACHE_H
 #define __LIB_MM_MEM_CACHE_H 1
 
-#include "compat.h"
+#include <usdpaa/compat.h>
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -38,7 +39,7 @@
  "slab" portion of the allocator is removed, simplifying the design.
  */
 
-#define MAX_MEM_CACHES                47
+#define MAX_MEM_CACHES		      47
 
 /**
  \brief Mem Cache Structure

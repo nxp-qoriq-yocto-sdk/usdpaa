@@ -24,8 +24,9 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "compat.h"
-#include <stdint.h>
+
+#include <usdpaa/compat.h>
+
 #include "app_common.h"
 #include "net/net_dev.h"
 #include "net/frame_desc.h"

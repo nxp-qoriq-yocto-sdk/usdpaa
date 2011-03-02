@@ -24,10 +24,16 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+#include <usdpaa/compat.h>
+
+#include <internal/compat.h>
+
 #include "mm/mem_cache.h"
-#include "malloc.h"
-#include <assert.h>
 #include "app_common.h"
+
+#include <malloc.h>
+#include <assert.h>
 
 struct mem_cache_t *cache_cache;
 
@@ -153,7 +159,7 @@ int32_t mem_cache_free(struct mem_cache_t *cachep, void *objp)
  \return status of refill command
  \note Currently, we are adding zone->align to all memory slab allocated
   memory regions, and then using this as a keepout to store prefixed ppmalloc
-  tags.  Hack, but...works.  Needs to be done the right way eventually.
+  tags.	 Hack, but...works.  Needs to be done the right way eventually.
  */
 
 int32_t mem_cache_refill(struct mem_cache_t *cachep, uint32_t count)

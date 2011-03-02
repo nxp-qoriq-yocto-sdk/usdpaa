@@ -26,12 +26,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "compat.h"
 #include "ipfwd.h"
-#include <linux/fsl_qman.h>
 #include "ip/ip_forward.h"
 #include "ip/ip_local.h"
-#include "arp/arp.h"
 #include "net/annotations.h"
 
 extern __PERCPU uint32_t rx_errors;

@@ -26,9 +26,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <usdpaa/usdpaa_netcfg.h>
+
 #include <stdbool.h>
 #include <net/ethernet.h>
-#include <usdpaa_netcfg.h>
 
 #define MAX_NUM_FQ	1024
 #define MAX_NUM_PORTS	12

@@ -25,22 +25,20 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+#include <usdpaa/fsl_usd.h>
+#include <usdpaa/dma_mem.h>
+#include <usdpaa/usdpaa_netcfg.h>
+#include <usdpaa/fman.h>
+
 #include "ipfwd.h"
-#include <linux/fsl_qman.h>
 #include "ip/ip_forward.h"
 #include "ip/ip_local.h"
+#include "bigatomic.h"
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <fcntl.h>
-#include <sys/stat.h>
 #include <mqueue.h>
-#include <errno.h>
-#include <signal.h>
-#include <fman.h>
-#include <bigatomic.h>
-#include <dma_mem.h>
-#include <usdpaa_netcfg.h>
-#include <fsl_usd.h>
 
 uint32_t iface_subnet[IFACE_COUNT] = { 24, 29, 21, 22, 23, 25, 26, 27, 28 };
 uint32_t local_node_count[IFACE_COUNT] = { 23, 23, 23, 23, 23, 23, 23, 23, 1 };

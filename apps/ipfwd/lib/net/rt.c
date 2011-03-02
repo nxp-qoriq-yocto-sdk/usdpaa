@@ -28,7 +28,6 @@
 
 #include "common/refcount.h"
 #include "net/rt.h"
-#include "mm/mem_cache.h"
 #include "app_common.h"
 
 struct rt_t *rt_create(void)

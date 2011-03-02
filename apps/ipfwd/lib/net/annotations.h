@@ -3,7 +3,7 @@
  \brief This file contains annotation structure added to each ingress frame
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,9 +28,10 @@
 #ifndef LIB_COMMON_ANNOTATIONS_H
 #define LIB_COMMON_ANNOTATIONS_H 1
 
-#include "compat.h"
+#include <usdpaa/compat.h>
+#include <usdpaa/fsl_qman.h>
+
 #include "frame_desc.h"
-#include <linux/fsl_qman.h>
 #include "rt.h"
 
 /**

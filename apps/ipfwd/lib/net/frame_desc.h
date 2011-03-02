@@ -4,7 +4,7 @@
  Frame Descriptor
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,10 +29,12 @@
 #ifndef __LIB_NET_FRAME_DESC_H
 #define __LIB_NET_FRAME_DESC_H
 
-#include <stdint.h>
-#include "compat.h"
+#include <usdpaa/compat.h>
+#include <usdpaa/fsl_qman.h>
+
 #include "fm_types.h"
-#include <linux/fsl_qman.h>
+
+#include <stdint.h>
 
 /**
  \brief Returns the Length of the Buffer in the fd

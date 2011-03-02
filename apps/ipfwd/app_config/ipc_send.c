@@ -26,23 +26,17 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "compat.h"
-#include <stdio.h>
-#include <argp.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/mman.h>
+#include <usdpaa/compat.h>
+
+#include <internal/compat.h>
+
 #include "ipc_send.h"
 #include "ip/ip_appconf.h"
-#include <sys/stat.h>
-#include <mqueue.h>
-#include <errno.h>
 #include "app_common.h"
+
+#include <mqueue.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 unsigned int g_mndtr_param;
 error_t g_parse_error;

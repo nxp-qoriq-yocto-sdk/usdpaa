@@ -3,7 +3,7 @@
  \brief This file contains the prototypes used for managing refernce count
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,11 +28,15 @@
 #ifndef LIB_COMMON_REFCOUNT_H
 #define LIB_COMMON_REFCOUNT_H 1
 
-#include <compat.h>
+#include <usdpaa/compat.h>
+
+#include <internal/compat.h>
+
+#include "statistics.h"
+#include "bigatomic.h"
+
 #include <stdint.h>
 #include <stdbool.h>
-#include "statistics.h"
-#include <bigatomic.h>
 
 typedef stat32_t refcount_t;
 
