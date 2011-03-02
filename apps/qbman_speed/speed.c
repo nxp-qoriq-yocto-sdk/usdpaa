@@ -91,8 +91,7 @@ static const struct test tests[] = {
 /* Helpers for initialising and "incrementing" a frame descriptor */
 static void fd_init(struct qm_fd *__fd)
 {
-	__fd->addr_hi = 0xab;		/* high 16-bits */
-	__fd->addr_lo = 0xdeadbeef;	/* low 32-bits */
+	qm_fd_addr_set64(__fd, 0xabdeadbeefLLU);
 	__fd->format = qm_fd_contig_big;
 	__fd->length29 = 7;
 	__fd->cmd = 0xfeedf00d;

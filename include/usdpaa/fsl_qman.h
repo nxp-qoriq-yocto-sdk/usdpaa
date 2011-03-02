@@ -263,6 +263,10 @@ static inline u64 qm_sg_entry_get64(const struct qm_sg_entry *sg)
 {
 	return ((u64)sg->addr_hi << 32) | (u64)sg->addr_lo;
 }
+static inline dma_addr_t qm_sg_addr(const struct qm_sg_entry *sg)
+{
+	return (dma_addr_t)qm_sg_entry_get64(sg);
+}
 /* Macro, so we compile better if 'v' isn't always 64-bit */
 #define qm_sg_entry_set64(sg, v) \
 	do { \
@@ -463,6 +467,10 @@ static inline u64 qm_fqd_stashing_get64(const struct qm_fqd *fqd)
 {
 	return ((u64)fqd->context_a.context_hi << 32) |
 		(u64)fqd->context_a.context_lo;
+}
+static inline dma_addr_t qm_fqd_stashing_addr(const struct qm_fqd *fqd)
+{
+	return (dma_addr_t)qm_fqd_stashing_get64(fqd);
 }
 /* Macro, so we compile better when 'v' isn't necessarily 64-bit */
 #define qm_fqd_stashing_set64(fqd, v) \

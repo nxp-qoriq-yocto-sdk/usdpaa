@@ -1,4 +1,4 @@
-/* Copyright (c) 2010 - 2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -166,8 +166,7 @@ static inline void ppac_drop_frame(const struct qm_fd *fd)
 	struct bm_buffer buf;
 	int ret;
 	BUG_ON(fd->format != qm_fd_contig);
-	buf.hi = fd->addr_hi;
-	buf.lo = fd->addr_lo;
+	bm_buffer_set64(&buf, qm_fd_addr(fd));
 retry:
 	ret = bman_release(pool[fd->bpid], &buf, 1, 0);
 	if (ret) {
