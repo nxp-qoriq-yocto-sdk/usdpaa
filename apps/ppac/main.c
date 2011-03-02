@@ -42,6 +42,11 @@
 
 /* Configuration */
 struct usdpaa_netcfg_info *netcfg;
+/* Default paths to configuration files - these are determined from the build,
+ * but can be overriden at run-time using "DEF_PCD_PATH" and "DEF_CFG_PATH"
+ * environment variables. */
+const char ppam_pcd_path[] __attribute__((weak)) = __stringify(DEF_PCD_PATH);
+const char ppam_cfg_path[] __attribute__((weak)) = __stringify(DEF_CFG_PATH);
 
 /* The SDQCR mask to use (computed from netcfg's pool-channels) */
 static uint32_t sdqcr;

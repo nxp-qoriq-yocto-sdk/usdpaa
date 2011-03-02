@@ -59,12 +59,6 @@
  * processing packets.
  */
 
-/* Default paths to configuration files - these are determined from the build,
- * but can be overriden at run-time using "DEF_PCD_PATH" and "DEF_CFG_PATH"
- * environment variables. */
-const char ppam_pcd_path[] = __stringify(DEF_PCD_PATH);
-const char ppam_cfg_path[] = __stringify(DEF_CFG_PATH);
-
 /* structs required by ppac.c */
 struct ppam_if {
 	/* We simply capture Tx FQIDs as they initialise, in order to use them

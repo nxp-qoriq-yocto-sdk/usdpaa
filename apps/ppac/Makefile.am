@@ -30,7 +30,11 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 lib_LIBRARIES = usdpaa_ppac
+dist_DATA = us_config_serdes_0xe.xml us_policy_hash_ipv4_src_dst.xml
 
-AM_CFLAGS = -I$(TOP_LEVEL)/apps/include $(LIBEDIT_CFLAGS)
+AM_CFLAGS  = -I$(TOP_LEVEL)/apps/include
 
 usdpaa_ppac_SOURCES = main.c
+usdpaa_ppac_CFLAGS := $(LIBEDIT_CFLAGS)								\
+		      -DDEF_PCD_PATH="/$(INSTALL_OTHER)/us_policy_hash_ipv4_src_dst.xml"	\
+		      -DDEF_CFG_PATH="/$(INSTALL_OTHER)/us_config_serdes_0xe.xml"
