@@ -30,7 +30,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 SUBDIRS = lib ppac reflector qbman_speed sanity
-#SUBDIRS += ipfwd
+SUBDIRS += ipfwd
 #SUBDIRS += simple_crypto
 
 dist_DATA = SOURCE_THIS
