@@ -43,7 +43,7 @@
 #include <usdpaa/fsl_qman.h>
 #include <usdpaa/fsl_usd.h>
 #include <usdpaa/dma_mem.h>
-#include <usdpaa/usdpa_netcfg.h>
+#include <usdpaa/usdpaa_netcfg.h>
 
 #include <internal/compat.h>
 
@@ -124,7 +124,7 @@ struct ppac_if;
 /***************/
 
 /* Configuration */
-extern struct usdpa_netcfg_info *netcfg;
+extern struct usdpaa_netcfg_info *netcfg;
 /* Default paths to configuration files - these are determined from the build,
  * but can be overriden at run-time using "DEF_PCD_PATH" and "DEF_CFG_PATH"
  * environment variables. */

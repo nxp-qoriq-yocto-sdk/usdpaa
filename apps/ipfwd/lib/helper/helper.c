@@ -40,7 +40,7 @@ struct ipfwd_eth_t ipfwd_fq_range[MAX_NUM_PORTS]; /* num of ports */
  SIZE_TO_STASH_LINES(l))
 #undef CGR_SUPPORT
 static uint32_t pchannel_idx;
-static struct usdpa_netcfg_info cfg;
+static struct usdpaa_netcfg_info cfg;
 struct bman_pool *pool[MAX_NUM_BMAN_POOLS];
 
 static enum qm_channel get_rxc(void)
@@ -145,7 +145,7 @@ static int create_fqs(struct ipfwd_fq_range_t *fq_range, const uint32_t flags,
 	return 0;
 }
 
-static int ipfwd_fq_create(struct usdpa_netcfg_info *cfg_ptr,
+static int ipfwd_fq_create(struct usdpaa_netcfg_info *cfg_ptr,
 		      struct qman_fq_cb *rx_default_cb,
 		      struct qman_fq_cb *rx_pcd_cb,
 		      struct qman_fq_cb *rx_err_cb,
@@ -406,7 +406,7 @@ static struct qman_cgr *init_cgr(struct td_param *cgr_param)
  \param[in]
  \param[out] NULL
  */
-int init_interface(struct usdpa_netcfg_info *cfg_ptr,
+int init_interface(struct usdpaa_netcfg_info *cfg_ptr,
 		      uint32_t *recv_channel_map,
 		      struct qman_fq_cb *rx_default_cb,
 		      struct qman_fq_cb *rx_pcd_cb,
@@ -428,7 +428,7 @@ int init_interface(struct usdpa_netcfg_info *cfg_ptr,
 	pr_dbg("Init interface: Enter\n");
 
 	*recv_channel_map = 0;
-	memcpy(&cfg, cfg_ptr, sizeof(struct usdpa_netcfg_info));
+	memcpy(&cfg, cfg_ptr, sizeof(struct usdpaa_netcfg_info));
 	g_num_dpa_eth_ports = cfg_ptr->num_ethports;
 	for (port_id = 0; port_id < g_num_dpa_eth_ports; port_id++) {
 		p_cfg = &cfg_ptr->port_cfg[port_id];

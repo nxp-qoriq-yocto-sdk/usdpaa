@@ -38,7 +38,7 @@
 /* Configuration information related to a specific ethernet port */
 struct fm_eth_port_cfg {
 	/* PCD and "Rx default" FQIDs, obtained from FMC configuration */
-	struct  {
+	struct	{
 		uint32_t start;
 		uint32_t count;
 	} pcd;
@@ -48,7 +48,7 @@ struct fm_eth_port_cfg {
 };
 
 /* This structure contains the configuration information for the USDPAA app. */
-struct usdpa_netcfg_info {
+struct usdpaa_netcfg_info {
 	uint8_t num_cgrids;
 	uint32_t *cgrids;
 	uint8_t num_pool_channels;
@@ -62,17 +62,17 @@ struct usdpa_netcfg_info {
  * cfg_file: FMC config XML file
  * Returns the configuration information in newly allocated memory.
  */
-struct usdpa_netcfg_info *usdpa_netcfg_acquire(const char *pcd_file,
+struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
 					const char *cfg_file);
 
 /* cfg_ptr: configuration information pointer.
  * Frees the resources allocated by the configuration layer.
  */
-void usdpa_netcfg_release(struct usdpa_netcfg_info *cfg_ptr);
+void usdpaa_netcfg_release(struct usdpaa_netcfg_info *cfg_ptr);
 
 /* cfg_ptr: configuration information pointer.
  * This function dumps configuration data to stdout.
  */
-void dump_usdpa_netcfg(struct usdpa_netcfg_info *cfg_ptr);
+void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr);
 
 #endif

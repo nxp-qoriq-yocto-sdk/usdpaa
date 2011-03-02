@@ -28,9 +28,9 @@
 
 #include <stdbool.h>
 #include <net/ethernet.h>
-#include <usdpa_netcfg.h>
+#include <usdpaa_netcfg.h>
 
-#define MAX_NUM_FQ      1024
+#define MAX_NUM_FQ	1024
 #define MAX_NUM_PORTS	12
 volatile uint32_t g_num_dpa_eth_ports;
 /**
@@ -70,7 +70,7 @@ struct qman_orp_pcd {
 };
 
 /**
- \brief  Structure type for passing tail drop params
+ \brief	 Structure type for passing tail drop params
  \detail The number of bytes of data that can be in FQ is: TD_MANT * 2^TD_EXP.
  Also total number of bytes should be below: 0xE0000000
 */
@@ -83,7 +83,7 @@ struct td_param {
 	qman_cb_cgr cgr_cb;
 } __packed;
 
-extern int init_interface(struct usdpa_netcfg_info *cfg_ptr,
+extern int init_interface(struct usdpaa_netcfg_info *cfg_ptr,
 		      uint32_t *recv_channel_map,
 		      struct qman_fq_cb *rx_default_cb,
 		      struct qman_fq_cb *rx_pcd_cb,

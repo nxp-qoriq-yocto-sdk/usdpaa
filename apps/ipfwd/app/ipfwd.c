@@ -39,7 +39,7 @@
 #include <fman.h>
 #include <bigatomic.h>
 #include <dma_mem.h>
-#include <usdpa_netcfg.h>
+#include <usdpaa_netcfg.h>
 #include <fsl_usd.h>
 
 uint32_t iface_subnet[IFACE_COUNT] = { 24, 29, 21, 22, 23, 25, 26, 27, 28 };
@@ -129,7 +129,7 @@ int is_iface_ip(uint32_t ip_addr)
  \brief Gets interface node corresponding to an ip address
  \param[in] ip_addr IP Address
  \return    interface node, On success
-	    NULL, 	    On failure
+	    NULL,	    On failure
  */
 struct node_t *ipfwd_get_iface_for_ip(uint32_t ip_addr)
 {
@@ -522,7 +522,7 @@ void create_local_nodes(struct node_t *arr)
 \param[in] struct node_t * a Network Node
 \param[in] uint32_t Number of nodes to be created
 */
-void create_iface_nodes(struct node_t *arr, struct usdpa_netcfg_info *cfg_ptr)
+void create_iface_nodes(struct node_t *arr, struct usdpaa_netcfg_info *cfg_ptr)
 {
 	uint32_t port, if_idx;
 	struct fm_eth_port_cfg *p_cfg;
@@ -882,7 +882,7 @@ error:
 	return _err;
 }
 
-int global_init(struct usdpa_netcfg_info *uscfg_info, int cpu, int first, int last)
+int global_init(struct usdpaa_netcfg_info *uscfg_info, int cpu, int first, int last)
 {
 	int err;
 
@@ -1069,7 +1069,7 @@ int main(int argc, char *argv[])
 	int first, last, my_cpu = 0, cpu0_poll_on = 0;
 	long ncpus;
 	int err, ret;
-	struct usdpa_netcfg_info *uscfg_info;
+	struct usdpaa_netcfg_info *uscfg_info;
 
 	/* Get the number of cpus */
 	ncpus = sysconf(_SC_NPROCESSORS_ONLN);
@@ -1112,7 +1112,7 @@ int main(int argc, char *argv[])
 
 	pr_info("\n** Welcome to IPFWD application! **\n");
 
-	uscfg_info = usdpa_netcfg_acquire(argv[2], argv[3]);
+	uscfg_info = usdpaa_netcfg_acquire(argv[2], argv[3]);
 	if (uscfg_info == NULL) {
 		fprintf(stderr, "error: NO Config information available\n");
 		return -ENXIO;
@@ -1180,6 +1180,6 @@ int main(int argc, char *argv[])
 	if (!cpu0_only)
 		wait_threads(thread_data, last - first + 1);
 
-	usdpa_netcfg_release(uscfg_info);
+	usdpaa_netcfg_release(uscfg_info);
 	return 0;
 }

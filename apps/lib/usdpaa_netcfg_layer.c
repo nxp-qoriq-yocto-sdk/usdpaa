@@ -30,7 +30,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <usdpaa/usdpa_netcfg.h>
+#include <usdpaa/usdpaa_netcfg.h>
 #include "fmc_netcfg_parser.h"
 
 #include <inttypes.h>
@@ -49,9 +49,9 @@ static const uint8_t qm_cgrid[] = QM_CGRIDS;
 /* This data structure contaings all configurations information
  * related to usages of DPA devices.
  * */
-struct usdpa_netcfg_info *usdpa_netcfg;
+struct usdpaa_netcfg_info *usdpaa_netcfg;
 
-void dump_usdpa_netcfg(struct usdpa_netcfg_info *cfg_ptr)
+void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr)
 {
 	int i;
 
@@ -97,7 +97,7 @@ void dump_usdpa_netcfg(struct usdpa_netcfg_info *cfg_ptr)
 	}
 }
 
-static int qm_init_cgr_values(struct usdpa_netcfg_info *cfgptr)
+static int qm_init_cgr_values(struct usdpaa_netcfg_info *cfgptr)
 {
 	uint32_t *ptr;
 	int i;
@@ -114,7 +114,7 @@ static int qm_init_cgr_values(struct usdpa_netcfg_info *cfgptr)
 	return 0;
 }
 
-static int qm_init_pool_channel_values(struct usdpa_netcfg_info *cfgptr)
+static int qm_init_pool_channel_values(struct usdpaa_netcfg_info *cfgptr)
 {
 	uint32_t *ptr;
 	int i;
@@ -132,7 +132,7 @@ static int qm_init_pool_channel_values(struct usdpa_netcfg_info *cfgptr)
 	return 0;
 }
 
-struct usdpa_netcfg_info *usdpa_netcfg_acquire(const char *pcd_file,
+struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
 					const char *cfg_file)
 {
 	struct fman_if *__if;
@@ -163,22 +163,22 @@ struct usdpa_netcfg_info *usdpa_netcfg_acquire(const char *pcd_file,
 		num_ports++;
 
 	/* Allocate space for all enabled mac ports */
-	size = sizeof(*usdpa_netcfg) +
+	size = sizeof(*usdpaa_netcfg) +
 		(num_ports * sizeof(struct fm_eth_port_cfg));
-	usdpa_netcfg = calloc(size, 1);
-	if (unlikely(usdpa_netcfg == NULL)) {
+	usdpaa_netcfg = calloc(size, 1);
+	if (unlikely(usdpaa_netcfg == NULL)) {
 		fprintf(stderr, "%s:%hu:%s(): calloc failed\n",
 			__FILE__, __LINE__, __func__);
 		goto error;
 	}
 
-	usdpa_netcfg->num_ethports = num_ports;
+	usdpaa_netcfg->num_ethports = num_ports;
 
 	/* Fill in configuration info for all ports */
 	idx = 0;
 	list_for_each_entry(__if, fman_if_list, node) {
 		struct fmc_netcfg_fqs xmlcfg;
-		struct fm_eth_port_cfg *cfg = &usdpa_netcfg->port_cfg[idx];
+		struct fm_eth_port_cfg *cfg = &usdpaa_netcfg->port_cfg[idx];
 		/* Hook in the fman driver interface */
 		cfg->fman_if = __if;
 		/* Extract FMC configuration */
@@ -196,17 +196,17 @@ struct usdpa_netcfg_info *usdpa_netcfg_acquire(const char *pcd_file,
 		idx++;
 	}
 	/* Fill in other global configuration */
-	qm_init_cgr_values(usdpa_netcfg);
-	qm_init_pool_channel_values(usdpa_netcfg);
+	qm_init_cgr_values(usdpaa_netcfg);
+	qm_init_pool_channel_values(usdpaa_netcfg);
 
-	return usdpa_netcfg;
+	return usdpaa_netcfg;
 
 error:
 	fmc_netcfg_parser_exit();
 	return NULL;
 }
 
-void usdpa_netcfg_release(struct usdpa_netcfg_info *cfg_ptr)
+void usdpaa_netcfg_release(struct usdpaa_netcfg_info *cfg_ptr)
 {
 	fmc_netcfg_parser_exit();
 	free(cfg_ptr->pool_channels);

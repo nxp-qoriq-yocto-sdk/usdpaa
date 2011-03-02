@@ -41,7 +41,7 @@
 /***************/
 
 /* Configuration */
-struct usdpa_netcfg_info *netcfg;
+struct usdpaa_netcfg_info *netcfg;
 
 /* The SDQCR mask to use (computed from netcfg's pool-channels) */
 static uint32_t sdqcr;
@@ -933,7 +933,7 @@ int main(int argc, char *argv[])
 	envp = getenv("DEF_CFG_PATH");
 	if (envp)
 		cfg_path = envp;
-	netcfg = usdpa_netcfg_acquire(pcd_path, cfg_path);
+	netcfg = usdpaa_netcfg_acquire(pcd_path, cfg_path);
 	if (!netcfg) {
 		fprintf(stderr, "error: failed to load configuration\n");
 		return -1;
@@ -1048,6 +1048,6 @@ leave:
 	worker = primary;
 	primary = NULL;
 	worker_free(worker);
-	usdpa_netcfg_release(netcfg);
+	usdpaa_netcfg_release(netcfg);
 	return rcode;
 }

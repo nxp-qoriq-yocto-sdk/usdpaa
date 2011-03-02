@@ -35,7 +35,7 @@
 #include <net/ethernet.h>
 #include <net/if_arp.h>
 #include <linux/ip.h>
-#include <usdpa_netcfg.h>
+#include <usdpaa_netcfg.h>
 
 static void usage(void)
 {
@@ -46,7 +46,7 @@ static void usage(void)
 
 int main(int argc, char *argv[])
 {
-	struct usdpa_netcfg_info *uscfg_info;
+	struct usdpaa_netcfg_info *uscfg_info;
 
 	printf("---------------START------------------\n");
 
@@ -57,15 +57,15 @@ int main(int argc, char *argv[])
 	CFGDATA file = /usr/etc/us_config_serdes_0xe.xml
 */
 
-	uscfg_info = usdpa_netcfg_acquire(argv[1], argv[2]);
+	uscfg_info = usdpaa_netcfg_acquire(argv[1], argv[2]);
 	if (uscfg_info == NULL) {
 		fprintf(stderr, "error: NO Config information available\n");
 		return -ENXIO;
 	}
 
-	dump_usdpa_netcfg(uscfg_info);
+	dump_usdpaa_netcfg(uscfg_info);
 
-	usdpa_netcfg_release(uscfg_info);
+	usdpaa_netcfg_release(uscfg_info);
 	printf("---------------END------------------\n");
 	return 0;
 }

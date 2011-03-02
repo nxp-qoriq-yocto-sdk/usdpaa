@@ -29,8 +29,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-lib_LIBRARIES = usdpa_syscfg
+lib_LIBRARIES = usdpaa_syscfg
 
 AM_CFLAGS := $(LIBXML2_CFLAGS)
 
-usdpa_syscfg_SOURCES := fmc_netcfg_parser.c usdpa_netcfg_layer.c
+usdpaa_syscfg_SOURCES := fmc_netcfg_parser.c usdpaa_netcfg_layer.c
