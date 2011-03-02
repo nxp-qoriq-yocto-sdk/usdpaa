@@ -30,12 +30,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <compat.h>
-#include <fman.h>
-#include <net/ethernet.h>
-#include <net/if_arp.h>
-#include <linux/ip.h>
-#include <usdpaa_netcfg.h>
+#include <usdpaa/compat.h>
+#include <usdpaa/usdpaa_netcfg.h>
+
+#include <stdio.h>
 
 static void usage(void)
 {
@@ -67,5 +65,5 @@ int main(int argc, char *argv[])
 
 	usdpaa_netcfg_release(uscfg_info);
 	printf("---------------END------------------\n");
-	return 0;
+	return EXIT_SUCCESS;
 }
