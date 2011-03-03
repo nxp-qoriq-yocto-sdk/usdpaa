@@ -64,9 +64,9 @@ uint32_t job_desc_buf_size;
 uint32_t total_size;
 
 /* total number of encrypted frame(s) returned from SEC4.0 */
-atomic_t *enc_packet_from_sec;
+atomic_t enc_packet_from_sec;
 /* total number of decrypted frame(s) returned from SEC4.0 */
-atomic_t *dec_packet_from_sec;
+atomic_t dec_packet_from_sec;
 
 uint32_t ind;
 struct qm_fd fd[BUFF_NUM_PER_CORE*8];	/* storage for frame descriptor */
@@ -115,26 +115,6 @@ const struct qman_fq_cb sec40_rx_cb = { cb_dqrr, NULL, NULL, cb_fqs };
 
 /* callback handler for fq's(to SEC40) state change */
 const struct qman_fq_cb sec40_tx_cb = { NULL, cb_ern, NULL, cb_fqs };
-
-/*
- * brief	Stats initialisation
- * details	Allocates region of memory for storing statistics
- * return	None
- */
-static void sec_stats_init(void)
-{
-	enc_packet_from_sec = malloc(sizeof(uint64_t));
-	if (unlikely(!enc_packet_from_sec)) {
-		pr_err("malloc failed for enc_packet_from_sec!\n");
-		exit(-ENOMEM);
-	}
-
-	dec_packet_from_sec = malloc(sizeof(uint64_t));
-	if (unlikely(!dec_packet_from_sec)) {
-		pr_err("malloc failed for dec_packet_from_sec!\n");
-		exit(-ENOMEM);
-	}
-}
 
 /*
  * brief	Initialises the reference test vector for aes-cbc
@@ -1340,10 +1320,10 @@ enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 	markpoint(3);
 	if ((dqrr->fqid >= fq_base_encrypt)
 			&& (dqrr->fqid < fq_base_decrpyt)) {
-		atomic_inc(enc_packet_from_sec);
+		atomic_inc(&enc_packet_from_sec);
 	} else if ((dqrr->fqid >= fq_base_decrpyt)
 			&& (dqrr->fqid < (fq_base_decrpyt + 2 * FQ_COUNT))) {
-		atomic_inc(dec_packet_from_sec);
+		atomic_inc(&dec_packet_from_sec);
 		mode = DECRYPT;
 	} else {
 		pr_err("%s: Invalid Frame Queue ID Returned by SEC = %d\n",
@@ -1352,8 +1332,8 @@ enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 	}
 
 	pr_debug("%s mode: Packet dequeued ->%llu\n", mode ? "Encrypt" :
-		"Decrypt", mode ? atomic_read(enc_packet_from_sec) :
-		atomic_read(dec_packet_from_sec));
+		"Decrypt", mode ? atomic_read(&enc_packet_from_sec) :
+		atomic_read(&dec_packet_from_sec));
 
 	addr = dqrr->fd.addr_lo;
 	sgentry_priv = dma_mem_ptov(addr);
@@ -1365,7 +1345,7 @@ enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 /* Poll qman DQCR for encrypted frames */
 static void enc_qman_poll(void)
 {
-	while (atomic_read(enc_packet_from_sec) < total_buf_num)
+	while (atomic_read(&enc_packet_from_sec) < total_buf_num)
 		qman_poll();
 	return;
 }
@@ -1373,7 +1353,7 @@ static void enc_qman_poll(void)
 /** Poll qman DQCR for decrypted frames */
 static void dec_qman_poll(void)
 {
-	while (atomic_read(dec_packet_from_sec) < total_buf_num)
+	while (atomic_read(&dec_packet_from_sec) < total_buf_num)
 		qman_poll();
 	return;
 }
@@ -1749,7 +1729,7 @@ static int worker_fn(thread_data_t *tdata)
 							" working....\n", i);
 			}
 			set_enc_buf();
-			atomic_set(enc_packet_from_sec, 0);
+			atomic_set(&enc_packet_from_sec, 0);
 		}
 
 		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
@@ -1773,7 +1753,8 @@ static int worker_fn(thread_data_t *tdata)
 		enc_qman_poll();
 		if (!tdata->index)
 			pr_debug("Encrypt mode: Total packet returned from"
-					" SEC = %lu\n", atomic_read(enc_packet_from_sec));
+					" SEC = %lu\n", atomic_read
+					(&enc_packet_from_sec));
 
 		if (!tdata->index)
 			/* accumulated time difference */
@@ -1797,7 +1778,7 @@ static int worker_fn(thread_data_t *tdata)
 				set_dec_auth_buf();
 			else if (!authnct)
 				set_dec_buf();
-			atomic_set(dec_packet_from_sec, 0);
+			atomic_set(&dec_packet_from_sec, 0);
 		}
 error2:
 		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
@@ -1828,7 +1809,8 @@ error2:
 
 		if (!tdata->index)
 			pr_debug("Decrypt mode: Total packet returned from"
-					" SEC = %lu\n", atomic_read(dec_packet_from_sec));
+					" SEC = %lu\n", atomic_read
+					(&dec_packet_from_sec));
 
 		if (!tdata->index)
 			/* accumulated time difference */
@@ -1979,9 +1961,6 @@ int main(int argc, char *argv[])
 
 	/* Calculate total number of buffers */
 	total_buf_num = crypto_info->buf_num_per_core * ncpus;
-
-	/* Allocate memory for statistics */
-	sec_stats_init();
 
 	if (PERF == crypto_info->mode) {
 		strcpy(mode_type, "PERF");
