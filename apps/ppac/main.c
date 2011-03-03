@@ -917,13 +917,12 @@ int main(int argc, char *argv[])
 
 	ncpus = (unsigned long)sysconf(_SC_NPROCESSORS_ONLN);
 
-	if (ncpus == 1) {
-		ppac_args.first = 0;
-		ppac_args.last = 0;
-	} else {
+	if (ncpus > 1) {
 		ppac_args.first = 1;
 		ppac_args.last = 1;
 	}
+
+	ppac_args.ppam_args = &ppam_args;
 
 	rcode = argp_parse(&ppac_argp, argc, argv, 0, NULL, &ppac_args);
 	if (unlikely(rcode != 0))

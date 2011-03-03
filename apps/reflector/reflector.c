@@ -288,6 +288,8 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 struct ppam_arguments {
 };
 
+struct ppam_arguments ppam_args;
+
 const char ppam_doc[] = "Packet reflector";
 
 static const struct argp_option argp_opts[] = {

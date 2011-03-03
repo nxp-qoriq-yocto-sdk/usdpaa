@@ -88,11 +88,12 @@
 struct ppam_arguments;
 struct ppac_arguments
 {
-       int first, last;
-       struct ppam_arguments *ppam_args;
+	int first, last;
+	struct ppam_arguments *ppam_args;
 };
 
 extern const struct argp ppam_argp;
+extern struct ppam_arguments ppam_args;
 extern const char ppam_doc[];
 extern struct ppac_arguments ppac_args;
 
