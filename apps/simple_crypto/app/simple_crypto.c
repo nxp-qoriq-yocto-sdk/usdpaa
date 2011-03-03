@@ -63,8 +63,6 @@ uint32_t job_desc_buf_size;
 /* Total size of sg entry, i/p and o/p buffer required */
 uint32_t total_size;
 
-/* total number of frame(s) sending to SEC4.0 */
-atomic_t *packet_to_sec;
 /* total number of encrypted frame(s) returned from SEC4.0 */
 atomic_t *enc_packet_from_sec;
 /* total number of decrypted frame(s) returned from SEC4.0 */
@@ -125,12 +123,6 @@ const struct qman_fq_cb sec40_tx_cb = { NULL, cb_ern, NULL, cb_fqs };
  */
 static void sec_stats_init(void)
 {
-	packet_to_sec = malloc(sizeof(uint64_t));
-	if (unlikely(!packet_to_sec)) {
-		pr_err("malloc failed for packet_to_sec!\n");
-		exit(-ENOMEM);
-	}
-
 	enc_packet_from_sec = malloc(sizeof(uint64_t));
 	if (unlikely(!enc_packet_from_sec)) {
 		pr_err("malloc failed for enc_packet_from_sec!\n");
@@ -1290,8 +1282,6 @@ static void do_enqueues(enum SEC_MODE mode, thread_data_t *tdata)
 		if (i >= crypto_info->buf_num_per_core)
 			return;
 
-		atomic_inc(packet_to_sec);
-
 		fq_ind = i*ncpus + (tdata->cpu + MAX_THREADS - 1)%MAX_THREADS;
 
 		if (ENCRYPT == mode)
@@ -1759,7 +1749,6 @@ static int worker_fn(thread_data_t *tdata)
 							" working....\n", i);
 			}
 			set_enc_buf();
-			atomic_set(packet_to_sec, 0);
 			atomic_set(enc_packet_from_sec, 0);
 		}
 
@@ -1778,7 +1767,7 @@ static int worker_fn(thread_data_t *tdata)
 
 		if (!tdata->index)
 			pr_debug("Encrypt mode: Total packet sent"
-				 " to SEC = %lu\n", atomic_read(packet_to_sec));
+				 " to SEC = %lu\n", total_buf_num);
 
 		/* Recieve encrypted or MAC data from SEC40 */
 		enc_qman_poll();
@@ -1808,8 +1797,6 @@ static int worker_fn(thread_data_t *tdata)
 				set_dec_auth_buf();
 			else if (!authnct)
 				set_dec_buf();
-
-			atomic_set(packet_to_sec, 0);
 			atomic_set(dec_packet_from_sec, 0);
 		}
 error2:
@@ -1834,7 +1821,7 @@ error2:
 
 		if (!tdata->index)
 			pr_debug("Decrypt mode: Total packet sent"
-				 " to SEC = %lu\n", atomic_read(packet_to_sec));
+				 " to SEC = %lu\n", total_buf_num);
 
 		/* Recieve decrypted data from SEC40 */
 		dec_qman_poll();
