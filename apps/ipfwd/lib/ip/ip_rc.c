@@ -53,11 +53,11 @@
 
  So, a route cache might look something like this:
 
-		| valid = true  |
- | id = 0 |	| daddr         |
- | wlock  |	| TOS           |
- | head --|-->	| egress_iface  |
-		| next_hop      |
+		| valid = true	|
+ | id = 0 |	| daddr		|
+ | wlock  |	| TOS		|
+ | head --|-->	| egress_iface	|
+		| next_hop	|
 		| next_entry ---|--> NULL
 
  | id = 1 |
@@ -67,10 +67,10 @@
  . . .
 
 		| valid = false |   | valid = true  |
- | id = N |	| daddr         |   | daddr         |
- | wlock  |	| TOS           |   | TOS           |
- | head --|-->	| egress_iface  |   | egress_iface  |
-		| next_hop      |   | next_hop      |
+ | id = N |	| daddr		|   | daddr	    |
+ | wlock  |	| TOS		|   | TOS	    |
+ | head --|-->	| egress_iface	|   | egress_iface  |
+		| next_hop	|   | next_hop	    |
 		| next_entry ---|-->| next_entry ---|--> NULL
 
  FINDING ENTRIES
@@ -82,26 +82,26 @@
  3.  Acquire a pointer (p) to the head pointer - do not dereference yet:
 
 		| valid = false |   | valid = true  |
- | id = N |     | daddr         |   | daddr         |
- | wlock  |     | TOS           |   | TOS           |
- | head --|-->  | egress_iface  |   | egress_iface  |
- -^----	        | next_hop      |   | next_hop      |
-  |	        | next_entry ---|-->| next_entry ---|--> NULL
-  |           ---------------     ---------------
+ | id = N |	| daddr		|   | daddr	    |
+ | wlock  |	| TOS		|   | TOS	    |
+ | head --|-->	| egress_iface	|   | egress_iface  |
+ -^----		| next_hop	|   | next_hop	    |
+  |		| next_entry ---|-->| next_entry ---|--> NULL
+  |	      ---------------	  ---------------
   |
   p
 
  4.  Start a read-side critical section
  5.  Dereference (p), call it (entry) (entry = *p).
 
-		-------------      ---------------
- --------     | valid = false |   | valid = true  |
- | id = N |   | daddr         |   | daddr         |
- | wlock  |   | TOS           |   | TOS           |
- | head --|-->| egress_iface  |   | egress_iface  |
- -^------    | next_hop      |   | next_hop      |
-  |     ---->| next_entry ---|-->| next_entry ---|--> NULL
-  |    |      ---------------     ---------------
+		-------------	   ---------------
+ --------     | valid = false |	  | valid = true  |
+ | id = N |   | daddr	      |	  | daddr	  |
+ | wlock  |   | TOS	      |	  | TOS		  |
+ | head --|-->| egress_iface  |	  | egress_iface  |
+ -^------    | next_hop	     |	 | next_hop	 |
+  |	---->| next_entry ---|-->| next_entry ---|--> NULL
+  |    |      ---------------	  ---------------
   |    |
   p  entry
 
@@ -112,28 +112,28 @@
  8.  p = &(entry->next_entry):
 
 		 ---------------     ---------------
- --------       | valid = false |   | valid = true  |
- | id = N |     | daddr         |   | daddr         |
- | wlock  |     | TOS           |   | TOS           |
- | head --|-->  | egress_iface  |   | egress_iface  |
-  --------      | next_hop      |   | next_hop      |
-	---->   | next_entry ---|-->| next_entry ---|--> NULL
-		|      -^-------------     ---------------
-			|       |
-			entry     p
+ --------	| valid = false |   | valid = true  |
+ | id = N |	| daddr		|   | daddr	    |
+ | wlock  |	| TOS		|   | TOS	    |
+ | head --|-->	| egress_iface	|   | egress_iface  |
+  --------	| next_hop	|   | next_hop	    |
+	---->	| next_entry ---|-->| next_entry ---|--> NULL
+		|      -^-------------	   ---------------
+			|	|
+			entry	  p
 
  9.  (entry = *p):
 
-		 --------------      ---------------
- --------       | valid = false |   | valid = true  |
- | id = N |     | daddr         |   | daddr         |
- | wlock  |     | TOS           |   | TOS           |
- | head --|-->  | egress_iface  |   | egress_iface  |
- --------       | next_hop      |   | next_hop      |
+		 --------------	     ---------------
+ --------	| valid = false |   | valid = true  |
+ | id = N |	| daddr		|   | daddr	    |
+ | wlock  |	| TOS		|   | TOS	    |
+ | head --|-->	| egress_iface	|   | egress_iface  |
+ --------	| next_hop	|   | next_hop	    |
 		| next_entry ---|-->| next_entry ---|--> NULL
-		-^-------------     ---------------
-		|                  ^
-		p                  |
+		-^-------------	    ---------------
+		|		   ^
+		p		   |
 				entry---
 
  9.  Go to 6.
@@ -150,11 +150,12 @@
 #ifdef IP_RCU_ENABLE
 #include "rcu_lock.h"
 #endif
-#include "string.h"
 #include "net/rt.h"
 #include "ip/ip_common.h"
 #include "net/net_dev.h"
 #include "app_common.h"
+
+#include <string.h>
 #include <assert.h>
 
 #define MEMCMP_EQUAL 0

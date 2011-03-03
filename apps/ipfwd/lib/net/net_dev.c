@@ -26,7 +26,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "net/net_dev.h"
-#include "malloc.h"
+
+#include <malloc.h>
 #include <assert.h>
 
 struct net_dev_table_t *net_dev_init()
