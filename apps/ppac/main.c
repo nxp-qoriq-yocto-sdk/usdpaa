@@ -759,7 +759,9 @@ USDPAA PPAC-based application\
 static const char _ppac_args[] = "[cpu-range]";
 
 static const struct argp_option argp_opts[] = {
-	{"cpu-range", 0, 0, OPTION_DOC, "'index' or 'first'..'last'"},
+	{"fm-config",	'c',	"FILE",	0,		"FMC configuration XML file"},
+	{"fm-pcd",	'p',	"FILE",	0,		"FMC PCD XML file"},
+	{"cpu-range",	 0,	0,	OPTION_DOC,	"'index' or 'first'..'last'"},
 	{}
 };
 
@@ -768,11 +770,17 @@ static error_t ppac_parse(int key, char *arg, struct argp_state *state)
 	int _errno;
 	struct ppac_arguments *args;
 
+	args = (typeof(args))state->input;
 	switch (key) {
+	case 'c':
+		args->fm_cfg = arg;
+		break;
+	case 'p':
+		args->fm_pcd = arg;
+		break;
 	case ARGP_KEY_ARGS:
 		if (state->argc - state->next != 1)
 			argp_usage(state);
-		args = (typeof(args))state->input;
 		_errno = parse_cpus(state->argv[state->next], &args->first, &args->last);
 		if (unlikely(_errno < 0))
 			argp_usage(state);
@@ -931,12 +939,20 @@ int main(int argc, char *argv[])
 	/* Do global init that doesn't require portal access; */
 	/* - load the config (includes discovery and mapping of MAC devices) */
 	TRACE("Loading configuration\n");
-	envp = getenv("DEF_PCD_PATH");
-	if (envp)
-		pcd_path = envp;
-	envp = getenv("DEF_CFG_PATH");
-	if (envp)
-		cfg_path = envp;
+	if (ppac_args.fm_pcd != NULL)
+		pcd_path = ppac_args.fm_pcd;
+	else {
+		envp = getenv("DEF_PCD_PATH");
+		if (envp != NULL)
+			pcd_path = envp;
+	}
+	if (ppac_args.fm_cfg != NULL)
+		cfg_path = ppac_args.fm_cfg;
+	else {
+		envp = getenv("DEF_CFG_PATH");
+		if (envp != NULL)
+			cfg_path = envp;
+	}
 	netcfg = usdpaa_netcfg_acquire(pcd_path, cfg_path);
 	if (!netcfg) {
 		fprintf(stderr, "error: failed to load configuration\n");
