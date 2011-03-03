@@ -35,23 +35,8 @@
  * primitives required by these headers, and thus by any code (internal,
  * application, or 3rd party) that includes them. */
 
-
-/* The contiguous memory map for 'dma_mem' uses the DMA_MEM_*** constants, the
- * _PHYS and _SIZE values *must* agree with the "mem=<...>" kernel boot
- * parameter as well as the device-tree's "fsl-shmem" node.
- *
- * Also, the first part of that memory map is used to seed buffer pools, as
- * indicated by DMA_MEM_BPOOL. The ad-hoc buffer allocation will be confined to
- * the area following that range, in order to not conflict with buffer pool
- * usage.
- *
- * NB: these settings are required in the exported conf.h because of the inlined
- * dma_mem_ptov() and dma_mem_vtop() functions.
- */
-#define DMA_MEM_PATH	"/dev/fsl-shmem"
-#define DMA_MEM_PHYS	0x70000000 /* 1.75G */
-#define DMA_MEM_SIZE	0x10000000 /* 256M */
-#define DMA_MEM_BPOOL	0x05b80000 /* ~92M */
-
+/* ... for now, our build configuration has no remaining impact on API, so it is
+ * all within the internal conf.h, however we keep this header around in case
+ * something else comes along ... */
 
 #endif /* HEADER_USDPAA_CONF_H */

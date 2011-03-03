@@ -34,6 +34,29 @@
 extern "C" {
 #endif
 
+/* The contiguous memory map for 'dma_mem' uses the DMA_MEM_*** constants. The
+ * first part of the memory map is used to seed buffer pools, as indicated by
+ * these constants, and the ad-hoc buffer allocation will be confined to the
+ * area following that range, which will be limited only be the size of the DMA
+ * memory region allocated by the kernel. Note, we include the BPID here too
+ * (even though it has nothing to do with the DMA driver), because it means the
+ * app code has all the definitions it needs for seeding buffer pools.
+ */
+#define DMA_MEM_PATH		"/dev/fsl-usdpaa-shmem"
+#define DMA_MEM_BP1_BPID	7
+#define DMA_MEM_BP1_SIZE	704
+#define DMA_MEM_BP1_NUM		0x4000 /* 0x4000*704==11534336 (11MB) */
+#define DMA_MEM_BP2_BPID	8
+#define DMA_MEM_BP2_SIZE	1088
+#define DMA_MEM_BP2_NUM		0x1000 /* 0x1000*1088==4456448 (4.25MB) */
+#define DMA_MEM_BP3_BPID	9
+#define DMA_MEM_BP3_SIZE	2112
+#define DMA_MEM_BP3_NUM		0x1000 /* 0x1000*2112==8650752 (8.25MB) */
+#define DMA_MEM_BPOOL \
+	(DMA_MEM_BP1_SIZE * DMA_MEM_BP1_NUM + \
+	DMA_MEM_BP2_SIZE * DMA_MEM_BP2_NUM + \
+	DMA_MEM_BP3_SIZE * DMA_MEM_BP3_NUM) /* 24641536 (23.5MB) */
+
 /* Until device-trees (or device-tree replacements) are available, another thing
  * to hard-code is the FQID and BPID range allocation. */
 #define FSL_FQID_RANGE_START	0x200	/* 512 */

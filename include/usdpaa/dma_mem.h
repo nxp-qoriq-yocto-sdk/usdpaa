@@ -71,22 +71,24 @@ int dma_mem_setup(void);
 void *dma_mem_memalign(size_t boundary, size_t size);
 void dma_mem_free(void *ptr, size_t size);
 
-/* Internal base-address pointer, it's exported only to allow the ptov/vtop
- * functions (below) to be implemented as inlines. Note, this is dma_addr_t
- * rather than void*, so that 32/64 type conversions aren't required for
- * ptov/vtop when sizeof(dma_addr_t)>sizeof(void*). */
-extern dma_addr_t __dma_virt;
+/* Internal base-address delta, this is exported only to allow the ptov/vtop
+ * functions (below) to be implemented as inlines. */
+extern dma_addr_t __dma_virt2phys;
 
 /* Conversion between user-virtual ("v") and physical ("p") address. NB, the
  * double-casts avoid the "cast to pointer from integer of different size" and
  * "cast from pointer to integer of different size" warnings. */
 static inline void *dma_mem_ptov(dma_addr_t p)
 {
-	return (void *)(unsigned long)(p + __dma_virt - DMA_MEM_PHYS);
+	return (void *)(unsigned long)(p - __dma_virt2phys);
 }
 static inline dma_addr_t dma_mem_vtop(void *v)
 {
-	return (dma_addr_t)(unsigned long)v + DMA_MEM_PHYS - __dma_virt;
+	return (dma_addr_t)(unsigned long)v + __dma_virt2phys;
 }
+
+/* The physical address range used for seeding Bman pools */
+dma_addr_t dma_mem_bpool_base(void);
+size_t dma_mem_bpool_range(void);
 
 #endif	/* __DMA_MEM_H */
