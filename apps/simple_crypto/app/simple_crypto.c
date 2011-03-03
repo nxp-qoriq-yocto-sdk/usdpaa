@@ -382,8 +382,6 @@ static void *setup_preheader(uint32_t shared_desc_len, uint32_t pool_id,
 {
 	struct preheader_s *prehdr = NULL;
 
-	/* Request a buffer from the buffer allocator, with the
-	   preheader size */
 	prehdr = dma_mem_memalign(L1_CACHE_BYTES, 2*L1_CACHE_BYTES);
 	memset(prehdr, 0, 2*L1_CACHE_BYTES);
 
@@ -564,10 +562,8 @@ static void *setup_sec_descriptor(bool mode)
 	return descriptor;
 }
 
-
 struct qman_fq *create_sec_frame_queue(uint32_t fq_id, uint16_t channel,
-		uint16_t wq_id, uint32_t ctx_a_hi,
-		uint32_t ctx_a_lo, uint32_t ctx_b)
+		uint16_t wq_id, dma_addr_t ctxt_a_addr, uint32_t ctx_b)
 {
 	struct qm_mcc_initfq fq_opts;
 	struct qman_fq *fq;
@@ -580,7 +576,8 @@ struct qman_fq *create_sec_frame_queue(uint32_t fq_id, uint16_t channel,
 			"%u", fq_id);
 		return NULL;
 	}
-	if (ctx_a_lo) {
+
+	if (ctxt_a_addr) {
 		flags = QMAN_FQ_FLAG_LOCKED | QMAN_FQ_FLAG_TO_DCPORTAL;
 		fq->cb = sec40_tx_cb;
 	} else {
@@ -595,10 +592,9 @@ struct qman_fq *create_sec_frame_queue(uint32_t fq_id, uint16_t channel,
 
 	flags = QMAN_INITFQ_FLAG_SCHED;
 	fq_opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_CONTEXTA;
-	if (ctx_a_lo) {
+	if (ctxt_a_addr) {
 		fq_opts.we_mask |= QM_INITFQ_WE_CONTEXTB;
-		fq_opts.fqd.context_a.hi = ctx_a_hi;
-		fq_opts.fqd.context_a.lo = ctx_a_lo;
+		qm_fqd_stashing_set64(&fq_opts.fqd, ctxt_a_addr);
 		fq_opts.fqd.context_b = ctx_b;
 	} else {
 		uint32_t ctx_a_excl, ctx_a_len;
@@ -625,7 +621,6 @@ static int init_sec_frame_queues(enum SEC_MODE mode)
 	uint32_t fq_from_sec, fq_to_sec;
 	struct qman_fq **fq_from_sec_ptr, **fq_to_sec_ptr;
 	void *ctxt_a;
-	uint32_t ctxt_a_hi, ctxt_a_lo;
 	dma_addr_t addr;
 	uint32_t pool_channel =
 		(qm_channel_pool1 - 1) + pool_channel_offset;
@@ -637,10 +632,7 @@ static int init_sec_frame_queues(enum SEC_MODE mode)
 				__func__);
 		return -1;
 	}
-
 	addr = dma_mem_vtop(ctxt_a);
-	ctxt_a_hi = 0;
-	ctxt_a_lo = (uint32_t) (addr);
 
 	if (ENCRYPT == mode) {
 		frame_q_base = fq_base_encrypt;
@@ -658,7 +650,7 @@ static int init_sec_frame_queues(enum SEC_MODE mode)
 
 		fq_from_sec_ptr[i] =
 			create_sec_frame_queue(fq_from_sec,
-				pool_channel, 0, 0, 0, 0);
+				pool_channel, 0, 0, 0);
 		if (!fq_from_sec_ptr[i]) {
 			pr_err("%s : Encrypt FQ(from SEC) %d"
 				" couldn't be allocated, ID = %d\n",
@@ -668,7 +660,7 @@ static int init_sec_frame_queues(enum SEC_MODE mode)
 
 		fq_to_sec_ptr[i] =
 			create_sec_frame_queue(fq_to_sec, qm_channel_caam,
-				0, ctxt_a_hi, ctxt_a_lo, fq_from_sec);
+				0, addr, fq_from_sec);
 		if (!fq_to_sec_ptr[i]) {
 			pr_err("%s : Encrypt FQ(to SEC) %d couldn't be"
 				" allocated, ID = %d\n",
@@ -739,7 +731,7 @@ void free_fd(void)
 	uint8_t *buf;
 
 	for (ind = 0; ind < total_buf_num; ind++) {
-		addr = fd[ind].addr_lo;
+		addr = qm_fd_addr_get64(&fd[ind]);
 		buf = dma_mem_ptov(addr);
 		dma_mem_free(buf, total_size);
 	}
@@ -821,15 +813,15 @@ static void set_enc_buf(void)
 	for (ind = 0; ind < total_buf_num; ind++) {
 		markpoint(1);
 
-		addr = fd[ind].addr_lo;
+		addr = qm_fd_addr_get64(&fd[ind]);
 		sgentry = dma_mem_ptov(addr);
 
-		addr = sgentry->addr_lo;
+		addr = qm_sg_entry_get64(sgentry);
 		out_buf = dma_mem_ptov(addr);
 		memset(out_buf, 0, output_buf_size);
 
 		sgentry++;
-		addr = sgentry->addr_lo;
+		addr = qm_sg_entry_get64(sgentry);
 		in_buf = dma_mem_ptov(addr);
 		memset(in_buf, 0, input_buf_capacity);
 
@@ -893,7 +885,7 @@ static void set_dec_buf(void)
 	for (ind = 0; ind < total_buf_num; ind++) {
 		markpoint(4);
 
-		addr = fd[ind].addr_lo;
+		addr = qm_fd_addr_get64(&fd[ind]);
 		sg_out = dma_mem_ptov(addr);
 		sg_in = sg_out + 1;
 
@@ -912,7 +904,7 @@ static void set_dec_buf(void)
 		sg_in->offset = offset;
 		sg_in->bpid = bpid;
 
-		addr = sg_out->addr_lo;
+		addr = qm_sg_entry_get64(sg_out);
 		out_buf = dma_mem_ptov(addr);
 		memset(out_buf, 0, crypto_info->buf_size);
 	}
@@ -936,15 +928,15 @@ static void set_dec_auth_buf(void)
 	for (ind = 0; ind < total_buf_num; ind++) {
 		markpoint(4);
 
-		addr = fd[ind].addr_lo;
+		addr = qm_fd_addr_get64(&fd[ind]);
 		sg_out = dma_mem_ptov(addr);
 
-		addr = sg_out->addr_lo;
+		addr = qm_sg_entry_get64(sg_out);
 		out_buf = dma_mem_ptov(addr);
 
 		sg_in = sg_out + 1;
 
-		addr = sg_in->addr_lo;
+		addr = qm_sg_entry_get64(sg_in);
 		in_buf = dma_mem_ptov(addr);
 		memset(in_buf, 0, input_buf_capacity);
 
@@ -1100,7 +1092,7 @@ void print_frame_desc(struct qm_fd *frame_desc)
 		if (frame_desc->format == qm_fd_compound) {
 			struct qm_sg_entry *sgentry;
 
-			addr = frame_desc->addr_lo;
+			addr = qm_fd_addr_get64(frame_desc);
 			sgentry = dma_mem_ptov(addr);
 
 			pr_err
@@ -1120,7 +1112,7 @@ void print_frame_desc(struct qm_fd *frame_desc)
 
 			pr_err("      - Output buffer data at 0x%04x%08x\n",
 					sgentry->addr_hi, sgentry->addr_lo);
-			addr = sgentry->addr_lo;
+			addr = qm_sg_entry_get64(sgentry);
 			v = dma_mem_ptov(addr);
 			for (i = 0; i < output_buf_size; i++)
 				pr_err("	0x%x\n", *v++);
@@ -1140,7 +1132,7 @@ void print_frame_desc(struct qm_fd *frame_desc)
 
 			pr_err("      - Input buffer data at 0x%04x%08x\n",
 					sgentry->addr_hi, sgentry->addr_lo);
-			addr = sgentry->addr_lo;
+			addr = qm_sg_entry_get64(sgentry);
 			v = dma_mem_ptov(addr);
 			for (i = 0; i < crypto_info->buf_size; i++)
 				pr_err("	0x%x\n", *v++);
@@ -1161,10 +1153,10 @@ static int test_enc_match(void)
 	dma_addr_t addr;
 
 	for (ind = 0; ind < total_buf_num; ind++) {
-		addr = fd[ind].addr_lo;
+		addr = qm_fd_addr_get64(&fd[ind]);
 		sgentry = dma_mem_ptov(addr);
 
-		addr = sgentry->addr_lo;
+		addr = qm_sg_entry_get64(sgentry);
 		enc_buf = dma_mem_ptov(addr);
 
 		if (test_vector_match((uint32_t *) enc_buf,
@@ -1212,10 +1204,10 @@ static int test_dec_match(void)
 	for (ind = 0; ind < total_buf_num; ind++) {
 		markpoint(5);
 
-		addr = fd[ind].addr_lo;
+		addr = qm_fd_addr_get64(&fd[ind]);
 		sgentry = dma_mem_ptov(addr);
 
-		addr = sgentry->addr_lo;
+		addr = qm_sg_entry_get64(sgentry);
 		dec_buf = dma_mem_ptov(addr);
 		if (CIPHER == crypto_info->mode) {
 			if (test_vector_match((uint32_t *) dec_buf, (uint32_t *)
@@ -1335,7 +1327,7 @@ enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 		"Decrypt", mode ? atomic_read(&enc_packet_from_sec) :
 		atomic_read(&dec_packet_from_sec));
 
-	addr = dqrr->fd.addr_lo;
+	addr = qm_fd_addr_get64(&(dqrr->fd));
 	sgentry_priv = dma_mem_ptov(addr);
 	fd[sgentry_priv->index].status = dqrr->fd.status;
 
