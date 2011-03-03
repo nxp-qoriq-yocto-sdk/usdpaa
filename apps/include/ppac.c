@@ -215,7 +215,7 @@ int ppac_if_init(unsigned idx)
 
 	/* Handle any pools used by this i/f that are not already handled. */
 	fman_if_for_each_bpool(bp, fif) {
-		err = lazy_init_bpool(bp);
+		err = lazy_init_bpool(bp->bpid);
 		if (err)
 			return err;
 	}

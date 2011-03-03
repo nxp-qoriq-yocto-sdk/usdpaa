@@ -1,4 +1,4 @@
-/* Copyright (c) 2010 - 2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,6 +47,18 @@ struct usdpaa_netcfg_info *netcfg;
  * environment variables. */
 const char ppam_pcd_path[] __attribute__((weak)) = __stringify(DEF_PCD_PATH);
 const char ppam_cfg_path[] __attribute__((weak)) = __stringify(DEF_CFG_PATH);
+
+/* Seed buffer pools according to the configuration symbols */
+const struct ppac_bpool_static {
+	int bpid;
+	unsigned int num;
+	unsigned int sz;
+} ppac_bpool_static[] = {
+	{ DMA_MEM_BP1_BPID, DMA_MEM_BP1_NUM, DMA_MEM_BP1_SIZE},
+	{ DMA_MEM_BP2_BPID, DMA_MEM_BP2_NUM, DMA_MEM_BP2_SIZE},
+	{ DMA_MEM_BP3_BPID, DMA_MEM_BP3_NUM, DMA_MEM_BP3_SIZE},
+	{ -1, 0, 0 }
+};
 
 /* The SDQCR mask to use (computed from netcfg's pool-channels) */
 static uint32_t sdqcr;
@@ -169,26 +181,22 @@ enum qm_channel get_rxc(void)
 	return ret;
 }
 
-int lazy_init_bpool(const struct fman_if_bpool *bpool)
+int lazy_init_bpool(u8 bpid)
 {
 	struct bman_pool_params params = {
-		.bpid	= bpool->bpid,
+		.bpid	= bpid,
 #ifdef PPAC_DEPLETION
-		.flags	= BMAN_POOL_FLAG_ONLY_RELEASE |
-			BMAN_POOL_FLAG_DEPLETION,
+		.flags	= BMAN_POOL_FLAG_DEPLETION,
 		.cb	= bp_depletion,
-		.cb_ctx	= &pool[bpool->bpid]
-#else
-		.flags	= BMAN_POOL_FLAG_ONLY_RELEASE
+		.cb_ctx	= &pool[bpid]
 #endif
 	};
-	if (pool[bpool->bpid])
+	if (pool[bpid])
 		/* this BPID is already handled */
 		return 0;
-	pool[bpool->bpid] = bman_new_pool(&params);
-	if (!pool[bpool->bpid]) {
-		fprintf(stderr, "error: bman_new_pool(%d) failed\n",
-			bpool->bpid);
+	pool[bpid] = bman_new_pool(&params);
+	if (!pool[bpid]) {
+		fprintf(stderr, "error: bman_new_pool(%d) failed\n", bpid);
 		return -ENOMEM;
 	}
 	return 0;
@@ -254,6 +262,9 @@ static void do_global_finish(void)
 
 static void do_global_init(void)
 {
+	const struct ppac_bpool_static *bp = ppac_bpool_static;
+	dma_addr_t phys_addr = dma_mem_bpool_base();
+	dma_addr_t phys_limit = phys_addr + dma_mem_bpool_range();
 	unsigned int loop;
 	int err;
 
@@ -289,6 +300,53 @@ static void do_global_init(void)
 	if (err)
 		fprintf(stderr, "error: tx CGR init, continuing\n");
 #endif
+	/* Initialise and see any BPIDs we've been configured to set up */
+	while (bp->bpid != -1) {
+		struct bm_buffer bufs[8];
+		unsigned int num_bufs = 0;
+		u8 bpid = bp->bpid;
+		err = lazy_init_bpool(bpid);
+		if (err) {
+			fprintf(stderr, "error: bpool (%d) init failure\n",
+				bpid);
+			break;
+		}
+		/* Drain the pool of anything already in it. */
+		do {
+			/* Acquire is all-or-nothing, so we drain in 8s, then in
+			 * 1s for the remainder. */
+			if (err != 1)
+				err = bman_acquire(pool[bpid], bufs, 8, 0);
+			if (err < 8)
+				err = bman_acquire(pool[bpid], bufs, 1, 0);
+			if (err > 0)
+				num_bufs += err;
+		} while (err > 0);
+		if (num_bufs)
+			fprintf(stderr, "warn: drained %u bufs from BPID %d\n",
+				num_bufs, bpid);
+		/* Fill the pool */
+		for (num_bufs = 0; num_bufs < bp->num; ) {
+			unsigned int rel = (bp->num - num_bufs) > 8 ? 8 :
+						(bp->num - num_bufs);
+			for (loop = 0; loop < rel; loop++) {
+				bm_buffer_set64(&bufs[loop], phys_addr);
+				phys_addr += bp->sz;
+			}
+			if (phys_addr > phys_limit) {
+				fprintf(stderr, "error: buffer overflow\n");
+				abort();
+			}
+			do {
+				err = bman_release(pool[bpid], bufs, rel, 0);
+			} while (err == -EBUSY);
+			if (err)
+				fprintf(stderr, "error: release failure\n");
+			num_bufs += rel;
+		}
+		printf("Release %u bufs to BPID %d\n", num_bufs, bpid);
+		bp++;
+	}
 	/* Initialise interface objects (internally, this takes care of
 	 * initialising buffer pool objects for any BPIDs used by the Fman Rx
 	 * ports). */

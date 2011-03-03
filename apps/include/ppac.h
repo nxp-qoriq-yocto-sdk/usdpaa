@@ -222,7 +222,7 @@ void bp_depletion(struct bman_portal *bm __always_unused,
 
 enum qm_channel get_rxc(void);
 
-int lazy_init_bpool(const struct fman_if_bpool *bpool);
+int lazy_init_bpool(u8 bpid);
 
 int ppac_if_init(unsigned idx);
 void ppac_if_enable_rx(const struct ppac_if *i);
