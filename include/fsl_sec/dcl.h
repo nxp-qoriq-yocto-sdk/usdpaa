@@ -41,9 +41,9 @@
 	extern "C" {
 #endif
 
-#include "compat.h"
-#include "fsl_sec/desc.h"
-#include "fsl_sec/pdb.h"
+#include <usdpaa/compat.h>
+#include "desc.h"
+#include "pdb.h"
 
 
 /*

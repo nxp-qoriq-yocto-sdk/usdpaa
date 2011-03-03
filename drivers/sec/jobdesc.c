@@ -34,8 +34,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "compat.h"
-#include "fsl_sec/dcl.h"
+#include <usdpaa/compat.h>
+#include <fsl_sec/dcl.h>
+#include <internal/compat.h>
 
 static const uint8_t mdkeylen[] = { 16, 20, 28, 32, 48, 64 };
 

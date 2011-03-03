@@ -33,9 +33,10 @@
 #ifndef THREAD_PRIV_H
 #define THREAD_PRIV_H
 
-#include <compat.h>
-#include "dma_mem.h"
-#include "fman.h"
+#include <usdpaa/dma_mem.h>
+#include <usdpaa/fman.h>
+#include <usdpaa/fsl_usd.h>
+#include <internal/compat.h>
 
 /* This mechanism for initialising threads and binding portals is from the
  * legacy "poc" work - it will change and the "bad" naming is to emphasise this

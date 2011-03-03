@@ -31,7 +31,6 @@
  */
 
 #include "thread_priv.h"
-#include "fsl_usd.h"
 
 static pthread_barrier_t barr;
 static __thread thread_data_t *__my_thread_data;

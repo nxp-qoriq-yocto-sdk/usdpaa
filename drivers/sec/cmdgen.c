@@ -34,8 +34,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "compat.h"
-#include "fsl_sec/dcl.h"
+#include <usdpaa/compat.h>
+#include <fsl_sec/dcl.h>
+#include <usdpaa/dma_mem.h>
+#include <internal/compat.h>
 
 /*
  * NOTE: CAAM can be configured for either 32-bit mode or 36-bit mode

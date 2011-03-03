@@ -37,19 +37,6 @@
  */
 
 #include "simple_crypto.h"
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
-#include <argp.h>
-#include <signal.h>
-#include <syslog.h>
-#include <errno.h>
-#include "thread_priv.h"
-#include "bigatomic.h"
-#include "algo_desc.h"
-#include "test_vector.h"
-#include "fsl_sec/desc.h"
-#include "fsl_qman.h"
 
 #define BITS_PER_BYTE (8)
 #define BYTES_PER_WORD sizeof(int)

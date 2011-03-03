@@ -34,8 +34,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "compat.h"
-#include "fsl_sec/dcl.h"
+#include <usdpaa/compat.h>
+#include <fsl_sec/dcl.h>
+#include <internal/compat.h>
 
 #define SPR_PVR          287  /* Processor Version Register */
 

@@ -37,8 +37,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "compat.h"
-#include "fsl_sec/dcl.h"
+#include <usdpaa/compat.h>
+#include <fsl_sec/dcl.h>
+#include <internal/compat.h>
 
 #define MAX_LEADER_LEN 31 /* offset + raw + instruction-name-length */
 #define DPTINT             pr_info

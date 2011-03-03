@@ -29,12 +29,20 @@
 #ifndef __SIMPLE_CRYPTO_H
 #define __SIMPLE_CRYPTO_H
 
-#include "compat.h"
+#include <usdpaa/compat.h>
+#include <usdpaa/fsl_qman.h>
+#include <usdpaa/fsl_bman.h>
+#include <fsl_sec/dcl.h>
+#include <fsl_sec/desc.h>
 #include <errno.h>
 #include <stdbool.h>
-#include <linux/fsl_qman.h>
-#include <linux/fsl_bman.h>
-#include "fsl_sec/dcl.h"
+#include <stdlib.h>
+#include <string.h>
+#include <argp.h>
+#include "thread_priv.h"
+#include "algo_desc.h"
+#include "test_vector.h"
+#include <internal/compat.h>
 
 #define INV_LWE_ID	255	/* Invalid LWE core ID */
 #define SEC40_FQ_BASE	9000	/* start of FQ number for encryption FQ */
@@ -45,16 +53,6 @@
 				   compound frame */
 #define	IN_FRAME_INDEX	1	/* input frame index used to prepare
 				   compound frame */
-
-#define	HMAC_SHA1_DIGEST_SIZE	20	/* HMAC-SHA1 digest length(in bytes) */
-/* SNOW 3G F9 MAC is generated in the context double word 0 with the MAC/ICV.
- * Since MAC is a 32-bit value, it is written to low-order bit locations
- * (right-justified) and the remaining bits are zeroized. Therefore, consider-
- * ing high-order 32-bit vaule as ZERO MAC size is taken as 8 bytes.
- */
-#define	SNOW_F9_DIGEST_SIZE	4	/* SNOW-F9 digest length(bytes) */
-#define	KASUMI_F9_DIGEST_SIZE	4	/* KASUMI-F9 digest length(bytes) */
-#define	CRC_DIGEST_SIZE		8	/* CRC digest length(bytes) */
 
 enum SEC_MODE { DECRYPT, ENCRYPT };
 

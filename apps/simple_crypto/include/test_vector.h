@@ -65,6 +65,16 @@ struct ref_vector_s {
 	uint8_t *digest;
 } __packed;
 
+#define	HMAC_SHA1_DIGEST_SIZE	20	/* HMAC-SHA1 digest length(in bytes) */
+/* SNOW 3G F9 MAC is generated in the context double word 0 with the MAC/ICV.
+ * Since MAC is a 32-bit value, it is written to low-order bit locations
+ * (right-justified) and the remaining bits are zeroized. Therefore, consider-
+ * ing high-order 32-bit vaule as ZERO MAC size is taken as 8 bytes.
+ */
+#define	SNOW_F9_DIGEST_SIZE	4	/* SNOW-F9 digest length(bytes) */
+#define	KASUMI_F9_DIGEST_SIZE	4	/* KASUMI-F9 digest length(bytes) */
+#define	CRC_DIGEST_SIZE		8	/* CRC digest length(bytes) */
+
 /* AES-CBC reference vectors, according to "RFC3602 - The AES-CBC Cipher
  * Algorithm and Its Use with IPsec, from S. Frankel.., September 2003"
  */
