@@ -59,7 +59,7 @@ struct net_dev_t *dpa_dev_init(struct net_dev_t *dev)
 }
 
 void dpa_dev_xmit(struct net_dev_t *dev, struct qm_fd *fd,
-				void *ll_hdr __UNUSED)
+				void *ll_hdr __always_unused)
 {
 	struct dpa_dev_t *dpa_dev = (struct dpa_dev_t *)dev;
 #ifdef STATS_TBD

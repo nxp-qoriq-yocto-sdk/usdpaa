@@ -30,7 +30,6 @@
 
 #include "net/neigh.h"
 #include "net/net_dev.h"
-#include "compiler.h"
 #include "net/annotations.h"
 #include "ip/ip.h"
 

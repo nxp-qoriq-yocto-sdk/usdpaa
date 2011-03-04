@@ -29,13 +29,12 @@
 #ifndef __LIB_IP_IP_PROTOS_H
 #define __LIB_IP_IP_PROTOS_H
 
-#include "compiler.h"
 #include "ip/ip.h"
 #include "ip/ip_common.h"
 #include "ip/ip_context.h"
 #include "net/annotations.h"
 
-#define IP_PROTO_COUNT  256
+#define IP_PROTO_COUNT	256
 
 /**
 \brief Protocol Types

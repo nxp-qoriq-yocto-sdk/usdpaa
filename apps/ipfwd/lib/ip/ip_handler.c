@@ -30,7 +30,6 @@
 #include <internal/compat.h>
 
 #include "bigatomic.h"
-#include "compiler.h"
 #include "app_common.h"
 #include "net/frame_handler.h"
 #include "net/net_dev.h"

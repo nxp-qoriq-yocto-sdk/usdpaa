@@ -92,7 +92,7 @@ struct ip_option_t {
 			 belongs*/
 			uint32_t number:5;
 			/**< Specifies the kind of option*/
-		} __PACKED bits;
+		} __packed bits;
 	} type;
 	uint8_t length;
 	/**< For variable-length options, indicates the size of the

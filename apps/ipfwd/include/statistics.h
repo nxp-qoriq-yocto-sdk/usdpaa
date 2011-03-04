@@ -13,7 +13,7 @@
  */
 
 /*
- * Copyright (c) 2010 Freescale Semiconductor, Inc.
+ * Copyright (c) 2010 - 2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,7 +39,6 @@
 #define __STATISTICS_H__
 
 #include <stdint.h>
-#include "compiler.h"
 
 /* 32 bit statistics, single accumulator */
 typedef volatile int32_t stat32_t;
@@ -68,4 +67,4 @@ struct stat64_pair_t {
 	union stat64_t inc;
 	union stat64_t acc;
 };
-#endif				/* __STATISTICS_H__ */
+#endif	/* __STATISTICS_H__ */

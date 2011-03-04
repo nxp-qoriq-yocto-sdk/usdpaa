@@ -111,7 +111,7 @@ enum IP_STATUS ip_output(struct ip_context_t *ctxt,
 /*
  * Find the correct neighbor for this frame, using ARP tables
  */
-enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt __UNUSED,
+enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt __always_unused,
 				struct annotations_t *notes,
 				struct iphdr *ip_hdr,
 				enum state source)

@@ -25,7 +25,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "net/annotations.h"
-#include "compiler.h"
 #include "ip_local.h"
 #include "ip_common.h"
 #include "ip_hooks.h"
@@ -64,7 +63,7 @@ enum IP_STATUS ip_local_deliver_finish(struct ip_context_t *ctxt,
 
 void ip_defragment(struct ip_context_t *ctxt,
 		   struct annotations_t *notes,
-		   struct iphdr *ip_hdr __UNUSED)
+		   struct iphdr *ip_hdr __always_unused)
 {
 #ifdef STATS_TBD
 	decorated_notify_inc_32(&(ctxt->stats->ip_local_frag_reassem_started));

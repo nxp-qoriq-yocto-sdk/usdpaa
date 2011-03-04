@@ -90,7 +90,7 @@ enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,
 
 enum IP_STATUS ip_route_input_slow(struct ip_context_t *ctxt,
 				   struct annotations_t *notes,
-				   struct iphdr *ip_hdr __UNUSED)
+				   struct iphdr *ip_hdr __always_unused)
 {
 #ifdef STATS_TBD
 	decorated_notify_inc_64(&(ctxt->stats->ip_route_input_slow));
