@@ -32,6 +32,8 @@
 
 #include <ppac.h>
 
+#include "ppam_if.h"
+
 #include <net/if_arp.h>
 #include <netinet/ip.h>
 
@@ -58,35 +60,6 @@
  * packet-handling logic and application-specific (reflector.c) code when
  * processing packets.
  */
-
-/* structs required by ppac.c */
-struct ppam_if {
-	/* We simply capture Tx FQIDs as they initialise, in order to use them
-	 * when Rx FQs initialise. Indeed, the FQID is the only info we're
-	 * passed during Tx FQ init, which is due to the programming model;
-	 * we're hooked only on receive, not transmit (it's our receive handler
-	 * that *requests* transmit), and the FQ objects used for Tx are
-	 * internal to ppac.c and not 1-to-1 with FQIDs. */
-	unsigned int num_tx_fqids;
-	uint32_t *tx_fqids;
-};
-struct ppam_rx_error { };
-struct ppam_rx_default { };
-struct ppam_tx_error { };
-struct ppam_tx_confirm { };
-struct ppam_rx_hash {
-	/* A more general network processing application (eg. routing) would
-	 * take into account the contents of the recieved frame when computing
-	 * the appropriate Tx FQID. These wrapper structures around each Rx FQ
-	 * would typically contain state to assist/optimise that choice of Tx
-	 * FQID, as that's one of the reasons for hashing Rx traffic to multiple
-	 * FQIDs - each FQID carries proportionally fewer flows than the network
-	 * interface itself, and a proportionally higher likelihood of bursts
-	 * from the same flow. In "reflector" though, the choice of Tx FQID is
-	 * constant for each Rx FQID, and so the only "optimisation" we can do
-	 * is to store tx_fqid itself! */
-	uint32_t tx_fqid;
-};
 
 /* Override the default command prompt */
 const char ppam_prompt[] = "reflector> ";

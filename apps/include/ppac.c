@@ -34,45 +34,7 @@
  * application, after declaring all the required definitions. */
 
 #include <ppac.h>
-
-/*********************************/
-/* Net interface data structures */
-/*********************************/
-
-/* Each Fman i/face has one of these */
-struct ppac_if {
-	struct list_head node;
-	size_t sz;
-	const struct fm_eth_port_cfg *port_cfg;
-	/* NB: the Tx FQs kept here are created to (a) initialise and schedule
-	 * the FQIDs on startup, and (b) be able to clean them up on shutdown.
-	 * They aren't used for enqueues, as that's not in keeping with how a
-	 * "generic network processing application" would work. See "local_fq"
-	 * below for more info. */
-	unsigned int num_tx_fqs;
-	struct qman_fq *tx_fqs;
-	struct ppam_if module_if;
-	struct ppac_rx_error {
-		struct qman_fq fq;
-		struct ppam_rx_error s;
-	} rx_error;
-	struct ppac_rx_default {
-		struct qman_fq fq;
-		struct ppam_rx_default s;
-	} rx_default;
-	struct ppac_tx_error {
-		struct qman_fq fq;
-		struct ppam_tx_error s;
-	} tx_error;
-	struct ppac_tx_confirm {
-		struct qman_fq fq;
-		struct ppam_tx_confirm s;
-	} tx_confirm;
-	struct ppac_rx_hash {
-		struct qman_fq fq;
-		struct ppam_rx_hash s;
-	} ____cacheline_aligned rx_hash[0];
-} ____cacheline_aligned;
+#include <ppac_if.h>
 
 /*******************/
 /* Packet handling */
