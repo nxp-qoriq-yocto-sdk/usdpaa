@@ -47,7 +47,6 @@
 
 #include <internal/compat.h>
 
-#include <stdint.h>
 #include <argp.h>
 
 /* If defined, be lippy about everything */
