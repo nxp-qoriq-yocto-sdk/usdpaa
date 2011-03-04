@@ -32,14 +32,18 @@
 #include <usdpaa/compat.h>
 #include <usdpaa/fsl_qman.h>
 #include <usdpaa/fsl_bman.h>
+
 #include <fsl_sec/dcl.h>
 #include <fsl_sec/desc.h>
-#include <stdbool.h>
-#include <argp.h>
+
+#include <internal/compat.h>
+
 #include "thread_priv.h"
 #include "algo_desc.h"
 #include "test_vector.h"
-#include <internal/compat.h>
+
+#include <argp.h>
+#include <math.h>
 
 #define INV_LWE_ID	255	/* Invalid LWE core ID */
 #define SEC40_FQ_BASE	9000	/* start of FQ number for encryption FQ */
@@ -168,7 +172,7 @@ static int check_fd_status(void);
 
 #define BUFF_NUM_PER_CORE	800	/**< Maximum number of buffers can be
 						provided by user */
-#define BUFF_SIZE               6400    /**< Maximum buffer size that can be
+#define BUFF_SIZE		6400	/**< Maximum buffer size that can be
 						provided by user */
 
 /*

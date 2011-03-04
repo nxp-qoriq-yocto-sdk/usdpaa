@@ -39,7 +39,6 @@
 
 #include <internal/compat.h>
 
-#include <net/ethernet.h>
 #include <net/if_arp.h>
 
 #define MAX_THREADS 8
