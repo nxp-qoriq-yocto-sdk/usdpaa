@@ -38,7 +38,7 @@
 #include "ip/ip_rc.h"
 #include "ip/ip_common.h"
 #include "arp/arp.h"
-#include <linux/if_ether.h>
+
 #include <assert.h>
 
 #ifdef NOT_USDPAA

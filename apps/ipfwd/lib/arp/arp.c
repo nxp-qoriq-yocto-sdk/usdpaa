@@ -24,10 +24,11 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include "arp.h"
-#include <linux/if_ether.h>
 #include "ip/ip_common.h"
 #include "ether.h"
+
 #undef ARP_ENABLE
 extern struct config_info config_info;
 static spinlock_t arp_lock = SPIN_LOCK_UNLOCKED;

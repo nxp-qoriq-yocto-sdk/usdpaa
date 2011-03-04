@@ -46,15 +46,12 @@
 #include "ip/ip_appconf.h"
 #include "helper/helper.h"
 
-#include <linux/if_ether.h>
-
 #define ETHERNET_ADDR_MAGIC	0x0200
 #define LINKLOCAL_NODES_2EXP	10
 #define IFACE_COUNT		12
 #define LINKLOCAL_NODES		(1 << LINKLOCAL_NODES_2EXP)
 #define INITIAL_FRAME_COUNT	128
 #define IP_RC_EXPIRE_JIFFIES	(20*60*JIFFY_PER_SEC)
-#define IP_TOS			0
 #define IFACE_MTU		1500
 #define IPSEC_MAX_NUM_FQS	9000
 #define IP_DQRR_MAXFILL 15

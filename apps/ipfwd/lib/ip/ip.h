@@ -30,33 +30,34 @@
 #define __LIB_IP_IP_H
 
 #include "ethernet/eth.h"
-#include <linux/ip.h>
 
-#define IP_ADDRESS_BYTES                (4)
+#include <netinet/ip.h>
+
+#define IP_ADDRESS_BYTES		(4)
 /**< Number of Bytes in IP Address*/
-#define IP_HEADER_LENGTH_NO_OPTIONS     (20)
+#define IP_HEADER_LENGTH_NO_OPTIONS	(20)
 /**< Length in bytes of the IP Header without the Optional fields*/
 #define IP_HEADER_LENGTH_NO_OPTIONS_WORDS \
 	(IP_HEADER_LENGTH_NO_OPTIONS / BYTES_PER_WORD)
-#define IP_HEADER_DEFAULT_TOS           (0)
+#define IP_HEADER_DEFAULT_TOS		(0)
 /**< default value of IP TOS*/
-#define IP_HEADER_FRAG_NO_FRAG          (0)
+#define IP_HEADER_FRAG_NO_FRAG		(0)
 /**< Value of Fragmentation Flag for No fragmentation*/
-#define IP_HEADER_DEFAULT_TTL           (0x40)
+#define IP_HEADER_DEFAULT_TTL		(0x40)
 /**< default value of IP TTL*/
-#define IP_HEADER_PROTOCOL_ICMP         (0x01)
+#define IP_HEADER_PROTOCOL_ICMP		(0x01)
 /**< value of ICMP protocol*/
-#define IP_HEADER_PROTOCOL_TCP          (0x06)
+#define IP_HEADER_PROTOCOL_TCP		(0x06)
 /**< value of TCP protocol*/
-#define IP_HEADER_PROTOCOL_UDP          (0x11)
+#define IP_HEADER_PROTOCOL_UDP		(0x11)
 /**< value of UDP protocol*/
-#define IP_HEADER_PROTOCOL_GRE          (0x2F)
+#define IP_HEADER_PROTOCOL_GRE		(0x2F)
 /**< value of GRE protocol*/
-#define IP_HEADER_PROTOCOL_ESP          (0x32)
+#define IP_HEADER_PROTOCOL_ESP		(0x32)
 /**< value of ESP protocol*/
-#define IP_HEADER_PROTOCOL_IPIP         (0x5E)
+#define IP_HEADER_PROTOCOL_IPIP		(0x5E)
 /**< value of IPIP protocol*/
-#define IP_HEADER_NO_CHECKSUM           (0)
+#define IP_HEADER_NO_CHECKSUM		(0)
 /**< IP no checksum value*/
 
 /**
