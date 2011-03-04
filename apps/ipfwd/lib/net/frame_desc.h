@@ -34,8 +34,6 @@
 
 #include "fm_types.h"
 
-#include <stdint.h>
-
 /**
  \brief Returns the Length of the Buffer in the fd
  \param[in] fd Pointer to fd

@@ -38,7 +38,6 @@
 #include "net/frame_handler.h"
 #include "bigatomic.h"
 
-#include <stdint.h>
 #include <stdbool.h>
 
 enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,

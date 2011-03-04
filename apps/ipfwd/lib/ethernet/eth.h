@@ -32,9 +32,7 @@
 
 #include "net/net_dev.h"
 
-#include <stdint.h>
 #include <stdbool.h>
-#include <net/ethernet.h>
 
 /**
  \brief RFC-defined	 MTU for ethernet

@@ -25,6 +25,7 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include <usdpaa/compat.h>
 #include <usdpaa/fsl_qman.h>
 #include <usdpaa/fsl_bman.h>

@@ -155,7 +155,6 @@
 #include "net/net_dev.h"
 #include "app_common.h"
 
-#include <string.h>
 #include <assert.h>
 
 #define MEMCMP_EQUAL 0

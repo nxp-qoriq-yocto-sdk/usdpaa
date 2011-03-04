@@ -35,8 +35,6 @@
 #include "ll_cache.h"
 #include "statistics.h"
 
-#include <string.h>
-
 #ifndef NET_DEV_MAX_COUNT
 #define NET_DEV_MAX_COUNT		  4096
 /**< Maximum Number of Net devices in the system*/

@@ -27,8 +27,6 @@
 
 #include "common/refcount.h"
 
-#include <string.h>
-
 /*
  * Create Refcount instance
  */

@@ -26,7 +26,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "ip/ip_common.h"
-#include <stdint.h>
 #include "app_common.h"
 #include "ip/ip_context.h"
 #include "ip/ip_forward.h"

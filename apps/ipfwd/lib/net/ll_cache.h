@@ -31,9 +31,6 @@
 #include "common/common.h"
 #include "net/net.h"
 
-#include <stdint.h>
-#include <string.h>
-
 /**
  \brief Link Layer Cache Structure
  */

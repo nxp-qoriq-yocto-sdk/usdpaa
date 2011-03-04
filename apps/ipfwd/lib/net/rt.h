@@ -33,7 +33,6 @@
 #include "mm/mem_cache.h"
 #include "statistics.h"
 
-#include <stdint.h>
 #include <stdbool.h>
 
 /**< Pool Size for Routing Table Entries */

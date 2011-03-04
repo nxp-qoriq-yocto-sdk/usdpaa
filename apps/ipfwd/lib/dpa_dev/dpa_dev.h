@@ -31,8 +31,6 @@
 #include "net/net_dev.h"
 #include "net/frame_handler.h"
 
-#include <stdint.h>
-
 /**
  \brief DPA FQ and net device configuration structure
  */

@@ -32,9 +32,6 @@
 #include "mm/mem_cache.h"
 #include "app_common.h"
 
-#include <malloc.h>
-#include <assert.h>
-
 struct mem_cache_t *cache_cache;
 
 static struct mem_cache_t *__mem_cache_create(size_t objsize,

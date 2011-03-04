@@ -29,7 +29,6 @@
 #include <usdpaa/usdpaa_netcfg.h>
 
 #include <stdbool.h>
-#include <net/ethernet.h>
 
 #define MAX_NUM_FQ	1024
 #define MAX_NUM_PORTS	12

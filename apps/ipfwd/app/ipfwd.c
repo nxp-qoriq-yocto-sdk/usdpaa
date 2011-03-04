@@ -37,7 +37,6 @@
 #include "bigatomic.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <mqueue.h>
 
 uint32_t iface_subnet[IFACE_COUNT] = { 24, 29, 21, 22, 23, 25, 26, 27, 28 };

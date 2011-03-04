@@ -4,7 +4,7 @@
 	This context is passed in contextB of FQ during initialization
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,7 +29,6 @@
 #ifndef _LIB_NET_CONTEXT_H_
 #define _LIB_NET_CONTEXT_H_	1
 
-#include <stdint.h>
 #include "net_dev.h"
 #include "annotations.h"
 

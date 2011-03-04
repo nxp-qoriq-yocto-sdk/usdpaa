@@ -28,14 +28,13 @@
 #ifdef NEIGH_RCU_ENABLE
 #include "rcu_lock.h"
 #endif
-#include <string.h>
 #include "net/neigh.h"
 #include "net/rt.h"
 #include "ethernet/eth.h"
 #include "app_common.h"
-#include <assert.h>
 #include "bigatomic.h"
-#include <net/ethernet.h>
+
+#include <assert.h>
 
 static bool __neigh_add(struct neigh_table_t *nt, struct neigh_t **cur_ptr,
 			struct neigh_t *new_n, bool replace);

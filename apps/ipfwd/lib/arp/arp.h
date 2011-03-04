@@ -33,7 +33,6 @@
 #include "compiler.h"
 #include "net/annotations.h"
 #include "ip/ip.h"
-#include <net/ethernet.h>
 
 extern struct ip_stack_t stack;
 extern struct net_dev_t *ipfwd_get_dev_for_ip(unsigned int ip_addr);

@@ -37,8 +37,6 @@
 #include "common/refcount.h"
 #include "statistics.h"
 
-#include <stdint.h>
-
 #define NEIGH_STATE_UNKNOWN	0x00
 /**< Entry State - Unknown*/
 #define NEIGH_STATE_NO_NEIGH	0x01				/**< Entry State - No Neighbour*/

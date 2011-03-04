@@ -40,7 +40,7 @@
 #define CRC64_EXPON_ECMA_182	0xC96C5795D7870F42ULL
 #define CRC64_DEFAULT_INITVAL	0xFFFFFFFFFFFFFFFFULL
 
-#define CRC64_BYTE_MASK      	0xFF
+#define CRC64_BYTE_MASK		0xFF
 #define CRC64_TABLE_ENTRIES	(1 << 8)
 #define CRC64_ODD_MASK		1
 
@@ -327,9 +327,9 @@ crc64_init(void)
 
 \param[in]	data  - 32 bit Data
 
-\param[in] 	crc - seed
+\param[in]	crc - seed
 
-\return   	calculated crc
+\return		calculated crc
 */
 static inline uint64_t
 crc64_compute_word(uint32_t data, uint64_t seed)
@@ -363,9 +363,9 @@ crc64_compute_word(uint32_t data, uint64_t seed)
 
 \param[in]	data  - 16 bit Data
 
-\param[in] 	crc - seed
+\param[in]	crc - seed
 
-\return   	calculated crc
+\return		calculated crc
 */
 static inline uint64_t
 crc64_compute_hword(uint16_t data, uint64_t seed)
@@ -388,13 +388,13 @@ crc64_compute_hword(uint16_t data, uint64_t seed)
 
 
 /**
-\brief    	Computes 64 bit the crc over 1 byte
+\brief		Computes 64 bit the crc over 1 byte
 
 \param[in]	data - Input data
 
 \param[in]	crc - seed
 
-\return   	calculated crc
+\return		calculated crc
 */
 static inline uint64_t
 crc64_compute_byte(uint8_t data, uint64_t seed)
@@ -405,11 +405,11 @@ crc64_compute_byte(uint8_t data, uint64_t seed)
 }
 
 /**
-\brief   	returns the 2's compliment for the input seed
+\brief		returns the 2's compliment for the input seed
 
 \param[in]	seed - Seed
 
-\return   	2's compliment of seed
+\return		2's compliment of seed
 */
 static inline uint64_t
 crc64_finish(uint64_t seed)
@@ -424,9 +424,9 @@ void crc64_print_table(void);
 
 \param[in]	data  - Input buffer containing data
 
-\param[in] 	bytes - length of buffer
+\param[in]	bytes - length of buffer
 
-\return   	calculated crc
+\return		calculated crc
 */
 uint64_t crc64_FMan(uint8_t *bytePtr, uint32_t bytes);
 

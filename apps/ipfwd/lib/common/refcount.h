@@ -35,9 +35,6 @@
 #include "statistics.h"
 #include "bigatomic.h"
 
-#include <stdint.h>
-#include <stdbool.h>
-
 typedef stat32_t refcount_t;
 
 /**
