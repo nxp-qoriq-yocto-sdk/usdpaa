@@ -258,6 +258,7 @@ static void do_global_finish(void)
 			pool[loop] = NULL;
 		}
 	}
+	ppam_finish();
 }
 
 static void do_global_init(void)
@@ -346,6 +347,19 @@ static void do_global_init(void)
 		}
 		printf("Release %u bufs to BPID %d\n", num_bufs, bpid);
 		bp++;
+	}
+	/* Here, we give the PPAM it's opportunity to perform "global"
+	 * initialisation, before individual interfaces come up (which each
+	 * provide their own, more fine-grained, init hooks). We do it here
+	 * because the portals are available, pools and CGRs have all been
+	 * created, etc. Ie. PPAC global init has essentially finished, and the
+	 * remaining step (interface setup) could very well be removed from
+	 * global init anyway, and made a run-time consideration (like setup and
+	 * teardown of non-primary threads). */
+	err = ppam_init();
+	if (err) {
+		fprintf(stderr, "error: PPAM init failed (%d)\n", err);
+		return;
 	}
 	/* Initialise interface objects (internally, this takes care of
 	 * initialising buffer pool objects for any BPIDs used by the Fman Rx

@@ -122,6 +122,10 @@ extern const struct cli_table_entry cli_table_start[], cli_table_end[];
 /* Each Fman i/face has one of these */
 struct ppac_if;
 
+/* PPAM global startup/teardown */
+int ppam_init(void);
+void ppam_finish(void);
+
 /***************/
 /* Global data */
 /***************/
