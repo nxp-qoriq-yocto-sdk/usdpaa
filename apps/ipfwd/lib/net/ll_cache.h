@@ -3,7 +3,7 @@
  \brief This file contains Cache related data structures
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,7 +48,6 @@ struct ll_cache_t {
  */
 struct ll_cache_t *ll_cache_create(void);
 
-void *__real_memcpy(void *dest, const void *src, size_t n);
 /**
  \brief Updates the Cache structure with the Header Data
  \param[inout] ll_hdr Pointer to the Header
