@@ -134,9 +134,14 @@ void ppam_finish(void);
 extern struct usdpaa_netcfg_info *netcfg;
 /* Default paths to configuration files - these are determined from the build,
  * but can be overriden at run-time using "DEF_PCD_PATH" and "DEF_CFG_PATH"
- * environment variables. */
+ * environment variables. Also, PPAC defines weakly-linked versions of these
+ * variables, so a PPAM can declare its own and they will take precedence. */
 extern const char ppam_pcd_path[];
 extern const char ppam_cfg_path[];
+
+/* Default CLI prompt. PPAC defines a weakly-linked version of this, but a PPAM
+ * can declare its own and it will take precedence. */
+extern const char ppam_prompt[];
 
 /* We want a trivial mapping from bpid->pool, so just have a 64-wide array of
  * pointers, most of which are NULL. */

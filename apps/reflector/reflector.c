@@ -88,6 +88,9 @@ struct ppam_rx_hash {
 	uint32_t tx_fqid;
 };
 
+/* Override the default command prompt */
+const char ppam_prompt[] = "reflector> ";
+
 /* PPAM global startup/teardown
  *
  * These hooks are not performance-sensitive and so are declared as real

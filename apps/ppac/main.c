@@ -984,6 +984,8 @@ cli_cmd(list, ppac_cli_list);
 cli_cmd(macs, ppac_cli_macs);
 cli_cmd(rm, ppac_cli_rm);
 
+const char ppam_prompt[] __attribute__((weak)) = "> ";
+
 int main(int argc, char *argv[])
 {
 	struct worker *worker, *tmpworker;
@@ -1091,7 +1093,7 @@ int main(int argc, char *argv[])
 			worker_reap(worker);
 
 		/* Get command */
-		cli = readline("> ");
+		cli = readline(ppam_prompt);
 		if (unlikely((cli == NULL) || strncmp(cli, "q", 1) == 0))
 			break;
 		if (cli[0] == 0) {
