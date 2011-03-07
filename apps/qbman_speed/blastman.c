@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010 Freescale Semiconductor, Inc.
+/* Copyright (c) 2009-2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -96,17 +96,16 @@ static int avg(u64 *a)
 #define fill_in(b) \
 do { \
 	rsum += base; \
-	b.hi = 0xfaba; \
-	b.lo = base++; \
+	bm_buffer_set64(&b, base++); \
 } while (0)
 #define read_in(b) \
 do { \
-	asum += b.lo; /* should we check buf->hi==BASE_HI? */ \
+	asum += bm_buffer_get64(&b);
 } while (0)
 #else
 #define fill_in(b) \
 do { \
-	b.lo = base++; \
+	bm_buffer_set64(&b, base++); \
 } while (0)
 #define read_in(b)
 #endif

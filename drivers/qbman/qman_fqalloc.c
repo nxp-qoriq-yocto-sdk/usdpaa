@@ -72,7 +72,7 @@ u32 qm_fq_new(void)
 	ret = bman_acquire(fq_pool, &buf, 1, 0);
 	if (ret != 1)
 		return 0;
-	return buf.lo;
+	return (u32)bm_buffer_get64(&buf);
 }
 EXPORT_SYMBOL(qm_fq_new);
 
