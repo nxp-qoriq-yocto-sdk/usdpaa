@@ -36,15 +36,10 @@
 #include <usdpaa/dma_mem.h>
 #include <usdpaa/fman.h>
 #include <usdpaa/fsl_usd.h>
-#include <internal/compat.h>
-
-/* This mechanism for initialising threads and binding portals is from the
- * legacy "poc" work - it will change and the "bad" naming is to emphasise this
- * fact. */
-
 #include <net/ethernet.h>
 #include <net/if_arp.h>
 #include <linux/ip.h>
+#include <internal/compat.h>
 
 #define MAX_THREADS 8
 
@@ -97,4 +92,3 @@ static inline int run_threads(struct thread_data *ctxs, int num_ctxs,
 	do { errno = en; perror(msg); exit(EXIT_FAILURE); } while (0)
 
 #endif /* !THREAD_PRIV_H */
-

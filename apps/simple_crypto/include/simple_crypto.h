@@ -34,10 +34,7 @@
 #include <usdpaa/fsl_bman.h>
 #include <fsl_sec/dcl.h>
 #include <fsl_sec/desc.h>
-#include <errno.h>
 #include <stdbool.h>
-#include <stdlib.h>
-#include <string.h>
 #include <argp.h>
 #include "thread_priv.h"
 #include "algo_desc.h"
