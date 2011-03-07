@@ -1878,6 +1878,8 @@ int main(int argc, char *argv[])
 	uint16_t enc_cycles_per_frame = 0;
 	uint16_t dec_cycles_per_frame = 0;
 	uint64_t cpu_freq;
+	FILE *p_cpuinfo;
+	char buf[255], cpu_f[20];
 
 	pr_info("\nWelcome to FSL SEC 4.0 application!\n");
 
@@ -1945,9 +1947,21 @@ int main(int argc, char *argv[])
 	job_desc_buf_size = MAX(SNOW_JDESC_ENC_F8_F9_LEN,
 			SNOW_JDESC_DEC_F8_F9_LEN);
 
+	/* Read cpu frequency from /poc/cpuinfo */
+	p_cpuinfo = fopen("/proc/cpuinfo", "rb");
 
-	/* TODO get this through API */
-	cpu_freq = 1500; /* cpu_freq in MHz */
+	if (p_cpuinfo == NULL) {
+		pr_err("ERROR opening file /proc/cpuinfo");
+	} else {
+		while (fgets(buf, 255, p_cpuinfo)) {
+			if (strstr(buf, "clock")) {
+				strncpy(cpu_f, &buf[9], 20);
+				break;
+			}
+		}
+	}
+
+	cpu_freq = lrint(atof(cpu_f)); /* cpu_freq in MHz */
 
 	/* TODO get pool_channel_offset through API */
 	pool_channel_offset = 9;
