@@ -421,7 +421,7 @@ static inline int check_msg(struct worker *worker)
  * slow-path processing based on loop counters - rather than using the implicit
  * slow/fast-path adaptations in qman_poll() and bman_poll().
  */
-#define WORKER_SELECT_TIMEOUT_us 1000000
+#define WORKER_SELECT_TIMEOUT_us 10000
 #define WORKER_SLOWPOLL_BUSY 4
 #define WORKER_SLOWPOLL_IDLE 400
 #define WORKER_FASTPOLL_DQRR 16
