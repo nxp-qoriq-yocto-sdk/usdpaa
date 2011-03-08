@@ -1310,7 +1310,7 @@ enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 		abort();
 	}
 
-	pr_debug("%s mode: Packet dequeued ->%llu\n", mode ? "Encrypt" :
+	pr_debug("%s mode: Packet dequeued ->%d\n", mode ? "Encrypt" :
 		"Decrypt", mode ? atomic_read(&enc_packet_from_sec) :
 		atomic_read(&dec_packet_from_sec));
 
@@ -1726,15 +1726,14 @@ static int worker_fn(thread_data_t *tdata)
 		do_enqueues(ENCRYPT, tdata);
 
 		if (!tdata->index)
-			pr_debug("Encrypt mode: Total packet sent"
-				 " to SEC = %lu\n", total_buf_num);
+			pr_debug("Encrypt mode: Total packet sent to "
+				 "SEC = %u\n", total_buf_num);
 
 		/* Recieve encrypted or MAC data from SEC40 */
 		enc_qman_poll();
-		if (!tdata->index) {
-			pr_debug("Encrypt mode: Total packet returned from"
-					" SEC = %lu\n", atomic_read
-					(&enc_packet_from_sec));
+		if (!tdata->index)
+			pr_debug("Encrypt mode: Total packet returned from "
+				 "SEC = %d\n", atomic_read(&enc_packet_from_sec));
 
 			/* accumulated time difference */
 			enc_delta += (mfatb() - atb_start_enc);
@@ -1771,7 +1770,7 @@ error2:
 		if (authnct)
 			goto result;
 
-		if (!tdata->index)
+		if (!tdata->index) {
 			/* decrypt mode: start time */
 			atb_start_dec = mfatb();
 
@@ -1779,16 +1778,15 @@ error2:
 		do_enqueues(DECRYPT, tdata);
 
 		if (!tdata->index)
-			pr_debug("Decrypt mode: Total packet sent"
-				 " to SEC = %lu\n", total_buf_num);
+			pr_debug("Decrypt mode: Total packet sent to "
+				 "SEC = %u\n", total_buf_num);
 
 		/* Recieve decrypted data from SEC40 */
 		dec_qman_poll();
 
 		if (!tdata->index) {
-			pr_debug("Decrypt mode: Total packet returned from"
-					" SEC = %lu\n", atomic_read
-					(&dec_packet_from_sec));
+			pr_debug("Decrypt mode: Total packet returned from "
+				 "SEC = %d\n", atomic_read(&dec_packet_from_sec));
 
 			/* accumulated time difference */
 			dec_delta += (mfatb() - atb_start_dec);
