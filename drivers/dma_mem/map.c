@@ -41,8 +41,6 @@ dma_addr_t dma_map_single(void *dev __always_unused, void *cpu_addr,
 			size_t size __maybe_unused,
 			enum dma_data_direction direction __always_unused)
 {
-	BUG_ON((u32)cpu_addr < DMA_MEM_VIRT);
-	BUG_ON(((u32)cpu_addr + size) > (DMA_MEM_VIRT + DMA_MEM_SIZE));
 	return dma_mem_vtop(cpu_addr);
 }
 
