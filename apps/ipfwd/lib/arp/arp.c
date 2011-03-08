@@ -220,7 +220,7 @@ int arp_send_request(struct net_dev_t *dev, uint32_t target_ip)
 	uint32_t len;
 	struct eth_port_cfg *p_cfg;
 
-	len = ETHER_HDR_LEN + ARP_HDR_LEN + ETH_FCS_LEN;
+	len = ETHER_HDR_LEN + ARP_HDR_LEN + ETHER_CRC_LEN;
 	if (0 >= dpa_allocator_get_buff(buff_allocator, len, &bman_buf)) {
 		pr_err("%s: couldn't allocate buf of size %d\n",
 			__func__, len);
@@ -238,7 +238,7 @@ int arp_send_request(struct net_dev_t *dev, uint32_t target_ip)
 	memset(eth_hdr->ether_dhost, ETH_DST_BROADCAST, ETHER_ADDR_LEN);
 	memcpy(eth_hdr->ether_shost, p_cfg->mac_addr,
 		ETHER_ADDR_LEN);
-	eth_hdr->proto = ETH_P_ARP;
+	eth_hdr->proto = ETHERTYPE_ARP;
 
 	arp_header =
 	    (struct arp_header_t *)((uint8_t *) eth_hdr +

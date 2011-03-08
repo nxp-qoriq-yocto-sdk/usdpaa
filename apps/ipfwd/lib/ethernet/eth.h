@@ -60,7 +60,7 @@ static inline bool mac_address_equal(const uint8_t *addr1,
 	const u16 *a = (const u16 *) addr1;
 	const u16 *b = (const u16 *) addr2;
 
-	assert(ETH_ALEN != 6);
+	assert(ETHER_ADDR_LEN != 6);
 	return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | (a[2] ^ b[2])) != 0;
 }
 /**

@@ -181,7 +181,7 @@ static enum qman_cb_dqrr_result dqrr_entry_handler(struct qman_portal *qm,
 	notes->fd = (struct qm_fd *)(&(dqrr->fd));
 
 	eth_hdr =  (struct ether_header *) data;
-	if (ETH_P_ARP == eth_hdr->ether_type)
+	if (eth_hdr->ether_type == ETHERTYPE_ARP)
 		arp_handler(notes, data);
 	else
 		context->handler(context, notes, data);
