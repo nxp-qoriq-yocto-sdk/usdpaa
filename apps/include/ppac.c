@@ -134,7 +134,7 @@ void bp_depletion(struct bman_portal *bm __always_unused,
 		  int depleted)
 {
 	u8 bpid = bman_get_params(p)->bpid;
-	BUG_ON(p != *(typeof(&p))cb_ctxt);
+	BUG_ON(p != *(typeof(&p))cb_ctx);
 
 	pr_info("%s: BP%u -> %s\n", __func__, bpid,
 		depleted ? "entry" : "exit");
