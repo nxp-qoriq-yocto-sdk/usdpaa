@@ -34,6 +34,7 @@
 
 #include "ppam_if.h"
 
+#include <inttypes.h>
 #include <net/if_arp.h>
 #include <netinet/ip.h>
 
@@ -189,7 +190,7 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 	BUG_ON(fd->format != qm_fd_contig);
 	addr = dma_mem_ptov(qm_fd_addr(fd));
 	TRACE("Rx: 2fwd	 fqid=%d\n", dqrr->fqid);
-	TRACE("	     phys=0x%llx, virt=%p, offset=%d, len=%d, bpid=%d\n",
+	TRACE("	     phys=0x%"PRIx64", virt=%p, offset=%d, len=%d, bpid=%d\n",
 		qm_fd_addr(fd), addr, fd->offset, fd->length20, fd->bpid);
 	addr += fd->offset;
 	prot_eth = addr;
@@ -234,7 +235,7 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 		/* switch ethernet src/dest MAC addresses */
 		ether_header_swap(prot_eth);
 		TRACE("Tx: 2fwd	 fqid=%d\n", p->tx_fqid);
-		TRACE("	     phys=0x%llx, offset=%d, len=%d, bpid=%d\n",
+		TRACE("	     phys=0x%"PRIx64", offset=%d, len=%d, bpid=%d\n",
 			qm_fd_addr(fd), fd->offset, fd->length20, fd->bpid);
 		ppac_send_frame(p->tx_fqid, fd);
 		}
