@@ -193,14 +193,14 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 		qm_fd_addr(fd), addr, fd->offset, fd->length20, fd->bpid);
 	addr += fd->offset;
 	prot_eth = addr;
-	TRACE("	     dhost=%02x:%02x:%02x:%02x:%02x:%02x\n",
-		prot_eth->ether_dhost[0], prot_eth->ether_dhost[1],
-		prot_eth->ether_dhost[2], prot_eth->ether_dhost[3],
-		prot_eth->ether_dhost[4], prot_eth->ether_dhost[5]);
-	TRACE("	     shost=%02x:%02x:%02x:%02x:%02x:%02x\n",
-		prot_eth->ether_shost[0], prot_eth->ether_shost[1],
-		prot_eth->ether_shost[2], prot_eth->ether_shost[3],
-		prot_eth->ether_shost[4], prot_eth->ether_shost[5]);
+	TRACE("	     dhost="ETH_MAC_PRINTF_FMT"\n",
+	      prot_eth->ether_dhost[0], prot_eth->ether_dhost[1],
+	      prot_eth->ether_dhost[2], prot_eth->ether_dhost[3],
+	      prot_eth->ether_dhost[4], prot_eth->ether_dhost[5]);
+	TRACE("	     shost="ETH_MAC_PRINTF_FMT"\n",
+	      prot_eth->ether_shost[0], prot_eth->ether_shost[1],
+	      prot_eth->ether_shost[2], prot_eth->ether_shost[3],
+	      prot_eth->ether_shost[4], prot_eth->ether_shost[5]);
 	TRACE("	     ether_type=%04x\n", prot_eth->ether_type);
 	/* Eliminate ethernet broadcasts. */
 	if (prot_eth->ether_dhost[0] & 0x01)
