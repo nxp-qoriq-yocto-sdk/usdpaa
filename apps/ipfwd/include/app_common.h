@@ -30,28 +30,23 @@
 #define _APP_COMMON_H
 
 #include <stdbool.h>
-#undef DEBUG
-#define MAGIC(n) do {                                           \
-	__asm__ __volatile__ ("rlwimi %0,%0,0,%1,%2"             \
-				:: "i" (((n) >> 10) & 0x1f),       \
-				"i" (((n) >>  5) & 0x1f),       \
-				"i" (((n) >>  0) & 0x1f));      \
+
+#define MAGIC(n) do {						\
+	__asm__ __volatile__ ("rlwimi %0,%0,0,%1,%2"		 \
+				:: "i" (((n) >> 10) & 0x1f),	   \
+				"i" (((n) >>  5) & 0x1f),	\
+				"i" (((n) >>  0) & 0x1f));	\
 } while (0)
 
 #define MAGIC_BREAKPOINT MAGIC(0)
 
-#define JIFFY_PER_SEC           (100)	/**< Number of Jiffies per second */
+#define JIFFY_PER_SEC		(100)	/**< Number of Jiffies per second */
 
-#define CPU_JIFFY_CYCLES        (CPU_HZ / JIFFY_PER_SEC)
+#define CPU_JIFFY_CYCLES	(CPU_HZ / JIFFY_PER_SEC)
 /**< Calculates Cycles per jiffy */
 
-#define CPU_JIFFY_MASK          (32 - (__builtin_clz(CPU_JIFFY_CYCLES) - 1))
+#define CPU_JIFFY_MASK		(32 - (__builtin_clz(CPU_JIFFY_CYCLES) - 1))
 /**< Mask for reading only the bits that would change when a jiffy passes */
 
 #define MAX_NUM_BMAN_POOLS 64
-#ifdef DEBUG
-#define pr_dbg     printf
-#else
-#define pr_dbg(args...)
-#endif
-#endif /* APP_COMMON__H */
+#endif	/* APP_COMMON__H */

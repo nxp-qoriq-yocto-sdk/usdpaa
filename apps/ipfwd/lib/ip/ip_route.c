@@ -55,7 +55,7 @@ enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,
 					ip_hdr->daddr,
 					ip_hdr->tos,
 					RC_BUCKET_INDEX(notes));
-		pr_dbg("Hash index= %x\n", RC_BUCKET_INDEX(notes));
+		pr_debug("Hash index= %x\n", RC_BUCKET_INDEX(notes));
 
 		if (entry == NULL) {
 			entry = rc_entry_lookup(ctxt->rc,
@@ -63,7 +63,7 @@ enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,
 					ip_hdr->daddr,
 					ip_hdr->tos);
 			if (entry == NULL) {
-				pr_dbg("Fast Lookup Failed, going slow \
+				pr_debug("Fast Lookup Failed, going slow \
 				   for Src = 0x%x; Dest = 0x%x; TOS = 0x%x\n",
 				   ip_hdr->saddr,
 				   ip_hdr->daddr, ip_hdr->tos);

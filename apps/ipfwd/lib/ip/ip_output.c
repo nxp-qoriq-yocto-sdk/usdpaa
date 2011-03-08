@@ -48,7 +48,7 @@ void arp_retransmit_cb(uint32_t timer_id, void *p_data)
 	struct neigh_t *n;
 	struct net_dev_t *dev;
 
-	pr_dbg("%s: ARP retransmit timer ID 0x%x expired\n", __func__,
+	pr_debug("%s: ARP retransmit timer ID 0x%x expired\n", __func__,
 			timer_id);
 
 	gw_ip = *(uint32_t *) p_data;
@@ -138,9 +138,9 @@ enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt __always_unused,
 
 	if (unlikely(ll_cache == NULL)) {
 		if (NEIGH_STATE_PENDING == neighbor->neigh_state) {
-			pr_dbg("Discarding packet destined for IP 0x%x\n",
+			pr_debug("Discarding packet destined for IP 0x%x\n",
 						neighbor->proto_addr[0]);
-			pr_dbg("ARP entry state is pending\n");
+			pr_debug("ARP entry state is pending\n");
 			/* Discard successive packet (on the assumption the
 			 * packet will be retransmitted by a higher network
 			 * layer)

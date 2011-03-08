@@ -587,8 +587,8 @@ struct rc_bucket_t *__rc_find_bucket(struct rc_t *rc, uint32_t saddr,
 	uint32_t hash;
 
 	hash = compute_rc_hash(saddr, daddr, tos);
-	pr_dbg("Bucket hash is %x\n", hash);
-	pr_dbg("Src = 0x%x Dest = 0x%x, TOS = 0x%x\n",
+	pr_debug("Bucket hash is %x\n", hash);
+	pr_debug("Src = 0x%x Dest = 0x%x, TOS = 0x%x\n",
 		saddr, daddr, tos);
 	return &(rc->buckets[hash]);
 }

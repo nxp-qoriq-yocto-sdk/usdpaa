@@ -89,16 +89,16 @@ static int worker_fn(struct thread_data_t *tdata)
  */
 int32_t ipfwd_conf_intf(struct app_ctrl_op_info *route_info)
 {
-	pr_dbg("ipfwd_conf_intf: Enter\n");
+	pr_debug("ipfwd_conf_intf: Enter\n");
 
-	pr_dbg("ipfwd_conf_intf: Bitmask = 0x%x\n",
+	pr_debug("ipfwd_conf_intf: Bitmask = 0x%x\n",
 		  route_info->ip_info.intf_conf.bitmask);
 
-	pr_dbg("ipfwd_conf_intf: Ifname = %s\n",
+	pr_debug("ipfwd_conf_intf: Ifname = %s\n",
 		  route_info->ip_info.intf_conf.ifname);
-	pr_dbg("ipfwd_conf_intf: IPAddr = 0x%x\n",
+	pr_debug("ipfwd_conf_intf: IPAddr = 0x%x\n",
 		  route_info->ip_info.intf_conf.ip_addr);
-	pr_dbg("ipfwd_conf_intf: MAC Addr = %x:%x:%x:%x:%x:%x\n",
+	pr_debug("ipfwd_conf_intf: MAC Addr = %x:%x:%x:%x:%x:%x\n",
 		  route_info->ip_info.intf_conf.mac_addr[0],
 		  route_info->ip_info.intf_conf.mac_addr[1],
 		  route_info->ip_info.intf_conf.mac_addr[2],
@@ -106,7 +106,7 @@ int32_t ipfwd_conf_intf(struct app_ctrl_op_info *route_info)
 		  route_info->ip_info.intf_conf.mac_addr[4],
 		  route_info->ip_info.intf_conf.mac_addr[5]);
 
-	pr_dbg("ipfwd_conf_intf: Exit\n");
+	pr_debug("ipfwd_conf_intf: Exit\n");
 	return 0;
 }
 
@@ -165,7 +165,7 @@ struct net_dev_t *ipfwd_get_dev_for_ip(unsigned int ip_addr)
 		}
 	}
 
-	pr_dbg("%s: Not a Local Node\n", __func__);
+	pr_debug("%s: Not a Local Node\n", __func__);
 
 _TEMP:
 
@@ -215,7 +215,7 @@ int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
 	unsigned int gw_ipaddr = route_info->ip_info.gw_ipaddr;
 	int _errno;
 
-	pr_dbg("ipfwd_add_route: Enter\n");
+	pr_debug("ipfwd_add_route: Enter\n");
 
 	dest = rt_dest_alloc(stack.rt);
 	if (dest == NULL) {
@@ -228,7 +228,7 @@ int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
 	dest->neighbor = neigh_lookup(stack.arp_table, gw_ipaddr,
 				      stack.arp_table->proto_len);
 	if (dest->neighbor == NULL) {
-		pr_dbg
+		pr_debug
 		    ("%s: Could not find neighbor entry for link-local addr\n",
 		     __func__);
 
@@ -257,7 +257,7 @@ int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
 		}
 		/* MAC addr would be updated later through ARP request */
 
-		pr_dbg("%s: Created neighbor entry, IP addr = %x\n",
+		pr_debug("%s: Created neighbor entry, IP addr = %x\n",
 			  __func__, gw_ipaddr);
 	}
 
@@ -291,7 +291,7 @@ int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
 		rc_free_entry(stack.rc, entry);
 	}
 
-	pr_dbg("ipfwd_add_route: Exit\n");
+	pr_debug("ipfwd_add_route: Exit\n");
 	return 0;
 }
 
@@ -303,7 +303,7 @@ int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
 int32_t ipfwd_del_route(struct app_ctrl_op_info *route_info)
 {
 	struct rt_dest_t *dest;
-	pr_dbg("ipfwd_del_route: Enter\n");
+	pr_debug("ipfwd_del_route: Enter\n");
 
 	dest = rc_lookup(stack.rc,
 			 route_info->ip_info.src_ipaddr,
@@ -326,7 +326,7 @@ int32_t ipfwd_del_route(struct app_ctrl_op_info *route_info)
 	}
 
 	rt_dest_free(stack.rt, dest);
-	pr_dbg("ipfwd_del_route: Exit\n");
+	pr_debug("ipfwd_del_route: Exit\n");
 	return 0;
 }
 
@@ -344,9 +344,9 @@ int32_t ipfwd_add_arp(struct app_ctrl_op_info *route_info)
 
 #if (LOG_LEVEL > 3)
 	unsigned char *ip = (unsigned char *)&(ip_addr);
-	pr_dbg("ipfwd_add_arp: Enter\n");
+	pr_debug("ipfwd_add_arp: Enter\n");
 
-	pr_dbg("IP = %d.%d.%d.%d ; MAC = %x:%x:%x:%x:%x:%x\n", ip[0],
+	pr_debug("IP = %d.%d.%d.%d ; MAC = %x:%x:%x:%x:%x:%x\n", ip[0],
 		  ip[1], ip[2], ip[3], c[0], c[1], c[2], c[3], c[4], c[5]);
 #endif
 
@@ -354,19 +354,19 @@ int32_t ipfwd_add_arp(struct app_ctrl_op_info *route_info)
 				stack.arp_table->proto_len);
 
 	if (n == NULL) {
-		pr_dbg
+		pr_debug
 		    ("%s: Could not find neighbor entry for link-local addr\n",
 		     __func__);
 
 		dev = ipfwd_get_dev_for_ip(ip_addr);
 		if (dev == NULL) {
-			pr_dbg("ipfwd_add_arp: Exit: Failed\n");
+			pr_debug("ipfwd_add_arp: Exit: Failed\n");
 			return -1;
 		}
 
 		n = neigh_create(stack.arp_table);
 		if (unlikely(!n)) {
-			pr_dbg("ipfwd_add_arp: Exit: Failed\n");
+			pr_debug("ipfwd_add_arp: Exit: Failed\n");
 			return -1;
 		}
 		if (NULL == neigh_init(stack.arp_table, n, dev,
@@ -394,7 +394,7 @@ int32_t ipfwd_add_arp(struct app_ctrl_op_info *route_info)
 		return -1;
 	}
 
-	pr_dbg("ipfwd_add_arp: Exit\n");
+	pr_debug("ipfwd_add_arp: Exit\n");
 	return 0;
 }
 
@@ -406,7 +406,7 @@ int32_t ipfwd_add_arp(struct app_ctrl_op_info *route_info)
 int32_t ipfwd_del_arp(struct app_ctrl_op_info *route_info)
 {
 	struct neigh_t *neighbor = NULL;
-	pr_dbg("ipfwd_del_arp: Enter\n");
+	pr_debug("ipfwd_del_arp: Enter\n");
 
 	/*
 	 ** Do a Neighbour LookUp for the entry to be deleted
@@ -440,7 +440,7 @@ int32_t ipfwd_del_arp(struct app_ctrl_op_info *route_info)
 		return -1;
 	}
 
-	pr_dbg("ipfwd_del_arp: Exit\n");
+	pr_debug("ipfwd_del_arp: Exit\n");
 	return 0;
 }
 
@@ -532,7 +532,7 @@ void create_iface_nodes(struct node_t *arr, struct usdpaa_netcfg_info *cfg_ptr)
 			fif->mac_addr.ether_addr_octet,
 			ETHER_ADDR_LEN);
 		arr[if_idx].ip.word = (0xc0a80001 + (iface_subnet[port] << 8));
-		pr_dbg("PortID = %d is %s interface node with IP Address\n"
+		pr_debug("PortID = %d is %s interface node with IP Address\n"
 			 "%d.%d.%d.%d and MAC Address\n" MAC_FMT, port,
 			 "FMAN\n",
 			 arr[if_idx].ip.bytes[0], arr[if_idx].ip.bytes[1],
@@ -722,7 +722,7 @@ static int32_t initialize_ip_stack(struct ip_stack_t *ip_stack)
 	}
 	memset(ip_stack->ip_stats, 0, sizeof(struct ip_statistics_t));
 
-	pr_dbg("IP Statistics initialized\n");
+	pr_debug("IP Statistics initialized\n");
 	return 0;
 }
 
@@ -736,7 +736,7 @@ void process_req_from_mq(struct app_ctrl_op_info *sa_info)
 	int32_t s32Result = 0;
 	sa_info->result = IPC_CTRL_RSLT_FAILURE;
 
-	pr_dbg("process_req_from_mq: Enter\n");
+	pr_debug("process_req_from_mq: Enter\n");
 	switch (sa_info->msg_type) {
 	case IPC_CTRL_CMD_TYPE_ROUTE_ADD:
 		s32Result = ipfwd_add_route(sa_info);
@@ -773,7 +773,7 @@ void process_req_from_mq(struct app_ctrl_op_info *sa_info)
 		pr_err("%s: CP Request can't be handled\n", __func__);
 	}
 
-	pr_dbg("process_req_from_mq: Exit\n");
+	pr_debug("process_req_from_mq: Exit\n");
 	return;
 }
 
@@ -817,7 +817,7 @@ error:
 
 void mq_handler(union sigval sval)
 {
-	pr_dbg("mq_handler called %d\n", sval.sival_int);
+	pr_debug("mq_handler called %d\n", sval.sival_int);
 
 	receive_data(mq_fd_rcv);
 	mq_notify(mq_fd_rcv, &notification);
@@ -828,7 +828,7 @@ int create_mq(void)
 	struct mq_attr attr_snd, attr_rcv;
 	int _err = 0, ret;
 
-	pr_dbg("Create mq: Enter\n");
+	pr_debug("Create mq: Enter\n");
 	memset(&attr_snd, 0, sizeof(attr_snd));
 
 	/* Create message queue to send the response */
@@ -867,7 +867,7 @@ int create_mq(void)
 		_err = -errno;
 		goto error;
 	}
-	pr_dbg("Create mq: Exit\n");
+	pr_debug("Create mq: Exit\n");
 	return 0;
 error:
 	if (mq_fd_snd)
@@ -883,7 +883,7 @@ int global_init(struct usdpaa_netcfg_info *uscfg_info, int cpu, int first, int l
 {
 	int err;
 
-	pr_dbg("Global initialisation: Enter\n");
+	pr_debug("Global initialisation: Enter\n");
 	/* - initialise DPAA */
 	err = bman_global_init(0);
 	if (err) {
@@ -966,7 +966,7 @@ int global_init(struct usdpaa_netcfg_info *uscfg_info, int cpu, int first, int l
 	pr_info
 	    ("ARP Cache Populated, Stack pointer is %p and its size = %zu\n",
 	     &stack, sizeof(stack));
-	pr_dbg("Global initialisation: Exit\n");
+	pr_debug("Global initialisation: Exit\n");
 
 	return 0;
 }

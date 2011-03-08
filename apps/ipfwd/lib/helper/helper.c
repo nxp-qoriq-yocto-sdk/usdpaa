@@ -162,7 +162,7 @@ static int ipfwd_fq_create(struct usdpaa_netcfg_info *cfg_ptr,
 	uint32_t flags;
 	int ret;
 
-	pr_dbg("IPFWD FQ CREATE: Enter\n");
+	pr_debug("IPFWD FQ CREATE: Enter\n");
 	for (port_id = 0; port_id < g_num_dpa_eth_ports; port_id++) {
 		p_cfg = &cfg_ptr->port_cfg[port_id];
 		fif = p_cfg->fman_if;
@@ -239,7 +239,7 @@ static int ipfwd_fq_create(struct usdpaa_netcfg_info *cfg_ptr,
 			return -1;
 		}
 	}
-	pr_dbg("IPFWD FQ CREATE: Exit\n");
+	pr_debug("IPFWD FQ CREATE: Exit\n");
 	return 0;
 }
 
@@ -428,7 +428,7 @@ int init_interface(struct usdpaa_netcfg_info *cfg_ptr,
 	const struct fman_if_bpool *bp;
 	int loop, err;
 
-	pr_dbg("Init interface: Enter\n");
+	pr_debug("Init interface: Enter\n");
 
 	*recv_channel_map = 0;
 	memcpy(&cfg, cfg_ptr, sizeof(struct usdpaa_netcfg_info));
@@ -478,6 +478,6 @@ int init_interface(struct usdpaa_netcfg_info *cfg_ptr,
 		pr_err("Unable to initialize FQs\n");
 		return -EINVAL;
 	}
-	pr_dbg("Init interface: Exit\n");
+	pr_debug("Init interface: Exit\n");
 	return 0;
 }

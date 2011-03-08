@@ -193,7 +193,7 @@ void ipc_arp_add_del_command(int argc, char **argv, unsigned type)
 	};
 	struct argp *route_argp[] = { &arp_add_argp, &arp_del_argp };
 
-	pr_dbg("\r\n%s: Enter", __func__);
+	pr_debug("\r\n%s: Enter", __func__);
 	/*
 	 ** Initializing the route info structure
 	 */
@@ -239,7 +239,7 @@ void ipc_arp_add_del_command(int argc, char **argv, unsigned type)
 copy:
 	send_to_mq(&route_info);
 
-	pr_dbg("\r\n%s: Exit", __func__);
+	pr_debug("\r\n%s: Exit", __func__);
 	return;
 }
 
@@ -290,7 +290,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 		/* Request for Route Entry Addition */
 	case 'B':
 		sa_info->msg_type = IPC_CTRL_CMD_TYPE_ROUTE_ADD;
-		pr_dbg
+		pr_debug
 		    ("\n::FILE: %s : LINE: %d :IN PARSE_OPT::ADD OPTION SELECTED",
 		     __FILE__, __LINE__);
 		break;
@@ -298,28 +298,28 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 		/* Request for route Entry Deletion */
 	case 'C':
 		sa_info->msg_type = IPC_CTRL_CMD_TYPE_ROUTE_DEL;
-		pr_dbg
+		pr_debug
 		    ("\nFILE: %s : LINE: %d :IN PARSE_OPT::DELETE OPTION SELECTED",
 		     __FILE__, __LINE__);
 		break;
 
 	case 'G':
 		sa_info->msg_type = IPC_CTRL_CMD_TYPE_ARP_ADD;
-		pr_dbg
+		pr_debug
 		    ("\nFILE: %s : LINE: %d :IN PARSE_OPT::ARP ADD OPTION SELECTED",
 		     __FILE__, __LINE__);
 		break;
 
 	case 'H':
 		sa_info->msg_type = IPC_CTRL_CMD_TYPE_ARP_DEL;
-		pr_dbg
+		pr_debug
 		    ("\nFILE: %s : LINE: %d :IN PARSE_OPT::ARP DEL OPTION SELECTED",
 		     __FILE__, __LINE__);
 		break;
 
 	case 'N':
 		sa_info->msg_type = IPC_CTRL_CMD_TYPE_FRAMECNT_EDIT;
-		pr_dbg
+		pr_debug
 		    ("\nFILE: %s : LINE: %d :IN PARSE_OPT::FRAME COUNT EDIT OPTION SELECTED",
 		     __FILE__, __LINE__);
 		break;
@@ -358,7 +358,7 @@ static error_t parse_route_add_opt(int key, char *arg, struct argp_state *state)
 		inet_aton(arg, &in_addr);
 		route_info->ip_info.dst_ipaddr = in_addr.s_addr;
 		g_mndtr_param |= IPC_CTRL_PARAM_BMASK_DESTIP;
-		pr_dbg("\nkey = %c; value = %s", key, arg);
+		pr_debug("\nkey = %c; value = %s", key, arg);
 		break;
 
 	case 'g':
@@ -366,7 +366,7 @@ static error_t parse_route_add_opt(int key, char *arg, struct argp_state *state)
 		inet_aton(arg, &in_addr);
 		route_info->ip_info.gw_ipaddr = in_addr.s_addr;
 		g_mndtr_param |= IPC_CTRL_PARAM_BMASK_GWIP;
-		pr_dbg("\nkey = %c; value = %s", key, arg);
+		pr_debug("\nkey = %c; value = %s", key, arg);
 		break;
 
 	case 't':
@@ -383,7 +383,7 @@ static error_t parse_route_add_opt(int key, char *arg, struct argp_state *state)
 		}
 
 		g_mndtr_param |= IPC_CTRL_PARAM_BMASK_TOS;
-		pr_dbg("\nkey = %c; value = %s", key, arg);
+		pr_debug("\nkey = %c; value = %s", key, arg);
 		break;
 
 	default:
@@ -541,7 +541,7 @@ int receive_from_mq(mqd_t mqdes)
 
 void mq_handler(union sigval sval)
 {
-	pr_dbg("mq_handler called %d\n", sval.sival_int);
+	pr_debug("mq_handler called %d\n", sval.sival_int);
 
 	receive_from_mq(mq_fd_rd);
 	mq_notify(mq_fd_rd, &notification);
@@ -593,7 +593,7 @@ int main(int argc, char **argv)
 	}
 	if (strcmp(argv[1], tmp_argv) == 0) {
 		sa_info.msg_type = IPC_CTRL_CMD_TYPE_GO;
-		pr_dbg
+		pr_debug
 		    ("\nFILE:%s :LINE %d:IN MAIN:TYPE PROVIDED FOR GO OPT: %d",
 		     __FILE__, __LINE__, sa_info.msg_type);
 		/*
@@ -614,7 +614,7 @@ int main(int argc, char **argv)
 	switch (sa_info.msg_type) {
 	case IPC_CTRL_CMD_TYPE_ROUTE_ADD:
 		{
-			pr_dbg
+			pr_debug
 			    ("\nFILE: %s : LINE %d : IN MAIN : THE TYPE PROVIDED FOR ADD OPTION IS : %d",
 			     __FILE__, __LINE__, sa_info.msg_type);
 			ipc_add_del_command(argc - 1, &argv[1],
@@ -624,7 +624,7 @@ int main(int argc, char **argv)
 
 	case IPC_CTRL_CMD_TYPE_ROUTE_DEL:
 		{
-			pr_dbg
+			pr_debug
 			    ("\nFILE: %s : LINE %d : IN MAIN : THE TYPE PROVIDED FOR DELETE OPTION IS : %d",
 			     __FILE__, __LINE__, sa_info.msg_type);
 			ipc_add_del_command(argc - 1, &argv[1],
@@ -634,7 +634,7 @@ int main(int argc, char **argv)
 
 	case IPC_CTRL_CMD_TYPE_ARP_ADD:
 		{
-			pr_dbg
+			pr_debug
 			    ("\nFILE: %s : LINE %d : IN MAIN : THE TYPE PROVIDED FOR ADD OPTION IS : %d",
 			     __FILE__, __LINE__, sa_info.msg_type);
 			ipc_arp_add_del_command(argc - 1, &argv[1],
@@ -644,7 +644,7 @@ int main(int argc, char **argv)
 
 	case IPC_CTRL_CMD_TYPE_ARP_DEL:
 		{
-			pr_dbg
+			pr_debug
 			    ("\nFILE: %s : LINE %d : IN MAIN : THE TYPE PROVIDED FOR DELETE OPTION IS : %d",
 			     __FILE__, __LINE__, sa_info.msg_type);
 			ipc_arp_add_del_command(argc - 1, &argv[1],
@@ -654,7 +654,7 @@ int main(int argc, char **argv)
 
 	case IPC_CTRL_CMD_TYPE_FRAMECNT_EDIT:
 		{
-			pr_dbg
+			pr_debug
 			    ("\nFILE: %s : LINE %d : IN MAIN : THE TYPE PROVIDED FOR EDIT OPTION IS : %d",
 			     __FILE__, __LINE__, sa_info.msg_type);
 			ipc_edit_frame_cnt_command(argc - 1, &argv[1],
@@ -663,7 +663,7 @@ int main(int argc, char **argv)
 		break;
 
 	default:
-		pr_dbg("Invalid Option\n");
+		pr_debug("Invalid Option\n");
 	}
 
 _close:

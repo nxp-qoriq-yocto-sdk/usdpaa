@@ -108,7 +108,7 @@ static enum qman_cb_dqrr_result dqrr_entry_handler_err(struct qman_portal *qm,
 						   const struct qm_dqrr_entry
 						   *dqrr)
 {
-	pr_dbg("In %s: Status Returned is %x, on FQID = %x\n", __func__, \
+	pr_debug("In %s: Status Returned is %x, on FQID = %x\n", __func__, \
 		dqrr->fd.status, dqrr->fqid);
 	free_buff((struct qm_fd *)(&dqrr->fd));
 	rx_errors++;
