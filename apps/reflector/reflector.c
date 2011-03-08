@@ -208,8 +208,8 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 	else
 	switch (prot_eth->ether_type)
 	{
-	case ETH_P_IP:
-		TRACE("	       -> it's ETH_P_IP!\n");
+	case ETHERTYPE_IP:
+		TRACE("	       -> it's ETHERTYPE_IP!\n");
 		{
 		struct iphdr *iphdr = addr + 14;
 		__be32 tmp;
@@ -239,8 +239,8 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 		ppac_send_frame(p->tx_fqid, fd);
 		}
 		return;
-	case ETH_P_ARP:
-		TRACE("	       -> it's ETH_P_ARP!\n");
+	case ETHERTYPE_ARP:
+		TRACE("	       -> it's ETHERTYPE_ARP!\n");
 #ifdef ENABLE_TRACE
 		{
 		struct arphdr *arphdr = addr + 14;
