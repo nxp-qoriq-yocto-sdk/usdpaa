@@ -35,14 +35,6 @@
 #include <stdbool.h>
 
 /**
- \brief RFC-defined	 MTU for ethernet
- */
-#define ETH_MIN_MTU			(68)
-/**< Minimum MTU for Ethernet Packet */
-#define ETH_MAX_MTU			(1500)
-/**< Maximum MTU for Ethernet Packet */
-
-/**
  \brief A frame is multicast if the LSb of the MSB is a 1
  */
 #define MULTICAST_ADDRESS_HI_MASK	(0x01)

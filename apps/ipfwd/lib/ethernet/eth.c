@@ -40,7 +40,7 @@ void eth_net_dev_setup(struct net_dev_t *dev)
 	dev->set_ll_address = &eth_set_mac_addr;
 	dev->set_header = &eth_set_header;
 	dev->cache_header = &eth_cache_header;
-	dev->mtu = ETH_MAX_MTU;
+	dev->mtu = ETHERMTU;
 	dev->header_len = ETHER_HDR_LEN;
 	dev->dev_addr_len = ETHER_ADDR_LEN;
 }
@@ -96,8 +96,8 @@ void eth_cache_header(struct ll_cache_t *llc, void *eth_hdr)
  */
 void eth_set_mtu(struct net_dev_t *dev, uint32_t new_mtu)
 {
-	assert(new_mtu >= ETH_MIN_MTU);
-	assert(new_mtu <= ETH_MAX_MTU);
+	assert(new_mtu >= ETHERMIN);
+	assert(new_mtu <= ETHERMTU);
 
 	dev->mtu = (uint16_t)new_mtu;
 }

@@ -647,7 +647,7 @@ create_devices(struct ip_stack_t *ip_stack, struct node_t *link_nodes)
 
 		dpa_dev_init(dev);
 		dev->set_ll_address(dev, &link_nodes[port].mac);
-		dev->set_mtu(dev, IFACE_MTU);
+		dev->set_mtu(dev, ETHERMTU);
 
 		initialize_contexts(ctxt, dev, ip_stack);
 		dpa_dev_rx_init((struct dpa_dev_t *)dev,
