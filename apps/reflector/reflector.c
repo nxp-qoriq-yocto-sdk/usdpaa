@@ -35,7 +35,7 @@
 #include "ppam_if.h"
 
 #include <inttypes.h>
-#include <net/if_arp.h>
+#include <netinet/if_ether.h>
 #include <netinet/ip.h>
 
 /* All of the following things could be placed into vtables, declared as
@@ -212,7 +212,7 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 	case ETHERTYPE_IP:
 		TRACE("	       -> it's ETHERTYPE_IP!\n");
 		{
-		struct iphdr *iphdr = addr + 14;
+		struct iphdr *iphdr = (typeof(iphdr))(prot_eth + 1);
 		__be32 tmp;
 #ifdef ENABLE_TRACE
 		u8 *src = (void *)&iphdr->saddr;
@@ -244,10 +244,10 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 		TRACE("	       -> it's ETHERTYPE_ARP!\n");
 #ifdef ENABLE_TRACE
 		{
-		struct arphdr *arphdr = addr + 14;
+		struct ether_arp *arp = (typeof(arp))(prot_eth + 1);
 		TRACE("		  hrd=%d, pro=%d, hln=%d, pln=%d, op=%d\n",
-			arphdr->ar_hrd, arphdr->ar_pro, arphdr->ar_hln,
-			arphdr->ar_pln, arphdr->ar_op);
+		      arp->arp_hrd, arp->arp_pro, arp->arp_hln,
+		      arp->arp_pln, arp->arp_op);
 		}
 #endif
 		TRACE("		  -> dropping ARP packet\n");
