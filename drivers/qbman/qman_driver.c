@@ -164,9 +164,6 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 			pcfg->public_cfg.cpu, ret);
 		goto end;
 	}
-	pr_info("Qman portal initialised at %p:%p (%d:%d,v%04x)\n",
-		pcfg->addr.addr_ce, pcfg->addr.addr_ci, pcfg->public_cfg.cpu,
-		pcfg->public_cfg.channel, qman_ip_rev);
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
 	/* qman_create_affine_portal() will have called request_irq(), which in
 	 * USDPAA-speak, means we have to retrieve the handler here. */
@@ -210,10 +207,6 @@ end:
 	if (ret)
 		pr_err("Qman portal cleanup failed (%d), ret=%d\n",
 			cfg->public_cfg.cpu, ret);
-	else
-		pr_info("Qman portal cleanup (%d) at %p:%p (%d)\n",
-			cfg->public_cfg.cpu, cfg->addr.addr_ce,
-			cfg->addr.addr_ci, fd);
 	free(cfg);
 	close(fd);
 	fd = -1;

@@ -60,7 +60,6 @@ int qbman_request_irq(int irq, irqreturn_t (*isr)(int irq, void *arg),
 	/* Append to the tail. NB this works if the for() loop found no
 	 * insertion point, because in that case it->node==&irqs. */
 	list_add_tail(&newirq->node, &it->node);
-	pr_info("%s: registered irq %d:%s\n", __func__, irq, name);
 	return 0;
 }
 
@@ -86,7 +85,6 @@ int qbman_free_irq(int irq, void *arg)
 		return -EINVAL;
 	}
 	list_del(&it->node);
-	pr_info("%s: deregistered irq %d:%s\n", __func__, it->irq, it->name);
 	free(it);
 	return 0;
 }

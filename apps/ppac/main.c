@@ -669,7 +669,7 @@ out:
 
 static void __worker_free(struct worker *worker)
 {
-	int err;
+	int err, cpu = worker->cpu;
 	msg_quit(worker);
 	err = pthread_join(worker->id, NULL);
 	if (err) {
@@ -679,6 +679,7 @@ static void __worker_free(struct worker *worker)
 	}
 	free(worker->msg);
 	free(worker);
+	printf("Thread killed on cpu %d\n", cpu);
 }
 
 /********************/
