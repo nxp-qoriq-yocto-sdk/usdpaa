@@ -1636,13 +1636,14 @@ static int validate_params(void)
 		return -EINVAL;
 	}
 
-	if (crypto_info->buf_num_per_core > BUFF_NUM_PER_CORE) {
+	if (crypto_info->buf_num_per_core == 0 ||
+		crypto_info->buf_num_per_core > BUFF_NUM_PER_CORE) {
 		pr_err("Invalid Parameters: Invalid number of buffers "
 				"see --help option\n");
 		return -EINVAL;
 	}
 
-	if (crypto_info->buf_size % 64 != 0
+	if (crypto_info->buf_size == 0 || crypto_info->buf_size % 64 != 0
 			|| crypto_info->buf_size > BUFF_SIZE) {
 		pr_err("Invalid Parameters: Invalid number of buffers "
 				"see --help option\n");
