@@ -247,16 +247,16 @@ int ppac_if_init(unsigned idx)
 				cb_dqrr_rx_error);
 	err = ppam_rx_default_init(&i->rx_default.s, &i->module_if);
 	BUG_ON(err);
-	ppac_fq_nonpcd_init(&i->rx_default.fq, fif->fqid_rx_err, get_rxc(),
-				cb_dqrr_rx_default);
+	ppac_fq_nonpcd_init(&i->rx_default.fq, port->rx_def, get_rxc(),
+			    cb_dqrr_rx_default);
 	err = ppam_tx_error_init(&i->tx_error.s, &i->module_if);
 	BUG_ON(err);
-	ppac_fq_nonpcd_init(&i->tx_error.fq, fif->fqid_rx_err, get_rxc(),
-				cb_dqrr_tx_error);
+	ppac_fq_nonpcd_init(&i->tx_error.fq, fif->fqid_tx_err, get_rxc(),
+			    cb_dqrr_tx_error);
 	err = ppam_tx_confirm_init(&i->tx_confirm.s, &i->module_if);
 	BUG_ON(err);
-	ppac_fq_nonpcd_init(&i->tx_confirm.fq, fif->fqid_rx_err, get_rxc(),
-				cb_dqrr_tx_confirm);
+	ppac_fq_nonpcd_init(&i->tx_confirm.fq, fif->fqid_tx_confirm, get_rxc(),
+			    cb_dqrr_tx_confirm);
 	for (loop = 0; loop < port->pcd.count; loop++) {
 		err = ppam_rx_hash_init(&i->rx_hash[loop].s, &i->module_if,
 			loop);
