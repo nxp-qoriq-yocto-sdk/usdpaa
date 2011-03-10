@@ -36,7 +36,6 @@
 #include <fsl_sec/desc.h>
 #include <stdbool.h>
 #include <argp.h>
-#include <math.h>
 #include "thread_priv.h"
 #include "algo_desc.h"
 #include "test_vector.h"

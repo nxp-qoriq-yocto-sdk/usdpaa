@@ -1951,7 +1951,7 @@ int main(int argc, char *argv[])
 	/* Read cpu frequency from /poc/cpuinfo */
 	p_cpuinfo = fopen("/proc/cpuinfo", "rb");
 
-	if (p_cpuinfo == NULL) {
+	if (NULL == p_cpuinfo) {
 		pr_err("ERROR opening file /proc/cpuinfo");
 	} else {
 		while (fgets(buf, 255, p_cpuinfo)) {
@@ -1962,7 +1962,11 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	cpu_freq = lrint(atof(cpu_f)); /* cpu_freq in MHz */
+	cpu_freq = strtoul(cpu_f, NULL, 10); /* cpu_freq in MHz */
+	if (ERANGE == errno || EINVAL == errno) {
+		pr_err("could not read cpu frequency from /proc/cpuinfo\n");
+		exit(EXIT_FAILURE);
+	}
 
 	/* TODO get pool_channel_offset through API */
 	pool_channel_offset = 9;
