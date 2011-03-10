@@ -356,7 +356,7 @@ static void do_global_init(void)
 	 * global init anyway, and made a run-time consideration (like setup and
 	 * teardown of non-primary threads). */
 	err = ppam_init();
-	if (err) {
+	if (unlikely(err < 0)) {
 		fprintf(stderr, "error: PPAM init failed (%d)\n", err);
 		return;
 	}
@@ -985,6 +985,21 @@ cli_cmd(macs, ppac_cli_macs);
 cli_cmd(rm, ppac_cli_rm);
 
 const char ppam_prompt[] __attribute__((weak)) = "> ";
+
+/* PPAM global startup/teardown
+ *
+ * These hooks are not performance-sensitive and so are declared as real
+ * functions, called from the PPAC library code (ie. not from the inline
+ * packet-handling support).
+ */
+int __attribute__((weak)) ppam_init(void)
+{
+	return printf("%s starting\n", program_invocation_short_name);
+}
+void __attribute__((weak)) ppam_finish(void)
+{
+	printf("%s stopping\n", program_invocation_short_name);
+}
 
 int main(int argc, char *argv[])
 {

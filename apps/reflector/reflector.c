@@ -64,23 +64,6 @@
 /* Override the default command prompt */
 const char ppam_prompt[] = "reflector> ";
 
-/* PPAM global startup/teardown
- *
- * These hooks are not performance-sensitive and so are declared as real
- * functions, called from the PPAC library code (ie. not from the inline
- * packet-handling support).
- */
-int ppam_init(void)
-{
-	printf("Reflector starting up\n");
-	return 0;
-}
-
-void ppam_finish(void)
-{
-	printf("Reflector stopping\n");
-}
-
 /* There is no configuration that specifies how many Tx FQs to use
  * per-interface, it's an internal choice for ppac.c and may depend on
  * optimisations, link-speeds, command-line options, etc. Also the Tx FQIDs are
