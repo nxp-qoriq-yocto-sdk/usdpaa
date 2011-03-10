@@ -24,7 +24,7 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "ip/ip_protos.h"
+#include "ip_protos.h"
 #include <assert.h>
 
 struct ip_protos_t *ip_protos_create(void)

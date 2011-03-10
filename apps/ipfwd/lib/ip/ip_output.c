@@ -26,17 +26,17 @@
  */
 #include "net/neigh.h"
 #include "app_common.h"
-#include "ip/ip.h"
+#include "ip.h"
 #include "net/rt.h"
-#include "ip/ip_common.h"
-#include "ip/ip_output.h"
-#include "ip/ip_hooks.h"
+#include "ip_common.h"
+#include "ip_output.h"
+#include "ip_hooks.h"
 #include "ethernet/eth.h"
 #include "net/net_dev.h"
 #include "net/frame_handler.h"
 #include "net/ll_cache.h"
-#include "ip/ip_rc.h"
-#include "ip/ip_common.h"
+#include "ip_rc.h"
+#include "ip_common.h"
 #include "arp/arp.h"
 
 #include <assert.h>

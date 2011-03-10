@@ -146,12 +146,12 @@
 
  DELETING ENTRIES
  */
-#include "ip/ip_rc.h"
+#include "ip_rc.h"
 #ifdef IP_RCU_ENABLE
 #include "rcu_lock.h"
 #endif
 #include "net/rt.h"
-#include "ip/ip_common.h"
+#include "ip_common.h"
 #include "net/net_dev.h"
 #include "app_common.h"
 

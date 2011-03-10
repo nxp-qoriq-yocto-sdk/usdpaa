@@ -24,12 +24,12 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "net/neigh.h"
+#include "neigh.h"
 #ifdef NEIGH_RCU_ENABLE
 #include "rcu_lock.h"
 #endif
-#include "net/neigh.h"
-#include "net/rt.h"
+#include "neigh.h"
+#include "rt.h"
 #include "ethernet/eth.h"
 #include "app_common.h"
 #include "bigatomic.h"

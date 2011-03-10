@@ -24,7 +24,7 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "ip/ip_hooks.h"
+#include "ip_hooks.h"
 
 struct ip_hooks_t *ip_hooks_create(void)
 {

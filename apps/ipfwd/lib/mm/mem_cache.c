@@ -29,7 +29,7 @@
 
 #include <internal/compat.h>
 
-#include "mm/mem_cache.h"
+#include "mem_cache.h"
 #include "app_common.h"
 
 struct mem_cache_t *cache_cache;

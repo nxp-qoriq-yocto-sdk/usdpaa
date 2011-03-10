@@ -34,8 +34,8 @@
 #include "app_common.h"
 #include "net/frame_handler.h"
 #include "net/net_dev.h"
-#include "ip/ip_common.h"
-#include "ip/ip_accept.h"
+#include "ip_common.h"
+#include "ip_accept.h"
 #include "ethernet/eth.h"
 
 void ip_handler(struct fq_context_t *ctxt, struct annotations_t *notes,

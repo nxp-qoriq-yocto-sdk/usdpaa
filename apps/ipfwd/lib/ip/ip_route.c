@@ -29,11 +29,11 @@
 #include <usdpaa/compat.h>
 
 #include "app_common.h"
-#include "ip/ip_route.h"
-#include "ip/ip_forward.h"
-#include "ip/ip_local.h"
-#include "ip/ip_rc.h"
-#include "ip/ip_protos.h"
+#include "ip_route.h"
+#include "ip_forward.h"
+#include "ip_local.h"
+#include "ip_rc.h"
+#include "ip_protos.h"
 #include "net/rt.h"
 #include "net/frame_handler.h"
 #include "bigatomic.h"

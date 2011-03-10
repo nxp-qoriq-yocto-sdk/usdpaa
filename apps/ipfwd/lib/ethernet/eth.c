@@ -25,7 +25,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "ethernet/eth.h"
+#include "eth.h"
 #include "net/ll_cache.h"
 
 #include <assert.h>

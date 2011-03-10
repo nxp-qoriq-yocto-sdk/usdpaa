@@ -26,10 +26,10 @@
  */
 #include "net/annotations.h"
 #include "compiler.h"
-#include "ip/ip_local.h"
-#include "ip/ip_common.h"
-#include "ip/ip_hooks.h"
-#include "ip/ip_protos.h"
+#include "ip_local.h"
+#include "ip_common.h"
+#include "ip_hooks.h"
+#include "ip_protos.h"
 
 enum IP_STATUS ip_local_deliver(struct ip_context_t *ctxt,
 				struct annotations_t *notes,

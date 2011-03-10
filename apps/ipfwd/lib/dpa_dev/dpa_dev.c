@@ -32,7 +32,7 @@
 #include "net/frame_desc.h"
 #include "net/annotations.h"
 #include "ethernet/eth.h"
-#include "dpa_dev/dpa_dev.h"
+#include "dpa_dev.h"
 
 struct net_dev_t *dpa_dev_allocate(struct net_dev_table_t *nt)
 {
