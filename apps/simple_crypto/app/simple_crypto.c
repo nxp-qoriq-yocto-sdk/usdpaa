@@ -102,6 +102,8 @@ static bool ctrl_error;
 
 /* Number of active cpus */
 long ncpus;
+/* Number of isolcpus */
+long num_isolcpus;
 
 /* Counters to accumulate time taken for packet processing */
 uint64_t enc_delta, dec_delta;
@@ -1230,27 +1232,29 @@ static void do_enqueues(enum SEC_MODE mode, thread_data_t *tdata)
 {
 	struct qman_fq *fq_to_sec;
 	uint32_t ret;
+	int fd_ind, cpu_ind;
 	int i = 0;
-	int fq_ind;
+
+	cpu_ind = (tdata->cpu + num_isolcpus - 1) % num_isolcpus;
 
 	do {
 		if (i >= crypto_info->buf_num_per_core)
 			return;
 
-		fq_ind = i*ncpus + (tdata->cpu + MAX_THREADS - 1)%MAX_THREADS;
+		fd_ind = i*ncpus + cpu_ind;
 
 		if (ENCRYPT == mode)
-			fq_to_sec = enc_fq_to_sec[(fq_ind) % FQ_COUNT];
+			fq_to_sec = enc_fq_to_sec[(fd_ind) % FQ_COUNT];
 		else
-			fq_to_sec = dec_fq_to_sec[(fq_ind) % FQ_COUNT];
+			fq_to_sec = dec_fq_to_sec[(fd_ind) % FQ_COUNT];
 
 		pr_debug("%s mode: Enqueue packet ->%d\n", mode ? "Encrypt" :
-				"Decrypt\n", fq_ind);
+				"Decrypt\n", fd_ind);
 
 		markpoint(2);
 
 loop:
-		ret = qman_enqueue(fq_to_sec, (struct qm_fd *)&fd[fq_ind], 0);
+		ret = qman_enqueue(fq_to_sec, (struct qm_fd *)&fd[fd_ind], 0);
 
 		if (unlikely(ret)) {
 			uint64_t now, then = mfatb();
@@ -1862,7 +1866,7 @@ int main(int argc, char *argv[])
 
 	pr_info("\nWelcome to FSL SEC 4.0 application!\n");
 
-	ncpus = sysconf(_SC_NPROCESSORS_ONLN);
+	num_isolcpus = ncpus = sysconf(_SC_NPROCESSORS_ONLN);
 
 	/* set default value 0 to crypto_param */
 	crypto_info = malloc(sizeof(struct crypto_param));
