@@ -4,13 +4,13 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
+ *	 notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
+ *	 notice, this list of conditions and the following disclaimer in the
+ *	 documentation and/or other materials provided with the distribution.
  *     * Neither the name of Freescale Semiconductor nor the
- *       names of its contributors may be used to endorse or promote products
- *       derived from this software without specific prior written permission.
+ *	 names of its contributors may be used to endorse or promote products
+ *	 derived from this software without specific prior written permission.
  *
  *
  * ALTERNATIVELY, this software may be distributed under the terms of the
@@ -83,11 +83,11 @@ struct fmc_netcfg_info {
 struct fmc_netcfg_info *netcfg_info;
 xmlNodePtr netpcd_root_node;
 
-static void fmc_netcfg_parse_error(void *ctx, xmlErrorPtr error)
+static void fmc_netcfg_parse_error(void *ctx, xmlErrorPtr xep)
 {
 	fprintf(stderr, "%s:%hu:%s() fmc_netcfg_parse_error(context(%p),"
 			"error pointer %p\n", __FILE__, __LINE__, __func__,
-			ctx, error);
+			ctx, xep);
 }
 
 static inline int is_node(xmlNodePtr node, xmlChar *name)
@@ -313,7 +313,7 @@ static int parse_policy(xmlNodePtr cur, struct fmc_netcfg_fqs *fqs)
 static int process_pcdfile(const char *filename, char *policy_name,
 				struct fmc_netcfg_fqs *fqs)
 {
-	xmlErrorPtr error;
+	xmlErrorPtr xep;
 	int _errno = -ENXIO;
 	char *name;
 	xmlDocPtr doc;
@@ -321,7 +321,7 @@ static int process_pcdfile(const char *filename, char *policy_name,
 
 	xmlInitParser();
 	LIBXML_TEST_VERSION;
-	xmlSetStructuredErrorFunc(&error, fmc_netcfg_parse_error);
+	xmlSetStructuredErrorFunc(&xep, fmc_netcfg_parse_error);
 	xmlKeepBlanksDefault(0);
 
 	doc = xmlParseFile(filename);
@@ -473,7 +473,7 @@ static inline uint8_t get_num_of_interface(xmlNodePtr cur)
 
 static int parse_cfgfile(const char *cfg_file, const char *pcd_file)
 {
-	xmlErrorPtr error;
+	xmlErrorPtr xep;
 	xmlNodePtr fman_node;
 	xmlDocPtr doc;
 	xmlNodePtr cur;
@@ -482,7 +482,7 @@ static int parse_cfgfile(const char *cfg_file, const char *pcd_file)
 
 	xmlInitParser();
 	LIBXML_TEST_VERSION;
-	xmlSetStructuredErrorFunc(&error, fmc_netcfg_parse_error);
+	xmlSetStructuredErrorFunc(&xep, fmc_netcfg_parse_error);
 	xmlKeepBlanksDefault(0);
 
 	doc = xmlParseFile(cfg_file);
