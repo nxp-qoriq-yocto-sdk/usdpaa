@@ -893,7 +893,7 @@ uint32_t *cmd_insert_fifo_load(uint32_t *descwd, dma_addr_t data,
 
 	if (imm == FIFOLD_IMM) {
 		words = len >> 2;
-		nextin = (uint32_t *)(uint32_t)data; /*TODO: 36bit ptov*/
+		nextin = (uint32_t *)(unsigned long)data;
 		while (words) {
 			*descwd++ = *nextin++;
 			words--;
@@ -1181,8 +1181,14 @@ uint32_t *cmd_insert_jump(uint32_t *descwd, uint32_t jtype,
 	*descwd++ = CMD_JUMP | class | jtype | test | cond |
 		    (offset & 0x000000ff);
 
-	if (jtype == JUMP_TYPE_NONLOCAL)
-		*descwd++ = (uint32_t)jmpdesc;
+	if (jtype == JUMP_TYPE_NONLOCAL) {
+		if (sizeof(dma_addr_t) == sizeof(u32)) {
+			*descwd++ = dma_mem_vtop(jmpdesc);
+		} else {
+			*descwd++ = upper_32_bits(dma_mem_vtop(jmpdesc));
+			*descwd++ = lower_32_bits(dma_mem_vtop(jmpdesc));
+		}
+	}
 
 	return descwd;
 }

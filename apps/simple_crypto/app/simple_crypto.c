@@ -359,12 +359,12 @@ static int create_compound_fd(void)
 		sg = (struct qm_sg_entry *)sg_priv_and_data;
 
 		/* output buffer */
-		sg->addr_lo = (uint32_t)out_buf;
+		qm_sg_entry_set64(sg, dma_mem_vtop(out_buf));
 		sg->length = output_buf_size;
 
 		/* input buffer */
 		sg++;
-		sg->addr_lo = (uint32_t)in_buf;
+		qm_sg_entry_set64(sg, dma_mem_vtop(in_buf));
 		sg->length = input_buf_length;
 		sg->final = 1;
 		sg--;

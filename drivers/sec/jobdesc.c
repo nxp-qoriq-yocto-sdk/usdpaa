@@ -36,6 +36,7 @@
 
 #include <usdpaa/compat.h>
 #include <fsl_sec/dcl.h>
+#include <usdpaa/dma_mem.h>
 #include <internal/compat.h>
 
 static const uint8_t mdkeylen[] = { 16, 20, 28, 32, 48, 64 };
@@ -84,7 +85,12 @@ int cnstr_seq_jobdesc(uint32_t *jobdesc, uint16_t *jobdescsz,
 	next++;
 
 	/* Insert sharedesc */
-	*next++ = (uint32_t) shrdesc;
+	if (sizeof(dma_addr_t) == sizeof(u32)) {
+		*next++ = dma_mem_vtop(shrdesc);
+	} else {
+		*next++ = upper_32_bits(dma_mem_vtop(shrdesc));
+		*next++ = lower_32_bits(dma_mem_vtop(shrdesc));
+	}
 
 	/* Sequence pointers */
 	next = cmd_insert_seq_out_ptr(next, outbuf, outsize, PTR_DIRECT);
