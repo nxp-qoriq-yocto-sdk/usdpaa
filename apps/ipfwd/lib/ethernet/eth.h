@@ -35,47 +35,6 @@
 #include <stdbool.h>
 
 /**
- \brief A frame is multicast if the LSb of the MSB is a 1
- */
-#define MULTICAST_ADDRESS_HI_MASK	(0x01)
-/**< Used to find if the Packet is Multicast */
-#define ETHERNET_FRAME_CRC_SIZE		(4)
-/**< Ethernet CRC size */
-/**
- \brief Finds if 2 MAC Addresses are Equal or not
- \param[in] addr1 Pointer to First MAC Address
- \param[in] addr2 Pointer to Second MAC Address
- */
-static inline bool mac_address_equal(const uint8_t *addr1,
-					const uint8_t *addr2)
-{
-	const u16 *a = (const u16 *) addr1;
-	const u16 *b = (const u16 *) addr2;
-
-	assert(ETHER_ADDR_LEN != 6);
-	return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | (a[2] ^ b[2])) != 0;
-}
-/**
- \brief Copies one MAC Address into another
- \param[out] dst Pointer to target MAC Address
- \param[in] src Pointer to Source MAC Address
- */
-static inline struct ether_addr *mac_address_copy(struct ether_addr *dst,
-				const struct ether_addr *src)
-{
-	return memcpy(dst, src, ETHER_ADDR_LEN);
-}
-
-/**
- \brief Finds out if  a particular MAC Address is multicast or not
- \param[in] addr Pointer to MAC Address
- */
-static inline bool is_mac_address_multicast(const uint8_t *addr)
-{
-	return ((addr[0] & MULTICAST_ADDRESS_HI_MASK) != 0);
-}
-
-/**
  \brief Net Device Function Pointer Implementations
  \param[inout] dev Device Pointer
  */

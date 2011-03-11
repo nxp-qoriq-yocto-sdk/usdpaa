@@ -3,7 +3,7 @@
  \brief Ethernet protocol defines and data-types
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,7 +29,6 @@
 #ifndef _ETHER_H
 #define _ETHER_H
 
-#define ETH_DST_MULTICAST 0x1
 #define ETH_DST_BROADCAST 0xFF
 
 /**
@@ -44,16 +43,4 @@
 #define NMAC_STR(buf) \
 	buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]
 
-/**
- \brief Double word(64 bit) MAC format for printing
-  Assumes Network byte order with MAC addr in lower 6 bytes
- */
-#define NMAC_64(addr) \
-	((uint8_t  *)&addr)[2], \
-	((uint8_t  *)&addr)[3], \
-	((uint8_t  *)&addr)[4], \
-	((uint8_t  *)&addr)[5], \
-	((uint8_t  *)&addr)[6], \
-	((uint8_t  *)&addr)[7]
-
-#endif /* ETHER_H */
+#endif	/* _ETHER_H */

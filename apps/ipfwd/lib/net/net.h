@@ -3,7 +3,7 @@
  \brief This file contains the L2 and l3 related defines
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,14 +26,13 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #ifndef _LIB_NET_NET_H
-#define _LIB_NET_NET_H   1
+#define _LIB_NET_NET_H
 
-#define LL_MAX_ADDR_LEN_BYTES           6
+#define LL_MAX_ADDR_LEN_BYTES		6
 /**< Max Length for L2 Address */
 /* Does not Currently Accomodate v6 Address */
-#define L3_MAX_ADDR_LEN_WORDS           1
+#define L3_MAX_ADDR_LEN_WORDS		1
 /**< Max length in Words for L3 address */
-#define LL_MAX_HEADER                   (14)			/**< Max Length for L2 Header */
-#define LL_MAX_ALIGNED_HEADER           (16)		/**< Max Length for aligned L2 Header */
+#define LL_MAX_ALIGNED_HEADER		(16)		/**< Max Length for aligned L2 Header */
 
-#endif /* _LIB_NET_NET_H */
+#endif	/* _LIB_NET_NET_H */
