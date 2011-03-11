@@ -415,7 +415,7 @@ static error_t parse_arp_add_opt(int key, char *arg, struct argp_state *state)
 			pch = strtok(arg, ":");
 			while (pch != NULL) {
 				sscanf(pch, "%x", &l);
-				route_info->ip_info.mac_addr[i]
+				route_info->ip_info.mac_addr.ether_addr_octet[i]
 					= (uint8_t)l;
 				pch = strtok(NULL, ":");
 				i++;

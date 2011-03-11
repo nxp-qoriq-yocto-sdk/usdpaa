@@ -52,7 +52,7 @@ struct ipfwd_eth_t {
 	struct ipfwd_fq_range_t tx_err;		/* TX error FQs */
 	struct ipfwd_fq_range_t tx_confirm;	/* TX confirm FQs */
 	struct ipfwd_fq_range_t tx;		/* TX FQs */
-	uint8_t mac_addr[ETHER_ADDR_LEN];
+	struct ether_addr mac_addr;
 };
 
 struct qman_orp_pcd {

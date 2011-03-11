@@ -106,8 +106,8 @@ int add_arp_entry(struct neigh_table_t *arp_tab, struct net_dev_t *dev,
 		pr_err("%s: Unable to add Neigh Entry\n", __func__);
 		return -EINVAL;
 	}
-	if (NULL ==  neigh_update(n, (uint8_t *) node->mac.ether_addr_octet,
-				NEIGH_STATE_PERMANENT)) {
+	if (NULL ==  neigh_update(n, node->mac.ether_addr_octet,
+				  NEIGH_STATE_PERMANENT)) {
 		pr_err("%s: Unable to update Neigh Entry\n", __func__);
 		return -EINVAL;
 	}
@@ -177,7 +177,7 @@ void arp_handler(struct annotations_t *notes, void *data)
 
 	if (!merge_flag) {
 		memcpy(new_node.mac.ether_addr_octet,
-			(uint8_t *) &arp_hdr->arp_senderaddr, ETHER_ADDR_LEN);
+		       arp_hdr->arp_senderaddr.ether_addr_octet, ETHER_ADDR_LEN);
 		memcpy(&new_node.ip.word,
 			 (uint8_t *) &arp_hdr->arp_senderip, IP_ADDRESS_BYTES);
 		if (0 > add_arp_entry(stack.arp_table, NULL, &new_node)) {
@@ -256,7 +256,7 @@ int arp_send_request(struct net_dev_t *dev, uint32_t target_ip)
 	}
 
 	memcpy(&arp_header->arp_senderaddr, eth_hdr->ether_shost,
-						ETHER_ADDR_LEN);
+	       ETHER_ADDR_LEN);
 	arp_header->arp_senderip = target_iface_node->ip.word;
 	memset(&arp_header->arp_targetaddr, 0, ETHER_ADDR_LEN);
 	arp_header->arp_targetip = target_ip;

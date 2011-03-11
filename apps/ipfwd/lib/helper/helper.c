@@ -417,8 +417,7 @@ int init_interface(struct usdpaa_netcfg_info *cfg_ptr,
 	for (port_id = 0; port_id < g_num_dpa_eth_ports; port_id++) {
 		p_cfg = &cfg_ptr->port_cfg[port_id];
 		fif = p_cfg->fman_if;
-		memcpy(ipfwd_fq_range[port_id].mac_addr,
-			fif->mac_addr.ether_addr_octet, ETHER_ADDR_LEN);
+		ipfwd_fq_range[port_id].mac_addr = fif->mac_addr;
 		/* Handle any pools used by this i/f
 		 that are not already handled */
 		fman_if_for_each_bpool(bp, fif) {

@@ -120,12 +120,11 @@ enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt __always_unused,
 	struct neigh_t *neighbor;
 	struct net_dev_t *dev;
 	enum IP_STATUS retval;
-	struct ethernet_header_t *ll_hdr;
+	struct ether_header *ll_hdr;
 #ifdef NOT_USDPAA
 	uint32_t timer_id;
 #endif
 #ifdef IPSECFWD_HYBRID_GENERATOR
-	uint8_t mac_temp[6];
 	uint32_t temp;
 #endif
 
@@ -174,7 +173,7 @@ enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt __always_unused,
 		neighbor->neigh_state = NEIGH_STATE_PENDING;
 		neighbor->retransmit_count = 0;
 	} else {
-		ll_hdr = (void *)((char *) ip_hdr - (ll_cache->ll_hdr_len));
+		ll_hdr = (void *)ip_hdr - ll_cache->ll_hdr_len;
 		ll_cache_output(ll_hdr, ll_cache);
 #ifdef IPSECFWD_HYBRID_GENERATOR
 		ether_header_swap(ll_hdr);

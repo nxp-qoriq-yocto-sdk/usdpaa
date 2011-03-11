@@ -132,12 +132,12 @@ int32_t ipfwd_conf_intf(struct app_ctrl_op_info *route_info)
 	pr_debug("ipfwd_conf_intf: IPAddr = 0x%x\n",
 		  route_info->ip_info.intf_conf.ip_addr);
 	pr_debug("ipfwd_conf_intf: MAC Addr = %x:%x:%x:%x:%x:%x\n",
-		  route_info->ip_info.intf_conf.mac_addr[0],
-		  route_info->ip_info.intf_conf.mac_addr[1],
-		  route_info->ip_info.intf_conf.mac_addr[2],
-		  route_info->ip_info.intf_conf.mac_addr[3],
-		  route_info->ip_info.intf_conf.mac_addr[4],
-		  route_info->ip_info.intf_conf.mac_addr[5]);
+		  route_info->ip_info.intf_conf.mac_addr.ether_addr_octet[0],
+		  route_info->ip_info.intf_conf.mac_addr.ether_addr_octet[1],
+		  route_info->ip_info.intf_conf.mac_addr.ether_addr_octet[2],
+		  route_info->ip_info.intf_conf.mac_addr.ether_addr_octet[3],
+		  route_info->ip_info.intf_conf.mac_addr.ether_addr_octet[4],
+		  route_info->ip_info.intf_conf.mac_addr.ether_addr_octet[5]);
 
 	pr_debug("ipfwd_conf_intf: Exit\n");
 	return 0;
@@ -186,7 +186,6 @@ struct node_t *ipfwd_get_iface_for_ip(uint32_t ip_addr)
 struct net_dev_t *ipfwd_get_dev_for_ip(unsigned int ip_addr)
 {
 	uint32_t port, node = 0, node_idx;
-	unsigned char *mac_addr;
 	struct net_dev_t *dev;
 
 	/* Check that the arp entry creation request is for a local node */
@@ -221,16 +220,9 @@ _TEMP:
 	/*
 	 ** Finding the device ptr correspnding to the iface node
 	 */
-	mac_addr = (unsigned char *)&(iface_nodes[port].mac);
-	dev = stack.nt->device_head;
-	while (dev != NULL) {
-		char *dev_mac = (char *)(dev->dev_addr);
-
-		if (memcmp(dev_mac, mac_addr, 6) == 0)
+	for (dev = stack.nt->device_head; dev != NULL; dev = dev->next)
+		if (memcmp(dev->dev_addr, &iface_nodes[port].mac, dev->dev_addr_len) == 0)
 			break;
-
-		dev = dev->next;
-	}
 
 	return dev;
 }
@@ -370,7 +362,6 @@ int32_t ipfwd_del_route(struct app_ctrl_op_info *route_info)
  */
 int32_t ipfwd_add_arp(struct app_ctrl_op_info *route_info)
 {
-	unsigned char *c = route_info->ip_info.mac_addr;
 	unsigned int ip_addr = route_info->ip_info.src_ipaddr;
 	struct net_dev_t *dev = NULL;
 	struct neigh_t *n;
@@ -379,8 +370,14 @@ int32_t ipfwd_add_arp(struct app_ctrl_op_info *route_info)
 	unsigned char *ip = (unsigned char *)&(ip_addr);
 	pr_debug("ipfwd_add_arp: Enter\n");
 
-	pr_debug("IP = %d.%d.%d.%d ; MAC = %x:%x:%x:%x:%x:%x\n", ip[0],
-		  ip[1], ip[2], ip[3], c[0], c[1], c[2], c[3], c[4], c[5]);
+	pr_debug("IP = %d.%d.%d.%d ; MAC = %x:%x:%x:%x:%x:%x\n",
+		 ip[0], ip[1], ip[2], ip[3],
+		 route_info->ip_info.mac_addr.ether_addr_octet[0],
+		 route_info->ip_info.mac_addr.ether_addr_octet[1],
+		 route_info->ip_info.mac_addr.ether_addr_octet[2],
+		 route_info->ip_info.mac_addr.ether_addr_octet[3],
+		 route_info->ip_info.mac_addr.ether_addr_octet[4],
+		 route_info->ip_info.mac_addr.ether_addr_octet[5]);
 #endif
 
 	n = neigh_lookup(stack.arp_table, ip_addr,
@@ -422,7 +419,8 @@ int32_t ipfwd_add_arp(struct app_ctrl_op_info *route_info)
 		}
 	}
 	/* Update ARP cache entry */
-	if (NULL == neigh_update(n, c, NEIGH_STATE_PERMANENT)) {
+	if (NULL == neigh_update(n, route_info->ip_info.mac_addr.ether_addr_octet,
+				 NEIGH_STATE_PERMANENT)) {
 		pr_err("ipfwd_add_arp: Exit: Failed\n");
 		return -1;
 	}
