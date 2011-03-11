@@ -131,13 +131,8 @@ int32_t ipfwd_conf_intf(struct app_ctrl_op_info *route_info)
 		  route_info->ip_info.intf_conf.ifname);
 	pr_debug("ipfwd_conf_intf: IPAddr = 0x%x\n",
 		  route_info->ip_info.intf_conf.ip_addr);
-	pr_debug("ipfwd_conf_intf: MAC Addr = %x:%x:%x:%x:%x:%x\n",
-		  route_info->ip_info.intf_conf.mac_addr.ether_addr_octet[0],
-		  route_info->ip_info.intf_conf.mac_addr.ether_addr_octet[1],
-		  route_info->ip_info.intf_conf.mac_addr.ether_addr_octet[2],
-		  route_info->ip_info.intf_conf.mac_addr.ether_addr_octet[3],
-		  route_info->ip_info.intf_conf.mac_addr.ether_addr_octet[4],
-		  route_info->ip_info.intf_conf.mac_addr.ether_addr_octet[5]);
+	pr_debug("ipfwd_conf_intf: MAC Addr = "ETH_MAC_PRINTF_FMT"\n",
+		 ETH_MAC_PRINTF_ARGS(&route_info->ip_info.intf_conf.mac_addr));
 
 	pr_debug("ipfwd_conf_intf: Exit\n");
 	return 0;
@@ -370,14 +365,9 @@ int32_t ipfwd_add_arp(struct app_ctrl_op_info *route_info)
 	unsigned char *ip = (unsigned char *)&(ip_addr);
 	pr_debug("ipfwd_add_arp: Enter\n");
 
-	pr_debug("IP = %d.%d.%d.%d ; MAC = %x:%x:%x:%x:%x:%x\n",
+	pr_debug("IP = %d.%d.%d.%d ; MAC ="ETH_MAC_PRINTF_FMT"\n",
 		 ip[0], ip[1], ip[2], ip[3],
-		 route_info->ip_info.mac_addr.ether_addr_octet[0],
-		 route_info->ip_info.mac_addr.ether_addr_octet[1],
-		 route_info->ip_info.mac_addr.ether_addr_octet[2],
-		 route_info->ip_info.mac_addr.ether_addr_octet[3],
-		 route_info->ip_info.mac_addr.ether_addr_octet[4],
-		 route_info->ip_info.mac_addr.ether_addr_octet[5]);
+		 ETH_MAC_PRINTF_ARGS(&route_info->ip_info.mac_addr));
 #endif
 
 	n = neigh_lookup(stack.arp_table, ip_addr,
@@ -562,12 +552,11 @@ void create_iface_nodes(struct node_t *arr, const struct usdpaa_netcfg_info *cfg
 		arr[if_idx].ip.word = 0xc0a80001 +
 			((20 + fif->fman_idx * 5 +
 			  (fif->mac_type == fman_mac_1g ? 0 : 4) + fif->mac_idx) << 8);
-		pr_debug("PortID = %d is %s interface node with IP Address\n"
-			 "%d.%d.%d.%d and MAC Address\n"MAC_FMT"\n", port,
-			 "FMAN\n",
+		pr_debug("PortID = %d is FMan\ninterface node with IP Address\n"
+			 "%d.%d.%d.%d and MAC Address\n"ETH_MAC_PRINTF_FMT"\n", port,
 			 arr[if_idx].ip.bytes[0], arr[if_idx].ip.bytes[1],
 			 arr[if_idx].ip.bytes[2], arr[if_idx].ip.bytes[3],
-			 NMAC_STR(arr[if_idx].mac.ether_addr_octet));
+			 ETH_MAC_PRINTF_ARGS(&arr[if_idx].mac));
 	}
 }
 

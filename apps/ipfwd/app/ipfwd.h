@@ -33,7 +33,6 @@
 #include <usdpaa/fsl_qman.h>
 
 #include "app_common.h"
-#include "ether.h"
 #include "ip/ip.h"
 #include "arp/arp.h"
 #include "net/rt.h"

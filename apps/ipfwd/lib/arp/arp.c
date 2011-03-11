@@ -27,7 +27,6 @@
 
 #include "arp.h"
 #include "ip/ip_common.h"
-#include "ether.h"
 
 #include <usdpaa/dma_mem.h>
 
@@ -235,7 +234,7 @@ int arp_send_request(struct net_dev_t *dev, uint32_t target_ip)
 
 	eth_hdr = dma_mem_ptov(qm_fd_addr(&fd));
 	p_cfg = &config_info.port[dev->ifindex].port_cfg;
-	memset(eth_hdr->ether_dhost, ETH_DST_BROADCAST, ETHER_ADDR_LEN);
+	memset(eth_hdr->ether_dhost, -1, ETHER_ADDR_LEN);
 	memcpy(eth_hdr->ether_shost, p_cfg->mac_addr,
 		ETHER_ADDR_LEN);
 	eth_hdr->ether_type = ETHERTYPE_ARP;
