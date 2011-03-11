@@ -28,7 +28,6 @@
 # ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
 
 MAKEFLAGS += --no-builtin-rules --no-builtin-variables
 
@@ -42,8 +41,17 @@ ifneq (distclean,$(MAKECMDGOALS))
    $(ARCH)_SPEC_CFLAGS	:= -mcpu=e500mc
    $(ARCH)_SPEC_LDFLAGS	:=
  else
+  ifeq (powerpc64,$(ARCH))
+    CROSS_COMPILE	 ?= powerpc-linux-gnu-
+    $(ARCH)_SPEC_DEFINE	 :=
+    $(ARCH)_SPEC_INC_PATH:=
+    $(ARCH)_SPEC_LIB_PATH:=
+    $(ARCH)_SPEC_CFLAGS	 := -mcpu=e500mc64 -m64
+    $(ARCH)_SPEC_LDFLAGS :=
+  else
    $(error "ARCH not defined.")
  endif
+endif
 endif
 
 # ----=[ Tools ]=----
