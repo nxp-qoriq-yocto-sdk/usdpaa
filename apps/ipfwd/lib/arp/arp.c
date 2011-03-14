@@ -61,16 +61,16 @@ int arp_handle_request(struct ether_header *eth_hdr,
 	struct ether_arp *arp;
 
 	arp = (typeof(arp))(eth_hdr + 1);
-	if (memcmp(arp->arp_tpa, &node->ip.word, IP_ADDRESS_BYTES))
+	if (memcmp(arp->arp_tpa, &node->ip.word, arp->arp_pln))
 		return -1;
 
-	memcpy(arp->arp_tpa, arp->arp_spa, IP_ADDRESS_BYTES);
-	memcpy(arp->arp_spa, &node->ip.word, IP_ADDRESS_BYTES);
+	memcpy(arp->arp_tpa, arp->arp_spa, arp->arp_pln);
+	memcpy(arp->arp_spa, &node->ip.word, arp->arp_pln);
 	arp->arp_op = ARPOP_REPLY;
 	memcpy(eth_hdr->ether_dhost, eth_hdr->ether_shost, sizeof(eth_hdr->ether_dhost));
 	memcpy(eth_hdr->ether_shost, &node->mac, sizeof(eth_hdr->ether_shost));
-	memcpy(arp->arp_tha, eth_hdr->ether_dhost, ETHER_ADDR_LEN);
-	memcpy(arp->arp_sha, eth_hdr->ether_shost, ETHER_ADDR_LEN);
+	memcpy(arp->arp_tha, eth_hdr->ether_dhost, arp->arp_hln);
+	memcpy(arp->arp_sha, eth_hdr->ether_shost, arp->arp_hln);
 	return 0;
 }
 
@@ -173,8 +173,8 @@ void arp_handler(struct annotations_t *notes, void *data)
 	}
 
 	if (!merge_flag) {
-		memcpy(&new_node.mac, arp->arp_sha, ETHER_ADDR_LEN);
-		memcpy(&new_node.ip.word, arp->arp_spa, IP_ADDRESS_BYTES);
+		memcpy(&new_node.mac, arp->arp_sha, arp->arp_hln);
+		memcpy(&new_node.ip.word, arp->arp_spa, arp->arp_pln);
 		if (0 > add_arp_entry(stack.arp_table, NULL, &new_node)) {
 			pr_err("%s: failed to add ARP entry\n", __func__);
 			free_buff(notes->fd);
@@ -190,15 +190,13 @@ void arp_handler(struct annotations_t *notes, void *data)
 		pr_info("Got ARP request from IP 0x%x\n", arp_spa);
 
 		memcpy(&new_node.mac, dev->dev_addr, sizeof(new_node.mac));
-		memcpy((uint8_t *)&new_node.ip.word, arp->arp_tpa, IP_ADDRESS_BYTES);
+		memcpy(&new_node.ip.word, arp->arp_tpa, arp->arp_pln);
 		arp_handle_request(data, &new_node);
 		dev->xmit(dev, (struct qm_fd *)notes->fd, NULL);
 		pr_info("Sent ARP reply for IP 0x%x\n", arp_tpa);
 	} else {
 		free_buff(notes->fd);
 	}
-
-	return;
 }
 #ifdef ARP_ENABLE
 int arp_send_request(struct net_dev_t *dev, uint32_t target_ip)
@@ -243,9 +241,9 @@ int arp_send_request(struct net_dev_t *dev, uint32_t target_ip)
 		return -ENODEV;
 	}
 
-	memcpy(arp->arp_sha, eth_hdr->ether_shost, ETHER_ADDR_LEN);
+	memcpy(arp->arp_sha, eth_hdr->ether_shost, arp->arp_hln);
 	memcpy(arp->arp_spa, &target_iface_node->ip, arp->arp_pln);
-	memset(arp->arp_tha, 0, ETHER_ADDR_LEN);
+	memset(arp->arp_tha, 0, arp->arp_hln);
 	memcpy(arp->arp_tpa, &target_ip, arp->arp_pln);
 
 	pr_info("Sending ARP request for IP %x\n", target_ip);
