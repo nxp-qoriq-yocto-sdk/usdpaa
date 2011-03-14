@@ -93,21 +93,14 @@ static struct argp argp = {
 void send_to_mq(struct app_ctrl_op_info *saInfo)
 {
 	int ret;
-	struct app_ctrl_op_info *ip_info;
 
 	saInfo->state = IPC_CTRL_CMD_STATE_BUSY;
-	ip_info = (struct app_ctrl_op_info *)malloc
-			(sizeof(struct app_ctrl_op_info));
-	memset(ip_info, 0, sizeof(struct app_ctrl_op_info));
-	*ip_info = *saInfo;
 	/* Send message to message queue */
-	ret = mq_send(mq_fd_wr, (const char *)ip_info,
-			sizeof(struct app_ctrl_op_info), 10);
+	ret = mq_send(mq_fd_wr, (char *)saInfo, sizeof(*saInfo), 10);
 	if (ret != 0) {
 		pr_err("%s : Error in sending mesage on MQ\n", __FILE__);
 	}
 	while (response_flag == 0);
-	free(ip_info);
 }
 /**
  \brief Processes the Route Add/ Delete Request
@@ -480,14 +473,11 @@ static error_t parse_framecnt_edit_opt(int key, char *arg,
 int receive_from_mq(mqd_t mqdes)
 {
 	ssize_t size;
-	struct app_ctrl_op_info *ip_info = NULL;
+	struct app_ctrl_op_info ip_info;
 	struct mq_attr attr;
 	int ret;
 	unsigned int result = IPC_CTRL_RSLT_SUCCESSFULL;
 
-	ip_info = (struct app_ctrl_op_info *)malloc
-			(sizeof(struct app_ctrl_op_info));
-	memset(ip_info, 0, sizeof(struct app_ctrl_op_info));
 	/* Get attributes of the Receive Message queue */
 	ret = mq_getattr(mqdes, &attr);
 	if (ret) {
@@ -495,38 +485,39 @@ int receive_from_mq(mqd_t mqdes)
 				__FILE__);
 	}
 	/* Read the message from receive queue */
-	size = mq_receive(mqdes, (char *)ip_info, attr.mq_msgsize, 0);
-		if (size == -1) {
-			pr_err("%s:Rcv msgque error\n", __FILE__);
-			return -1;
-		}
-	result = ip_info->result;
-	if (ip_info->msg_type == IPC_CTRL_CMD_TYPE_ROUTE_ADD) {
+	size = mq_receive(mqdes, (char *)&ip_info, attr.mq_msgsize, 0);
+	if (unlikely(size < 0)) {
+		pr_err("%s:Rcv msgque error\n", __FILE__);
+		return -errno;
+	}
+	assert(size == sizeof(ip_info));
+	result = ip_info.result;
+	if (ip_info.msg_type == IPC_CTRL_CMD_TYPE_ROUTE_ADD) {
 		if (result == IPC_CTRL_RSLT_SUCCESSFULL)
 			pr_info("Route Entry Added successfully\n");
 		else
 			pr_info("Route Entry Addition failed\n");
-	} else if (ip_info->msg_type == IPC_CTRL_CMD_TYPE_ROUTE_DEL) {
+	} else if (ip_info.msg_type == IPC_CTRL_CMD_TYPE_ROUTE_DEL) {
 		if (result == IPC_CTRL_RSLT_SUCCESSFULL)
 			pr_info("Route Entry Deleted successfully\n");
 		else
 			pr_info("Route Entry Deletion failed\n");
-	} else if (ip_info->msg_type == IPC_CTRL_CMD_TYPE_ARP_ADD) {
+	} else if (ip_info.msg_type == IPC_CTRL_CMD_TYPE_ARP_ADD) {
 		if (result == IPC_CTRL_RSLT_SUCCESSFULL)
 			pr_info("ARP Entry Added successfully\n");
 		else
 			pr_info("ARP Entry Addition failed\n");
-	} else if (ip_info->msg_type == IPC_CTRL_CMD_TYPE_ARP_DEL) {
+	} else if (ip_info.msg_type == IPC_CTRL_CMD_TYPE_ARP_DEL) {
 		if (result == IPC_CTRL_RSLT_SUCCESSFULL)
 			pr_info("ARP Entry Deleted successfully\n");
 		else
 			pr_info("ARP Entry Deletion failed\n");
-	} else if (ip_info->msg_type == IPC_CTRL_CMD_TYPE_FRAMECNT_EDIT) {
+	} else if (ip_info.msg_type == IPC_CTRL_CMD_TYPE_FRAMECNT_EDIT) {
 		if (result == IPC_CTRL_RSLT_SUCCESSFULL)
 			pr_info("Frame count edited successfully\n");
 		else
 			pr_info("Frame count edition failed\n");
-	} else if (ip_info->msg_type == IPC_CTRL_CMD_TYPE_GO) {
+	} else if (ip_info.msg_type == IPC_CTRL_CMD_TYPE_GO) {
 		if (result == IPC_CTRL_RSLT_SUCCESSFULL)
 			pr_info("Application Started successfully\n");
 		else
@@ -534,7 +525,6 @@ int receive_from_mq(mqd_t mqdes)
 	}
 
 	response_flag = 1;
-	free(ip_info);
 	return 0;
 }
 
