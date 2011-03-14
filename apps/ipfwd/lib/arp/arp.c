@@ -67,9 +67,8 @@ uint32_t arp_handle_request(struct ether_header *eth_hdr,
 	       IP_ADDRESS_BYTES);
 	memcpy(&arp_header->arp_senderip, &node->ip.word, IP_ADDRESS_BYTES);
 	arp_header->arp_opcode = ARPOP_REPLY;
-	memcpy(eth_hdr->ether_dhost, eth_hdr->ether_shost, ETHER_ADDR_LEN);
-	memcpy(eth_hdr->ether_shost, node->mac.ether_addr_octet,
-		ETHER_ADDR_LEN);
+	memcpy(eth_hdr->ether_dhost, eth_hdr->ether_shost, sizeof(eth_hdr->ether_dhost));
+	memcpy(eth_hdr->ether_shost, &node->mac, sizeof(eth_hdr->ether_shost));
 	memcpy(arp_header->arp_targetaddr.ether_addr_octet,
 		eth_hdr->ether_dhost, ETHER_ADDR_LEN);
 	memcpy(arp_header->arp_senderaddr.ether_addr_octet,
@@ -194,8 +193,7 @@ void arp_handler(struct annotations_t *notes, void *data)
 		pr_info("Got ARP request from IP 0x%x\n",
 			arp_hdr->arp_senderip);
 
-		memcpy(new_node.mac.ether_addr_octet, dev->dev_addr,
-			ETHER_ADDR_LEN);
+		memcpy(&new_node.mac, dev->dev_addr, sizeof(new_node.mac));
 		memcpy((uint8_t *)&new_node.ip.word,
 			(uint8_t *)&arp_hdr->arp_targetip, IP_ADDRESS_BYTES);
 		arp_handle_request((struct ether_header *) data,
@@ -234,9 +232,9 @@ int arp_send_request(struct net_dev_t *dev, uint32_t target_ip)
 
 	eth_hdr = dma_mem_ptov(qm_fd_addr(&fd));
 	p_cfg = &config_info.port[dev->ifindex].port_cfg;
-	memset(eth_hdr->ether_dhost, -1, ETHER_ADDR_LEN);
+	memset(eth_hdr->ether_dhost, -1, sizeof(eth_hdr->ether_dhost));
 	memcpy(eth_hdr->ether_shost, p_cfg->mac_addr,
-		ETHER_ADDR_LEN);
+	       sizeof(eth_hdr->ether_shost));
 	eth_hdr->ether_type = ETHERTYPE_ARP;
 
 	arp_header =
