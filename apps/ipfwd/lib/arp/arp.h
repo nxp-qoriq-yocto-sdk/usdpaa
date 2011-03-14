@@ -37,26 +37,10 @@ extern struct ip_stack_t stack;
 extern struct net_dev_t *ipfwd_get_dev_for_ip(unsigned int ip_addr);
 extern int is_iface_ip(uint32_t ip_addr);
 
-#define	ARP_HDR_LEN	28		/**<ARP Header Length */
-#define	ARP_PTYPE_IP	0x800		/**<Upper layer protocol type IPv4 */
-#define	ARP_HLEN_ETH	ETHER_ADDR_LEN	/**<Harware addr length */
-#define	ARP_PLEN_IP	4		/**<IPv4 addr length */
+#define	ARP_HDR_LEN	28	/**<ARP Header Length */
+#define	ARP_PTYPE_IP	0x800	/**<Upper layer protocol type IPv4 */
 
 #define ARP_RETRANSMIT_INTERVAL	5000
-/**
- \brief ARP Header
- */
-struct arp_header_t {
-	uint16_t arp_hrd;	/**<ARP Hardware Type */
-	uint16_t arp_proto;	/**<ARP Protocol Type */
-	uint8_t arp_hrdlen;	/**<Hardware Address Length */
-	uint8_t arp_protolen;	/**<Protocol Length */
-	uint16_t arp_opcode;	/**<OpCode*/
-	struct ether_addr arp_senderaddr;	/**<Sender Mac Address */
-	uint32_t arp_senderip;	/**<Sender IP Address */
-	struct ether_addr arp_targetaddr;	/**<Target Mac Address */
-	uint32_t arp_targetip;	/**<Target IP Address */
-} __attribute__ ((packed));
 
 /**
  \brief Handles ARP Request on the Interface
@@ -65,8 +49,8 @@ struct arp_header_t {
  \return    0 Arp request successfull
  -1 Arp request failed
  */
-uint32_t arp_handle_request(struct ether_header *eth_hdr,
-				   struct node_t *node);
+int arp_handle_request(struct ether_header *eth_hdr,
+		       struct node_t *node);
 
 /**
  \brief Creates the Arp Table
