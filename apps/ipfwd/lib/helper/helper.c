@@ -412,7 +412,7 @@ int init_interface(struct usdpaa_netcfg_info *cfg_ptr,
 	pr_debug("Init interface: Enter\n");
 
 	*recv_channel_map = 0;
-	memcpy(&cfg, cfg_ptr, sizeof(struct usdpaa_netcfg_info));
+	cfg = *cfg_ptr;
 	g_num_dpa_eth_ports = cfg_ptr->num_ethports;
 	for (port_id = 0; port_id < g_num_dpa_eth_ports; port_id++) {
 		p_cfg = &cfg_ptr->port_cfg[port_id];

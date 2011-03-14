@@ -560,9 +560,7 @@ void create_iface_nodes(struct node_t *arr, const struct usdpaa_netcfg_info *cfg
 
 	for (port = 0, if_idx = 0; port < g_num_dpa_eth_ports; port++, if_idx++) {
 		fif = cfg_ptr->port_cfg[port].fman_if;
-		memcpy(arr[if_idx].mac.ether_addr_octet,
-			fif->mac_addr.ether_addr_octet,
-			ETHER_ADDR_LEN);
+		arr[if_idx].mac = fif->mac_addr;
 		arr[if_idx].ip.word = 0xc0a80001 +
 			((20 + fif->fman_idx * 5 +
 			  (fif->mac_type == fman_mac_1g ? 0 : 4) + fif->mac_idx) << 8);

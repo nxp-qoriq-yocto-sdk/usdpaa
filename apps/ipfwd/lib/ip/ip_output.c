@@ -153,7 +153,7 @@ enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt __always_unused,
 				neighbor->proto_addr[0]);
 
 		/* Save first packet and forward it upon ARP reply */
-		memcpy(&neighbor->fd, notes->fd, sizeof(struct qm_fd));
+		neighbor->fd = *notes->fd;
 
 		/* Create and send ARP request */
 #ifdef NOT_USDPAA

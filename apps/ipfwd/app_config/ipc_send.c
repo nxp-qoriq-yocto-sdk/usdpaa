@@ -99,8 +99,7 @@ void send_to_mq(struct app_ctrl_op_info *saInfo)
 	ip_info = (struct app_ctrl_op_info *)malloc
 			(sizeof(struct app_ctrl_op_info));
 	memset(ip_info, 0, sizeof(struct app_ctrl_op_info));
-	memcpy(ip_info, saInfo,
-	       sizeof(struct app_ctrl_op_info));
+	*ip_info = *saInfo;
 	/* Send message to message queue */
 	ret = mq_send(mq_fd_wr, (const char *)ip_info,
 			sizeof(struct app_ctrl_op_info), 10);
