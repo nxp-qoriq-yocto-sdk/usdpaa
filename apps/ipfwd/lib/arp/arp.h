@@ -38,12 +38,9 @@ extern struct net_dev_t *ipfwd_get_dev_for_ip(unsigned int ip_addr);
 extern int is_iface_ip(uint32_t ip_addr);
 
 #define	ARP_HDR_LEN	28		/**<ARP Header Length */
-#define	ARP_HTYPE_ETH	1		/**<Link layer protocol type Ethenet */
 #define	ARP_PTYPE_IP	0x800		/**<Upper layer protocol type IPv4 */
 #define	ARP_HLEN_ETH	ETHER_ADDR_LEN	/**<Harware addr length */
 #define	ARP_PLEN_IP	4		/**<IPv4 addr length */
-#define	ARPOP_REQUEST	1		/**<ARP Request Opcode */
-#define	ARPOP_REPLY	2		/**<ARP Reply Opcode */
 
 #define ARP_RETRANSMIT_INTERVAL	5000
 /**

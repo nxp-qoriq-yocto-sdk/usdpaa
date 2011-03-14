@@ -30,6 +30,8 @@
 
 #include <usdpaa/dma_mem.h>
 
+#include <netinet/if_ether.h>
+
 #undef ARP_ENABLE
 extern struct config_info config_info;
 static spinlock_t arp_lock = SPIN_LOCK_UNLOCKED;
@@ -240,7 +242,7 @@ int arp_send_request(struct net_dev_t *dev, uint32_t target_ip)
 	arp_header =
 	    (struct arp_header_t *)((uint8_t *) eth_hdr +
 				sizeof(struct ether_header));
-	arp_header->arp_hrd = ARP_HTYPE_ETH;
+	arp_header->arp_hrd = ARPHRD_ETHER;
 	arp_header->arp_proto = ARP_PTYPE_IP;
 	arp_header->arp_hrdlen = ARP_HLEN_ETH;
 	arp_header->arp_protolen = ARP_PLEN_IP;
