@@ -26,7 +26,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #ifndef _LIB_NET_LL_CACHE_H
-#define _LIB_NET_LL_CACHE_H   1
+#define _LIB_NET_LL_CACHE_H
 
 #include "common/common.h"
 #include "net/net.h"
@@ -40,8 +40,6 @@ struct ll_cache_t {
 	uint8_t ll_data[LL_MAX_ALIGNED_HEADER];	/**< L2 Header */
 };
 
-#define ETH_LL_HDR_LEN 14
-
 /**
  \brief Allocates the Cache Structure
  \return Pointer to the allocated buffer or NULL if allocation failed
@@ -54,8 +52,8 @@ struct ll_cache_t *ll_cache_create(void);
  \param[in] llc Pointer to the Link layer Cache Structure
  \return none
  */
-static inline void ll_cache_output(void *ll_hdr, struct ll_cache_t *llc)
+static inline void ll_cache_output(void *ll_hdr, const struct ll_cache_t *llc)
 {
-	memcpy(ll_hdr, llc->ll_data, ETH_LL_HDR_LEN);
+	memcpy(ll_hdr, llc->ll_data, ETHER_HDR_LEN);
 }
-#endif /* _LIB_NET_LL_CACHE_H */
+#endif	/* _LIB_NET_LL_CACHE_H */

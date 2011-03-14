@@ -32,11 +32,11 @@
  \brief	Structure for configuring an Interface
  */
 struct app_ctrl_intf_conf {
-	uint32_t ip_addr; /**< IP Address */
-	uint32_t mtu; /**< MTU */
-	uint32_t enable; /**< Enabling the interface */
-	struct ether_addr mac_addr;  /**< MAC Address of the interface */
-	char ifname[10];  /**< Interface Name */
+	uint32_t ip_addr;			/**< IP Address */
+	uint32_t mtu;				/**< MTU */
+	uint32_t enable;			/**< Enabling the interface */
+	struct ether_addr mac_addr;		/**< MAC Address of the interface */
+	char ifname[10];			/**< Interface Name */
 #define IPC_CTRL_PARAM_BMASK_IFNAME		(1 << 0)
 #define IPC_CTRL_PARAM_BMASK_IPADDR		(1 << 1)
 #define IPC_CTRL_PARAM_BMASK_MACADDR		(1 << 2)
@@ -50,15 +50,15 @@ struct app_ctrl_intf_conf {
 };
 
 struct app_ctrl_ip_info {
-	unsigned int src_ipaddr;			/**<Source IP Address>*/
-	unsigned int dst_ipaddr;			/**<Destination IP Address>*/
-	unsigned int gw_ipaddr;				/**<Gateway IP Address>*/
-	unsigned int tos;				/**<Gateway IP Address>*/
-	struct ether_addr mac_addr;	/**< Mac Address */
-	unsigned int flow_id; /**< Flow Id */
-	unsigned int frame_cnt; /**<Frame Count */
-	unsigned int replace_entry;  /**< Used for overwriting an existing ARP entry */
-	struct app_ctrl_intf_conf intf_conf; /**< Interface Configuration */
+	unsigned int src_ipaddr;		/**<Source IP Address>*/
+	unsigned int dst_ipaddr;		/**<Destination IP Address>*/
+	unsigned int gw_ipaddr;			/**<Gateway IP Address>*/
+	unsigned int tos;			/**<Gateway IP Address>*/
+	struct ether_addr mac_addr;		/**< Mac Address */
+	unsigned int flow_id;			/**< Flow Id */
+	unsigned int frame_cnt;			/**<Frame Count */
+	unsigned int replace_entry;		/**< Used for overwriting an existing ARP entry */
+	struct app_ctrl_intf_conf intf_conf;	/**< Interface Configuration */
 };
 
 /**

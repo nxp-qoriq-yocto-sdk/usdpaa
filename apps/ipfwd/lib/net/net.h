@@ -28,7 +28,9 @@
 #ifndef _LIB_NET_NET_H
 #define _LIB_NET_NET_H
 
-#define LL_MAX_ADDR_LEN_BYTES		6
+#include <net/ethernet.h>
+
+#define LL_MAX_ADDR_LEN_BYTES		ETHER_ADDR_LEN
 /**< Max Length for L2 Address */
 /* Does not Currently Accomodate v6 Address */
 #define L3_MAX_ADDR_LEN_WORDS		1
