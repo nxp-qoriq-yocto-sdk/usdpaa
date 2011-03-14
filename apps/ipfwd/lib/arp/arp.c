@@ -230,7 +230,7 @@ int arp_send_request(struct net_dev_t *dev, uint32_t target_ip)
 
 	arp = (typeof(arp))(eth_hdr + 1);
 	arp->arp_hrd = ARPHRD_ETHER;
-	arp->arp_pro = ARP_PTYPE_IP;
+	arp->arp_pro = ETHERTYPE_IP;
 	arp->arp_hln = sizeof(arp->arp_sha);
 	arp->arp_pln = sizeof(arp->arp_spa);
 	arp->arp_op = ARPOP_REQUEST;
