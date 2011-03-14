@@ -86,7 +86,7 @@ void eth_cache_header(struct ll_cache_t *llc, void *eth_hdr)
 	llc->ll_addr_len = ETHER_ADDR_LEN;
 	llc->ll_hdr_len = ETHER_HDR_LEN;
 	eth->ether_type = ETHERTYPE_IP;
-	memcpy(llc->ll_data, eth_hdr, ETHER_HDR_LEN);
+	memcpy(llc->ll_data, eth_hdr, llc->ll_hdr_len);
 }
 
 /**
@@ -107,5 +107,5 @@ void eth_set_mac_addr(struct net_dev_t *dev, void *addr)
 	assert(dev != NULL);
 	assert(addr != NULL);
 
-	memcpy(dev->dev_addr, addr, ETHER_ADDR_LEN);
+	memcpy(dev->dev_addr, addr, dev->dev_addr_len);
 }

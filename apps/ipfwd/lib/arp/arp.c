@@ -188,7 +188,7 @@ void arp_handler(struct annotations_t *notes, void *data)
 	if (arp->arp_op == ARPOP_REQUEST) {
 		pr_info("Got ARP request from IP 0x%x\n", arp_spa);
 
-		memcpy(&new_node.mac, dev->dev_addr, sizeof(new_node.mac));
+		memcpy(&new_node.mac, dev->dev_addr, dev->dev_addr_len);
 		memcpy(&new_node.ip, arp->arp_tpa, arp->arp_pln);
 		arp_handle_request(data, &new_node);
 		dev->xmit(dev, (struct qm_fd *)notes->fd, NULL);

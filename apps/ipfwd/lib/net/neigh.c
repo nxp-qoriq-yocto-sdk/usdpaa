@@ -174,7 +174,7 @@ struct neigh_t *neigh_update(struct neigh_t *n, uint8_t * lladdr, uint8_t state)
 			return NULL;
 		}
 		memcpy(eth_hdr.ether_dhost, lladdr, sizeof(eth_hdr.ether_dhost));
-		memcpy(eth_hdr.ether_shost, dev->dev_addr, sizeof(eth_hdr.ether_shost));
+		memcpy(eth_hdr.ether_shost, dev->dev_addr, dev->dev_addr_len);
 		if (dev->cache_header != NULL)
 			dev->cache_header(n->ll_cache, &eth_hdr);
 		n->output = n->funcs->reachable_output;
