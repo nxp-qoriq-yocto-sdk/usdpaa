@@ -33,9 +33,6 @@
 
 #include <netinet/ip.h>
 
-/**< Number of Bytes in IP Address*/
-#define IP_HEADER_LENGTH_NO_OPTIONS	(20)
-
 /**
  \brief Network Node Structure
  */
@@ -75,9 +72,9 @@ struct ip_option_t {
  \return true - ip header has options
  false - ip header does not have options
  */
-static inline bool has_options(struct iphdr *ip_hdr)
+static inline bool has_options(const struct iphdr *ip_hdr)
 {
-	return ((ip_hdr->ihl) > IP_HEADER_LENGTH_NO_OPTIONS);
+	return ip_hdr->ihl > sizeof(*ip_hdr) / sizeof(uint32_t);
 }
 
  /**
