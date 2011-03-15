@@ -160,23 +160,27 @@
 #define MEMCMP_EQUAL 0
 #define BYTES_PER_WORD (4)
 struct rc_bucket_t *__rc_find_bucket(struct rc_t *rc,
-					    uint32_t saddr, uint32_t daddr,
-					    uint8_t tos);
-
-struct rc_entry_t **__rc_find_entry(struct rc_t *rc,
-					   struct rc_bucket_t *bucket,
-					   uint32_t saddr, uint32_t daddr,
-					   uint8_t tos);
-
-struct rt_dest_t *__rc_lookup(struct rc_t *rc,
-				     struct rc_bucket_t *bucket,
-				     uint32_t saddr, uint32_t daddr,
+				     in_addr_t saddr,
+				     in_addr_t daddr,
 				     uint8_t tos);
 
+struct rc_entry_t **__rc_find_entry(struct rc_t *rc,
+				    struct rc_bucket_t *bucket,
+				    in_addr_t saddr,
+				    in_addr_t daddr,
+				    uint8_t tos);
+
+struct rt_dest_t *__rc_lookup(struct rc_t *rc,
+			      struct rc_bucket_t *bucket,
+			      in_addr_t saddr,
+			      in_addr_t daddr,
+			      uint8_t tos);
+
 struct rc_entry_t *rc_entry_fast_lookup(struct rc_t *rc,
-					uint32_t saddr,
-					uint32_t daddr,
-					uint8_t tos, uint32_t idx)
+					in_addr_t saddr,
+					in_addr_t daddr,
+					uint8_t tos,
+					uint32_t idx)
 {
 	struct rc_entry_t *entry = NULL;
 	struct rc_entry_t **entry_ptr;
@@ -206,8 +210,10 @@ struct rc_entry_t *rc_entry_fast_lookup(struct rc_t *rc,
 	return entry;
 }
 
-struct rc_entry_t *rc_entry_lookup(struct rc_t *rc, uint32_t saddr,
-				   uint32_t daddr, uint8_t tos)
+struct rc_entry_t *rc_entry_lookup(struct rc_t *rc,
+				   in_addr_t saddr,
+				   in_addr_t daddr,
+				   uint8_t tos)
 {
 	struct rc_bucket_t *bucket;
 	struct rc_entry_t *entry;
@@ -319,7 +325,9 @@ void rc_delete(struct rc_t *rc)
 	return;
 }
 
-struct rt_dest_t *rc_lookup(struct rc_t *rc, uint32_t saddr, uint32_t daddr,
+struct rt_dest_t *rc_lookup(struct rc_t *rc,
+			    in_addr_t saddr,
+			    in_addr_t daddr,
 			    uint8_t tos)
 {
 	struct rc_bucket_t *bucket;
@@ -336,8 +344,11 @@ struct rt_dest_t *rc_lookup(struct rc_t *rc, uint32_t saddr, uint32_t daddr,
 	return dest;
 }
 
-struct rt_dest_t *rc_fast_lookup(struct rc_t *rc, uint32_t saddr,
-				 uint32_t daddr, uint8_t tos, uint32_t idx)
+struct rt_dest_t *rc_fast_lookup(struct rc_t *rc,
+				 in_addr_t saddr,
+				 in_addr_t daddr,
+				 uint8_t tos,
+				 uint32_t idx)
 {
 	struct rc_bucket_t *bucket;
 	struct rt_dest_t *dest;
@@ -468,7 +479,9 @@ bool rc_add_update_entry(struct rc_t *rc, struct rc_entry_t *new_entry)
 	return success;
 }
 
-bool rc_remove_entry(struct rc_t *rc, uint32_t saddr, uint32_t daddr,
+bool rc_remove_entry(struct rc_t *rc,
+		     in_addr_t saddr,
+		     in_addr_t daddr,
 		     uint8_t tos)
 {
 	struct rc_entry_t **entry_ptr;
@@ -545,9 +558,10 @@ void rc_exec_per_entry(struct rc_t *rc, rc_execfn_t execfn)
 }
 
 struct rt_dest_t *__rc_lookup(struct rc_t *rc,
-				     struct rc_bucket_t *bucket,
-				     uint32_t saddr, uint32_t daddr,
-				     uint8_t tos)
+			      struct rc_bucket_t *bucket,
+			      in_addr_t saddr,
+			      in_addr_t daddr,
+			      uint8_t tos)
 {
 	struct rc_entry_t *entry;
 	struct rc_entry_t **entry_ptr;
@@ -581,8 +595,10 @@ struct rt_dest_t *__rc_lookup(struct rc_t *rc,
 	return dest;
 }
 
-struct rc_bucket_t *__rc_find_bucket(struct rc_t *rc, uint32_t saddr,
-					    uint32_t daddr, uint8_t tos)
+struct rc_bucket_t *__rc_find_bucket(struct rc_t *rc,
+				     in_addr_t saddr,
+				     in_addr_t daddr,
+				     uint8_t tos)
 {
 	uint32_t hash;
 
@@ -595,9 +611,10 @@ struct rc_bucket_t *__rc_find_bucket(struct rc_t *rc, uint32_t saddr,
 
 
 struct rc_entry_t **__rc_find_entry(struct rc_t *rc,
-					   struct rc_bucket_t *bucket,
-					   uint32_t saddr, uint32_t daddr,
-					   uint8_t tos)
+				    struct rc_bucket_t *bucket,
+				    in_addr_t saddr,
+				    in_addr_t daddr,
+				    uint8_t tos)
 {
 	struct rc_entry_t **entry_ptr;
 	struct rc_entry_t *entry;

@@ -138,12 +138,12 @@ int32_t ipfwd_conf_intf(struct app_ctrl_op_info *route_info)
 	return 0;
 }
 
-int is_iface_ip(uint32_t ip_addr)
+int is_iface_ip(in_addr_t ip_addr)
 {
 	int i;
 
 	for (i = 0; i < g_num_dpa_eth_ports; i++) {
-		if (iface_nodes[i].ip.word == ip_addr)
+		if (iface_nodes[i].ip == ip_addr)
 			return 0;
 	}
 
@@ -156,12 +156,12 @@ int is_iface_ip(uint32_t ip_addr)
  \return    interface node, On success
 	    NULL,	    On failure
  */
-struct node_t *ipfwd_get_iface_for_ip(uint32_t ip_addr)
+struct node_t *ipfwd_get_iface_for_ip(in_addr_t ip_addr)
 {
 	uint32_t port;
 
 	for (port = 0; port < g_num_dpa_eth_ports; port++) {
-		if ((iface_nodes[port].ip.word & 0xffffff00) ==
+		if ((iface_nodes[port].ip & 0xffffff00) ==
 		    (ip_addr & 0xffffff00))
 			break;
 	}
@@ -178,7 +178,7 @@ struct node_t *ipfwd_get_iface_for_ip(uint32_t ip_addr)
  \brief Gets device pointer corresponding to an ip address
  \param[in] ip_addr IP Address
  */
-struct net_dev_t *ipfwd_get_dev_for_ip(unsigned int ip_addr)
+struct net_dev_t *ipfwd_get_dev_for_ip(in_addr_t ip_addr)
 {
 	uint32_t port, node = 0, node_idx;
 	struct net_dev_t *dev;
@@ -187,7 +187,7 @@ struct net_dev_t *ipfwd_get_dev_for_ip(unsigned int ip_addr)
 	for (port = 0, node_idx = 0; port < g_num_dpa_eth_ports; port++) {
 		for (node = 0; node < local_node_count[port];
 		     node++, node_idx++) {
-			if (local_nodes[node_idx].ip.word == ip_addr)
+			if (local_nodes[node_idx].ip == ip_addr)
 				goto _TEMP;
 		}
 	}
@@ -201,7 +201,7 @@ _TEMP:
 	 ** corresponding to the local node
 	 */
 	for (port = 0; port < g_num_dpa_eth_ports; port++) {
-		if ((iface_nodes[port].ip.word & 0xffffff00) ==
+		if ((iface_nodes[port].ip & 0xffffff00) ==
 		    (ip_addr & 0xffffff00))
 			break;
 	}
@@ -232,7 +232,7 @@ int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
 	struct rc_entry_t *entry;
 	struct rt_dest_t *dest;
 	struct net_dev_t *dev = NULL;
-	unsigned int gw_ipaddr = route_info->ip_info.gw_ipaddr;
+	in_addr_t gw_ipaddr = route_info->ip_info.gw_ipaddr;
 	int _errno;
 
 	pr_debug("ipfwd_add_route: Enter\n");
@@ -266,7 +266,7 @@ int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
 		}
 
 		if (NULL == neigh_init(stack.arp_table, dest->neighbor, dev,
-				       (uint32_t *) &gw_ipaddr)) {
+				       &gw_ipaddr)) {
 			pr_err("%s: Unable to init Neigh Entry\n", __func__);
 			return -1;
 		}
@@ -357,12 +357,12 @@ int32_t ipfwd_del_route(struct app_ctrl_op_info *route_info)
  */
 int32_t ipfwd_add_arp(struct app_ctrl_op_info *route_info)
 {
-	unsigned int ip_addr = route_info->ip_info.src_ipaddr;
+	in_addr_t ip_addr = route_info->ip_info.src_ipaddr;
 	struct net_dev_t *dev = NULL;
 	struct neigh_t *n;
 
 #if (LOG_LEVEL > 3)
-	unsigned char *ip = (unsigned char *)&(ip_addr);
+	uint8_t *ip = (typeof(ip))&ip_addr;
 	pr_debug("ipfwd_add_arp: Enter\n");
 
 	pr_debug("IP = %d.%d.%d.%d ; MAC ="ETH_MAC_PRINTF_FMT"\n",
@@ -371,7 +371,7 @@ int32_t ipfwd_add_arp(struct app_ctrl_op_info *route_info)
 #endif
 
 	n = neigh_lookup(stack.arp_table, ip_addr,
-				stack.arp_table->proto_len);
+			 stack.arp_table->proto_len);
 
 	if (n == NULL) {
 		pr_debug
@@ -390,7 +390,7 @@ int32_t ipfwd_add_arp(struct app_ctrl_op_info *route_info)
 			return -1;
 		}
 		if (NULL == neigh_init(stack.arp_table, n, dev,
-					(uint32_t *) &ip_addr)) {
+				       &ip_addr)) {
 			pr_err("ipfwd_add_arp: Exit: Failed\n");
 			return -1;
 		}
@@ -523,7 +523,7 @@ void create_local_nodes(struct node_t *arr, const struct usdpaa_netcfg_info *cfg
 		for (node = 0; node < local_node_count[port]; node++,
 			     node_idx++) {
 			memcpy(&arr[node_idx].mac, &addr_hi, sizeof(addr_hi));
-			arr[node_idx].ip.word = 0xc0a80002 +
+			arr[node_idx].ip = 0xc0a80002 +
 				((20 + fif->fman_idx * 5 +
 				  (fif->mac_type == fman_mac_1g ? 0 : 4) + fif->mac_idx) << 8) +
 				node;
@@ -549,13 +549,15 @@ void create_iface_nodes(struct node_t *arr, const struct usdpaa_netcfg_info *cfg
 	for (port = 0, if_idx = 0; port < g_num_dpa_eth_ports; port++, if_idx++) {
 		fif = cfg_ptr->port_cfg[port].fman_if;
 		arr[if_idx].mac = fif->mac_addr;
-		arr[if_idx].ip.word = 0xc0a80001 +
+		arr[if_idx].ip = 0xc0a80001 +
 			((20 + fif->fman_idx * 5 +
 			  (fif->mac_type == fman_mac_1g ? 0 : 4) + fif->mac_idx) << 8);
 		pr_debug("PortID = %d is FMan\ninterface node with IP Address\n"
 			 "%d.%d.%d.%d and MAC Address\n"ETH_MAC_PRINTF_FMT"\n", port,
-			 arr[if_idx].ip.bytes[0], arr[if_idx].ip.bytes[1],
-			 arr[if_idx].ip.bytes[2], arr[if_idx].ip.bytes[3],
+			 ((uint8_t *)&arr[if_idx].ip)[0],
+			 ((uint8_t *)&arr[if_idx].ip)[1],
+			 ((uint8_t *)&arr[if_idx].ip)[2],
+			 ((uint8_t *)&arr[if_idx].ip)[3],
 			 ETH_MAC_PRINTF_ARGS(&arr[if_idx].mac));
 	}
 }
@@ -719,7 +721,7 @@ static int32_t initialize_ip_stack(struct ip_stack_t *ip_stack)
 		pr_err("Failed in Route table initialized\n");
 		return -1;
 	}
-	ip_stack->rc = rc_create(IP_RC_EXPIRE_JIFFIES, IP_ADDRESS_BYTES);
+	ip_stack->rc = rc_create(IP_RC_EXPIRE_JIFFIES, sizeof(in_addr_t));
 	if (!(ip_stack->rc)) {
 		pr_err("Failed in Route cache initialized\n");
 		return -1;

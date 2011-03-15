@@ -61,11 +61,11 @@ int arp_handle_request(struct ether_header *eth_hdr,
 	struct ether_arp *arp;
 
 	arp = (typeof(arp))(eth_hdr + 1);
-	if (memcmp(arp->arp_tpa, &node->ip.word, arp->arp_pln))
+	if (memcmp(arp->arp_tpa, &node->ip, arp->arp_pln))
 		return -1;
 
 	memcpy(arp->arp_tpa, arp->arp_spa, arp->arp_pln);
-	memcpy(arp->arp_spa, &node->ip.word, arp->arp_pln);
+	memcpy(arp->arp_spa, &node->ip, arp->arp_pln);
 	arp->arp_op = ARPOP_REPLY;
 	memcpy(eth_hdr->ether_dhost, eth_hdr->ether_shost, sizeof(eth_hdr->ether_dhost));
 	memcpy(eth_hdr->ether_shost, &node->mac, sizeof(eth_hdr->ether_shost));
@@ -86,15 +86,14 @@ int add_arp_entry(struct neigh_table_t *arp_tab, struct net_dev_t *dev,
 	}
 
 	if (NULL == dev) {
-		dev = ipfwd_get_dev_for_ip((unsigned int)(node->ip.word));
+		dev = ipfwd_get_dev_for_ip(node->ip);
 		if (NULL == dev) {
 			pr_err("%s: failed to get device\n", __func__);
 			return -EINVAL;
 		}
 	}
 
-	if (NULL == neigh_init(arp_tab, n, dev,
-				(uint32_t *) &node->ip.word)) {
+	if (NULL == neigh_init(arp_tab, n, dev, &node->ip)) {
 		pr_err("%s: Unable to init Neigh Entry\n", __func__);
 		return -EINVAL;
 	}
@@ -132,7 +131,7 @@ void arp_handler(struct annotations_t *notes, void *data)
 		pr_info("Got ARP reply from IP %x\n", arp_spa);
 
 	spin_lock(&arp_lock);
-	n = neigh_lookup(stack.arp_table, arp_spa, IP_ADDRESS_BYTES);
+	n = neigh_lookup(stack.arp_table, arp_spa, sizeof(arp_spa));
 	if (n) {
 		if (arp->arp_op == ARPOP_REPLY) {
 			/* stop retransmit timer */
@@ -174,7 +173,7 @@ void arp_handler(struct annotations_t *notes, void *data)
 
 	if (!merge_flag) {
 		memcpy(&new_node.mac, arp->arp_sha, arp->arp_hln);
-		memcpy(&new_node.ip.word, arp->arp_spa, arp->arp_pln);
+		memcpy(&new_node.ip, arp->arp_spa, arp->arp_pln);
 		if (0 > add_arp_entry(stack.arp_table, NULL, &new_node)) {
 			pr_err("%s: failed to add ARP entry\n", __func__);
 			free_buff(notes->fd);
@@ -190,7 +189,7 @@ void arp_handler(struct annotations_t *notes, void *data)
 		pr_info("Got ARP request from IP 0x%x\n", arp_spa);
 
 		memcpy(&new_node.mac, dev->dev_addr, sizeof(new_node.mac));
-		memcpy(&new_node.ip.word, arp->arp_tpa, arp->arp_pln);
+		memcpy(&new_node.ip, arp->arp_tpa, arp->arp_pln);
 		arp_handle_request(data, &new_node);
 		dev->xmit(dev, (struct qm_fd *)notes->fd, NULL);
 		pr_info("Sent ARP reply for IP 0x%x\n", arp_tpa);
@@ -199,7 +198,7 @@ void arp_handler(struct annotations_t *notes, void *data)
 	}
 }
 #ifdef ARP_ENABLE
-int arp_send_request(struct net_dev_t *dev, uint32_t target_ip)
+int arp_send_request(struct net_dev_t *dev, in_addr_t target_ip)
 {
 	struct ether_arp *arp;
 	struct node_t *target_iface_node;

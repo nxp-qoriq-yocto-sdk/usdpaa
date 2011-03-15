@@ -28,11 +28,13 @@
 #ifndef LIB_IP_APPCONF_H
 #define LIB_IP_APPCONF_H
 
+#include <netinet/in.h>
+
 /**
  \brief	Structure for configuring an Interface
  */
 struct app_ctrl_intf_conf {
-	uint32_t ip_addr;			/**< IP Address */
+	in_addr_t ip_addr;			/**< IP Address */
 	uint32_t mtu;				/**< MTU */
 	uint32_t enable;			/**< Enabling the interface */
 	struct ether_addr mac_addr;		/**< MAC Address of the interface */
@@ -50,9 +52,9 @@ struct app_ctrl_intf_conf {
 };
 
 struct app_ctrl_ip_info {
-	unsigned int src_ipaddr;		/**<Source IP Address>*/
-	unsigned int dst_ipaddr;		/**<Destination IP Address>*/
-	unsigned int gw_ipaddr;			/**<Gateway IP Address>*/
+	in_addr_t src_ipaddr;			/**<Source IP Address>*/
+	in_addr_t dst_ipaddr;			/**<Destination IP Address>*/
+	in_addr_t gw_ipaddr;			/**<Gateway IP Address>*/
 	unsigned int tos;			/**<Gateway IP Address>*/
 	struct ether_addr mac_addr;		/**< Mac Address */
 	unsigned int flow_id;			/**< Flow Id */
@@ -94,4 +96,4 @@ struct app_ctrl_op_info {
 
 extern struct app_ctrl_op_info g_sLweCtrlSaInfo;
 
-#endif /* ifndef LIB_IP_APPCONF_H */
+#endif	/* LIB_IP_APPCONF_H */

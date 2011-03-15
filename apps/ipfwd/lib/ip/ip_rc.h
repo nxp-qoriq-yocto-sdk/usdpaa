@@ -26,20 +26,20 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #ifndef LIB_IP_IP_RC_H
-#define LIB_IP_IP_RC_H 1
+#define LIB_IP_IP_RC_H
 
 #include "ip/ip.h"
 #include "crc64.h"
 
-#define RC_BUCKETS                                      1024
+#define RC_BUCKETS					1024
 /**< Number of Route cache Buckets */
-#define RC_HASH_MASK                                    (RC_BUCKETS - 1)
+#define RC_HASH_MASK					(RC_BUCKETS - 1)
 /**< Hash Mask for Route Cache */
-#define RC_INVALID_HASH                                 RC_BUCKETS
+#define RC_INVALID_HASH					RC_BUCKETS
 /**< Invalid Mask for Route Cache  */
-#define MAX_RC_ENTRIES                                  1024
+#define MAX_RC_ENTRIES					1024
 /**< Number of Route cache entries*/
-#define RC_ENTRY_POOL_SIZE                              (RC_BUCKETS << 1)
+#define RC_ENTRY_POOL_SIZE				(RC_BUCKETS << 1)
 /**< Size of Route cache entry Pool */
 
 /**
@@ -79,9 +79,9 @@ struct rc_entry_t {
 	struct rc_entry_t *next;
 	/**< Pointer to the next Route Cache Entry*/
 	struct rc_entry_statistics_t *stats;
-	uint32_t saddr;
+	in_addr_t saddr;
 	/**< Pointer to the Source Address */
-	uint32_t daddr;
+	in_addr_t daddr;
 	/**< Pointer to the Destination Address */
 	struct rt_dest_t *dest;
 	/**< Pointer to the egress interface structure */
@@ -132,8 +132,9 @@ typedef void (*rc_execfn_t) (struct rc_entry_t *);
  \param[in] SPI Field
  \return Returns the Hash index into the IPsec Decap Cache
  */
-static inline uint32_t compute_decap_hash(uint32_t saddr,
-					  uint32_t daddr, uint32_t spi)
+static inline uint32_t compute_decap_hash(in_addr_t saddr,
+					  in_addr_t daddr,
+					  uint32_t spi)
 {
 	uint64_t result;
 
@@ -152,8 +153,9 @@ static inline uint32_t compute_decap_hash(uint32_t saddr,
  \param[in] tos Type of service Field
  \return Returns the Hash index into the Route Cache
  */
-static inline uint32_t compute_rc_hash(uint32_t saddr,
-				       uint32_t daddr, uint8_t tos)
+static inline uint32_t compute_rc_hash(in_addr_t saddr,
+				       in_addr_t daddr,
+				       uint8_t tos)
 {
 	uint64_t result;
 
@@ -188,7 +190,7 @@ struct rc_entry_t *rc_create_entry(struct rc_t *rc);
    \brief Add an entry to the route cache.
    To add an entry, there must already be sufficient room in the RC.  We check
    by reading the statistic that maintains the entry count.  If it is below
-   the maximum, we find the correct bucket, and grab its lock.  We then search
+   the maximum, we find the correct bucket, and grab its lock.	We then search
    for the entry we are about to add.  If we find it, we failed, since we
    cannot add the same entry twice.  If the search returns NULL, place this
    entry at the end of the list, and update the entry count.  If it returns
@@ -217,8 +219,10 @@ void rc_free_entry(struct rc_t *rc, struct rc_entry_t *entry);
  \param[in] tos TOS Value in the IP Header
  \return 'true' if removed successfully, else 'false'
  */
-bool rc_remove_entry(struct rc_t *rc, uint32_t saddr,
-		     uint32_t daddr, uint8_t tos);
+bool rc_remove_entry(struct rc_t *rc,
+		     in_addr_t saddr,
+		     in_addr_t daddr,
+		     uint8_t tos);
 
 /**
  \brief Search the route cache for a particular entry based on src, dst, and tos
@@ -228,8 +232,10 @@ bool rc_remove_entry(struct rc_t *rc, uint32_t saddr,
  \param[in] tos The TOS bits for which we should search.
  \retur rt_dest_t pointer corresponding to the entry if found else NULL.
  */
-struct rt_dest_t *rc_lookup(struct rc_t *rc, uint32_t saddr,
-			    uint32_t daddr, uint8_t tos);
+struct rt_dest_t *rc_lookup(struct rc_t *rc,
+			    in_addr_t saddr,
+			    in_addr_t daddr,
+			    uint8_t tos);
 
 /**
  \brief Search the route cache dest for a particular entry based in src, dst, and tos.
@@ -240,8 +246,11 @@ struct rt_dest_t *rc_lookup(struct rc_t *rc, uint32_t saddr,
  \param[in] index Has Index into the Route Cache to quickly fine the RC bucket.
  \return rt_dest_t pointer corresponding to the entry if found else NULL.
  */
-struct rt_dest_t *rc_fast_lookup(struct rc_t *rc, uint32_t saddr,
-				 uint32_t daddr, uint8_t tos, uint32_t index);
+struct rt_dest_t *rc_fast_lookup(struct rc_t *rc,
+				 in_addr_t saddr,
+				 in_addr_t daddr,
+				 uint8_t tos,
+				 uint32_t index);
 
 /**
  \brief Search the route cache for a particular entry based in src, dst, and tos.
@@ -253,9 +262,10 @@ struct rt_dest_t *rc_fast_lookup(struct rc_t *rc, uint32_t saddr,
  \return rc_entry_t pointer corresponding to the entry if found else NULL.
  */
 struct rc_entry_t *rc_entry_fast_lookup(struct rc_t *rc,
-					uint32_t saddr,
-					uint32_t daddr,
-					uint8_t tos, uint32_t index);
+					in_addr_t saddr,
+					in_addr_t daddr,
+					uint8_t tos,
+					uint32_t index);
 /**
  \brief Prints the stats related to th eroute cache
  \param[in] rc Pointer to the route cache
@@ -282,7 +292,9 @@ void rc_exec_per_entry(struct rc_t *rc, rc_execfn_t execfn);
  \param[in] tos The TOS bits for which we should search.
  \return Pointer to the entry in the Route Cache if found else NULL.
 */
-struct rc_entry_t *rc_entry_lookup(struct rc_t *rc, uint32_t saddr,
-				   uint32_t daddr, uint8_t tos);
+struct rc_entry_t *rc_entry_lookup(struct rc_t *rc,
+				   in_addr_t saddr,
+				   in_addr_t daddr,
+				   uint8_t tos);
 void __rc_free_entry(void *entry, void *ctxt);
-#endif /* ifndef LIB_IP_IP_RC_H */
+#endif	/* LIB_IP_IP_RC_H */

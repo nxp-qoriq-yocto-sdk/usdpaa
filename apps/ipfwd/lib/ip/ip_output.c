@@ -44,15 +44,15 @@
 #ifdef NOT_USDPAA
 void arp_retransmit_cb(uint32_t timer_id, void *p_data)
 {
-	uint32_t gw_ip;
+	in_addr_t gw_ip;
 	struct neigh_t *n;
 	struct net_dev_t *dev;
 
 	pr_debug("%s: ARP retransmit timer ID 0x%x expired\n", __func__,
 			timer_id);
 
-	gw_ip = *(uint32_t *) p_data;
-	n = neigh_lookup(stack.arp_table, gw_ip, IP_ADDRESS_BYTES);
+	gw_ip = *(typeof(&gw_ip))p_data;
+	n = neigh_lookup(stack.arp_table, gw_ip, sizeof(gw_ip));
 	if (unlikely(NULL == n)) {
 		pr_err("%s: neighbour entry not found for IP 0x%x\n",
 			__func__, gw_ip);
@@ -177,9 +177,9 @@ enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt __always_unused,
 		ll_cache_output(ll_hdr, ll_cache);
 #ifdef IPSECFWD_HYBRID_GENERATOR
 		ether_header_swap(ll_hdr);
-		temp = ip_hdr->src_addr.word;
-		ip_hdr->src_addr.word = ip_hdr->dst_addr.word;
-		ip_hdr->dst_addr.word = temp;
+		temp = ip_hdr->src_addr;
+		ip_hdr->src_addr = ip_hdr->dst_addr;
+		ip_hdr->dst_addr = temp;
 #endif
 		dev->xmit(dev, (struct qm_fd *)notes->fd, ll_hdr);
 	}

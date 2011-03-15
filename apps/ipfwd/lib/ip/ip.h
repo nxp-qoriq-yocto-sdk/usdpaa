@@ -33,7 +33,6 @@
 
 #include <netinet/ip.h>
 
-#define IP_ADDRESS_BYTES		(4)
 /**< Number of Bytes in IP Address*/
 #define IP_HEADER_LENGTH_NO_OPTIONS	(20)
 /**< Length in bytes of the IP Header without the Optional fields*/
@@ -61,20 +60,11 @@
 /**< IP no checksum value*/
 
 /**
-\brief IP Address
-*/
-union ip_address_t {
-	uint8_t bytes[IP_ADDRESS_BYTES];
-	/**< Specifies the IP Address*/
-	uint32_t word;
-};
-
-/**
  \brief Network Node Structure
  */
 struct node_t {
 	struct ether_addr mac;	/**< MAC address */
-	union ip_address_t ip;		/**< IP Address */
+	in_addr_t ip;		/**< IP Address */
 };
 
 /**

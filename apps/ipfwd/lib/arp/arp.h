@@ -34,8 +34,8 @@
 #include "ip/ip.h"
 
 extern struct ip_stack_t stack;
-extern struct net_dev_t *ipfwd_get_dev_for_ip(unsigned int ip_addr);
-extern int is_iface_ip(uint32_t ip_addr);
+extern struct net_dev_t *ipfwd_get_dev_for_ip(in_addr_t ip_addr);
+extern int is_iface_ip(in_addr_t ip_addr);
 
 #define	ARP_HDR_LEN	28	/**<ARP Header Length */
 
@@ -105,6 +105,6 @@ void arp_handler(struct annotations_t *notes, void *data);
  \param[in] target_ip ip address of destination
  \param[out] 0 on success, otherwise -ve value
  */
-int arp_send_request(struct net_dev_t *dev, uint32_t target_ip);
+int arp_send_request(struct net_dev_t *dev, in_addr_t target_ip);
 
 #endif /* __LIB_ARP_ARP_H */
