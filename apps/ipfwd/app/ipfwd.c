@@ -161,8 +161,8 @@ struct node_t *ipfwd_get_iface_for_ip(in_addr_t ip_addr)
 	uint32_t port;
 
 	for (port = 0; port < g_num_dpa_eth_ports; port++) {
-		if ((iface_nodes[port].ip & 0xffffff00) ==
-		    (ip_addr & 0xffffff00))
+		if ((iface_nodes[port].ip & IN_CLASSC_NET) ==
+		    (ip_addr & IN_CLASSC_NET))
 			break;
 	}
 
@@ -201,8 +201,8 @@ _TEMP:
 	 ** corresponding to the local node
 	 */
 	for (port = 0; port < g_num_dpa_eth_ports; port++) {
-		if ((iface_nodes[port].ip & 0xffffff00) ==
-		    (ip_addr & 0xffffff00))
+		if ((iface_nodes[port].ip & IN_CLASSC_NET) ==
+		    (ip_addr & IN_CLASSC_NET))
 			break;
 	}
 
