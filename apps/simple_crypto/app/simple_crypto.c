@@ -1731,7 +1731,7 @@ static int worker_fn(thread_data_t *tdata)
 
 		/* Recieve encrypted or MAC data from SEC40 */
 		enc_qman_poll();
-		if (!tdata->index)
+		if (!tdata->index) {
 			pr_debug("Encrypt mode: Total packet returned from "
 				 "SEC = %d\n", atomic_read(&enc_packet_from_sec));
 
@@ -1770,7 +1770,7 @@ error2:
 		if (authnct)
 			goto result;
 
-		if (!tdata->index) {
+		if (!tdata->index)
 			/* decrypt mode: start time */
 			atb_start_dec = mfatb();
 
