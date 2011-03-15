@@ -35,29 +35,6 @@
 
 /**< Number of Bytes in IP Address*/
 #define IP_HEADER_LENGTH_NO_OPTIONS	(20)
-/**< Length in bytes of the IP Header without the Optional fields*/
-#define IP_HEADER_LENGTH_NO_OPTIONS_WORDS \
-	(IP_HEADER_LENGTH_NO_OPTIONS / BYTES_PER_WORD)
-#define IP_HEADER_DEFAULT_TOS		(0)
-/**< default value of IP TOS*/
-#define IP_HEADER_FRAG_NO_FRAG		(0)
-/**< Value of Fragmentation Flag for No fragmentation*/
-#define IP_HEADER_DEFAULT_TTL		(0x40)
-/**< default value of IP TTL*/
-#define IP_HEADER_PROTOCOL_ICMP		(0x01)
-/**< value of ICMP protocol*/
-#define IP_HEADER_PROTOCOL_TCP		(0x06)
-/**< value of TCP protocol*/
-#define IP_HEADER_PROTOCOL_UDP		(0x11)
-/**< value of UDP protocol*/
-#define IP_HEADER_PROTOCOL_GRE		(0x2F)
-/**< value of GRE protocol*/
-#define IP_HEADER_PROTOCOL_ESP		(0x32)
-/**< value of ESP protocol*/
-#define IP_HEADER_PROTOCOL_IPIP		(0x5E)
-/**< value of IPIP protocol*/
-#define IP_HEADER_NO_CHECKSUM		(0)
-/**< IP no checksum value*/
 
 /**
  \brief Network Node Structure
