@@ -34,22 +34,6 @@
 #include "ip/ip_context.h"
 #include "net/annotations.h"
 
-#define IP_PROTO_COUNT	256
-
-/**
-\brief Protocol Types
-\details This object specifies the Different IP Protocol Types
- */
-enum IP_PROTO {
-	IP_PROTO_ICMP = 0x01,			/**< ICMP Protocol */
-	IP_PROTO_TCP = 0x06,			/**< TCP Protocol */
-	IP_PROTO_UDP = 0x11,			/**< UDP Protocol */
-	IP_PROTO_GRE = 0x2F,			/**< GRE Protocol */
-	IP_PROTO_ESP = 0x32,			/**< ESP Protocol */
-	IP_PROTO_IPIP = 0x5E,			/**< IPIP Protocol */
-	IP_PROTO_IPSEC = 0x32			/**< IPSec Protocol */
-};
-
 /**< Definition of Protocol Handler function pointer */
 typedef enum IP_STATUS (*ip_proto_handler_t) (struct ip_context_t *
 					      ctxt,
@@ -66,7 +50,7 @@ struct ip_protos_bundle_t {
 \details This object contains the Different Protocol handler function pointers
 */
 struct ip_protos_t {
-	struct ip_protos_bundle_t proto_data[IP_PROTO_COUNT];
+	struct ip_protos_bundle_t proto_data[IPPROTO_MAX];
 	/**< Protocol Handler function pointer Array*/
 };
 
@@ -84,7 +68,7 @@ struct ip_protos_t *ip_protos_create(void);
  */
 void ip_protos_set_handler(struct ip_protos_t *protos,
 			   ip_proto_handler_t handler,
-			   void *, enum IP_PROTO proto_id);
+			   void *, int proto_id);
 
 /**
  \brief Executes the Protocol handler depending on th eProtocol Id
@@ -96,7 +80,7 @@ void ip_protos_set_handler(struct ip_protos_t *protos,
  \return Returns Status
  */
 static inline enum IP_STATUS ip_protos_exec(struct ip_protos_t *protos,
-					    enum IP_PROTO proto_id,
+					    int proto_id,
 					    struct ip_context_t *ctxt,
 					    struct annotations_t *notes,
 					    struct iphdr *ip_hdr)
@@ -120,4 +104,4 @@ static inline enum IP_STATUS ip_protos_exec(struct ip_protos_t *protos,
 	return retval;
 }
 
-#endif /* __LIB_IP_IP_PROTOS_H */
+#endif	/* __LIB_IP_IP_PROTOS_H */

@@ -57,8 +57,8 @@ enum IP_STATUS ip_local_deliver_finish(struct ip_context_t *ctxt,
 #ifdef STATS_TBD
 	decorated_notify_inc_32(&(ctxt->stats->ip_local_delivery));
 #endif
-	return ip_protos_exec(ctxt->protos, (enum IP_PROTO)ip_hdr->protocol,
-				ctxt, notes, ip_hdr);
+	return ip_protos_exec(ctxt->protos, ip_hdr->protocol,
+			      ctxt, notes, ip_hdr);
 }
 
 void ip_defragment(struct ip_context_t *ctxt,

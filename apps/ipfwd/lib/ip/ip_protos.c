@@ -30,22 +30,17 @@
 struct ip_protos_t *ip_protos_create(void)
 {
 	struct ip_protos_t *protos;
-	uint32_t i;
 
 	protos = malloc(sizeof(*protos));
 	if (protos == NULL)
 		return NULL;
 
-	for (i = 0; i < IP_PROTO_COUNT; i++) {
-		protos->proto_data[i].handler = NULL;
-		protos->proto_data[i].user_data = NULL;
-	}
-	return protos;
+	return memset(protos, 0, sizeof(*protos));
 }
 
 void ip_protos_set_handler(struct ip_protos_t *protos,
 			   ip_proto_handler_t handler,
-			   void *user_data, enum IP_PROTO proto_id)
+			   void *user_data, int proto_id)
 {
 	assert(protos != NULL);
 
