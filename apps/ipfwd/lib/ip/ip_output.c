@@ -182,7 +182,7 @@ enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt __always_unused,
 		ip_hdr->src_addr.word = ip_hdr->dst_addr.word;
 		ip_hdr->dst_addr.word = temp;
 #endif
-		dev->xmit(dev, notes->fd, ll_hdr);
+		dev->xmit(dev, (struct qm_fd *)notes->fd, ll_hdr);
 	}
 
 	return retval;

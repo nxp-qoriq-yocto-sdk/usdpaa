@@ -29,6 +29,8 @@
 #include "ip/ip_common.h"
 #include "ether.h"
 
+#include <usdpaa/dma_mem.h>
+
 #undef ARP_ENABLE
 extern struct config_info config_info;
 static spinlock_t arp_lock = SPIN_LOCK_UNLOCKED;
@@ -199,7 +201,7 @@ void arp_handler(struct annotations_t *notes, void *data)
 			(uint8_t *)&arp_hdr->arp_targetip, IP_ADDRESS_BYTES);
 		arp_handle_request((struct ether_header *) data,
 				&new_node);
-		dev->xmit(dev, notes->fd, NULL);
+		dev->xmit(dev, (struct qm_fd *)notes->fd, NULL);
 		pr_info("Sent ARP reply for IP 0x%x\n", arp_hdr->arp_targetip);
 	} else {
 		free_buff(notes->fd);
@@ -215,8 +217,6 @@ int arp_send_request(struct net_dev_t *dev, uint32_t target_ip)
 	struct bm_buffer bman_buf;
 	struct qm_fd fd;
 	struct ether_header *eth_hdr;
-	phys_addr_t addr = 0;
-	uint32_t addr;
 	uint32_t len;
 	struct eth_port_cfg *p_cfg;
 
@@ -227,16 +227,13 @@ int arp_send_request(struct net_dev_t *dev, uint32_t target_ip)
 		return -ENOMEM;
 	}
 
-	fd.addr_hi = (uint8_t) bman_buf.hi;
-	fd.addr_lo = bman_buf.lo;
+	qm_fd_addr_set64(&fd, bm_buf_addr(&bman_buf));
 	fd.bpid = bman_buf.bpid;
 	fd.format = qm_fd_contig;
 	fd.offset = 0;
 	fd.length20 = len;
 
-	addr = fd.addr_hi;
-	addr = (addr << 32) | (uint32_t) bman_buf.lo;
-	eth_hdr = ptov(addr);
+	eth_hdr = dma_mem_ptov(qm_fd_addr(&fd));
 	p_cfg = &config_info.port[dev->ifindex].port_cfg;
 	memset(eth_hdr->ether_dhost, ETH_DST_BROADCAST, ETHER_ADDR_LEN);
 	memcpy(eth_hdr->ether_shost, p_cfg->mac_addr,

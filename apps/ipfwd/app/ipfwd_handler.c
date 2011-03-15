@@ -31,6 +31,8 @@
 #include "ip/ip_local.h"
 #include "net/annotations.h"
 
+#include <usdpaa/dma_mem.h>
+
 extern __PERCPU uint32_t rx_errors;
 
 void ip_fq_state_chg(struct qman_portal *qm, struct qman_fq *fq,
@@ -134,7 +136,7 @@ static enum qman_cb_dqrr_result dqrr_entry_handler_pcd(struct qman_portal *qm,
 
 	switch (dqrr->fd.format) {
 	case qm_fd_contig:
-		notes = (struct annotations_t *)dqrr->fd.addr_lo;
+		notes = dma_mem_ptov(qm_fd_addr(&dqrr->fd));
 		data = (uint8_t *)notes + dqrr->fd.offset;
 		break;
 	default:
@@ -169,7 +171,7 @@ static enum qman_cb_dqrr_result dqrr_entry_handler(struct qman_portal *qm,
 	/** Following qman_fq is my context */
 	switch (dqrr->fd.format) {
 	case qm_fd_contig:
-		notes = (struct annotations_t *)dqrr->fd.addr_lo;
+		notes = dma_mem_ptov(qm_fd_addr(&dqrr->fd));
 		data = (uint8_t *)notes + dqrr->fd.offset;
 		break;
 	default:

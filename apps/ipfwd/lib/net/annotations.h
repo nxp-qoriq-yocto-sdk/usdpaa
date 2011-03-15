@@ -26,7 +26,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #ifndef LIB_COMMON_ANNOTATIONS_H
-#define LIB_COMMON_ANNOTATIONS_H 1
+#define LIB_COMMON_ANNOTATIONS_H
 
 #include <usdpaa/compat.h>
 #include <usdpaa/fsl_qman.h>
@@ -39,7 +39,7 @@
  \details The structure is the Prepended Data to the Frame which is used by FMAN
 */
 struct annotations_t {
-	struct qm_fd *fd;
+	const struct qm_fd *fd;
 	/**< Pointer to frame descriptor*/
 	struct rt_dest_t *dest;
 	/**< Pointer to the info related to Next Hop*/
@@ -49,4 +49,4 @@ struct annotations_t {
 	uint64_t hash_result;			/**< Hash Result */
 } __PACKED;
 
-#endif /* ifndef LIB_COMMON_ANNOTATIONS_H */
+#endif	/* LIB_COMMON_ANNOTATIONS_H */

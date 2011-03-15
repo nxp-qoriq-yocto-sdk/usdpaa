@@ -26,6 +26,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef __COMMON_H
+#define __COMMON_H
+
 #include <usdpaa/compat.h>
 #include <usdpaa/fsl_qman.h>
 #include <usdpaa/fsl_bman.h>
@@ -39,9 +42,10 @@ static inline void free_buff(const struct qm_fd *fd)
 {
 	struct bm_buffer buf;
 	int ret;
+
 	BUG_ON(fd->format != qm_fd_contig);
-	buf.hi = fd->addr_hi;
-	buf.lo = fd->addr_lo;
+
+	bm_buffer_set64(&buf, qm_fd_addr(fd));
 retry:
 	ret = bman_release(pool[fd->bpid], &buf, 1, 0);
 	if (ret) {
@@ -49,3 +53,5 @@ retry:
 		goto retry;
 	}
 }
+
+#endif	/* __COMMON_H */
