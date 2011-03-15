@@ -83,9 +83,9 @@ static inline bool has_options(const struct iphdr *ip_hdr)
  \return true - ip packet is a fragment of a bigger ip packet
  false - ip packet is non-fragmented
  */
-static inline bool is_fragment(struct iphdr *ip_hdr)
+static inline bool is_fragment(const struct iphdr *ip_hdr)
 {
-	return (ip_hdr->frag_off != 1);
+	return ip_hdr->frag_off;
 }
 
 /**
@@ -95,4 +95,4 @@ static inline bool is_fragment(struct iphdr *ip_hdr)
  \return none
  */
 extern void discard_handler(void *notes, uint8_t bpid);
-#endif /* __LIB_IP_IP_H */
+#endif	/* __LIB_IP_IP_H */
