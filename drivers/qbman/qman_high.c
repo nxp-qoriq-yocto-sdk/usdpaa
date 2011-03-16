@@ -153,6 +153,18 @@ IMPLEMENT_DPA_RBTREE(fqtree, struct qman_fq, node, fqid);
  * to the one whose affine portal it is waiting on. */
 static DECLARE_WAIT_QUEUE_HEAD(affine_queue);
 
+/* Convert 32-bit contextB (or "tag" for enqueues+ERNs) to corresponding object
+ * pointers. For 64-bit CPUs, this will be something other than a cast. */
+static inline struct qman_fq *fq_lookup(u32 tag)
+{
+	return (void *)(unsigned long)tag;
+}
+/* Convert in the other direction */
+static inline u32 fq_tag(struct qman_fq *fq)
+{
+	return (unsigned long)fq;
+}
+
 static inline int table_push_fq(struct qman_portal *p, struct qman_fq *fq)
 {
 	int ret = fqtree_push(&p->retire_table, fq);
@@ -675,7 +687,7 @@ mr_loop:
 		qm_mr_pvb_update(&p->p);
 		msg = qm_mr_current(&p->p);
 		if (msg) {
-			struct qman_fq *fq = (void *)msg->ern.tag;
+			struct qman_fq *fq = fq_lookup(msg->ern.tag);
 			u8 verb = msg->verb & QM_MR_VERB_TYPE_MASK;
 			if (verb == QM_MR_VERB_FQRNI) {
 				; /* nada, we drop FQRNIs on the floor */
@@ -797,7 +809,7 @@ loop:
 			clear_vdqcr(p, fq);
 	} else {
 		/* SDQCR: contextB points to the FQ */
-		fq = (void *)dq->contextB;
+		fq = fq_lookup(dq->contextB);
 #ifdef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
 		if (unlikely(!fq)) {
 			/* use portal default handlers */
@@ -1370,7 +1382,7 @@ int qman_init_fq(struct qman_fq *fq, u32 flags, struct qm_mcc_initfq *opts)
 		dma_addr_t phys_fq;
 		mcc->initfq.we_mask |= QM_INITFQ_WE_CONTEXTB;
 		mcc->initfq.fqd.context_b = (flags & QMAN_INITFQ_FLAG_NULL) ?
-						0 : (u32)fq;
+						0 : fq_tag(fq);
 		/* and the physical address - NB, if the user wasn't trying to
 		 * set CONTEXTA, clear the stashing settings. */
 		if (!(mcc->initfq.we_mask & QM_INITFQ_WE_CONTEXTA)) {
@@ -1528,7 +1540,7 @@ int qman_retire_fq(struct qman_fq *fq, u32 *flags)
 			msg.verb = QM_MR_VERB_FQRNI;
 			msg.fq.fqs = mcr->alterfq.fqs;
 			msg.fq.fqid = fq->fqid;
-			msg.fq.contextB = (u32)fq;
+			msg.fq.contextB = fq_tag(fq);
 			fq->cb.fqs(p, fq, &msg);
 		}
 	} else if (res == QM_MCR_RESULT_PENDING) {
@@ -1920,7 +1932,7 @@ static inline struct qm_eqcr_entry *try_eq_start(struct qman_portal **p,
 					QM_EQCR_DCA_PARK : 0) |
 			((flags >> 8) & QM_EQCR_DCA_IDXMASK);
 	eq->fqid = fq->fqid;
-	eq->tag = (u32)fq;
+	eq->tag = fq_tag(fq);
 	/* From p4080 rev1 -> rev2, the FD struct's address went from 48-bit to
 	 * 40-bit but rev1 chips will still interpret it as 48-bit, meaning we
 	 * have to scrub the upper 8-bits, just in case the user left noise in
