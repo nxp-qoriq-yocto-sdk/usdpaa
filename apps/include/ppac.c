@@ -141,27 +141,6 @@ void bp_depletion(struct bman_portal *bm __always_unused,
 }
 #endif
 
-/*********************************/
-/* CGR state-change notification */
-/*********************************/
-
-#ifdef PPAC_CGR
-static void cgr_rx_cb(struct qman_portal *qm, struct qman_cgr *c, int congested)
-{
-	BUG_ON(c != &cgr_rx);
-
-	pr_info("%s: rx CGR -> congestion %s\n", __func__,
-		congested ? "entry" : "exit");
-}
-static void cgr_tx_cb(struct qman_portal *qm, struct qman_cgr *c, int congested)
-{
-	BUG_ON(c != &cgr_tx);
-
-	pr_info("%s: tx CGR -> congestion %s\n", __func__,
-		congested ? "entry" : "exit");
-}
-#endif
-
 /* Initialization code preserved here due to its dependency on ppam_* types.
  * \todo	Move this out of here at some point...
  */

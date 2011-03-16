@@ -158,6 +158,10 @@ extern struct list_head ifs;
  * whatever the last executed enqueue was, the ERN handler can ignore it. */
 extern __PERCPU struct qman_fq local_fq;
 
+#ifdef PPAC_CGR
+extern struct qman_cgr cgr_tx;
+#endif
+
 /********************/
 /* Common functions */
 /********************/

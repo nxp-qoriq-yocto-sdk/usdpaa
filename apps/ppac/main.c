@@ -82,7 +82,7 @@ __PERCPU struct qman_fq local_fq;
 /* A congestion group to hold Rx FQs (uses netcfg::cgrids[0]) */
 static struct qman_cgr cgr_rx;
 /* Tx FQs go into a separate CGR (uses netcfg::cgrids[1]) */
-static struct qman_cgr cgr_tx;
+struct qman_cgr cgr_tx;
 #endif
 
 void teardown_fq(struct qman_fq *fq)
@@ -201,6 +201,27 @@ int lazy_init_bpool(u8 bpid)
 	return 0;
 }
 
+/*********************************/
+/* CGR state-change notification */
+/*********************************/
+
+#ifdef PPAC_CGR
+static void cgr_rx_cb(struct qman_portal *qm, struct qman_cgr *c, int congested)
+{
+	BUG_ON(c != &cgr_rx);
+
+	pr_info("%s: rx CGR -> congestion %s\n", __func__,
+		congested ? "entry" : "exit");
+}
+static void cgr_tx_cb(struct qman_portal *qm, struct qman_cgr *c, int congested)
+{
+	BUG_ON(c != &cgr_tx);
+
+	pr_info("%s: tx CGR -> congestion %s\n", __func__,
+		congested ? "entry" : "exit");
+}
+#endif
+
 /******************/
 /* Worker threads */
 /******************/
@@ -269,6 +290,7 @@ static void do_global_init(void)
 	int err;
 
 #ifdef PPAC_CGR
+	unsigned int numrxfqs = 0, numtxfqs = 0;
 	struct qm_mcc_initcgr opts = {
 		.we_mask = QM_CGR_WE_CSCN_EN | QM_CGR_WE_CS_THRES |
 				QM_CGR_WE_MODE,
@@ -283,8 +305,14 @@ static void do_global_init(void)
 	}
 
 	/* Set up Rx CGR */
-	qm_cgr_cs_thres_set64(&opts.cgr.cs_thres, PPAC_IF_NUM *
-		(PPAC_CGR_RX_PERFQ_THRESH * PPAC_RX_HASH_SIZE), 0);
+	for (loop = 0; loop < netcfg->num_ethports; loop++) {
+		const struct fm_eth_port_cfg *p = &netcfg->port_cfg[loop];
+		numrxfqs += p->pcd.count;
+		numtxfqs += (p->fman_if->mac_type == fman_mac_10g) ?
+			PPAC_TX_FQS_10G : PPAC_TX_FQS_1G;
+	}
+	qm_cgr_cs_thres_set64(&opts.cgr.cs_thres,
+		numrxfqs * PPAC_CGR_RX_PERFQ_THRESH, 0);
 	cgr_rx.cgrid = netcfg->cgrids[0];
 	cgr_rx.cb = cgr_rx_cb;
 	err = qman_create_cgr(&cgr_rx, QMAN_CGR_FLAG_USE_INIT, &opts);
@@ -292,8 +320,8 @@ static void do_global_init(void)
 		fprintf(stderr, "error: rx CGR init, continuing\n");
 
 	/* Set up Tx CGR */
-	qm_cgr_cs_thres_set64(&opts.cgr.cs_thres, PPAC_IF_NUM *
-		(PPAC_CGR_TX_PERFQ_THRESH * PPAC_TX_NUM), 0);
+	qm_cgr_cs_thres_set64(&opts.cgr.cs_thres,
+		numtxfqs * PPAC_CGR_TX_PERFQ_THRESH, 0);
 	cgr_tx.cgrid = netcfg->cgrids[1];
 	cgr_tx.cb = cgr_tx_cb;
 	err = qman_create_cgr(&cgr_tx, QMAN_CGR_FLAG_USE_INIT, &opts);
