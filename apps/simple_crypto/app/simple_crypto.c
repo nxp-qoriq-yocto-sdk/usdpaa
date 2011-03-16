@@ -372,7 +372,7 @@ static int create_compound_fd(void)
 		sg--;
 
 		/* Frame Descriptor */
-		fd[ind].addr_lo = dma_mem_vtop(sg);
+		qm_fd_addr_set64(&fd[ind], dma_mem_vtop(sg));
 		fd[ind]._format1 = qm_fd_compound;
 
 		sg_priv_and_data->index = ind;
@@ -872,11 +872,10 @@ static void set_dec_buf(void)
 	struct qm_sg_entry *sg_out;
 	struct qm_sg_entry *sg_in;
 
-	uint32_t addr_lo;
+	dma_addr_t addr;
 	uint32_t length;
 	uint16_t offset;
 	uint8_t bpid;
-	dma_addr_t addr;
 
 	for (ind = 0; ind < total_buf_num; ind++) {
 		markpoint(4);
@@ -885,17 +884,17 @@ static void set_dec_buf(void)
 		sg_out = dma_mem_ptov(addr);
 		sg_in = sg_out + 1;
 
-		addr_lo = sg_out->addr_lo;
+		addr = qm_sg_addr(sg_out);
 		length = sg_out->length;
 		offset = sg_out->offset;
 		bpid = sg_out->bpid;
 
-		sg_out->addr_lo = sg_in->addr_lo;
+		qm_sg_entry_set64(sg_out, qm_sg_addr(sg_in));
 		sg_out->length = sg_in->length;
 		sg_out->offset = sg_in->offset;
 		sg_out->bpid = sg_in->bpid;
 
-		sg_in->addr_lo = addr_lo;
+		qm_sg_entry_set64(sg_in, addr);
 		sg_in->length = length;
 		sg_in->offset = offset;
 		sg_in->bpid = bpid;
@@ -1034,8 +1033,8 @@ void print_frame_desc(struct qm_fd *frame_desc)
 	} else {
 		pr_err(" - debug	: %d\n", frame_desc->dd);
 		pr_err(" - bpid	: %d\n", frame_desc->bpid);
-		pr_err(" - address	: 0x%04x%08x\n",
-				frame_desc->addr_hi, frame_desc->addr_lo);
+		pr_err(" - address	: 0x%"PRIx64"\n",
+			qm_fd_addr_get64(frame_desc));
 
 		switch (frame_desc->format) {
 		case 0:
@@ -1080,14 +1079,10 @@ void print_frame_desc(struct qm_fd *frame_desc)
 			addr = qm_fd_addr_get64(frame_desc);
 			sgentry = dma_mem_ptov(addr);
 
-			pr_err
-				(" - compound FD S/G list at 0x%04x%08x\n",
-				 frame_desc->addr_hi, frame_desc->addr_lo);
+			pr_err(" - compound FD S/G list at 0x%"PRIx64"\n", addr);
+			addr = qm_sg_entry_get64(sgentry);
 			pr_err("   - SG Entry\n");
-			pr_err
-				("	- address	0x%04x%08x\n",
-				 sgentry->addr_hi, sgentry->addr_lo);
-
+			pr_err("      - address	0x%"PRIx64"\n", addr);
 			pr_err("      - F	     %d\n", sgentry->final);
 			pr_err("      - E	     %d\n",
 					sgentry->extension);
@@ -1095,19 +1090,14 @@ void print_frame_desc(struct qm_fd *frame_desc)
 			pr_err("      - bpid	  %d\n", sgentry->bpid);
 			pr_err("      - offset	%d\n", sgentry->offset);
 
-			pr_err("      - Output buffer data at 0x%04x%08x\n",
-					sgentry->addr_hi, sgentry->addr_lo);
-			addr = qm_sg_entry_get64(sgentry);
 			v = dma_mem_ptov(addr);
 			for (i = 0; i < output_buf_size; i++)
 				pr_err("	0x%x\n", *v++);
 
 			sgentry++;
+			addr = qm_sg_entry_get64(sgentry);
 			pr_err("   - Next SG Entry\n");
-			pr_err
-				("	- address	0x%04x%08x\n",
-				 sgentry->addr_hi, sgentry->addr_lo);
-
+			pr_err("      - address	0x%"PRIx64"\n", addr);
 			pr_err("      - F	     %d\n", sgentry->final);
 			pr_err("      - E	     %d\n",
 					sgentry->extension);
@@ -1115,9 +1105,6 @@ void print_frame_desc(struct qm_fd *frame_desc)
 			pr_err("      - bpid	  %d\n", sgentry->bpid);
 			pr_err("      - offset	%d\n", sgentry->offset);
 
-			pr_err("      - Input buffer data at 0x%04x%08x\n",
-					sgentry->addr_hi, sgentry->addr_lo);
-			addr = qm_sg_entry_get64(sgentry);
 			v = dma_mem_ptov(addr);
 			for (i = 0; i < crypto_info->buf_size; i++)
 				pr_err("	0x%x\n", *v++);
