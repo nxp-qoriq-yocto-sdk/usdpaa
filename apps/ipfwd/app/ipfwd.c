@@ -56,6 +56,40 @@ uint32_t recv_channel_map;
 
 static pthread_barrier_t init_barrier;
 int cpu0_only;
+/* Seed buffer pools according to the configuration symbols */
+const struct ipfwd_bpool_static {
+	int bpid;
+	unsigned int num;
+	unsigned int sz;
+} ipfwd_bpool_static[] = {
+	{ DMA_MEM_BP1_BPID, DMA_MEM_BP1_NUM, DMA_MEM_BP1_SIZE},
+	{ DMA_MEM_BP2_BPID, DMA_MEM_BP2_NUM, DMA_MEM_BP2_SIZE},
+	{ DMA_MEM_BP3_BPID, DMA_MEM_BP3_NUM, DMA_MEM_BP3_SIZE},
+	{ -1, 0, 0 }
+};
+
+struct bman_pool *pool[MAX_NUM_BMAN_POOLS];
+int lazy_init_bpool(u8 bpid)
+{
+	struct bman_pool_params params = {
+		.bpid	= bpid,
+#ifdef BP_DEPLETION
+		.flags	= BMAN_POOL_FLAG_DEPLETION,
+		.cb	= bp_depletion,
+		.cb_ctx	= &pool[bpid]
+#endif
+	};
+	if (pool[bpid])
+		/* this BPID is already handled */
+		return 0;
+	pool[bpid] = bman_new_pool(&params);
+	if (!pool[bpid]) {
+		fprintf(stderr, "error: bman_new_pool(%d) failed\n", bpid);
+		return -ENOMEM;
+	}
+	return 0;
+}
+
 void ip_fq_state_chg(struct qman_portal *qm,
 		     struct qman_fq *fq, const struct qm_mr_entry *msg)
 {
@@ -882,28 +916,12 @@ error:
 int global_init(struct usdpaa_netcfg_info *uscfg_info, int cpu, int first, int last)
 {
 	int err;
+	const struct ipfwd_bpool_static *bp = ipfwd_bpool_static;
+	dma_addr_t phys_addr = dma_mem_bpool_base();
+	dma_addr_t phys_limit = phys_addr + dma_mem_bpool_range();
+	unsigned int loop;
 
 	pr_debug("Global initialisation: Enter\n");
-	/* - initialise DPAA */
-	err = bman_global_init(0);
-	if (err) {
-		fprintf(stderr, "bman_global_init() failed, ret=%d\n",
-			err);
-		return err;
-	}
-	/* Set up the fqid allocator */
-	err = qman_global_init(0);
-	if (err) {
-		fprintf(stderr, "qman_global_init() failed, ret=%d\n",
-			err);
-		return err;
-	}
-	/* map shmem */
-	err = dma_mem_setup();
-	if (err) {
-		pr_err("shmem setup failure\n");
-		return err;
-	}
 
 	/* Initialise barrier for all the threads including main thread */
 	if (!cpu0_only) {
@@ -912,8 +930,6 @@ int global_init(struct usdpaa_netcfg_info *uscfg_info, int cpu, int first, int l
 		if (err != 0)
 			pr_info("pthread_barrier_init failed\n");
 	}
-
-	/* Initialise Bman/Qman portal */
 	err = bman_thread_init(cpu, 0);
 	if (err) {
 		fprintf(stderr, "bman_thread_init(%d) failed, ret=%d\n",
@@ -924,7 +940,55 @@ int global_init(struct usdpaa_netcfg_info *uscfg_info, int cpu, int first, int l
 	if (err) {
 		fprintf(stderr, "qman_thread_init(%d) failed, ret=%d\n",
 			cpu, err);
-		return -1;
+	return -1;
+	}
+
+	/* Initialise and see any BPIDs we've been configured to set up */
+	while (bp->bpid != -1) {
+		struct bm_buffer bufs[8];
+		unsigned int num_bufs = 0;
+		u8 bpid = bp->bpid;
+		err = lazy_init_bpool(bpid);
+		if (err) {
+			fprintf(stderr, "error: bpool (%d) init failure\n",
+				bpid);
+			break;
+		}
+		/* Drain the pool of anything already in it. */
+		do {
+			/* Acquire is all-or-nothing, so we drain in 8s, then in
+			 * 1s for the remainder. */
+			if (err != 1)
+				err = bman_acquire(pool[bpid], bufs, 8, 0);
+			if (err < 8)
+				err = bman_acquire(pool[bpid], bufs, 1, 0);
+			if (err > 0)
+				num_bufs += err;
+		} while (err > 0);
+		if (num_bufs)
+			fprintf(stderr, "warn: drained %u bufs from BPID %d\n",
+				num_bufs, bpid);
+		/* Fill the pool */
+		for (num_bufs = 0; num_bufs < bp->num; ) {
+			unsigned int rel = (bp->num - num_bufs) > 8 ? 8 :
+						(bp->num - num_bufs);
+			for (loop = 0; loop < rel; loop++) {
+				bm_buffer_set64(&bufs[loop], phys_addr);
+				phys_addr += bp->sz;
+			}
+			if (phys_addr > phys_limit) {
+				fprintf(stderr, "error: buffer overflow\n");
+				abort();
+			}
+			do {
+				err = bman_release(pool[bpid], bufs, rel, 0);
+			} while (err == -EBUSY);
+			if (err)
+				fprintf(stderr, "error: release failure\n");
+			num_bufs += rel;
+		}
+		printf("Release %u bufs to BPID %d\n", num_bufs, bpid);
+		bp++;
 	}
 
 	/* Initializes a soft cache of buffers */
@@ -1130,6 +1194,25 @@ int main(int argc, char *argv[])
 		uscfg_info->num_pool_channels,
 		uscfg_info->num_pool_channels > 1 ? "s" : "");
 
+	err = bman_global_init(0);
+	if (err) {
+		fprintf(stderr, "bman_global_init() failed, ret=%d\n",
+			err);
+		return err;
+	}
+	/* Set up the fqid allocator */
+	err = qman_global_init(0);
+	if (err) {
+		fprintf(stderr, "qman_global_init() failed, ret=%d\n",
+			err);
+		return err;
+	}
+	/* map shmem */
+	err = dma_mem_setup();
+	if (err) {
+		pr_err("shmem setup failure\n");
+		return err;
+	}
 	err = global_init(uscfg_info, my_cpu, first, last);
 	if (err != 0) {
 		pr_err("Global initialization failed\n");

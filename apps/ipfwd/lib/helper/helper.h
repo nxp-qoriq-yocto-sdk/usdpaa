@@ -33,6 +33,7 @@
 #define MAX_NUM_FQ	1024
 #define MAX_NUM_PORTS	12
 volatile uint32_t g_num_dpa_eth_ports;
+extern int lazy_init_bpool(u8 bpid);
 /**
  \brief IPfwd FQ Range Info
 */

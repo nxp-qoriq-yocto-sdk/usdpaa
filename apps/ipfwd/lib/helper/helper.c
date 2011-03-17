@@ -44,31 +44,12 @@ struct ipfwd_eth_t ipfwd_fq_range[MAX_NUM_PORTS]; /* num of ports */
 #undef CGR_SUPPORT
 static uint32_t pchannel_idx;
 static struct usdpaa_netcfg_info cfg;
-struct bman_pool *pool[MAX_NUM_BMAN_POOLS];
 
 static enum qm_channel get_rxc(void)
 {
 	enum qm_channel ret = cfg.pool_channels[pchannel_idx];
 	pchannel_idx = (pchannel_idx + 1) % cfg.num_pool_channels;
 	return ret;
-}
-
-static int init_bpool(const struct fman_if_bpool *bpool)
-{
-	struct bman_pool_params params = {
-		.bpid	= bpool->bpid,
-		.flags	= BMAN_POOL_FLAG_ONLY_RELEASE
-	};
-	if (pool[bpool->bpid])
-		/* this BPID is already handled */
-		return 0;
-	pool[bpool->bpid] = bman_new_pool(&params);
-	if (!pool[bpool->bpid]) {
-		fprintf(stderr, "error: bman_new_pool(%d) failed\n",
-			bpool->bpid);
-		return -ENOMEM;
-	}
-	return 0;
 }
 
 /**
@@ -441,7 +422,7 @@ int init_interface(struct usdpaa_netcfg_info *cfg_ptr,
 		/* Handle any pools used by this i/f
 		 that are not already handled */
 		fman_if_for_each_bpool(bp, fif) {
-			err = init_bpool(bp);
+			err = lazy_init_bpool(bp->bpid);
 			if (err)
 				return err;
 		}
