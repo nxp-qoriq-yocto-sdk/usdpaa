@@ -39,7 +39,6 @@
 #include <stdio.h>
 #include <mqueue.h>
 
-uint32_t iface_subnet[IFACE_COUNT] = { 24, 29, 21, 22, 23, 25, 26, 27, 28 };
 uint32_t local_node_count[IFACE_COUNT] = { 23, 23, 23, 23, 23, 23, 23, 23, 1 };
 struct node_t local_nodes[LINKLOCAL_NODES];
 struct node_t iface_nodes[IFACE_COUNT];
@@ -524,23 +523,27 @@ initialize_contexts(struct ip_context_t *ip_ctxt, struct net_dev_t *dev,
  \param[in] struct node_t * a Network Node
  \param[in] uint32_t Number of nodes to be created
  */
-void create_local_nodes(struct node_t *arr)
+void create_local_nodes(struct node_t *arr, const struct usdpaa_netcfg_info *cfg_ptr)
 {
 	uint32_t port, node, node_idx;
 	uint16_t addr_hi;
+	const struct fman_if *fif;
 
 	addr_hi = ETHERNET_ADDR_MAGIC;
-	for (port = 0, node_idx = 0; port < g_num_dpa_eth_ports; port++)
+	for (port = 0, node_idx = 0; port < g_num_dpa_eth_ports; port++) {
+		fif = cfg_ptr->port_cfg[port].fman_if;
 		for (node = 0; node < local_node_count[port]; node++,
 			     node_idx++) {
-			memcpy(arr[node_idx].mac.ether_addr_octet, &addr_hi,
-			       sizeof(addr_hi));
-			arr[node_idx].ip.word =
-				0xc0a80002 + (iface_subnet[port] << 8) + node;
+			memcpy(&arr[node_idx].mac, &addr_hi, sizeof(addr_hi));
+			arr[node_idx].ip.word = 0xc0a80002 +
+				((20 + fif->fman_idx * 5 +
+				  (fif->mac_type == fman_mac_1g ? 0 : 4) + fif->mac_idx) << 8) +
+				node;
 			memcpy(arr[node_idx].mac.ether_addr_octet + sizeof(addr_hi),
 			       &arr[node_idx].ip,
 			       sizeof(arr[node_idx].ip));
 		}
+	}
 }
 
 /**
@@ -550,21 +553,21 @@ void create_local_nodes(struct node_t *arr)
 \param[in] struct node_t * a Network Node
 \param[in] uint32_t Number of nodes to be created
 */
-void create_iface_nodes(struct node_t *arr, struct usdpaa_netcfg_info *cfg_ptr)
+void create_iface_nodes(struct node_t *arr, const struct usdpaa_netcfg_info *cfg_ptr)
 {
 	uint32_t port, if_idx;
-	struct fm_eth_port_cfg *p_cfg;
 	const struct fman_if *fif;
 
 	for (port = 0, if_idx = 0; port < g_num_dpa_eth_ports; port++, if_idx++) {
-		p_cfg = &cfg_ptr->port_cfg[port];
-		fif = p_cfg->fman_if;
+		fif = cfg_ptr->port_cfg[port].fman_if;
 		memcpy(arr[if_idx].mac.ether_addr_octet,
 			fif->mac_addr.ether_addr_octet,
 			ETHER_ADDR_LEN);
-		arr[if_idx].ip.word = (0xc0a80001 + (iface_subnet[port] << 8));
+		arr[if_idx].ip.word = 0xc0a80001 +
+			((20 + fif->fman_idx * 5 +
+			  (fif->mac_type == fman_mac_1g ? 0 : 4) + fif->mac_idx) << 8);
 		pr_debug("PortID = %d is %s interface node with IP Address\n"
-			 "%d.%d.%d.%d and MAC Address\n" MAC_FMT, port,
+			 "%d.%d.%d.%d and MAC Address\n"MAC_FMT"\n", port,
 			 "FMAN\n",
 			 arr[if_idx].ip.bytes[0], arr[if_idx].ip.bytes[1],
 			 arr[if_idx].ip.bytes[2], arr[if_idx].ip.bytes[3],
@@ -1014,7 +1017,7 @@ int global_init(struct usdpaa_netcfg_info *uscfg_info, int cpu, int first, int l
 	create_iface_nodes(iface_nodes, uscfg_info);
 
 	/* Initializes array of network local nodes */
-	create_local_nodes(local_nodes);
+	create_local_nodes(local_nodes, uscfg_info);
 
 	/* Creates netdev Device Nodes */
 	if (create_devices(&stack, iface_nodes)) {
