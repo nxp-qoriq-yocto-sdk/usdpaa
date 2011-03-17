@@ -597,7 +597,7 @@ struct qman_fq *create_sec_frame_queue(uint32_t fq_id, uint16_t channel,
 	fq_opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_CONTEXTA;
 	if (ctxt_a_addr) {
 		fq_opts.we_mask |= QM_INITFQ_WE_CONTEXTB;
-		qm_fqd_stashing_set64(&fq_opts.fqd, ctxt_a_addr);
+		qm_fqd_context_a_set64(&fq_opts.fqd, ctxt_a_addr);
 		fq_opts.fqd.context_b = ctx_b;
 	} else {
 		uint32_t ctx_a_excl, ctx_a_len;
