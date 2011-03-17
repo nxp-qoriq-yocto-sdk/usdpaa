@@ -472,12 +472,23 @@ static inline dma_addr_t qm_fqd_stashing_addr(const struct qm_fqd *fqd)
 {
 	return (dma_addr_t)qm_fqd_stashing_get64(fqd);
 }
+static inline u64 qm_fqd_context_a_get64(const struct qm_fqd *fqd)
+{
+	return ((u64)fqd->context_a.hi << 32) |
+		(u64)fqd->context_a.lo;
+}
 /* Macro, so we compile better when 'v' isn't necessarily 64-bit */
 #define qm_fqd_stashing_set64(fqd, v) \
 	do { \
 		struct qm_fqd *__fqd931 = (fqd); \
 		__fqd931->context_a.context_hi = upper_32_bits(v); \
 		__fqd931->context_a.context_lo = lower_32_bits(v); \
+	} while (0)
+#define qm_fqd_context_a_set64(fqd, v) \
+	do { \
+		struct qm_fqd *__fqd931 = (fqd); \
+		__fqd931->context_a.hi = upper_32_bits(v); \
+		__fqd931->context_a.lo = lower_32_bits(v); \
 	} while (0)
 /* convert a threshold value into mant+exp representation */
 static inline int qm_fqd_taildrop_set(struct qm_fqd_taildrop *td, u32 val,
