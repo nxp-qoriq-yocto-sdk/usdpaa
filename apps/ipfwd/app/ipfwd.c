@@ -318,7 +318,7 @@ int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
 
 	entry->dest = dest;
 	entry->last_used = mfspr(SPR_ATBL);
-	entry->tos = IP_TOS;
+	entry->tos = 0;
 
 	if (rc_add_update_entry(stack.rc, entry) == false) {
 		pr_err("Route cache entry updated\n");
