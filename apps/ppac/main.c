@@ -156,6 +156,9 @@ void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
 #ifdef PPAC_2FWD_HOLDACTIVE
 		QM_FQCTRL_HOLDACTIVE |
 #endif
+#ifdef PPAC_2FWD_AVOIDBLOCK
+		QM_FQCTRL_AVOIDBLOCK |
+#endif
 #ifdef PPAC_2FWD_RX_PREFERINCACHE
 		QM_FQCTRL_PREFERINCACHE |
 #endif

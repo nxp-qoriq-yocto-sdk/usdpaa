@@ -68,11 +68,16 @@
 
 /* Application options */
 #undef PPAC_2FWD_HOLDACTIVE		/* Process each FQ on one cpu at a time */
+#define PPAC_2FWD_AVOIDBLOCK		/* No full-DQRR blocking of FQs */
 #define PPAC_2FWD_RX_PREFERINCACHE	/* Keep rx FQDs in-cache even when empty */
 #define PPAC_2FWD_TX_PREFERINCACHE	/* Keep tx FQDs in-cache even when empty */
 #undef PPAC_2FWD_TX_FORCESFDR		/* Priority allocation of SFDRs to egress */
 #define PPAC_DEPLETION			/* Trace depletion entry/exit */
 #undef PPAC_CGR				/* Track rx and tx fill-levels via CGR */
+
+#if defined(PPAC_2FWD_HOLDACTIVE) && defined(PPAC_2FWD_AVOIDBLOCK)
+#error "HOLDACTIVE and AVOIDBLOCK options are mutually exclusive"
+#endif
 
 /**********/
 /* macros */
