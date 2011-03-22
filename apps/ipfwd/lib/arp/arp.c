@@ -255,10 +255,10 @@ int arp_send_request(struct net_dev_t *dev, uint32_t target_ip)
 		return -ENODEV;
 	}
 
-	memcpy(arp_header->arp_senderaddr.bytes, eth_hdr->source.bytes,
+	memcpy(&arp_header->arp_senderaddr, eth_hdr->source.bytes,
 						ETHER_ADDR_LEN);
 	arp_header->arp_senderip = target_iface_node->ip.word;
-	memset(arp_header->arp_targetaddr.bytes, 0, ETHER_ADDR_LEN);
+	memset(&arp_header->arp_targetaddr, 0, ETHER_ADDR_LEN);
 	arp_header->arp_targetip = target_ip;
 
 	pr_info("Sending ARP request for IP %x\n", target_ip);
