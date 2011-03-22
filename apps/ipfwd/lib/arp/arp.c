@@ -238,7 +238,7 @@ int arp_send_request(struct net_dev_t *dev, uint32_t target_ip)
 	memset(eth_hdr->ether_dhost, ETH_DST_BROADCAST, ETHER_ADDR_LEN);
 	memcpy(eth_hdr->ether_shost, p_cfg->mac_addr,
 		ETHER_ADDR_LEN);
-	eth_hdr->proto = ETHERTYPE_ARP;
+	eth_hdr->ether_type = ETHERTYPE_ARP;
 
 	arp_header =
 	    (struct arp_header_t *)((uint8_t *) eth_hdr +
@@ -255,7 +255,7 @@ int arp_send_request(struct net_dev_t *dev, uint32_t target_ip)
 		return -ENODEV;
 	}
 
-	memcpy(&arp_header->arp_senderaddr, eth_hdr->source.bytes,
+	memcpy(&arp_header->arp_senderaddr, eth_hdr->ether_shost,
 						ETHER_ADDR_LEN);
 	arp_header->arp_senderip = target_iface_node->ip.word;
 	memset(&arp_header->arp_targetaddr, 0, ETHER_ADDR_LEN);
