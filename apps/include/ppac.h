@@ -56,8 +56,8 @@
 #endif
 
 /* Application configuration */
-#define PPAC_TX_FQS_10G		16
-#define PPAC_TX_FQS_1G		16
+#define PPAC_TX_FQS_10G		2
+#define PPAC_TX_FQS_1G		2
 #define PPAC_PRIO_2DROP		3	/* Error/default/etc */
 #define PPAC_PRIO_2FWD		4	/* rx-hash */
 #define PPAC_PRIO_2TX		4	/* Consumed by Fman */
