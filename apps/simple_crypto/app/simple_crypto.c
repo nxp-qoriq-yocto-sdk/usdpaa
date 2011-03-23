@@ -810,7 +810,6 @@ static void set_enc_buf(void)
 	uint8_t *in_buf;
 	uint8_t plain_data = 0;
 	dma_addr_t addr;
-	uint8_t *enc_job_descriptor = NULL;
 	uint32_t i;
 
 	for (ind = 0; ind < total_buf_num; ind++) {
@@ -845,10 +844,8 @@ static void set_enc_buf(void)
 			sgentry--;
 			sgentry->length = output_buf_size;
 
-			/* Convert the descriptor to an array of uint8_t */
-			enc_job_descriptor = (uint8_t *) snow_jdesc_enc_f8_f9;
-
-			memcpy(in_buf, enc_job_descriptor, job_desc_buf_size);
+			memcpy(in_buf, snow_jdesc_enc_f8_f9, job_desc_buf_size);
+			in_buf += job_desc_buf_size;
 		}
 
 		/* Copy the input plain-text data */
