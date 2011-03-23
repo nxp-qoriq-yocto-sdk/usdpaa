@@ -1205,8 +1205,7 @@ static int test_dec_match(void)
 			}
 		}
 	}
-	pr_info("All %s decrypted frame match found with plain text\n",
-			algorithm);
+	pr_info("All %s decrypted frame matches initial text\n", algorithm);
 	return 0;
 }
 
@@ -1393,57 +1392,53 @@ struct crypto_msg {
  *		all fields zero
  */
 static struct argp_option options[] = {
-	{"mode", 'm', "TEST MODE", 0, "test mode: provide following number \
-		\n 1 for perf \
-			\n 2 for cipher \
-			\n Following two combinations are valid only \
-			and all options are mandatory: \
-			\n\t -m 1 -s <buf_size> -n <buf_num_per_core> \
-			-o <algo> \
-			-l <itr_num> \
-			\n\t -m 2 -t <test_set> -n <buf_num_per_core> \
-			-o <algo> \
-			-l <itr_num>\n", 0},
-	{"testset", 't', "TEST SET", 0, "THIS OPTION IS VALID ONLY IN \
-		CIPHER MODE \
-			\n\t provide following test set number:- \
-			\n\t test set for AES_CBC is 1 to 4 \
-			\n\t test set for TDES_CBC is 1 to 2 \
-			\n\t test set for SNOW_F8 is 1 to 5 \
-			\n\t test set for SNOW_F9 is 1 to 5 \
-			\n\t test set for KASUMI_F8 is 1 to 5 \
-			\n\t test set for KASUMI_F9 is 1 to 5 \
-			\n\t test set for CRC is 1 to 5 \
-			\n\t test set for HMAC_SHA1 is 1 to 2 \
-			\n\t test set for SNOW_F8_F9 is 1 to 1\n",
-	0},
+	{"mode", 'm', "TEST MODE", 0,
+		"\n\r\ttest mode: provide following number\
+		\n\r\t\t1 for perf\
+		\n\r\t\t2 for cipher\
+		\n\r\tFollowing two combinations are valid only\
+		\n\r\tand all options are mandatory:\
+		\n\r\t\t-m 1 -s <buf_size> -n <buf_num_per_core>\
+		\n\r\t\t-o <algo> -l <itr_num>\
+		\n\r\t\t-m 2 -t <test_set> -n <buf_num_per_core>\
+		\n\r\t\t-o <algo> -l <itr_num>\n"},
+	{"algo", 'o', "ALGORITHM", 0,
+		"\n\r\tCryptographic operation to perform by SEC4.0,\
+		\n\r\tprovide following number\
+		\n\r\t\t1 for AES_CBC\
+		\n\r\t\t2 for TDES_CBC\
+		\n\r\t\t3 for SNOW_F8\
+		\n\r\t\t4 for SNOW_F9\
+		\n\r\t\t5 for KASUMI_F8\
+		\n\r\t\t6 for KASUMI_F9\
+		\n\r\t\t7 for CRC\
+		\n\r\t\t8 for HMAC_SHA1\
+		\n\r\t\t9 for SNOW_F8_F9(only with PERF mode)\n"},
+	{"itrnum", 'l', "ITERATIONS", 0,
+		"\n\r\tNumber of iteration to repeat\n"},
+	{"bufnum", 'n', "BUFFERS PER CORE", 0,
+		"\n\r\tNumber of buffers per core(1-800)\n"},
 	{"bufsize", 's', "BUFFER SIZE", 0,
-		"THIS OPTION IS VALID ONLY IN PERF MODE \
-		\n\t Buffer size (64, 128 ...upto 6400) \
-		\n\t For AES_CBC buffer size should be 16 byte aligned \
-		\n\t For TDES_CBC buffer size should be 8 byte aligned\n",
-	0},
-	{"bufnum", 'n', "NUMBER OF BUFFERS per core", 0,
-		"Number of buffers per core (1 to 800)\n", 0},
-	{"itrnum", 'l', "NUMBER OF ITERATIONS", 0,
-		"Number of iteration to repeat\n", 0},
-	{"algo", 'o', "SEC 4.0 ALGORITHM", 0,
-		"Cryptographic operation, provide following number \
-			\n\t 1 for AES_CBC \
-			\n\t 2 for TDES_CBC \
-			\n\t 3 for SNOW_F8 \
-			\n\t 4 for SNOW_F9 \
-			\n\t 5 for KASUMI_F8 \
-			\n\t 6 for KASUMI_F9 \
-			\n\t 7 for CRC \
-			\n\t 8 for HMAC_SHA1\
-			\n\t 9 for SNOW_F8_F9", 0},
-		{"ncpus", 'c', "NUMBER OF CPUS", 0,
-			"Number of cpus to work for the \
-			application (1 to 8) \n", 0},
-		{0, 0, 0, 0, 0, 0}
+		"\n\r\tOPTION IS VALID ONLY IN PERF MODE\
+		\n\r\t\t Buffer size (64, 128 ...upto 6400)\n"},
+	{"ncpus", 'c', "CPUS", 0,
+		"\n\r\tOPTIONAL PARAMETER\n\
+		\n\r\tNumber of cpus to work for the\
+		\n\r\tapplication(1-8)\n", 0},
+	{"testset", 't', "TEST SET", 0,
+		"\n\r\tOPTION IS VALID ONLY IN CIPHER MODE\
+		\n\r\t\t provide following test set number:\
+		\n\r\t\t test set for AES_CBC is 1 to 4\
+		\n\r\t\t test set for TDES_CBC is 1 to 2\
+		\n\r\t\t test set for SNOW_F8 is 1 to 5\
+		\n\r\t\t test set for SNOW_F9 is 1 to 5\
+		\n\r\t\t test set for KASUMI_F8 is 1 to 5\
+		\n\r\t\t test set for KASUMI_F9 is 1 to 5\
+		\n\r\t\t test set for CRC is 1 to 5\
+		\n\r\t\t test set for HMAC_SHA1 is 1 to 2\
+		\n\r\t\t test set for SNOW_F8_F9 is 1\n"},
+	{}
 };
-
 
 /*
  * brief	Parse a single option
@@ -1598,20 +1593,20 @@ static int validate_params(void)
 	} else if ((CIPHER == crypto_info->mode)
 			&& g_cmd_params == BMASK_SEC_CIPHER_MODE) {
 		if (validate_test_set() != 0) {
-			pr_err("Invalid Parameters: Invalid test set\n");
+			pr_err("Invalid Parameters: Invalid test set\n"
+				"see --help option\n");
 			return -EINVAL;
 		}
 	} else {
 		pr_err
 			("Invalid Parameters: provide a valid combination"
-			 " of mandatory arguments see --help option\n"
-			 " g_cmd_params = %0x\n", g_cmd_params);
+			 " of mandatory arguments see --help option\n");
 		return -EINVAL;
 	}
 
 	if (crypto_info->buf_num_per_core == 0 ||
 		crypto_info->buf_num_per_core > BUFF_NUM_PER_CORE) {
-		pr_err("Invalid Parameters: Invalid number of buffers "
+		pr_err("Invalid Parameters: Invalid number of buffers\n"
 				"see --help option\n");
 		return -EINVAL;
 	}
@@ -1619,7 +1614,7 @@ static int validate_params(void)
 	if (PERF == crypto_info->mode && (crypto_info->buf_size == 0 ||
 		crypto_info->buf_size % L1_CACHE_BYTES != 0 ||
 		crypto_info->buf_size > BUFF_SIZE)) {
-		pr_err("Invalid Parameters: Invalid number of buffers "
+		pr_err("Invalid Parameters: Invalid number of buffers\n"
 				"see --help option\n");
 		return -EINVAL;
 	}
@@ -1636,7 +1631,8 @@ static int validate_params(void)
 	case SNOW_F8_F9:
 		break;
 	default:
-		pr_err("Invalid Parameters: SEC algorithm not supported\n");
+		pr_err("Invalid Parameters: SEC algorithm not supported\n"
+			"see --help option\n");
 		return -EINVAL;
 	}
 
