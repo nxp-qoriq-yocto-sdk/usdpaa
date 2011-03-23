@@ -180,43 +180,15 @@ struct node_t *ipfwd_get_iface_for_ip(in_addr_t ip_addr)
  */
 struct net_dev_t *ipfwd_get_dev_for_ip(in_addr_t ip_addr)
 {
-	uint32_t port, node = 0, node_idx;
+	const struct node_t *node;
 	struct net_dev_t *dev;
 
-	/* Check that the arp entry creation request is for a local node */
-	for (port = 0, node_idx = 0; port < g_num_dpa_eth_ports; port++) {
-		for (node = 0; node < local_node_count[port];
-		     node++, node_idx++) {
-			if (local_nodes[node_idx].ip == ip_addr)
-				goto _TEMP;
-		}
-	}
-
-	pr_debug("%s: Not a Local Node\n", __func__);
-
-_TEMP:
-
-	/*
-	 ** Find out the mac address of the iface node
-	 ** corresponding to the local node
-	 */
-	for (port = 0; port < g_num_dpa_eth_ports; port++) {
-		if ((iface_nodes[port].ip & IN_CLASSC_NET) ==
-		    (ip_addr & IN_CLASSC_NET))
-			break;
-	}
-
-	if (unlikely(port == g_num_dpa_eth_ports)) {
-		pr_info("%s: Exit: Failed: Not in any iface subnet\n",
-			__func__);
+	node = ipfwd_get_iface_for_ip(ip_addr);
+	if (unlikely(node == NULL))
 		return NULL;
-	}
 
-	/*
-	 ** Finding the device ptr correspnding to the iface node
-	 */
 	for (dev = stack.nt->device_head; dev != NULL; dev = dev->next)
-		if (memcmp(dev->dev_addr, &iface_nodes[port].mac, dev->dev_addr_len) == 0)
+		if (memcmp(dev->dev_addr, &node->mac, dev->dev_addr_len) == 0)
 			break;
 
 	return dev;
