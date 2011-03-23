@@ -386,8 +386,8 @@ static void *setup_preheader(uint32_t shared_desc_len, uint32_t pool_id,
 {
 	struct preheader_s *prehdr = NULL;
 
-	prehdr = dma_mem_memalign(L1_CACHE_BYTES, 2*L1_CACHE_BYTES);
-	memset(prehdr, 0, 2*L1_CACHE_BYTES);
+	prehdr = dma_mem_memalign(L1_CACHE_BYTES, sizeof(struct preheader_s));
+	memset(prehdr, 0, sizeof(struct preheader_s));
 
 	if (unlikely(!prehdr)) {
 		pr_err("%s: dma_mem_memalign failed for preheader\n"
@@ -1088,7 +1088,7 @@ void print_frame_desc(struct qm_fd *frame_desc)
 			pr_err("      - offset	%d\n", sgentry->offset);
 
 			v = dma_mem_ptov(addr);
-			for (i = 0; i < output_buf_size; i++)
+			for (i = 0; i < sgentry->length; i++)
 				pr_err("	0x%x\n", *v++);
 
 			sgentry++;
@@ -1103,7 +1103,7 @@ void print_frame_desc(struct qm_fd *frame_desc)
 			pr_err("      - offset	%d\n", sgentry->offset);
 
 			v = dma_mem_ptov(addr);
-			for (i = 0; i < crypto_info->buf_size; i++)
+			for (i = 0; i < sgentry->length; i++)
 				pr_err("	0x%x\n", *v++);
 		}
 	}
