@@ -45,8 +45,6 @@ struct node_t iface_nodes[IFACE_COUNT];
 struct ip_stack_t stack;
 mqd_t mq_fd_rcv, mq_fd_snd;
 struct sigevent notification;
-static bool infinit_fcnt;
-uint32_t initial_frame_count = INITIAL_FRAME_COUNT;
 volatile uint32_t GO_FLAG;
 static __thread struct thread_data_t *__my_thread_data;
 __PERCPU uint32_t rx_errors;
@@ -434,26 +432,6 @@ int32_t ipfwd_del_arp(struct app_ctrl_op_info *route_info)
 }
 
 /**
- \brief Update application expected frame counter for its completion
-	If frame_cnt specified is 0, then application would run indefinitely
-	else would come out after printing stats after certain number of pkts.
- */
-static int32_t ip_edit_num_cnt(struct app_ctrl_op_info *cp_info)
-{
-	infinit_fcnt = (cp_info->ip_info.frame_cnt == 0) ?
-	    true : false;
-
-	initial_frame_count = cp_info->ip_info.frame_cnt;
-	pr_info("Frame count changed to %d\n", initial_frame_count);
-	if (infinit_fcnt == true)
-		pr_info("Application is going in infinite_mode\n");
-	else
-		pr_info("Application is going to finite_mode\n");
-
-	return 0;
-}
-
-/**
  \brief Initializes Receive context for IPSEC Forwarding app
  \param[in] struct net_dev * Netdev Pointer
  \param[in] struct ip_stack_t * ipstack pointer
@@ -741,10 +719,6 @@ void process_req_from_mq(struct app_ctrl_op_info *sa_info)
 
 	case IPC_CTRL_CMD_TYPE_ARP_DEL:
 		s32Result = ipfwd_del_arp(sa_info);
-		break;
-
-	case IPC_CTRL_CMD_TYPE_FRAMECNT_EDIT:
-		s32Result = ip_edit_num_cnt(sa_info);
 		break;
 
 	case IPC_CTRL_CMD_TYPE_GO:

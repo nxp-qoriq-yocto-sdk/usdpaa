@@ -127,8 +127,3 @@ static struct argp_option arp_del_options[] = {
 	{"s", 's', "IPADDR", 0, "IP Address", 0},
 	{0, 0, 0, 0, 0, 0}
 };
-
-static struct argp_option framecnt_edit_options[] = {
-	{"n", 'n', "FRAMECNT", 0, "Frame Count", 0},
-	{0, 0, 0, 0, 0, 0}
-};
