@@ -1881,6 +1881,11 @@ int main(int argc, char *argv[])
 		exit(-EINVAL);
 	}
 
+	if (SNOW_F8_F9 == crypto_info->algo && PERF == crypto_info->mode) {
+		pr_info("PERF mode is not supported for SNOW_F8_F9");
+		exit(0);
+	}
+
 	/* map shmem */
 	if (unlikely(dma_mem_setup())) {
 		pr_err("Shared memory initialization failed\n");
