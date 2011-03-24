@@ -26,36 +26,24 @@
  */
 
 #include "arp.h"
+
+extern struct net_dev_t *ipfwd_get_dev_for_ip(in_addr_t ip_addr);
+
+#ifdef ARP_ENABLE
 #include "ip/ip_common.h"
 
 #include <usdpaa/dma_mem.h>
 
 #include <netinet/if_ether.h>
 
-#undef ARP_ENABLE
+#define	ARP_HDR_LEN	28	/**<ARP Header Length */
+
 extern struct config_info config_info;
 static spinlock_t arp_lock = SPIN_LOCK_UNLOCKED;
 
-struct neigh_table_t arp_table = {
-	.proto_len = 4,
-	.constructor = arp_constructor,
-	.config = {
-		   .base_reachable_timeout = 30,
-		   .reachable_timeout = 30,
-		   .retrans_timeout = 1,
-		   .quiesce_timeout = 5,
-		   .solicit_queue_len = 1}
-};
+extern int is_iface_ip(in_addr_t ip_addr);
 
-struct neigh_table_t *arp_table_create()
-{
-	struct neigh_table_t *table;
-
-	table = &arp_table;
-	return table;
-}
-
-int arp_handle_request(struct ether_header *eth_hdr,
+static int arp_handle_request(struct ether_header *eth_hdr,
 		       struct node_t *node)
 {
 	struct ether_arp *arp;
@@ -71,42 +59,6 @@ int arp_handle_request(struct ether_header *eth_hdr,
 	memcpy(eth_hdr->ether_shost, &node->mac, sizeof(eth_hdr->ether_shost));
 	memcpy(arp->arp_tha, eth_hdr->ether_dhost, arp->arp_hln);
 	memcpy(arp->arp_sha, eth_hdr->ether_shost, arp->arp_hln);
-	return 0;
-}
-
-int add_arp_entry(struct neigh_table_t *arp_tab, struct net_dev_t *dev,
-			struct node_t *node)
-{
-	struct neigh_t *n;
-
-	n = neigh_create(arp_tab);
-	if (NULL == n) {
-		pr_err("%s: Unable to create Neigh Entry\n", __func__);
-		return -EINVAL;
-	}
-
-	if (NULL == dev) {
-		dev = ipfwd_get_dev_for_ip(node->ip);
-		if (NULL == dev) {
-			pr_err("%s: failed to get device\n", __func__);
-			return -EINVAL;
-		}
-	}
-
-	if (NULL == neigh_init(arp_tab, n, dev, &node->ip)) {
-		pr_err("%s: Unable to init Neigh Entry\n", __func__);
-		return -EINVAL;
-	}
-	if (false == neigh_add(arp_tab, n)) {
-		pr_err("%s: Unable to add Neigh Entry\n", __func__);
-		return -EINVAL;
-	}
-	if (NULL ==  neigh_update(n, node->mac.ether_addr_octet,
-				  NEIGH_STATE_PERMANENT)) {
-		pr_err("%s: Unable to update Neigh Entry\n", __func__);
-		return -EINVAL;
-	}
-
 	return 0;
 }
 
@@ -136,7 +88,6 @@ void arp_handler(struct annotations_t *notes, void *data)
 		if (arp->arp_op == ARPOP_REPLY) {
 			/* stop retransmit timer */
 			if (NEIGH_STATE_PENDING == n->neigh_state) {
-#ifdef ARP_ENABLE
 				if (0 != stop_timer(n->retransmit_timer)) {
 					pr_err
 					    ("%s: stopping timer 0x%x failed\n",
@@ -146,7 +97,6 @@ void arp_handler(struct annotations_t *notes, void *data)
 				} else
 					pr_info("%s: timer 0x%x stopped...\n",
 						__func__, n->retransmit_timer);
-#endif
 			/* Send first packet */
 			dev->xmit(dev, &n->fd, NULL);
 			}
@@ -197,7 +147,7 @@ void arp_handler(struct annotations_t *notes, void *data)
 		free_buff(notes->fd);
 	}
 }
-#ifdef ARP_ENABLE
+
 int arp_send_request(struct net_dev_t *dev, in_addr_t target_ip)
 {
 	struct ether_arp *arp;
@@ -250,8 +200,9 @@ int arp_send_request(struct net_dev_t *dev, in_addr_t target_ip)
 
 	return 0;
 }
-#endif
-void arp_solicit(struct neigh_t *n, void *annotations, void *ll_payload)
+#endif	/* ARP_ENABLE */
+
+static void arp_solicit(struct neigh_t *n, void *annotations, void *ll_payload)
 {
 	struct annotations_t *notes = annotations;
 #ifdef STATS_TBD
@@ -260,7 +211,7 @@ void arp_solicit(struct neigh_t *n, void *annotations, void *ll_payload)
 	free_buff(notes->fd);
 }
 
-void arp_error_handler(struct neigh_t *n, void *annotations, void *ll_payload)
+static void arp_error_handler(struct neigh_t *n, void *annotations, void *ll_payload)
 {
 	struct annotations_t *notes = annotations;
 #ifdef STATS_TBD
@@ -269,8 +220,63 @@ void arp_error_handler(struct neigh_t *n, void *annotations, void *ll_payload)
 	free_buff(notes->fd);
 }
 
-void arp_constructor(struct neigh_t *n)
+static void arp_constructor(struct neigh_t *n)
 {
 	n->funcs->solicit = &arp_solicit;
 	n->funcs->error_handler = &arp_error_handler;
+}
+
+static struct neigh_table_t arp_table = {
+	.proto_len = 4,
+	.constructor = arp_constructor,
+	.config = {
+		   .base_reachable_timeout = 30,
+		   .reachable_timeout = 30,
+		   .retrans_timeout = 1,
+		   .quiesce_timeout = 5,
+		   .solicit_queue_len = 1}
+};
+
+struct neigh_table_t *arp_table_create()
+{
+	struct neigh_table_t *table;
+
+	table = &arp_table;
+	return table;
+}
+
+int add_arp_entry(struct neigh_table_t *arp_tab, struct net_dev_t *dev,
+			struct node_t *node)
+{
+	struct neigh_t *n;
+
+	n = neigh_create(arp_tab);
+	if (NULL == n) {
+		pr_err("%s: Unable to create Neigh Entry\n", __func__);
+		return -EINVAL;
+	}
+
+	if (NULL == dev) {
+		dev = ipfwd_get_dev_for_ip(node->ip);
+		if (NULL == dev) {
+			pr_err("%s: failed to get device\n", __func__);
+			return -EINVAL;
+		}
+	}
+
+	if (NULL == neigh_init(arp_tab, n, dev, &node->ip)) {
+		pr_err("%s: Unable to init Neigh Entry\n", __func__);
+		return -EINVAL;
+	}
+	if (false == neigh_add(arp_tab, n)) {
+		pr_err("%s: Unable to add Neigh Entry\n", __func__);
+		return -EINVAL;
+	}
+	if (NULL ==  neigh_update(n, node->mac.ether_addr_octet,
+				  NEIGH_STATE_PERMANENT)) {
+		pr_err("%s: Unable to update Neigh Entry\n", __func__);
+		return -EINVAL;
+	}
+
+	return 0;
 }

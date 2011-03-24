@@ -166,7 +166,6 @@ static enum qman_cb_dqrr_result dqrr_entry_handler(struct qman_portal *qm,
 	struct fq_context_t *context =
 	    (struct fq_context_t *)(ip_fq_ctxt->ip_ctxt);
 	uint8_t *data;
-	struct ether_header *eth_hdr;
 
 	/** Following qman_fq is my context */
 	switch (dqrr->fd.format) {
@@ -175,18 +174,27 @@ static enum qman_cb_dqrr_result dqrr_entry_handler(struct qman_portal *qm,
 		data = (uint8_t *)notes + dqrr->fd.offset;
 		break;
 	default:
+		/** \todo	Drop packet */
 		pr_err("Unsupported format packet came\n");
 		goto done;
 	}
 	notes->fd = (struct qm_fd *)(&(dqrr->fd));
 
-	eth_hdr =  (struct ether_header *) data;
-	if (eth_hdr->ether_type == ETHERTYPE_ARP)
+	switch (((struct ether_header *)data)->ether_type) {
+#ifdef ARP_ENABLE
+	case ETHERTYPE_ARP:
 		arp_handler(notes, data);
-	else
+		break;
+#endif
+	case ETHERTYPE_IP:
 		context->handler(context, notes, data);
-done:
+		break;
+	default:
+		/** \todo	Drop packet */
+		;
+	}
 
+done:
 	return qman_cb_dqrr_consume;
 }
 

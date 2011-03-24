@@ -33,54 +33,13 @@
 #include "net/annotations.h"
 #include "ip/ip.h"
 
-extern struct ip_stack_t stack;
-extern struct net_dev_t *ipfwd_get_dev_for_ip(in_addr_t ip_addr);
-extern int is_iface_ip(in_addr_t ip_addr);
-
-#define	ARP_HDR_LEN	28	/**<ARP Header Length */
-
 #define ARP_RETRANSMIT_INTERVAL	5000
-
-/**
- \brief Handles ARP Request on the Interface
- \param[in] eth_hdr pointer in ARP request frame
- \param[in] node Iface Node replying to the ARP Request
- \return    0 Arp request successfull
- -1 Arp request failed
- */
-int arp_handle_request(struct ether_header *eth_hdr,
-		       struct node_t *node);
 
 /**
  \brief Creates the Arp Table
  \return Pointer to the created Table
  */
 struct neigh_table_t *arp_table_create(void);
-
-/**
- \brief Initializes the Arp Table
- \param[inout] n Pointer to the Arp Table
- \return none
- */
-void arp_constructor(struct neigh_t *n);
-
-/**
- \brief Increments the solicit Error for Arp Table
- \param[in] n Pointer to the Arp Table
- \param[in] notes Pointer to the prepended data used by BMI
- \param[in] ip_hdr Pointer to the IP Header
- \return none
- */
-void arp_solicit(struct neigh_t *n, void *notes, void *ip_hdr);
-
-/**
- \brief Increments the Protocol Errors for Arp Table
- \param[in] n Pointer to the Arp Table
- \param[in] notes Pointer to the prepended data used by BMI
- \param[in] ip_hdr Pointer to the IP Header
- \return none
- */
-void arp_error_handler(struct neigh_t *n, void *notes, void *ip_hdr);
 
 /**
  \brief Add dynamic arp entries
