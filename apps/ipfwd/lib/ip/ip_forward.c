@@ -42,7 +42,6 @@ enum IP_STATUS ip_forward(struct ip_context_t *ctxt,
 {
 	struct net_dev_t *dev;
 
-	markpoint(11);
 	dev = notes->dest->dev;
 	if (likely(ip_hdr->ttl > 1)) {
 		ip_hdr->ttl -= 1;
@@ -95,7 +94,6 @@ enum IP_STATUS ip_forward_finish(struct ip_context_t *ctxt,
 				 struct iphdr *ip_hdr,
 				 enum state source)
 {
-	markpoint(12);
 #ifdef STATS_TBD
 	decorated_notify_inc_32(&(ctxt->stats->ip_out_forward));
 #endif

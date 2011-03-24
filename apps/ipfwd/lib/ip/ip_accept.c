@@ -39,14 +39,8 @@ enum IP_STATUS ip_accept_preparsed(struct ip_context_t *ctxt,
 				   struct iphdr *ip_hdr,
 				   enum state source)
 {
-	enum IP_STATUS retval;
-
-	markpoint(7);
-
-	retval = exec_hook(ctxt->hooks, IP_HOOK_PREROUTING,
-			   ctxt, notes, ip_hdr, &ip_accept_finish, source);
-
-	return retval;
+	return exec_hook(ctxt->hooks, IP_HOOK_PREROUTING,
+			 ctxt, notes, ip_hdr, &ip_accept_finish, source);
 }
 
 enum IP_STATUS ip_accept_finish(struct ip_context_t *ctxt,
@@ -54,7 +48,6 @@ enum IP_STATUS ip_accept_finish(struct ip_context_t *ctxt,
 				struct iphdr *ip_hdr,
 				enum state source)
 {
-	markpoint(8);
 	if (unlikely(has_options(ip_hdr))) {
 		/* TODO:
 		 Handle Preroute options */

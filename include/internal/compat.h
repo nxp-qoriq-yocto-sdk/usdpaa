@@ -64,15 +64,6 @@
  * purposes).
  */
 
-/* Tracing - #define WANT_MARKPOINTS before including this file */
-#ifdef WANT_MARKPOINTS
-static inline void markpoint(const uint32_t markid) {
-	asm volatile ("and %0,%0,%0\n" : : "i"(markid) : "memory");
-}
-#else
-#define markpoint(id)	do { ; } while (0)
-#endif
-
 /* Compiler/type stuff */
 typedef unsigned int	gfp_t;
 typedef uint32_t	phandle;

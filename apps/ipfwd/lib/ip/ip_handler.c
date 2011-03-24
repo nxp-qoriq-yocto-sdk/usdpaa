@@ -45,7 +45,6 @@ void ip_handler(struct fq_context_t *ctxt, struct annotations_t *notes,
 	struct ip_context_t *ip_ctxt = (struct ip_context_t *)ctxt;
 #endif
 
-	markpoint(6);
 #ifdef STATS_TBD
 	decorated_notify_inc_32(&(ip_ctxt->stats->ip_in_received));
 #endif

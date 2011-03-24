@@ -91,7 +91,6 @@ enum IP_STATUS ip_send(struct ip_context_t *ctxt,
 
 	assert(notes->dest != NULL);
 
-	markpoint(13);
 	cur_notes = notes;
 	return ip_output(ctxt, cur_notes, ip_hdr);
 }
@@ -103,7 +102,6 @@ enum IP_STATUS ip_output(struct ip_context_t *ctxt,
 			 struct annotations_t *notes,
 			 struct iphdr *ip_hdr)
 {
-	markpoint(14);
 	return exec_hook(ctxt->hooks, IP_HOOK_POSTROUTING, ctxt, notes,
 			 ip_hdr, &ip_output_finish, SOURCE_POST_FMAN);
 }
@@ -128,7 +126,6 @@ enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt __always_unused,
 	uint32_t temp;
 #endif
 
-	markpoint(15);
 	retval = IP_STATUS_ACCEPT;
 
 	neighbor = notes->dest->neighbor;

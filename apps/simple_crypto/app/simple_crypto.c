@@ -813,8 +813,6 @@ static void set_enc_buf(void)
 	uint32_t i;
 
 	for (ind = 0; ind < total_buf_num; ind++) {
-		markpoint(1);
-
 		addr = qm_fd_addr_get64(&fd[ind]);
 		sgentry = dma_mem_ptov(addr);
 
@@ -875,8 +873,6 @@ static void set_dec_buf(void)
 	uint8_t bpid;
 
 	for (ind = 0; ind < total_buf_num; ind++) {
-		markpoint(4);
-
 		addr = qm_fd_addr_get64(&fd[ind]);
 		sg_out = dma_mem_ptov(addr);
 		sg_in = sg_out + 1;
@@ -913,8 +909,6 @@ static void set_dec_auth_buf(void)
 	}
 
 	for (ind = 0; ind < total_buf_num; ind++) {
-		markpoint(4);
-
 		addr = qm_fd_addr_get64(&fd[ind]);
 		sg_out = dma_mem_ptov(addr);
 
@@ -1171,8 +1165,6 @@ static int test_dec_match(void)
 	uint32_t i;
 
 	for (ind = 0; ind < total_buf_num; ind++) {
-		markpoint(5);
-
 		addr = qm_fd_addr_get64(&fd[ind]);
 		sgentry = dma_mem_ptov(addr);
 
@@ -1234,8 +1226,6 @@ static void do_enqueues(enum SEC_MODE mode, thread_data_t *tdata)
 		pr_debug("%s mode: Enqueue packet ->%d\n", mode ? "Encrypt" :
 				"Decrypt\n", fd_ind);
 
-		markpoint(2);
-
 loop:
 		ret = qman_enqueue(fq_to_sec, (struct qm_fd *)&fd[fd_ind], 0);
 
@@ -1279,7 +1269,6 @@ enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 	struct sg_entry_priv_t *sgentry_priv;
 	dma_addr_t addr;
 
-	markpoint(3);
 	if ((dqrr->fqid >= fq_base_encrypt)
 			&& (dqrr->fqid < fq_base_decrpyt)) {
 		atomic_inc(&enc_packet_from_sec);
@@ -1998,6 +1987,5 @@ int main(int argc, char *argv[])
 	}
 
 	free_fd();
-	markpoint(31);
 	exit(EXIT_SUCCESS);
 }

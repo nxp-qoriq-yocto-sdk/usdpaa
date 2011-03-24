@@ -85,6 +85,5 @@ retry:
 		} while (now < (then + 1000));
 		goto loop;
 	}
-	markpoint(17);
 #endif
 }
