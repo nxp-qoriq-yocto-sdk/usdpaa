@@ -127,7 +127,7 @@ struct ip_hooks_t {
  \brief Creates a Hook table
  \return Pointer to the Hook Table
  */
-struct ip_hooks_t *ip_hooks_create(void);
+int ip_hooks_init(struct ip_hooks_t *hooks);
 
 /**
  \brief Adds a Hook function to a particular Hook Chain in the table depending on the Hook Type/ stage

@@ -2,7 +2,7 @@
  \file ip_hooks.c
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,59 +24,30 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include "ip_hooks.h"
 
-struct ip_hooks_t *ip_hooks_create(void)
+int ip_hooks_init(struct ip_hooks_t *hooks)
 {
-	struct ip_hooks_t *hooks;
 	uint32_t i, entries;
-
-	hooks = malloc(sizeof(struct ip_hooks_t));
-	if (hooks == NULL)
-		return NULL;
 
 	hooks->free_entries = mem_cache_create(sizeof(struct ip_hook_entry_t),
 					       IP_HOOK_ENTRIES_POOL_SIZE);
-	if (hooks->free_entries == NULL) {
-		free(hooks);
-		return NULL;
-	}
+	if (unlikely(hooks->free_entries == NULL))
+		return -ENOMEM;
 
 	entries = mem_cache_refill(hooks->free_entries,
 				   IP_HOOK_ENTRIES_POOL_SIZE);
-	if (entries != IP_HOOK_ENTRIES_POOL_SIZE) {
-		free(hooks);
-		return NULL;
+	if (unlikely(entries != IP_HOOK_ENTRIES_POOL_SIZE)) {
+		/** \todo	mem_cache_destroy(hooks->free_entries); */
+		return -ENOMEM;
 	}
-	for (i = 0; i < __IP_HOOK_COUNT; i++) {
+	for (i = 0; i < ARRAY_SIZE(hooks->chains); i++) {
 		hooks->chains[i].head = NULL;
 		hooks->chains[i].func_count = 0;
-		spin_lock_init(&(hooks->chains[i].wlock));
+		spin_lock_init(&hooks->chains[i].wlock);
 	}
-	return hooks;
-}
-
-
-void ip_hooks_delete(struct ip_hooks_t *hooks)
-{
-#if 0
-	uint32_t i, entries;
-	entries = mem_cache_refill(hooks->free_entries,
-				   IP_HOOK_ENTRIES_POOL_SIZE);
-	if (entries != IP_HOOK_ENTRIES_POOL_SIZE) {
-		free(hooks);
-		return NULL;
-	}
-
-	hooks->free_entries = mem_cache_create(sizeof(struct ip_hook_entry_t),
-					       IP_HOOK_ENTRIES_POOL_SIZE);
-	if (hooks->free_entries == NULL) {
-		free(hooks);
-		return NULL;
-	}
-#endif
-
-	free(hooks);
+	return 0;
 }
 
 bool ip_hook_add_func(struct ip_hooks_t *hooks, enum IP_HOOK hook,

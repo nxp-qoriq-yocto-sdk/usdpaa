@@ -43,7 +43,7 @@
  */
 struct ip_stack_t {
 	struct ip_statistics_t *ip_stats;	/**< IPv4 Statistics */
-	struct ip_hooks_t *hooks;		/**< Hooks for intermediate processing */
+	struct ip_hooks_t hooks;		/**< Hooks for intermediate processing */
 	struct ip_protos_t *protos;		/**< Protocol Handler */
 	struct neigh_table_t *arp_table;	/**< ARP Table */
 	struct net_dev_table_t *nt;		/**< Netdev Table */
@@ -457,7 +457,7 @@ initialize_contexts(struct ip_context_t *ip_ctxt, struct net_dev_t *dev,
 	ip_ctxt->fq_ctxt.handler = &ip_handler;
 	ip_ctxt->fq_ctxt.dev = dev;
 	ip_ctxt->stats = ip_stack->ip_stats;
-	ip_ctxt->hooks = ip_stack->hooks;
+	ip_ctxt->hooks = &ip_stack->hooks;
 	ip_ctxt->protos = ip_stack->protos;
 	ip_ctxt->rc = ip_stack->rc;
 }
@@ -666,6 +666,8 @@ struct ip_statistics_t *ipfwd_stats_init(void)
  */
 static int32_t initialize_ip_stack(struct ip_stack_t *ip_stack)
 {
+	int _errno;
+
 	ip_stack->arp_table = arp_table_create();
 	if (!(ip_stack->arp_table)) {
 		pr_err("Failed to create ARP Table\n");
@@ -685,10 +687,10 @@ static int32_t initialize_ip_stack(struct ip_stack_t *ip_stack)
 		pr_err("Failed in Route cache initialized\n");
 		return -1;
 	}
-	ip_stack->hooks = ip_hooks_create();
-	if (!(ip_stack->hooks)) {
+	_errno = ip_hooks_init(&ip_stack->hooks);
+	if (unlikely(_errno < 0)) {
 		pr_err("Failed in IP Stack hooks initialized\n");
-		return -1;
+		return _errno;
 	}
 	ip_stack->protos = ip_protos_create();
 	if (!(ip_stack->protos)) {
