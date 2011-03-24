@@ -25,16 +25,12 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "ip_common.h"
-#include "app_common.h"
-#include "ip_context.h"
+
 #include "ip_forward.h"
+#include "app_common.h"
 #include "ip_output.h"
 #include "ip_hooks.h"
-#include "net/rt.h"
 #include "net/net_dev.h"
-#include "net/annotations.h"
-#include "bigatomic.h"
 
 enum IP_STATUS ip_forward(struct ip_context_t *ctxt,
 			  struct annotations_t *notes,

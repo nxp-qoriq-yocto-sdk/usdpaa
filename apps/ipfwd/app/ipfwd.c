@@ -26,18 +26,31 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "ipfwd.h"
+#include "ip/ip_forward.h"
+#include "ip/ip_local.h"
+
 #include <usdpaa/fsl_usd.h>
 #include <usdpaa/dma_mem.h>
 #include <usdpaa/usdpaa_netcfg.h>
 #include <usdpaa/fman.h>
 
-#include "ipfwd.h"
-#include "ip/ip_forward.h"
-#include "ip/ip_local.h"
-#include "bigatomic.h"
-
 #include <stdio.h>
 #include <mqueue.h>
+
+/**
+ \brief It holds pointers to all IP-related data structures.
+ */
+struct ip_stack_t {
+	struct ip_statistics_t *ip_stats;	/**< IPv4 Statistics */
+	struct ip_hooks_t *hooks;		/**< Hooks for intermediate processing */
+	struct ip_protos_t *protos;		/**< Protocol Handler */
+	struct neigh_table_t *arp_table;	/**< ARP Table */
+	struct net_dev_table_t *nt;		/**< Netdev Table */
+	struct rt_t *rt;			/**< Routing Table */
+	struct rc_t *rc;			/**< Route Cache */
+	struct ip_context_t *ctxt[8];		/**< There are at max 8 IFACE in one partition due to emulator*/
+};
 
 uint32_t local_node_count[IFACE_COUNT] = { 23, 23, 23, 23, 23, 23, 23, 23, 1 };
 struct node_t local_nodes[LINKLOCAL_NODES];

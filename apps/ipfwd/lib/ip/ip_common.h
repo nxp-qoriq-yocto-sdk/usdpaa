@@ -3,7 +3,7 @@
  \brief This file is ip_statistics
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,8 +28,6 @@
 #ifndef __LIB_IP_IP_COMMON_H
 #define __LIB_IP_IP_COMMON_H
 
-#include "ip/ip.h"
-#include <stdbool.h>
 #include "statistics.h"
 
 /**
@@ -87,20 +85,6 @@ struct ip_statistics_t {
 	/**< Number of transmitted Packets that needed fragmentation */
 	union stat64_t ip_in_dropped;
 	/**< Number of Packets dropped for reasons other than above */
-};
-
-/**
- \brief It holds pointers to all IP-related data structures.
- */
-struct ip_stack_t {
-	struct ip_statistics_t *ip_stats;	/**< IPv4 Statistics */
-	struct ip_hooks_t *hooks;		/**< Hooks for intermediate processing */
-	struct ip_protos_t *protos;		/**< Protocol Handler */
-	struct neigh_table_t *arp_table;	/**< ARP Table */
-	struct net_dev_table_t *nt;		/**< Netdev Table */
-	struct rt_t *rt;			/**< Routing Table */
-	struct rc_t *rc;			/**< Route Cache */
-	struct ip_context_t *ctxt[8];	/**< There are at max 8 IFACE in one partition due to emulator*/
 };
 
 #endif /* __LIB_IP_IP_COMMON_H */
