@@ -38,9 +38,7 @@
 #include <stdio.h>
 #include <mqueue.h>
 
-/**
- \brief It holds pointers to all IP-related data structures.
- */
+/** \brief	Holds all IP-related data structures */
 struct ip_stack_t {
 	struct ip_statistics_t *ip_stats;	/**< IPv4 Statistics */
 	struct ip_hooks_t hooks;		/**< Hooks for intermediate processing */
@@ -49,7 +47,7 @@ struct ip_stack_t {
 	struct net_dev_table_t nt;		/**< Netdev Table */
 	struct rt_t rt;				/**< Routing Table */
 	struct rc_t rc;				/**< Route Cache */
-	struct ip_context_t *ctxt[8];		/**< There are at max 8 IFACE in one partition due to emulator*/
+	struct ip_context_t ctxt[8];		/**< There are at max 8 IFACE in one partition due to emulator */
 };
 
 uint32_t local_node_count[IFACE_COUNT] = { 23, 23, 23, 23, 23, 23, 23, 23, 1 };
@@ -573,12 +571,6 @@ create_devices(struct ip_stack_t *ip_stack, struct node_t *link_nodes)
 		return _errno;
 	}
 	for (port = 0; port < g_num_dpa_eth_ports; port++) {
-		_errno = posix_memalign((void **)&ctxt, L1_CACHE_BYTES,
-					sizeof(struct ip_context_t));
-		if (unlikely(_errno < 0)) {
-			pr_err("No Memory for IP context\n");
-			return _errno;
-		}
 		dev = dpa_dev_allocate(&ip_stack->nt);
 		if (unlikely(dev == NULL)) {
 			pr_err("Unable to allocate net device Structure\n");
@@ -590,12 +582,12 @@ create_devices(struct ip_stack_t *ip_stack, struct node_t *link_nodes)
 		dev->set_ll_address(dev, &link_nodes[port].mac);
 		dev->set_mtu(dev, ETHERMTU);
 
-		initialize_contexts(ctxt, dev, ip_stack);
+		initialize_contexts(ip_stack->ctxt + port, dev, ip_stack);
 		dpa_dev_rx_init((struct dpa_dev_t *)dev,
-				&ipfwd_fq_range[port].pcd, ctxt);
+				&ipfwd_fq_range[port].pcd, ip_stack->ctxt + port);
 		dpa_dev_rx_init((struct dpa_dev_t *)dev,
-				&ipfwd_fq_range[port].rx_def, ctxt);
-		ip_stack->ctxt[port] = ctxt;
+				&ipfwd_fq_range[port].rx_def, ip_stack->ctxt + port);
+		;
 		dpa_dev_tx_init((struct dpa_dev_t *)dev,
 				&ipfwd_fq_range[port].tx);
 		if (!net_dev_register(&ip_stack->nt, dev)) {

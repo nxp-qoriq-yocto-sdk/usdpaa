@@ -3,7 +3,7 @@
  \brief This file contains the IP Context data structure specific to application
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,6 +42,6 @@ struct ip_context_t {
 	struct ip_protos_t *protos;	/**< Pointer to the Protocol handler table*/
 	struct rc_t *rc;		/**< Pointer to the Route Cache*/
 	void *user_data;		/**< Pointer to User data*/
-};
+} __attribute__((aligned(L1_CACHE_BYTES)));
 
 #endif /* __LIB_IP_IP_CONTEXT_H */
