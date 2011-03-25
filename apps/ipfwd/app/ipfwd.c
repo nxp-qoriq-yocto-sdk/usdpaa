@@ -44,7 +44,7 @@
 struct ip_stack_t {
 	struct ip_statistics_t *ip_stats;	/**< IPv4 Statistics */
 	struct ip_hooks_t hooks;		/**< Hooks for intermediate processing */
-	struct ip_protos_t *protos;		/**< Protocol Handler */
+	struct ip_protos_t protos;		/**< Protocol Handler */
 	struct neigh_table_t *arp_table;	/**< ARP Table */
 	struct net_dev_table_t *nt;		/**< Netdev Table */
 	struct rt_t *rt;			/**< Routing Table */
@@ -458,7 +458,7 @@ initialize_contexts(struct ip_context_t *ip_ctxt, struct net_dev_t *dev,
 	ip_ctxt->fq_ctxt.dev = dev;
 	ip_ctxt->stats = ip_stack->ip_stats;
 	ip_ctxt->hooks = &ip_stack->hooks;
-	ip_ctxt->protos = ip_stack->protos;
+	ip_ctxt->protos = &ip_stack->protos;
 	ip_ctxt->rc = ip_stack->rc;
 }
 
@@ -692,10 +692,10 @@ static int32_t initialize_ip_stack(struct ip_stack_t *ip_stack)
 		pr_err("Failed in IP Stack hooks initialized\n");
 		return _errno;
 	}
-	ip_stack->protos = ip_protos_create();
-	if (!(ip_stack->protos)) {
+	_errno = ip_protos_init(&ip_stack->protos);
+	if (unlikely(_errno < 0)) {
 		pr_err("IP Stack L4 Protocols initialized\n");
-		return -1;
+		return _errno;
 	}
 	ip_stack->ip_stats = ipfwd_stats_init();
 	if (!(ip_stack->ip_stats)) {

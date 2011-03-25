@@ -2,7 +2,7 @@
  \file ip_protos.c
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,17 +25,13 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "ip_protos.h"
+
 #include <assert.h>
 
-struct ip_protos_t *ip_protos_create(void)
+int ip_protos_init(struct ip_protos_t *protos)
 {
-	struct ip_protos_t *protos;
-
-	protos = malloc(sizeof(*protos));
-	if (protos == NULL)
-		return NULL;
-
-	return memset(protos, 0, sizeof(*protos));
+	memset(protos, 0, sizeof(*protos));
+	return 0;
 }
 
 void ip_protos_set_handler(struct ip_protos_t *protos,

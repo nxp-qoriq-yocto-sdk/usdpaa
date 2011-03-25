@@ -58,7 +58,7 @@ struct ip_protos_t {
  \brief Create IP protos
  \return Protocol Handler
  */
-struct ip_protos_t *ip_protos_create(void);
+int ip_protos_init(struct ip_protos_t *protos);
 
 /**
  \brief set ip protocol handler
