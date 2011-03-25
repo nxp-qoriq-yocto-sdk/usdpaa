@@ -45,7 +45,7 @@ struct ip_stack_t {
 	struct ip_statistics_t *ip_stats;	/**< IPv4 Statistics */
 	struct ip_hooks_t hooks;		/**< Hooks for intermediate processing */
 	struct ip_protos_t protos;		/**< Protocol Handler */
-	struct neigh_table_t *arp_table;	/**< ARP Table */
+	struct neigh_table_t arp_table;		/**< ARP Table */
 	struct net_dev_table_t *nt;		/**< Netdev Table */
 	struct rt_t *rt;			/**< Routing Table */
 	struct rc_t *rc;			/**< Route Cache */
@@ -228,8 +228,7 @@ int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
 	}
 
 	dest->next = NULL;
-	dest->neighbor = neigh_lookup(stack.arp_table, gw_ipaddr,
-				      stack.arp_table->proto_len);
+	dest->neighbor = neigh_lookup(&stack.arp_table, gw_ipaddr, stack.arp_table.proto_len);
 	if (dest->neighbor == NULL) {
 		pr_debug
 		    ("%s: Could not find neighbor entry for link-local addr\n",
@@ -242,19 +241,18 @@ int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
 			return -1;
 		}
 
-		dest->neighbor = neigh_create(stack.arp_table);
+		dest->neighbor = neigh_create(&stack.arp_table);
 		if (unlikely(!dest->neighbor)) {
 			pr_err("%s: Unable to create Neigh Entry\n", __func__);
 			return -1;
 		}
 
-		if (NULL == neigh_init(stack.arp_table, dest->neighbor, dev,
-				       &gw_ipaddr)) {
+		if (NULL == neigh_init(&stack.arp_table, dest->neighbor, dev, &gw_ipaddr)) {
 			pr_err("%s: Unable to init Neigh Entry\n", __func__);
 			return -1;
 		}
 
-		if (false == neigh_add(stack.arp_table, dest->neighbor)) {
+		if (false == neigh_add(&stack.arp_table, dest->neighbor)) {
 			pr_err("%s: Unable to add Neigh Entry\n", __func__);
 			return -1;
 		}
@@ -349,8 +347,7 @@ int32_t ipfwd_add_arp(struct app_ctrl_op_info *route_info)
 		 ETH_MAC_PRINTF_ARGS(&route_info->ip_info.mac_addr));
 #endif
 
-	n = neigh_lookup(stack.arp_table, ip_addr,
-			 stack.arp_table->proto_len);
+	n = neigh_lookup(&stack.arp_table, ip_addr, stack.arp_table.proto_len);
 
 	if (n == NULL) {
 		pr_debug
@@ -363,25 +360,24 @@ int32_t ipfwd_add_arp(struct app_ctrl_op_info *route_info)
 			return -1;
 		}
 
-		n = neigh_create(stack.arp_table);
+		n = neigh_create(&stack.arp_table);
 		if (unlikely(!n)) {
 			pr_debug("ipfwd_add_arp: Exit: Failed\n");
 			return -1;
 		}
-		if (NULL == neigh_init(stack.arp_table, n, dev,
-				       &ip_addr)) {
+		if (NULL == neigh_init(&stack.arp_table, n, dev, &ip_addr)) {
 			pr_err("ipfwd_add_arp: Exit: Failed\n");
 			return -1;
 		}
 
-		if (false == neigh_add(stack.arp_table, n)) {
+		if (false == neigh_add(&stack.arp_table, n)) {
 			pr_err("ipfwd_add_arp: Exit: Failed\n");
 			return -1;
 		}
 	} else {
 		n->neigh_state = NEIGH_STATE_UNKNOWN;
 		if (route_info->ip_info.replace_entry) {
-			if (false == neigh_replace(stack.arp_table, n)) {
+			if (false == neigh_replace(&stack.arp_table, n)) {
 				pr_err("ipfwd_add_arp: Exit: Failed\n");
 				return -1;
 			}
@@ -411,9 +407,8 @@ int32_t ipfwd_del_arp(struct app_ctrl_op_info *route_info)
 	/*
 	 ** Do a Neighbour LookUp for the entry to be deleted
 	 */
-	neighbor = neigh_lookup(stack.arp_table,
-				(route_info->ip_info.src_ipaddr),
-				stack.arp_table->proto_len);
+	neighbor = neigh_lookup(&stack.arp_table, route_info->ip_info.src_ipaddr,
+				stack.arp_table.proto_len);
 	if (neighbor == NULL) {
 		pr_err
 		    ("Could not find neighbor entry for link-local address\n");
@@ -432,10 +427,8 @@ int32_t ipfwd_del_arp(struct app_ctrl_op_info *route_info)
 	/*
 	 ** Delete the ARP Entry
 	 */
-	if (false == neigh_remove(stack.arp_table,
-				  route_info->ip_info.
-					   src_ipaddr,
-				  stack.arp_table->proto_len)) {
+	if (false == neigh_remove(&stack.arp_table, route_info->ip_info.src_ipaddr,
+				  stack.arp_table.proto_len)) {
 		pr_err("Could not delete neighbor entry\n");
 		return -1;
 	}
@@ -633,7 +626,7 @@ int populate_arp_cache(struct ip_stack_t *ip_stack, struct node_t *loc_nodes)
 				dev = ip_stack->nt->device_head;
 			}
 
-			if (0 > add_arp_entry(ip_stack->arp_table, dev, node)) {
+			if (0 > add_arp_entry(&ip_stack->arp_table, dev, node)) {
 				pr_err("%s: failed to add ARP entry\n",
 					  __func__);
 				return -EINVAL;
@@ -668,14 +661,15 @@ static int32_t initialize_ip_stack(struct ip_stack_t *ip_stack)
 {
 	int _errno;
 
-	ip_stack->arp_table = arp_table_create();
-	if (!(ip_stack->arp_table)) {
+	_errno = arp_table_init(&ip_stack->arp_table);
+	if (unlikely(_errno < 0)) {
 		pr_err("Failed to create ARP Table\n");
-		return -1;
+		return _errno;
 	}
-	if (!(neigh_table_init(ip_stack->arp_table))) {
+	_errno = neigh_table_init(&ip_stack->arp_table);
+	if (unlikely(_errno < 0)) {
 		pr_err("Failed to init ARP Table\n");
-		return -1;
+		return _errno;
 	}
 	ip_stack->rt = rt_create();
 	if (!(ip_stack->rt)) {

@@ -63,7 +63,8 @@ void neigh_table_print_stats(struct neigh_table_t *nt, bool print_zero)
 		     print_zero);
 }
 #endif
-struct neigh_table_t *neigh_table_init(struct neigh_table_t *table)
+
+int neigh_table_init(struct neigh_table_t *table)
 {
 	struct neigh_bucket_t *bucket;
 	uint32_t entries;
@@ -71,28 +72,29 @@ struct neigh_table_t *neigh_table_init(struct neigh_table_t *table)
 
 	_errno = posix_memalign((void **)&table->stats, L1_CACHE_BYTES, sizeof(*table->stats));
 	if (unlikely(_errno < 0))
-		return NULL;
+		return _errno;
 	memset(table->stats, 0, sizeof(*table->stats));
 
 	table->free_entries =
 	    mem_cache_create(sizeof(struct __neigh_func_combo_t),
 			     NEIGH_POOL_SIZE);
-	if (table->free_entries == NULL)
-		return NULL;
+	if (unlikely(table->free_entries == NULL))
+		return -ENOMEM;
 
 	entries = mem_cache_refill(table->free_entries, NEIGH_POOL_SIZE);
-	if (entries != NEIGH_POOL_SIZE)
-		return NULL;
+	if (unlikely(entries != NEIGH_POOL_SIZE)) {
+		/** \todo	mem_cache_destory(table->free_entries); */
+		return -ENOMEM;
+	}
 
 	for (i = 0; i < NEIGH_TABLE_BUCKETS; i++) {
-		bucket = &(table->buckets[i]);
+		bucket = table->buckets + i;
 		bucket->head = NULL;
 		bucket->id = i;
 		spin_lock_init(&bucket->wlock);
 	}
-	lwsync();
 
-	return table;
+	return 0;
 }
 
 

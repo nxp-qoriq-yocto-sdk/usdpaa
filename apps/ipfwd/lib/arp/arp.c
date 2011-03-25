@@ -226,23 +226,17 @@ static void arp_constructor(struct neigh_t *n)
 	n->funcs->error_handler = &arp_error_handler;
 }
 
-static struct neigh_table_t arp_table = {
-	.proto_len = 4,
-	.constructor = arp_constructor,
-	.config = {
-		   .base_reachable_timeout = 30,
-		   .reachable_timeout = 30,
-		   .retrans_timeout = 1,
-		   .quiesce_timeout = 5,
-		   .solicit_queue_len = 1}
-};
-
-struct neigh_table_t *arp_table_create()
+int arp_table_init(struct neigh_table_t *nt)
 {
-	struct neigh_table_t *table;
+	nt->proto_len = sizeof(in_addr_t);
+	nt->constructor = arp_constructor;
+	nt->config.base_reachable_timeout = 30;
+	nt->config.reachable_timeout = 30;
+	nt->config.retrans_timeout = 1;
+	nt->config.quiesce_timeout = 5;
+	nt->config.solicit_queue_len = 1;
 
-	table = &arp_table;
-	return table;
+	return 0;
 }
 
 int add_arp_entry(struct neigh_table_t *arp_tab, struct net_dev_t *dev,

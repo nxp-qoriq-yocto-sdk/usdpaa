@@ -200,12 +200,11 @@ static inline uint32_t compute_neigh_hash(const void *key, uint32_t key_len)
 	return ((uint32_t) result) & NEIGH_TABLE_BUCKETS_MASK;
 }
 
-/**
- \brief Initializes the Neighbour Table
- \param[in] table Pointer to the Neighbour Table
- \return Pointer to th eneighbour Table
+/** \brief		Initializes the neighbour table
+ *  \param[out]	table	Neighbour table
+ *  \return		On success, zero. On error, a negative value as per errno.h
  */
-struct neigh_table_t *neigh_table_init(struct neigh_table_t *table);
+int neigh_table_init(struct neigh_table_t *table);
 
 /**
  \brief Allocates a Neighbour Table Entry

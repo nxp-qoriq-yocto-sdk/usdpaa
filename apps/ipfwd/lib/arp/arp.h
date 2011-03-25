@@ -35,11 +35,11 @@
 
 #define ARP_RETRANSMIT_INTERVAL	5000
 
-/**
- \brief Creates the Arp Table
- \return Pointer to the created Table
+/** \brief		Initializes the ARP table
+ *  \param[out] nt	ARP table
+ *  \return		On success, zero. On error, a negative value as per errno.h
  */
-struct neigh_table_t *arp_table_create(void);
+int arp_table_init(struct neigh_table_t *nt);
 
 /**
  \brief Add dynamic arp entries
