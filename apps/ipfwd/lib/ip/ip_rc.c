@@ -241,61 +241,49 @@ struct rc_entry_t *rc_entry_lookup(struct rc_t *rc,
 	return entry;
 }
 
-struct rc_t *rc_create(uint32_t expire_jiffies, uint32_t proto_len)
+int rc_init(struct rc_t *rc, uint32_t expire_jiffies, uint32_t proto_len)
 {
 	int _errno, i;
 	uint32_t entries;
 	struct rc_bucket_t *bucket;
-	struct rc_t *rc;
 
 	assert((proto_len % BYTES_PER_WORD) == 0);
 
-	_errno = posix_memalign((void **)&rc, L1_CACHE_BYTES, sizeof(struct rc_t));
-	if (unlikely(_errno < 0)) {
-		pr_err("%s : Route Cache Creation Failed\n", __func__);
-		return NULL;
-	}
 	_errno = posix_memalign((void **)&rc->stats, L1_CACHE_BYTES,
 				   sizeof(struct rc_statistics_t));
 	if (unlikely(_errno < 0)) {
 		pr_err("%s : Unable to allocate Route Cache Stats\n",
 							 __func__);
-		free(rc);
-		return NULL;
+		return _errno;
 	}
 	memset(rc->stats, 0, sizeof(struct rc_statistics_t));
 	rc->free_entries = mem_cache_create(sizeof(struct rc_entry_t),
 					    RC_ENTRY_POOL_SIZE);
-	if (rc->free_entries == NULL) {
+	if (unlikely(rc->free_entries == NULL)) {
 		pr_err("%s : Unable to create Free Route Cache"
 				"Entries\n", __func__);
 		free(rc->stats);
-		free(rc);
-		return NULL;
+		return -ENOMEM;
 	}
 
 	entries = mem_cache_refill(rc->free_entries, RC_ENTRY_POOL_SIZE);
-	if (entries != RC_ENTRY_POOL_SIZE) {
-		free(rc->free_entries);
+	if (unlikely(entries != RC_ENTRY_POOL_SIZE)) {
 		free(rc->stats);
-		free(rc);
-		return NULL;
+		/** \todo mem_cache_destory(rc->free_entries); */
+		return -ENOMEM;
 	}
 
 	rc->expire_jiffies = expire_jiffies;
 	rc->proto_len = proto_len;
 	rc->proto_word_len = proto_len / BYTES_PER_WORD;
-	for (i = 0; i < RC_BUCKETS; i++) {
-		bucket = &(rc->buckets[i]);
+	for (i = 0; i < ARRAY_SIZE(rc->buckets); i++) {
+		bucket = rc->buckets + i;
 		bucket->head_entry = NULL;
-		spin_lock_init(&(bucket->wlock));
+		spin_lock_init(&bucket->wlock);
 	}
 
-	lwsync();
-
-	return rc;
+	return 0;
 }
-
 
 void rc_delete(struct rc_t *rc)
 {

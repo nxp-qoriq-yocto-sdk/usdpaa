@@ -48,7 +48,7 @@ struct ip_stack_t {
 	struct neigh_table_t arp_table;		/**< ARP Table */
 	struct net_dev_table_t nt;		/**< Netdev Table */
 	struct rt_t rt;				/**< Routing Table */
-	struct rc_t *rc;			/**< Route Cache */
+	struct rc_t rc;				/**< Route Cache */
 	struct ip_context_t *ctxt[8];		/**< There are at max 8 IFACE in one partition due to emulator*/
 };
 
@@ -265,7 +265,7 @@ int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
 	dest->dev = dest->neighbor->dev;
 	dest->scope = ROUTE_SCOPE_GLOBAL;
 
-	entry = rc_create_entry(stack.rc);
+	entry = rc_create_entry(&stack.rc);
 	if (entry == NULL) {
 		pr_err("Could not allocate route cache entry\n");
 		rt_dest_free(&stack.rt, dest);
@@ -286,9 +286,9 @@ int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
 	entry->dest = dest;
 	entry->last_used = mfspr(SPR_ATBL);
 
-	if (rc_add_update_entry(stack.rc, entry) == false) {
+	if (rc_add_update_entry(&stack.rc, entry) == false) {
 		pr_err("Route cache entry updated\n");
-		rc_free_entry(stack.rc, entry);
+		rc_free_entry(&stack.rc, entry);
 	}
 
 	pr_debug("ipfwd_add_route: Exit\n");
@@ -305,7 +305,7 @@ int32_t ipfwd_del_route(struct app_ctrl_op_info *route_info)
 	struct rt_dest_t *dest;
 	pr_debug("ipfwd_del_route: Enter\n");
 
-	dest = rc_lookup(stack.rc,
+	dest = rc_lookup(&stack.rc,
 			 route_info->ip_info.src_ipaddr,
 			 route_info->ip_info.dst_ipaddr);
 	if (dest == NULL) {
@@ -315,7 +315,7 @@ int32_t ipfwd_del_route(struct app_ctrl_op_info *route_info)
 
 	refcount_release(dest->neighbor->refcnt);
 
-	if (rc_remove_entry(stack.rc,
+	if (rc_remove_entry(&stack.rc,
 			    route_info->ip_info.src_ipaddr,
 			    route_info->ip_info.dst_ipaddr) == false) {
 		pr_err("Could not delete route cache entry\n");
@@ -452,7 +452,7 @@ initialize_contexts(struct ip_context_t *ip_ctxt, struct net_dev_t *dev,
 	ip_ctxt->stats = ip_stack->ip_stats;
 	ip_ctxt->hooks = &ip_stack->hooks;
 	ip_ctxt->protos = &ip_stack->protos;
-	ip_ctxt->rc = ip_stack->rc;
+	ip_ctxt->rc = &ip_stack->rc;
 }
 
 /**
@@ -676,10 +676,10 @@ static int32_t initialize_ip_stack(struct ip_stack_t *ip_stack)
 		pr_err("Failed in Route table initialized\n");
 		return _errno;
 	}
-	ip_stack->rc = rc_create(IP_RC_EXPIRE_JIFFIES, sizeof(in_addr_t));
-	if (!(ip_stack->rc)) {
+	_errno = rc_init(&ip_stack->rc, IP_RC_EXPIRE_JIFFIES, sizeof(in_addr_t));
+	if (unlikely(_errno < 0)) {
 		pr_err("Failed in Route cache initialized\n");
-		return -1;
+		return _errno;
 	}
 	_errno = ip_hooks_init(&ip_stack->hooks);
 	if (unlikely(_errno < 0)) {

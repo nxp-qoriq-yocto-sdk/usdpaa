@@ -59,7 +59,7 @@ struct rc_statistics_t {
 	/**< Number of times the LookUp succeeded*/
 	union stat64_t misses;
 	/**< Number of times the LookUp failed*/
-};
+} __attribute__((aligned(L1_CACHE_BYTES)));
 
 /**
  \brief Route Cache Entry Statistics
@@ -118,7 +118,7 @@ struct rc_t {
 	/**< Number of words in the Protocol Address */
 	struct rc_bucket_t buckets[RC_BUCKETS];
 	/**< Route Cache Bucket Array */
-};
+} __attribute__((aligned(L1_CACHE_BYTES)));
 
 typedef void (*rc_execfn_t) (struct rc_entry_t *);
 
@@ -163,15 +163,13 @@ static inline uint32_t compute_rc_hash(in_addr_t saddr,
 #define RC_BUCKET_INDEX(__ip_notes) \
 	((uint32_t)(__ip_notes->hash_result) & RC_HASH_MASK)
 
-/**
-  \brief Creates a new route cache.
-  \param[in] expire_jiffies The number of "jiffies" for which
- a particular route cache entry is
-  valid after its last access.
-  \param[in] proto_len Length of the IP Address
-  \return Pointer to the Route Cache
+/** \brief			Initializes a route cache
+ *  \param[out] rc		Route cache
+ *  \param[in]	expire_jiffies	Number of "jiffies" for which a particular route cache entry is
+ *				valid after its last access
+ *  \param[in]	proto_len	Length of the IP address
  */
-struct rc_t *rc_create(uint32_t expire_jiffies, uint32_t proto_len);
+int rc_init(struct rc_t *rc, uint32_t expire_jiffies, uint32_t proto_len);
 
 /**
  \brief Allocates a Route Entry to be added to the Route Cache
