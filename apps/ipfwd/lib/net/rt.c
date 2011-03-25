@@ -30,50 +30,23 @@
 #include "rt.h"
 #include "app_common.h"
 
-struct rt_t *rt_create(void)
+int rt_init(struct rt_t *rt)
 {
-	int _errno;
 	uint32_t entries;
-	struct rt_t *rt;
 
-	_errno = posix_memalign((void **)&rt, L1_CACHE_BYTES, sizeof(*rt));
-	if (unlikely(_errno < 0))
-		return NULL;
 	memset(rt, 0, sizeof(*rt));
-	rt->free_entries = mem_cache_create(sizeof(struct rt_dest_t),
+	rt->free_entries = mem_cache_create(sizeof(*rt->free_entries),
 					    RT_DEST_POOL_SIZE);
-	if (!rt->free_entries) {
-		free(rt);
-		return NULL;
-	}
+	if (unlikely(rt->free_entries == NULL))
+		return -ENOMEM;
 
 	entries = mem_cache_refill(rt->free_entries, RT_DEST_POOL_SIZE);
-
-	if (entries != RT_DEST_POOL_SIZE) {
-		free(rt);
-		return NULL;
+	if (unlikely(entries != RT_DEST_POOL_SIZE)) {
+		/** \todo mem_cache_destory(rt->free_entries); */
+		return -ENOMEM;
 	}
-	lwsync();
-	return rt;
-}
 
-void rt_delete(struct rt_t *rt)
-{
-#if 0
-	uint32_t entries;
-
-	rt->free_entries = mem_cache_create(sizeof(struct rt_dest_t),
-					    RT_DEST_POOL_SIZE);
-	if (!rt->free_entries)
-		return NULL;
-
-	entries = mem_cache_refill(rt->free_entries, RT_DEST_POOL_SIZE);
-	if (entries != RT_DEST_POOL_SIZE)
-		return NULL;
-#endif
-	free(rt);
-
-	return;
+	return 0;
 }
 
 struct rt_dest_t *rt_dest_alloc(struct rt_t *rt)

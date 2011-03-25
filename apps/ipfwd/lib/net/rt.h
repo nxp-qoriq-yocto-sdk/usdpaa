@@ -4,7 +4,7 @@
  table
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,10 +28,12 @@
  */
 
 #ifndef LIB_NET_RT_H
-#define LIB_NET_RT_H 1
+#define LIB_NET_RT_H
 
 #include "mm/mem_cache.h"
 #include "statistics.h"
+
+#include <internal/compat.h>
 
 #include <stdbool.h>
 
@@ -86,13 +88,13 @@ struct rt_dest_t {
 */
 struct rt_t {
 	struct mem_cache_t *free_entries; /**< List of Free Entries */
-};
+} __attribute__((aligned(L1_CACHE_BYTES)));
 
-/**
- \brief Initialize the Route Table.
- \return Pointer to Route Table
+/** \brief		Initialize the route table
+ *  \param[out] rt	Route table
+ *  \return		On success, zero. On error, a negative value as per errno.h
  */
-struct rt_t *rt_create(void);
+int rt_init(struct rt_t *rt);
 
 /**
  \brief Route Table manipulation functions
@@ -116,4 +118,4 @@ bool rt_dest_try_free(struct rt_t *rt, struct rt_dest_t *dest);
  */
 void rt_dest_free(struct rt_t *rt, struct rt_dest_t *dest);
 
-#endif /* ifndef LIB_NET_RT_H */
+#endif	/* LIB_NET_RT_H */

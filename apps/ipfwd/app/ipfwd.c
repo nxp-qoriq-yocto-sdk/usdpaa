@@ -47,7 +47,7 @@ struct ip_stack_t {
 	struct ip_protos_t protos;		/**< Protocol Handler */
 	struct neigh_table_t arp_table;		/**< ARP Table */
 	struct net_dev_table_t nt;		/**< Netdev Table */
-	struct rt_t *rt;			/**< Routing Table */
+	struct rt_t rt;				/**< Routing Table */
 	struct rc_t *rc;			/**< Route Cache */
 	struct ip_context_t *ctxt[8];		/**< There are at max 8 IFACE in one partition due to emulator*/
 };
@@ -220,7 +220,7 @@ int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
 
 	pr_debug("ipfwd_add_route: Enter\n");
 
-	dest = rt_dest_alloc(stack.rt);
+	dest = rt_dest_alloc(&stack.rt);
 	if (dest == NULL) {
 		pr_err
 		    ("Could not allocate route cache related data structure\n");
@@ -268,7 +268,7 @@ int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
 	entry = rc_create_entry(stack.rc);
 	if (entry == NULL) {
 		pr_err("Could not allocate route cache entry\n");
-		rt_dest_free(stack.rt, dest);
+		rt_dest_free(&stack.rt, dest);
 		return -1;
 	}
 
@@ -322,7 +322,7 @@ int32_t ipfwd_del_route(struct app_ctrl_op_info *route_info)
 		return -1;
 	}
 
-	rt_dest_free(stack.rt, dest);
+	rt_dest_free(&stack.rt, dest);
 	pr_debug("ipfwd_del_route: Exit\n");
 	return 0;
 }
@@ -671,10 +671,10 @@ static int32_t initialize_ip_stack(struct ip_stack_t *ip_stack)
 		pr_err("Failed to init ARP Table\n");
 		return _errno;
 	}
-	ip_stack->rt = rt_create();
-	if (!(ip_stack->rt)) {
+	_errno = rt_init(&ip_stack->rt);
+	if (unlikely(_errno < 0)) {
 		pr_err("Failed in Route table initialized\n");
-		return -1;
+		return _errno;
 	}
 	ip_stack->rc = rc_create(IP_RC_EXPIRE_JIFFIES, sizeof(in_addr_t));
 	if (!(ip_stack->rc)) {
