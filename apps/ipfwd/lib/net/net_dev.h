@@ -26,7 +26,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #ifndef _LIB_NET_NET_DEV_H
-#define _LIB_NET_NET_DEV_H   1
+#define _LIB_NET_NET_DEV_H
 
 #include <usdpaa/compat.h>
 
@@ -155,11 +155,11 @@ struct net_dev_table_t {
 	/**< Array of net devices */
 } __attribute__((aligned(L1_CACHE_BYTES)));
 
-/**
- \brief Allocates the Net Device table
- \return Pointer to the allocated Net Device Table
+/** \brief		Initializes the net_dev table
+ *  \param[out] ndt	net_dev table
+ *  \return		On success, zero. On error, a negative value as per errno.h
  */
-struct net_dev_table_t *net_dev_init(void);
+int net_dev_init(struct net_dev_table_t *ndt);
 
 /**
  \brief Allocates a Net Device Structure
@@ -184,4 +184,4 @@ bool net_dev_register(struct net_dev_table_t *table, struct net_dev_t *dev);
  */
 void net_dev_print_stats(struct net_dev_t *dev, bool print_zero);
 
-#endif /* _LIB_NET_NET_DEV_H */
+#endif	/* _LIB_NET_NET_DEV_H */

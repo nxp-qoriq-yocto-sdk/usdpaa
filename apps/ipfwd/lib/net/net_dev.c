@@ -30,18 +30,11 @@
 #include <malloc.h>
 #include <assert.h>
 
-struct net_dev_table_t *net_dev_init()
+int net_dev_init(struct net_dev_table_t *ndt)
 {
-	int _errno;
-	struct net_dev_table_t *netdev;
-
-	_errno = posix_memalign((void **)&netdev, L1_CACHE_BYTES, sizeof(struct net_dev_table_t));
-	if (unlikely(_errno < 0))
-		return NULL;
-
-	memset(netdev, 0, sizeof(*netdev));
-	spin_lock_init(&netdev->wlock);
-	return netdev;
+	memset(ndt, 0, sizeof(*ndt));
+	spin_lock_init(&ndt->wlock);
+	return 0;
 }
 
 struct net_dev_t *net_dev_allocate(struct net_dev_table_t *table,

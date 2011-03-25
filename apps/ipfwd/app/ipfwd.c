@@ -46,7 +46,7 @@ struct ip_stack_t {
 	struct ip_hooks_t hooks;		/**< Hooks for intermediate processing */
 	struct ip_protos_t protos;		/**< Protocol Handler */
 	struct neigh_table_t arp_table;		/**< ARP Table */
-	struct net_dev_table_t *nt;		/**< Netdev Table */
+	struct net_dev_table_t nt;		/**< Netdev Table */
 	struct rt_t *rt;			/**< Routing Table */
 	struct rc_t *rc;			/**< Route Cache */
 	struct ip_context_t *ctxt[8];		/**< There are at max 8 IFACE in one partition due to emulator*/
@@ -198,7 +198,7 @@ struct net_dev_t *ipfwd_get_dev_for_ip(in_addr_t ip_addr)
 	if (unlikely(node == NULL))
 		return NULL;
 
-	for (dev = stack.nt->device_head; dev != NULL; dev = dev->next)
+	for (dev = stack.nt.device_head; dev != NULL; dev = dev->next)
 		if (memcmp(dev->dev_addr, &node->mac, dev->dev_addr_len) == 0)
 			break;
 
@@ -567,10 +567,10 @@ create_devices(struct ip_stack_t *ip_stack, struct node_t *link_nodes)
 	struct ip_context_t *ctxt;
 	int _errno;
 
-	ip_stack->nt = net_dev_init();
-	if (unlikely(!ip_stack->nt)) {
+	_errno = net_dev_init(&ip_stack->nt);
+	if (unlikely(_errno < 0)) {
 		pr_err("No memory available for neighbor table\n");
-		return -ENOMEM;
+		return _errno;
 	}
 	for (port = 0; port < g_num_dpa_eth_ports; port++) {
 		_errno = posix_memalign((void **)&ctxt, L1_CACHE_BYTES,
@@ -579,7 +579,7 @@ create_devices(struct ip_stack_t *ip_stack, struct node_t *link_nodes)
 			pr_err("No Memory for IP context\n");
 			return _errno;
 		}
-		dev = dpa_dev_allocate(ip_stack->nt);
+		dev = dpa_dev_allocate(&ip_stack->nt);
 		if (unlikely(dev == NULL)) {
 			pr_err("Unable to allocate net device Structure\n");
 			free(ctxt);
@@ -598,7 +598,7 @@ create_devices(struct ip_stack_t *ip_stack, struct node_t *link_nodes)
 		ip_stack->ctxt[port] = ctxt;
 		dpa_dev_tx_init((struct dpa_dev_t *)dev,
 				&ipfwd_fq_range[port].tx);
-		if (!net_dev_register(ip_stack->nt, dev)) {
+		if (!net_dev_register(&ip_stack->nt, dev)) {
 			pr_err("%s: Netdev Register Failed\n", __func__);
 			return -EINVAL;
 		}
@@ -618,12 +618,12 @@ int populate_arp_cache(struct ip_stack_t *ip_stack, struct node_t *loc_nodes)
 	struct net_dev_t *dev;
 	struct node_t *node;
 
-	dev = ip_stack->nt->device_head;
+	dev = ip_stack->nt.device_head;
 	for (j = 0, node_idx = 0; j < g_num_dpa_eth_ports; j++) {
 		for (i = 0; i < local_node_count[j]; i++) {
 			node = &loc_nodes[node_idx];
 			if (dev == NULL) {
-				dev = ip_stack->nt->device_head;
+				dev = ip_stack->nt.device_head;
 			}
 
 			if (0 > add_arp_entry(&ip_stack->arp_table, dev, node)) {
