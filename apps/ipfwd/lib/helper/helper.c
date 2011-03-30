@@ -225,9 +225,10 @@ static int ipfwd_fq_create(struct usdpaa_netcfg_info *cfg_ptr,
 }
 
 
-static int ipfwd_fq_init(uint32_t data_stash_size,
-		uint32_t ann_stash_size, uint32_t ctx_stash_size,
-		struct qman_orp_pcd *pcd_orp, struct td_param *pcd_td)
+static int ipfwd_fq_init(struct usdpaa_netcfg_info *cfg_ptr,
+			 uint32_t data_stash_size, uint32_t ann_stash_size,
+			 uint32_t ctx_stash_size, struct qman_orp_pcd *pcd_orp,
+			 struct td_param *pcd_td)
 {
 	uint32_t port_id;
 	uint32_t flags;
@@ -235,18 +236,21 @@ static int ipfwd_fq_init(uint32_t data_stash_size,
 	uint32_t ann_lines;
 	uint32_t data_lines;
 	uint32_t ctx_a_excl;
+	struct fm_eth_port_cfg *p_cfg;
+	const struct fman_if *fif;
 
 	struct qm_mcc_initfq opts;
 
 	for (port_id = 0; port_id < g_num_dpa_eth_ports; port_id++) {
 		pr_info("Initializing FQs for port id: %u\n", port_id);
-
+		p_cfg = &cfg_ptr->port_cfg[port_id];
+		fif = p_cfg->fman_if;
 		flags = QMAN_INITFQ_FLAG_SCHED;
 		opts.we_mask = QM_INITFQ_WE_DESTWQ |
 		    QM_INITFQ_WE_CONTEXTA | QM_INITFQ_WE_FQCTRL;
-		opts.fqd.fq_ctrl =
-			 QM_FQCTRL_CTXASTASHING | QM_FQCTRL_LOCKINCACHE |
-				QM_FQCTRL_CPCSTASH;
+		opts.fqd.fq_ctrl = QM_FQCTRL_CTXASTASHING | QM_FQCTRL_CPCSTASH;
+		if (fif->mac_type == fman_mac_10g)
+			opts.fqd.fq_ctrl |= QM_FQCTRL_PREFERINCACHE;
 		if (NULL != pcd_orp) {
 			opts.we_mask |= QM_INITFQ_WE_ORPC ;
 			opts.fqd.fq_ctrl |= QM_FQCTRL_ORP;
@@ -454,7 +458,8 @@ int init_interface(struct usdpaa_netcfg_info *cfg_ptr,
 	}
 #endif
 
-	if (0 != ipfwd_fq_init(L1_CACHE_BYTES, L1_CACHE_BYTES, L1_CACHE_BYTES, NULL, pcd_td_ptr)) {
+	if (0 != ipfwd_fq_init(cfg_ptr, L1_CACHE_BYTES, L1_CACHE_BYTES,	L1_CACHE_BYTES,
+			       NULL, pcd_td_ptr)) {
 		pr_err("Unable to initialize FQs\n");
 		return -EINVAL;
 	}
