@@ -95,6 +95,7 @@ struct ppac_arguments
 	const char *fm_cfg;
 	const char *fm_pcd;
 	int first, last;
+	int noninteractive;
 	struct ppam_arguments *ppam_args;
 };
 

@@ -883,6 +883,7 @@ static const char _ppac_args[] = "[cpu-range]";
 static const struct argp_option argp_opts[] = {
 	{"fm-config",	'c',	"FILE",	0,		"FMC configuration XML file"},
 	{"fm-pcd",	'p',	"FILE",	0,		"FMC PCD XML file"},
+	{"non-interactive", 'n', 0,	0,		"Ignore stdin"},
 	{"cpu-range",	 0,	0,	OPTION_DOC,	"'index' or 'first'..'last'"},
 	{}
 };
@@ -899,6 +900,9 @@ static error_t ppac_parse(int key, char *arg, struct argp_state *state)
 		break;
 	case 'p':
 		args->fm_pcd = arg;
+		break;
+	case 'n':
+		args->noninteractive = 1;
 		break;
 	case ARGP_KEY_ARGS:
 		if (state->argc - state->next != 1)
@@ -1068,6 +1072,7 @@ int main(int argc, char *argv[])
 		ppac_args.first = 1;
 		ppac_args.last = 1;
 	}
+	ppac_args.noninteractive = 0;
 
 	ppac_args.ppam_args = &ppam_args;
 
@@ -1157,7 +1162,13 @@ int main(int argc, char *argv[])
 		list_for_each_entry_safe(worker, tmpworker, &workers, node)
 			worker_reap(worker);
 
-		/* Get command */
+		/* If non-interactive, have the CLI thread twiddle its thumbs
+		 * between (infrequent) checks for dead threads. */
+		if (ppac_args.noninteractive) {
+			sleep(1);
+			continue;
+		}
+		/* Get CLI input */
 		cli = readline(ppam_prompt);
 		if (unlikely((cli == NULL) || strncmp(cli, "q", 1) == 0))
 			break;
