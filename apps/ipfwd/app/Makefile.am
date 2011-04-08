@@ -30,7 +30,6 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 bin_PROGRAMS = ipfwd_app
-dist_DATA = config.xml sample-32.xml sample-1024.xml
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/ipfwd/lib -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipfwd/include
 
