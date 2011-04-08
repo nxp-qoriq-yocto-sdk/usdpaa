@@ -123,24 +123,6 @@ cb_tx_drain(struct qman_portal *qm __always_unused,
 	return qman_cb_dqrr_consume;
 }
 
-/*************************/
-/* Buffer-pool depletion */
-/*************************/
-
-#ifdef PPAC_DEPLETION
-void bp_depletion(struct bman_portal *bm __always_unused,
-		  struct bman_pool *p,
-		  void *cb_ctx __maybe_unused,
-		  int depleted)
-{
-	u8 bpid = bman_get_params(p)->bpid;
-	BUG_ON(p != *(typeof(&p))cb_ctx);
-
-	pr_info("%s: BP%u -> %s\n", __func__, bpid,
-		depleted ? "entry" : "exit");
-}
-#endif
-
 /* Initialization code preserved here due to its dependency on ppam_* types.
  * \todo	Move this out of here at some point...
  */

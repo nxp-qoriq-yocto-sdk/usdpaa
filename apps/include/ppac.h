@@ -226,17 +226,6 @@ void cb_ern(struct qman_portal *qm __always_unused,
 	    struct qman_fq *fq,
 	    const struct qm_mr_entry *msg);
 
-/*************************/
-/* Buffer-pool depletion */
-/*************************/
-
-#ifdef PPAC_DEPLETION
-void bp_depletion(struct bman_portal *bm __always_unused,
-		  struct bman_pool *p,
-		  void *cb_ctx __maybe_unused,
-		  int depleted);
-#endif
-
 enum qm_channel get_rxc(void);
 
 int lazy_init_bpool(u8 bpid);

@@ -183,6 +183,25 @@ enum qm_channel get_rxc(void)
 	return ret;
 }
 
+/****************/
+/* Buffer-pools */
+/****************/
+
+#ifdef PPAC_DEPLETION
+static void bp_depletion(struct bman_portal *bm __always_unused,
+			  struct bman_pool *p,
+			  void *cb_ctx __maybe_unused,
+			  int depleted)
+{
+	u8 bpid = bman_get_params(p)->bpid;
+	BUG_ON(p != *(typeof(&p))cb_ctx);
+
+	pr_info("%s: BP%u -> %s\n", __func__, bpid,
+		depleted ? "entry" : "exit");
+}
+#endif
+
+/* This is also called by ppac_if_init(), hence it shouldn't be static */
 int lazy_init_bpool(u8 bpid)
 {
 	struct bman_pool_params params = {
