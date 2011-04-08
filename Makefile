@@ -163,6 +163,7 @@ endef
 define process_bin
 $(eval $(call pre_process_target,$(1),$(2),$(3),$(1),$(INSTALL_BIN),$(BIN_DIR),$(INSTALL_BIN_FLAGS)))
 $(eval $(1)_type := bin)
+$(eval BINS += $(1))
 $(foreach x,$(filter %.c,$($(1)_SOURCES)),$(eval $(call process_obj,$(1),$(x),$(basename $(x)),$(2))))
 $(BIN_DIR)/$(1):$($(1)_objs) $(addprefix $(LIB_DIR)/lib,$(addsuffix .a,$($(1)_LDADD)))
 	$$(Q)echo " [LD] $$(notdir $$@)";
@@ -172,6 +173,7 @@ endef
 define process_lib
 $(eval $(call pre_process_target,$(1),$(2),$(3),lib$(1).a,$(INSTALL_LIB),$(LIB_DIR),$(INSTALL_LIB_FLAGS)))
 $(eval $(1)_type := lib)
+$(eval LIBS += $(1))
 $(foreach x,$(filter %.c,$($(1)_SOURCES)),$(eval $(call process_obj,$(1),$(x),$(basename $(x)),$(2))))
 $(LIB_DIR)/lib$(1).a:$($(1)_objs)
 	$(Q)echo " [AR] $$(notdir $$@)"
@@ -192,8 +194,6 @@ define process_dir
   	$(AM_CFLAGS),$(x),$(INSTALL_OTHER),,$(INSTALL_OTHER_FLAGS))))
   $(eval ALLDIRS += $(1))
   $(foreach s,$(SUBDIRS),$(eval $(call process_dir,$(1)/$(s),$(1)/Makefile.am)))
-  BINS += $(bin_PROGRAMS)
-  LIBS += $(lib_LIBRARIES)
 $(1)/Makefile.am:$(2)
 	$$(Q)touch $(1)/Makefile.am
 endef

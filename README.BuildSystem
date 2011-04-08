@@ -265,7 +265,7 @@ built from lower-level "Makefile.am" files on higher-level ones, and from there,
 up to the top-level "Makefile.am" and finally to the build rules themselves in
 "Makefile". (So a modification to "Makefile" triggers all "Makefile.am" files to
 be considered out of date, whereas a modification to any "Makefile.am" triggers
-only sub-directory's "Makefile.am" files to be considered out of date.)
+only sub-directory "Makefile.am" files to be considered out of date.)
 
 The above step also generates a list of all installable objects, which the
 following line uses to generate install rules for each such object;
@@ -282,8 +282,6 @@ This function is called for each directory. It loads the directory's
   * calls "pre_process_target" for each installable file defined in dist_DATA
   * adds the directory to the global list of directories ALLDIRS
   * calls "process_dir" for each sub-directory defined in SUBDIRS
-  * adds bin_PROGRAMS to the global list of executables BINS
-  * adds lib_LIBRARIES to the global list of libraries LIBS
   * declares a dependency for the Makefile.am file on the parent makefile.
 
 Note, the fact that "process_dir" calls itself for SUBDIRS entries is how the
@@ -304,6 +302,7 @@ This function is called for each executable target "tgt";
 
   * calls "pre_process_target", passing executable-specific defaults
   * sets tgt_type to "bin" (only used for "make debug")
+  * adds "tgt" to the global list of executables BINS
   * calls "process_obj" for for all C source files in tgt_SOURCES.
   * instantiates a rule that makes "tgt" dependent on;
     * all its object files,
@@ -319,6 +318,7 @@ This function is called for each library target "tgt";
 
   * calls "pre_process_target", passing library-specific defaults
   * sets tgt_type to "lib" (only used for "make debug")
+  * adds "tgt" to the global list of libraries LIBS
   * calls "process_obj" for for all C source files in tgt_SOURCES.
   * instantiates a rule that makes "tgt" dependent on;
     * all its object files,
