@@ -22,17 +22,30 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-for net in 24 29
-do
-	for src in $(seq 2 24)
+net_pair_routes()
+{
+	for net in $1 $2
 	do
-		for dst in $(seq 2 24)
+		for src in $(seq 2 $(expr $3 - 1))
 		do
-			ipfwd_config -B -s 192.168.$net.$src			\
-					-d 192.168.$(expr 24 + 29 - $net).$dst	\
-					-g 192.168.$(expr 24 + 29 - $net).2
+			for dst in $(seq 2 $3)
+			do
+				ipfwd_config -B -s 192.168.$net.$src			\
+						-d 192.168.$(expr $1 + $2 - $net).$dst	\
+						-g 192.168.$(expr $1 + $2 - $net).2
+			done
 		done
 	done
-done
+}
+
+case $(basename $0 .sh) in
+	ipfwd_22G)				# 1008
+		net_pair_routes 130 140 8	# 2 *  6 *  7 =	 84
+		net_pair_routes 60 160 23	# 2 * 21 * 22 = 924
+		;;
+	ipfwd_20G)				# 1012
+		net_pair_routes 60 160 24	# 2 * 22 * 23 = 1012
+		;;
+esac
 ipfwd_config -O
 echo IPSecFwd CP initialization complete

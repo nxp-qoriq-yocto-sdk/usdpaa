@@ -519,10 +519,10 @@ void create_local_nodes(struct node_t *arr, const struct usdpaa_netcfg_info *cfg
 		for (node = 0; node < local_node_count[port]; node++,
 			     node_idx++) {
 			memcpy(&arr[node_idx].mac, &addr_hi, sizeof(addr_hi));
-			arr[node_idx].ip = 0xc0a80002 +
-				((20 + fif->fman_idx * 5 +
-				  (fif->mac_type == fman_mac_1g ? 0 : 4) + fif->mac_idx) << 8) +
-				node;
+			arr[node_idx].ip = 0xc0a80a02 +
+				((100 * fif->fman_idx +
+				  10 * ((fif->mac_type == fman_mac_1g ? 0 : 5) + fif->mac_idx))
+				 << 8) + node;
 			memcpy(arr[node_idx].mac.ether_addr_octet + sizeof(addr_hi),
 			       &arr[node_idx].ip,
 			       sizeof(arr[node_idx].ip));
@@ -545,9 +545,9 @@ void create_iface_nodes(struct node_t *arr, const struct usdpaa_netcfg_info *cfg
 	for (port = 0, if_idx = 0; port < g_num_dpa_eth_ports; port++, if_idx++) {
 		fif = cfg_ptr->port_cfg[port].fman_if;
 		arr[if_idx].mac = fif->mac_addr;
-		arr[if_idx].ip = 0xc0a80001 +
-			((20 + fif->fman_idx * 5 +
-			  (fif->mac_type == fman_mac_1g ? 0 : 4) + fif->mac_idx) << 8);
+		arr[if_idx].ip = 0xc0a80a01 +
+			((100 * fif->fman_idx +
+			  10 * ((fif->mac_type == fman_mac_1g ? 0 : 5) + fif->mac_idx)) << 8);
 		pr_debug("PortID = %d is FMan\ninterface node with IP Address\n"
 			 "%d.%d.%d.%d and MAC Address\n"ETH_MAC_PRINTF_FMT"\n", port,
 			 ((uint8_t *)&arr[if_idx].ip)[0],
