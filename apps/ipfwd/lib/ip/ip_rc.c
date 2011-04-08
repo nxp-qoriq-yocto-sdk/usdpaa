@@ -34,7 +34,7 @@
  to the head of the chained list of hash entries for this bucket.  Also, it
  contains its bucket id, which is simply an index.
  The hash entries contain information about a particular entry, including
- a valid flag, destination IP address (daddr), TOS, egress interface, and
+ a valid flag, destination IP address (daddr), egress interface, and
  the next- hop IP.
 
  The write lock is designed to be used for the write side of an RCU-style
@@ -53,9 +53,9 @@
 
  So, a route cache might look something like this:
 
-		| valid = true	|
- | id = 0 |	| daddr		|
- | wlock  |	| TOS		|
+
+ | id = 0 |	| valid = true	|
+ | wlock  |	| daddr		|
  | head --|-->	| egress_iface	|
 		| next_hop	|
 		| next_entry ---|--> NULL
@@ -66,75 +66,74 @@
 
  . . .
 
-		| valid = false |   | valid = true  |
- | id = N |	| daddr		|   | daddr	    |
- | wlock  |	| TOS		|   | TOS	    |
+
+ | id = N |	| valid = false |   | valid = true  |
+ | wlock  |	| daddr		|   | daddr	    |
  | head --|-->	| egress_iface	|   | egress_iface  |
 		| next_hop	|   | next_hop	    |
 		| next_entry ---|-->| next_entry ---|--> NULL
 
  FINDING ENTRIES
  To find if a particular entry exists, given a destination address (daddr)
- and a TOS value (tos), do the following:
+ do the following:
  1.  Hash the destination address, and get a bucket id.
  2.  Use this bucket id to get a reference to the correct bucket in the
 	bucket array.
  3.  Acquire a pointer (p) to the head pointer - do not dereference yet:
 
-		| valid = false |   | valid = true  |
- | id = N |	| daddr		|   | daddr	    |
- | wlock  |	| TOS		|   | TOS	    |
+
+ | id = N |	| valid = false |   | valid = true  |
+ | wlock  |	| daddr		|   | daddr	    |
  | head --|-->	| egress_iface	|   | egress_iface  |
- -^----		| next_hop	|   | next_hop	    |
-  |		| next_entry ---|-->| next_entry ---|--> NULL
-  |	      ---------------	  ---------------
-  |
-  p
+  -^------	| next_hop	|   | next_hop	    |
+   |		| next_entry ---|-->| next_entry ---|--> NULL
+   |		 ---------------     ---------------
+   |
+   p
 
  4.  Start a read-side critical section
  5.  Dereference (p), call it (entry) (entry = *p).
 
-		-------------	   ---------------
- --------     | valid = false |	  | valid = true  |
- | id = N |   | daddr	      |	  | daddr	  |
- | wlock  |   | TOS	      |	  | TOS		  |
+
+  --------     ---------------	   ---------------
+ | id = N |   | valid = false |	  | valid = true  |
+ | wlock  |   | daddr	      |	  | daddr	  |
  | head --|-->| egress_iface  |	  | egress_iface  |
- -^------    | next_hop	     |	 | next_hop	 |
-  |	---->| next_entry ---|-->| next_entry ---|--> NULL
-  |    |      ---------------	  ---------------
+  -^------    | next_hop      |	  | next_hop	  |
+  |	----> | next_entry ---|-->| next_entry ---|--> NULL
+  |    |       ---------------	   ---------------
   |    |
   p  entry
 
  6.  If entry == NULL, goto 9 (assume it's not).
- 7.  If the entry->valid == true, and entry->daddr == daddr, and
-	entry->tos == tos, then go to 10.  Valid was false, so continuing.
+ 7.  If the entry->valid == true, and entry->daddr == daddr, then go to 10
+     Valid was false, so continuing
 
  8.  p = &(entry->next_entry):
 
 		 ---------------     ---------------
- --------	| valid = false |   | valid = true  |
+  --------	| valid = false |   | valid = true  |
  | id = N |	| daddr		|   | daddr	    |
- | wlock  |	| TOS		|   | TOS	    |
- | head --|-->	| egress_iface	|   | egress_iface  |
-  --------	| next_hop	|   | next_hop	    |
-	---->	| next_entry ---|-->| next_entry ---|--> NULL
-		|      -^-------------	   ---------------
-			|	|
-			entry	  p
+ | wlock  |	| egress_iface	|   | egress_iface  |
+ | head --|-->	| next_hop	|   | next_hop	    |
+  --------	| next_entry ---|-->| next_entry ---|--> NULL
+	---->	 -^-------------     ---------------
+	|	  |
+	|	  p
+       entry
 
  9.  (entry = *p):
 
 		 --------------	     ---------------
- --------	| valid = false |   | valid = true  |
+  --------	| valid = false |   | valid = true  |
  | id = N |	| daddr		|   | daddr	    |
- | wlock  |	| TOS		|   | TOS	    |
- | head --|-->	| egress_iface	|   | egress_iface  |
- --------	| next_hop	|   | next_hop	    |
-		| next_entry ---|-->| next_entry ---|--> NULL
-		-^-------------	    ---------------
-		|		   ^
-		p		   |
-				entry---
+ | wlock  |	| egress_iface	|   | egress_iface  |
+ | head --|-->	| next_hop	|   | next_hop	    |
+  --------	| next_entry ---|-->| next_entry ---|--> NULL
+		 -^-------------     ---------------
+		  |			^
+		  p			|
+				entry ---
 
  9.  Go to 6.
 
@@ -161,25 +160,21 @@
 #define BYTES_PER_WORD (4)
 struct rc_bucket_t *__rc_find_bucket(struct rc_t *rc,
 				     in_addr_t saddr,
-				     in_addr_t daddr,
-				     uint8_t tos);
+				     in_addr_t daddr);
 
 struct rc_entry_t **__rc_find_entry(struct rc_t *rc,
 				    struct rc_bucket_t *bucket,
 				    in_addr_t saddr,
-				    in_addr_t daddr,
-				    uint8_t tos);
+				    in_addr_t daddr);
 
 struct rt_dest_t *__rc_lookup(struct rc_t *rc,
 			      struct rc_bucket_t *bucket,
 			      in_addr_t saddr,
-			      in_addr_t daddr,
-			      uint8_t tos);
+			      in_addr_t daddr);
 
 struct rc_entry_t *rc_entry_fast_lookup(struct rc_t *rc,
 					in_addr_t saddr,
 					in_addr_t daddr,
-					uint8_t tos,
 					uint32_t idx)
 {
 	struct rc_entry_t *entry = NULL;
@@ -191,7 +186,7 @@ struct rc_entry_t *rc_entry_fast_lookup(struct rc_t *rc,
 #ifdef IP_RCU_ENABLE
 	rcu_read_lock();
 #endif
-	entry_ptr = __rc_find_entry(rc, bucket, saddr, daddr, tos);
+	entry_ptr = __rc_find_entry(rc, bucket, saddr, daddr);
 #ifdef IP_RCU_ENABLE
 	entry = rcu_dereference(*entry_ptr);
 	if (entry != NULL) {
@@ -212,18 +207,17 @@ struct rc_entry_t *rc_entry_fast_lookup(struct rc_t *rc,
 
 struct rc_entry_t *rc_entry_lookup(struct rc_t *rc,
 				   in_addr_t saddr,
-				   in_addr_t daddr,
-				   uint8_t tos)
+				   in_addr_t daddr)
 {
 	struct rc_bucket_t *bucket;
 	struct rc_entry_t *entry;
 	struct rc_entry_t **entry_ptr;
 
-	bucket = __rc_find_bucket(rc, saddr, daddr, tos);
+	bucket = __rc_find_bucket(rc, saddr, daddr);
 #ifdef IP_RCU_ENABLE
 	rcu_read_lock();
 #endif
-	entry_ptr = __rc_find_entry(rc, bucket, saddr, daddr, tos);
+	entry_ptr = __rc_find_entry(rc, bucket, saddr, daddr);
 #ifdef IP_RCU_ENABLE
 	entry = rcu_dereference(*entry_ptr);
 	if (entry != NULL) {
@@ -327,14 +321,13 @@ void rc_delete(struct rc_t *rc)
 
 struct rt_dest_t *rc_lookup(struct rc_t *rc,
 			    in_addr_t saddr,
-			    in_addr_t daddr,
-			    uint8_t tos)
+			    in_addr_t daddr)
 {
 	struct rc_bucket_t *bucket;
 	struct rt_dest_t *dest;
 
-	bucket = __rc_find_bucket(rc, saddr, daddr, tos);
-	dest = __rc_lookup(rc, bucket, saddr, daddr, tos);
+	bucket = __rc_find_bucket(rc, saddr, daddr);
+	dest = __rc_lookup(rc, bucket, saddr, daddr);
 	/*
 	   Do not need to hold a reference here - it is not held across
 	   across iterations, so it will be caught by RCU
@@ -347,7 +340,6 @@ struct rt_dest_t *rc_lookup(struct rc_t *rc,
 struct rt_dest_t *rc_fast_lookup(struct rc_t *rc,
 				 in_addr_t saddr,
 				 in_addr_t daddr,
-				 uint8_t tos,
 				 uint32_t idx)
 {
 	struct rc_bucket_t *bucket;
@@ -355,7 +347,7 @@ struct rt_dest_t *rc_fast_lookup(struct rc_t *rc,
 
 	assert(idx < RC_BUCKETS);
 	bucket = &(rc->buckets[idx]);
-	dest = __rc_lookup(rc, bucket, saddr, daddr, tos);
+	dest = __rc_lookup(rc, bucket, saddr, daddr);
 	/*
 	   Do not need to hold a reference here - it is not held across
 	   across iterations, so it will be caught by RCU
@@ -388,15 +380,13 @@ bool rc_add_entry(struct rc_t *rc, struct rc_entry_t *new_entry)
 	 would update rc table */
 	count = rc->stats->entry_count;
 	if (count < MAX_RC_ENTRIES) {
-		bucket = __rc_find_bucket(rc, new_entry->saddr,
-					  new_entry->daddr, new_entry->tos);
+		bucket = __rc_find_bucket(rc, new_entry->saddr, new_entry->daddr);
 #ifdef IP_RCU_ENABLE
 		rcu_read_lock();
 #endif
 		spin_lock(&(bucket->wlock));
 		entry_ptr = __rc_find_entry(rc, bucket,
-					    new_entry->saddr,
-					    new_entry->daddr, new_entry->tos);
+					    new_entry->saddr, new_entry->daddr);
 #ifdef IP_RCU_ENABLE
 		prev_entry = rcu_dereference(*entry_ptr);
 #else
@@ -438,15 +428,13 @@ bool rc_add_update_entry(struct rc_t *rc, struct rc_entry_t *new_entry)
 	success = false;
 	count = rc->stats->entry_count;
 	if (count < MAX_RC_ENTRIES) {
-		bucket = __rc_find_bucket(rc, new_entry->saddr,
-					  new_entry->daddr, new_entry->tos);
+		bucket = __rc_find_bucket(rc, new_entry->saddr, new_entry->daddr);
 #ifdef IP_RCU_ENABLE
 		rcu_read_lock();
 #endif
 		spin_lock(&(bucket->wlock));
 		entry_ptr = __rc_find_entry(rc, bucket,
-					    new_entry->saddr,
-					    new_entry->daddr, new_entry->tos);
+					    new_entry->saddr, new_entry->daddr);
 #ifdef IP_RCU_ENABLE
 		prev_entry = rcu_dereference(*entry_ptr);
 #else
@@ -481,20 +469,19 @@ bool rc_add_update_entry(struct rc_t *rc, struct rc_entry_t *new_entry)
 
 bool rc_remove_entry(struct rc_t *rc,
 		     in_addr_t saddr,
-		     in_addr_t daddr,
-		     uint8_t tos)
+		     in_addr_t daddr)
 {
 	struct rc_entry_t **entry_ptr;
 	struct rc_entry_t *entry;
 	struct rc_bucket_t *bucket;
 
-	bucket = __rc_find_bucket(rc, saddr, daddr, tos);
+	bucket = __rc_find_bucket(rc, saddr, daddr);
 
 #ifdef IP_RCU_ENABLE
 	rcu_read_lock();
 #endif
 	spin_lock(&(bucket->wlock));
-	entry_ptr = __rc_find_entry(rc, bucket, saddr, daddr, tos);
+	entry_ptr = __rc_find_entry(rc, bucket, saddr, daddr);
 #ifdef IP_RCU_ENABLE
 	entry = rcu_dereference(*entry_ptr);
 #else
@@ -560,8 +547,7 @@ void rc_exec_per_entry(struct rc_t *rc, rc_execfn_t execfn)
 struct rt_dest_t *__rc_lookup(struct rc_t *rc,
 			      struct rc_bucket_t *bucket,
 			      in_addr_t saddr,
-			      in_addr_t daddr,
-			      uint8_t tos)
+			      in_addr_t daddr)
 {
 	struct rc_entry_t *entry;
 	struct rc_entry_t **entry_ptr;
@@ -571,7 +557,7 @@ struct rt_dest_t *__rc_lookup(struct rc_t *rc,
 #ifdef IP_RCU_ENABLE
 	rcu_read_lock();
 #endif
-	entry_ptr = __rc_find_entry(rc, bucket, saddr, daddr, tos);
+	entry_ptr = __rc_find_entry(rc, bucket, saddr, daddr);
 #ifdef IP_RCU_ENABLE
 	entry = rcu_dereference(*entry_ptr);
 	if (entry != NULL) {
@@ -597,24 +583,21 @@ struct rt_dest_t *__rc_lookup(struct rc_t *rc,
 
 struct rc_bucket_t *__rc_find_bucket(struct rc_t *rc,
 				     in_addr_t saddr,
-				     in_addr_t daddr,
-				     uint8_t tos)
+				     in_addr_t daddr)
 {
 	uint32_t hash;
 
-	hash = compute_rc_hash(saddr, daddr, tos);
+	hash = compute_rc_hash(saddr, daddr);
 	pr_debug("Bucket hash is %x\n", hash);
-	pr_debug("Src = 0x%x Dest = 0x%x, TOS = 0x%x\n",
-		saddr, daddr, tos);
-	return &(rc->buckets[hash]);
+	pr_debug("Src = 0x%x Dest = 0x%x\n", saddr, daddr);
+	return rc->buckets + hash;
 }
 
 
 struct rc_entry_t **__rc_find_entry(struct rc_t *rc,
 				    struct rc_bucket_t *bucket,
 				    in_addr_t saddr,
-				    in_addr_t daddr,
-				    uint8_t tos)
+				    in_addr_t daddr)
 {
 	struct rc_entry_t **entry_ptr;
 	struct rc_entry_t *entry;

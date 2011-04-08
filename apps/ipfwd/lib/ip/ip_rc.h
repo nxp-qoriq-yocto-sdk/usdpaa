@@ -87,9 +87,6 @@ struct rc_entry_t {
 	/**< Pointer to the egress interface structure */
 	uint32_t last_used;
 	/**< Time when the entry was last used - for Aging*/
-	/* This is placed here for alignment reasons */
-	uint8_t tos;
-	/**< Type of service */
 } __attribute__((aligned(L1_CACHE_BYTES)));
 
 /**
@@ -150,19 +147,16 @@ static inline uint32_t compute_decap_hash(in_addr_t saddr,
  \brief Computes Route cache hash Value
  \param[in] saddr Source IP Address
  \param[in] daddr Destination IP Address
- \param[in] tos Type of service Field
  \return Returns the Hash index into the Route Cache
  */
 static inline uint32_t compute_rc_hash(in_addr_t saddr,
-				       in_addr_t daddr,
-				       uint8_t tos)
+				       in_addr_t daddr)
 {
 	uint64_t result;
 
 	result = crc64_init();
 	result = crc64_compute_word(saddr, result);
 	result = crc64_compute_word(daddr, result);
-	result = crc64_compute_byte(tos, result);
 	return (uint32_t) result & RC_HASH_MASK;
 }
 
@@ -216,55 +210,47 @@ void rc_free_entry(struct rc_t *rc, struct rc_entry_t *entry);
  \param[in] rc Pointer to the Route Cache
  \param[in] saddr Source IP Address
  \param[in] daddr Destination IP Address
- \param[in] tos TOS Value in the IP Header
  \return 'true' if removed successfully, else 'false'
  */
 bool rc_remove_entry(struct rc_t *rc,
 		     in_addr_t saddr,
-		     in_addr_t daddr,
-		     uint8_t tos);
+		     in_addr_t daddr);
 
 /**
- \brief Search the route cache for a particular entry based on src, dst, and tos
+ \brief Search the route cache for a particular entry based on src and dst
  \param[in] rc The route cache to search
  \param[in] saddr Source IP Address
  \param[in] daddr Destination IP Address
- \param[in] tos The TOS bits for which we should search.
  \retur rt_dest_t pointer corresponding to the entry if found else NULL.
  */
 struct rt_dest_t *rc_lookup(struct rc_t *rc,
 			    in_addr_t saddr,
-			    in_addr_t daddr,
-			    uint8_t tos);
+			    in_addr_t daddr);
 
 /**
- \brief Search the route cache dest for a particular entry based in src, dst, and tos.
+ \brief Search the route cache dest for a particular entry based in src and dst.
  \param[in] rc The route cache to search
  \param[in] saddr Source IP Address
  \param[in] daddr Destination IP Address
- \param[in] tos The TOS bits for which we should search.
  \param[in] index Has Index into the Route Cache to quickly fine the RC bucket.
  \return rt_dest_t pointer corresponding to the entry if found else NULL.
  */
 struct rt_dest_t *rc_fast_lookup(struct rc_t *rc,
 				 in_addr_t saddr,
 				 in_addr_t daddr,
-				 uint8_t tos,
 				 uint32_t index);
 
 /**
- \brief Search the route cache for a particular entry based in src, dst, and tos.
+ \brief Search the route cache for a particular entry based in src and dst.
  \param[in] rc The route cache to search
  \param[in] saddr Source IP Address
  \param[in] daddr Destination IP Address
- \param[in] tos The TOS bits for which we should search.
  \param[in] index Has Index into the Route Cache to quickly fine the RC bucket.
  \return rc_entry_t pointer corresponding to the entry if found else NULL.
  */
 struct rc_entry_t *rc_entry_fast_lookup(struct rc_t *rc,
 					in_addr_t saddr,
 					in_addr_t daddr,
-					uint8_t tos,
 					uint32_t index);
 /**
  \brief Prints the stats related to th eroute cache
@@ -289,12 +275,10 @@ void rc_exec_per_entry(struct rc_t *rc, rc_execfn_t execfn);
  \param[in] rc The route cache to search
  \param[in] saddr Source IP Address
  \param[in] daddr Destination IP Address
- \param[in] tos The TOS bits for which we should search.
  \return Pointer to the entry in the Route Cache if found else NULL.
 */
 struct rc_entry_t *rc_entry_lookup(struct rc_t *rc,
 				   in_addr_t saddr,
-				   in_addr_t daddr,
-				   uint8_t tos);
+				   in_addr_t daddr);
 void __rc_free_entry(void *entry, void *ctxt);
 #endif	/* LIB_IP_IP_RC_H */

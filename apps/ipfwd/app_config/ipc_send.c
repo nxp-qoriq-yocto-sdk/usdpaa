@@ -361,23 +361,6 @@ static error_t parse_route_add_opt(int key, char *arg, struct argp_state *state)
 		pr_debug("\nkey = %c; value = %s", key, arg);
 		break;
 
-	case 't':
-		/*
-		 ** TBD: Not Taking TOS from user right now-
-		 ** setting it as 0 in the starting -
-		 ** route_info->tos = atoi(arg);
-		 */
-		if ((atoi(arg) < IPC_CTRL_ROUTE_TOS_MIN) ||
-		    (atoi(arg) > IPC_CTRL_ROUTE_TOS_MAX)) {
-			pr_info("Invalid Value \"%s\" for '%c'\n", arg, key);
-			g_parse_error = ERANGE;
-			return ERANGE;
-		}
-
-		g_mndtr_param |= IPC_CTRL_PARAM_BMASK_TOS;
-		pr_debug("\nkey = %c; value = %s", key, arg);
-		break;
-
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}

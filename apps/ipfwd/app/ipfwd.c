@@ -304,7 +304,6 @@ int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
 
 	entry->dest = dest;
 	entry->last_used = mfspr(SPR_ATBL);
-	entry->tos = 0;
 
 	if (rc_add_update_entry(stack.rc, entry) == false) {
 		pr_err("Route cache entry updated\n");
@@ -327,8 +326,7 @@ int32_t ipfwd_del_route(struct app_ctrl_op_info *route_info)
 
 	dest = rc_lookup(stack.rc,
 			 route_info->ip_info.src_ipaddr,
-			 route_info->ip_info.dst_ipaddr,
-			 (uint8_t)route_info->ip_info.tos);
+			 route_info->ip_info.dst_ipaddr);
 	if (dest == NULL) {
 		pr_err("Could not find route cache entry to be deleted\n");
 		return -1;
@@ -338,9 +336,7 @@ int32_t ipfwd_del_route(struct app_ctrl_op_info *route_info)
 
 	if (rc_remove_entry(stack.rc,
 			    route_info->ip_info.src_ipaddr,
-			    route_info->ip_info.dst_ipaddr,
-			    (uint8_t)route_info->ip_info.tos)
-				== false) {
+			    route_info->ip_info.dst_ipaddr) == false) {
 		pr_err("Could not delete route cache entry\n");
 		return -1;
 	}

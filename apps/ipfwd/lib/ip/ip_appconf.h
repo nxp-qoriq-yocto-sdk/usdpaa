@@ -55,7 +55,6 @@ struct app_ctrl_ip_info {
 	in_addr_t src_ipaddr;			/**<Source IP Address>*/
 	in_addr_t dst_ipaddr;			/**<Destination IP Address>*/
 	in_addr_t gw_ipaddr;			/**<Gateway IP Address>*/
-	unsigned int tos;			/**<Gateway IP Address>*/
 	struct ether_addr mac_addr;		/**< Mac Address */
 	unsigned int flow_id;			/**< Flow Id */
 	unsigned int frame_cnt;			/**<Frame Count */

@@ -53,20 +53,16 @@ enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,
 		entry = rc_entry_fast_lookup(ctxt->rc,
 					ip_hdr->saddr,
 					ip_hdr->daddr,
-					ip_hdr->tos,
 					RC_BUCKET_INDEX(notes));
 		pr_debug("Hash index= %x\n", RC_BUCKET_INDEX(notes));
 
 		if (entry == NULL) {
-			entry = rc_entry_lookup(ctxt->rc,
-					ip_hdr->saddr,
-					ip_hdr->daddr,
-					ip_hdr->tos);
+			entry = rc_entry_lookup(ctxt->rc, ip_hdr->saddr, ip_hdr->daddr);
 			if (entry == NULL) {
 				pr_debug("Fast Lookup Failed, going slow \
-				   for Src = 0x%x; Dest = 0x%x; TOS = 0x%x\n",
+				   for Src = 0x%x; Dest = 0x%x\n",
 				   ip_hdr->saddr,
-				   ip_hdr->daddr, ip_hdr->tos);
+				   ip_hdr->daddr);
 				retval =
 				ip_route_input_slow(ctxt, notes, ip_hdr);
 				return retval;

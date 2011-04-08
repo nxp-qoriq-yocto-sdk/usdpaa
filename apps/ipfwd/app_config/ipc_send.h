@@ -52,7 +52,7 @@ const char *argp_program_version = "argex 1.0";
 /**< Bit Mask for Encryption type */
 #define IPC_CTRL_PARAM_BIT_ATYPE	(1 << 10)
 /**< Bit Mask for Authentication type */
-#define IPC_CTRL_PARAM_BIT_FLOWID       (1 << 11)
+#define IPC_CTRL_PARAM_BIT_FLOWID	(1 << 11)
 #define IPC_CTRL_PARAM_MAX_IPSEC_BIT_NO	12
 
 /**< Mandatory Parameters needed for creating SA */
@@ -69,15 +69,9 @@ const char *argp_program_version = "argex 1.0";
 /**< Bit Mask for Dst IP */
 #define IPC_CTRL_PARAM_BMASK_GWIP		(1 << 2)
 /**< Bit Mask for Gateway IP */
-#define IPC_CTRL_PARAM_BMASK_TOS		(1 << 3)
-/**< Bit Mask for TOS */
 #define IPC_CTRL_PARAM_BMASK_FLOWID	(1 << 4)
 /**< Bit Mask for Flow ID */
 #define IPC_CTRL_PARAM_MAX_IP_BIT_NO		5
-
-#define IPC_CTRL_ROUTE_TOS_MIN					0
-#define IPC_CTRL_ROUTE_TOS_MAX					256
-#define IPC_CTRL_ROUTE_TOS_DEF					0
 
 #define IPC_CTRL_ROUTE_FLOWID_MIN				0
 #define IPC_CTRL_ROUTE_FLOWID_MAX				1024
@@ -92,7 +86,6 @@ static struct argp_option route_add_options[] = {
 	{"s", 's', "SRCIP", 0, "Source IP", 0},
 	{"d", 'd', "DESTIP", 0, "Destination IP", 0},
 	{"g", 'g', "GWIP", 0, "Gateway IP", 0},
-	{"t", 't', "TOS", 0, "Type of Service - (0 - 256) {Default: 0}", 0},
 	{"f", 'f', "FLOWID", 0, "Flow ID - (0 - 64) {Default: 0}", 0},
 	{0, 0, 0, 0, 0, 0}
 };
@@ -104,7 +97,6 @@ static struct argp_option route_add_options[] = {
 static struct argp_option route_del_options[] = {
 	{"s", 's', "SRCIP", 0, "Source IP", 0},
 	{"d", 'd', "DESTIP", 0, "Destination IP", 0},
-	{"t", 't', "TOS", 0, "Type of Service - (0 - 256) {Default: 0}", 0},
 	{0, 0, 0, 0, 0, 0}
 };
 
