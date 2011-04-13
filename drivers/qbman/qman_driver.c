@@ -118,7 +118,6 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 		suffix++;
 	} while ((fd < 0) && (errno == EBUSY));
 	if (fd < 0) {
-		perror("no available Qman portal device");
 		ret = -ENODEV;
 		goto end;
 	}
