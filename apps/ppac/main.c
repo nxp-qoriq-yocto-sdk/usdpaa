@@ -263,7 +263,6 @@ struct worker_msg {
 		worker_msg_query_cgr
 #endif
 	} msg;
-	pthread_barrier_t barr;
 #ifdef PPAC_CGR
 	union {
 		struct {
@@ -277,10 +276,13 @@ struct worker_msg {
 struct worker {
 	struct worker_msg *msg;
 	int cpu;
+	unsigned int uid;
 	pthread_t id;
 	int result;
 	struct list_head node;
 } ____cacheline_aligned;
+
+static unsigned int next_worker_uid;
 
 /* -------------------------------- */
 /* msg-processing within the worker */
@@ -430,7 +432,8 @@ static int process_msg(struct worker *worker, struct worker_msg *msg)
 
 	/* List */
 	if (msg->msg == worker_msg_list)
-		printf("Thread alive on cpu %d\n", worker->cpu);
+		printf("Thread uid:%u alive (on cpu %d)\n",
+			worker->uid, worker->cpu);
 
 	/* Quit */
 	else if (msg->msg == worker_msg_quit)
@@ -460,9 +463,7 @@ static int process_msg(struct worker *worker, struct worker_msg *msg)
 	else
 		panic("bad message type");
 
-	/* Release ourselves and the CLI thread from this message */
 	msg->msg = worker_msg_none;
-	pthread_barrier_wait(&msg->barr);
 	return ret;
 }
 
@@ -514,21 +515,22 @@ static void *worker_fn(void *__worker)
 	if (s != 0) {
 		fprintf(stderr, "pthread_setaffinity_np(%d) failed, ret=%d\n",
 			worker->cpu, s);
-		goto end;
+		goto err;
 	}
 
 	/* Initialise bman/qman portals */
 	s = bman_thread_init(worker->cpu, 0);
 	if (s) {
-		fprintf(stderr, "bman_thread_init(%d) failed, ret=%d\n",
-			worker->cpu, s);
-		goto end;
+		fprintf(stderr, "No available Bman portals for cpu %d\n",
+			worker->cpu);
+		goto err;
 	}
 	s = qman_thread_init(worker->cpu, 0);
 	if (s) {
-		fprintf(stderr, "qman_thread_init(%d) failed, ret=%d\n",
-			worker->cpu, s);
-		goto end;
+		fprintf(stderr, "No available Qman portals for cpu %d\n",
+			worker->cpu);
+		bman_thread_finish();
+		goto err;
 	}
 	fd_qman = qman_thread_fd();
 	fd_bman = bman_thread_fd();
@@ -617,40 +619,48 @@ end:
 	}
 	qman_thread_finish();
 	bman_thread_finish();
+err:
 	TRACE("Leaving thread on cpu %d\n", worker->cpu);
-	/* TODO: tear down the portal! */
 	pthread_exit(NULL);
 }
 
 /* ------------------------------ */
 /* msg-processing from main()/CLI */
 
-static void msg_list(struct worker *worker)
+/* This is implemented in the worker-management code lower down, but we need to
+ * use it from msg_post() */
+static int worker_reap(struct worker *worker);
+
+static int msg_post(struct worker *worker, enum worker_msg_type m)
 {
-	struct worker_msg *msg = worker->msg;
-	msg->msg = worker_msg_list;
-	pthread_barrier_wait(&msg->barr);
+	worker->msg->msg = m;
+	while (worker->msg->msg != worker_msg_none) {
+		if (!worker_reap(worker))
+			/* The worker is already gone */
+			return -EIO;
+		pthread_yield();
+	}
+	return 0;
 }
 
-static void msg_quit(struct worker *worker)
+static int msg_list(struct worker *worker)
 {
-	struct worker_msg *msg = worker->msg;
-	msg->msg = worker_msg_quit;
-	pthread_barrier_wait(&msg->barr);
+	return msg_post(worker, worker_msg_list);
 }
 
-static void msg_do_global_init(struct worker *worker)
+static int msg_quit(struct worker *worker)
 {
-	struct worker_msg *msg = worker->msg;
-	msg->msg = worker_msg_do_global_init;
-	pthread_barrier_wait(&msg->barr);
+	return msg_post(worker, worker_msg_quit);
 }
 
-static void msg_do_global_finish(struct worker *worker)
+static int msg_do_global_init(struct worker *worker)
 {
-	struct worker_msg *msg = worker->msg;
-	msg->msg = worker_msg_do_global_finish;
-	pthread_barrier_wait(&msg->barr);
+	return msg_post(worker, worker_msg_do_global_init);
+}
+
+static int msg_do_global_finish(struct worker *worker)
+{
+	return msg_post(worker, worker_msg_do_global_finish);
 }
 
 #ifdef PPAC_CGR
@@ -672,64 +682,18 @@ static void dump_cgr(const struct qm_mcr_querycgr *res)
 	printf("       a_bcnt: 0x%02x_%04x_%04x\n", (u32)(val64 >> 32),
 		(u32)(val64 >> 16) & 0xffff, (u32)val64 & 0xffff);
 }
-static void msg_query_cgr(struct worker *worker)
+static int msg_query_cgr(struct worker *worker)
 {
-	struct worker_msg *msg = worker->msg;
-	msg->msg = worker_msg_query_cgr;
-	pthread_barrier_wait(&msg->barr);
+	int ret = msg_post(worker, worker_msg_query_cgr);
+	if (ret)
+		return ret;
 	printf("Rx CGR ID: %d, selected fields;\n", cgr_rx.cgrid);
 	dump_cgr(&worker->msg->query_cgr.res_rx);
 	printf("Tx CGR ID: %d, selected fields;\n", cgr_tx.cgrid);
 	dump_cgr(&worker->msg->query_cgr.res_tx);
+	return 0;
 }
 #endif
-
-/* ---------------------------- */
-/* worker setup from main()/CLI */
-
-static struct worker *worker_new(int cpu)
-{
-	struct worker *ret;
-	int err = posix_memalign((void **)&ret, L1_CACHE_BYTES, sizeof(*ret));
-	if (err)
-		goto out;
-	err = posix_memalign((void **)&ret->msg, L1_CACHE_BYTES, sizeof(*ret->msg));
-	if (err) {
-		free(ret);
-		goto out;
-	}
-	ret->cpu = cpu;
-	ret->msg->msg = worker_msg_none;
-	pthread_barrier_init(&ret->msg->barr, NULL, 2);
-	err = pthread_create(&ret->id, NULL, worker_fn, ret);
-	if (err) {
-		free(ret);
-		goto out;
-	}
-	/* Block until the worker is in its polling loop (by sending a "list"
-	 * command and waiting for it to get processed). This ensures any
-	 * start-up logging is produced before the CLI prints another prompt. */
-	msg_list(ret);
-	return ret;
-out:
-	fprintf(stderr, "error: failed to create thread for %d\n", cpu);
-	return NULL;
-}
-
-static void __worker_free(struct worker *worker)
-{
-	int err, cpu = worker->cpu;
-	msg_quit(worker);
-	err = pthread_join(worker->id, NULL);
-	if (err) {
-		/* Leak, but warn */
-		fprintf(stderr, "Failed to join thread %d\n", worker->cpu);
-		return;
-	}
-	free(worker->msg);
-	free(worker);
-	printf("Thread killed on cpu %d\n", cpu);
-}
 
 /********************/
 /* main()/CLI logic */
@@ -743,12 +707,42 @@ static unsigned long ncpus;
  * portal.) */
 static struct worker *primary;
 
+static struct worker *worker_new(int cpu)
+{
+	struct worker *ret;
+	int err = posix_memalign((void **)&ret, L1_CACHE_BYTES, sizeof(*ret));
+	if (err)
+		goto out;
+	err = posix_memalign((void **)&ret->msg, L1_CACHE_BYTES, sizeof(*ret->msg));
+	if (err) {
+		free(ret);
+		goto out;
+	}
+	ret->cpu = cpu;
+	ret->uid = next_worker_uid++;
+	ret->msg->msg = worker_msg_none;
+	INIT_LIST_HEAD(&ret->node);
+	err = pthread_create(&ret->id, NULL, worker_fn, ret);
+	if (err) {
+		free(ret);
+		goto out;
+	}
+	/* Block until the worker is in its polling loop (by sending a "list"
+	 * command and waiting for it to get processed). This ensures any
+	 * start-up logging is produced before the CLI prints another prompt. */
+	if (!msg_list(ret))
+		return ret;
+out:
+	fprintf(stderr, "error: failed to create worker for cpu %d\n", cpu);
+	return NULL;
+}
+
 static void worker_add(struct worker *worker)
 {
 	struct worker *i;
 	/* Keep workers ordered by cpu */
 	list_for_each_entry(i, &workers, node) {
-		if (i->cpu >= worker->cpu) {
+		if (i->cpu > worker->cpu) {
 			list_add_tail(&worker->node, &i->node);
 			return;
 		}
@@ -758,28 +752,40 @@ static void worker_add(struct worker *worker)
 
 static void worker_free(struct worker *worker)
 {
+	int err, cpu = worker->cpu;
+	unsigned int uid = worker->uid;
 	BUG_ON(worker == primary);
+	msg_quit(worker);
+	err = pthread_join(worker->id, NULL);
+	if (err) {
+		/* Leak, but warn */
+		fprintf(stderr, "Failed to join thread uid:%u (cpu %d)\n",
+			worker->uid, worker->cpu);
+		return;
+	}
 	list_del(&worker->node);
-	__worker_free(worker);
+	free(worker->msg);
+	free(worker);
+	printf("Thread uid:%u killed (cpu %d)\n", uid, cpu);
 }
 
-static void worker_reap(struct worker *worker)
+static int worker_reap(struct worker *worker)
 {
-	if (!pthread_tryjoin_np(worker->id, NULL)) {
-		if (worker == primary) {
-			pr_crit("Primary thread died!\n");
-			abort();
-		}
-		list_del(&worker->node);
-		__worker_free(worker);
-		pr_info("Caught dead thread, cpu %d\n", worker->cpu);
-		free(worker->msg);
-		free(worker);
+	if (pthread_tryjoin_np(worker->id, NULL))
+		return -EBUSY;
+	if (worker == primary) {
+		pr_crit("Primary thread died!\n");
+		abort();
 	}
+	if (!list_empty(&worker->node))
+		list_del(&worker->node);
+	free(worker->msg);
+	free(worker);
+	return 0;
 }
 
 /* Parse a cpu id. On entry legit/len contain acceptable "next char" values, on
- * exit *legit points to the "next char" we found. Return -1 for bad * parse. */
+ * exit legit points to the "next char" we found. Return -1 for bad parse. */
 static int parse_cpu(const char *str, const char **legit, int legitlen)
 {
 	char *endptr;
@@ -828,34 +834,16 @@ static int parse_cpus(const char *str, int *start, int *end)
 	return 0;
 }
 
-static struct worker *worker_find(int cpu, int want)
+static struct worker *worker_find(int cpu, int can_be_primary)
 {
 	struct worker *worker;
 	list_for_each_entry(worker, &workers, node) {
-		if (worker->cpu == cpu) {
-			if (!want)
-				fprintf(stderr, "skipping cpu %d, in use.\n",
-					cpu);
+		if ((worker->cpu == cpu) && (can_be_primary ||
+					(worker != primary)))
 			return worker;
-		}
 	}
-	if (want)
-		fprintf(stderr, "skipping cpu %d, not in use.\n", cpu);
 	return NULL;
 }
-
-#define call_for_each_worker(str, fn) \
-	do { \
-		int fstart, fend, fret = parse_cpus(str, &fstart, &fend); \
-		if (!fret) { \
-			while (fstart <= fend) { \
-				struct worker *fw = worker_find(fstart, 1); \
-				if (fw) \
-					fn(fw); \
-				fstart++; \
-			} \
-		} \
-	} while (0)
 
 #ifdef PPAC_CGR
 /* This function is, so far, only used by CGR-specific code. */
@@ -944,9 +932,6 @@ static int ppac_cli_add(int argc, char *argv[])
 
 	if (parse_cpus(argv[1], &first, &last) == 0)
 		for (loop = first; loop <= last; loop++) {
-			worker = worker_find(loop, 0);
-			if (worker)
-				continue;
 			worker = worker_new(loop);
 			if (worker)
 				worker_add(worker);
@@ -974,14 +959,10 @@ static int ppac_cli_list(int argc, char *argv[])
 {
 	struct worker *worker;
 
-	if (argc > 2)
-		return -EINVAL;
-	/* cpu-range is an optional argument */
 	if (argc > 1)
-		call_for_each_worker(argv[1], msg_list);
-	else
-		list_for_each_entry(worker, &workers, node)
-			msg_list(worker);
+		return -EINVAL;
+	list_for_each_entry(worker, &workers, node)
+		msg_list(worker);
 	return 0;
 }
 
@@ -1013,20 +994,25 @@ static int ppac_cli_rm(int argc, char *argv[])
 	if (argc != 2)
 		return -EINVAL;
 
-	if (parse_cpus(argv[1], &first, &last) == 0)
-		for (loop = first; loop <= last; loop++) {
-			worker = worker_find(loop, 1);
-			if (!worker)
-				continue;
-			if (worker != primary) {
+	/* Either lookup via uid, or by cpu (single or range) */
+	if (!strncmp(argv[1], "uid:", 4)) {
+		list_for_each_entry(worker, &workers, node) {
+			char buf[16];
+			sprintf(buf, "uid:%u", worker->uid);
+			if (!strcmp(argv[1], buf)) {
 				worker_free(worker);
-				continue;
+				return 0;
 			}
-			fprintf(stderr, "skipping cpu %d, it "
-				"has responsibilities\n", loop);
 		}
-
-	return 0;
+	} else if (parse_cpus(argv[1], &first, &last) == 0) {
+		for (loop = first; loop <= last; loop++) {
+			worker = worker_find(loop, 0);
+			if (worker)
+				worker_free(worker);
+		}
+		return 0;
+	}
+	return -EINVAL;
 }
 
 cli_cmd(help, ppac_cli_help);
@@ -1160,7 +1146,9 @@ int main(int argc, char *argv[])
 	while (1) {
 		/* Reap any dead threads */
 		list_for_each_entry_safe(worker, tmpworker, &workers, node)
-			worker_reap(worker);
+			if (!worker_reap(worker))
+				pr_info("Caught dead thread uid:%u (cpu %d)\n",
+					worker->uid, worker->cpu);
 
 		/* If non-interactive, have the CLI thread twiddle its thumbs
 		 * between (infrequent) checks for dead threads. */
