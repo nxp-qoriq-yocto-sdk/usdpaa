@@ -118,7 +118,7 @@ static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 		name[numchars] = '\0';
 		fd = open(name, O_RDWR);
 		suffix++;
-	} while (fd == -EBUSY);
+	} while ((fd < 0) && (errno == EBUSY));
 	if (fd < 0) {
 		perror("no available Bman portal device");
 		ret = -ENODEV;
