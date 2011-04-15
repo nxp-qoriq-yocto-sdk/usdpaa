@@ -67,8 +67,8 @@ static void if_destructor(struct __fman_if *__if)
 int fman_if_init(void)
 {
 	int			 _errno;
-	struct device_node	*dpa_node, *mac_node, *tx_node, *pool_node;
-	struct device_node	*fman_node;
+	const struct device_node *dpa_node, *mac_node, *tx_node, *pool_node;
+	const struct device_node *fman_node;
 	const uint32_t		*regs_addr;
 	uint64_t		phys_addr;
 	const phandle		*mac_phandle, *ports_phandle, *pools_phandle;

@@ -30,171 +30,419 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <usdpaa/compat.h>
 #include <internal/of.h>
 
 #define OF_DEFAULT_NA 1
 #define OF_DEFAULT_NS 1
 
-static uint8_t			current;
-static struct device_node	current_node[16],
-				root = {
-	.full_name	= "/",
-	.name		= root.full_name
+/* The API presents the "struct device_node" type, so we embed that in something
+ * that can be converted back to a corresponding dir/file node. */
+struct dt_node {
+	struct device_node node;
+	int is_file; /* FALSE==dir, TRUE==file */
+	struct list_head list; /* within parent's "subdirs" or "files" */
 };
 
-static char *of_basename(const char *full_name)
-{
-	char	*name;
+/* Types we use to represent directories and files */
+struct dt_file;
+struct dt_dir {
+	struct dt_node node;
+	struct list_head subdirs;
+	struct list_head files;
+	struct list_head linear; /* post-processed "flat" list */
+	struct dt_dir *parent;
+	/* We tag particular property files during the linear pass */
+	struct dt_file *compatible;
+	struct dt_file *status;
+	struct dt_file *lphandle;
+	struct dt_file *a_cells;
+	struct dt_file *s_cells;
+	struct dt_file *reg;
+};
+#define BUF_MAX 256
+struct dt_file {
+	struct dt_node node;
+	struct dt_dir *parent;
+	ssize_t len;
+	/* Annoying type, but only good way to ensure alignment. */
+	uint64_t buf[BUF_MAX >> 3];
+};
 
-	name = strrchr(full_name, '/');
-	if (unlikely(name == NULL))
-		return NULL;
-	if (name != full_name)
-		name++;
-	return name;
+static const struct dt_dir *node2dir(const struct device_node *n)
+{
+	const struct dt_node *dn = container_of(n, struct dt_node, node);
+	const struct dt_dir *d = container_of(dn, struct dt_dir, node);
+	assert(!dn->is_file);
+	return d;
 }
 
-struct device_node *of_get_parent(const struct device_node *dev_node)
+static struct dt_dir root_dir;
+static const char *base_dir;
+static LIST_HEAD(linear);
+
+static DIR *my_open_dir(const char *relative_path)
 {
-	struct device_node	*_current_node;
-
-	if (dev_node == NULL)
-		dev_node = &root;
-
-	*(_current_node = current_node + current) = *dev_node;
-	_current_node->name = strrchr(_current_node->full_name, '/');
-	if (unlikely(_current_node->name == NULL))
-		return NULL;
-	if (_current_node->name == _current_node->full_name)
-		return &root;
-
-	*_current_node->name = 0;
-	_current_node->name = of_basename(_current_node->full_name);
-	if (unlikely(_current_node->name == NULL))
-		return NULL;
-
-	current = (current + 1) % ARRAY_SIZE(current_node);
-	return _current_node;
+	DIR *ret;
+	char full_path[PATH_MAX];
+	snprintf(full_path, PATH_MAX, "%s/%s", base_dir, relative_path);
+	ret = opendir(full_path);
+	if (!ret) {
+		fprintf(stderr, "Failed to open directory %s\n", full_path);
+		perror("opendir");
+	}
+	return ret;
 }
 
-void *of_get_property(struct device_node *dev_node, const char *name, size_t *lenp)
+static int my_open_file(const char *relative_path)
 {
-	int	 _err, __err;
-	size_t	 len;
-	char	 command[PATH_MAX];
-	FILE	*of_sh;
+	int ret;
+	char full_path[PATH_MAX];
+	snprintf(full_path, PATH_MAX, "%s/%s", base_dir, relative_path);
+	ret = open(full_path, O_RDONLY);
+	if (ret < 0) {
+		fprintf(stderr, "Failed to open file %s\n", full_path);
+		perror("open");
+	}
+	return ret;
+}
 
-	assert(name != NULL);
+static void process_file(DIR *d, struct dirent *dent, struct dt_dir *parent)
+{
+	int fd;
+	struct dt_file *f = malloc(sizeof(*f));
+	if (!f) {
+		perror("malloc");
+		return;
+	}
+	f->node.is_file = 1;
+	snprintf(f->node.node.name, NAME_MAX, "%s", dent->d_name);
+	snprintf(f->node.node.full_name, PATH_MAX, "%s/%s",
+		parent->node.node.full_name, dent->d_name);
+	f->parent = parent;
+	fd = my_open_file(f->node.node.full_name);
+	if (fd < 0) {
+		free(f);
+		return;
+	}
+	f->len = read(fd, f->buf, BUF_MAX);
+	close(fd);
+	if (f->len < 0) {
+		free(f);
+		return;
+	}
+	list_add_tail(&f->node.list, &parent->files);
+}
 
-	if (dev_node == NULL)
-		dev_node = &root;
+static void process_dir(DIR *d, struct dt_dir *dt)
+{
+	struct dirent *dent;
+	struct dt_dir *subdir;
+	DIR *subdir_open;
+	/* Iterate the directory contents */
+	while ((dent = readdir(d))) {
+		/* Ignore dot files of all types (especially "..") */
+		if (dent->d_name[0] == '.')
+			continue;
+		switch (dent->d_type) {
+		case DT_REG:
+			process_file(d, dent, dt);
+			break;
+		case DT_DIR:
+			subdir = malloc(sizeof(*subdir));
+			if (!subdir) {
+				perror("malloc");
+				goto done;
+			}
+			subdir->node.is_file = 0;
+			snprintf(subdir->node.node.name, NAME_MAX, "%s",
+				dent->d_name);
+			snprintf(subdir->node.node.full_name, PATH_MAX, "%s/%s",
+				dt->node.node.full_name, dent->d_name);
+			INIT_LIST_HEAD(&subdir->subdirs);
+			INIT_LIST_HEAD(&subdir->files);
+			subdir->parent = dt;
+			list_add_tail(&subdir->node.list, &dt->subdirs);
+			subdir_open = my_open_dir(subdir->node.node.full_name);
+			if (subdir_open)
+				process_dir(subdir_open, subdir);
+			break;
+		default:
+			fprintf(stderr, "Ignoring invalid dt entry %s/%s\n",
+				dt->node.node.full_name, dent->d_name);
+		}
+	}
+done:
+	closedir(d);
+}
 
-	snprintf(command, sizeof(command), "of.sh %s \"%s\" \"%s\"",
-		 __func__, dev_node->full_name, name);
+static void linear_dir(struct dt_dir *d)
+{
+	struct dt_file *f;
+	struct dt_dir *dd;
+	d->compatible = NULL;
+	d->status = NULL;
+	d->lphandle = NULL;
+	d->a_cells = NULL;
+	d->s_cells = NULL;
+	d->reg = NULL;
+	list_for_each_entry(f, &d->files, node.list) {
+		if (!strcmp(f->node.node.name, "compatible")) {
+			if (d->compatible)
+				fprintf(stderr, "Duplicate compatible in %s!\n",
+					d->node.node.full_name);
+			d->compatible = f;
+		} else if (!strcmp(f->node.node.name, "status")) {
+			if (d->status)
+				fprintf(stderr, "Duplicate status in %s!\n",
+					d->node.node.full_name);
+			d->status = f;
+		} else if (!strcmp(f->node.node.name, "linux,phandle")) {
+			if (d->lphandle)
+				fprintf(stderr, "Duplicate lphandle in %s!\n",
+					d->node.node.full_name);
+			d->lphandle = f;
+		} else if (!strcmp(f->node.node.name, "#address-cells")) {
+			if (d->a_cells)
+				fprintf(stderr, "Duplicate a_cells in %s!\n",
+					d->node.node.full_name);
+			d->a_cells = f;
+		} else if (!strcmp(f->node.node.name, "#size-cells")) {
+			if (d->s_cells)
+				fprintf(stderr, "Duplicate s_cells in %s!\n",
+					d->node.node.full_name);
+			d->s_cells = f;
+		} else if (!strcmp(f->node.node.name, "reg")) {
+			if (d->reg)
+				fprintf(stderr, "Duplicate reg in %s!\n",
+					d->node.node.full_name);
+			d->reg = f;
+		}
+	}
+	list_for_each_entry(dd, &d->subdirs, node.list) {
+		list_add_tail(&dd->linear, &linear);
+		linear_dir(dd);
+	}
+}
 
-	of_sh = popen(command, "r");
-	if (unlikely(of_sh == NULL))
+int of_init(const char *dt_path)
+{
+	DIR *dt;
+	base_dir = dt_path;
+	/* Open root directory */
+	dt = my_open_dir("");
+	if (!dt)
+		return -EINVAL;
+	/* Prepare root node */
+	root_dir.node.is_file = 0;
+	root_dir.node.node.name[0] = '\0';
+	root_dir.node.node.full_name[0] = '\0';
+	INIT_LIST_HEAD(&root_dir.node.list);
+	INIT_LIST_HEAD(&root_dir.subdirs);
+	INIT_LIST_HEAD(&root_dir.files);
+	root_dir.parent = NULL;
+	/* Kick things off... */
+	process_dir(dt, &root_dir);
+	/* Now make a flat, linear list of files */
+	linear_dir(&root_dir);
+	return 0;
+}
+
+static void destroy_dir(struct dt_dir *d)
+{
+	struct dt_file *f, *tmpf;
+	struct dt_dir *dd, *tmpd;
+	list_for_each_entry_safe(f, tmpf, &d->files, node.list) {
+		list_del(&f->node.list);
+		free(f);
+	}
+	list_for_each_entry_safe(dd, tmpd, &d->subdirs, node.list)
+		destroy_dir(dd);
+	if (d->parent) {
+		list_del(&d->node.list);
+		free(d);
+	}
+}
+
+void of_finish(void)
+{
+	destroy_dir(&root_dir);
+}
+
+static void print_dir(struct dt_dir *d)
+{
+	struct dt_file *f;
+	struct dt_dir *dd;
+	list_for_each_entry(f, &d->files, node.list)
+		printf("%s\n", f->node.node.full_name);
+	list_for_each_entry(dd, &d->subdirs, node.list)
+		print_dir(dd);
+}
+
+void of_print(void)
+{
+	print_dir(&root_dir);
+}
+
+static const struct dt_dir *next_linear(const struct dt_dir *f)
+{
+	if (f->linear.next == &linear)
 		return NULL;
+	return list_entry(f->linear.next, struct dt_dir, linear);
+}
 
-	len = fread(dev_node->_property,
-		    sizeof(*dev_node->_property), sizeof(dev_node->_property), of_sh);
-	_err = len == 0 ? ferror(of_sh) : 0;
-	__err = pclose(of_sh);
+static int check_compatible(const struct dt_file *f, const char *compatible)
+{
+	const char *c = (char *)f->buf;
+	unsigned int len, remains = f->len;
+	while (remains) {
+		len = strlen(c);
+		if (!strcmp(c, compatible))
+			return 1;
+		assert(remains >= (len + 1));
+		c += (len + 1);
+		remains -= (len + 1);
+	}
+	return 0;
+}
 
-	if (unlikely(_err != 0 || __err != 0))
+const struct device_node *of_find_compatible_node(
+					const struct device_node *from,
+					const char *type __always_unused,
+					const char *compatible)
+{
+	const struct dt_dir *d;
+	if (list_empty(&linear))
 		return NULL;
+	if (!from)
+		d = list_entry(linear.next, struct dt_dir, linear);
+	else
+		d = node2dir(from);
+	for (d = next_linear(d); d && (!d->compatible ||
+			!check_compatible(d->compatible, compatible));
+			d = next_linear(d))
+		;
+	if (d)
+		return &d->node.node;
+	return NULL;
+}
 
-	if (lenp != NULL)
-		*lenp = len * sizeof(*dev_node->_property);
+const void *of_get_property(const struct device_node *from, const char *name,
+				size_t *lenp)
+{
+	const struct dt_dir *d;
+	const struct dt_file *f;
+	d = node2dir(from);
+	list_for_each_entry(f, &d->files, node.list)
+		if (!strcmp(f->node.node.name, name)) {
+			if (lenp)
+				*lenp = f->len;
+			return f->buf;
+		}
+	return NULL;
+}
 
-	return dev_node->_property;
+bool of_device_is_available(const struct device_node *dev_node)
+{
+	const struct dt_dir *d;
+	d = node2dir(dev_node);
+	if (!d->status)
+		return true;
+	if (!strcmp((char *)d->status->buf, "okay"))
+		return true;
+	if (!strcmp((char *)d->status->buf, "ok"))
+		return true;
+	return false;
+}
+
+const struct device_node *of_find_node_by_phandle(phandle ph)
+{
+	const struct dt_dir *d;
+	list_for_each_entry(d, &linear, linear)
+		if (d->lphandle && (d->lphandle->len == 4) &&
+				!memcmp(d->lphandle->buf, &ph, 4))
+			return &d->node.node;
+	return NULL;
+}
+
+const struct device_node *of_get_parent(const struct device_node *dev_node)
+{
+	const struct dt_dir *d;
+	if (!dev_node)
+		return NULL;
+	d = node2dir(dev_node);
+	if (!d->parent)
+		return NULL;
+	return &d->parent->node.node;
 }
 
 uint32_t of_n_addr_cells(const struct device_node *dev_node)
 {
-	struct device_node	*parent_node;
-	size_t			 lenp;
-	const uint32_t		*na;
-
-	if (dev_node == NULL)
-		dev_node = &root;
-
-	do {
-		parent_node = of_get_parent(dev_node);
-
-		na = of_get_property(parent_node, "#address-cells", &lenp);
-		if (na != NULL) {
-			assert(lenp == sizeof(uint32_t));
-
-			return *na;
+	const struct dt_dir *d;
+	if (!dev_node)
+		return OF_DEFAULT_NA;
+	d = node2dir(dev_node);
+	while ((d = d->parent))
+		if (d->a_cells) {
+			unsigned char *buf =
+				(unsigned char *)&d->a_cells->buf[0];
+			assert(d->a_cells->len == 4);
+			return ((uint32_t)buf[0] << 24) |
+				((uint32_t)buf[1] << 16) |
+				((uint32_t)buf[2] << 8) |
+				(uint32_t)buf[3];
 		}
-	} while (parent_node != &root);
-
 	return OF_DEFAULT_NA;
 }
 
 uint32_t of_n_size_cells(const struct device_node *dev_node)
 {
-	struct device_node	*parent_node;
-	size_t			 lenp;
-	const uint32_t		*ns;
-
-	if (dev_node == NULL)
-		dev_node = &root;
-
-	do {
-		parent_node = of_get_parent(dev_node);
-
-		ns = of_get_property(parent_node, "#size-cells", &lenp);
-		if (ns != NULL) {
-			assert(lenp == sizeof(uint32_t));
-
-			return *ns;
+	const struct dt_dir *d;
+	if (!dev_node)
+		return OF_DEFAULT_NA;
+	d = node2dir(dev_node);
+	while ((d = d->parent))
+		if (d->s_cells) {
+			unsigned char *buf =
+				(unsigned char *)&d->s_cells->buf[0];
+			assert(d->s_cells->len == 4);
+			return ((uint32_t)buf[0] << 24) |
+				((uint32_t)buf[1] << 16) |
+				((uint32_t)buf[2] << 8) |
+				(uint32_t)buf[3];
 		}
-	} while (parent_node != &root);
-
 	return OF_DEFAULT_NS;
 }
 
-static void of_bus_default_count_cells(const struct device_node	*dev_node,
-				       uint32_t			*addr,
-				       uint32_t			*size)
+const uint32_t *of_get_address(const struct device_node *dev_node, size_t idx,
+				uint64_t *size, uint32_t *flags)
 {
-	if (dev_node == NULL)
-		dev_node = &root;
-
-	if (addr != NULL)
-		*addr = of_n_addr_cells(dev_node);
-	if (size != NULL)
-		*size = of_n_size_cells(dev_node);
-}
-
-const uint32_t *of_get_address(struct device_node	*dev_node,
-			       size_t			 idx,
-			       uint64_t			*size,
-			       uint32_t			*flags __always_unused)
-{
-	const uint32_t	*uint32_prop;
-	size_t		 lenp;
-	uint32_t	 na, ns;
-
-	assert(dev_node != NULL);
-
-	of_bus_default_count_cells(dev_node, &na, &ns);
-
-	uint32_prop = of_get_property(dev_node, "reg", &lenp);
-	if (unlikely(uint32_prop == NULL))
+	const struct dt_dir *d;
+	const unsigned char *buf;
+	uint32_t na = of_n_addr_cells(dev_node);
+	uint32_t ns = of_n_size_cells(dev_node);
+	if (!dev_node)
+		d = &root_dir;
+	else
+		d = node2dir(dev_node);
+	if (!d->reg)
 		return NULL;
-	assert((lenp % ((na + ns) * sizeof(uint32_t))) == 0);
-
-	uint32_prop += (na + ns) * idx;
-	if (size != NULL)
+	assert(d->reg->len % ((na + ns) * 4) == 0);
+	assert(d->reg->len / ((na + ns) * 4) > idx);
+	buf = (const unsigned char *)&d->reg->buf[0];
+	buf += (na + ns) * idx * 4;
+	if (size)
 		for (*size = 0; ns > 0; ns--, na++)
-			*size = (*size << 32) + uint32_prop[na];
-	return uint32_prop;
+			*size = (*size << 32) +
+				(((uint32_t)buf[4 * na] << 24) |
+				((uint32_t)buf[4 * na + 1] << 16) |
+				((uint32_t)buf[4 * na + 2] << 8) |
+				(uint32_t)buf[4 * na + 3]);
+	return (const uint32_t *)buf;
 }
 
-uint64_t of_translate_address(struct device_node *dev_node, const u32 *addr)
+uint64_t of_translate_address(const struct device_node *dev_node,
+				const u32 *addr)
 {
 	uint32_t	 na;
 	uint64_t	 phys_addr, tmp_addr;
@@ -205,136 +453,31 @@ uint64_t of_translate_address(struct device_node *dev_node, const u32 *addr)
 	phys_addr = *addr;
 	do {
 		dev_node = of_get_parent(dev_node);
-		if (unlikely(dev_node == NULL)) {
+		if (!dev_node) {
 			phys_addr = 0;
 			break;
 		}
-
 		regs_addr = of_get_address(dev_node, 0, NULL, NULL);
-		if (regs_addr == NULL)
+		if (!regs_addr)
 			break;
-
 		na = of_n_addr_cells(dev_node);
 		for (tmp_addr = 0; na > 0; na--, regs_addr++)
 			tmp_addr = (tmp_addr << 32) + *regs_addr;
 		phys_addr += tmp_addr;
-
-	} while (dev_node != &root);
+	} while (node2dir(dev_node) != &root_dir);
 
 	return phys_addr;
 }
 
-struct device_node *of_find_compatible_node(const struct device_node	*from,
-					    const char	*type __always_unused,
-					    const char	*compatible)
+bool of_device_is_compatible(const struct device_node *dev_node,
+				const char *compatible)
 {
-	int			 _err, __err;
-	char			 command[PATH_MAX], *full_name;
-	FILE			*of_sh;
-	struct device_node	*dev_node;
-	static uint8_t		 node = 1;
-
-	assert(compatible != NULL);
-
-	if (from == NULL)
-		from = &root;
-
-	snprintf(command, sizeof(command), "of.sh %s \"%s\" \"%s\" %hhu",
-		 __func__, from->full_name, compatible, node++);
-
-	of_sh = popen(command, "r");
-	if (unlikely(of_sh == NULL))
-		return NULL;
-
-	dev_node = current_node + current;
-	full_name = fgets(dev_node->full_name, sizeof(dev_node->full_name), of_sh);
-	if (full_name == NULL) {
-		_err = ferror(of_sh);
-		if (_err == 0) {
-			_err = feof(of_sh);
-			if (_err != 0)
-				node = 1;
-			else
-				assert(0);
-		}
-	} else
-		_err = 0;
-	__err = pclose(of_sh);
-
-	if (unlikely(_err != 0 || __err != 0))
-		return NULL;
-
-	dev_node->name = of_basename(dev_node->full_name);
-	if (dev_node->name == NULL)
-		return NULL;
-
-	current = (current + 1) % ARRAY_SIZE(current_node);
-
-	return dev_node;
-}
-
-struct device_node *of_find_node_by_phandle(phandle ph)
-{
-	int			 _err, __err;
-	char			 command[PATH_MAX], *full_name;
-	FILE			*of_sh;
-	struct device_node	*dev_node;
-
-	snprintf(command, sizeof(command), "of.sh %s %c",
-		 __func__, *((char *)&ph + sizeof(ph) - sizeof(char)));
-
-	of_sh = popen(command, "r");
-	if (unlikely(of_sh == NULL))
-		return NULL;
-
-	dev_node = current_node + current;
-	full_name = fgets(dev_node->full_name, sizeof(dev_node->full_name), of_sh);
-	_err = full_name == NULL ? ferror(of_sh) : 0;
-	__err = pclose(of_sh);
-
-	if (unlikely(_err != 0 || __err != 0))
-		return NULL;
-
-	dev_node->name = of_basename(dev_node->full_name);
-	if (dev_node->name == NULL)
-		return NULL;
-
-	current = (current + 1) % ARRAY_SIZE(current_node);
-
-	return dev_node;
-}
-
-bool of_device_is_available(struct device_node *dev_node)
-{
-	size_t		 lenp;
-	const char	*status;
-
-
-	status = of_get_property(dev_node, "status", &lenp);
-	if (status == NULL)
+	const struct dt_dir *d;
+	if (!dev_node)
+		d = &root_dir;
+	else
+		d = node2dir(dev_node);
+	if (d->compatible && check_compatible(d->compatible, compatible))
 		return true;
-
-	return lenp > 0 &&
-		(of_prop_cmp(status, "okay") == 0 || of_prop_cmp(status, "ok") == 0);
-}
-
-bool of_device_is_compatible(struct device_node *dev_node, const char *compatible)
-{
-	size_t		 lenp, len;
-	const char	*_compatible;
-
-	_compatible = of_get_property(dev_node, "compatible", &lenp);
-	if (unlikely(_compatible == NULL))
-		return false;
-
-	while (lenp > 0) {
-		if (of_compat_cmp(compatible, _compatible, strlen(compatible)) == 0)
-			return true;
-
-		len = strlen(_compatible) + 1;
-		_compatible += len;
-		lenp -= len;
-	}
-
 	return false;
 }

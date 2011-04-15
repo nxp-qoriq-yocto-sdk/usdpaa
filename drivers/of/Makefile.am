@@ -1,4 +1,4 @@
-# Copyright (c) 2010 Freescale Semiconductor, Inc.
+# Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -30,9 +30,5 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 lib_LIBRARIES = usdpaa_of
-dist_DATA = of.sh
 
 usdpaa_of_SOURCES := of.c
-
-of.sh_install = $(INSTALL_BIN)
-of.sh_install_flags = $(INSTALL_BIN_FLAGS)

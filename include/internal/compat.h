@@ -49,6 +49,7 @@
 #include <sys/mman.h>
 #include <limits.h>
 #include <assert.h>
+#include <dirent.h>
 
 /* Strange though it may seem, all qman/bman-dependent apps include this header,
  * so this is a good place to force the inclusion of conf.h. There are
@@ -74,7 +75,7 @@ static inline void markpoint(const uint32_t markid) {
 
 /* Compiler/type stuff */
 typedef unsigned int	gfp_t;
-typedef int		phandle;
+typedef uint32_t	phandle;
 
 #define L1_CACHE_BYTES 64
 

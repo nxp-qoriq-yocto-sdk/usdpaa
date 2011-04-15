@@ -35,46 +35,45 @@
 
 #include <internal/compat.h>
 
-#define of_prop_cmp	strcmp
-#define of_compat_cmp	strncasecmp
+int of_init(const char *dt_path);
+void of_finish(void);
 
-struct device_node
-{
-	char	*name;
-	char	 full_name[PATH_MAX];
+void of_print(void);
 
-	uint8_t	 _property[64];
+struct device_node {
+	char name[NAME_MAX];
+	char full_name[PATH_MAX];
 };
 
-struct device_node *of_get_parent(const struct device_node *dev_node);
+const struct device_node *of_find_compatible_node(
+					const struct device_node *from,
+					const char *type __always_unused,
+					const char *compatible)
+	__attribute__((nonnull(3)));
 
-void *of_get_property(struct device_node *from, const char *name, size_t *lenp)
-	__attribute__((nonnull(2)));
+#define for_each_compatible_node(dev_node, type, compatible) \
+	for (dev_node = of_find_compatible_node(NULL, type, compatible); \
+		dev_node != NULL; \
+		dev_node = of_find_compatible_node(dev_node, type, compatible))
+
+const void *of_get_property(const struct device_node *from, const char *name,
+				size_t *lenp) __attribute__((nonnull(2)));
+bool of_device_is_available(const struct device_node *dev_node);
+
+const struct device_node *of_find_node_by_phandle(phandle ph);
+
+const struct device_node *of_get_parent(const struct device_node *dev_node);
 
 uint32_t of_n_addr_cells(const struct device_node *dev_node);
 uint32_t of_n_size_cells(const struct device_node *dev_node);
 
-const uint32_t *of_get_address(struct device_node	*dev_node,
-			       size_t			 index,
-			       uint64_t			*size,
-			       uint32_t			*flags);
+const uint32_t *of_get_address(const struct device_node *dev_node, size_t idx,
+				uint64_t *size, uint32_t *flags);
 
-uint64_t of_translate_address(struct device_node *dev_node, const u32 *addr)
-	__attribute__((nonnull));
+uint64_t of_translate_address(const struct device_node *dev_node,
+				const u32 *addr) __attribute__((nonnull));
 
-struct device_node *of_find_compatible_node(const struct device_node	*from,
-					    const char			*type,
-					    const char			*compatible)
-	__attribute__((nonnull(3)));
-
-#define for_each_compatible_node(dev_node, type, compatible)			\
-	for (dev_node = of_find_compatible_node(NULL, type, compatible);	\
-	     dev_node != NULL;							\
-	     dev_node = of_find_compatible_node(NULL, type, compatible))
-
-struct device_node *of_find_node_by_phandle(phandle ph);
-
-bool of_device_is_available(struct device_node *dev_node);
-bool of_device_is_compatible(struct device_node *dev_node, const char *compatible);
+bool of_device_is_compatible(const struct device_node *dev_node,
+				const char *compatible);
 
 #endif	/*  __OF_H */
