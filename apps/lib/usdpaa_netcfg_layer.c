@@ -34,6 +34,7 @@
 #include "fmc_netcfg_parser.h"
 
 #include <inttypes.h>
+#include <internal/of.h>
 
 #define MAX_BPOOL_PER_PORT	8
 
@@ -139,6 +140,13 @@ struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
 	int _errno, idx;
 	uint8_t num_ports = 0;
 	size_t size;
+
+	_errno = of_init("/proc/device-tree");
+	if (_errno) {
+		fprintf(stderr, "%s:%hu:%s(): device-tree parser init failed "
+			"(ERRNO = %d)\n", __FILE__, __LINE__, __func__, _errno);
+		return NULL;
+	}
 
 	/* Extract dpa configuration from fman driver and FMC configuration */
 
