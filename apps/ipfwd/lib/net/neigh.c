@@ -160,7 +160,7 @@ struct neigh_t *neigh_init(struct neigh_table_t *nt, struct neigh_t *n,
 	return n;
 }
 
-struct neigh_t *neigh_update(struct neigh_t *n, uint8_t * lladdr, uint8_t state)
+struct neigh_t *neigh_update(struct neigh_t *n, const uint8_t *lladdr, uint8_t state)
 {
 	struct net_dev_t *dev;
 	struct ether_header eth_hdr;

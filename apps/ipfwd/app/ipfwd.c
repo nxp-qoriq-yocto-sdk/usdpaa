@@ -208,7 +208,7 @@ struct net_dev_t *ipfwd_get_dev_for_ip(in_addr_t ip_addr)
  \param[out] app_ctrl_route_info contains Route parameters
  \return Integer status
  */
-int ipfwd_add_route(struct app_ctrl_op_info *route_info)
+int ipfwd_add_route(const struct app_ctrl_op_info *route_info)
 {
 	struct rc_entry_t *entry;
 	struct rt_dest_t *dest;
@@ -298,7 +298,7 @@ int ipfwd_add_route(struct app_ctrl_op_info *route_info)
  \param[out] app_ctrl_route_info contains Route parameters
  \return Integer status
  */
-int ipfwd_del_route(struct app_ctrl_op_info *route_info)
+int ipfwd_del_route(const struct app_ctrl_op_info *route_info)
 {
 	struct rt_dest_t *dest;
 	pr_debug("ipfwd_del_route: Enter\n");
@@ -330,7 +330,7 @@ int ipfwd_del_route(struct app_ctrl_op_info *route_info)
  \param[out] app_ctrl_route_info contains ARP parameters
  \return Integer status
  */
-int ipfwd_add_arp(struct app_ctrl_op_info *route_info)
+int ipfwd_add_arp(const struct app_ctrl_op_info *route_info)
 {
 	in_addr_t ip_addr = route_info->ip_info.src_ipaddr;
 	struct net_dev_t *dev = NULL;
@@ -397,7 +397,7 @@ int ipfwd_add_arp(struct app_ctrl_op_info *route_info)
  \param[out] app_ctrl_route_info contains ARP parameters
  \return Integer status
  */
-int ipfwd_del_arp(struct app_ctrl_op_info *route_info)
+int ipfwd_del_arp(const struct app_ctrl_op_info *route_info)
 {
 	struct neigh_t *neighbor = NULL;
 	pr_debug("ipfwd_del_arp: Enter\n");

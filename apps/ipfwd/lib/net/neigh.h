@@ -231,7 +231,7 @@ struct neigh_t *neigh_init(struct neigh_table_t *nt, struct neigh_t *n,
  \param[in] state State for the Entry
  \return Pointer to Neighbour Table Entry
  */
-struct neigh_t *neigh_update(struct neigh_t *n, uint8_t * lladdr,
+struct neigh_t *neigh_update(struct neigh_t *n, const uint8_t *lladdr,
 			     uint8_t state);
 
 /**
