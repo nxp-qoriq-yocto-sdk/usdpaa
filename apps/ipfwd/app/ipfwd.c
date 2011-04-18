@@ -640,7 +640,9 @@ struct ip_statistics_t *ipfwd_stats_init(void)
 	int _errno;
 	void *ip_stats;
 
-	_errno = posix_memalign(&ip_stats, L1_CACHE_BYTES, sizeof(struct ip_statistics_t));
+	_errno = posix_memalign(&ip_stats,
+				__alignof__(struct ip_statistics_t),
+				sizeof(struct ip_statistics_t));
 	return unlikely(_errno < 0) ? NULL : ip_stats;
 }
 
@@ -688,7 +690,7 @@ static int32_t initialize_ip_stack(struct ip_stack_t *ip_stack)
 		pr_err("Unable to allocate ip stats structure for stack\n");
 		return -1;
 	}
-	memset(ip_stack->ip_stats, 0, sizeof(struct ip_statistics_t));
+	memset(ip_stack->ip_stats, 0, sizeof(*ip_stack->ip_stats));
 
 	pr_debug("IP Statistics initialized\n");
 	return 0;

@@ -30,6 +30,8 @@
 
 #include "statistics.h"
 
+#include <internal/compat.h>	/* L1_CACHE_BYTES */
+
 /**
 \brief Status values
 \details This object specifies the Possible Status values
@@ -85,6 +87,6 @@ struct ip_statistics_t {
 	/**< Number of transmitted Packets that needed fragmentation */
 	union stat64_t ip_in_dropped;
 	/**< Number of Packets dropped for reasons other than above */
-};
+} __attribute__((aligned(L1_CACHE_BYTES)));
 
 #endif /* __LIB_IP_IP_COMMON_H */
