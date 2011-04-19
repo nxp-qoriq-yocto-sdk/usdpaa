@@ -136,21 +136,6 @@ extern int32_t pool_channel_id;
 extern struct ipfwd_eth_t ipfwd_fq_range[MAX_NUM_PORTS];
 
 /**
- \brief Check if destination IP address for own interface
- \param[in] ip_addr IP address
- \param[out] 0 if match found, else -ve value
- */
-int32_t is_iface_ip(in_addr_t ip_addr);
-
-/**
- \brief Gets interface node corresponding to an ip address
- \param[in] ip_addr IP Address
- \return    interface node, On success
-	    NULL,	    On failure
- */
-struct node_t *ipfwd_get_iface_for_ip(in_addr_t ip_addr);
-
-/**
  \brief IPSecfwd Shutdown Complete handler
  */
 extern void ip_shutdown_complete(uint32_t timer_id, void *p_data);

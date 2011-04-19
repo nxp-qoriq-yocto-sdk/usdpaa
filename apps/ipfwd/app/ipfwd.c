@@ -50,22 +50,22 @@ struct ip_stack_t {
 	struct ip_context_t ctxt[8];		/**< There are at max 8 IFACE in one partition due to emulator */
 };
 
-uint32_t local_node_count[IFACE_COUNT] = { 23, 23, 23, 23, 23, 23, 23, 23, 1 };
-struct node_t local_nodes[LINKLOCAL_NODES];
-struct node_t iface_nodes[IFACE_COUNT];
-struct ip_stack_t stack;
-mqd_t mq_fd_rcv, mq_fd_snd;
-struct sigevent notification;
-volatile uint32_t GO_FLAG;
+static uint32_t local_node_count[IFACE_COUNT] = { 23, 23, 23, 23, 23, 23, 23, 23, 1 };
+static struct node_t local_nodes[LINKLOCAL_NODES];
+static struct node_t iface_nodes[IFACE_COUNT];
+static struct ip_stack_t stack;
+static mqd_t mq_fd_rcv, mq_fd_snd;
+static struct sigevent notification;
+static volatile uint32_t GO_FLAG;
 static __thread struct thread_data_t *__my_thread_data;
 __PERCPU uint32_t rx_errors;
 #define MAX_THREADS 8
-uint32_t recv_channel_map;
+static uint32_t recv_channel_map;
 
 static pthread_barrier_t init_barrier;
-int cpu0_only;
+static int cpu0_only;
 /* Seed buffer pools according to the configuration symbols */
-const struct ipfwd_bpool_static {
+static const struct ipfwd_bpool_static {
 	int bpid;
 	unsigned int num;
 	unsigned int sz;
@@ -125,47 +125,12 @@ static int worker_fn(struct thread_data_t *tdata)
 }
 
 /**
- \brief Change Interface Configuration
- \param[out] app_ctrl_route_info contains Route parameters
- \return Integer status
- */
-int ipfwd_conf_intf(struct app_ctrl_op_info *route_info)
-{
-	pr_debug("ipfwd_conf_intf: Enter\n");
-
-	pr_debug("ipfwd_conf_intf: Bitmask = 0x%x\n",
-		  route_info->ip_info.intf_conf.bitmask);
-
-	pr_debug("ipfwd_conf_intf: Ifname = %s\n",
-		  route_info->ip_info.intf_conf.ifname);
-	pr_debug("ipfwd_conf_intf: IPAddr = 0x%x\n",
-		  route_info->ip_info.intf_conf.ip_addr);
-	pr_debug("ipfwd_conf_intf: MAC Addr = "ETH_MAC_PRINTF_FMT"\n",
-		 ETH_MAC_PRINTF_ARGS(&route_info->ip_info.intf_conf.mac_addr));
-
-	pr_debug("ipfwd_conf_intf: Exit\n");
-	return 0;
-}
-
-int is_iface_ip(in_addr_t ip_addr)
-{
-	int i;
-
-	for (i = 0; i < g_num_dpa_eth_ports; i++) {
-		if (iface_nodes[i].ip == ip_addr)
-			return 0;
-	}
-
-	return -EINVAL;
-}
-
-/**
  \brief Gets interface node corresponding to an ip address
  \param[in] ip_addr IP Address
  \return    interface node, On success
 	    NULL,	    On failure
  */
-struct node_t *ipfwd_get_iface_for_ip(in_addr_t ip_addr)
+static struct node_t *ipfwd_get_iface_for_ip(in_addr_t ip_addr)
 {
 	uint32_t port;
 
@@ -208,7 +173,7 @@ struct net_dev_t *ipfwd_get_dev_for_ip(in_addr_t ip_addr)
  \param[out] app_ctrl_route_info contains Route parameters
  \return Integer status
  */
-int ipfwd_add_route(const struct app_ctrl_op_info *route_info)
+static int ipfwd_add_route(const struct app_ctrl_op_info *route_info)
 {
 	struct rc_entry_t *entry;
 	struct rt_dest_t *dest;
@@ -298,7 +263,7 @@ int ipfwd_add_route(const struct app_ctrl_op_info *route_info)
  \param[out] app_ctrl_route_info contains Route parameters
  \return Integer status
  */
-int ipfwd_del_route(const struct app_ctrl_op_info *route_info)
+static int ipfwd_del_route(const struct app_ctrl_op_info *route_info)
 {
 	struct rt_dest_t *dest;
 	pr_debug("ipfwd_del_route: Enter\n");
@@ -330,7 +295,7 @@ int ipfwd_del_route(const struct app_ctrl_op_info *route_info)
  \param[out] app_ctrl_route_info contains ARP parameters
  \return Integer status
  */
-int ipfwd_add_arp(const struct app_ctrl_op_info *route_info)
+static int ipfwd_add_arp(const struct app_ctrl_op_info *route_info)
 {
 	in_addr_t ip_addr = route_info->ip_info.src_ipaddr;
 	struct net_dev_t *dev = NULL;
@@ -397,7 +362,7 @@ int ipfwd_add_arp(const struct app_ctrl_op_info *route_info)
  \param[out] app_ctrl_route_info contains ARP parameters
  \return Integer status
  */
-int ipfwd_del_arp(const struct app_ctrl_op_info *route_info)
+static int ipfwd_del_arp(const struct app_ctrl_op_info *route_info)
 {
 	struct neigh_t *neighbor = NULL;
 	pr_debug("ipfwd_del_arp: Enter\n");
@@ -461,7 +426,7 @@ initialize_contexts(struct ip_context_t *ip_ctxt, struct net_dev_t *dev,
  \param[in] struct node_t * a Network Node
  \param[in] uint32_t Number of nodes to be created
  */
-void create_local_nodes(struct node_t *arr, const struct usdpaa_netcfg_info *cfg_ptr)
+static void create_local_nodes(struct node_t *arr, const struct usdpaa_netcfg_info *cfg_ptr)
 {
 	uint32_t port, node, node_idx;
 	uint16_t addr_hi;
@@ -491,7 +456,7 @@ void create_local_nodes(struct node_t *arr, const struct usdpaa_netcfg_info *cfg
 \param[in] struct node_t * a Network Node
 \param[in] uint32_t Number of nodes to be created
 */
-void create_iface_nodes(struct node_t *arr, const struct usdpaa_netcfg_info *cfg_ptr)
+static void create_iface_nodes(struct node_t *arr, const struct usdpaa_netcfg_info *cfg_ptr)
 {
 	uint32_t port, if_idx;
 	const struct fman_if *fif;
@@ -515,7 +480,7 @@ void create_iface_nodes(struct node_t *arr, const struct usdpaa_netcfg_info *cfg
 /**
  \brief Device Tx Initialization
  */
-void dpa_dev_tx_init(struct dpa_dev_t *dev, struct ipfwd_fq_range_t *fq_range)
+static void dpa_dev_tx_init(struct dpa_dev_t *dev, struct ipfwd_fq_range_t *fq_range)
 {
 	uint32_t fq_idx;
 
@@ -532,7 +497,7 @@ void dpa_dev_tx_init(struct dpa_dev_t *dev, struct ipfwd_fq_range_t *fq_range)
 /**
  \brief Device Rx Initialization
  */
-void dpa_dev_rx_init(struct dpa_dev_t *dev, struct ipfwd_fq_range_t *fq_range,
+static void dpa_dev_rx_init(struct dpa_dev_t *dev, struct ipfwd_fq_range_t *fq_range,
 		     struct ip_context_t *ctxt)
 {
 	uint32_t fq_idx;
@@ -603,7 +568,7 @@ static int create_devices(struct ip_stack_t *ip_stack, struct node_t *link_nodes
  \param[in] struct node_t * Link Node
  \param[out] 0 on success, otherwise -ve value
  */
-int populate_arp_cache(struct ip_stack_t *ip_stack, struct node_t *loc_nodes)
+static int populate_arp_cache(struct ip_stack_t *ip_stack, struct node_t *loc_nodes)
 {
 	uint32_t i, j, node_idx;
 	struct net_dev_t *dev;
@@ -634,7 +599,7 @@ int populate_arp_cache(struct ip_stack_t *ip_stack, struct node_t *loc_nodes)
  \param[in] void
  \param[out] struct ip_statistics_t *
  */
-struct ip_statistics_t *ipfwd_stats_init(void)
+static struct ip_statistics_t *ipfwd_stats_init(void)
 {
 	int _errno;
 	void *ip_stats;
@@ -700,7 +665,7 @@ static int initialize_ip_stack(struct ip_stack_t *ip_stack)
  \param[in] app_ctrl_op_info contains SA parameters
  \return NULL
 */
-void process_req_from_mq(struct app_ctrl_op_info *sa_info)
+static void process_req_from_mq(struct app_ctrl_op_info *sa_info)
 {
 	int32_t s32Result = 0;
 	sa_info->result = IPC_CTRL_RSLT_FAILURE;
@@ -780,7 +745,7 @@ error:
 	return _err;
 }
 
-void mq_handler(union sigval sval)
+static void mq_handler(union sigval sval)
 {
 	pr_debug("mq_handler called %d\n", sval.sival_int);
 
@@ -788,7 +753,7 @@ void mq_handler(union sigval sval)
 	mq_notify(mq_fd_rcv, &notification);
 }
 
-int create_mq(void)
+static int create_mq(void)
 {
 	struct mq_attr attr_snd, attr_rcv;
 	int _err = 0, ret;
@@ -844,7 +809,7 @@ error:
 	return _err;
 }
 
-int global_init(struct usdpaa_netcfg_info *uscfg_info, int cpu, int first, int last)
+static int global_init(struct usdpaa_netcfg_info *uscfg_info, int cpu, int first, int last)
 {
 	int err;
 	const struct ipfwd_bpool_static *bp = ipfwd_bpool_static;
@@ -966,11 +931,6 @@ int global_init(struct usdpaa_netcfg_info *uscfg_info, int cpu, int first, int l
 	return 0;
 }
 
-struct thread_data_t *my_thread_data(void)
-{
-	return __my_thread_data;
-}
-
 static void *thread_wrapper(void *arg)
 {
 	struct thread_data_t *tdata = (struct thread_data_t *)arg;
@@ -1007,7 +967,7 @@ end:
 	return NULL;
 }
 
-int start_threads_custom(struct thread_data_t *ctxs, int num_ctxs)
+static int start_threads_custom(struct thread_data_t *ctxs, int num_ctxs)
 {
 	int i;
 	struct thread_data_t *ctx;
@@ -1038,7 +998,7 @@ static inline int start_threads(struct thread_data_t *ctxs, int num_ctxs,
 	return start_threads_custom(ctxs, num_ctxs);
 }
 
-int wait_threads(struct thread_data_t *ctxs, int num_ctxs)
+static int wait_threads(struct thread_data_t *ctxs, int num_ctxs)
 {
 	int i, err = 0;
 	struct thread_data_t *ctx;
