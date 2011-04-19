@@ -25,33 +25,18 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <usdpaa/compat.h>
-
-#include <internal/compat.h>
-
-#include "bigatomic.h"
-#include "app_common.h"
-#include "net/frame_handler.h"
-#include "net/net_dev.h"
-#include "ip_common.h"
+#include "ip_handler.h"
 #include "ip_accept.h"
-#include "ethernet/eth.h"
 
 void ip_handler(struct fq_context_t *ctxt, struct annotations_t *notes,
 		void *data)
 {
-	struct iphdr *ip_hdr;
-#ifdef STATS_TBD
 	struct ip_context_t *ip_ctxt = (struct ip_context_t *)ctxt;
-#endif
 
 #ifdef STATS_TBD
-	decorated_notify_inc_32(&(ip_ctxt->stats->ip_in_received));
+	decorated_notify_inc_32(&ip_ctxt->stats->ip_in_received);
 #endif
-	ip_hdr =
-	    (struct iphdr *)((uint8_t *) data +
-				   sizeof(struct ether_header));
 	notes->dest = NULL;
-	ip_accept_preparsed((struct ip_context_t *)ctxt, notes, ip_hdr,
-			SOURCE_POST_FMAN);
+	ip_accept_preparsed(ip_ctxt, notes, data + sizeof(struct ether_header),
+			    SOURCE_POST_FMAN);
 }

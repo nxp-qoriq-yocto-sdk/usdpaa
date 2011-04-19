@@ -27,9 +27,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #ifndef LIB_IP_IP_OUTPUT_H
-#define LIB_IP_IP_OUTPUT_H 1
+#define LIB_IP_IP_OUTPUT_H
 
-#include "ip/ip.h"
 #include "ip/ip_common.h"
 #include "ip/ip_context.h"
 #include "net/annotations.h"

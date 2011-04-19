@@ -145,19 +145,18 @@
 
  DELETING ENTRIES
  */
+
 #include "ip_rc.h"
+
+#include "mm/mem_cache.h"
 #ifdef IP_RCU_ENABLE
 #include "rcu_lock.h"
 #endif
-#include "net/rt.h"
-#include "ip_common.h"
-#include "net/net_dev.h"
-#include "app_common.h"
 
 #include <assert.h>
 
-#define MEMCMP_EQUAL 0
-#define BYTES_PER_WORD (4)
+#define BYTES_PER_WORD sizeof(uint32_t)
+
 struct rc_bucket_t *__rc_find_bucket(struct rc_t *rc,
 				     in_addr_t saddr,
 				     in_addr_t daddr);

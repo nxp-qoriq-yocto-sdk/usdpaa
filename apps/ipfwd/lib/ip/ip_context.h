@@ -29,6 +29,7 @@
 #define __LIB_IP_IP_CONTEXT_H
 
 #include "net/context.h"
+#include "ip/ip_rc.h"
 
 /**
  \brief IP Context

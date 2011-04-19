@@ -27,11 +27,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #ifndef LIB_IP_IP_ACCEPT_H
-#define LIB_IP_IP_ACCEPT_H 1
+#define LIB_IP_IP_ACCEPT_H
 
-#include "ip/ip.h"
-#include "ip/ip_common.h"
 #include "net/annotations.h"
+#include "ip/ip_common.h"
 #include "ip/ip_context.h"
 
 /**
@@ -61,4 +60,4 @@ enum IP_STATUS ip_accept_finish(struct ip_context_t *ctxt,
 				struct iphdr *ip_hdr,
 				enum state);
 
-#endif /* ifndef LIB_IP_IP_INPUT_H */
+#endif	/* LIB_IP_IP_INPUT_H */

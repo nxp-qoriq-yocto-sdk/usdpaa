@@ -29,29 +29,27 @@
 #ifndef __LIB_IP_IP_HOOKS_H
 #define __LIB_IP_IP_HOOKS_H
 
-#include "mm/mem_cache.h"
 #ifdef IP_RCU_ENABLE
 #include "rcu_lock.h"
 #endif
 #include "ip/ip_common.h"
 #include "ip/ip_context.h"
 #include "net/annotations.h"
-#include "ip/ip.h"
 
 /*
-	------------                           -------------
-  IN-->| PREROUTING |                      -->| POSTROUTING |-->OUT
-	------------                         |    -------------
-		|                            |          ^
-		v                            |          |
-	------------           -----------   |     -----------
-	|   ROUTE    |----->   |  FORWARD  |--     |   ROUTE   |
-	------------            -----------         -----------
-		|                                       ^
-		v                                       |
-	------------           -----------         -----------
-	|   INPUT    |----->  |   LOCAL   |------>|  OUTPUT   |
-	------------          |  PROCESS  |        -----------
+	------------			       -------------
+  IN-->| PREROUTING |			   -->| POSTROUTING |-->OUT
+	------------			     |	  -------------
+		|			     |		^
+		v			     |		|
+	------------	       -----------   |	   -----------
+	|   ROUTE    |----->   |  FORWARD  |--	   |   ROUTE   |
+	------------		-----------	    -----------
+		|					^
+		v					|
+	------------	       -----------	   -----------
+	|   INPUT    |----->  |	  LOCAL	  |------>|  OUTPUT   |
+	------------	      |	 PROCESS  |	   -----------
 				-----------
  */
 
@@ -77,7 +75,7 @@ enum IP_HOOK_PRAGMA {
 	IP_HOOK_PRAGMA_NEXT
 };
 
-#define IP_HOOK_MAX_FUNCS_PER_HOOK      4
+#define IP_HOOK_MAX_FUNCS_PER_HOOK	4
 /**< Maximum number of Functions per Stage*/
 #define IP_HOOK_ENTRIES_POOL_SIZE      (IP_HOOK_MAX_FUNCS_PER_HOOK *  \
 					__IP_HOOK_COUNT * 2)
@@ -198,4 +196,4 @@ static inline enum IP_STATUS exec_hook(struct ip_hooks_t *hooks,
 	return status;
 }
 
-#endif /* __LIB_IP_IP_HOOKS_H */
+#endif	/* __LIB_IP_IP_HOOKS_H */

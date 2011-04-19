@@ -28,6 +28,8 @@
 #ifndef __LIB_IP_IP_COMMON_H
 #define __LIB_IP_IP_COMMON_H
 
+#include <usdpaa/compat.h>	/* __GNU_SOURCE */
+
 #include "statistics.h"
 
 #include <internal/compat.h>	/* L1_CACHE_BYTES */

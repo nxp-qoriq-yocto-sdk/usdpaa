@@ -29,7 +29,6 @@
 #ifndef __LIB_IP_IP_PROTOS_H
 #define __LIB_IP_IP_PROTOS_H
 
-#include "ip/ip.h"
 #include "ip/ip_common.h"
 #include "ip/ip_context.h"
 #include "net/annotations.h"

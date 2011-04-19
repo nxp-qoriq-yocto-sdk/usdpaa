@@ -26,19 +26,12 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <usdpaa/compat.h>
-
-#include "app_common.h"
 #include "ip_route.h"
+
+#include "common/common.h"
 #include "ip_forward.h"
 #include "ip_local.h"
 #include "ip_rc.h"
-#include "ip_protos.h"
-#include "net/rt.h"
-#include "net/frame_handler.h"
-#include "bigatomic.h"
-
-#include <stdbool.h>
 
 enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,
 			      struct annotations_t *notes,

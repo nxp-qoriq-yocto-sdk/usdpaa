@@ -27,9 +27,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #ifndef LIB_IP_IP_FORWARD_H
-#define LIB_IP_IP_FORWARD_H 1
+#define LIB_IP_IP_FORWARD_H
 
-#include "ip/ip.h"
 #include "ip/ip_common.h"
 #include "net/annotations.h"
 #include "ip/ip_context.h"
@@ -89,4 +88,4 @@ enum IP_STATUS ip_forward_finish(struct ip_context_t *ctxt,
 				 struct iphdr *ip_hdr,
 				 enum state source);
 
-#endif /* ifndef LIB_IP_IP_FORWARD_H */
+#endif	/* LIB_IP_IP_FORWARD_H */

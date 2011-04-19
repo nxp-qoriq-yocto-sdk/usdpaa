@@ -26,13 +26,15 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef LIB_IP_IP_LOCAL_H
-#define LIB_IP_IP_LOCAL_H 1
 
-#include "ip/ip.h"
-#include "ip/ip_common.h"
+#ifndef LIB_IP_IP_LOCAL_H
+#define LIB_IP_IP_LOCAL_H
+
 #include "net/annotations.h"
+#include "ip/ip_common.h"
 #include "ip/ip_context.h"
+
+#include <netinet/ip.h>
 
 /**
  \brief Handles Self terminated Packet. If the Packet is fragmented, and needs reassembly then it is discarded, else it is processed.
@@ -67,4 +69,4 @@ enum IP_STATUS ip_local_deliver_finish(struct ip_context_t *ctxt,
 void ip_defragment(struct ip_context_t *ctxt,
 		   struct annotations_t *notes, struct iphdr *ip_hdr);
 
-#endif /* ifndef LIB_IP_IP_LOCAL_H */
+#endif	/* LIB_IP_IP_LOCAL_H */

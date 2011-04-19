@@ -26,9 +26,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "common/refcount.h"
 #include "rt.h"
-#include "app_common.h"
+
+#include "common/refcount.h"
 
 int rt_init(struct rt_t *rt)
 {

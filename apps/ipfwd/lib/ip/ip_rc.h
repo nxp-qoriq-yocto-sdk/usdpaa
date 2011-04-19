@@ -30,6 +30,9 @@
 
 #include "ip/ip.h"
 #include "crc64.h"
+#include "statistics.h"
+
+#include <internal/compat.h>	/* L1_CACHE_BYTES */
 
 #define RC_BUCKETS					1024
 /**< Number of Route cache Buckets */

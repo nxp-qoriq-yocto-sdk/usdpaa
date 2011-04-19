@@ -28,11 +28,8 @@
  */
 
 #include "ip_accept.h"
-#include "ip_common.h"
 #include "ip_hooks.h"
 #include "ip_route.h"
-#include "net/frame_handler.h"
-#include "app_common.h"
 
 enum IP_STATUS ip_accept_preparsed(struct ip_context_t *ctxt,
 				   struct annotations_t *notes,

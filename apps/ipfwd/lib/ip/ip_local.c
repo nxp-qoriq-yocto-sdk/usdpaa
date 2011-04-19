@@ -24,9 +24,13 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "net/annotations.h"
+
 #include "ip_local.h"
-#include "ip_common.h"
+
+#include <internal/compat.h>
+
+#include "common/common.h"
+
 #include "ip_hooks.h"
 #include "ip_protos.h"
 

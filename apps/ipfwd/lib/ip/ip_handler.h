@@ -5,7 +5,7 @@
  that the rest of the system expects.
  */
 /*
- * Copyright (C) 2010 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,10 +29,11 @@
  */
 
 #ifndef LIB_IP_IP_HANDLER_H
-#define LIB_IP_IP_HANDLER_H 1
+#define LIB_IP_IP_HANDLER_H
 
 #include "net/annotations.h"
-#include "net/context.h"
+#include "ip/ip_context.h"
+
 /**
   \brief Prepares the frame and annotations to be handled by the IP stack.
   This function represents a "translation" from something that is QMan-sourced
@@ -48,4 +49,4 @@
 void ip_handler(struct fq_context_t *ctxt, struct annotations_t *notes,
 		void *data);
 
-#endif /* ifndef LIB_IP_IP_HANDLER_H */
+#endif	/* LIB_IP_IP_HANDLER_H */
