@@ -129,7 +129,7 @@ static int worker_fn(struct thread_data_t *tdata)
  \param[out] app_ctrl_route_info contains Route parameters
  \return Integer status
  */
-int32_t ipfwd_conf_intf(struct app_ctrl_op_info *route_info)
+int ipfwd_conf_intf(struct app_ctrl_op_info *route_info)
 {
 	pr_debug("ipfwd_conf_intf: Enter\n");
 
@@ -208,7 +208,7 @@ struct net_dev_t *ipfwd_get_dev_for_ip(in_addr_t ip_addr)
  \param[out] app_ctrl_route_info contains Route parameters
  \return Integer status
  */
-int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
+int ipfwd_add_route(struct app_ctrl_op_info *route_info)
 {
 	struct rc_entry_t *entry;
 	struct rt_dest_t *dest;
@@ -298,7 +298,7 @@ int32_t ipfwd_add_route(struct app_ctrl_op_info *route_info)
  \param[out] app_ctrl_route_info contains Route parameters
  \return Integer status
  */
-int32_t ipfwd_del_route(struct app_ctrl_op_info *route_info)
+int ipfwd_del_route(struct app_ctrl_op_info *route_info)
 {
 	struct rt_dest_t *dest;
 	pr_debug("ipfwd_del_route: Enter\n");
@@ -330,7 +330,7 @@ int32_t ipfwd_del_route(struct app_ctrl_op_info *route_info)
  \param[out] app_ctrl_route_info contains ARP parameters
  \return Integer status
  */
-int32_t ipfwd_add_arp(struct app_ctrl_op_info *route_info)
+int ipfwd_add_arp(struct app_ctrl_op_info *route_info)
 {
 	in_addr_t ip_addr = route_info->ip_info.src_ipaddr;
 	struct net_dev_t *dev = NULL;
@@ -397,7 +397,7 @@ int32_t ipfwd_add_arp(struct app_ctrl_op_info *route_info)
  \param[out] app_ctrl_route_info contains ARP parameters
  \return Integer status
  */
-int32_t ipfwd_del_arp(struct app_ctrl_op_info *route_info)
+int ipfwd_del_arp(struct app_ctrl_op_info *route_info)
 {
 	struct neigh_t *neighbor = NULL;
 	pr_debug("ipfwd_del_arp: Enter\n");
@@ -557,8 +557,7 @@ void dpa_dev_rx_init(struct dpa_dev_t *dev, struct ipfwd_fq_range_t *fq_range,
  \param[in] uint32_t Number of network devices to be created
  \param[out] return status
  */
-static int32_t
-create_devices(struct ip_stack_t *ip_stack, struct node_t *link_nodes)
+static int create_devices(struct ip_stack_t *ip_stack, struct node_t *link_nodes)
 {
 	uint32_t port;
 	struct net_dev_t *dev;
@@ -651,7 +650,7 @@ struct ip_statistics_t *ipfwd_stats_init(void)
  \param[in] struct ip_stack_t * IPFwd Stack pointer
  \param[out] Return Status
  */
-static int32_t initialize_ip_stack(struct ip_stack_t *ip_stack)
+static int initialize_ip_stack(struct ip_stack_t *ip_stack)
 {
 	int _errno;
 
