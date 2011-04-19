@@ -26,8 +26,8 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _IPFWD_H_
-#define _IPFWD_H_
+#ifndef __IPFWD_H
+#define __IPFWD_H
 
 #include <usdpaa/compat.h>
 #include <usdpaa/fsl_qman.h>
@@ -49,19 +49,7 @@
 #define LINKLOCAL_NODES_2EXP	10
 #define IFACE_COUNT		12
 #define LINKLOCAL_NODES		(1 << LINKLOCAL_NODES_2EXP)
-#define INITIAL_FRAME_COUNT	128
 #define IP_RC_EXPIRE_JIFFIES	(20*60*JIFFY_PER_SEC)
-#define IPSEC_MAX_NUM_FQS	9000
-#define IP_DQRR_MAXFILL 15
-
-#define IP_WAIT_TIMER_MS		20000
-#define DVT0_DETECTED			1
-#define DVT1_DETECTED			2
-
-extern __PERCPU uint64_t atb_start;
-extern volatile enum application_state ipsec_app_state;
-extern int32_t num_fq_close_pending;
-extern __PERCPU uint64_t total_cycles;
 
 struct thread_data_t {
 	/* Inputs to run_threads_custom() */
@@ -76,13 +64,6 @@ struct thread_data_t {
 	/* application-specific */
 	void *appdata;
 } ____cacheline_aligned;
-
-/**
- \brief function to assist taking checkpoint for hybrid testing
- \param[in] NULL
- \param[out] NULL
- */
-extern void ipsecfwd_performance_enter(void);
 
 #ifdef STATS_TBD
 /**
@@ -101,55 +82,14 @@ struct ip_fq_context_t {
 	struct ip_context_t *ip_ctxt; /**< Pointer to private context */
 } __attribute__((aligned(L1_CACHE_BYTES)));
 
-/*State of ipsecfwd_hybrid application*/
-enum application_state {
-	INVALID,
-	INITIALIZING,
-	RUNNING,
-	SHUTDOWN_PENDING,
-	SHUTDOWN_SEC_RX_COMPLETE,
-	SHUTDOWN_SEC_TX_COMPLETE,
-	SHUTDOWN_TX_COMPLETE,
-	SHUTDOWN_COMPLETE,
-	RESET_PENDING,
-	RESET_COMPLETE
-};
-
-extern int32_t g_key_split_flag;
-extern struct qman_fq *g_splitkey_fq_from_sec;
-extern struct qman_fq *g_splitkey_fq_to_sec;
-
-extern struct dpa_buff_allocator *ipsec_buff_allocator;
-extern bool dqrr_enter;
-extern uint32_t num_proc_state;
-extern uint32_t local_frames;
 extern const struct qman_fq_cb ipfwd_rx_cb_err;
 extern const struct qman_fq_cb ipfwd_tx_cb_err;
 extern const struct qman_fq_cb ipfwd_tx_cb_confirm;
 extern const struct qman_fq_cb ipfwd_rx_cb;
 extern const struct qman_fq_cb ipfwd_rx_cb_pcd;
-extern const struct qman_fq_cb ipsecfwd_tx_cb;
 extern const struct qman_fq_cb ipfwd_tx_cb;
-extern const struct qman_fq_cb ipfwd_split_key_cb;
-extern uint32_t g_sec_fq_count;
-extern int32_t pool_channel_id;
 extern struct ipfwd_eth_t ipfwd_fq_range[MAX_NUM_PORTS];
 
-/**
- \brief IPSecfwd Shutdown Complete handler
- */
-extern void ip_shutdown_complete(uint32_t timer_id, void *p_data);
-
-/**
- \brief Initialize all extern variables
- */
-extern void ipsec_init(void);
-
-extern void ip_shutdown_sec_rx_complete(uint32_t timer_id, void *p_data);
-
-extern void ip_shutdown_sec_tx_complete(uint32_t timer_id, void *p_data);
-
-extern void ip_shutdown_sec_tx(uint32_t timer_id, void *p_data);
 /* Utility functions */
 static inline int my_toul(const char *str, char **endptr, long toobig)
 {
@@ -164,5 +104,4 @@ static inline int my_toul(const char *str, char **endptr, long toobig)
 	}
 	return (int)tmp;
 }
-
-#endif
+#endif	/* __IPFWD_H */
