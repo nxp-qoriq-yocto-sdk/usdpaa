@@ -29,7 +29,6 @@
 #ifndef _LIB_NET_CONTEXT_H_
 #define _LIB_NET_CONTEXT_H_	1
 
-#include "net_dev.h"
 #include "annotations.h"
 
 struct fq_context_t;
@@ -54,7 +53,7 @@ struct fq_context_t {
 	frame_handler_t handler;
 	/**< Function pointer used for Parsing of received
 	frame/ confirmation of xmitted frame*/
-	struct net_dev_t *dev;		/**< Net Device Pointer*/
+	struct ppac_if *dev;		/**< Net Device Pointer*/
 };
 
 #endif /* _LIB_NET_CONTEXT_H_ */

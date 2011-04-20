@@ -37,6 +37,8 @@
 #include <usdpaa/fsl_qman.h>
 #include <usdpaa/usdpaa_netcfg.h>
 
+#include <internal/compat.h>
+
 /*********************************/
 /* Net interface data structures */
 /*********************************/

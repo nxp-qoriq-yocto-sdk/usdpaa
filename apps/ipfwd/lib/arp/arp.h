@@ -28,8 +28,10 @@
 #ifndef __LIB_ARP_ARP_H
 #define __LIB_ARP_ARP_H
 
+#include "../../include/ppam_if.h"
+#include <ppac_if.h>
+
 #include "net/neigh.h"
-#include "net/net_dev.h"
 #include "net/annotations.h"
 #include "ip/ip.h"
 
@@ -47,7 +49,7 @@ int arp_table_init(struct neigh_table_t *nt);
  \param[in] node Link Node whose MAC has to be added in arp table
  \param[out] 0 on success, otherwise -ve value
  */
-int add_arp_entry(struct neigh_table_t *arp_table, struct net_dev_t *dev,
+int add_arp_entry(struct neigh_table_t *arp_table, struct ppac_if *dev,
 			struct node_t *node);
 
 /**
@@ -64,6 +66,6 @@ void arp_handler(struct annotations_t *notes, void *data);
  \param[in] target_ip ip address of destination
  \param[out] 0 on success, otherwise -ve value
  */
-int arp_send_request(struct net_dev_t *dev, in_addr_t target_ip);
+int arp_send_request(struct ppac_if *dev, in_addr_t target_ip);
 
-#endif /* __LIB_ARP_ARP_H */
+#endif	/* __LIB_ARP_ARP_H */

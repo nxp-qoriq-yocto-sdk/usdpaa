@@ -1,11 +1,5 @@
-/**
- \file ip_handler.h
- \brief This file is designed to encapsulate all of the p4080 translation that
- is needed to accept a new IP-classified frame, and put it into the format
- that the rest of the system expects.
- */
 /*
- * Copyright (C) 2010 - 2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,24 +22,41 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LIB_IP_IP_HANDLER_H
-#define LIB_IP_IP_HANDLER_H
+#ifndef __PPAM_IF_H
+#define __PPAM_IF_H
 
-#include "net/annotations.h"
+#include <usdpaa/compat.h>	/* __GNU_SOURCE */
+
+#include "ip/ip.h"
 #include "ip/ip_context.h"
 
-/**
-  \brief Prepares the frame and annotations to be handled by the IP stack.
-  This function represents a "translation" from something that is QMan-sourced
-  into something that is source-agnostic.
-  We increment the number of received IP datagrams, move the pointer to point
-  to the start of the IP datagram, and send it to the stack.
- \param[in] ctxt FQ Context used for accessing and updating ip stats
- \param[inout] notes A pointer to the annotations for this frame, as received
- from the queue manager.
- \param[in] data A pointer to the first byte of data in the frame.
- \return none
- */
-void ip_handler(struct ip_context_t *ctxt, struct annotations_t *notes, void *data);
+/* structs required by ppac.c */
+struct ppam_if
+{
+	size_t mtu;
+	in_addr_t addr, mask;
 
-#endif	/* LIB_IP_IP_HANDLER_H */
+	size_t next_fqid;
+
+	struct node_t local_nodes[23];
+};
+
+struct ppam_rx_error
+{
+	struct ip_context_t ctxt;
+};
+
+struct ppam_rx_default
+{
+	struct ip_context_t ctxt;
+};
+
+struct ppam_tx_error { };
+struct ppam_tx_confirm { };
+
+struct ppam_rx_hash
+{
+	struct ip_context_t ctxt;
+};
+
+#endif	/* __PPAM_IF_H */

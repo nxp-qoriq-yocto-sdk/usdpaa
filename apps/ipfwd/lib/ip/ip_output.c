@@ -24,29 +24,22 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "net/neigh.h"
-#include "app_common.h"
-#include "ip.h"
-#include "net/rt.h"
-#include "ip_common.h"
-#include "ip_output.h"
-#include "ip_hooks.h"
-#include "ethernet/eth.h"
-#include "net/net_dev.h"
-#include "net/frame_handler.h"
-#include "net/ll_cache.h"
-#include "ip_rc.h"
-#include "ip_common.h"
-#include "arp/arp.h"
 
-#include <assert.h>
+#include "ip_output.h"
+
+#include "../../include/ppam_if.h"
+#include <ppac_if.h>
+#include <ppac.h>
+
+#include "net/neigh.h"
+#include "ip_hooks.h"
 
 #ifdef NOT_USDPAA
 void arp_retransmit_cb(uint32_t timer_id, void *p_data)
 {
 	in_addr_t gw_ip;
 	struct neigh_t *n;
-	struct net_dev_t *dev;
+	struct ppac_if *dev;
 
 	pr_debug("%s: ARP retransmit timer ID 0x%x expired\n", __func__,
 			timer_id);
@@ -116,7 +109,7 @@ enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt __always_unused,
 {
 	struct ll_cache_t *ll_cache;
 	struct neigh_t *neighbor;
-	struct net_dev_t *dev;
+	struct ppac_if *dev;
 	enum IP_STATUS retval;
 	struct ether_header *ll_hdr;
 #ifdef NOT_USDPAA
@@ -178,7 +171,8 @@ enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt __always_unused,
 		ip_hdr->src_addr = ip_hdr->dst_addr;
 		ip_hdr->dst_addr = temp;
 #endif
-		dev->xmit(dev, (struct qm_fd *)notes->fd, ll_hdr);
+		ppac_send_frame(qman_fq_fqid(dev->tx_fqs + dev->module_if.next_fqid), notes->fd);
+		dev->module_if.next_fqid = (dev->module_if.next_fqid + 1) % dev->num_tx_fqs;
 	}
 
 	return retval;

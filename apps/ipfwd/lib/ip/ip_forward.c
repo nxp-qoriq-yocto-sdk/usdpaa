@@ -27,16 +27,19 @@
  */
 
 #include "ip_forward.h"
-#include "app_common.h"
+
+#include "../../include/ppam_if.h"
+#include <ppac_if.h>
+
+#include "common/common.h"
 #include "ip_output.h"
 #include "ip_hooks.h"
-#include "net/net_dev.h"
 
 enum IP_STATUS ip_forward(struct ip_context_t *ctxt,
 			  struct annotations_t *notes,
 			  struct iphdr *ip_hdr)
 {
-	struct net_dev_t *dev;
+	struct ppac_if *dev;
 
 	dev = notes->dest->dev;
 	if (likely(ip_hdr->ttl > 1)) {
@@ -58,7 +61,7 @@ enum IP_STATUS ip_forward(struct ip_context_t *ctxt,
 	   is uneccessarily in the "DROP" path if the above tests fail - should
 	   not do it if status is not ACCEPT.
 	 */
-	if (unlikely(notes->fd->length20 > dev->mtu)) {
+	if (unlikely(notes->fd->length20 > dev->module_if.mtu)) {
 		pr_err("%s: Dropping pkt, mtu exceeded\n",
 			  __func__);
 #ifdef STATS_TBD
@@ -71,7 +74,7 @@ enum IP_STATUS ip_forward(struct ip_context_t *ctxt,
 	}
 
 	/* If we have not dropped it yet, and source == dest, send redirect */
-	if (unlikely(dev->ifindex == notes->parse.port_id)) {
+	if (unlikely(dev->port_cfg->fman_if->mac_idx == notes->parse.port_id)) {
 		/* send_icmp(ip_hdr, ICMP_MSG_REDIRECT); */
 #ifdef STATS_TBD
 		decorated_notify_inc_64(&

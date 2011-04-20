@@ -29,9 +29,9 @@
 #ifndef _LIB_NET_NEIGH_H
 #define _LIB_NET_NEIGH_H   1
 
-#include <usdpaa/compat.h>
+#include "../../include/ppam_if.h"
+#include <ppac.h>
 
-#include "net_dev.h"
 #include "ll_cache.h"
 #include "crc64.h"
 #include "common/refcount.h"
@@ -89,7 +89,7 @@ struct neigh_func_t {
 	void (*full_output) (struct neigh_t *, void *, void *);
 	void (*reachable_output) (struct neigh_t *, void *, void *);
 	/* Set by Netdevice Init Function */
-	void (*xmit) (struct net_dev_t *, struct qm_fd *, void *);
+	void (*xmit) (struct ppac_if *, struct qm_fd *, void *);
 };
 
 /**
@@ -119,7 +119,7 @@ struct neigh_t {
 	/**< Lock for accessing the Entry*/
 	struct neigh_table_t *nt;
 	/**< Pointer to the Neighbour table*/
-	struct net_dev_t *dev;		/**< Net Device Pointer*/
+	struct ppac_if *dev;		/**< Net Device Pointer*/
 	struct neigh_func_t *funcs;
 	/**< Pointer to the structure having the notification functions*/
 	struct neigh_config_t *config;
@@ -132,7 +132,7 @@ struct neigh_t {
 	/* Addresses - 10B */
 	uint32_t proto_addr[L3_MAX_ADDR_LEN_WORDS];
 	/**< IP Address*/
-	uint8_t neigh_addr[LL_MAX_ADDR_LEN_BYTES];
+	struct ether_addr neigh_addr;
 	/**< MAC Address*/
 
 	/* State - 10B */
@@ -222,7 +222,7 @@ struct neigh_t *neigh_create(struct neigh_table_t *nt);
  \return Pointer to Neighbour Table Entry
  */
 struct neigh_t *neigh_init(struct neigh_table_t *nt, struct neigh_t *n,
-			   struct net_dev_t *dev, uint32_t * proto_addr);
+			   struct ppac_if *dev, uint32_t *proto_addr);
 
 /**
  \brief Updates the Neighbour Table Entry with MAC Address, and State

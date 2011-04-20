@@ -28,17 +28,10 @@
 #ifndef __LIB_ETHERNET_ETH_H
 #define __LIB_ETHERNET_ETH_H
 
-#include <usdpaa/compat.h>
+#include "../../include/ppam_if.h"
+#include <ppac_if.h>
 
-#include "net/net_dev.h"
-
-#include <stdbool.h>
-
-/**
- \brief Net Device Function Pointer Implementations
- \param[inout] dev Device Pointer
- */
-void eth_net_dev_setup(struct net_dev_t *dev);
+#include "net/ll_cache.h"
 
 /**
  \brief Fills in the Ethernet Header
@@ -47,38 +40,28 @@ void eth_net_dev_setup(struct net_dev_t *dev);
  \param[in] daddr Destination MAC Address
  \param[in] saddr Source MAC Address
  */
-void *eth_set_header(struct net_dev_t *dev, void *ll_payload,
-		     void *daddr, void *saddr);
+void *eth_set_header(struct ppac_if *dev,
+		     void *ll_payload,
+		     const struct ether_addr *daddr,
+		     const struct ether_addr *saddr);
 
 /**
  \brief Adds an ethernet address in link layer cache
  \param[in] llc link_layer cache pointer
  \param[in] ll_payload Ethernet header to be set
  */
-void eth_cache_header(struct ll_cache_t *llc, void *ll_payload);
-
-/**
- \brief Sets the MTU for the Net Device
- \param[in] dev Device Pointer
- \param[in] new_mtu New MTU
- */
-void eth_set_mtu(struct net_dev_t *dev, uint32_t new_mtu);
-
-/**
- \brief Sets the MAC Address for the Net Device
- \param[in] dev Device Pointer
- \param[in] addr MAC Address
- */
-void eth_set_mac_addr(struct net_dev_t *dev, void *addr);
+void eth_cache_header(struct ll_cache_t *llc, const struct ether_header *eth);
 
 /**
  \brief Swap 6-byte MAC headers "efficiently"
  \param[in] prot_eth
  */
-static inline void ether_header_swap(struct ether_header *prot_eth)
+static inline void eth_header_swap(struct ether_header *prot_eth)
 {
-	register u32 a, b, c;
-	u32 *overlay = (u32 *)prot_eth;
+	uint32_t a, b, c;
+	uint32_t *overlay;
+
+	overlay = (typeof(overlay))prot_eth;
 	a = overlay[0];
 	b = overlay[1];
 	c = overlay[2];

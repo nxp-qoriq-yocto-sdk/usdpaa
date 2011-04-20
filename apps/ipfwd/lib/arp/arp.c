@@ -27,7 +27,7 @@
 
 #include "arp.h"
 
-extern struct net_dev_t *ipfwd_get_dev_for_ip(in_addr_t ip_addr);
+struct ppac_if *ipfwd_get_iface_for_ip(in_addr_t ip_addr);
 
 #ifdef ARP_ENABLE
 #include "ip/ip_common.h"
@@ -67,13 +67,13 @@ void arp_handler(struct annotations_t *notes, void *data)
 	struct ether_arp *arp;
 	struct neigh_t *n;
 	struct node_t new_node;
-	struct net_dev_t *dev;
+	struct ppac_if *dev;
 	int merge_flag = 0;
 	in_addr_t arp_spa, arp_tpa;
 
 	arp = data + ETHER_HDR_LEN;
 	memcpy(&arp_tpa, arp->arp_tpa, arp->arp_pln);
-	dev = ipfwd_get_dev_for_ip(arp_tpa);
+	dev = ipfwd_get_iface_for_ip(arp_tpa);
 
 	if (unlikely(!dev))
 		return;
@@ -148,7 +148,7 @@ void arp_handler(struct annotations_t *notes, void *data)
 	}
 }
 
-int arp_send_request(struct net_dev_t *dev, in_addr_t target_ip)
+int arp_send_request(struct ppac_if *dev, in_addr_t target_ip)
 {
 	struct ether_arp *arp;
 	struct node_t *target_iface_node;
@@ -239,7 +239,7 @@ int arp_table_init(struct neigh_table_t *nt)
 	return 0;
 }
 
-int add_arp_entry(struct neigh_table_t *arp_tab, struct net_dev_t *dev,
+int add_arp_entry(struct neigh_table_t *arp_tab, struct ppac_if *dev,
 			struct node_t *node)
 {
 	struct neigh_t *n;
@@ -251,7 +251,7 @@ int add_arp_entry(struct neigh_table_t *arp_tab, struct net_dev_t *dev,
 	}
 
 	if (NULL == dev) {
-		dev = ipfwd_get_dev_for_ip(node->ip);
+		dev = ipfwd_get_iface_for_ip(node->ip);
 		if (NULL == dev) {
 			pr_err("%s: failed to get device\n", __func__);
 			return -EINVAL;

@@ -135,7 +135,7 @@ struct neigh_t *neigh_create(struct neigh_table_t *nt)
 }
 
 struct neigh_t *neigh_init(struct neigh_table_t *nt, struct neigh_t *n,
-			   struct net_dev_t *dev, uint32_t * proto_addr)
+			   struct ppac_if *dev, uint32_t *proto_addr)
 {
 	nt->constructor(n);
 	n->next = NULL;
@@ -144,7 +144,7 @@ struct neigh_t *neigh_init(struct neigh_table_t *nt, struct neigh_t *n,
 	n->dev = dev;
 	n->funcs->full_output = NULL;
 	n->funcs->reachable_output = &neigh_reachable_output;
-	n->funcs->xmit = dev->xmit;
+	n->funcs->xmit = NULL;
 	n->config = &nt->config;
 	n->ll_cache = NULL;
 	n->output = n->funcs->full_output;
@@ -162,13 +162,13 @@ struct neigh_t *neigh_init(struct neigh_table_t *nt, struct neigh_t *n,
 
 struct neigh_t *neigh_update(struct neigh_t *n, const uint8_t *lladdr, uint8_t state)
 {
-	struct net_dev_t *dev;
+	struct ppac_if *dev;
 	struct ether_header eth_hdr;
 
 	spin_lock(&n->wlock);
 	if (n->neigh_state == NEIGH_STATE_UNKNOWN) {
 		dev = n->dev;
-		memcpy(&n->neigh_addr, lladdr, dev->dev_addr_len);
+		memcpy(&n->neigh_addr, lladdr, sizeof(n->neigh_addr));
 
 		n->ll_cache = ll_cache_create();
 		if (n->ll_cache == NULL) {
@@ -176,9 +176,8 @@ struct neigh_t *neigh_update(struct neigh_t *n, const uint8_t *lladdr, uint8_t s
 			return NULL;
 		}
 		memcpy(eth_hdr.ether_dhost, lladdr, sizeof(eth_hdr.ether_dhost));
-		memcpy(eth_hdr.ether_shost, dev->dev_addr, dev->dev_addr_len);
-		if (dev->cache_header != NULL)
-			dev->cache_header(n->ll_cache, &eth_hdr);
+		memcpy(eth_hdr.ether_shost, &dev->port_cfg->fman_if->mac_addr, sizeof(eth_hdr.ether_shost));
+		eth_cache_header(n->ll_cache, &eth_hdr);
 		n->output = n->funcs->reachable_output;
 		n->last_updated = mfspr(SPR_ATBL);
 		n->neigh_state = state;
@@ -350,11 +349,11 @@ struct neigh_t *neigh_lookup(struct neigh_table_t *nt, uint32_t key,
 void neigh_reachable_output(struct neigh_t *n, void *notes, void *ll_payload)
 {
 	void *ll_hdr;
-	struct net_dev_t *dev;
+	struct ppac_if *dev;
 
 	dev = n->dev;
-	ll_hdr = dev->set_header(dev, ll_payload, NULL, n->neigh_addr);
-	dev->xmit(dev, notes, ll_hdr);
+	ll_hdr = eth_set_header(dev, ll_payload, NULL, &n->neigh_addr);
+	ppac_send_frame(0, notes);
 }
 
 /******************************************************************************

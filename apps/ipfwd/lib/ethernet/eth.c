@@ -26,86 +26,29 @@
  */
 
 #include "eth.h"
-#include "net/ll_cache.h"
 
-#include <assert.h>
-
-/**
- \brief Ethernet layer Setup function
- \param[in] Netdev Structure pointer
- */
-void eth_net_dev_setup(struct net_dev_t *dev)
-{
-	dev->set_mtu = &eth_set_mtu;
-	dev->set_ll_address = &eth_set_mac_addr;
-	dev->set_header = &eth_set_header;
-	dev->cache_header = &eth_cache_header;
-	dev->mtu = ETHERMTU;
-	dev->header_len = ETHER_HDR_LEN;
-	dev->dev_addr_len = ETHER_ADDR_LEN;
-}
-
-/**
- \brief Set ethernet header in a ethernet pkt
- \param[in] dev Netdev Struture
- \param[in] ll_payload Link Layer Payload
- \param[in] saddr Source IPv4 Address
- \param[in] daddr Destination IPv4 Address
- */
-void *eth_set_header(struct net_dev_t *dev, void *ll_payload, void *saddr,
-		     void *daddr)
+void *eth_set_header(struct ppac_if *dev,
+		     void *ll_payload,
+		     const struct ether_addr *saddr,
+		     const struct ether_addr *daddr)
 {
 	struct ether_header *eth;
 
-	assert(ll_payload != NULL);
-	assert(dev != NULL);
-	assert(daddr != NULL);
-
 	eth = (typeof(eth))ll_payload - 1;
 
-	if (saddr == NULL)
-		saddr = dev->dev_addr;
+	if (saddr == NULL) {
+		saddr = &dev->port_cfg->fman_if->mac_addr;
+	}
+	memcpy(eth->ether_shost, saddr, sizeof(eth->ether_shost));
+	memcpy(eth->ether_dhost, daddr, sizeof(eth->ether_dhost));
 	eth->ether_type = ETHERTYPE_IP;
-	memcpy(&eth->ether_shost, saddr, dev->dev_addr_len);
-	memcpy(&eth->ether_dhost, daddr, dev->dev_addr_len);
 
 	return eth;
 }
 
-/**
- \brief Add Ethernet header in link layer cache
- \param[in] llc link layer cache pointer
- \param[in] eth_hdr Ethernet Header
- */
-void eth_cache_header(struct ll_cache_t *llc, void *eth_hdr)
+void eth_cache_header(struct ll_cache_t *llc, const struct ether_header *eth)
 {
-	struct ether_header *eth = eth_hdr;
-	assert(eth_hdr != NULL);
-	assert(llc != NULL);
-
-	llc->ll_addr_len = ETHER_ADDR_LEN;
-	llc->ll_hdr_len = ETHER_HDR_LEN;
-	eth->ether_type = ETHERTYPE_IP;
-	memcpy(llc->ll_data, eth_hdr, llc->ll_hdr_len);
-}
-
-/**
- \brief Setup MTU of a link
- \param[in] dev Netdev structure associated to Link
- \param[in] new_mtu New MTU value to be set
- */
-void eth_set_mtu(struct net_dev_t *dev, uint32_t new_mtu)
-{
-	assert(new_mtu >= ETHERMIN);
-	assert(new_mtu <= ETHERMTU);
-
-	dev->mtu = (uint16_t)new_mtu;
-}
-
-void eth_set_mac_addr(struct net_dev_t *dev, void *addr)
-{
-	assert(dev != NULL);
-	assert(addr != NULL);
-
-	memcpy(dev->dev_addr, addr, dev->dev_addr_len);
+	llc->ll_addr_len = sizeof(eth->ether_dhost);
+	llc->ll_hdr_len = sizeof(*eth);
+	memcpy(llc->ll_data, eth, sizeof(*eth));
 }

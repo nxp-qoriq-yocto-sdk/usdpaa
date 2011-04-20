@@ -31,6 +31,6 @@
 
 lib_LIBRARIES = apps_arp
 
-AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipfwd/include -I$(TOP_LEVEL)/apps/ipfwd/lib -I$(TOP_LEVEL)/apps/lib
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipfwd/include -I$(TOP_LEVEL)/apps/ipfwd/lib -I$(TOP_LEVEL)/apps/lib -I$(TOP_LEVEL)/apps/ipfwd/app
 
 apps_arp_SOURCES := arp.c

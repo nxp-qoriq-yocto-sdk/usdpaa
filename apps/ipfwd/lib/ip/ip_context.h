@@ -28,7 +28,6 @@
 #ifndef __LIB_IP_IP_CONTEXT_H
 #define __LIB_IP_IP_CONTEXT_H
 
-#include "net/context.h"
 #include "ip/ip_rc.h"
 
 /**
@@ -37,7 +36,6 @@
  applications for processing of Frame
  */
 struct ip_context_t {
-	struct fq_context_t fq_ctxt;	/**< Frame Queue context tructure*/
 	struct ip_statistics_t *stats;	/**< Pointer to the statistics related to IP Fwd Application*/
 	struct ip_hooks_t *hooks;	/**< Pointer to the Hook Table*/
 	struct ip_protos_t *protos;	/**< Pointer to the Protocol handler table*/

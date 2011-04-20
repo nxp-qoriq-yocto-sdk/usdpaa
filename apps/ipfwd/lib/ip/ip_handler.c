@@ -28,15 +28,11 @@
 #include "ip_handler.h"
 #include "ip_accept.h"
 
-void ip_handler(struct fq_context_t *ctxt, struct annotations_t *notes,
-		void *data)
+void ip_handler(struct ip_context_t *ctxt, struct annotations_t *notes, void *data)
 {
-	struct ip_context_t *ip_ctxt = (struct ip_context_t *)ctxt;
-
 #ifdef STATS_TBD
-	decorated_notify_inc_32(&ip_ctxt->stats->ip_in_received);
+	decorated_notify_inc_32(&ctxt->stats->ip_in_received);
 #endif
 	notes->dest = NULL;
-	ip_accept_preparsed(ip_ctxt, notes, data + sizeof(struct ether_header),
-			    SOURCE_POST_FMAN);
+	ip_accept_preparsed(ctxt, notes, data +  sizeof(struct ether_header), SOURCE_POST_FMAN);
 }

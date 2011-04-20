@@ -38,12 +38,10 @@
 #include "net/rt.h"
 #include "ip/ip_rc.h"
 #include "ip/ip_handler.h"
-#include "dpa_dev/dpa_dev.h"
 #include "ip/ip_common.h"
 #include "ip/ip_hooks.h"
 #include "ip/ip_protos.h"
 #include "ip/ip_appconf.h"
-#include "helper/helper.h"
 
 #define ETHERNET_ADDR_MAGIC	0x0200
 #define LINKLOCAL_NODES_2EXP	10
@@ -88,20 +86,5 @@ extern const struct qman_fq_cb ipfwd_tx_cb_confirm;
 extern const struct qman_fq_cb ipfwd_rx_cb;
 extern const struct qman_fq_cb ipfwd_rx_cb_pcd;
 extern const struct qman_fq_cb ipfwd_tx_cb;
-extern struct ipfwd_eth_t ipfwd_fq_range[MAX_NUM_PORTS];
 
-/* Utility functions */
-static inline int my_toul(const char *str, char **endptr, long toobig)
-{
-	unsigned long tmp = strtoul(str, endptr, 0);
-	if ((tmp == ULONG_MAX) || (*endptr == str)) {
-		fprintf(stderr, "error: can't parsing '%s'\n", str);
-		exit(EXIT_FAILURE);
-	}
-	if (tmp >= toobig) {
-		fprintf(stderr, "error: value %lu out of range\n", tmp);
-		exit(EXIT_FAILURE);
-	}
-	return (int)tmp;
-}
 #endif	/* __IPFWD_H */
