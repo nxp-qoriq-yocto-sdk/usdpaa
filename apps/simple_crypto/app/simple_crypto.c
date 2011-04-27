@@ -48,7 +48,7 @@
 uint32_t g_cmd_params;	/* bit mask of all parameters provided by user */
 
 /* user defined parameters through CP */
-struct crypto_param *crypto_info;
+struct crypto_param crypto_info;
 
 /* Total number of buffers to send to CAAm block per iteration */
 uint32_t total_buf_num;
@@ -129,67 +129,67 @@ void init_rtv_aes_cbc(void)
 {
 	strcpy(algorithm, "AES_CBC");
 	ref_test_vector.key =
-		aes_cbc_reference_key[crypto_info->test_set - 1];
+		aes_cbc_reference_key[crypto_info.test_set - 1];
 	ref_test_vector.iv.init_vec =
-		aes_cbc_reference_iv[crypto_info->test_set - 1];
+		aes_cbc_reference_iv[crypto_info.test_set - 1];
 	ref_test_vector.length =
-		aes_cbc_reference_length[crypto_info->test_set - 1];
+		aes_cbc_reference_length[crypto_info.test_set - 1];
 	ref_test_vector.plaintext =
-		aes_cbc_reference_plaintext[crypto_info->test_set - 1];
+		aes_cbc_reference_plaintext[crypto_info.test_set - 1];
 	ref_test_vector.ciphertext =
-		aes_cbc_reference_ciphertext[crypto_info->test_set - 1];
+		aes_cbc_reference_ciphertext[crypto_info.test_set - 1];
 }
 
 void init_rtv_tdes_cbc(void)
 {
 	strcpy(algorithm, "TDES_CBC");
 	ref_test_vector.key =
-		tdes_cbc_reference_key[crypto_info->test_set - 1];
+		tdes_cbc_reference_key[crypto_info.test_set - 1];
 	ref_test_vector.iv.init_vec =
-		tdes_cbc_reference_iv[crypto_info->test_set - 1];
+		tdes_cbc_reference_iv[crypto_info.test_set - 1];
 	ref_test_vector.length =
-		tdes_cbc_reference_length[crypto_info->test_set - 1];
+		tdes_cbc_reference_length[crypto_info.test_set - 1];
 	ref_test_vector.plaintext =
-		tdes_cbc_reference_plaintext[crypto_info->test_set - 1];
+		tdes_cbc_reference_plaintext[crypto_info.test_set - 1];
 	ref_test_vector.ciphertext =
-		tdes_cbc_reference_ciphertext[crypto_info->test_set - 1];
+		tdes_cbc_reference_ciphertext[crypto_info.test_set - 1];
 }
 
 void init_rtv_snow_f8(void)
 {
 	strcpy(algorithm, "SNOW_F8");
-	ref_test_vector.key = snow_f8_reference_key[crypto_info->test_set - 1];
+	ref_test_vector.key = snow_f8_reference_key[crypto_info.test_set - 1];
 	ref_test_vector.iv.f8.count =
-		snow_f8_reference_count[crypto_info->test_set - 1];
+		snow_f8_reference_count[crypto_info.test_set - 1];
 	ref_test_vector.iv.f8.bearer =
-		snow_f8_reference_bearer[crypto_info->test_set - 1];
+		snow_f8_reference_bearer[crypto_info.test_set - 1];
 	ref_test_vector.iv.f8.direction =
-		snow_f8_reference_dir[crypto_info->test_set - 1];
+		snow_f8_reference_dir[crypto_info.test_set - 1];
 	ref_test_vector.length =
-		snow_f8_reference_length[crypto_info->test_set - 1];
+		snow_f8_reference_length[crypto_info.test_set - 1];
 	ref_test_vector.plaintext =
-		snow_f8_reference_plaintext[crypto_info->test_set - 1];
+		snow_f8_reference_plaintext[crypto_info.test_set - 1];
 	ref_test_vector.ciphertext =
-		snow_f8_reference_ciphertext[crypto_info->test_set - 1];
+		snow_f8_reference_ciphertext[crypto_info.test_set - 1];
 }
 
 void init_rtv_snow_f9(void)
 {
 	strcpy(algorithm, "SNOW_F9");
-	ref_test_vector.key = snow_f9_reference_key[crypto_info->test_set - 1];
+	ref_test_vector.key = snow_f9_reference_key[crypto_info.test_set - 1];
 	ref_test_vector.iv.f9.count =
-		snow_f9_reference_count[crypto_info->test_set - 1];
+		snow_f9_reference_count[crypto_info.test_set - 1];
 	ref_test_vector.iv.f9.fresh =
-		snow_f9_reference_fresh[crypto_info->test_set - 1];
+		snow_f9_reference_fresh[crypto_info.test_set - 1];
 	ref_test_vector.iv.f9.direction =
-		snow_f9_reference_dir[crypto_info->test_set - 1];
+		snow_f9_reference_dir[crypto_info.test_set - 1];
 	ref_test_vector.length =
-		snow_f9_reference_length[crypto_info->test_set - 1];
+		snow_f9_reference_length[crypto_info.test_set - 1];
 	ref_test_vector.plaintext =
-		snow_f9_reference_plaintext[crypto_info->test_set - 1];
+		snow_f9_reference_plaintext[crypto_info.test_set - 1];
 	ref_test_vector.ciphertext = NULL;
 	ref_test_vector.digest =
-		snow_f9_reference_digest[crypto_info->test_set - 1];
+		snow_f9_reference_digest[crypto_info.test_set - 1];
 	authnct = 1;
 }
 
@@ -197,39 +197,39 @@ void init_rtv_kasumi_f8(void)
 {
 	strcpy(algorithm, "KASUMI_F8");
 	ref_test_vector.key =
-		kasumi_f8_reference_key[crypto_info->test_set - 1];
+		kasumi_f8_reference_key[crypto_info.test_set - 1];
 	ref_test_vector.iv.f8.count =
-		kasumi_f8_reference_count[crypto_info->test_set - 1];
+		kasumi_f8_reference_count[crypto_info.test_set - 1];
 	ref_test_vector.iv.f8.bearer =
-		kasumi_f8_reference_bearer[crypto_info->test_set - 1];
+		kasumi_f8_reference_bearer[crypto_info.test_set - 1];
 	ref_test_vector.iv.f8.direction =
-		kasumi_f8_reference_dir[crypto_info->test_set - 1];
+		kasumi_f8_reference_dir[crypto_info.test_set - 1];
 	ref_test_vector.length =
-		kasumi_f8_reference_length[crypto_info->test_set - 1];
+		kasumi_f8_reference_length[crypto_info.test_set - 1];
 	ref_test_vector.plaintext =
-		kasumi_f8_reference_plaintext[crypto_info->test_set - 1];
+		kasumi_f8_reference_plaintext[crypto_info.test_set - 1];
 	ref_test_vector.ciphertext =
-		kasumi_f8_reference_ciphertext[crypto_info->test_set - 1];
+		kasumi_f8_reference_ciphertext[crypto_info.test_set - 1];
 }
 
 void init_rtv_kasumi_f9(void)
 {
 	strcpy(algorithm, "KASUMI_F9");
 	ref_test_vector.key =
-		kasumi_f9_reference_key[crypto_info->test_set - 1];
+		kasumi_f9_reference_key[crypto_info.test_set - 1];
 	ref_test_vector.iv.f9.count =
-		kasumi_f9_reference_count[crypto_info->test_set - 1];
+		kasumi_f9_reference_count[crypto_info.test_set - 1];
 	ref_test_vector.iv.f9.fresh =
-		kasumi_f9_reference_fresh[crypto_info->test_set - 1];
+		kasumi_f9_reference_fresh[crypto_info.test_set - 1];
 	ref_test_vector.iv.f9.direction =
-		kasumi_f9_reference_dir[crypto_info->test_set - 1];
+		kasumi_f9_reference_dir[crypto_info.test_set - 1];
 	ref_test_vector.length =
-		kasumi_f9_reference_length[crypto_info->test_set - 1];
+		kasumi_f9_reference_length[crypto_info.test_set - 1];
 	ref_test_vector.plaintext =
-		kasumi_f9_reference_plaintext[crypto_info->test_set - 1];
+		kasumi_f9_reference_plaintext[crypto_info.test_set - 1];
 	ref_test_vector.ciphertext = NULL;
 	ref_test_vector.digest =
-		kasumi_f9_reference_digest[crypto_info->test_set - 1];
+		kasumi_f9_reference_digest[crypto_info.test_set - 1];
 	authnct = 1;
 }
 
@@ -237,12 +237,12 @@ void init_rtv_crc(void)
 {
 	strcpy(algorithm, "CRC");
 	ref_test_vector.length =
-		crc_reference_length[crypto_info->test_set - 1];
+		crc_reference_length[crypto_info.test_set - 1];
 	ref_test_vector.plaintext =
-		crc_reference_plaintext[crypto_info->test_set - 1];
+		crc_reference_plaintext[crypto_info.test_set - 1];
 	ref_test_vector.ciphertext = NULL;
 	ref_test_vector.digest =
-		crc_reference_digest[crypto_info->test_set - 1];
+		crc_reference_digest[crypto_info.test_set - 1];
 	authnct = 1;
 }
 
@@ -250,14 +250,14 @@ void init_rtv_hmac_sha1(void)
 {
 	strcpy(algorithm, "HMAC_SHA1");
 	ref_test_vector.key =
-		hmac_sha1_reference_key[crypto_info->test_set - 1];
+		hmac_sha1_reference_key[crypto_info.test_set - 1];
 	ref_test_vector.length =
-		hamc_sha1_reference_length[crypto_info->test_set - 1];
+		hamc_sha1_reference_length[crypto_info.test_set - 1];
 	ref_test_vector.plaintext =
-		hmac_sha1_reference_plaintext[crypto_info->test_set - 1];
+		hmac_sha1_reference_plaintext[crypto_info.test_set - 1];
 	ref_test_vector.ciphertext = NULL;
 	ref_test_vector.digest =
-		hamc_sha1_reference_digest[crypto_info->test_set - 1];
+		hamc_sha1_reference_digest[crypto_info.test_set - 1];
 	authnct = 1;
 }
 
@@ -265,11 +265,11 @@ void init_rtv_snow_f8_f9(void)
 {
 	strcpy(algorithm, "SNOW_F8_F9");
 	ref_test_vector.length =
-		snow_enc_f8_f9_reference_length[crypto_info->test_set - 1];
+		snow_enc_f8_f9_reference_length[crypto_info.test_set - 1];
 	ref_test_vector.plaintext =
-		snow_enc_f8_f9_reference_plaintext[crypto_info->test_set - 1];
+		snow_enc_f8_f9_reference_plaintext[crypto_info.test_set - 1];
 	ref_test_vector.ciphertext =
-		snow_enc_f8_f9_reference_ciphertext[crypto_info->test_set - 1];
+		snow_enc_f8_f9_reference_ciphertext[crypto_info.test_set - 1];
 }
 
 /* Function pointer to reference test vector for suported algos */
@@ -294,20 +294,20 @@ static int create_compound_fd(void)
 	struct sg_entry_priv_t *sg_priv_and_data;
 	struct qm_sg_entry *sg;
 	uint32_t input_buf_length = 0;
-	input_buf_capacity = crypto_info->buf_size;
-	input_buf_length = crypto_info->buf_size;
+	input_buf_capacity = crypto_info.buf_size;
+	input_buf_length = crypto_info.buf_size;
 
-	switch (crypto_info->algo) {
+	switch (crypto_info.algo) {
 	case AES_CBC:
 	case TDES_CBC:
 	case SNOW_F8:
-		output_buf_size = crypto_info->buf_size;
+		output_buf_size = crypto_info.buf_size;
 		break;
 	case SNOW_F9:
 		output_buf_size = SNOW_F9_DIGEST_SIZE;
 		break;
 	case KASUMI_F8:
-		output_buf_size = crypto_info->buf_size;
+		output_buf_size = crypto_info.buf_size;
 		break;
 	case KASUMI_F9:
 		output_buf_size = KASUMI_F9_DIGEST_SIZE;
@@ -319,7 +319,7 @@ static int create_compound_fd(void)
 		output_buf_size = HMAC_SHA1_DIGEST_SIZE;
 		break;
 	case SNOW_F8_F9:
-		output_buf_size = crypto_info->buf_size + SNOW_F9_DIGEST_SIZE;
+		output_buf_size = crypto_info.buf_size + SNOW_F9_DIGEST_SIZE;
 
 		/* For this algorithm a	 Job Descriptor will be added to the
 		 * head of the SEC frame. Increase the buffer capacity and
@@ -433,7 +433,7 @@ static void *setup_init_descriptor(bool mode)
 
 	shared_desc = (typeof(shared_desc))&prehdr_desc->deschdr;
 
-	switch (crypto_info->algo) {
+	switch (crypto_info.algo) {
 	case AES_CBC:
 		ret = cnstr_shdsc_cbc_blkcipher(shared_desc, &shared_desc_len,
 			ref_test_vector.key, AES_CBC_KEY_LEN * BITS_PER_BYTE,
@@ -548,7 +548,7 @@ static void *setup_sec_descriptor(bool mode)
 {
 	void *descriptor = NULL;
 
-	if (SNOW_F8_F9 == crypto_info->algo) {
+	if (SNOW_F8_F9 == crypto_info.algo) {
 		descriptor = setup_preheader
 			(0, /* shared descriptor length is 0, meaning
 			       there is no shared desc in context A*/
@@ -824,7 +824,7 @@ static void set_enc_buf(void)
 		 * inlined at the head of the input buffer. Set the encrypt
 		 * job descriptor here.
 		 */
-		if (SNOW_F8_F9 == crypto_info->algo) {
+		if (SNOW_F8_F9 == crypto_info.algo) {
 			/* Update the input frame length. If this is not the
 			 *  first iteration, the input len will remain set
 			 *  from the decryption phase. The input len for
@@ -847,10 +847,10 @@ static void set_enc_buf(void)
 		}
 
 		/* Copy the input plain-text data */
-		for (i = 0; i < crypto_info->buf_size; i++) {
-			if (CIPHER == crypto_info->mode)
+		for (i = 0; i < crypto_info.buf_size; i++) {
+			if (CIPHER == crypto_info.mode)
 				memcpy(in_buf, ref_test_vector.plaintext,
-					crypto_info->buf_size);
+					crypto_info.buf_size);
 			else
 				in_buf[i] = plain_data++;
 		}
@@ -903,7 +903,7 @@ static void set_dec_auth_buf(void)
 	dma_addr_t addr;
 	uint8_t *dec_job_descriptor = NULL;
 
-	if (SNOW_F8_F9 != crypto_info->algo) {
+	if (SNOW_F8_F9 != crypto_info.algo) {
 		pr_err("%s: algorithm not supported\n", __func__);
 		return;
 	}
@@ -930,19 +930,19 @@ static void set_dec_auth_buf(void)
 		 *  size of the reference cyphertext for decryption
 		 */
 		if (output_buf_size != (snow_dec_f8_f9_reference_length
-					[crypto_info->test_set - 1]/8)) {
+					[crypto_info.test_set - 1]/8)) {
 			pr_err("Invalid output buffer length\n");
 			abort();
 		}
 
 		/* Use the reference encrypted data as input for decryption */
 		memcpy(in_buf, snow_dec_f8_f9_reference_ciphertext
-			[crypto_info->test_set - 1], output_buf_size);
+			[crypto_info.test_set - 1], output_buf_size);
 
 		sg_in->length = output_buf_size + job_desc_buf_size;
 
 		/* The output buffer will contain only the decoded F8 data */
-		sg_out->length = crypto_info->buf_size;
+		sg_out->length = crypto_info.buf_size;
 	}
 }
 
@@ -1170,7 +1170,7 @@ static int test_dec_match(void)
 
 		addr = qm_sg_entry_get64(sgentry);
 		dec_buf = dma_mem_ptov(addr);
-		if (CIPHER == crypto_info->mode) {
+		if (CIPHER == crypto_info.mode) {
 			if (test_vector_match((uint32_t *) dec_buf, (uint32_t *)
 						ref_test_vector.plaintext,
 						ref_test_vector.length) != 0) {
@@ -1182,7 +1182,7 @@ static int test_dec_match(void)
 				return -1;
 			}
 		} else {
-			for (i = 0; i < crypto_info->buf_size; i++) {
+			for (i = 0; i < crypto_info.buf_size; i++) {
 				if (dec_buf[i] != plain_data) {
 					pr_err("%s: %s decrypted frame %d"
 						" doesn't match!\n" , __func__,
@@ -1213,7 +1213,7 @@ static void do_enqueues(enum SEC_MODE mode, thread_data_t *tdata)
 	cpu_ind = (tdata->cpu + num_isolcpus - 1) % num_isolcpus;
 
 	do {
-		if (i >= crypto_info->buf_num_per_core)
+		if (i >= crypto_info.buf_num_per_core)
 			return;
 
 		fd_ind = i*ncpus + cpu_ind;
@@ -1448,40 +1448,40 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 {
 	switch (key) {
 	case 'm':
-		crypto_info->mode = atoi(arg);
+		crypto_info.mode = atoi(arg);
 		g_cmd_params |= BMASK_SEC_TEST_MODE;
 		pr_info("Test mode = %s\n", arg);
 		break;
 
 	case 't':
-		crypto_info->test_set = atoi(arg);
+		crypto_info.test_set = atoi(arg);
 		g_cmd_params |= BMASK_SEC_TEST_SET;
-		pr_info("Test set = %d\n", crypto_info->test_set);
+		pr_info("Test set = %d\n", crypto_info.test_set);
 		break;
 
 	case 's':
-		crypto_info->buf_size = atoi(arg);
+		crypto_info.buf_size = atoi(arg);
 		g_cmd_params |= BMASK_SEC_BUFFER_SIZE;
-		pr_info("Buffer size = %d\n", crypto_info->buf_size);
+		pr_info("Buffer size = %d\n", crypto_info.buf_size);
 		break;
 
 	case 'n':
-		crypto_info->buf_num_per_core = atoi(arg);
+		crypto_info.buf_num_per_core = atoi(arg);
 		g_cmd_params |= BMASK_SEC_BUFFER_NUM;
 		pr_info("Number of Buffers per core = %d\n",
-				crypto_info->buf_num_per_core);
+				crypto_info.buf_num_per_core);
 		break;
 
 	case 'o':
-		crypto_info->algo = atoi(arg);
+		crypto_info.algo = atoi(arg);
 		g_cmd_params |= BMASK_SEC_ALG;
 		pr_info("SEC4.0 cryptographic operation = %s\n", arg);
 		break;
 
 	case 'l':
-		crypto_info->itr_num = atoi(arg);
+		crypto_info.itr_num = atoi(arg);
 		g_cmd_params |= BMASK_SEC_ITR_NUM;
-		pr_info("Number of iteration = %d\n", crypto_info->itr_num);
+		pr_info("Number of iteration = %d\n", crypto_info.itr_num);
 		break;
 
 	case 'c':
@@ -1497,58 +1497,58 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 
 static int validate_test_set(void)
 {
-	switch (crypto_info->algo) {
+	switch (crypto_info.algo) {
 	case AES_CBC:
-		if (crypto_info->test_set > 0 &&
-			crypto_info->test_set < 5)
+		if (crypto_info.test_set > 0 &&
+			crypto_info.test_set < 5)
 			return 0;
 		else
 			goto err;
 	case TDES_CBC:
-		if (crypto_info->test_set > 0 &&
-			crypto_info->test_set < 3)
+		if (crypto_info.test_set > 0 &&
+			crypto_info.test_set < 3)
 			return 0;
 		else
 			goto err;
 	case SNOW_F8:
-		if (crypto_info->test_set > 0 &&
-			crypto_info->test_set < 6)
+		if (crypto_info.test_set > 0 &&
+			crypto_info.test_set < 6)
 			return 0;
 		else
 			goto err;
 	case SNOW_F9:
-		if (crypto_info->test_set > 0 &&
-			crypto_info->test_set < 6)
+		if (crypto_info.test_set > 0 &&
+			crypto_info.test_set < 6)
 			return 0;
 		else
 			goto err;
 	case KASUMI_F8:
-		if (crypto_info->test_set > 0 &&
-			crypto_info->test_set < 6)
+		if (crypto_info.test_set > 0 &&
+			crypto_info.test_set < 6)
 			return 0;
 		else
 			goto err;
 	case KASUMI_F9:
-		if (crypto_info->test_set > 0 &&
-			crypto_info->test_set < 6)
+		if (crypto_info.test_set > 0 &&
+			crypto_info.test_set < 6)
 			return 0;
 		else
 			goto err;
 	case CRC:
-		if (crypto_info->test_set > 0 &&
-			crypto_info->test_set < 6)
+		if (crypto_info.test_set > 0 &&
+			crypto_info.test_set < 6)
 			return 0;
 		else
 			goto err;
 	case HMAC_SHA1:
-		if (crypto_info->test_set > 0 &&
-			crypto_info->test_set < 3)
+		if (crypto_info.test_set > 0 &&
+			crypto_info.test_set < 3)
 			return 0;
 		else
 			goto err;
 	case SNOW_F8_F9:
-		if (crypto_info->test_set > 0 &&
-			crypto_info->test_set < 2)
+		if (crypto_info.test_set > 0 &&
+			crypto_info.test_set < 2)
 			return 0;
 		else
 			goto err;
@@ -1568,15 +1568,10 @@ err:
  */
 static int validate_params(void)
 {
-	if (!crypto_info) {
-		pr_err("Crypto Info is NULL\n");
-		return -EINVAL;
-	}
-
-	if ((PERF == crypto_info->mode)
+	if ((PERF == crypto_info.mode)
 			&& BMASK_SEC_PERF_MODE == g_cmd_params) {
 		/* do nothing */
-	} else if ((CIPHER == crypto_info->mode)
+	} else if ((CIPHER == crypto_info.mode)
 			&& g_cmd_params == BMASK_SEC_CIPHER_MODE) {
 		if (validate_test_set() != 0) {
 			pr_err("Invalid Parameters: Invalid test set\n"
@@ -1590,22 +1585,22 @@ static int validate_params(void)
 		return -EINVAL;
 	}
 
-	if (crypto_info->buf_num_per_core == 0 ||
-		crypto_info->buf_num_per_core > BUFF_NUM_PER_CORE) {
+	if (crypto_info.buf_num_per_core == 0 ||
+		crypto_info.buf_num_per_core > BUFF_NUM_PER_CORE) {
 		pr_err("Invalid Parameters: Invalid number of buffers\n"
 				"see --help option\n");
 		return -EINVAL;
 	}
 
-	if (PERF == crypto_info->mode && (crypto_info->buf_size == 0 ||
-		crypto_info->buf_size % L1_CACHE_BYTES != 0 ||
-		crypto_info->buf_size > BUFF_SIZE)) {
+	if (PERF == crypto_info.mode && (crypto_info.buf_size == 0 ||
+		crypto_info.buf_size % L1_CACHE_BYTES != 0 ||
+		crypto_info.buf_size > BUFF_SIZE)) {
 		pr_err("Invalid Parameters: Invalid number of buffers\n"
 				"see --help option\n");
 		return -EINVAL;
 	}
 
-	switch (crypto_info->algo) {
+	switch (crypto_info.algo) {
 	case AES_CBC:
 	case TDES_CBC:
 	case SNOW_F8:
@@ -1652,7 +1647,7 @@ static pthread_barrier_t app_barrier;
 static int worker_fn(thread_data_t *tdata)
 {
 	int i = 1;
-	int iterations = crypto_info->itr_num;
+	int iterations = crypto_info.itr_num;
 	/* Counters to record time */
 	uint64_t atb_start_enc=0;
 	uint64_t atb_start_dec=0;
@@ -1671,7 +1666,7 @@ static int worker_fn(thread_data_t *tdata)
 	while (iterations) {
 		/* Set encryption buffer */
 		if (!tdata->index) {
-			if (crypto_info->itr_num < ONE_MEGA) {
+			if (crypto_info.itr_num < ONE_MEGA) {
 				pr_info("Iteration %d started\n", i);
 			} else {
 				if (1 == (i % ONE_MEGA/10))
@@ -1714,7 +1709,7 @@ static int worker_fn(thread_data_t *tdata)
 			}
 
 			/* Test ciphertext or MAC generated by SEC40 */
-			if (CIPHER == crypto_info->mode) {
+			if (CIPHER == crypto_info.mode) {
 				if (unlikely(test_enc_match() != 0)) {
 					ctrl_error = 1;
 					goto error2;
@@ -1722,7 +1717,7 @@ static int worker_fn(thread_data_t *tdata)
 			}
 
 			/* Set decryption buffer */
-			if (SNOW_F8_F9 == crypto_info->algo)
+			if (SNOW_F8_F9 == crypto_info.algo)
 				set_dec_auth_buf();
 			else if (!authnct)
 				set_dec_buf();
@@ -1784,7 +1779,7 @@ error3:
 
 result:
 		if (!tdata->index) {
-			if (ONE_MEGA > crypto_info->itr_num) {
+			if (ONE_MEGA > crypto_info.itr_num) {
 				pr_info("Iteration %d finished\n", i);
 			} else {
 				if (1 == (i % ONE_MEGA/10))
@@ -1835,15 +1830,8 @@ int main(int argc, char *argv[])
 
 	num_isolcpus = ncpus = sysconf(_SC_NPROCESSORS_ONLN);
 
-	/* set default value 0 to crypto_param */
-	crypto_info = malloc(sizeof(struct crypto_param));
-	if (!crypto_info) {
-		pr_err("Unable to get Crypto Info Buffer\n");
-		exit(-ENOMEM);
-	}
-
 	/* Where the magic happens */
-	argp_parse(&argp, argc, argv, 0, 0, crypto_info);
+	argp_parse(&argp, argc, argv, 0, 0, &crypto_info);
 
 	if (validate_params() != 0) {
 		pr_err("\nERROR: validate_params failed!\n");
@@ -1867,7 +1855,7 @@ int main(int argc, char *argv[])
 		exit(-EINVAL);
 	}
 
-	if (SNOW_F8_F9 == crypto_info->algo && PERF == crypto_info->mode) {
+	if (SNOW_F8_F9 == crypto_info.algo && PERF == crypto_info.mode) {
 		pr_info("PERF mode is not supported for SNOW_F8_F9");
 		exit(0);
 	}
@@ -1926,18 +1914,18 @@ int main(int argc, char *argv[])
 	pool_channel_offset = 9;
 
 	/* Calculate total number of buffers */
-	total_buf_num = crypto_info->buf_num_per_core * ncpus;
+	total_buf_num = crypto_info.buf_num_per_core * ncpus;
 
-	if (PERF == crypto_info->mode) {
+	if (PERF == crypto_info.mode) {
 		strcpy(mode_type, "PERF");
-		crypto_info->test_set = 1;
+		crypto_info.test_set = 1;
 	}
 
-	init_ref_test_vector[crypto_info->algo - 1]();
+	init_ref_test_vector[crypto_info.algo - 1]();
 
-	if (CIPHER == crypto_info->mode) {
+	if (CIPHER == crypto_info.mode) {
 		strcpy(mode_type, "CIPHER");
-		crypto_info->buf_size =
+		crypto_info.buf_size =
 			NO_OF_BYTES(ref_test_vector.length);
 	}
 
@@ -1949,8 +1937,8 @@ int main(int argc, char *argv[])
 
 	pr_info("Processing %s for %d Frames\n", algorithm, total_buf_num);
 	pr_info("%s mode, buffer length = %d\n", mode_type,
-			crypto_info->buf_size);
-	pr_info("Number of iterations = %d\n", crypto_info->itr_num);
+			crypto_info.buf_size);
+	pr_info("Number of iterations = %d\n", crypto_info.itr_num);
 	pr_info("\nStarting threads for %ld cpus\n", ncpus);
 
 	/* Starting threads on all active cpus */
@@ -1965,21 +1953,21 @@ int main(int argc, char *argv[])
 
 	if (!ctrl_error) {
 		enc_cycles_per_frame = (enc_delta) /
-			(crypto_info->itr_num * total_buf_num);
+			(crypto_info.itr_num * total_buf_num);
 
 		pr_info("%s: Throughput = %"PRIu64" Mbps\n",
 			 authnct ? "Authenticate" : "Encrypt",
 				(cpu_freq * BITS_PER_BYTE *
-				crypto_info->buf_size) /
+				crypto_info.buf_size) /
 				enc_cycles_per_frame);
 
 		if (!authnct) {
 			dec_cycles_per_frame = (dec_delta) /
-				(crypto_info->itr_num * total_buf_num);
+				(crypto_info.itr_num * total_buf_num);
 
 			pr_info("%s: Throughput = %"PRIu64" Mbps\n",
 				"Decrypt", (cpu_freq * BITS_PER_BYTE *
-				crypto_info->buf_size) / dec_cycles_per_frame);
+				crypto_info.buf_size) / dec_cycles_per_frame);
 		}
 		pr_info("SEC 4.0 TEST PASSED\n");
 	} else {
