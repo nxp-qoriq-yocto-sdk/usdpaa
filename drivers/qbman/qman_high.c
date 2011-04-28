@@ -549,7 +549,13 @@ struct qm_portal_config *qman_destroy_affine_portal(void)
 	struct qman_portal *qm = get_affine_portal();
 	struct qm_portal_config *cfg = qm->config;
 	/* NB we do this to "quiesce" EQCR. If we add enqueue-completions or
-	 * something related to QM_PIRQ_EQCI, this may need fixing. */
+	 * something related to QM_PIRQ_EQCI, this may need fixing.
+	 * Also, due to the prefetching model used for CI updates in the enqueue
+	 * path, this update will only invalidate the CI cacheline *after*
+	 * working on it, so we need to call this twice to ensure a full update
+	 * irrespective of where the enqueue processing was at when the teardown
+	 * began. */
+	qm_eqcr_cce_update(&qm->p);
 	qm_eqcr_cce_update(&qm->p);
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
 	free_irq(qm->config->public_cfg.irq, qm);
