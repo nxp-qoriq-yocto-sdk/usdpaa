@@ -170,7 +170,7 @@ static int check_fd_status(void);
 #define BMASK_SEC_PERF_MODE	0x00111101	/**< valid combination in perf mode */
 #define BMASK_SEC_CIPHER_MODE	0x00111011	/**< valid combination in cipher mode */
 
-#define BUFF_NUM_PER_CORE	800	/**< Maximum number of buffers can be
+#define BUFF_NUM		6400	/**< Maximum number of buffers can be
 						provided by user */
 #define BUFF_SIZE		6400	/**< Maximum buffer size that can be
 						provided by user */
@@ -205,7 +205,7 @@ struct crypto_param {
 	enum test_mode mode;		/**< test mode */
 	unsigned int test_set;		/**< test set number */
 	unsigned int buf_size;		/**< buffer size */
-	unsigned int buf_num_per_core;	/**< total number of buffers, max = 5000 */
+	unsigned int buf_num;		/**< total number of buffers, max = 5000 */
 	unsigned int itr_num;		/**< number of iteration to repeat SEC operation */
 	enum sec_algo algo;		/**< SEC operation to perform */
 	bool valid_params;		/**< valid parameters flag*/

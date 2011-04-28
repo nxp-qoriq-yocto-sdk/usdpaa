@@ -50,9 +50,6 @@ uint32_t g_cmd_params;	/* bit mask of all parameters provided by user */
 /* user defined parameters through CP */
 struct crypto_param crypto_info;
 
-/* Total number of buffers to send to CAAm block per iteration */
-uint32_t total_buf_num;
-
 /* refrence test vector consists of key, iv, plain text, cipher text etc*/
 struct ref_vector_s ref_test_vector;
 
@@ -71,7 +68,7 @@ atomic_t enc_packet_from_sec;
 atomic_t dec_packet_from_sec;
 
 uint32_t ind;
-struct qm_fd fd[BUFF_NUM_PER_CORE*8];	/* storage for frame descriptor */
+struct qm_fd fd[BUFF_NUM];	/* storage for frame descriptor */
 
 /* start FQ no. for encryption flows */
 uint32_t fq_base_encrypt = SEC40_FQ_BASE;
@@ -336,7 +333,7 @@ static int create_compound_fd(void)
 		return -EINVAL;
 	}
 
-	for (ind = 0; ind < total_buf_num; ind++) {
+	for (ind = 0; ind < crypto_info.buf_num; ind++) {
 
 		/* Allocate memory for scatter-gather entry and
 		   i/p & o/p buffers */
@@ -733,7 +730,7 @@ void free_fd(void)
 	dma_addr_t addr;
 	uint8_t *buf;
 
-	for (ind = 0; ind < total_buf_num; ind++) {
+	for (ind = 0; ind < crypto_info.buf_num; ind++) {
 		addr = qm_fd_addr_get64(&fd[ind]);
 		buf = dma_mem_ptov(addr);
 		dma_mem_free(buf, total_size);
@@ -812,7 +809,7 @@ static void set_enc_buf(void)
 	dma_addr_t addr;
 	uint32_t i;
 
-	for (ind = 0; ind < total_buf_num; ind++) {
+	for (ind = 0; ind < crypto_info.buf_num; ind++) {
 		addr = qm_fd_addr_get64(&fd[ind]);
 		sgentry = dma_mem_ptov(addr);
 
@@ -872,7 +869,7 @@ static void set_dec_buf(void)
 	uint16_t offset;
 	uint8_t bpid;
 
-	for (ind = 0; ind < total_buf_num; ind++) {
+	for (ind = 0; ind < crypto_info.buf_num; ind++) {
 		addr = qm_fd_addr_get64(&fd[ind]);
 		sg_out = dma_mem_ptov(addr);
 		sg_in = sg_out + 1;
@@ -908,7 +905,7 @@ static void set_dec_auth_buf(void)
 		return;
 	}
 
-	for (ind = 0; ind < total_buf_num; ind++) {
+	for (ind = 0; ind < crypto_info.buf_num; ind++) {
 		addr = qm_fd_addr_get64(&fd[ind]);
 		sg_out = dma_mem_ptov(addr);
 
@@ -1115,7 +1112,7 @@ static int test_enc_match(void)
 	uint8_t *enc_buf;
 	dma_addr_t addr;
 
-	for (ind = 0; ind < total_buf_num; ind++) {
+	for (ind = 0; ind < crypto_info.buf_num; ind++) {
 		addr = qm_fd_addr_get64(&fd[ind]);
 		sgentry = dma_mem_ptov(addr);
 
@@ -1164,7 +1161,7 @@ static int test_dec_match(void)
 	dma_addr_t addr;
 	uint32_t i;
 
-	for (ind = 0; ind < total_buf_num; ind++) {
+	for (ind = 0; ind < crypto_info.buf_num; ind++) {
 		addr = qm_fd_addr_get64(&fd[ind]);
 		sgentry = dma_mem_ptov(addr);
 
@@ -1208,12 +1205,18 @@ static void do_enqueues(enum SEC_MODE mode, thread_data_t *tdata)
 	struct qman_fq *fq_to_sec;
 	uint32_t ret;
 	int fd_ind, cpu_ind;
-	int i = 0;
+	int i = 0, rem;
+	int packets_to_send;
 
 	cpu_ind = (tdata->cpu + num_isolcpus - 1) % num_isolcpus;
 
+	packets_to_send = (crypto_info.buf_num / ncpus);
+	rem = crypto_info.buf_num % ncpus;
+	if (rem > cpu_ind)
+		packets_to_send++;
+
 	do {
-		if (i >= crypto_info.buf_num_per_core)
+		if (i >= packets_to_send)
 			return;
 
 		fd_ind = i*ncpus + cpu_ind;
@@ -1296,7 +1299,7 @@ enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 /* Poll qman DQCR for encrypted frames */
 static void enc_qman_poll(void)
 {
-	while (atomic_read(&enc_packet_from_sec) < total_buf_num)
+	while (atomic_read(&enc_packet_from_sec) < crypto_info.buf_num)
 		qman_poll();
 	return;
 }
@@ -1304,7 +1307,7 @@ static void enc_qman_poll(void)
 /** Poll qman DQCR for decrypted frames */
 static void dec_qman_poll(void)
 {
-	while (atomic_read(&dec_packet_from_sec) < total_buf_num)
+	while (atomic_read(&dec_packet_from_sec) < crypto_info.buf_num)
 		qman_poll();
 	return;
 }
@@ -1318,7 +1321,7 @@ static void dec_qman_poll(void)
  */
 static int check_fd_status()
 {
-	for (ind = 0; ind < total_buf_num; ind++) {
+	for (ind = 0; ind < crypto_info.buf_num; ind++) {
 		if (fd[ind].status) {
 			pr_err("Bad status return from SEC\n");
 			print_frame_desc(&fd[ind]);
@@ -1402,8 +1405,8 @@ static struct argp_option options[] = {
 		\n\r\t\t9 for SNOW_F8_F9(only with PERF mode)\n"},
 	{"itrnum", 'l', "ITERATIONS", 0,
 		"\n\r\tNumber of iteration to repeat\n"},
-	{"bufnum", 'n', "BUFFERS PER CORE", 0,
-		"\n\r\tNumber of buffers per core(1-800)\n"},
+	{"bufnum", 'n', "TOTAL BUFFERS", 0,
+		"\n\r\tTotal number of buffers(1-6400)\n"},
 	{"bufsize", 's', "BUFFER SIZE", 0,
 		"\n\r\tOPTION IS VALID ONLY IN PERF MODE\
 		\n\r\t\t Buffer size (64, 128 ...upto 6400)\n"},
@@ -1466,10 +1469,10 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 		break;
 
 	case 'n':
-		crypto_info.buf_num_per_core = atoi(arg);
+		crypto_info.buf_num = atoi(arg);
 		g_cmd_params |= BMASK_SEC_BUFFER_NUM;
 		pr_info("Number of Buffers per core = %d\n",
-				crypto_info.buf_num_per_core);
+				crypto_info.buf_num);
 		break;
 
 	case 'o':
@@ -1585,8 +1588,8 @@ static int validate_params(void)
 		return -EINVAL;
 	}
 
-	if (crypto_info.buf_num_per_core == 0 ||
-		crypto_info.buf_num_per_core > BUFF_NUM_PER_CORE) {
+	if (crypto_info.buf_num == 0 ||
+		crypto_info.buf_num > BUFF_NUM) {
 		pr_err("Invalid Parameters: Invalid number of buffers\n"
 				"see --help option\n");
 		return -EINVAL;
@@ -1692,7 +1695,7 @@ static int worker_fn(thread_data_t *tdata)
 
 		if (!tdata->index)
 			pr_debug("Encrypt mode: Total packet sent to "
-				 "SEC = %u\n", total_buf_num);
+				 "SEC = %u\n", crypto_info.buf_num);
 
 		/* Recieve encrypted or MAC data from SEC40 */
 		enc_qman_poll();
@@ -1745,7 +1748,7 @@ error2:
 
 		if (!tdata->index)
 			pr_debug("Decrypt mode: Total packet sent to "
-				 "SEC = %u\n", total_buf_num);
+				 "SEC = %u\n", crypto_info.buf_num);
 
 		/* Recieve decrypted data from SEC40 */
 		dec_qman_poll();
@@ -1913,9 +1916,6 @@ int main(int argc, char *argv[])
 	/* TODO get pool_channel_offset through API */
 	pool_channel_offset = 9;
 
-	/* Calculate total number of buffers */
-	total_buf_num = crypto_info.buf_num_per_core * ncpus;
-
 	if (PERF == crypto_info.mode) {
 		strcpy(mode_type, "PERF");
 		crypto_info.test_set = 1;
@@ -1935,7 +1935,8 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	pr_info("Processing %s for %d Frames\n", algorithm, total_buf_num);
+	pr_info("Processing %s for %d Frames\n", algorithm,
+		crypto_info.buf_num);
 	pr_info("%s mode, buffer length = %d\n", mode_type,
 			crypto_info.buf_size);
 	pr_info("Number of iterations = %d\n", crypto_info.itr_num);
@@ -1953,7 +1954,7 @@ int main(int argc, char *argv[])
 
 	if (!ctrl_error) {
 		enc_cycles_per_frame = (enc_delta) /
-			(crypto_info.itr_num * total_buf_num);
+			(crypto_info.itr_num * crypto_info.buf_num);
 
 		pr_info("%s: Throughput = %"PRIu64" Mbps\n",
 			 authnct ? "Authenticate" : "Encrypt",
@@ -1963,7 +1964,7 @@ int main(int argc, char *argv[])
 
 		if (!authnct) {
 			dec_cycles_per_frame = (dec_delta) /
-				(crypto_info.itr_num * total_buf_num);
+				(crypto_info.itr_num * crypto_info.buf_num);
 
 			pr_info("%s: Throughput = %"PRIu64" Mbps\n",
 				"Decrypt", (cpu_freq * BITS_PER_BYTE *
