@@ -139,6 +139,7 @@ struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
 	struct fman_if *__if;
 	int _errno, idx;
 	uint8_t num_ports = 0;
+	uint8_t num_cfg_ports = 0;
 	size_t size;
 
 	_errno = of_init("/proc/device-tree");
@@ -193,16 +194,20 @@ struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
 		_errno = fmc_netcfg_get_info(__if->fman_idx,
 			__if->mac_type == fman_mac_1g ? 1 : 10,
 			__if->mac_idx, &xmlcfg);
-		if (_errno) {
-			fprintf(stderr, "%s:%hu:%s(): fmc_netcfg_get_info()\n",
-				__FILE__, __LINE__, __func__);
-			goto error;
+		if (_errno == 0) {
+			cfg->pcd.start = xmlcfg.pcd.start;
+			cfg->pcd.count = xmlcfg.pcd.count;
+			cfg->rx_def = xmlcfg.rxdef;
+			num_cfg_ports++;
+			idx++;
 		}
-		cfg->pcd.start = xmlcfg.pcd.start;
-		cfg->pcd.count = xmlcfg.pcd.count;
-		cfg->rx_def = xmlcfg.rxdef;
-		idx++;
 	}
+	if (!num_cfg_ports) {
+		fprintf(stderr, "%s:%hu:%s(): fmc_netcfg_get_info()\n",
+			__FILE__, __LINE__, __func__);
+		goto error;
+	} else if (num_ports != num_cfg_ports)
+		usdpaa_netcfg->num_ethports = num_cfg_ports;
 	/* Fill in other global configuration */
 	qm_init_cgr_values(usdpaa_netcfg);
 	qm_init_pool_channel_values(usdpaa_netcfg);
