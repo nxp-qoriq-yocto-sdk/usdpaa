@@ -48,6 +48,10 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state);
 static error_t parse_route_add_opt(int key, char *arg,
 				   struct argp_state *state);
 static error_t parse_arp_add_opt(int key, char *arg, struct argp_state *state);
+static error_t parse_intf_conf_opt(int key, char *arg,
+				struct argp_state *state);
+static error_t parse_show_intf_opt(int key, char *arg,
+				struct argp_state *state);
 static struct argp route_add_argp = {
 	route_add_options, parse_route_add_opt, NULL, NULL, NULL, NULL, NULL };
 
@@ -60,11 +64,19 @@ static struct argp arp_add_argp = {
 static struct argp arp_del_argp = {
 	arp_del_options, parse_arp_add_opt, NULL, NULL, NULL, NULL, NULL };
 
+static struct argp intf_conf_argp = {
+	intf_conf_options, parse_intf_conf_opt, NULL, NULL, NULL, NULL, NULL };
+
+static struct argp show_intf_argp = {
+	show_intf_options, parse_show_intf_opt, NULL, NULL, NULL, NULL, NULL };
+
 static struct argp_option options[] = {
 	{"routeadd", 'B', "TYPE", 0, "adding a route", 0},
 	{"routedel", 'C', "TYPE", 0, "deleting a route", 0},
 	{"arpadd", 'G', "TYPE", 0, "adding a arp entry", 0},
 	{"arpdel", 'H', "TYPE", 0, "deleting a arp entry", 0},
+	{"intfconf", 'F', "TYPE", 0, "change intf config", 0},
+	{"showintf", 'E', "TYPE", 0, "show interfaces", 0},
 	{"Start/ Go", 'O', "TYPE", 0,
 	 "Start the processing of packets", 0},
 	{0, 0, 0, 0, 0, 0}
@@ -229,6 +241,99 @@ copy:
 }
 
 /**
+ \brief Processes the IP Interface Config Request
+ \param[in] argc Number of arguments
+ \param[in] argv Arguments
+ \param[in] type Message Type for the CP request - IP Intf Config
+ \return none
+ */
+void ipc_ip_intf_chng_command(int argc, char **argv, char *type)
+{
+	unsigned int i = 0;
+	struct app_ctrl_op_info route_info;
+	unsigned int mndtr_param_map = IPC_CTRL_INTF_CONF_MDTR_PARAM_MAP;
+	struct argp *route_argp = &intf_conf_argp;
+
+	pr_debug("\r\n%s: Enter", __func__);
+
+	/*
+	 ** Initializing the route info structure
+	 */
+	memset(&route_info, 0, sizeof(route_info));
+	route_info.state = IPC_CTRL_CMD_STATE_IDLE;
+	route_info.msg_type = (unsigned int)type;
+	route_info.result = IPC_CTRL_RSLT_FAILURE;
+
+	g_mndtr_param = 0;
+	g_parse_error = 0;
+
+	/* Where the magic happens */
+	argp_parse(route_argp, argc, argv, 0, 0, &route_info);
+
+	if (g_parse_error != 0)
+		return;
+	/*
+	 ** If all the mandatory parameters for the operation are present,
+	 ** Copy the data onto the shared memory area
+	 */
+	if ((g_mndtr_param & mndtr_param_map) == mndtr_param_map)
+		goto copy;
+
+	/*
+	 ** Check for the mandatory parameter which is misisng
+	 */
+	for (i = 0; i < IPC_CTRL_PARAM_MAX_INTF_BIT_NO; i++) {
+		if (((mndtr_param_map & (1 << i)) != 0)
+		    && ((g_mndtr_param & (1 << i)) == 0)) {
+			printf
+			    ("Interface Config Operation failed as mandatory"
+				"parameters missing; --%s or -%c\n",
+			     route_add_options[i].name,
+			     route_add_options[i].key);
+			return;
+		}
+	}	/* end of for (i = 0; i < IPC_CTRL_PARAM_MAX_B .... */
+
+copy:
+	send_to_mq(&route_info);
+
+	pr_debug("\r\n%s: Exit", __func__);
+	return;
+}
+
+/**
+ \brief Processes the IP Interface Show Request
+ \param[in] argc Number of arguments
+ \param[in] argv Arguments
+ \param[in] type Message Type for the CP request - IP Show Config
+ \return none
+ */
+void ipc_show_intf_command(int argc, char **argv, char *type)
+{
+	struct app_ctrl_op_info route_info;
+	struct argp *route_argp = &show_intf_argp;
+
+	pr_debug("\r\n%s: Enter", __func__);
+
+	/*
+	 ** Initializing the route info structure
+	 */
+	memset(&route_info, 0, sizeof(route_info));
+	route_info.state = IPC_CTRL_CMD_STATE_IDLE;
+	route_info.msg_type = (unsigned int)type;
+	route_info.result = IPC_CTRL_RSLT_FAILURE;
+
+
+	/* Where the magic happens */
+	argp_parse(route_argp, argc, argv, 0, 0, &route_info);
+
+	send_to_mq(&route_info);
+
+	pr_debug("\r\n%s: Exit", __func__);
+	return;
+}
+
+/**
  \brief Defines actions for parsing the ipfwd command options - add/ delete;
 	it is called for each option parsed
  \param[in] key For each option that is parsed, parser is called with a value of
@@ -270,6 +375,22 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 		pr_debug
 		    ("\nFILE: %s : LINE: %d :IN PARSE_OPT::ARP DEL OPTION SELECTED",
 		     __FILE__, __LINE__);
+		break;
+
+	case 'F':
+		sa_info->msg_type = IPC_CTRL_CMD_TYPE_INTF_CONF_CHNG;
+		pr_debug
+		    ("\nFILE: %s : LINE: %d :IN PARSE_OPT::"
+			"INTF CONF CHNG OPTION SELECTED",
+			__FILE__, __LINE__);
+		break;
+
+	case 'E':
+		sa_info->msg_type = IPC_CTRL_CMD_TYPE_SHOW_INTF;
+		pr_debug
+		    ("\nFILE: %s : LINE: %d :IN PARSE_OPT::"
+			"SHOW INTF OPTION SELECTED",
+			__FILE__, __LINE__);
 		break;
 
 	default:
@@ -379,6 +500,71 @@ static error_t parse_arp_add_opt(int key, char *arg, struct argp_state *state)
 }
 
 /**
+ \brief Defines actions for parsing the interface config command options;
+	it is called for each option parsed
+ \param[in] key For each option that is parsed, parser is called with a value of
+		key from that option's key field in the option vector
+ \param[in] arg If key is an option, arg is its given value.
+ \param[in] state state points to a struct argp_state, containing pointer to
+route_info structure
+ \return 0 for success, ARGP_ERR_UNKNOWN if the value of key is not handled by
+ this parser function
+		ARG_KEY_ERROR if the interface name is too long
+ */
+static error_t parse_intf_conf_opt(int key, char *arg, struct argp_state *state)
+{
+	struct app_ctrl_op_info *route_info = state->input;
+	struct in_addr in_addr;
+	int val;
+	switch (key) {
+
+	case 'a':
+		inet_aton(arg, &in_addr);
+		route_info->ip_info.intf_conf.ip_addr = in_addr.s_addr;
+		g_mndtr_param |= IPC_CTRL_PARAM_BMASK_IPADDR;
+		break;
+
+	case 'i':
+		val = atoi(arg);
+		if ((val < IPC_CTRL_IFNUM_MIN) ||
+			(val > IPC_CTRL_IFNUM_MAX)) {
+			printf("Invalid Value \"%s\" for '%c'\n", arg, key);
+			g_parse_error = ERANGE;
+			return ERANGE;
+		}
+		route_info->ip_info.intf_conf.ifnum = val;
+		g_mndtr_param |= IPC_CTRL_PARAM_BMASK_IFNAME;
+		break;
+
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+
+	route_info->ip_info.intf_conf.bitmask = g_mndtr_param;
+
+	return 0;
+}
+
+static error_t parse_show_intf_opt(int key, char *arg, struct argp_state *state)
+{
+	struct app_ctrl_op_info *route_info = state->input;
+	switch (key) {
+
+	case 'a':
+		if (strcmp(arg, "true") == 0)
+			route_info->ip_info.all = 1;
+		else
+			route_info->ip_info.all = 0;
+		break;
+
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+
+	return 0;
+}
+
+/**
  \brief Receives data from message queue
  \param[in]message queue data structure mqd_t
  \return none
@@ -425,6 +611,16 @@ int receive_from_mq(mqd_t mqdes)
 			pr_info("ARP Entry Deleted successfully\n");
 		else
 			pr_info("ARP Entry Deletion failed\n");
+	} else if (ip_info.msg_type == IPC_CTRL_CMD_TYPE_INTF_CONF_CHNG) {
+		if (result == IPC_CTRL_RSLT_SUCCESSFULL)
+			pr_info("Intf Configuration Changed successfully\n");
+		else
+			pr_info("Intf Configuration Change failed\n");
+	} else if (ip_info.msg_type == IPC_CTRL_CMD_TYPE_SHOW_INTF) {
+		if (result == IPC_CTRL_RSLT_SUCCESSFULL)
+			pr_info("Are all the Enabled Interfaces\n");
+		else
+			pr_info("Show Interfaces failed\n");
 	} else if (ip_info.msg_type == IPC_CTRL_CMD_TYPE_GO) {
 		if (result == IPC_CTRL_RSLT_SUCCESSFULL)
 			pr_info("Application Started successfully\n");
@@ -546,6 +742,28 @@ int main(int argc, char **argv)
 			     __FILE__, __LINE__, sa_info.msg_type);
 			ipc_arp_add_del_command(argc - 1, &argv[1],
 						sa_info.msg_type);
+		}
+		break;
+
+	case IPC_CTRL_CMD_TYPE_INTF_CONF_CHNG:
+		{
+			pr_debug
+			    ("\nFILE: %s : LINE %d : IN MAIN : THE TYPE"
+				"PROVIDED FOR INTF CONF OPTION IS : %d",
+				__FILE__, __LINE__, sa_info.msg_type);
+			ipc_ip_intf_chng_command(argc - 1, &argv[1],
+						 (char *)sa_info.msg_type);
+		}
+		break;
+
+	case IPC_CTRL_CMD_TYPE_SHOW_INTF:
+		{
+			pr_debug
+			    ("\nFILE: %s : LINE %d : IN MAIN : THE TYPE"
+				"PROVIDED FOR SHOW INTF OPTION IS : %d",
+				__FILE__, __LINE__, sa_info.msg_type);
+			ipc_show_intf_command(argc - 1, &argv[1],
+						 (char *)sa_info.msg_type);
 		}
 		break;
 

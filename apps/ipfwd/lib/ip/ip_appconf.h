@@ -35,16 +35,10 @@
  */
 struct app_ctrl_intf_conf {
 	in_addr_t ip_addr;			/**< IP Address */
-	uint32_t mtu;				/**< MTU */
-	uint32_t enable;			/**< Enabling the interface */
-	struct ether_addr mac_addr;		/**< MAC Address of the interface */
-	char ifname[10];			/**< Interface Name */
+	int ifnum;				/**< Interface number */
 #define IPC_CTRL_PARAM_BMASK_IFNAME		(1 << 0)
 #define IPC_CTRL_PARAM_BMASK_IPADDR		(1 << 1)
-#define IPC_CTRL_PARAM_BMASK_MACADDR		(1 << 2)
-#define IPC_CTRL_PARAM_BMASK_MTU			(1 << 3)
-#define IPC_CTRL_PARAM_BMASK_ENABLE		(1 << 4)
-#define IPC_CTRL_PARAM_MAX_INTF_BIT_NO			5
+#define IPC_CTRL_PARAM_MAX_INTF_BIT_NO			2
 
 #define IPC_CTRL_INTF_CONF_MDTR_PARAM_MAP (IPC_CTRL_PARAM_BMASK_IFNAME)
 
@@ -57,7 +51,7 @@ struct app_ctrl_ip_info {
 	in_addr_t gw_ipaddr;			/**<Gateway IP Address>*/
 	struct ether_addr mac_addr;		/**< Mac Address */
 	unsigned int flow_id;			/**< Flow Id */
-	unsigned int frame_cnt;			/**<Frame Count */
+	unsigned int all;			/**< Show all enabled interfaces */
 	unsigned int replace_entry;		/**< Used for overwriting an existing ARP entry */
 	struct app_ctrl_intf_conf intf_conf;	/**< Interface Configuration */
 };
@@ -76,8 +70,9 @@ struct app_ctrl_op_info {
 #define IPC_CTRL_CMD_TYPE_ROUTE_ADD		1
 #define IPC_CTRL_CMD_TYPE_ROUTE_DEL		2
 #define IPC_CTRL_CMD_TYPE_INTF_CONF_CHNG	3
-#define IPC_CTRL_CMD_TYPE_ARP_ADD		4
-#define IPC_CTRL_CMD_TYPE_ARP_DEL		5
+#define IPC_CTRL_CMD_TYPE_SHOW_INTF		4
+#define IPC_CTRL_CMD_TYPE_ARP_ADD		5
+#define IPC_CTRL_CMD_TYPE_ARP_DEL		6
 #define IPC_CTRL_CMD_TYPE_GO			7
 
 	unsigned int msg_type;

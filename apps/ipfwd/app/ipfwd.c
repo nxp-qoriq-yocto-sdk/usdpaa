@@ -303,6 +303,74 @@ static int ipfwd_del_arp(const struct app_ctrl_op_info *route_info)
 }
 
 /**
+ \brief Show Interfaces
+ \param[out] app_ctrl_route_info contains intf parameters
+ \return Integer status
+ */
+static int ipfwd_show_intf(const struct app_ctrl_op_info *route_info)
+{
+	const struct fman_if *fif;
+	const struct fm_eth_port_cfg *port;
+	int i, iface, loop;
+
+	for (loop = 0; loop < netcfg->num_ethports; loop++) {
+		port = &netcfg->port_cfg[loop];
+		fif = port->fman_if;
+		iface = (fif->mac_type == fman_mac_1g ? 0 : 5) + fif->mac_idx;
+		i = fif->fman_idx * 5 + iface;
+		pr_info("Interface number: %d\n"
+			"PortID=%d:%d is FMan interface node\n"
+			"with MAC Address\n"ETH_MAC_PRINTF_FMT"\n",
+			i, fif->fman_idx, iface,
+			ETH_MAC_PRINTF_ARGS(&fif->mac_addr));
+	}
+	return 0;
+}
+
+/**
+ \brief Change Interface Configuration
+ \param[out] app_ctrl_route_info contains intf config parameters
+ \return Integer status
+ */
+static int ipfwd_conf_intf(const struct app_ctrl_op_info *route_info)
+{
+	struct ppac_if *i;
+	struct ppam_if *p;
+	uint16_t addr_hi;
+	int _errno = 1, node, ifnum;
+
+	pr_debug("%s: Enter\n", __func__);
+
+	addr_hi = ETHERNET_ADDR_MAGIC;
+	ifnum = route_info->ip_info.intf_conf.ifnum;
+	list_for_each_entry(i, &ifs, node) {
+		p = &i->module_if;
+		if (p->ifnum == ifnum) {
+			p->addr = route_info->ip_info.intf_conf.ip_addr;
+			pr_info("IPADDR assigned = 0x%x to interface num %d\n",
+				p->addr, p->ifnum);
+			for (node = 0; node < ARRAY_SIZE(p->local_nodes);
+				 node++) {
+				p->local_nodes[node].ip = p->addr + 1 + node;
+				memcpy(&p->local_nodes[node].mac, &addr_hi,
+					sizeof(addr_hi));
+				memcpy(p->local_nodes[node].mac.ether_addr_octet
+					+ sizeof(addr_hi),
+					&p->local_nodes[node].ip,
+					sizeof(p->local_nodes[node].ip));
+			}
+			_errno = 0;
+		}
+	}
+	if (_errno)
+		pr_info("Interface number %d is not an enabled interface\n",
+			 ifnum);
+
+	pr_debug("%s: Exit\n", __func__);
+	return _errno;
+}
+
+/**
  \brief Initialize IPSec Statistics
  \param[in] void
  \param[out] struct ip_statistics_t *
@@ -395,6 +463,14 @@ static void process_req_from_mq(struct app_ctrl_op_info *sa_info)
 
 	case IPC_CTRL_CMD_TYPE_ARP_DEL:
 		s32Result = ipfwd_del_arp(sa_info);
+		break;
+
+	case IPC_CTRL_CMD_TYPE_INTF_CONF_CHNG:
+		s32Result = ipfwd_conf_intf(sa_info);
+		break;
+
+	case IPC_CTRL_CMD_TYPE_SHOW_INTF:
+		s32Result = ipfwd_show_intf(sa_info);
 		break;
 
 	case IPC_CTRL_CMD_TYPE_GO:
@@ -550,44 +626,15 @@ static int ppam_if_init(struct ppam_if *p,
 			const struct fm_eth_port_cfg *cfg,
 			unsigned int num_tx_fqs)
 {
-	int _errno, iface, node;
+	int iface;
 	const struct fman_if *fif;
-	uint16_t addr_hi;
 
 	fif = cfg->fman_if;
 	iface = (fif->mac_type == fman_mac_1g ? 0 : 5) + fif->mac_idx;
-
+	p->ifnum = fif->fman_idx * 5 + iface;
 	p->mtu = ETHERMTU;
-	p->addr = 0xc0a80a01 + ((fif->fman_idx * 100 + iface * 10) << 8);
 	p->mask = IN_CLASSC_NET;
-
 	p->next_fqid = 0;
-
-	pr_debug("PortID = %d:%d is FMan\ninterface node with IP Address\n"
-		 "%d.%d.%d.%d and MAC Address\n"ETH_MAC_PRINTF_FMT"\n",
-		 fif->fman_idx, iface,
-		 ((uint8_t *)&p->addr)[0], ((uint8_t *)&p->addr)[1],
-		 ((uint8_t *)&p->addr)[2], ((uint8_t *)&p->addr)[3],
-		 ETH_MAC_PRINTF_ARGS(&fif->mac_addr));
-
-	addr_hi = ETHERNET_ADDR_MAGIC;
-	for (node = 0; node < ARRAY_SIZE(p->local_nodes); node++) {
-		p->local_nodes[node].ip = p->addr + 1 + node;
-		memcpy(&p->local_nodes[node].mac, &addr_hi, sizeof(addr_hi));
-		memcpy(p->local_nodes[node].mac.ether_addr_octet + sizeof(addr_hi),
-		       &p->local_nodes[node].ip,
-		       sizeof(p->local_nodes[node].ip));
-
-		_errno = add_arp_entry(&stack.arp_table,
-				       container_of(p, struct ppac_if, module_if),
-				       p->local_nodes + node);
-		if (unlikely(_errno < 0)) {
-			pr_err("%s: failed to add ARP entry\n", __func__);
-			return _errno;
-		}
-	}
-
-
 
 	return 0;
 }

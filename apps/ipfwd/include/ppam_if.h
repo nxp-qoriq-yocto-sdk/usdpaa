@@ -35,6 +35,7 @@ struct ppam_if
 {
 	size_t mtu;
 	in_addr_t addr, mask;
+	int ifnum;
 
 	size_t next_fqid;
 

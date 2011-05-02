@@ -22,6 +22,16 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+ipfwd_config -F -a 192.168.60.1 -i 5
+ipfwd_config -F -a 192.168.130.1 -i 8
+ipfwd_config -F -a 192.168.140.1 -i 7
+ipfwd_config -F -a 192.168.160.1 -i 10
+
+ipfwd_config -G -s 192.168.60.2 -m 02:00:c0:a8:3c:02 -r true
+ipfwd_config -G -s 192.168.130.2 -m 02:00:c0:a8:82:02 -r true
+ipfwd_config -G -s 192.168.140.2 -m 02:00:c0:a8:8c:02 -r true
+ipfwd_config -G -s 192.168.160.2 -m 02:00:c0:a8:a0:02 -r true
+
 net_pair_routes()
 {
 	for net in $1 $2
