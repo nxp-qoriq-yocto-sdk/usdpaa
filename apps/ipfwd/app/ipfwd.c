@@ -633,6 +633,7 @@ static int ppam_if_init(struct ppam_if *p,
 	iface = (fif->mac_type == fman_mac_1g ? 0 : 5) + fif->mac_idx;
 	p->ifnum = fif->fman_idx * 5 + iface;
 	p->mtu = ETHERMTU;
+	p->header_len = ETHER_HDR_LEN;
 	p->mask = IN_CLASSC_NET;
 	p->next_fqid = 0;
 

@@ -34,6 +34,7 @@
 struct ppam_if
 {
 	size_t mtu;
+	size_t header_len;
 	in_addr_t addr, mask;
 	int ifnum;
 

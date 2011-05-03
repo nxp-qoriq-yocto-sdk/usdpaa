@@ -61,7 +61,8 @@ enum IP_STATUS ip_forward(struct ip_context_t *ctxt,
 	   is uneccessarily in the "DROP" path if the above tests fail - should
 	   not do it if status is not ACCEPT.
 	 */
-	if (unlikely(notes->fd->length20 > dev->module_if.mtu)) {
+	if (unlikely(notes->fd->length20 - dev->module_if.header_len >
+			dev->module_if.mtu)) {
 		pr_err("%s: Dropping pkt, mtu exceeded\n",
 			  __func__);
 #ifdef STATS_TBD
