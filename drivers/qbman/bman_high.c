@@ -4,13 +4,13 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
+ *	 notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
+ *	 notice, this list of conditions and the following disclaimer in the
+ *	 documentation and/or other materials provided with the distribution.
  *     * Neither the name of Freescale Semiconductor nor the
- *       names of its contributors may be used to endorse or promote products
- *       derived from this software without specific prior written permission.
+ *	 names of its contributors may be used to endorse or promote products
+ *	 derived from this software without specific prior written permission.
  *
  *
  * ALTERNATIVELY, this software may be distributed under the terms of the
@@ -132,8 +132,8 @@ static void depletion_unlink(struct bman_pool *pool)
  * slow-path poll. We'll use two decrementer sources. The idle decrementer
  * constant is used when the last slow-poll detected no work to do, and the busy
  * decrementer constant when the last slow-poll had work to do. */
-#define SLOW_POLL_IDLE   1000
-#define SLOW_POLL_BUSY   10
+#define SLOW_POLL_IDLE	 1000
+#define SLOW_POLL_BUSY	 10
 static u32 __poll_portal_slow(struct bman_portal *p, u32 is);
 
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
@@ -781,7 +781,7 @@ int bman_release(struct bman_pool *pool, const struct bm_buffer *bufs, u8 num,
 	 *   1. we add to the stockpile and don't hit the threshold,
 	 *   2. we add to the stockpile, hit the threshold and release-to-hw,
 	 *   3. we have to release-to-hw before adding to the stockpile
-	 *      (not enough room in the stockpile for case 2).
+	 *	(not enough room in the stockpile for case 2).
 	 * Our constraints on thresholds guarantee that in case 3, there must be
 	 * at least 8 bufs already in the stockpile, so all release-to-hw ops
 	 * are for 8 bufs. Despite all this, the API must indicate whether the
@@ -873,12 +873,11 @@ EXPORT_SYMBOL(bman_acquire);
 int bman_query_pools(struct bm_pool_state *state)
 {
 	struct bman_portal *p = get_affine_portal();
-	struct bm_mc_command *mcc;
 	struct bm_mc_result *mcr;
 	__maybe_unused unsigned long irqflags;
 
 	local_irq_save(irqflags);
-	mcc = bm_mc_start(&p->p);
+	bm_mc_start(&p->p);
 	bm_mc_commit(&p->p, BM_MCC_VERB_CMD_QUERY);
 	while (!(mcr = bm_mc_result(&p->p)))
 		cpu_relax();
@@ -889,4 +888,3 @@ int bman_query_pools(struct bm_pool_state *state)
 	return 0;
 }
 EXPORT_SYMBOL(bman_query_pools);
-

@@ -1749,14 +1749,13 @@ EXPORT_SYMBOL(qman_query_cgr);
 
 int qman_query_congestion(struct qm_mcr_querycongestion *congestion)
 {
-	struct qm_mc_command *mcc;
 	struct qm_mc_result *mcr;
 	struct qman_portal *p = get_affine_portal();
 	unsigned long irqflags __maybe_unused;
 	u8 res;
 
 	local_irq_save(irqflags);
-	mcc = qm_mc_start(&p->p);
+	qm_mc_start(&p->p);
 	qm_mc_commit(&p->p, QM_MCC_VERB_QUERYCONGESTION);
 	while (!(mcr = qm_mc_result(&p->p)))
 		cpu_relax();
