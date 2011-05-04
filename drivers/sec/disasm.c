@@ -5,19 +5,19 @@
  * This is EXPERIMENTAL and incomplete code. It assumes BE32 for the
  * moment, and much functionality remains to be filled in
  */
-/* Copyright (c) 2008, 2009, 2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2008 - 2009, 2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
+ *	 notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
+ *	 notice, this list of conditions and the following disclaimer in the
+ *	 documentation and/or other materials provided with the distribution.
  *     * Neither the name of Freescale Semiconductor nor the
- *       names of its contributors may be used to endorse or promote products
- *       derived from this software without specific prior written permission.
+ *	 names of its contributors may be used to endorse or promote products
+ *	 derived from this software without specific prior written permission.
  *
  *
  * ALTERNATIVELY, this software may be distributed under the terms of the
@@ -42,7 +42,7 @@
 #include <internal/compat.h>
 
 #define MAX_LEADER_LEN 31 /* offset + raw + instruction-name-length */
-#define DPTINT             pr_info
+#define DPTINT		   pr_info
 
 /* Descriptor header/shrheader share enums */
 static const char *deschdr_share[] = {
@@ -372,11 +372,11 @@ static const char *pk_srcdst[] = {
  * words on a line-by-line bases with an offset shown,. and an
  * optional indentation/description string to prefix each line with.
  *
- * descdata     - data to dump
- * size         - size of buffer in words
+ * descdata	- data to dump
+ * size		- size of buffer in words
  * wordsperline - number of words to display per line, minimum 1.
- *                4 is a practical maximum using an 80-character line
- * indentstr    - points to a string to ident or identify each line
+ *		  4 is a practical maximum using an 80-character line
+ * indentstr	- points to a string to ident or identify each line
  */
 void desc_hexdump(uint32_t *descdata,
 		  uint32_t  size,
@@ -488,7 +488,7 @@ static void show_seq_key(uint32_t *cmd, uint8_t *idx, int8_t *leader)
 {
 	uint32_t keylen, *keydata;
 
-	keylen  = *cmd & KEY_LENGTH_MASK;
+	keylen	= *cmd & KEY_LENGTH_MASK;
 	keydata = cmd + 1;
 
 	DPTINT("    seqkey: %s->%s len=%d ",
@@ -525,7 +525,7 @@ static void show_load(uint32_t *cmd, uint8_t *idx, int8_t *leader)
 	lddata = cmd + 1; /* point to key or pointer */
 
 	class = (*cmd & CLASS_MASK) >> CLASS_SHIFT;
-	DPTINT("        ld: %s->%s len=%d offs=%d",
+	DPTINT("	ld: %s->%s len=%d offs=%d",
 	      ldst_class[class],
 	      ldstr_srcdst[class][(*cmd & LDST_SRCDST_MASK) >>
 				  LDST_SRCDST_SHIFT],
@@ -1450,10 +1450,9 @@ static void show_jump(uint32_t *cmd, uint8_t *idx, int8_t *leader)
 
 static void show_math(uint32_t *cmd, uint8_t *idx, int8_t *leader)
 {
-	uint32_t mathlen, *mathdata;
+	uint32_t mathlen;
 
-	mathlen  = *cmd & MATH_LEN_MASK;
-	mathdata = cmd + 1;
+	mathlen	 = *cmd & MATH_LEN_MASK;
 
 	DPTINT("      math: %s.%s.%s->%s len=%d ",
 	      math_src0[(*cmd & MATH_SRC0_MASK) >> MATH_SRC0_SHIFT],
@@ -1576,7 +1575,7 @@ static void (*inst_disasm_handler[])(uint32_t *, uint8_t *, int8_t *) = {
  *	   DISASM_SHOW_OFFSETS - displays the index/offset of each
  *				 instruction in the descriptor. Helpful
  *				 for visualizing flow control changes
- *         DISASM_SHOW_RAW     - displays value of each instruction
+ *	   DISASM_SHOW_RAW     - displays value of each instruction
  **/
 void caam_desc_disasm(uint32_t *desc, uint32_t opts)
 {
@@ -1594,19 +1593,19 @@ void caam_desc_disasm(uint32_t *desc, uint32_t opts)
 
 	/* Offset leader is a 5-char string, e.g. "[xx] " */
 	if (opts & DISASM_SHOW_OFFSETS) {
-		strcat((char *)emptyleader, "     ");
-		strcat((char *)pdbleader, "     ");
+		strcat((char *)emptyleader, "	  ");
+		strcat((char *)pdbleader, "	");
 	}
 
 	/* Raw instruction leader is an 11-char string, e.g. "0xnnnnnnnn " */
 	if (opts & DISASM_SHOW_RAW) {
-		strcat((char *)emptyleader, "           ");
-		strcat((char *)pdbleader, "           ");
+		strcat((char *)emptyleader, "		");
+		strcat((char *)pdbleader, "	      ");
 	}
 
 	/* Finish out leaders. Instruction names use a 12-char space */
-	strcat((char *)emptyleader, "            ");
-	strcat((char *)pdbleader, "     (pdb): ");
+	strcat((char *)emptyleader, "		 ");
+	strcat((char *)pdbleader, "	(pdb): ");
 
 	/*
 	 * Now examine our descriptor, starting with it's header.

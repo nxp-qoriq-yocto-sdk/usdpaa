@@ -8,13 +8,13 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
+ *	 notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
+ *	 notice, this list of conditions and the following disclaimer in the
+ *	 documentation and/or other materials provided with the distribution.
  *     * Neither the name of Freescale Semiconductor nor the
- *       names of its contributors may be used to endorse or promote products
- *       derived from this software without specific prior written permission.
+ *	 names of its contributors may be used to endorse or promote products
+ *	 derived from this software without specific prior written permission.
  *
  *
  * ALTERNATIVELY, this software may be distributed under the terms of the
@@ -46,10 +46,10 @@ static const uint8_t mdkeylen[] = { 16, 20, 28, 32, 48, 64 };
  * Returns: 0 (for now)
  *
  * @jobdesc - pointer to a buffer to build the target job descriptor
- *            within
+ *	      within
  * @jobdescsz - size of target job descriptor buffer
  * @shrdesc - pointer to pre-existing shared descriptor to use with
- *            this job
+ *	      this job
  * @shrdescsz - size of pre-existing shared descriptor
  * @inbuf - pointer to input frame
  * @insize - size of input frame
@@ -58,7 +58,7 @@ static const uint8_t mdkeylen[] = { 16, 20, 28, 32, 48, 64 };
  *
  * Constructs a simple job descriptor that contains 3 references:
  *   (1) A shared descriptor to do the work. This is normally assumed
- *       to be some sort of a protocol sharedesc, but can be any sharedesc.
+ *	 to be some sort of a protocol sharedesc, but can be any sharedesc.
  *   (2) A packet/frame for input data
  *   (3) A packet/frame for output data
  *
@@ -129,7 +129,7 @@ int cnstr_jobdesc_blkcipher_cbc(uint32_t *descbuf, uint16_t *bufsz,
 				enum algdir dir, uint32_t cipher, uint8_t clear)
 {
 	uint32_t *start;
-	uint16_t startidx, endidx;
+	uint16_t endidx;
 	uint32_t mval;
 
 	start = descbuf++;	/* save start for eventual header write */
@@ -140,7 +140,6 @@ int cnstr_jobdesc_blkcipher_cbc(uint32_t *descbuf, uint16_t *bufsz,
 	if (clear)
 		memset(start, 0, (*bufsz * sizeof(uint32_t)));
 
-	startidx = descbuf - start;
 	descbuf = cmd_insert_seq_in_ptr(descbuf, data_in, datasz, PTR_DIRECT);
 
 	descbuf = cmd_insert_seq_out_ptr(descbuf, data_out, datasz, PTR_DIRECT);
@@ -195,9 +194,9 @@ EXPORT_SYMBOL(cnstr_jobdesc_blkcipher_cbc);
  * @bufsiz - pointer to size of descriptor once constructed
  *
  * @key - HMAC key to generate ipad/opad from. Size is determined
- *        by cipher:
- *	  - OP_ALG_ALGSEL_MD5    = 16
- *	  - OP_ALG_ALGSEL_SHA1   = 20
+ *	  by cipher:
+ *	  - OP_ALG_ALGSEL_MD5	 = 16
+ *	  - OP_ALG_ALGSEL_SHA1	 = 20
  *	  - OP_ALG_ALGSEL_SHA224 = 28 (broken)
  *	  - OP_ALG_ALGSEL_SHA256 = 32
  *	  - OP_ALG_ALGSEL_SHA384 = 48 (broken)
@@ -206,18 +205,17 @@ EXPORT_SYMBOL(cnstr_jobdesc_blkcipher_cbc);
  * @cipher - HMAC algorithm selection, one of OP_ALG_ALGSEL_
  *
  * @padbuf - buffer to store generated ipad/opad. Should be 2x
- *           the HMAC keysize for chosen cipher rounded up to the
- *           nearest 16-byte boundary (16 bytes = AES blocksize)
+ *	     the HMAC keysize for chosen cipher rounded up to the
+ *	     nearest 16-byte boundary (16 bytes = AES blocksize)
  **/
 int cnstr_jobdesc_mdsplitkey(uint32_t *descbuf, uint16_t *bufsize,
 			     uint8_t *key, uint32_t cipher, uint8_t *padbuf)
 {
 	uint32_t *start;
-	uint16_t startidx, endidx;
+	uint16_t endidx;
 	uint8_t keylen, storelen;
 
 	start = descbuf++;
-	startidx = descbuf - start;
 
 	/* Pick key length from cipher submask as an enum */
 	keylen = mdkeylen[(cipher & OP_ALG_ALGSEL_SUBMASK) >>
