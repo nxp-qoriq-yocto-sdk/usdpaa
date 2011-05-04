@@ -100,7 +100,6 @@ void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr)
 
 static int qm_init_cgr_values(struct usdpaa_netcfg_info *cfgptr)
 {
-	uint32_t *ptr;
 	int i;
 
 	cfgptr->num_cgrids = ARRAY_SIZE(qm_cgrid);
@@ -108,7 +107,6 @@ static int qm_init_cgr_values(struct usdpaa_netcfg_info *cfgptr)
 	if (unlikely(cfgptr->cgrids == NULL))
 		return -ENOMEM;
 
-	ptr = cfgptr->cgrids;
 	for (i = 0; i < cfgptr->num_cgrids; i++)
 		cfgptr->cgrids[i] = qm_cgrid[i];
 
@@ -117,7 +115,6 @@ static int qm_init_cgr_values(struct usdpaa_netcfg_info *cfgptr)
 
 static int qm_init_pool_channel_values(struct usdpaa_netcfg_info *cfgptr)
 {
-	uint32_t *ptr;
 	int i;
 
 	cfgptr->num_pool_channels = ARRAY_SIZE(qm_pool_channels);
@@ -126,7 +123,6 @@ static int qm_init_pool_channel_values(struct usdpaa_netcfg_info *cfgptr)
 	if (unlikely(cfgptr->pool_channels == NULL))
 		return -ENOMEM;
 
-	ptr = cfgptr->pool_channels;
 	for (i = 0; i < cfgptr->num_pool_channels; i++)
 		cfgptr->pool_channels[i] = qm_pool_channels[i];
 
