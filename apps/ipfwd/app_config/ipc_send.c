@@ -261,7 +261,7 @@ void ipc_ip_intf_chng_command(int argc, char **argv, char *type)
 	 */
 	memset(&route_info, 0, sizeof(route_info));
 	route_info.state = IPC_CTRL_CMD_STATE_IDLE;
-	route_info.msg_type = (unsigned int)type;
+	route_info.msg_type = (typeof(route_info.msg_type))(uintptr_t)type;
 	route_info.result = IPC_CTRL_RSLT_FAILURE;
 
 	g_mndtr_param = 0;
@@ -320,7 +320,7 @@ void ipc_show_intf_command(int argc, char **argv, char *type)
 	 */
 	memset(&route_info, 0, sizeof(route_info));
 	route_info.state = IPC_CTRL_CMD_STATE_IDLE;
-	route_info.msg_type = (unsigned int)type;
+	route_info.msg_type = (typeof(route_info.msg_type))(uintptr_t)type;
 	route_info.result = IPC_CTRL_RSLT_FAILURE;
 
 
@@ -752,7 +752,7 @@ int main(int argc, char **argv)
 				"PROVIDED FOR INTF CONF OPTION IS : %d",
 				__FILE__, __LINE__, sa_info.msg_type);
 			ipc_ip_intf_chng_command(argc - 1, &argv[1],
-						 (char *)sa_info.msg_type);
+						 (char *)(uintptr_t)sa_info.msg_type);
 		}
 		break;
 
@@ -763,7 +763,7 @@ int main(int argc, char **argv)
 				"PROVIDED FOR SHOW INTF OPTION IS : %d",
 				__FILE__, __LINE__, sa_info.msg_type);
 			ipc_show_intf_command(argc - 1, &argv[1],
-						 (char *)sa_info.msg_type);
+					      (char *)(uintptr_t)sa_info.msg_type);
 		}
 		break;
 

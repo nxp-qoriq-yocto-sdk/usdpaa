@@ -348,11 +348,10 @@ struct neigh_t *neigh_lookup(struct neigh_table_t *nt, uint32_t key,
 
 void neigh_reachable_output(struct neigh_t *n, void *notes, void *ll_payload)
 {
-	void *ll_hdr;
 	struct ppac_if *dev;
 
 	dev = n->dev;
-	ll_hdr = eth_set_header(dev, ll_payload, NULL, &n->neigh_addr);
+	eth_set_header(dev, ll_payload, NULL, &n->neigh_addr);
 	ppac_send_frame(0, notes);
 }
 
@@ -364,15 +363,12 @@ bool __neigh_add(struct neigh_table_t *nt, struct neigh_t **cur_ptr,
 		 struct neigh_t *new_n, bool replace)
 {
 	struct neigh_t *current;
-	uint32_t key;
-	uint32_t count, keylen;
+	uint32_t count;
 
 	assert(nt != NULL);
 	assert(new_n != NULL);
 
 	count = nt->stats->entries + 1;
-	key = new_n->proto_addr[0];
-	keylen = nt->proto_len;
 #ifdef NEIGH_RCU_ENABLE
 	current = rcu_dereference(*cur_ptr);
 #else
