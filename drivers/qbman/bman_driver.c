@@ -91,10 +91,11 @@ void bm_pool_free(u32 bpid)
 
 static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 {
+	const struct device_node *dt_node;
 	struct bm_portal_config *pcfg;
 	u32 irq_sources = 0;
-	int ret = 0, suffix = 0;
-	char name[20]; /* Big enough for "/dev/bman-uio-99:99" */
+	int ret = 0;
+	char name[20]; /* Big enough for "/dev/bman-uio-xx" */
 
 	if (fd >= 0) {
 		pr_err("%s: on already-initialised thread\n", __func__);
@@ -106,19 +107,36 @@ static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 		ret = -ENOMEM;
 		goto end;
 	}
-	/* Loop the possible portal devices for the required cpu until we
-	 * succeed or fail with something other than -EBUSY=="in use". */
-	do {
-		int numchars;
-		if (!suffix)
-			numchars = snprintf(name, 19, "/dev/bman-uio-%d", cpu);
-		else
-			numchars = snprintf(name, 19, "/dev/bman-uio-%d:%d",
-				cpu, suffix);
-		name[numchars] = '\0';
+	/* Loop the portal nodes looking for a matching cpu, and for each such
+	 * match, use the cell-index to determine the UIO device name and try
+	 * opening it. */
+	for_each_compatible_node(dt_node, NULL, "fsl,bman-portal") {
+		size_t lenp;
+		const u32 *cell_index;
+		int cpu_idx;
+		const phandle *cpu_ph = of_get_property(dt_node, "cpu-handle",
+							&lenp);
+		if (!cpu_ph)
+			continue;
+		if (lenp != sizeof(phandle)) {
+			pr_err("Malformed property %s:cpu-handle\n",
+				dt_node->full_name);
+			continue;
+		}
+		cpu_idx = check_cpu_phandle(*cpu_ph);
+		if (cpu_idx != cpu)
+			continue;
+		cell_index = of_get_property(dt_node, "cell-index", &lenp);
+		if (!cell_index || (lenp != sizeof(*cell_index))) {
+			pr_err("Malformed property %s:cell-index\n",
+				dt_node->full_name);
+			continue;
+		}
+		sprintf(name, "/dev/bman-uio-%x", *cell_index);
 		fd = open(name, O_RDWR);
-		suffix++;
-	} while ((fd < 0) && (errno == EBUSY));
+		if (fd >= 0)
+			break;
+	}
 	if (fd < 0) {
 		ret = -ENODEV;
 		goto end;

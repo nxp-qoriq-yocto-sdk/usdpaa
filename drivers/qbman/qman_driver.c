@@ -88,11 +88,15 @@ static const struct qman_fq_cb null_cb = {
 
 static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 {
+	const struct device_node *dt_node;
+	const u32 *channel, *cell_index;
+	const phandle *ph;
 	struct qm_portal_config *pcfg;
+	size_t lenp;
 	u32 flags = 0;
 	u32 irq_sources = 0;
-	int ret = 0, suffix = 0;
-	char name[20]; /* Big enough for "/dev/qman-uio-99:99" */
+	int ret = 0;
+	char name[20]; /* Big enough for "/dev/qman-uio-xx" */
 
 	if (fd >= 0) {
 		pr_err("%s: on already-initialised thread\n", __func__);
@@ -104,23 +108,69 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 		ret = -ENOMEM;
 		goto end;
 	}
-	/* Loop the possible portal devices for the required cpu until we
-	 * succeed or fail with something other than -EBUSY=="in use". */
-	do {
-		int numchars;
-		if (!suffix)
-			numchars = snprintf(name, 19, "/dev/qman-uio-%d", cpu);
-		else
-			numchars = snprintf(name, 19, "/dev/qman-uio-%d:%d",
-				cpu, suffix);
-		name[numchars] = '\0';
+	/* Loop the portal nodes looking for a matching cpu, and for each such
+	 * match, use the cell-index to determine the UIO device name and try
+	 * opening it. */
+	for_each_compatible_node(dt_node, NULL, "fsl,qman-portal") {
+		int cpu_idx;
+		ph = of_get_property(dt_node, "cpu-handle", &lenp);
+		if (!ph)
+			continue;
+		if (lenp != sizeof(phandle)) {
+			pr_err("Malformed property %s:cpu-handle\n",
+				dt_node->full_name);
+			continue;
+		}
+		cpu_idx = check_cpu_phandle(*ph);
+		if (cpu_idx != cpu)
+			continue;
+		cell_index = of_get_property(dt_node, "cell-index", &lenp);
+		if (!cell_index || (lenp != sizeof(*cell_index))) {
+			pr_err("Malformed property %s:cell-index\n",
+				dt_node->full_name);
+			continue;
+		}
+		sprintf(name, "/dev/qman-uio-%x", *cell_index);
 		fd = open(name, O_RDWR);
-		suffix++;
-	} while ((fd < 0) && (errno == EBUSY));
+		if (fd >= 0)
+			break;
+	}
 	if (fd < 0) {
 		ret = -ENODEV;
 		goto end;
 	}
+	/* Parse the portal's channel */
+	channel = of_get_property(dt_node, "fsl,qman-channel-id", &lenp);
+	if (!channel || (lenp != sizeof(*channel))) {
+		pr_err("Malformed property %s:fsl,qman-channel-id\n",
+			dt_node->full_name);
+		ret = -EIO;
+		goto end;
+	}
+	pcfg->public_cfg.channel = *channel;
+	/* Parse the portal's pool-channel mask */
+	pcfg->public_cfg.pools = 0;
+	ph = of_get_property(dt_node, "fsl,qman-pool-channels", &lenp);
+	if (!ph || (lenp % sizeof(phandle))) {
+		pr_err("Malformed property %s:fsl,qman-pool-channels\n",
+			dt_node->full_name);
+		ret = -EIO;
+		goto end;
+	}
+	for (; lenp > 0; ph++, lenp -= sizeof(phandle)) {
+		size_t tmp_lenp;
+		const struct device_node *pool = of_find_node_by_phandle(*ph);
+		if (!pool)
+			continue;
+		cell_index = of_get_property(pool, "cell-index", &tmp_lenp);
+		if (!cell_index || (tmp_lenp != sizeof(*cell_index))) {
+			pr_err("Malformed property %s:cell-index\n",
+				pool->full_name);
+			continue;
+		}
+		pcfg->public_cfg.pools |= QM_SDQCR_CHANNELS_POOL(*cell_index);
+	}
+	/* Make the portal's cache-[enabled|inhibited] regions */
 	pcfg->addr.addr_ce = mmap(NULL, 16*1024,
 			PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 	pcfg->addr.addr_ci = mmap(NULL, 4*1024,
@@ -135,8 +185,6 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 	}
 	pcfg->public_cfg.cpu = cpu;
 	pcfg->public_cfg.irq = fd;
-	pcfg->public_cfg.channel = qm_channel_swportal0 + (cpu ? cpu : 8);
-	pcfg->public_cfg.pools = QM_SDQCR_CHANNELS_POOL_MASK;
 	pcfg->has_hv_dma = 1;
 	pcfg->node = NULL;
 

@@ -80,3 +80,21 @@ int qbman_free_irq(int irq, void *arg);
  * interrupt handlers that have been registered. */
 const struct qbman_uio_irq *qbman_get_irq_handler(int irq);
 #endif
+
+/* This takes a "phandle" and dereferences to the cpu device-tree node,
+ * returning the cpu index. Returns negative error codes. */
+static inline int check_cpu_phandle(phandle ph)
+{
+	const u32 *cpu_val;
+	const struct device_node *tmp_node = of_find_node_by_phandle(ph);
+	size_t lenp;
+
+	if (!tmp_node)
+		return -EINVAL;
+	cpu_val = of_get_property(tmp_node, "reg", &lenp);
+	if (!cpu_val || (lenp != sizeof(*cpu_val))) {
+		pr_err("Can't get %s property 'reg'\n", tmp_node->full_name);
+		return -ENODEV;
+	}
+	return *cpu_val;
+}
