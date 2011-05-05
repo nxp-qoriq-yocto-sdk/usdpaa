@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = lib ppac reflector qbman_speed simple_crypto sanity
+SUBDIRS = lib ppac reflector qbman_speed simple_crypto
 SUBDIRS += ipfwd
 
 dist_DATA = SOURCE_THIS
