@@ -246,6 +246,12 @@ int main(int argc, char *argv[])
 	struct worker *worker, *tmpw;
 	int ret, first, last, loop;
 
+	ret = of_init();
+	if (ret) {
+		pr_err("of_init() failed\n");
+		exit(EXIT_FAILURE);
+	}
+
 	ncpus = (unsigned long)sysconf(_SC_NPROCESSORS_ONLN);
 
 	/* Parse the args */
@@ -281,5 +287,6 @@ int main(int argc, char *argv[])
 	/* Catch their exit */
 	list_for_each_entry_safe(worker, tmpw, &workers, node)
 		worker_free(worker);
+	of_finish();
 	return 0;
 }

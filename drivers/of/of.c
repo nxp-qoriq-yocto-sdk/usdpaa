@@ -30,7 +30,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <usdpaa/compat.h>
+#include <usdpaa/of.h>
 #include <internal/of.h>
 
 #define OF_DEFAULT_NA 1
@@ -77,6 +77,7 @@ static const struct dt_dir *node2dir(const struct device_node *n)
 	return d;
 }
 
+static int alive;
 static struct dt_dir root_dir;
 static const char *base_dir;
 static LIST_HEAD(linear);
@@ -225,10 +226,11 @@ static void linear_dir(struct dt_dir *d)
 	}
 }
 
-int of_init(const char *dt_path)
+int of_init_path(const char *dt_path)
 {
 	DIR *dt;
 	base_dir = dt_path;
+	WARN_ON(alive, "Double-init of device-tree driver!");
 	/* Open root directory */
 	dt = my_open_dir("");
 	if (!dt)
@@ -243,8 +245,9 @@ int of_init(const char *dt_path)
 	root_dir.parent = NULL;
 	/* Kick things off... */
 	process_dir(dt, &root_dir);
-	/* Now make a flat, linear list of files */
+	/* Now make a flat, linear list of directories */
 	linear_dir(&root_dir);
+	alive = 1;
 	return 0;
 }
 
@@ -265,7 +268,10 @@ static void destroy_dir(struct dt_dir *d)
 
 void of_finish(void)
 {
+	WARN_ON(!alive, "Double-finish of device-tree driver!");
 	destroy_dir(&root_dir);
+	INIT_LIST_HEAD(&linear);
+	alive = 0;
 }
 
 static void print_dir(struct dt_dir *d)
@@ -311,6 +317,7 @@ const struct device_node *of_find_compatible_node(
 					const char *compatible)
 {
 	const struct dt_dir *d;
+	WARN_ON(!alive, "Device-tree driver not initialised");
 	if (list_empty(&linear))
 		return NULL;
 	if (!from)
@@ -331,6 +338,7 @@ const void *of_get_property(const struct device_node *from, const char *name,
 {
 	const struct dt_dir *d;
 	const struct dt_file *f;
+	WARN_ON(!alive, "Device-tree driver not initialised");
 	d = node2dir(from);
 	list_for_each_entry(f, &d->files, node.list)
 		if (!strcmp(f->node.node.name, name)) {
@@ -344,6 +352,7 @@ const void *of_get_property(const struct device_node *from, const char *name,
 bool of_device_is_available(const struct device_node *dev_node)
 {
 	const struct dt_dir *d;
+	WARN_ON(!alive, "Device-tree driver not initialised");
 	d = node2dir(dev_node);
 	if (!d->status)
 		return true;
@@ -357,6 +366,7 @@ bool of_device_is_available(const struct device_node *dev_node)
 const struct device_node *of_find_node_by_phandle(phandle ph)
 {
 	const struct dt_dir *d;
+	WARN_ON(!alive, "Device-tree driver not initialised");
 	list_for_each_entry(d, &linear, linear)
 		if (d->lphandle && (d->lphandle->len == 4) &&
 				!memcmp(d->lphandle->buf, &ph, 4))
@@ -367,6 +377,7 @@ const struct device_node *of_find_node_by_phandle(phandle ph)
 const struct device_node *of_get_parent(const struct device_node *dev_node)
 {
 	const struct dt_dir *d;
+	WARN_ON(!alive, "Device-tree driver not initialised");
 	if (!dev_node)
 		return NULL;
 	d = node2dir(dev_node);
@@ -378,6 +389,7 @@ const struct device_node *of_get_parent(const struct device_node *dev_node)
 uint32_t of_n_addr_cells(const struct device_node *dev_node)
 {
 	const struct dt_dir *d;
+	WARN_ON(!alive, "Device-tree driver not initialised");
 	if (!dev_node)
 		return OF_DEFAULT_NA;
 	d = node2dir(dev_node);
@@ -397,6 +409,7 @@ uint32_t of_n_addr_cells(const struct device_node *dev_node)
 uint32_t of_n_size_cells(const struct device_node *dev_node)
 {
 	const struct dt_dir *d;
+	WARN_ON(!alive, "Device-tree driver not initialised");
 	if (!dev_node)
 		return OF_DEFAULT_NA;
 	d = node2dir(dev_node);
@@ -447,6 +460,7 @@ uint64_t of_translate_address(const struct device_node *dev_node,
 	uint64_t	 phys_addr, tmp_addr;
 	const uint32_t	*regs_addr;
 
+	WARN_ON(!alive, "Device-tree driver not initialised");
 	assert(dev_node != NULL);
 
 	phys_addr = *addr;
@@ -472,6 +486,7 @@ bool of_device_is_compatible(const struct device_node *dev_node,
 				const char *compatible)
 {
 	const struct dt_dir *d;
+	WARN_ON(!alive, "Device-tree driver not initialised");
 	if (!dev_node)
 		d = &root_dir;
 	else

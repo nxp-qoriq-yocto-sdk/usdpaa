@@ -30,14 +30,19 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __OF_H
-#define	__OF_H
+#ifndef __OF_INTERNAL_H
+#define	__OF_INTERNAL_H
 
 #include <internal/compat.h>
 
-int of_init(const char *dt_path);
-void of_finish(void);
+/* The external header <usdpaa/of.h> declares the of_init() and of_finish()
+ * functions for applications to call prior to initialisation of all other
+ * driver layers and after their teardown (respectively). The rest of the
+ * device-tree logic described here is internal, and is used *within* driver
+ * layers. */
 
+/* Display the parsed device-tree representation to stdout, eg. for verbose
+ * logging/debugging. */
 void of_print(void);
 
 struct device_node {
@@ -76,4 +81,4 @@ uint64_t of_translate_address(const struct device_node *dev_node,
 bool of_device_is_compatible(const struct device_node *dev_node,
 				const char *compatible);
 
-#endif	/*  __OF_H */
+#endif	/*  __OF_INTERNAL_H */

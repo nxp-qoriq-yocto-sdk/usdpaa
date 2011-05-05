@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2011 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,25 +30,30 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <usdpaa/of.h>
-#include <usdpaa/fsl_usd.h>
-#include <usdpaa/fsl_qman.h>
-#include <usdpaa/fsl_bman.h>
-#include <usdpaa/dma_mem.h>
+#ifndef __OF_H
+#define	__OF_H
 
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
 
-struct worker {
-	int cpu, do_global_init;
-	int idx, total_cpus;
-	pthread_t id;
-	struct list_head node;
-	pthread_barrier_t global_init_barrier;
-};
+/* Make this conditional, so it can be overriden by the including code and/or by
+ * the build flags. */
+#ifndef OF_INIT_DEFAULT_PATH
+#define OF_INIT_DEFAULT_PATH "/proc/device-tree"
+#endif
 
-void sync_all(void);
+/* of_init() must be called prior to initialisation or use of any driver
+ * subsystem that is device-tree-dependent. Eg. Qman/Bman, config layers, etc.
+ * The path is should usually be "/proc/device-tree". */
+int of_init_path(const char *dt_path);
 
-void qman_test_high(struct worker *worker);
-void bman_test_high(struct worker *worker);
-void speed(struct worker *worker);
-void blastman(struct worker *worker);
+/* Use of this wrapper is recommended. */
+static inline int of_init(void)
+{
+	return of_init_path(OF_INIT_DEFAULT_PATH);
+}
+
+/* of_finish() allows a controlled tear-down of the device-tree layer, eg. if a
+ * full USDPAA reload is desired without a process exit. */
+void of_finish(void);
+
+#endif	/*  __OF_H */

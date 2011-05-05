@@ -38,7 +38,7 @@
  *   PPAM == Packet Processing Application Module
  */
 
-#include <usdpaa/compat.h>	/* __GNU_SOURCE */
+#include <usdpaa/of.h>
 #include <usdpaa/fsl_bman.h>
 #include <usdpaa/fsl_qman.h>
 #include <usdpaa/fsl_usd.h>

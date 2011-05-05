@@ -35,7 +35,7 @@ dist_DATA = ipfwd_22G.sh ipfwd_20G.sh
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/ipfwd/lib -I$(TOP_LEVEL)/apps/ipfwd/include
 
 ipfwd_config_SOURCES := ipc_send.c
-ipfwd_config_sys_LDADD := rt
+ipfwd_config_sys_LDADD := rt usdpaa_of
 
 ipfwd_22G.sh_install = $(INSTALL_BIN)
 ipfwd_22G.sh_install_flags = $(INSTALL_BIN_FLAGS)

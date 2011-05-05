@@ -29,7 +29,7 @@
 #ifndef __SIMPLE_CRYPTO_H
 #define __SIMPLE_CRYPTO_H
 
-#include <usdpaa/compat.h>
+#include <usdpaa/of.h>
 #include <usdpaa/fsl_qman.h>
 #include <usdpaa/fsl_bman.h>
 

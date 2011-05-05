@@ -1052,14 +1052,19 @@ int main(int argc, char *argv[])
 	char *cli, **cli_argv;
 	const struct cli_table_entry *cli_cmd;
 
-	ncpus = (unsigned long)sysconf(_SC_NPROCESSORS_ONLN);
+	rcode = of_init();
+	if (rcode) {
+		pr_err("of_init() failed\n");
+		exit(EXIT_FAILURE);
+	}
 
+	ncpus = (unsigned long)sysconf(_SC_NPROCESSORS_ONLN);
 	if (ncpus > 1) {
 		ppac_args.first = 1;
 		ppac_args.last = 1;
 	}
-	ppac_args.noninteractive = 0;
 
+	ppac_args.noninteractive = 0;
 	ppac_args.ppam_args = &ppam_args;
 
 	rcode = argp_parse(&ppac_argp, argc, argv, 0, NULL, &ppac_args);
@@ -1207,5 +1212,6 @@ leave:
 	primary = NULL;
 	worker_free(worker);
 	usdpaa_netcfg_release(netcfg);
+	of_finish();
 	return rcode;
 }

@@ -1822,7 +1822,7 @@ int main(int argc, char *argv[])
 {
 	thread_data_t thread_data[MAX_THREADS];
 	struct crypto_msg appdata[MAX_THREADS];
-	int loop;
+	int loop, err;
 	uint16_t enc_cycles_per_frame = 0;
 	uint16_t dec_cycles_per_frame = 0;
 	uint64_t cpu_freq;
@@ -1830,6 +1830,12 @@ int main(int argc, char *argv[])
 	char buf[255], cpu_f[20];
 
 	pr_info("\nWelcome to FSL SEC 4.0 application!\n");
+
+	err = of_init();
+	if (err) {
+		pr_err("of_init() failed\n");
+		exit(EXIT_FAILURE);
+	}
 
 	num_isolcpus = ncpus = sysconf(_SC_NPROCESSORS_ONLN);
 
@@ -1976,5 +1982,6 @@ int main(int argc, char *argv[])
 	}
 
 	free_fd();
+	of_finish();
 	exit(EXIT_SUCCESS);
 }

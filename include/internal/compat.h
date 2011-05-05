@@ -139,6 +139,15 @@ do { \
 #define might_sleep_if(c)	do { ; } while(0)
 #define msleep(x)		do { ; } while(0)
 #endif
+#define WARN_ON(c, str) \
+do { \
+	static int warned_##__LINE__; \
+	if ((c) && !warned_##__LINE__) { \
+		pr_warning("%s\n", str); \
+		pr_warning("(%s:%d)\n", __FILE__, __LINE__); \
+		warned_##__LINE__ = 1; \
+	} \
+} while (0)
 #ifdef CONFIG_FSL_BMAN_CHECKING
 #define BM_ASSERT(x) \
 	do { \
