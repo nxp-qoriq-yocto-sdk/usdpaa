@@ -256,11 +256,10 @@ static void destroy_dir(struct dt_dir *d)
 		list_del(&f->node.list);
 		free(f);
 	}
-	list_for_each_entry_safe(dd, tmpd, &d->subdirs, node.list)
+	list_for_each_entry_safe(dd, tmpd, &d->subdirs, node.list) {
 		destroy_dir(dd);
-	if (d->parent) {
-		list_del(&d->node.list);
-		free(d);
+		list_del(&dd->node.list);
+		free(dd);
 	}
 }
 
