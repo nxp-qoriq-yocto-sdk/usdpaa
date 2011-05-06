@@ -82,9 +82,12 @@ typedef uint32_t	phandle;
 #define MODULE_AUTHOR(s)
 #define MODULE_LICENSE(s)
 #define MODULE_DESCRIPTION(s)
+#define MODULE_PARM_DESC(x, y)
 #define EXPORT_SYMBOL(x)
 #define module_init(fn) int m_##fn(void) { return fn(); }
 #define module_exit(fn) void m_##fn(void) { fn(); }
+#define module_param(x, y, z)
+#define module_param_string(w, x, y, z)
 #define GFP_KERNEL	0
 #define __KERNEL__
 #define __init
@@ -349,10 +352,20 @@ static inline int atomic_dec_and_test(atomic_t *v)
 {
 	return __atomic_add((long *)&v->v, -1) == 0;
 }
+static inline void atomic_dec(atomic_t *v)
+{
+	__atomic_add((long *)&v->v, -1);
+}
+
 /* new variants not present in LWE */
 static inline int atomic_inc_and_test(atomic_t *v)
 {
 	return __atomic_add((long *)&v->v, 1) == 0;
+}
+
+static inline int atomic_inc_return(atomic_t *v)
+{
+	return	__atomic_add((long *)&v->v, 1);
 }
 
 /* memcpy() stuff - when you know alignments in advance */

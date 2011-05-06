@@ -30,54 +30,47 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HEADER_USDPAA_COMPAT_H
-#define HEADER_USDPAA_COMPAT_H
+#include "pme2_private.h"
 
-/* All <usdpaa/xxx.h> headers include this header, directly or otherwise. This
- * should provide the minimal set of system includes and base-definitions
- * required by these headers, such that C code can include USDPAA headers
- * without pre-requisites. */
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-#include <stdint.h>
-#include <stdlib.h>
-#include <stddef.h>
-#include <errno.h>
-#include <string.h>
-#include <pthread.h>
-#include <net/ethernet.h>
+#define PME_RESIDUE_SIZE	128
+#define PME_RESIDUE_ALIGN	64
+#define PME_FLOW_SIZE		sizeof(struct pme_flow)
+#define PME_FLOW_ALIGN		32
 
-/* This defines any configuration symbols that are required by <usdpaa/xxx.h>
- * headers. */
-#include <usdpaa/conf.h>
+/***********************/
+/* low-level functions */
+/***********************/
+struct pme_hw_residue *pme_hw_residue_new(void)
+{
+	return dma_mem_memalign(PME_RESIDUE_ALIGN, PME_RESIDUE_SIZE);
+}
 
-/* The following definitions are primarily to allow the single-source driver
- * interfaces to be included by arbitrary program code. Ie. for interfaces that
- * are also available in kernel-space, these definitions provide compatibility
- * with certain attributes and types used in those interfaces. */
+void pme_hw_residue_free(struct pme_hw_residue *p)
+{
+	dma_mem_free(p, PME_RESIDUE_SIZE);
+}
 
-/* Required compiler attributes */
-#define __maybe_unused	__attribute__((unused))
-#define __always_unused	__attribute__((unused))
-#define __packed	__attribute__((__packed__))
-#define __user
+struct pme_hw_flow *pme_hw_flow_new(void)
+{
+	struct pme_flow *flow = dma_mem_memalign(PME_FLOW_ALIGN, PME_FLOW_SIZE);
+	if (flow)
+		memset(flow, 0, PME_FLOW_SIZE);
+	return (struct pme_hw_flow *)flow;
+}
 
-/* Required types */
-typedef uint8_t		u8;
-typedef uint16_t	u16;
-typedef uint32_t	u32;
-typedef uint64_t	u64;
-typedef uint64_t	dma_addr_t;
-typedef cpu_set_t	cpumask_t;
-#define spinlock_t	pthread_mutex_t
-struct rb_node {
-	struct rb_node *prev, *next;
-};
+void pme_hw_flow_free(struct pme_hw_flow *p)
+{
+	dma_mem_free(p, PME_FLOW_SIZE);
+}
 
-/* "struct list_head" is needed by fsl_qman.h and fman.h, and the latter is not
- * much use to users unless related logic is available too
- * ("list_for_each_entry()", etc), so we put all of it in here; */
-#include <usdpaa/compat_list.h>
+dma_addr_t pme_map(void *ptr)
+{
+	return dma_map_single(NULL, ptr, 1, DMA_BIDIRECTIONAL);
+}
+EXPORT_SYMBOL(pme_map);
 
-#endif /* HEADER_USDPAA_COMPAT_H */
+int pme_map_error(dma_addr_t dma_addr)
+{
+	return dma_mapping_error(NULL, dma_addr);
+}
+EXPORT_SYMBOL(pme_map_error);

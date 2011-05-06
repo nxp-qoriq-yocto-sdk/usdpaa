@@ -1,4 +1,4 @@
-/* Copyright (c) 2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2009-2010 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,54 +30,19 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HEADER_USDPAA_COMPAT_H
-#define HEADER_USDPAA_COMPAT_H
+#include "pme2_private.h"
 
-/* All <usdpaa/xxx.h> headers include this header, directly or otherwise. This
- * should provide the minimal set of system includes and base-definitions
- * required by these headers, such that C code can include USDPAA headers
- * without pre-requisites. */
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-#include <stdint.h>
-#include <stdlib.h>
-#include <stddef.h>
-#include <errno.h>
-#include <string.h>
-#include <pthread.h>
-#include <net/ethernet.h>
+int pme2_exclusive_set(__always_unused struct qman_fq *fq)
+{
+	return -ENODEV;
+}
 
-/* This defines any configuration symbols that are required by <usdpaa/xxx.h>
- * headers. */
-#include <usdpaa/conf.h>
+int pme2_exclusive_unset(void)
+{
+	return -ENODEV;
+}
 
-/* The following definitions are primarily to allow the single-source driver
- * interfaces to be included by arbitrary program code. Ie. for interfaces that
- * are also available in kernel-space, these definitions provide compatibility
- * with certain attributes and types used in those interfaces. */
-
-/* Required compiler attributes */
-#define __maybe_unused	__attribute__((unused))
-#define __always_unused	__attribute__((unused))
-#define __packed	__attribute__((__packed__))
-#define __user
-
-/* Required types */
-typedef uint8_t		u8;
-typedef uint16_t	u16;
-typedef uint32_t	u32;
-typedef uint64_t	u64;
-typedef uint64_t	dma_addr_t;
-typedef cpu_set_t	cpumask_t;
-#define spinlock_t	pthread_mutex_t
-struct rb_node {
-	struct rb_node *prev, *next;
-};
-
-/* "struct list_head" is needed by fsl_qman.h and fman.h, and the latter is not
- * much use to users unless related logic is available too
- * ("list_for_each_entry()", etc), so we put all of it in here; */
-#include <usdpaa/compat_list.h>
-
-#endif /* HEADER_USDPAA_COMPAT_H */
+int pme2_have_control(void)
+{
+	return 0;
+}

@@ -29,4 +29,6 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = dma_mem fman of qbman sec pme
+lib_LIBRARIES = usdpaa_pme
+
+usdpaa_pme_SOURCES := pme2_high.c pme2_low.c pme2_sys.c pme2_stubs.c
