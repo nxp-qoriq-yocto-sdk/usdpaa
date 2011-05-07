@@ -29,10 +29,13 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback
-SUBDIRS += ipfwd
+bin_PROGRAMS = pme_loopback_test
 
-dist_DATA = SOURCE_THIS
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/include
 
-# install the SOURCE_THIS file in the 'root' home directory
-SOURCE_THIS_install := root
+pme_loopback_test_SOURCES := pme_loopback.c
+pme_loopback_test_LDADD := usdpaa_qbman usdpaa_dma_mem usdpaa_pme usdpaa_of
+
+pme_loopback_test_LDFLAGS := $(LIBEDIT_LDFLAGS) -T $(TOP_LEVEL)/apps/pme_loopback/pme_loopback.lds
+
+pme_loopback_test_CFLAGS := $(LIBEDIT_CFLAGS)
