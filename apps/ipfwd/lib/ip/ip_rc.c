@@ -193,7 +193,6 @@ struct rc_entry_t *rc_entry_fast_lookup(struct rc_t *rc,
 	entry = *entry_ptr;
 	if (entry != NULL) {
 #endif
-		entry->last_used = mfspr(SPR_ATBL);
 #ifdef STATS_TBD
 		decorated_notify_inc_64(&(rc->stats->hits));
 #endif
@@ -224,7 +223,6 @@ struct rc_entry_t *rc_entry_lookup(struct rc_t *rc,
 	entry = *entry_ptr;
 	if (entry != NULL) {
 #endif
-		entry->last_used = mfspr(SPR_ATBL);
 #ifdef STATS_TBD
 		decorated_notify_inc_64(&(rc->stats->hits));
 #endif
@@ -553,7 +551,6 @@ struct rt_dest_t *__rc_lookup(struct rc_t *rc,
 	if (entry != NULL) {
 #endif
 		dest = entry->dest;
-		entry->last_used = mfspr(SPR_ATBL);
 #ifdef STATS_TBD
 		decorated_notify_inc_64(&(rc->stats->hits));
 #endif

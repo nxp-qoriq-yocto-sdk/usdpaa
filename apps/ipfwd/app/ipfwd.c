@@ -149,7 +149,6 @@ static int ipfwd_add_route(const struct app_ctrl_op_info *route_info)
 	refcount_acquire(dest->neighbor->refcnt);
 
 	entry->dest = dest;
-	entry->last_used = mfspr(SPR_ATBL);
 
 	if (rc_add_update_entry(&stack.rc, entry) == false) {
 		pr_err("Route cache entry updated\n");

@@ -88,8 +88,6 @@ struct rc_entry_t {
 	/**< Pointer to the Destination Address */
 	struct rt_dest_t *dest;
 	/**< Pointer to the egress interface structure */
-	uint32_t last_used;
-	/**< Time when the entry was last used - for Aging*/
 } __attribute__((aligned(L1_CACHE_BYTES)));
 
 /**
