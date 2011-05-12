@@ -30,18 +30,12 @@
  */
 
 #include "pme_loopback.h"
-#include <unistd.h>
 #include <readline.h>
 #include <usdpaa/of.h>
 #include <usdpaa/fsl_usd.h>
-#include <usdpaa/fsl_qman.h>
-#include <usdpaa/fsl_bman.h>
 #include <usdpaa/fsl_pme.h>
 #include <usdpaa/dma_mem.h>
 #include <sys/time.h>
-#include <sys/resource.h>
-#include <time.h>
-#include <signal.h>
 #include <inttypes.h>
 
 #undef DEBUG
