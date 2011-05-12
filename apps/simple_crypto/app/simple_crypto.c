@@ -626,14 +626,6 @@ static int init_sec_frame_queues(enum SEC_MODE mode)
 		(qm_channel_pool1 - 1) + pool_channel_offset;
 	int i;
 
-	ctxt_a = setup_sec_descriptor(mode);
-	if (0 == ctxt_a) {
-		pr_err("%s: Initializing shared descriptor failure!\n",
-				__func__);
-		return -1;
-	}
-	addr = dma_mem_vtop(ctxt_a);
-
 	if (ENCRYPT == mode) {
 		frame_q_base = fq_base_encrypt;
 		fq_from_sec_ptr = enc_fq_from_sec;
@@ -645,6 +637,15 @@ static int init_sec_frame_queues(enum SEC_MODE mode)
 	}
 
 	for (i = 0; i < FQ_COUNT; i++) {
+		ctxt_a = setup_sec_descriptor(mode);
+		if (0 == ctxt_a) {
+			pr_err("%s: Initializing shared descriptor failure!\n",
+					__func__);
+			return -1;
+		}
+		addr = dma_mem_vtop(ctxt_a);
+
+
 		fq_from_sec = frame_q_base++;
 		fq_to_sec = frame_q_base++;
 
