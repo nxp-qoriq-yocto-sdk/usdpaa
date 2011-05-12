@@ -62,10 +62,12 @@ uint32_t job_desc_buf_size;
 /* Total size of sg entry, i/p and o/p buffer required */
 uint32_t total_size;
 
-/* total number of encrypted frame(s) returned from SEC4.0 */
-atomic_t enc_packet_from_sec;
-/* total number of decrypted frame(s) returned from SEC4.0 */
-atomic_t dec_packet_from_sec;
+/* packets send to SEC4.0 per core */
+__PERCPU uint32_t pkts_to_sec;
+/* number of encrypted frame(s) returned from SEC4.0 per core*/
+__PERCPU uint32_t enc_pkts_from_sec;
+/* number of decrypted frame(s) returned from SEC4.0 per core*/
+__PERCPU uint32_t dec_pkts_from_sec;
 
 uint32_t ind;
 struct qm_fd fd[BUFF_NUM];	/* storage for frame descriptor */
@@ -281,6 +283,15 @@ void (*init_ref_test_vector[])(void) = {
 		init_rtv_crc,
 		init_rtv_hmac_sha1,
 		init_rtv_snow_f8_f9 };
+
+void get_pkts_to_sec(void)
+{
+	int rem;
+	pkts_to_sec = (crypto_info.buf_num / ncpus);
+	rem = crypto_info.buf_num % ncpus;
+	if (rem > cpu_ind)
+		pkts_to_sec++;
+}
 
 /*
  * brief	Create a compound frame descriptor understood by SEC 4.0
@@ -1198,16 +1209,10 @@ static void do_enqueues(enum SEC_MODE mode)
 	struct qman_fq *fq_to_sec;
 	uint32_t ret;
 	int fd_ind;
-	int i = 0, rem;
-	int packets_to_send;
-
-	packets_to_send = (crypto_info.buf_num / ncpus);
-	rem = crypto_info.buf_num % ncpus;
-	if (rem > cpu_ind)
-		packets_to_send++;
+	int i = 0;
 
 	do {
-		if (i >= packets_to_send)
+		if (i >= pkts_to_sec)
 			return;
 
 		fd_ind = i*ncpus + cpu_ind;
@@ -1265,10 +1270,10 @@ enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 
 	if ((dqrr->fqid >= fq_base_encrypt)
 			&& (dqrr->fqid < fq_base_decrpyt)) {
-		atomic_inc(&enc_packet_from_sec);
+		enc_pkts_from_sec++;
 	} else if ((dqrr->fqid >= fq_base_decrpyt)
 			&& (dqrr->fqid < (fq_base_decrpyt + 2 * FQ_COUNT))) {
-		atomic_inc(&dec_packet_from_sec);
+		dec_pkts_from_sec++;
 		mode = DECRYPT;
 	} else {
 		pr_err("%s: Invalid Frame Queue ID Returned by SEC = %d\n",
@@ -1277,8 +1282,8 @@ enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 	}
 
 	pr_debug("%s mode: Packet dequeued ->%d\n", mode ? "Encrypt" :
-		"Decrypt", mode ? atomic_read(&enc_packet_from_sec) :
-		atomic_read(&dec_packet_from_sec));
+		"Decrypt", mode ? enc_pkts_from_sec :
+		dec_pkts_from_sec);
 
 	addr = qm_fd_addr_get64(&(dqrr->fd));
 	sgentry_priv = dma_mem_ptov(addr);
@@ -1290,7 +1295,7 @@ enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 /* Poll qman DQCR for encrypted frames */
 static void enc_qman_poll(void)
 {
-	while (atomic_read(&enc_packet_from_sec) < crypto_info.buf_num)
+	while (enc_pkts_from_sec < pkts_to_sec)
 		qman_poll();
 	return;
 }
@@ -1298,7 +1303,7 @@ static void enc_qman_poll(void)
 /** Poll qman DQCR for decrypted frames */
 static void dec_qman_poll(void)
 {
-	while (atomic_read(&dec_packet_from_sec) < crypto_info.buf_num)
+	while (dec_pkts_from_sec < pkts_to_sec)
 		qman_poll();
 	return;
 }
@@ -1655,6 +1660,8 @@ static int worker_fn(thread_data_t *tdata)
 		abort();
 	}
 
+	get_pkts_to_sec();
+
 	while (iterations) {
 		/* Set encryption buffer */
 		if (!tdata->index) {
@@ -1666,8 +1673,8 @@ static int worker_fn(thread_data_t *tdata)
 							" working....\n", i);
 			}
 			set_enc_buf();
-			atomic_set(&enc_packet_from_sec, 0);
 		}
+		enc_pkts_from_sec = 0;
 
 		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
 			pr_err("Encrypt mode: pthread_barrier_wait failed"
@@ -1688,6 +1695,13 @@ static int worker_fn(thread_data_t *tdata)
 
 		/* Recieve encrypted or MAC data from SEC40 */
 		enc_qman_poll();
+
+		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
+			pr_err("Encrypt mode: pthread_barrier_wait failed"
+					"before enqueue\n");
+			abort();
+		}
+
 		if (!tdata->index) {
 			pr_debug("Encrypt mode: Total packet returned from "
 				 "SEC = %d\n", atomic_read(&enc_packet_from_sec));
@@ -1713,8 +1727,8 @@ static int worker_fn(thread_data_t *tdata)
 				set_dec_auth_buf();
 			else if (!authnct)
 				set_dec_buf();
-			atomic_set(&dec_packet_from_sec, 0);
 		}
+		dec_pkts_from_sec = 0;
 error2:
 		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
 			pr_err("Decrypt mode: pthread_barrier_wait failed"
@@ -1741,6 +1755,12 @@ error2:
 
 		/* Recieve decrypted data from SEC40 */
 		dec_qman_poll();
+
+		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
+			pr_err("Encrypt mode: pthread_barrier_wait failed"
+					"before enqueue\n");
+			abort();
+		}
 
 		if (!tdata->index) {
 			pr_debug("Decrypt mode: Total packet returned from "
