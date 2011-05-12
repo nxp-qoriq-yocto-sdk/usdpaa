@@ -101,6 +101,7 @@ static bool ctrl_error;
 long ncpus;
 /* Number of isolcpus */
 long num_isolcpus;
+__PERCPU uint32_t cpu_ind;
 
 /* Counters to accumulate time taken for packet processing */
 uint64_t enc_delta, dec_delta;
@@ -562,8 +563,8 @@ static void *setup_sec_descriptor(bool mode)
 	return descriptor;
 }
 
-struct qman_fq *create_sec_frame_queue(uint32_t fq_id, uint16_t channel,
-		uint16_t wq_id, dma_addr_t ctxt_a_addr, uint32_t ctx_b)
+struct qman_fq *create_sec_frame_queue(uint32_t fq_id,
+		dma_addr_t ctxt_a_addr, uint32_t ctx_b)
 {
 	struct qm_mcc_initfq fq_opts;
 	struct qman_fq *fq;
@@ -576,6 +577,7 @@ struct qman_fq *create_sec_frame_queue(uint32_t fq_id, uint16_t channel,
 			"%u", fq_id);
 		return NULL;
 	}
+	memset(fq, 0, sizeof(struct qman_fq));
 
 	if (ctxt_a_addr) {
 		flags = QMAN_FQ_FLAG_LOCKED | QMAN_FQ_FLAG_TO_DCPORTAL;
@@ -592,20 +594,21 @@ struct qman_fq *create_sec_frame_queue(uint32_t fq_id, uint16_t channel,
 
 	flags = QMAN_INITFQ_FLAG_SCHED;
 	fq_opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_CONTEXTA;
+
 	if (ctxt_a_addr) {
 		fq_opts.we_mask |= QM_INITFQ_WE_CONTEXTB;
 		qm_fqd_context_a_set64(&fq_opts.fqd, ctxt_a_addr);
 		fq_opts.fqd.context_b = ctx_b;
+		fq_opts.fqd.dest.channel = qm_channel_caam;
+		fq_opts.fqd.dest.wq = 0;
 	} else {
 		uint32_t ctx_a_excl, ctx_a_len;
+		flags |= QMAN_INITFQ_FLAG_LOCAL;
 		ctx_a_excl = (QM_STASHING_EXCL_DATA | QM_STASHING_EXCL_CTX);
 		ctx_a_len = (1 << 2) | 1;
 		fq_opts.fqd.context_a.hi = (ctx_a_excl << 24)
 			| (ctx_a_len << 16);
 	}
-
-	fq_opts.fqd.dest.wq = wq_id;
-	fq_opts.fqd.dest.channel = channel;
 
 	if (unlikely(qman_init_fq(fq, flags, &fq_opts) != 0)) {
 		pr_err("qm_init_fq failed for fq_id: %u\n", fq_id);
@@ -622,9 +625,6 @@ static int init_sec_frame_queues(enum SEC_MODE mode)
 	struct qman_fq **fq_from_sec_ptr, **fq_to_sec_ptr;
 	void *ctxt_a;
 	dma_addr_t addr;
-	uint32_t pool_channel =
-		(qm_channel_pool1 - 1) + pool_channel_offset;
-	int i;
 
 	if (ENCRYPT == mode) {
 		frame_q_base = fq_base_encrypt;
@@ -636,38 +636,33 @@ static int init_sec_frame_queues(enum SEC_MODE mode)
 		fq_to_sec_ptr = dec_fq_to_sec;
 	}
 
-	for (i = 0; i < FQ_COUNT; i++) {
-		ctxt_a = setup_sec_descriptor(mode);
-		if (0 == ctxt_a) {
-			pr_err("%s: Initializing shared descriptor failure!\n",
-					__func__);
-			return -1;
-		}
-		addr = dma_mem_vtop(ctxt_a);
+	ctxt_a = setup_sec_descriptor(mode);
+	if (0 == ctxt_a) {
+		pr_err("%s: Initializing shared descriptor failure!\n",
+				__func__);
+		return -1;
+	}
+	addr = dma_mem_vtop(ctxt_a);
 
+	fq_from_sec = frame_q_base + 2*cpu_ind;
+	fq_to_sec = fq_from_sec + 1;
 
-		fq_from_sec = frame_q_base++;
-		fq_to_sec = frame_q_base++;
+	fq_from_sec_ptr[cpu_ind] =
+		create_sec_frame_queue(fq_from_sec, 0, 0);
+	if (!fq_from_sec_ptr[cpu_ind]) {
+		pr_err("%s : Encrypt FQ(from SEC)"
+			" couldn't be allocated, ID = %d\n",
+			__func__, fq_from_sec);
+		return -1;
+	}
 
-		fq_from_sec_ptr[i] =
-			create_sec_frame_queue(fq_from_sec,
-				pool_channel, 0, 0, 0);
-		if (!fq_from_sec_ptr[i]) {
-			pr_err("%s : Encrypt FQ(from SEC) %d"
-				" couldn't be allocated, ID = %d\n",
-				__func__, i, fq_from_sec);
-			return -1;
-		}
-
-		fq_to_sec_ptr[i] =
-			create_sec_frame_queue(fq_to_sec, qm_channel_caam,
-				0, addr, fq_from_sec);
-		if (!fq_to_sec_ptr[i]) {
-			pr_err("%s : Encrypt FQ(to SEC) %d couldn't be"
-				" allocated, ID = %d\n",
-				__func__, i, fq_to_sec);
-			return -1;
-		}
+	fq_to_sec_ptr[cpu_ind] =
+		create_sec_frame_queue(fq_to_sec, addr, fq_from_sec);
+	if (!fq_to_sec_ptr[cpu_ind]) {
+		pr_err("%s : Encrypt FQ(to SEC) couldn't be"
+			" allocated, ID = %d\n",
+			__func__, fq_to_sec);
+		return -1;
 	}
 	return 0;
 }
@@ -696,7 +691,6 @@ static int init_sec_fq(void)
 		}
 	}
 
-	pr_info("Initialized FQs\n");
 	return 0;
 }
 
@@ -741,27 +735,25 @@ void free_fd(void)
 static int free_sec_frame_queues(struct qman_fq *fq[],
 		bool *fq_retire_flag)
 {
-	int res, i;
+	int res;
 	uint32_t flags;
 
-	for (i = 0; i < FQ_COUNT; i++) {
-		res = qman_retire_fq(fq[i], &flags);
-		if (0 > res) {
-			pr_err("qman_retire_fq failed for fq %d\n", i);
-			return -EINVAL;
-		}
-		wait_event(NULL, *((unsigned char *)(fq_retire_flag) + i));
-
-		if (flags & QMAN_FQ_STATE_BLOCKOOS) {
-			pr_err("leaking frames for fq %d\n", i);
-			return -1;
-		}
-		if (qman_oos_fq(fq[i])) {
-			pr_err("qman_oos_fq failed for fq %d\n", i);
-			return -EINVAL;
-		}
-		qman_destroy_fq(fq[i], 0);
+	res = qman_retire_fq(fq[cpu_ind], &flags);
+	if (0 > res) {
+		pr_err("qman_retire_fq failed for fq %d\n", cpu_ind);
+		return -EINVAL;
 	}
+	wait_event(NULL, *((unsigned char *)(fq_retire_flag) + cpu_ind));
+
+	if (flags & QMAN_FQ_STATE_BLOCKOOS) {
+		pr_err("leaking frames for fq %d\n", cpu_ind);
+		return -1;
+	}
+	if (qman_oos_fq(fq[cpu_ind])) {
+		pr_err("qman_oos_fq failed for fq %d\n", cpu_ind);
+		return -EINVAL;
+	}
+	qman_destroy_fq(fq[cpu_ind], 0);
 
 	return 0;
 }
@@ -1201,15 +1193,13 @@ static int test_dec_match(void)
  * param[in]	mode - Encrypt/Decrypt
  * return	0 on success, otherwise -ve value
  */
-static void do_enqueues(enum SEC_MODE mode, thread_data_t *tdata)
+static void do_enqueues(enum SEC_MODE mode)
 {
 	struct qman_fq *fq_to_sec;
 	uint32_t ret;
-	int fd_ind, cpu_ind;
+	int fd_ind;
 	int i = 0, rem;
 	int packets_to_send;
-
-	cpu_ind = (tdata->cpu + num_isolcpus - 1) % num_isolcpus;
 
 	packets_to_send = (crypto_info.buf_num / ncpus);
 	rem = crypto_info.buf_num % ncpus;
@@ -1223,9 +1213,9 @@ static void do_enqueues(enum SEC_MODE mode, thread_data_t *tdata)
 		fd_ind = i*ncpus + cpu_ind;
 
 		if (ENCRYPT == mode)
-			fq_to_sec = enc_fq_to_sec[(fd_ind) % FQ_COUNT];
+			fq_to_sec = enc_fq_to_sec[cpu_ind];
 		else
-			fq_to_sec = dec_fq_to_sec[(fd_ind) % FQ_COUNT];
+			fq_to_sec = dec_fq_to_sec[cpu_ind];
 
 		pr_debug("%s mode: Enqueue packet ->%d\n", mode ? "Encrypt" :
 				"Decrypt\n", fd_ind);
@@ -1658,14 +1648,12 @@ static int worker_fn(thread_data_t *tdata)
 
 	pr_debug("\nThis is the thread on cpu %d\n", tdata->cpu);
 
-	if (!tdata->index) {
-		if (unlikely(init_sec_fq() != 0)) {
-			pr_err("%s: init_sec_fq() failure\n", __func__);
-			abort();
-		}
-	}
+	cpu_ind = (tdata->cpu + num_isolcpus - 1) % num_isolcpus;
 
-	qman_static_dequeue_add(QM_SDQCR_CHANNELS_POOL(pool_channel_offset));
+	if (unlikely(init_sec_fq() != 0)) {
+		pr_err("%s: init_sec_fq() failure\n", __func__);
+		abort();
+	}
 
 	while (iterations) {
 		/* Set encryption buffer */
@@ -1692,7 +1680,7 @@ static int worker_fn(thread_data_t *tdata)
 			atb_start_enc = mfatb();
 
 		/* Send data to SEC40 for encryption/authentication */
-		do_enqueues(ENCRYPT, tdata);
+		do_enqueues(ENCRYPT);
 
 		if (!tdata->index)
 			pr_debug("Encrypt mode: Total packet sent to "
@@ -1745,7 +1733,7 @@ error2:
 			atb_start_dec = mfatb();
 
 		/* Send data to SEC40 for decryption */
-		do_enqueues(DECRYPT, tdata);
+		do_enqueues(DECRYPT);
 
 		if (!tdata->index)
 			pr_debug("Decrypt mode: Total packet sent to "
@@ -1797,14 +1785,10 @@ result:
 	}
 
 err_free_fq:
-	if (!tdata->index) {
-		if (unlikely(free_sec_fq() != 0)) {
+	if (unlikely(free_sec_fq() != 0)) {
 			pr_err("%s: free_sec_fq failed\n", __func__);
 			abort();
-		}
 	}
-
-	qman_static_dequeue_del(QM_SDQCR_CHANNELS_POOL(pool_channel_offset));
 
 	calm_down();
 	pr_debug("Leaving thread on cpu %d\n", tdata->cpu);
