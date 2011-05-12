@@ -49,9 +49,9 @@
 #undef USE_MALLOC
 
 #define MICROSECONDS_PER_SECOND 1000000
-/* 50 Chars: 12345678901234567890123456789012345678901234567890 */
+/* 50 Chars: 1234567890abcdefghijklmnopqrstuvwxyz!@#$%^&*()[]{}? */
 static const char alphabet[] =
-	"123456789abcdefhijklmonpqrszyuwxyzXXXXXXXXXXXXXXXX";
+	"1234567890abcdefghijklmnopqrstuvwxyz!@#$%^&*()[]{}?";
 
 /******************/
 /* Worker threads */
@@ -62,6 +62,19 @@ struct msg_prep_scan {
 	int low_inflight;
 	int high_inflight;
 	int use_comp_frame;
+};
+
+struct pattern_info {
+	char *pattern_data;
+	int length;
+};
+
+struct msg_prep_scan_2 {
+	int scan_size;
+	int low_inflight;
+	int high_inflight;
+	int use_comp_frame;
+	struct pattern_info thepattern;
 };
 
 struct msg_create_ctx_flow_mode {
@@ -82,6 +95,7 @@ struct worker_msg {
 		worker_msg_create_ctx_direct_mode,
 		worker_msg_delete_ctx,
 		worker_msg_prep_scan,
+		worker_msg_prep_scan_2,
 		worker_msg_free_mem,
 		worker_msg_start_scan,
 		worker_msg_stop_scan,
@@ -92,6 +106,7 @@ struct worker_msg {
 	union {
 		struct msg_prep_scan prep_scan_msg;
 		struct msg_create_ctx_flow_mode create_ctx_flow_mode_msg;
+		struct msg_prep_scan_2 prep_scan_2_msg;
 	};
 
 } ____cacheline_aligned;
@@ -267,7 +282,7 @@ static void do_create_ctx_direct_mode(struct worker *worker)
 	worker->ref->ctx.ern_cb = scan_ern_cb;
 
 	ret = pme_ctx_init(&worker->ref->ctx,
-			PME_CTX_FLAG_LOCAL,
+			PME_CTX_FLAG_LOCAL | PME_CTX_FLAG_DIRECT,
 			0, /* bpid*/
 			4, /* qosin */
 			4, /* qosout */
@@ -302,7 +317,7 @@ static int do_delete_ctx(struct worker *worker)
 
 static int do_prep_scan(struct worker *worker, struct worker_msg *msg)
 {
-	int ret = 0, pos = 0, i = 0, j = 0;
+	int ret = 0, pos = 0, i = 0, j = 0, z;
 	char pattern[51];
 
 	worker->scan_size = msg->prep_scan_msg.scan_size;
@@ -316,6 +331,7 @@ static int do_prep_scan(struct worker *worker, struct worker_msg *msg)
 		fprintf(stderr, "Failed to alloc scan_data\n");
 		return -1;
 	}
+	memset(worker->scan_data, '.', worker->scan_size);
 
 	/* Set a specific pattern in the scan data that can be used to
 	* trigger matches
@@ -323,7 +339,7 @@ static int do_prep_scan(struct worker *worker, struct worker_msg *msg)
 	if (worker->pattern_width) {
 		i = 1;
 		pattern[worker->pattern_width] = 0;
-		while ((pos + worker->pattern_width)  < worker->scan_size) {
+		while ((pos + worker->pattern_width) <= worker->scan_size) {
 			for (j = 1; j <= worker->pattern_width; j++) {
 				if ((i % j) == 0)
 					pattern[j-1] = alphabet[j-1];
@@ -339,6 +355,10 @@ static int do_prep_scan(struct worker *worker, struct worker_msg *msg)
 			i++;
 			pos += worker->pattern_width;
 		}
+		printf("SUI pattern is:\n");
+		for (z = 0; z < worker->scan_size; z++)
+			printf("%c", ((char *)worker->scan_data)[z]);
+		printf("\n");
 	}
 
 	worker->sg_table = dma_mem_memalign(L1_CACHE_BYTES,
@@ -348,6 +368,65 @@ static int do_prep_scan(struct worker *worker, struct worker_msg *msg)
 	memset(worker->sg_table, 0, sizeof(struct qm_sg_entry)*2);
 	if (worker->use_comp_frame) {
 		worker->fd_in.format	= qm_fd_compound;
+		qm_fd_addr_set64(&worker->fd_in, pme_map(worker->sg_table));
+		worker->sg_table[1].length = worker->scan_size;
+		qm_sg_entry_set64(&worker->sg_table[1],
+				pme_map(worker->scan_data));
+		worker->sg_table[1].final = 1;
+		worker->fd_in.cong_weight = 1; /* buffer_size; */
+	} else {
+		worker->fd_in.format = qm_fd_contig;
+		qm_fd_addr_set64(&worker->fd_in, pme_map(worker->scan_data));
+		worker->fd_in.length29 = worker->scan_size;
+	}
+#ifndef USE_MALLOC
+	INIT_LIST_HEAD(&worker->token_list);
+	for (i = 0; i < worker->high_inflight; i++) {
+		struct pme_ctx_token *token =
+			malloc(sizeof(struct pme_ctx_token));
+		if (!token) {
+			fprintf(stderr, "failed to alloc token\n");
+			return -1;
+		}
+		list_add(&token->node, &worker->token_list);
+	}
+#endif
+	return ret;
+}
+
+static int do_prep_scan_2(struct worker *worker, struct worker_msg *msg)
+{
+	int ret = 0, i = 0, z;
+
+	worker->scan_size = msg->prep_scan_2_msg.scan_size;
+	worker->low_inflight = msg->prep_scan_2_msg.low_inflight;
+	worker->high_inflight = msg->prep_scan_2_msg.high_inflight;
+	worker->scan_data = dma_mem_memalign(L1_CACHE_BYTES, worker->scan_size);
+	worker->use_comp_frame = msg->prep_scan_2_msg.use_comp_frame;
+
+	if (!worker->scan_data) {
+		fprintf(stderr, "Failed to alloc scan_data\n");
+		return -1;
+	}
+	memset(worker->scan_data, '.', worker->scan_size);
+
+	memcpy(worker->scan_data, msg->prep_scan_2_msg.thepattern.pattern_data,
+		((msg->prep_scan_2_msg.thepattern.length > worker->scan_size) ?
+			worker->scan_size :
+			msg->prep_scan_2_msg.thepattern.length));
+
+	printf("SUI pattern is:\n");
+	for (z = 0; z < worker->scan_size; z++)
+		printf("%c", ((char *)worker->scan_data)[z]);
+	printf("\n");
+
+	worker->sg_table = dma_mem_memalign(L1_CACHE_BYTES,
+					sizeof(struct qm_sg_entry)*2);
+	/* Initialize each scan_data */
+	memset(&worker->fd_in, 0, sizeof(worker->fd_in));
+	memset(worker->sg_table, 0, sizeof(struct qm_sg_entry)*2);
+	if (worker->use_comp_frame) {
+		worker->fd_in.format = qm_fd_compound;
 		qm_fd_addr_set64(&worker->fd_in, pme_map(worker->sg_table));
 		worker->sg_table[1].length = worker->scan_size;
 		qm_sg_entry_set64(&worker->sg_table[1],
@@ -455,6 +534,9 @@ static int process_msg(struct worker *worker, struct worker_msg *msg)
 
 	else if (msg->msg == worker_msg_prep_scan)
 		do_prep_scan(worker, msg);
+
+	else if (msg->msg == worker_msg_prep_scan_2)
+		do_prep_scan_2(worker, msg);
 
 	else if (msg->msg == worker_msg_start_scan)
 		do_start_scan(worker);
@@ -676,6 +758,23 @@ static void msg_prep_scan(struct worker *worker, int scan_size,
 	msg->msg = worker_msg_prep_scan;
 	pthread_barrier_wait(&msg->barr);
 }
+
+static void msg_prep_scan_2(struct worker *worker, int scan_size,
+				char *pattern_data, int pattern_length,
+				int low_inflight, int high_inflight,
+				int use_comp_frame)
+{
+	struct worker_msg *msg = worker->msg;
+	msg->prep_scan_2_msg.scan_size = scan_size;
+	msg->prep_scan_2_msg.thepattern.pattern_data = pattern_data;
+	msg->prep_scan_2_msg.thepattern.length = pattern_length;
+	msg->prep_scan_2_msg.low_inflight = low_inflight;
+	msg->prep_scan_2_msg.high_inflight = high_inflight;
+	msg->prep_scan_2_msg.use_comp_frame = use_comp_frame;
+	msg->msg = worker_msg_prep_scan_2;
+	pthread_barrier_wait(&msg->barr);
+}
+
 
 static void msg_start_scan(struct worker *worker)
 {
@@ -1068,13 +1167,16 @@ static int pme_loopback_cli_prep_scan(int argc, char *argv[])
 	int pattern_width;
 	int low_inflight, high_inflight, use_comp_frame;
 
-	if (argc > 7)
+	if (argc > 7 || argc < 6)
 		return -EINVAL;
 	scan_size = atoi(argv[1]);
 	pattern_width = atoi(argv[2]);
 	low_inflight = atoi(argv[3]);
 	high_inflight = atoi(argv[4]);
 	use_comp_frame = atoi(argv[5]);
+
+	if (pattern_width > sizeof(alphabet))
+		return -EINVAL;
 
 	/* cpu-range is an optional argument */
 	if (argc > 6) {
@@ -1099,6 +1201,53 @@ static int pme_loopback_cli_prep_scan(int argc, char *argv[])
 		list_for_each_entry(worker, &workers, node)
 			msg_prep_scan(worker, scan_size, pattern_width,
 				low_inflight, high_inflight, use_comp_frame);
+	}
+	return 0;
+
+}
+
+static int pme_loopback_cli_prep_scan_2(int argc, char *argv[])
+{
+	struct worker *worker;
+	int scan_size;
+	int low_inflight, high_inflight, use_comp_frame;
+	char *pattern_data;
+	int pattern_length;
+
+	if (argc > 7 || argc < 6)
+		return -EINVAL;
+	scan_size = atoi(argv[1]);
+	pattern_data = argv[2];
+	pattern_length = strlen(pattern_data);
+	low_inflight = atoi(argv[3]);
+	high_inflight = atoi(argv[4]);
+	use_comp_frame = atoi(argv[5]);
+
+	/* cpu-range is an optional argument */
+	if (argc > 6) {
+		do {
+			int fstart, fend, fret = parse_cpus(argv[6],
+							&fstart, &fend);
+			if (!fret) {
+				while (fstart <= fend) {
+					struct worker *fw =
+						worker_find(fstart, 1);
+					if (fw)
+						msg_prep_scan_2(fw, scan_size,
+							pattern_data,
+							pattern_length,
+							low_inflight,
+							high_inflight,
+							use_comp_frame);
+					fstart++;
+				}
+			}
+		} while (0);
+	} else {
+		list_for_each_entry(worker, &workers, node)
+			msg_prep_scan_2(worker, scan_size, pattern_data,
+			pattern_length, low_inflight, high_inflight,
+			use_comp_frame);
 	}
 	return 0;
 
@@ -1216,6 +1365,7 @@ cli_cmd(create_ctx_flow_mode, pme_loopback_cli_create_ctx_flow_mode);
 cli_cmd(create_ctx_direct_mode, pme_loopback_cli_create_ctx_direct_mode);
 cli_cmd(delete_ctx, pme_loopback_cli_delete_ctx);
 cli_cmd(prep_scan, pme_loopback_cli_prep_scan);
+cli_cmd(prep_scan_2, pme_loopback_cli_prep_scan_2);
 cli_cmd(start_scan, pme_loopback_cli_start_scan);
 cli_cmd(stop_scan, pme_loopback_cli_stop_scan);
 cli_cmd(free_mem, pme_loopback_cli_free_mem);
