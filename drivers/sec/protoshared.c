@@ -633,8 +633,8 @@ int32_t cnstr_shdsc_snow_f9(uint32_t *descbuf, uint16_t *bufsize,
 				  ITEM_INLINE);
 
 	descbuf = cmd_insert_seq_fifo_load(descbuf, class_access,
-					   0,
-					   (FIFOLD_TYPE_BITDATA |
+					   FIFOLDST_VLF,
+					   (FIFOLD_TYPE_MSG |
 					   FIFOLD_TYPE_LASTBOTH), datalen);
 
 	/* Save lower half of MAC out into a 32-bit sequence */
@@ -979,8 +979,8 @@ int32_t cnstr_shdsc_kasumi_f9(uint32_t *descbuf, uint16_t *bufsize,
 				ITEM_INLINE);
 
 	descbuf = cmd_insert_seq_fifo_load(descbuf, LDST_CLASS_1_CCB,
-					   0,
-					   (FIFOLD_TYPE_BITDATA |
+					   FIFOLDST_VLF,
+					   (FIFOLD_TYPE_MSG |
 					   FIFOLD_TYPE_LASTBOTH), datalen);
 
 	/* Save output MAC of DWORD 2 into a 32-bit sequence */
