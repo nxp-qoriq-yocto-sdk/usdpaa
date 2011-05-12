@@ -32,14 +32,11 @@
 #include "pme_loopback.h"
 #include <unistd.h>
 #include <readline.h>
-#include <linux/types.h>
-#include <linux/kernel.h>
-#include <linux/fs.h>
-#include <linux/fsl_pme.h>
 #include <usdpaa/of.h>
 #include <usdpaa/fsl_usd.h>
 #include <usdpaa/fsl_qman.h>
 #include <usdpaa/fsl_bman.h>
+#include <usdpaa/fsl_pme.h>
 #include <usdpaa/dma_mem.h>
 #include <sys/time.h>
 #include <sys/resource.h>
