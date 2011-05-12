@@ -725,7 +725,7 @@ mr_loop:
 #ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
 			struct qman_fq *fq;
 #else
-			struct qman_fq *fq = (void *)msg->ern.tag;
+			struct qman_fq *fq = (void *)(uintptr_t)msg->ern.tag;
 #endif
 			if (verb == QM_MR_VERB_FQRNI) {
 				; /* nada, we drop FQRNIs on the floor */
@@ -855,7 +855,7 @@ loop:
 #ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
 		fq = get_fq_table_entry(dq->contextB);
 #else
-		fq = (void *)dq->contextB;
+		fq = (void *)(uintptr_t)dq->contextB;
 #endif
 #ifdef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
 		if (unlikely(!fq)) {
@@ -1455,7 +1455,7 @@ int qman_init_fq(struct qman_fq *fq, u32 flags, struct qm_mcc_initfq *opts)
 						0 : fq->key;
 #else
 		mcc->initfq.fqd.context_b = (flags & QMAN_INITFQ_FLAG_NULL) ?
-						0 : (u32)fq;
+						0 : (u32)(uintptr_t)fq;
 #endif
 		/* and the physical address - NB, if the user wasn't trying to
 		 * set CONTEXTA, clear the stashing settings. */
@@ -1617,7 +1617,7 @@ int qman_retire_fq(struct qman_fq *fq, u32 *flags)
 #ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
 			msg.fq.contextB = fq->key;
 #else
-			msg.fq.contextB = (u32)fq;
+			msg.fq.contextB = (u32)(uintptr_t)fq;
 #endif
 			fq->cb.fqs(p, fq, &msg);
 		}
@@ -1991,7 +1991,7 @@ static inline struct qm_eqcr_entry *try_eq_start(struct qman_portal **p,
 #ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
 	eq->tag = fq->key;
 #else
-	eq->tag = (u32)fq;
+	eq->tag = (u32)(uintptr_t)fq;
 #endif
 	/* From p4080 rev1 -> rev2, the FD struct's address went from 48-bit to
 	 * 40-bit but rev1 chips will still interpret it as 48-bit, meaning we
