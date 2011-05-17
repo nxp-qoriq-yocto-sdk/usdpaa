@@ -36,7 +36,6 @@
  */
 struct ll_cache_t {
 	uint32_t ll_hdr_len;			/**< Header length */
-	uint32_t ll_addr_len;			/**< L2 layer address size */
 	uint8_t ll_data[LL_MAX_ALIGNED_HEADER];	/**< L2 Header */
 };
 

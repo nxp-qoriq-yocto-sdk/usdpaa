@@ -48,7 +48,6 @@ void *eth_set_header(struct ppac_if *dev,
 
 void eth_cache_header(struct ll_cache_t *llc, const struct ether_header *eth)
 {
-	llc->ll_addr_len = sizeof(eth->ether_dhost);
 	llc->ll_hdr_len = sizeof(*eth);
 	memcpy(llc->ll_data, eth, sizeof(*eth));
 }
