@@ -154,8 +154,6 @@ struct neigh_t *neigh_init(struct neigh_table_t *nt, struct neigh_t *n,
 	n->refcnt = refcount_create();
 	if (unlikely(NULL == n->refcnt))
 		return NULL;
-	n->last_updated = 0;
-	n->last_used = 0;
 
 	return n;
 }
@@ -179,7 +177,6 @@ struct neigh_t *neigh_update(struct neigh_t *n, const uint8_t *lladdr, uint8_t s
 		memcpy(eth_hdr.ether_shost, &dev->port_cfg->fman_if->mac_addr, sizeof(eth_hdr.ether_shost));
 		eth_cache_header(n->ll_cache, &eth_hdr);
 		n->output = n->funcs->reachable_output;
-		n->last_updated = mfspr(SPR_ATBL);
 		n->neigh_state = state;
 	} else {
 		spin_unlock(&n->wlock);
@@ -340,7 +337,6 @@ struct neigh_t *neigh_lookup(struct neigh_table_t *nt, uint32_t key,
 #ifdef STATS_TBD
 		decorated_notify_inc_64(&nt->stats->lookup_hits);
 #endif
-		n->last_used = mfspr(SPR_ATBL);
 	}
 
 	return n;

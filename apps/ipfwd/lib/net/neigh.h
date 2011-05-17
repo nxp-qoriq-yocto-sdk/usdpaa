@@ -142,11 +142,7 @@ struct neigh_t {
 	refcount_t *refcnt;
 	/* struct list_head_t	   *solicit_q; */
 
-	/* Timers - 12B */
-	uint32_t last_updated;
-	/**< Last Timestamp when the Entry was updated*/
-	uint32_t last_used;
-	/**< Last timestamp when the Entry was accessed/ lookedUp*/
+	/* Timers - 5B */
 	uint32_t retransmit_timer;
 	uint8_t retransmit_count;
 
