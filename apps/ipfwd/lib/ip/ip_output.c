@@ -166,7 +166,7 @@ enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt __always_unused,
 		ll_hdr = (void *)ip_hdr - ll_cache->ll_hdr_len;
 		ll_cache_output(ll_hdr, ll_cache);
 #ifdef IPSECFWD_HYBRID_GENERATOR
-		ether_header_swap(ll_hdr);
+		eth_header_swap(ll_hdr);
 		temp = ip_hdr->src_addr;
 		ip_hdr->src_addr = ip_hdr->dst_addr;
 		ip_hdr->dst_addr = temp;
