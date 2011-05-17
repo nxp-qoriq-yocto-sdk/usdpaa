@@ -34,10 +34,10 @@
 <cfgdata>
     <config>
 	<engine name="fm1">
-		<port type="1G" number="0" policy="hash_ipv4_src_dst_policy5"/>
-		<port type="1G" number="1" policy="hash_ipv4_src_dst_policy6"/>
-		<port type="1G" number="2" policy="hash_ipv4_src_dst_policy7"/>
-		<port type="1G" number="3" policy="hash_ipv4_src_dst_policy8"/>
+		<port type="1G" number="0" policy="hash_ipv4_src_dst_policy6"/>
+		<port type="1G" number="1" policy="hash_ipv4_src_dst_policy7"/>
+		<port type="1G" number="2" policy="hash_ipv4_src_dst_policy8"/>
+		<port type="1G" number="3" policy="hash_ipv4_src_dst_policy9"/>
 	</engine>
     </config>
 </cfgdata>

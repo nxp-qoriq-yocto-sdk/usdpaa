@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
- Copyright (c) 2010 Freescale Semiconductor, Inc.
+ Copyright (c) 2010 - 2011 Freescale Semiconductor, Inc.
  All rights reserved.
 
  Redistribution and use in source and binary forms, with or without
@@ -35,19 +35,21 @@
 <!--
 This fmc policy file establishes separate policies for network interfaces.  It includes
 entries for all 1 G and 10 G interfaces on two FMan instances.	A given policy file need
-not used them all.  The entries names end with an integer, 0 - 9.  The intended usage is
+not used them all.  The entries names end with an integer, 0 - 10.  The intended usage is
 to associate them with FMan MACs as follows.
 
   fm0 dtsec0  - 0
       dtsec1  - 1
       dtsec2  - 2
       dtsec3  - 3
-       tgec0  - 4
-  fm1 dtsec0  - 5
-      dtsec1  - 6
-      dtsec2  - 7
-      dtsec3  - 8
-       tgec0  - 9
+      dtsec4  - 4
+       tgec0  - 5
+  fm1 dtsec0  - 6
+      dtsec1  - 7
+      dtsec2  - 8
+      dtsec3  - 9
+      dtsec4  - 10
+       tgec0  - 11
 
 Likely, no single config file will use all of the policies in this file.
 
@@ -135,7 +137,20 @@ policy.
 			<fieldref name="ipv4.dst"/>
 		</key>
 	</distribution>
-
+	<distribution name="hash_ipv4_src_dst_dist10">
+		<queue count="32" base="0xe00"/>
+		<key>
+			<fieldref name="ipv4.src"/>
+			<fieldref name="ipv4.dst"/>
+		</key>
+	</distribution>
+	<distribution name="hash_ipv4_src_dst_dist11">
+		<queue count="32" base="0xf00"/>
+		<key>
+			<fieldref name="ipv4.src"/>
+			<fieldref name="ipv4.dst"/>
+		</key>
+	</distribution>
 
 	<distribution name="default_dist0">
 		<queue count="1" base="0x51"/>
@@ -167,9 +182,14 @@ policy.
 	<distribution name="default_dist9">
 		<queue count="1" base="0x63"/>
 	</distribution>
+	<distribution name="default_dist10">
+		<queue count="1" base="0x65"/>
+	</distribution>
+	<distribution name="default_dist11">
+		<queue count="1" base="0x67"/>
+	</distribution>
 
 <!--	xxxxxxxxxxxxxxxxxxxxxxxxxx Policies xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx -->
-
 
 	<policy name="hash_ipv4_src_dst_policy0">
 		<dist_order>
@@ -178,14 +198,12 @@ policy.
 		</dist_order>
 	</policy>
 
-
 	<policy name="hash_ipv4_src_dst_policy1">
 		<dist_order>
 			<distributionref name="hash_ipv4_src_dst_dist1"/>
 			<distributionref name="default_dist1"/>
 		</dist_order>
 	</policy>
-
 
 	<policy name="hash_ipv4_src_dst_policy2">
 		<dist_order>
@@ -202,14 +220,12 @@ policy.
 		</dist_order>
 	</policy>
 
-
 	<policy name="hash_ipv4_src_dst_policy4">
 		<dist_order>
 			<distributionref name="hash_ipv4_src_dst_dist4"/>
 			<distributionref name="default_dist4"/>
 		</dist_order>
 	</policy>
-
 
 	<policy name="hash_ipv4_src_dst_policy5">
 		<dist_order>
@@ -218,14 +234,12 @@ policy.
 		</dist_order>
 	</policy>
 
-
 	<policy name="hash_ipv4_src_dst_policy6">
 		<dist_order>
 			<distributionref name="hash_ipv4_src_dst_dist6"/>
 			<distributionref name="default_dist6"/>
 		</dist_order>
 	</policy>
-
 
 	<policy name="hash_ipv4_src_dst_policy7">
 		<dist_order>
@@ -234,14 +248,12 @@ policy.
 		</dist_order>
 	</policy>
 
-
 	<policy name="hash_ipv4_src_dst_policy8">
 		<dist_order>
 			<distributionref name="hash_ipv4_src_dst_dist8"/>
 			<distributionref name="default_dist8"/>
 		</dist_order>
 	</policy>
-
 
 	<policy name="hash_ipv4_src_dst_policy9">
 		<dist_order>
@@ -250,5 +262,17 @@ policy.
 		</dist_order>
 	</policy>
 
+	<policy name="hash_ipv4_src_dst_policy10">
+		<dist_order>
+			<distributionref name="hash_ipv4_src_dst_dist10"/>
+			<distributionref name="default_dist10"/>
+		</dist_order>
+	</policy>
 
+	<policy name="hash_ipv4_src_dst_policy11">
+		<dist_order>
+			<distributionref name="hash_ipv4_src_dst_dist11"/>
+			<distributionref name="default_dist11"/>
+		</dist_order>
+	</policy>
 </netpcd>
