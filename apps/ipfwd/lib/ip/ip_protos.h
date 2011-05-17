@@ -41,7 +41,6 @@ typedef enum IP_STATUS (*ip_proto_handler_t) (struct ip_context_t *
 
 struct ip_protos_bundle_t {
 	ip_proto_handler_t handler;
-	void *user_data;
 };
 
 /**
@@ -85,18 +84,15 @@ static inline enum IP_STATUS ip_protos_exec(struct ip_protos_t *protos,
 					    struct iphdr *ip_hdr)
 {
 	void *ip_data;
-	void *user_data;
 	ip_proto_handler_t handler;
 	enum IP_STATUS retval;
 
 	retval = IP_STATUS_STOP;
 	handler = ctxt->protos->proto_data[proto_id].handler;
-	user_data = ctxt->protos->proto_data[proto_id].user_data;
 	if (unlikely(handler == NULL)) {
 		printf("HANDLER IS NULL");
 	} else {
 		ip_data = (void *)((char *) ip_hdr + ((ip_hdr->ihl) * 4));
-		ctxt->user_data = user_data;
 		retval = handler(ctxt, notes, ip_data);
 	}
 

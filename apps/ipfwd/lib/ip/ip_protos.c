@@ -33,13 +33,3 @@ int ip_protos_init(struct ip_protos_t *protos)
 	memset(protos, 0, sizeof(*protos));
 	return 0;
 }
-
-void ip_protos_set_handler(struct ip_protos_t *protos,
-			   ip_proto_handler_t handler,
-			   void *user_data, int proto_id)
-{
-	assert(protos != NULL);
-
-	protos->proto_data[proto_id].handler = handler;
-	protos->proto_data[proto_id].user_data = user_data;
-}

@@ -40,7 +40,6 @@ struct ip_context_t {
 	struct ip_hooks_t *hooks;	/**< Pointer to the Hook Table*/
 	struct ip_protos_t *protos;	/**< Pointer to the Protocol handler table*/
 	struct rc_t *rc;		/**< Pointer to the Route Cache*/
-	void *user_data;		/**< Pointer to User data*/
 };
 
 #endif /* __LIB_IP_IP_CONTEXT_H */
