@@ -717,6 +717,8 @@ static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_if *_if,
 	p->ctxt.hooks = &stack.hooks;
 	p->ctxt.protos = &stack.protos;
 	p->ctxt.rc = &stack.rc;
+	/* Override defaults, enable 1 CL of annotation stashing */
+	stash_opts->annotation_cl = 1;
 
 	return 0;
 }
