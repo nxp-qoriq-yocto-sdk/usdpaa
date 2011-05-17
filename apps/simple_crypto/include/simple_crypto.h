@@ -47,7 +47,7 @@
 
 #define INV_LWE_ID	255	/* Invalid LWE core ID */
 #define SEC40_FQ_BASE	9000	/* start of FQ number for encryption FQ */
-#define FQ_COUNT	8	/* Number of flows for encryption
+#define FQ_PER_CORE	5	/* Number of flows for encryption
 				   as well as decryption */
 
 #define	OUT_FRAME_INDEX	0	/* ouput frame index used to prepare

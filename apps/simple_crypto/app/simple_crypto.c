@@ -73,24 +73,25 @@ uint32_t ind;
 struct qm_fd fd[BUFF_NUM];	/* storage for frame descriptor */
 
 /* start FQ no. for encryption flows */
-uint32_t fq_base_encrypt = SEC40_FQ_BASE;
+static __PERCPU uint32_t fq_base_encrypt = SEC40_FQ_BASE;
 /* start FQ no. for decryption flows */
-uint32_t fq_base_decrpyt = SEC40_FQ_BASE + 2 * FQ_COUNT;
+static __PERCPU uint32_t fq_base_decrypt = SEC40_FQ_BASE +
+		2 * FQ_PER_CORE * MAX_THREADS;
 
 /* storage for encryption FQ's(from SEC4.0 to software portal) object*/
-struct qman_fq *enc_fq_from_sec[FQ_COUNT];
+static __PERCPU struct qman_fq *enc_fq_from_sec[FQ_PER_CORE];
 /* storage for encryption FQ's(from software portal to SEC4.0) object*/
-struct qman_fq *enc_fq_to_sec[FQ_COUNT];
+static __PERCPU struct qman_fq *enc_fq_to_sec[FQ_PER_CORE];
 /* storage for decryption FQ's(from SEC4.0 to software portal) object*/
-struct qman_fq *dec_fq_from_sec[FQ_COUNT];
+static __PERCPU struct qman_fq *dec_fq_from_sec[FQ_PER_CORE];
 /* storage for decryption FQ's(from software portal to SEC4.0) object*/
-struct qman_fq *dec_fq_to_sec[FQ_COUNT];
+static __PERCPU struct qman_fq *dec_fq_to_sec[FQ_PER_CORE];
 
 /* retire flag associated with each of the frame queues */
-static bool enc_fq_from_sec_retire[FQ_COUNT];
-static bool enc_fq_to_sec_retire[FQ_COUNT];
-static bool dec_fq_from_sec_retire[FQ_COUNT];
-static bool dec_fq_to_sec_retire[FQ_COUNT];
+static __PERCPU bool enc_fq_from_sec_retire[FQ_PER_CORE];
+static __PERCPU bool enc_fq_to_sec_retire[FQ_PER_CORE];
+static __PERCPU bool dec_fq_from_sec_retire[FQ_PER_CORE];
+static __PERCPU bool dec_fq_to_sec_retire[FQ_PER_CORE];
 
 uint8_t authnct;	/* processing authentication algorithm */
 
@@ -636,44 +637,47 @@ static int init_sec_frame_queues(enum SEC_MODE mode)
 	struct qman_fq **fq_from_sec_ptr, **fq_to_sec_ptr;
 	void *ctxt_a;
 	dma_addr_t addr;
+	int i;
 
 	if (ENCRYPT == mode) {
 		frame_q_base = fq_base_encrypt;
 		fq_from_sec_ptr = enc_fq_from_sec;
 		fq_to_sec_ptr = enc_fq_to_sec;
 	} else {
-		frame_q_base = fq_base_decrpyt;
+		frame_q_base = fq_base_decrypt;
 		fq_from_sec_ptr = dec_fq_from_sec;
 		fq_to_sec_ptr = dec_fq_to_sec;
 	}
 
-	ctxt_a = setup_sec_descriptor(mode);
-	if (0 == ctxt_a) {
-		pr_err("%s: Initializing shared descriptor failure!\n",
+	for (i = 0; i < FQ_PER_CORE; i++) {
+		ctxt_a = setup_sec_descriptor(mode);
+		if (0 == ctxt_a) {
+			pr_err("%s: Initializing shared descriptor failure!\n",
 				__func__);
-		return -1;
-	}
-	addr = dma_mem_vtop(ctxt_a);
+			return -1;
+		}
+		addr = dma_mem_vtop(ctxt_a);
 
-	fq_from_sec = frame_q_base + 2*cpu_ind;
-	fq_to_sec = fq_from_sec + 1;
+		fq_from_sec = frame_q_base + 2*i;;
+		fq_to_sec = fq_from_sec + 1;
 
-	fq_from_sec_ptr[cpu_ind] =
-		create_sec_frame_queue(fq_from_sec, 0, 0);
-	if (!fq_from_sec_ptr[cpu_ind]) {
-		pr_err("%s : Encrypt FQ(from SEC)"
-			" couldn't be allocated, ID = %d\n",
-			__func__, fq_from_sec);
-		return -1;
-	}
+		fq_from_sec_ptr[i] =
+			create_sec_frame_queue(fq_from_sec, 0, 0);
+		if (!fq_from_sec_ptr[i]) {
+			pr_err("%s : Encrypt FQ(from SEC)"
+				" couldn't be allocated, ID = %d\n",
+				__func__, fq_from_sec);
+			return -1;
+		}
 
-	fq_to_sec_ptr[cpu_ind] =
-		create_sec_frame_queue(fq_to_sec, addr, fq_from_sec);
-	if (!fq_to_sec_ptr[cpu_ind]) {
-		pr_err("%s : Encrypt FQ(to SEC) couldn't be"
-			" allocated, ID = %d\n",
-			__func__, fq_to_sec);
-		return -1;
+		fq_to_sec_ptr[i] =
+			create_sec_frame_queue(fq_to_sec, addr, fq_from_sec);
+		if (!fq_to_sec_ptr[i]) {
+			pr_err("%s : Encrypt FQ(to SEC) couldn't be"
+				" allocated, ID = %d\n",
+				__func__, fq_to_sec);
+			return -1;
+		}
 	}
 	return 0;
 }
@@ -686,6 +690,9 @@ static int init_sec_frame_queues(enum SEC_MODE mode)
  */
 static int init_sec_fq(void)
 {
+	/* Each core now has its own FQ base id for encrypt and decrypt */
+	fq_base_encrypt += 2 * cpu_ind * FQ_PER_CORE;
+	fq_base_decrypt += 2 * cpu_ind * FQ_PER_CORE;
 
 	if (init_sec_frame_queues(ENCRYPT)) {
 		pr_err("%s: couldn't Initialize SEC 4.0 Encrypt Queues\n",
@@ -713,16 +720,17 @@ void cb_fqs(struct qman_portal *qm, struct qman_fq *fq,
 
 	fqid = fq->fqid;
 
-	if ((fqid >= fq_base_encrypt) && (fqid < fq_base_decrpyt)) {
+	if ((fqid >= fq_base_encrypt)
+			&& (fqid < fq_base_encrypt + 2*FQ_PER_CORE)) {
 		offset = fqid - fq_base_encrypt;
 		rem = offset % 2;
 		if (!rem)
 			enc_fq_from_sec_retire[offset / 2] = true;
 		else
 			enc_fq_to_sec_retire[offset / 2] = true;
-	} else if ((fqid >= fq_base_decrpyt)
-			&& (fqid < (fq_base_decrpyt + 2 * FQ_COUNT))) {
-		offset = fqid - fq_base_decrpyt;
+	} else if ((fqid >= fq_base_decrypt)
+			&& (fqid < (fq_base_decrypt + 2 * FQ_PER_CORE))) {
+		offset = fqid - fq_base_decrypt;
 		rem = offset % 2;
 		if (!rem)
 			dec_fq_from_sec_retire[offset / 2] = true;
@@ -744,28 +752,31 @@ void free_fd(void)
 }
 
 static int free_sec_frame_queues(struct qman_fq *fq[],
-		bool *fq_retire_flag)
+		bool fq_retire_flag[])
 {
-	int res;
+	int res, i;
 	uint32_t flags;
 
-	res = qman_retire_fq(fq[cpu_ind], &flags);
-	if (0 > res) {
-		pr_err("qman_retire_fq failed for fq %d\n", cpu_ind);
-		return -EINVAL;
-	}
-	wait_event(NULL, *((unsigned char *)(fq_retire_flag) + cpu_ind));
+	for (i = 0; i < FQ_PER_CORE; i++) {
+		res = qman_retire_fq(fq[i], &flags);
+		if (0 > res) {
+			pr_err("qman_retire_fq failed for fq %d\n", i);
+			return -EINVAL;
+		}
 
-	if (flags & QMAN_FQ_STATE_BLOCKOOS) {
-		pr_err("leaking frames for fq %d\n", cpu_ind);
-		return -1;
-	}
-	if (qman_oos_fq(fq[cpu_ind])) {
-		pr_err("qman_oos_fq failed for fq %d\n", cpu_ind);
-		return -EINVAL;
-	}
-	qman_destroy_fq(fq[cpu_ind], 0);
+		while (!fq_retire_flag[i])
+			qman_poll();
 
+		if (flags & QMAN_FQ_STATE_BLOCKOOS) {
+			pr_err("leaking frames for fq %d\n", i);
+			return -1;
+		}
+		if (qman_oos_fq(fq[i])) {
+			pr_err("qman_oos_fq failed for fq %d\n", i);
+			return -EINVAL;
+		}
+		qman_destroy_fq(fq[i], 0);
+	}
 	return 0;
 }
 
@@ -1218,9 +1229,9 @@ static void do_enqueues(enum SEC_MODE mode)
 		fd_ind = i*ncpus + cpu_ind;
 
 		if (ENCRYPT == mode)
-			fq_to_sec = enc_fq_to_sec[cpu_ind];
+			fq_to_sec = enc_fq_to_sec[i % FQ_PER_CORE];
 		else
-			fq_to_sec = dec_fq_to_sec[cpu_ind];
+			fq_to_sec = dec_fq_to_sec[i % FQ_PER_CORE];
 
 		pr_debug("%s mode: Enqueue packet ->%d\n", mode ? "Encrypt" :
 				"Decrypt\n", fd_ind);
@@ -1269,10 +1280,10 @@ enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 	dma_addr_t addr;
 
 	if ((dqrr->fqid >= fq_base_encrypt)
-			&& (dqrr->fqid < fq_base_decrpyt)) {
+			&& (dqrr->fqid < fq_base_encrypt + 2 * FQ_PER_CORE)) {
 		enc_pkts_from_sec++;
-	} else if ((dqrr->fqid >= fq_base_decrpyt)
-			&& (dqrr->fqid < (fq_base_decrpyt + 2 * FQ_COUNT))) {
+	} else if ((dqrr->fqid >= fq_base_decrypt)
+			&& (dqrr->fqid < fq_base_decrypt + 2 * FQ_PER_CORE)) {
 		dec_pkts_from_sec++;
 		mode = DECRYPT;
 	} else {
