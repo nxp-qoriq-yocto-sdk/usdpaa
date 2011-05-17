@@ -644,7 +644,8 @@ static void ppam_if_finish(struct ppam_if *p)
 static void ppam_if_tx_fqid(struct ppam_if *p, unsigned idx, uint32_t fqid)
 {
 }
-static int ppam_rx_error_init(struct ppam_rx_error *p, struct ppam_if *_if)
+static int ppam_rx_error_init(struct ppam_rx_error *p, struct ppam_if *_if,
+			      struct qm_fqd_stashing *stash_opts)
 {
 	p->ctxt.stats = stack.ip_stats;
 	p->ctxt.hooks = &stack.hooks;
@@ -662,7 +663,8 @@ static inline void ppam_rx_error_cb(struct ppam_rx_error *p,
 {
 	ppac_drop_frame(&dqrr->fd);
 }
-static int ppam_rx_default_init(struct ppam_rx_default *p, struct ppam_if *_if)
+static int ppam_rx_default_init(struct ppam_rx_default *p, struct ppam_if *_if,
+				struct qm_fqd_stashing *stash_opts)
 {
 	p->ctxt.stats = stack.ip_stats;
 	p->ctxt.hooks = &stack.hooks;
@@ -679,7 +681,8 @@ static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
 				      const struct qm_dqrr_entry *dqrr)
 {
 }
-static int ppam_tx_error_init(struct ppam_tx_error *p,	struct ppam_if *_if)
+static int ppam_tx_error_init(struct ppam_tx_error *p,	struct ppam_if *_if,
+			      struct qm_fqd_stashing *stash_opts)
 {
 	return 0;
 }
@@ -692,7 +695,8 @@ static inline void ppam_tx_error_cb(struct ppam_tx_error *p,
 {
 	ppac_drop_frame(&dqrr->fd);
 }
-static int ppam_tx_confirm_init(struct ppam_tx_confirm *p, struct ppam_if *_if)
+static int ppam_tx_confirm_init(struct ppam_tx_confirm *p, struct ppam_if *_if,
+				struct qm_fqd_stashing *stash_opts)
 {
 	return 0;
 }
@@ -706,9 +710,8 @@ static inline void ppam_tx_confirm_cb(struct ppam_tx_confirm *p,
 	ppac_drop_frame(&dqrr->fd);
 }
 
-static int ppam_rx_hash_init(struct ppam_rx_hash *p,
-			     struct ppam_if *_if,
-			     unsigned idx)
+static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_if *_if,
+			     unsigned idx, struct qm_fqd_stashing *stash_opts)
 {
 	p->ctxt.stats = stack.ip_stats;
 	p->ctxt.hooks = &stack.hooks;

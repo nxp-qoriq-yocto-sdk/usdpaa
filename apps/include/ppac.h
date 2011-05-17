@@ -61,7 +61,9 @@
 #define PPAC_PRIO_2DROP		3	/* Error/default/etc */
 #define PPAC_PRIO_2FWD		4	/* rx-hash */
 #define PPAC_PRIO_2TX		4	/* Consumed by Fman */
-#define PPAC_STASH_DATA_CL	1
+#define PPAC_STASH_ANNOTATION_CL 0	/* Overridable by PPAM */
+#define PPAC_STASH_DATA_CL	1	/* Overridable by PPAM */
+#define PPAC_STASH_CONTEXT_CL	0	/* Overridable by PPAM */
 #define PPAC_CGR_RX_PERFQ_THRESH 32
 #define PPAC_CGR_TX_PERFQ_THRESH 64
 #define PPAC_BACKOFF_CYCLES	512
@@ -213,6 +215,7 @@ void teardown_fq(struct qman_fq *fq);
 
 void ppac_fq_nonpcd_init(struct qman_fq *fq, u32 fqid,
 			 enum qm_channel channel,
+			 const struct qm_fqd_stashing *stashing,
 			 qman_cb_dqrr cb);
 
 enum qman_cb_dqrr_result
@@ -221,7 +224,8 @@ cb_dqrr_rx_hash(struct qman_portal *qm __always_unused,
 		const struct qm_dqrr_entry *dqrr);
 
 void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
-		      enum qm_channel channel);
+		      enum qm_channel channel,
+		      const struct qm_fqd_stashing *stashing);
 
 void cb_ern(struct qman_portal *qm __always_unused,
 	    struct qman_fq *fq,

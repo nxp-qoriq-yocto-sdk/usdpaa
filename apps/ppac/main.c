@@ -119,6 +119,7 @@ void teardown_fq(struct qman_fq *fq)
 
 void ppac_fq_nonpcd_init(struct qman_fq *fq, u32 fqid,
 			 enum qm_channel channel,
+			 const struct qm_fqd_stashing *stashing,
 			 qman_cb_dqrr cb)
 {
 	struct qm_mcc_initfq opts;
@@ -133,14 +134,14 @@ void ppac_fq_nonpcd_init(struct qman_fq *fq, u32 fqid,
 	opts.fqd.dest.channel = channel;
 	opts.fqd.dest.wq = PPAC_PRIO_2DROP;
 	opts.fqd.fq_ctrl = QM_FQCTRL_CTXASTASHING;
-	opts.fqd.context_a.stashing.data_cl = 1;
-	opts.fqd.context_a.stashing.context_cl = 0;
+	opts.fqd.context_a.stashing = *stashing;
 	ret = qman_init_fq(fq, QMAN_INITFQ_FLAG_SCHED, &opts);
 	BUG_ON(ret);
 }
 
 void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
-		      enum qm_channel channel)
+		      enum qm_channel channel,
+		      const struct qm_fqd_stashing *stashing)
 {
 	struct qm_mcc_initfq opts;
 	int ret;
@@ -168,8 +169,7 @@ void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
 	opts.fqd.cgid = cgr_rx.cgrid;
 	opts.fqd.fq_ctrl |= QM_FQCTRL_CGE;
 #endif
-	opts.fqd.context_a.stashing.data_cl = 1;
-	opts.fqd.context_a.stashing.context_cl = 0;
+	opts.fqd.context_a.stashing = *stashing;
 	ret = qman_init_fq(fq, QMAN_INITFQ_FLAG_SCHED, &opts);
 	BUG_ON(ret);
 }

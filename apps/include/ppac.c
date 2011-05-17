@@ -36,6 +36,14 @@
 #include <ppac.h>
 #include <ppac_if.h>
 
+/* This struct holds the default stashing opts for Rx FQ configuration. PPAM
+ * hooks can override (copies of) it before the configuration occurs. */
+static const struct qm_fqd_stashing default_stash_opts = {
+	.annotation_cl = PPAC_STASH_ANNOTATION_CL,
+	.data_cl = PPAC_STASH_DATA_CL,
+	.context_cl = PPAC_STASH_CONTEXT_CL
+};
+
 /*******************/
 /* Packet handling */
 /*******************/
@@ -131,6 +139,7 @@ int ppac_if_init(unsigned idx)
 	struct ppac_if *i;
 	const struct fman_if_bpool *bp;
 	int err, loop;
+	struct qm_fqd_stashing stash_opts;
 	const struct fm_eth_port_cfg *port = &netcfg->port_cfg[idx];
 	const struct fman_if *fif = port->fman_if;
 	size_t sz = sizeof(struct ppac_if) +
@@ -202,28 +211,35 @@ int ppac_if_init(unsigned idx)
 		ppam_if_tx_fqid(&i->module_if, loop, fq->fqid);
 	}
 	/* TODO: as above, we should handle errors and unwind */
-	err = ppam_rx_error_init(&i->rx_error.s, &i->module_if);
+	stash_opts = default_stash_opts;
+	err = ppam_rx_error_init(&i->rx_error.s, &i->module_if, &stash_opts);
 	BUG_ON(err);
 	ppac_fq_nonpcd_init(&i->rx_error.fq, fif->fqid_rx_err, get_rxc(),
-				cb_dqrr_rx_error);
-	err = ppam_rx_default_init(&i->rx_default.s, &i->module_if);
+			    &stash_opts, cb_dqrr_rx_error);
+	stash_opts = default_stash_opts;
+	err = ppam_rx_default_init(&i->rx_default.s, &i->module_if,
+				   &stash_opts);
 	BUG_ON(err);
 	ppac_fq_nonpcd_init(&i->rx_default.fq, port->rx_def, get_rxc(),
-			    cb_dqrr_rx_default);
-	err = ppam_tx_error_init(&i->tx_error.s, &i->module_if);
+			    &stash_opts, cb_dqrr_rx_default);
+	stash_opts = default_stash_opts;
+	err = ppam_tx_error_init(&i->tx_error.s, &i->module_if, &stash_opts);
 	BUG_ON(err);
 	ppac_fq_nonpcd_init(&i->tx_error.fq, fif->fqid_tx_err, get_rxc(),
-			    cb_dqrr_tx_error);
-	err = ppam_tx_confirm_init(&i->tx_confirm.s, &i->module_if);
+			    &stash_opts, cb_dqrr_tx_error);
+	stash_opts = default_stash_opts;
+	err = ppam_tx_confirm_init(&i->tx_confirm.s, &i->module_if,
+				   &stash_opts);
 	BUG_ON(err);
 	ppac_fq_nonpcd_init(&i->tx_confirm.fq, fif->fqid_tx_confirm, get_rxc(),
-			    cb_dqrr_tx_confirm);
+			    &stash_opts, cb_dqrr_tx_confirm);
 	for (loop = 0; loop < port->pcd.count; loop++) {
+		stash_opts = default_stash_opts;
 		err = ppam_rx_hash_init(&i->rx_hash[loop].s, &i->module_if,
-			loop);
+					loop, &stash_opts);
 		BUG_ON(err);
 		ppac_fq_pcd_init(&i->rx_hash[loop].fq, port->pcd.start + loop,
-				get_rxc());
+				get_rxc(), &stash_opts);
 	}
 	ppac_if_enable_rx(i);
 	list_add_tail(&i->node, &ifs);

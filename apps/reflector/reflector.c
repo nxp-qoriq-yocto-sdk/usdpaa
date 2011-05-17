@@ -93,7 +93,8 @@ static void ppam_if_tx_fqid(struct ppam_if *p, unsigned idx, uint32_t fqid)
 	p->tx_fqids[idx] = fqid;
 }
 
-static int ppam_rx_error_init(struct ppam_rx_error *p, struct ppam_if *_if)
+static int ppam_rx_error_init(struct ppam_rx_error *p, struct ppam_if *_if,
+			      struct qm_fqd_stashing *stash_opts)
 {
 	return 0;
 }
@@ -108,7 +109,8 @@ static inline void ppam_rx_error_cb(struct ppam_rx_error *p,
 	ppac_drop_frame(fd);
 }
 
-static int ppam_rx_default_init(struct ppam_rx_default *p, struct ppam_if *_if)
+static int ppam_rx_default_init(struct ppam_rx_default *p, struct ppam_if *_if,
+				struct qm_fqd_stashing *stash_opts)
 {
 	return 0;
 }
@@ -123,7 +125,8 @@ static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
 	ppac_drop_frame(fd);
 }
 
-static int ppam_tx_error_init(struct ppam_tx_error *p,	struct ppam_if *_if)
+static int ppam_tx_error_init(struct ppam_tx_error *p,	struct ppam_if *_if,
+			      struct qm_fqd_stashing *stash_opts)
 {
 	return 0;
 }
@@ -138,7 +141,8 @@ static inline void ppam_tx_error_cb(struct ppam_tx_error *p,
 	ppac_drop_frame(fd);
 }
 
-static int ppam_tx_confirm_init(struct ppam_tx_confirm *p, struct ppam_if *_if)
+static int ppam_tx_confirm_init(struct ppam_tx_confirm *p, struct ppam_if *_if,
+				struct qm_fqd_stashing *stash_opts)
 {
 	return 0;
 }
@@ -153,9 +157,8 @@ static inline void ppam_tx_confirm_cb(struct ppam_tx_confirm *p,
 	ppac_drop_frame(fd);
 }
 
-static int ppam_rx_hash_init(struct ppam_rx_hash *p,
-		      struct ppam_if *_if,
-		      unsigned idx)
+static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_if *_if,
+			     unsigned idx, struct qm_fqd_stashing *stash_opts)
 {
 	p->tx_fqid = _if->tx_fqids[idx % _if->num_tx_fqids];
 	TRACE("Mapping Rx FQ %p:%d --> Tx FQID %d\n", p, idx, p->tx_fqid);
