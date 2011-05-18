@@ -78,6 +78,12 @@ LIST_HEAD(ifs);
  * whatever the last executed enqueue was, the ERN handler can ignore it. */
 __PERCPU struct qman_fq local_fq;
 
+#ifdef PPAC_2FWD_ORDER_PRESERVATION
+/* Similarly, PPAC APIs to send/drop a frame use this state in order to support
+ * order preservation. */
+__PERCPU const struct qm_dqrr_entry *local_dqrr;
+#endif
+
 #ifdef PPAC_CGR
 /* A congestion group to hold Rx FQs (uses netcfg::cgrids[0]) */
 static struct qman_cgr cgr_rx;

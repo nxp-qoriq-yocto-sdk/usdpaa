@@ -48,6 +48,14 @@ static const struct qm_fqd_stashing default_stash_opts = {
 /* Packet handling */
 /*******************/
 
+#ifdef PPAC_2FWD_ORDER_PRESERVATION
+#define PRE_DQRR()  local_dqrr = dqrr
+#define POST_DQRR() (local_dqrr ? qman_cb_dqrr_consume : qman_cb_dqrr_defer)
+#else
+#define PRE_DQRR()  do { ; } while (0)
+#define POST_DQRR() qman_cb_dqrr_consume
+#endif
+
 static enum qman_cb_dqrr_result
 cb_dqrr_rx_error(struct qman_portal *qm __always_unused,
 		 struct qman_fq *fq,
@@ -57,8 +65,9 @@ cb_dqrr_rx_error(struct qman_portal *qm __always_unused,
 							fq);
 	struct ppac_if *_if = container_of(rxe, struct ppac_if, rx_error);
 	TRACE("Rx_error: fqid=%d\tfd_status = 0x%08x\n", fq->fqid, dqrr->fd.status);
+	PRE_DQRR();
 	ppam_rx_error_cb(&rxe->s, &_if->module_if, dqrr);
-	return qman_cb_dqrr_consume;
+	return POST_DQRR();
 }
 
 static enum qman_cb_dqrr_result
@@ -70,8 +79,9 @@ cb_dqrr_rx_default(struct qman_portal *qm __always_unused,
 							fq);
 	struct ppac_if *_if = container_of(rxe, struct ppac_if, rx_default);
 	TRACE("Rx_default: fqid=%d\tfd_status = 0x%08x\n", fq->fqid, dqrr->fd.status);
+	PRE_DQRR();
 	ppam_rx_default_cb(&rxe->s, &_if->module_if, dqrr);
-	return qman_cb_dqrr_consume;
+	return POST_DQRR();
 }
 
 static enum qman_cb_dqrr_result
@@ -83,8 +93,9 @@ cb_dqrr_tx_error(struct qman_portal *qm __always_unused,
 							fq);
 	struct ppac_if *_if = container_of(rxe, struct ppac_if, tx_error);
 	TRACE("Tx_error: fqid=%d\tfd_status = 0x%08x\n", fq->fqid, dqrr->fd.status);
+	PRE_DQRR();
 	ppam_tx_error_cb(&rxe->s, &_if->module_if, dqrr);
-	return qman_cb_dqrr_consume;
+	return POST_DQRR();
 }
 
 static enum qman_cb_dqrr_result
@@ -96,8 +107,9 @@ cb_dqrr_tx_confirm(struct qman_portal *qm __always_unused,
 							fq);
 	struct ppac_if *_if = container_of(rxe, struct ppac_if, tx_confirm);
 	TRACE("Tx_confirm: fqid=%d\tfd_status = 0x%08x\n", fq->fqid, dqrr->fd.status);
+	PRE_DQRR();
 	ppam_tx_confirm_cb(&rxe->s, &_if->module_if, dqrr);
-	return qman_cb_dqrr_consume;
+	return POST_DQRR();
 }
 
 enum qman_cb_dqrr_result
@@ -107,8 +119,9 @@ cb_dqrr_rx_hash(struct qman_portal *qm __always_unused,
 {
 	struct ppac_rx_hash *p = container_of(fq, struct ppac_rx_hash, fq);
 	TRACE("Rx_hash: fqid=%d\tfd_status = 0x%08x\n", fq->fqid, dqrr->fd.status);
+	PRE_DQRR();
 	ppam_rx_hash_cb(&p->s, dqrr);
-	return qman_cb_dqrr_consume;
+	return POST_DQRR();
 }
 
 void cb_ern(struct qman_portal *qm __always_unused,
