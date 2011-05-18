@@ -1413,10 +1413,14 @@ static struct argp_option options[] = {
 	{"itrnum", 'l', "ITERATIONS", 0,
 		"\n\r\tNumber of iteration to repeat\n"},
 	{"bufnum", 'n', "TOTAL BUFFERS", 0,
-		"\n\r\tTotal number of buffers(1-6400)\n"},
+		"\n\r\tTotal number of buffers(1-6400)\
+		\n\r\t\t Note: Both of Buffer size and buffer number\
+		\n\r\t\t cannot be greater than 3200 at the same time\n"},
 	{"bufsize", 's', "BUFFER SIZE", 0,
 		"\n\r\tOPTION IS VALID ONLY IN PERF MODE\
-		\n\r\t\t Buffer size (64, 128 ...upto 6400)\n"},
+		\n\r\t\t Buffer size (64, 128 ...upto 6400)\
+		\n\r\t\t Note: Both of Buffer size and buffer number\
+		\n\r\t\t cannot be greater than 3200 at the same time\n"},
 	{"ncpus", 'c', "CPUS", 0,
 		"\n\r\tOPTIONAL PARAMETER\n\
 		\n\r\tNumber of cpus to work for the\
@@ -1606,6 +1610,14 @@ static int validate_params(void)
 		crypto_info.buf_size % L1_CACHE_BYTES != 0 ||
 		crypto_info.buf_size > BUFF_SIZE)) {
 		pr_err("Invalid Parameters: Invalid number of buffers\n"
+				"see --help option\n");
+		return -EINVAL;
+	}
+
+	if (PERF == crypto_info.mode && (crypto_info.buf_num > BUFF_NUM / 2
+		&& crypto_info.buf_size > BUFF_SIZE / 2)) {
+		pr_err("Both of number of buffers and buffer size\n"
+				"cannot be more than 3200 at the same time\n"
 				"see --help option\n");
 		return -EINVAL;
 	}
