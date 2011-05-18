@@ -48,12 +48,14 @@ static void set_header(const struct ppac_if *i, void *payload, const void *src, 
 static void cache_header(struct ll_cache_t *llc, const void *hdr)
 {
 	llc->ll_hdr_len = ETHER_HDR_LEN;
-	memcpy(llc->ll_data, hdr, ETHER_HDR_LEN);
+	memcpy(llc->ll_data, hdr, 2 * ETHER_ADDR_LEN);
 }
 
 static void output_header(void *hdr, const struct ll_cache_t *llc)
 {
-	memcpy(hdr, llc->ll_data, ETHER_HDR_LEN);
+	memcpy(hdr, llc->ll_data, 2 * ETHER_ADDR_LEN);
+
+	((struct ether_header *)hdr)->ether_type = ETHERTYPE_IP;
 }
 
 void eth_setup(struct ppam_if *p)
