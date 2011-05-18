@@ -25,6 +25,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "neigh.h"
+
+#include "ppac_if.h"
+
 #ifdef NEIGH_RCU_ENABLE
 #include "rcu_lock.h"
 #endif
@@ -160,12 +163,12 @@ struct neigh_t *neigh_init(struct neigh_table_t *nt, struct neigh_t *n,
 
 struct neigh_t *neigh_update(struct neigh_t *n, const uint8_t *lladdr, uint8_t state)
 {
-	struct ppac_if *dev;
+	struct ppac_if *i;
 	struct ether_header eth_hdr;
 
 	spin_lock(&n->wlock);
 	if (n->neigh_state == NEIGH_STATE_UNKNOWN) {
-		dev = n->dev;
+		i = n->dev;
 		memcpy(&n->neigh_addr, lladdr, sizeof(n->neigh_addr));
 
 		n->ll_cache = ll_cache_create();
@@ -174,8 +177,8 @@ struct neigh_t *neigh_update(struct neigh_t *n, const uint8_t *lladdr, uint8_t s
 			return NULL;
 		}
 		memcpy(eth_hdr.ether_dhost, lladdr, sizeof(eth_hdr.ether_dhost));
-		memcpy(eth_hdr.ether_shost, &dev->port_cfg->fman_if->mac_addr, sizeof(eth_hdr.ether_shost));
-		eth_cache_header(n->ll_cache, &eth_hdr);
+		memcpy(eth_hdr.ether_shost, &i->port_cfg->fman_if->mac_addr, sizeof(eth_hdr.ether_shost));
+		i->module_if.cache_header(n->ll_cache, &eth_hdr);
 		n->output = n->funcs->reachable_output;
 		n->neigh_state = state;
 	} else {
@@ -344,10 +347,10 @@ struct neigh_t *neigh_lookup(struct neigh_table_t *nt, uint32_t key,
 
 void neigh_reachable_output(struct neigh_t *n, void *notes, void *ll_payload)
 {
-	struct ppac_if *dev;
+	struct ppac_if *i;
 
-	dev = n->dev;
-	eth_set_header(dev, ll_payload, NULL, &n->neigh_addr);
+	i = n->dev;
+	i->module_if.set_header(i, ll_payload, NULL, &n->neigh_addr);
 	ppac_send_frame(0, notes);
 }
 

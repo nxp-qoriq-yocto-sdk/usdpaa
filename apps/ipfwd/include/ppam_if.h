@@ -27,8 +27,11 @@
 
 #include <usdpaa/compat.h>	/* __GNU_SOURCE */
 
+#include "net/ll_cache.h"
 #include "ip/ip.h"
 #include "ip/ip_context.h"
+
+struct ppac_if;
 
 /* structs required by ppac.c */
 struct ppam_if
@@ -37,6 +40,10 @@ struct ppam_if
 	size_t header_len;
 	in_addr_t addr, mask;
 	int ifnum;
+
+	void (*set_header)(const struct ppac_if *i, void *payload, const void *src, const void *dst);
+	void (*cache_header)(struct ll_cache_t *llc, const void *hdr);
+	void (*output_header)(void *hdr, const struct ll_cache_t *llc);
 
 	size_t next_fqid;
 

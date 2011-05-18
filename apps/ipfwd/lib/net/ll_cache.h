@@ -45,14 +45,4 @@ struct ll_cache_t {
  */
 struct ll_cache_t *ll_cache_create(void);
 
-/**
- \brief Updates the Cache structure with the Header Data
- \param[inout] ll_hdr Pointer to the Header
- \param[in] llc Pointer to the Link layer Cache Structure
- \return none
- */
-static inline void ll_cache_output(void *ll_hdr, const struct ll_cache_t *llc)
-{
-	memcpy(ll_hdr, llc->ll_data, llc->ll_hdr_len);
-}
 #endif	/* _LIB_NET_LL_CACHE_H */

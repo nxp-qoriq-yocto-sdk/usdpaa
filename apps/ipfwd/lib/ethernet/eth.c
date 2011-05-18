@@ -27,27 +27,38 @@
 
 #include "eth.h"
 
-void *eth_set_header(struct ppac_if *dev,
-		     void *ll_payload,
-		     const struct ether_addr *saddr,
-		     const struct ether_addr *daddr)
+#include "ppac_if.h"
+
+#include "net/ll_cache.h"
+
+static void set_header(const struct ppac_if *i, void *payload, const void *src, const void *dst)
 {
 	struct ether_header *eth;
 
-	eth = (typeof(eth))ll_payload - 1;
+	eth = (typeof(eth))payload - 1;
 
-	if (saddr == NULL) {
-		saddr = &dev->port_cfg->fman_if->mac_addr;
-	}
-	memcpy(eth->ether_shost, saddr, sizeof(eth->ether_shost));
-	memcpy(eth->ether_dhost, daddr, sizeof(eth->ether_dhost));
+	memcpy(eth->ether_shost,
+	       src != NULL ? src : &i->port_cfg->fman_if->mac_addr,
+	       sizeof(eth->ether_shost));
+	memcpy(eth->ether_dhost, dst, sizeof(eth->ether_dhost));
+
 	eth->ether_type = ETHERTYPE_IP;
-
-	return eth;
 }
 
-void eth_cache_header(struct ll_cache_t *llc, const struct ether_header *eth)
+static void cache_header(struct ll_cache_t *llc, const void *hdr)
 {
-	llc->ll_hdr_len = sizeof(*eth);
-	memcpy(llc->ll_data, eth, sizeof(*eth));
+	llc->ll_hdr_len = ETHER_HDR_LEN;
+	memcpy(llc->ll_data, hdr, ETHER_HDR_LEN);
+}
+
+static void output_header(void *hdr, const struct ll_cache_t *llc)
+{
+	memcpy(hdr, llc->ll_data, ETHER_HDR_LEN);
+}
+
+void eth_setup(struct ppam_if *p)
+{
+	p->set_header		= set_header;
+	p->cache_header		= cache_header;
+	p->output_header	= output_header;
 }

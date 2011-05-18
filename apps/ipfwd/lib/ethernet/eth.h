@@ -29,28 +29,8 @@
 #define __LIB_ETHERNET_ETH_H
 
 #include "../../include/ppam_if.h"
-#include <ppac_if.h>
 
-#include "net/ll_cache.h"
-
-/**
- \brief Fills in the Ethernet Header
- \param[in] dev Device Pointer
- \param[out] ll_payload Pointer to the Ethernet Payload Buffer
- \param[in] daddr Destination MAC Address
- \param[in] saddr Source MAC Address
- */
-void *eth_set_header(struct ppac_if *dev,
-		     void *ll_payload,
-		     const struct ether_addr *daddr,
-		     const struct ether_addr *saddr);
-
-/**
- \brief Adds an ethernet address in link layer cache
- \param[in] llc link_layer cache pointer
- \param[in] ll_payload Ethernet header to be set
- */
-void eth_cache_header(struct ll_cache_t *llc, const struct ether_header *eth);
+void eth_setup(struct ppam_if *p);
 
 /**
  \brief Swap 6-byte MAC headers "efficiently"

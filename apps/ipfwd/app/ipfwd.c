@@ -636,6 +636,8 @@ static int ppam_if_init(struct ppam_if *p,
 	p->mask = IN_CLASSC_NET;
 	p->next_fqid = 0;
 
+	eth_setup(p);
+
 	return 0;
 }
 static void ppam_if_finish(struct ppam_if *p)
