@@ -77,9 +77,8 @@ static struct argp_option options[] = {
 	{"arpdel", 'H', "TYPE", 0, "deleting a arp entry", 0},
 	{"intfconf", 'F', "TYPE", 0, "change intf config", 0},
 	{"showintf", 'E', "TYPE", 0, "show interfaces", 0},
-	{"Start/ Go", 'O', "TYPE", 0,
-	 "Start the processing of packets", 0},
-	{0, 0, 0, 0, 0, 0}
+	{"Start/ Go", 'O', "TYPE", 0, "Start the processing of packets", 0},
+	{}
 };
 
 /*

@@ -87,7 +87,7 @@ static struct argp_option route_add_options[] = {
 	{"d", 'd', "DESTIP", 0, "Destination IP", 0},
 	{"g", 'g', "GWIP", 0, "Gateway IP", 0},
 	{"f", 'f', "FLOWID", 0, "Flow ID - (0 - 64) {Default: 0}", 0},
-	{0, 0, 0, 0, 0, 0}
+	{}
 };
 
 /**< Mandatory Parameters needed for deleting Route */
@@ -97,7 +97,7 @@ static struct argp_option route_add_options[] = {
 static struct argp_option route_del_options[] = {
 	{"s", 's', "SRCIP", 0, "Source IP", 0},
 	{"d", 'd', "DESTIP", 0, "Destination IP", 0},
-	{0, 0, 0, 0, 0, 0}
+	{}
 };
 
 #define IPC_CTRL_PARAM_BMASK_ARP_IPADDR		(1 << 0)
@@ -117,7 +117,7 @@ static struct argp_option arp_add_options[] = {
 	{"m", 'm', "MACADDR", 0, "MAC Address", 0},
 	{"r", 'r', "Replace", 0,
 	 "Replace Exiting Entry - true/ false {Default: false}", 0},
-	{0, 0, 0, 0, 0, 0}
+	{}
 };
 
 /**< Mandatory Parameters needed for deleting ARP */
@@ -125,7 +125,7 @@ static struct argp_option arp_add_options[] = {
 
 static struct argp_option arp_del_options[] = {
 	{"s", 's', "IPADDR", 0, "IP Address", 0},
-	{0, 0, 0, 0, 0, 0}
+	{}
 };
 
 #define IPC_CTRL_IFNUM_MIN				1
@@ -133,9 +133,10 @@ static struct argp_option arp_del_options[] = {
 static struct argp_option intf_conf_options[] = {
 	{"i", 'i', "IFNAME", 0, "If Name", 0},
 	{"a", 'a', "IPADDR", 0, "IP Address", 0},
-	{0, 0, 0, 0, 0, 0}
+	{}
 };
 
 static struct argp_option show_intf_options[] = {
 	{"a", 'a', "ALL", 0, "All interfaces", 0},
+	{}
 };
