@@ -316,7 +316,7 @@ static int ipfwd_show_intf(const struct app_ctrl_op_info *route_info)
 		port = &netcfg->port_cfg[loop];
 		fif = port->fman_if;
 		iface = (fif->mac_type == fman_mac_1g ? 0 : 5) + fif->mac_idx;
-		i = fif->fman_idx * 5 + iface;
+		i = fif->fman_idx * 6 + iface;
 		pr_info("Interface number: %d\n"
 			"PortID=%d:%d is FMan interface node\n"
 			"with MAC Address\n"ETH_MAC_PRINTF_FMT"\n",
@@ -630,7 +630,7 @@ static int ppam_if_init(struct ppam_if *p,
 
 	fif = cfg->fman_if;
 	iface = (fif->mac_type == fman_mac_1g ? 0 : 5) + fif->mac_idx;
-	p->ifnum = fif->fman_idx * 5 + iface;
+	p->ifnum = fif->fman_idx * 6 + iface;
 	p->mtu = ETHERMTU;
 	p->header_len = ETHER_HDR_LEN;
 	p->mask = IN_CLASSC_NET;
