@@ -27,6 +27,7 @@
 #include "ppam_if.h"
 #include <ppac_if.h>
 
+#include "net/annotations.h"
 #include "ethernet/eth.h"
 #include "arp/arp.h"
 #include "ip/ip_hooks.h"
@@ -734,7 +735,8 @@ static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_if *_if,
 	p->tx_fqid = _if->tx_fqids[idx % _if->num_tx_fqids];
 
 	/* Override defaults, enable 1 CL of annotation stashing */
-	stash_opts->annotation_cl = 1;
+	stash_opts->annotation_cl = (sizeof(struct annotations_t) + L1_CACHE_BYTES - 1) /
+		L1_CACHE_BYTES;
 
 	return 0;
 }
