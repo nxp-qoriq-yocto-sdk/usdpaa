@@ -98,14 +98,13 @@ enum IP_STATUS ip_output(const struct ppam_rx_hash *ctxt,
 /*
  * Find the correct neighbor for this frame, using ARP tables
  */
-enum IP_STATUS ip_output_finish(const struct ppam_rx_hash *ctxt __always_unused,
+enum IP_STATUS ip_output_finish(const struct ppam_rx_hash *ctxt,
 				struct annotations_t *notes,
 				struct iphdr *ip_hdr,
 				enum state source)
 {
 	struct ll_cache_t *ll_cache;
 	struct neigh_t *neighbor;
-	struct ppac_if *i;
 	enum IP_STATUS retval;
 	struct ether_header *ll_hdr;
 #ifdef NOT_USDPAA
@@ -118,7 +117,6 @@ enum IP_STATUS ip_output_finish(const struct ppam_rx_hash *ctxt __always_unused,
 	retval = IP_STATUS_ACCEPT;
 
 	neighbor = notes->dest->neighbor;
-	i = neighbor->dev;
 	ll_cache = neighbor->ll_cache;
 
 	if (unlikely(ll_cache == NULL)) {
@@ -160,15 +158,14 @@ enum IP_STATUS ip_output_finish(const struct ppam_rx_hash *ctxt __always_unused,
 		neighbor->retransmit_count = 0;
 	} else {
 		ll_hdr = (void *)ip_hdr - ll_cache->ll_hdr_len;
-		i->module_if.output_header(ll_hdr, ll_cache);
+		neighbor->dev->module_if.output_header(ll_hdr, ll_cache);
 #ifdef IPSECFWD_HYBRID_GENERATOR
 		eth_header_swap(ll_hdr);
 		temp = ip_hdr->src_addr;
 		ip_hdr->src_addr = ip_hdr->dst_addr;
 		ip_hdr->dst_addr = temp;
 #endif
-		ppac_send_frame(qman_fq_fqid(i->tx_fqs + i->module_if.next_fqid), notes->fd);
-		i->module_if.next_fqid = (i->module_if.next_fqid + 1) % i->num_tx_fqs;
+		ppac_send_frame(ctxt->tx_fqid, notes->fd);
 	}
 
 	return retval;

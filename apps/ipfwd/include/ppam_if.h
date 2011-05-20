@@ -40,11 +40,12 @@ struct ppam_if
 	in_addr_t addr, mask;
 	int ifnum;
 
+	size_t num_tx_fqids;
+	uint32_t *tx_fqids;
+
 	void (*set_header)(const struct ppac_if *i, void *payload, const void *src, const void *dst);
 	void (*cache_header)(struct ll_cache_t *llc, const void *hdr);
 	void (*output_header)(void *hdr, const struct ll_cache_t *llc);
-
-	size_t next_fqid;
 
 	struct node_t local_nodes[23];
 };
@@ -74,6 +75,8 @@ struct ppam_rx_hash
 	struct ip_hooks_t *hooks;
 	struct ip_protos_t *protos;
 	struct rc_t *rc;
+
+	uint32_t tx_fqid;
 };
 
 #endif	/* __PPAM_IF_H */

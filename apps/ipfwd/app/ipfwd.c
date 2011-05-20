@@ -639,7 +639,11 @@ static int ppam_if_init(struct ppam_if *p,
 	p->mtu = ETHERMTU;
 	p->header_len = ETHER_HDR_LEN;
 	p->mask = IN_CLASSC_NET;
-	p->next_fqid = 0;
+
+	p->num_tx_fqids = num_tx_fqs;
+	p->tx_fqids = malloc(p->num_tx_fqids * sizeof(*p->tx_fqids));
+	if (unlikely(p->tx_fqids == 0))
+		return -ENOMEM;
 
 	eth_setup(p);
 
@@ -647,9 +651,11 @@ static int ppam_if_init(struct ppam_if *p,
 }
 static void ppam_if_finish(struct ppam_if *p)
 {
+	free(p->tx_fqids);
 }
 static void ppam_if_tx_fqid(struct ppam_if *p, unsigned idx, uint32_t fqid)
 {
+	p->tx_fqids[idx] = fqid;
 }
 static int ppam_rx_error_init(struct ppam_rx_error *p, struct ppam_if *_if,
 			      struct qm_fqd_stashing *stash_opts)
@@ -724,6 +730,9 @@ static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_if *_if,
 	p->hooks = &stack.hooks;
 	p->protos = &stack.protos;
 	p->rc = &stack.rc;
+
+	p->tx_fqid = _if->tx_fqids[idx % _if->num_tx_fqids];
+
 	/* Override defaults, enable 1 CL of annotation stashing */
 	stash_opts->annotation_cl = 1;
 
