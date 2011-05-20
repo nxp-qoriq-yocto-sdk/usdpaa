@@ -72,14 +72,6 @@ struct thread_data_t {
 extern struct ip_statistics_t *ipfwd_stats_init(void);
 #endif
 
-/**
- \brief Context to be set per frame queue
- */
-struct ip_fq_context_t {
-	struct qman_fq fq; /**< Frame Queue Object */
-	struct ip_context_t *ip_ctxt; /**< Pointer to private context */
-} __attribute__((aligned(L1_CACHE_BYTES)));
-
 extern const struct qman_fq_cb ipfwd_rx_cb_err;
 extern const struct qman_fq_cb ipfwd_tx_cb_err;
 extern const struct qman_fq_cb ipfwd_tx_cb_confirm;
