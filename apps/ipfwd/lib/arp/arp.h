@@ -25,8 +25,8 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef __LIB_ARP_ARP_H
-#define __LIB_ARP_ARP_H
+#ifndef __ARP_H
+#define __ARP_H
 
 #include "../../include/ppam_if.h"
 #include <ppac_if.h>
@@ -58,7 +58,7 @@ int add_arp_entry(struct neigh_table_t *arp_table, struct ppac_if *dev,
  \param[in] data  pointer to packet data
  \param[out] NULL
  */
-void arp_handler(struct annotations_t *notes, void *data);
+void arp_handler(const struct annotations_t *notes, void *data);
 
 /**
  \brief Function to send arp request packet
@@ -68,4 +68,4 @@ void arp_handler(struct annotations_t *notes, void *data);
  */
 int arp_send_request(struct ppac_if *dev, in_addr_t target_ip);
 
-#endif	/* __LIB_ARP_ARP_H */
+#endif	/* __ARP_H */

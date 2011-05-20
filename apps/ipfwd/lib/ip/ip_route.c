@@ -78,7 +78,7 @@ enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,
 }
 
 enum IP_STATUS ip_route_input_slow(struct ip_context_t *ctxt,
-				   struct annotations_t *notes,
+				   const struct annotations_t *notes,
 				   struct iphdr *ip_hdr __always_unused)
 {
 #ifdef STATS_TBD
@@ -89,8 +89,8 @@ enum IP_STATUS ip_route_input_slow(struct ip_context_t *ctxt,
 }
 
 enum IP_STATUS ip_route_finish(struct ip_context_t *ctxt,
-				struct annotations_t *notes,
-				struct iphdr *ip_hdr)
+			       struct annotations_t *notes,
+			       struct iphdr *ip_hdr)
 {
 	struct rt_dest_t *dest;
 

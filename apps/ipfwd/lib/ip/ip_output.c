@@ -80,12 +80,9 @@ void arp_retransmit_cb(uint32_t timer_id, void *p_data)
 enum IP_STATUS ip_send(struct ip_context_t *ctxt,
 		       struct annotations_t *notes, struct iphdr *ip_hdr)
 {
-	struct annotations_t *cur_notes;
-
 	assert(notes->dest != NULL);
 
-	cur_notes = notes;
-	return ip_output(ctxt, cur_notes, ip_hdr);
+	return ip_output(ctxt, notes, ip_hdr);
 }
 
 /*

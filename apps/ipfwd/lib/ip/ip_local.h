@@ -27,8 +27,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LIB_IP_IP_LOCAL_H
-#define LIB_IP_IP_LOCAL_H
+#ifndef __IP_LOCAL_H
+#define __IP_LOCAL_H
 
 #include "net/annotations.h"
 #include "ip/ip_common.h"
@@ -67,6 +67,6 @@ enum IP_STATUS ip_local_deliver_finish(struct ip_context_t *ctxt,
  \return none
  */
 void ip_defragment(struct ip_context_t *ctxt,
-		   struct annotations_t *notes, struct iphdr *ip_hdr);
+		   const struct annotations_t *notes, struct iphdr *ip_hdr);
 
-#endif	/* LIB_IP_IP_LOCAL_H */
+#endif	/* __IP_LOCAL_H */

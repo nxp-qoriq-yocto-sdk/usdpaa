@@ -26,8 +26,8 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _LIB_NET_NEIGH_H
-#define _LIB_NET_NEIGH_H   1
+#ifndef __NEIGH_H
+#define __NEIGH_H
 
 #include "../../include/ppam_if.h"
 #include <ppac.h>
@@ -83,8 +83,8 @@ struct neigh_config_t {
  */
 struct neigh_func_t {
 	/* Set by Protocol Handler Create Function */
-	void (*solicit) (struct neigh_t *, void *, void *);
-	void (*error_handler) (struct neigh_t *, void *, void *);
+	void (*solicit) (struct neigh_t *, const void *, void *);
+	void (*error_handler) (struct neigh_t *, const void *, void *);
 	/* Set by Neighbor Init Function */
 	void (*full_output) (struct neigh_t *, void *, void *);
 	void (*reachable_output) (struct neigh_t *, void *, void *);
@@ -294,4 +294,4 @@ void neigh_reachable_output(struct neigh_t *n, void *notes, void *ll_payload);
 
 bool __neigh_delete(struct neigh_table_t *nt, struct neigh_t **nptr);
 void __neigh_free(void *n, void *ctxt);
-#endif /* _LIB_NET_NEIGH_H */
+#endif	/* __NEIGH_H */

@@ -26,8 +26,8 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef __LIB_IP_IP_PROTOS_H
-#define __LIB_IP_IP_PROTOS_H
+#ifndef __IP_PROTOS_H
+#define __IP_PROTOS_H
 
 #include "ip/ip_common.h"
 #include "ip/ip_context.h"
@@ -36,7 +36,7 @@
 /**< Definition of Protocol Handler function pointer */
 typedef enum IP_STATUS (*ip_proto_handler_t) (struct ip_context_t *
 					      ctxt,
-					      struct annotations_t *
+					      const struct annotations_t *
 					      notes, void *ip_data);
 
 struct ip_protos_bundle_t {
@@ -80,7 +80,7 @@ void ip_protos_set_handler(struct ip_protos_t *protos,
 static inline enum IP_STATUS ip_protos_exec(struct ip_protos_t *protos,
 					    int proto_id,
 					    struct ip_context_t *ctxt,
-					    struct annotations_t *notes,
+					    const struct annotations_t *notes,
 					    struct iphdr *ip_hdr)
 {
 	void *ip_data;
@@ -99,4 +99,4 @@ static inline enum IP_STATUS ip_protos_exec(struct ip_protos_t *protos,
 	return retval;
 }
 
-#endif	/* __LIB_IP_IP_PROTOS_H */
+#endif	/* __IP_PROTOS_H */

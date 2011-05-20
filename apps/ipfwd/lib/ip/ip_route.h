@@ -25,8 +25,8 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef LIB_IP_IP_ROUTE_H
-#define LIB_IP_IP_ROUTE_H
+#ifndef __IP_ROUTE_H
+#define __IP_ROUTE_H
 
 #include "ip/ip_common.h"
 #include "net/annotations.h"
@@ -52,7 +52,7 @@ enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,
  \return Status
  */
 enum IP_STATUS ip_route_input_slow(struct ip_context_t *ctxt,
-				   struct annotations_t *notes,
+				   const struct annotations_t *notes,
 				   struct iphdr *ip_hdr);
 
 /**
@@ -66,4 +66,4 @@ enum IP_STATUS ip_route_finish(struct ip_context_t *ctxt,
 			       struct annotations_t *notes,
 			       struct iphdr *ip_hdr);
 
-#endif	/* LIB_IP_IP_ROUTE_H */
+#endif	/* __IP_ROUTE_H */

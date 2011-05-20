@@ -62,7 +62,7 @@ static int arp_handle_request(struct ether_header *eth_hdr,
 	return 0;
 }
 
-void arp_handler(struct annotations_t *notes, void *data)
+void arp_handler(const struct annotations_t *notes, void *data)
 {
 	struct ether_arp *arp;
 	struct neigh_t *n;
@@ -202,18 +202,18 @@ int arp_send_request(struct ppac_if *dev, in_addr_t target_ip)
 }
 #endif	/* ARP_ENABLE */
 
-static void arp_solicit(struct neigh_t *n, void *annotations, void *ll_payload)
+static void arp_solicit(struct neigh_t *n, const void *annotations, void *ll_payload)
 {
-	struct annotations_t *notes = annotations;
+	const struct annotations_t *notes = annotations;
 #ifdef STATS_TBD
 	decorated_notify_inc_64(&n->nt->stats->solicit_errors);
 #endif
 	free_buff(notes->fd);
 }
 
-static void arp_error_handler(struct neigh_t *n, void *annotations, void *ll_payload)
+static void arp_error_handler(struct neigh_t *n, const void *annotations, void *ll_payload)
 {
-	struct annotations_t *notes = annotations;
+	const struct annotations_t *notes = annotations;
 #ifdef STATS_TBD
 	decorated_notify_inc_64(&n->nt->stats->protocol_errors);
 #endif

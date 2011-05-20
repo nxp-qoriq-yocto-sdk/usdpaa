@@ -66,7 +66,7 @@ enum IP_STATUS ip_local_deliver_finish(struct ip_context_t *ctxt,
 }
 
 void ip_defragment(struct ip_context_t *ctxt,
-		   struct annotations_t *notes,
+		   const struct annotations_t *notes,
 		   struct iphdr *ip_hdr __always_unused)
 {
 #ifdef STATS_TBD
