@@ -26,18 +26,18 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #ifndef __IP_PROTOS_H
 #define __IP_PROTOS_H
 
-#include "ip/ip_common.h"
-#include "ip/ip_context.h"
+#include "ppam_if.h"
+
 #include "net/annotations.h"
 
 /**< Definition of Protocol Handler function pointer */
-typedef enum IP_STATUS (*ip_proto_handler_t) (struct ip_context_t *
-					      ctxt,
-					      const struct annotations_t *
-					      notes, void *ip_data);
+typedef enum IP_STATUS (*ip_proto_handler_t) (const struct ppam_rx_hash *ctxt,
+					      const struct annotations_t *notes,
+					      void *ip_data);
 
 struct ip_protos_bundle_t {
 	ip_proto_handler_t handler;
@@ -69,17 +69,15 @@ void ip_protos_set_handler(struct ip_protos_t *protos,
 			   void *, int proto_id);
 
 /**
- \brief Executes the Protocol handler depending on th eProtocol Id
- \param[in] protos Pointer to th eIP Protocol handler Strcuture
- \param[in] proto_id Protocol Id
- \param[in] ctxt IP context for FQ
- \param[in] notes Pointer to the Prepended Data from FMAN
- \param[in] ip_hdr Pointer to the IP Header in the Frame
- \return Returns Status
+ \brief		Executes the Protocol handler depending on th eProtocol Id
+ \param[in]	ctxt		Context for FQ
+ \param[in]	proto_id	Protocol Id
+ \param[in]	notes		Pointer to the Prepended Data from FMAN
+ \param[in]	ip_hdr		Pointer to the IP Header in the Frame
+ \return	Returns Status
  */
-static inline enum IP_STATUS ip_protos_exec(struct ip_protos_t *protos,
+static inline enum IP_STATUS ip_protos_exec(const struct ppam_rx_hash *ctxt,
 					    int proto_id,
-					    struct ip_context_t *ctxt,
 					    const struct annotations_t *notes,
 					    struct iphdr *ip_hdr)
 {

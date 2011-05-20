@@ -28,24 +28,25 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LIB_IP_IP_HANDLER_H
-#define LIB_IP_IP_HANDLER_H
+#ifndef __IP_HANDLER_H
+#define __IP_HANDLER_H
+
+#include "ppam_if.h"
 
 #include "net/annotations.h"
-#include "ip/ip_context.h"
 
 /**
-  \brief Prepares the frame and annotations to be handled by the IP stack.
-  This function represents a "translation" from something that is QMan-sourced
-  into something that is source-agnostic.
-  We increment the number of received IP datagrams, move the pointer to point
-  to the start of the IP datagram, and send it to the stack.
- \param[in] ctxt FQ Context used for accessing and updating ip stats
- \param[inout] notes A pointer to the annotations for this frame, as received
- from the queue manager.
- \param[in] data A pointer to the first byte of data in the frame.
- \return none
+ \brief		Prepares the frame and annotations to be handled by the IP stack
+		This function represents a "translation" from something that is QMan-sourced into
+		something that is source-agnostic
+		We increment the number of received IP datagrams, move the pointer to point to the
+		start of the IP datagram, and send it to the stack
+ \param[in]	ctxt	FQ Context used for accessing and updating ip stats
+ \param[inout]	notes	A pointer to the annotations for this frame, as received from the queue
+			manager
+ \param[in]	data	A pointer to the first byte of data in the frame.
+ \return	none
  */
-void ip_handler(struct ip_context_t *ctxt, struct annotations_t *notes, void *data);
+void ip_handler(const struct ppam_rx_hash *ctxt, struct annotations_t *notes, void *data);
 
-#endif	/* LIB_IP_IP_HANDLER_H */
+#endif	/* __IP_HANDLER_H */

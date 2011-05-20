@@ -25,11 +25,10 @@
 #ifndef __PPAM_IF_H
 #define __PPAM_IF_H
 
-#include <usdpaa/compat.h>	/* __GNU_SOURCE */
-
 #include "net/ll_cache.h"
-#include "ip/ip.h"
-#include "ip/ip_context.h"
+#include "ip/ip.h"		/* node_t */
+#include "ip/ip_common.h"	/* ip_statistics_t */
+#include "ip/ip_rc.h"
 
 struct ppac_if;
 
@@ -52,12 +51,18 @@ struct ppam_if
 
 struct ppam_rx_error
 {
-	struct ip_context_t ctxt;
+	struct ip_statistics_t *stats;
+	struct ip_hooks_t *hooks;
+	struct ip_protos_t *protos;
+	struct rc_t *rc;
 };
 
 struct ppam_rx_default
 {
-	struct ip_context_t ctxt;
+	struct ip_statistics_t *stats;
+	struct ip_hooks_t *hooks;
+	struct ip_protos_t *protos;
+	struct rc_t *rc;
 };
 
 struct ppam_tx_error { };
@@ -65,7 +70,10 @@ struct ppam_tx_confirm { };
 
 struct ppam_rx_hash
 {
-	struct ip_context_t ctxt;
+	struct ip_statistics_t *stats;
+	struct ip_hooks_t *hooks;
+	struct ip_protos_t *protos;
+	struct rc_t *rc;
 };
 
 #endif	/* __PPAM_IF_H */

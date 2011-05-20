@@ -26,14 +26,15 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef __LIB_IP_IP_HOOKS_H
-#define __LIB_IP_IP_HOOKS_H
+
+#ifndef __IP_HOOKS_H
+#define __IP_HOOKS_H
+
+#include "ppam_if.h"
 
 #ifdef IP_RCU_ENABLE
 #include "rcu_lock.h"
 #endif
-#include "ip/ip_common.h"
-#include "ip/ip_context.h"
 #include "net/annotations.h"
 
 /*
@@ -81,7 +82,7 @@ enum IP_HOOK_PRAGMA {
 					__IP_HOOK_COUNT * 2)
 
 /**< Definition for the Hook Funciton to be called */
-typedef enum IP_STATUS (*hookfn_t) (struct ip_context_t *,
+typedef enum IP_STATUS (*hookfn_t) (const struct ppam_rx_hash *,
 				    struct annotations_t *,
 				    struct iphdr *,
 				    enum state);
@@ -147,19 +148,16 @@ bool ip_hook_add_func(struct ip_hooks_t *hooks, enum IP_HOOK hook,
 uint32_t ip_hook_count(struct ip_hooks_t *hooks, enum IP_HOOK hook);
 
 /**
- \brief Finds and Executes a Hook function from the Hook Table depending on the Hook type
- \param[in] Pointer to the Hook table
- \param[in] hook Hook Type/ Stage
- \param[in] ctxt IP Context
- \param[in] notes Pointer to th eprepended Data
- \param[in] data Pointer to the Data in the Frame
- \param[in] func Function Pointer to be executed after executing
- the Hook functions
- \return True if th eAddiiton of the function was successfull, else False
+ \brief		Finds and Executes a Hook function from the Hook Table depending on the Hook type
+ \param[in]	ctxt	Context
+ \param[in]	hook	Hook Type/ Stage
+ \param[in]	notes	Pointer to th eprepended Data
+ \param[in]	data	Pointer to the Data in the Frame
+ \param[in]	func	Function Pointer to be executed after executing the Hook functions
+ \return	True if the addition of the function was successfull, else False
  */
-static inline enum IP_STATUS exec_hook(struct ip_hooks_t *hooks,
+static inline enum IP_STATUS exec_hook(const struct ppam_rx_hash *ctxt,
 				       enum IP_HOOK hook,
-				       struct ip_context_t *ctxt,
 				       struct annotations_t *notes,
 				       struct iphdr *data,
 				       hookfn_t callback,
@@ -173,7 +171,7 @@ static inline enum IP_STATUS exec_hook(struct ip_hooks_t *hooks,
 	rcu_read_lock();
 #endif
 	status = IP_STATUS_ACCEPT;
-	chain = &(hooks->chains[hook]);
+	chain = ctxt->hooks->chains + hook;
 #ifdef IP_RCU_ENABLE
 	entry = rcu_dereference(chain->head);
 #else
@@ -196,4 +194,4 @@ static inline enum IP_STATUS exec_hook(struct ip_hooks_t *hooks,
 	return status;
 }
 
-#endif	/* __LIB_IP_IP_HOOKS_H */
+#endif	/* __IP_HOOKS_H */

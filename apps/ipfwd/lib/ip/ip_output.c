@@ -27,7 +27,6 @@
 
 #include "ip_output.h"
 
-#include "../../include/ppam_if.h"
 #include <ppac_if.h>
 #include <ppac.h>
 
@@ -77,7 +76,7 @@ void arp_retransmit_cb(uint32_t timer_id, void *p_data)
 /*
  * If packet length > next_hop mtu, call ip_fragment
  */
-enum IP_STATUS ip_send(struct ip_context_t *ctxt,
+enum IP_STATUS ip_send(const struct ppam_rx_hash *ctxt,
 		       struct annotations_t *notes, struct iphdr *ip_hdr)
 {
 	assert(notes->dest != NULL);
@@ -88,18 +87,18 @@ enum IP_STATUS ip_send(struct ip_context_t *ctxt,
 /*
  * Call intervening POSTROUTING hooks for each frame
  */
-enum IP_STATUS ip_output(struct ip_context_t *ctxt,
+enum IP_STATUS ip_output(const struct ppam_rx_hash *ctxt,
 			 struct annotations_t *notes,
 			 struct iphdr *ip_hdr)
 {
-	return exec_hook(ctxt->hooks, IP_HOOK_POSTROUTING, ctxt, notes,
-			 ip_hdr, &ip_output_finish, SOURCE_POST_FMAN);
+	return exec_hook(ctxt, IP_HOOK_POSTROUTING, notes, ip_hdr, &ip_output_finish,
+			 SOURCE_POST_FMAN);
 }
 
 /*
  * Find the correct neighbor for this frame, using ARP tables
  */
-enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt __always_unused,
+enum IP_STATUS ip_output_finish(const struct ppam_rx_hash *ctxt __always_unused,
 				struct annotations_t *notes,
 				struct iphdr *ip_hdr,
 				enum state source)

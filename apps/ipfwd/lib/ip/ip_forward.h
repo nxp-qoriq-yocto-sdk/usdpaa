@@ -26,12 +26,13 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef LIB_IP_IP_FORWARD_H
-#define LIB_IP_IP_FORWARD_H
 
-#include "ip/ip_common.h"
+#ifndef __IP_FORWARD_H
+#define __IP_FORWARD_H
+
+#include "ppam_if.h"
+
 #include "net/annotations.h"
-#include "ip/ip_context.h"
 
 /**
  \brief ip_checksum calculator
@@ -66,26 +67,28 @@ static inline uint16_t ip_checksum(struct iphdr *ip_hdr, uint8_t len)
 }
 
 /**
- \brief Checks the packet forwarding attributes like TTL, MTU, No dest, and Drops it if any of these fail
- \param[in] ctxt IP Context
- \param[in] notes Annotaion
- \param[in] ip_hdr Pointer to the header of IPPacket that needs to be forwarded
- \return Status
+ \brief		Checks the packet forwarding attributes like TTL, MTU, No dest, and Drops it if any
+		of these fail
+ \param[in]	ctxt	Context
+ \param[in]	notes	Annotaion
+ \param[in]	ip_hdr	Pointer to the header of IPPacket that needs to be forwarded
+ \return	Status
  */
-enum IP_STATUS ip_forward(struct ip_context_t *ctxt,
+enum IP_STATUS ip_forward(const struct ppam_rx_hash *ctxt,
 			  struct annotations_t *notes,
 			  struct iphdr *ip_hdr);
 
 /**
- \brief Handle any Optional field updation in the IP Header, Updates the Stats, and Sends the Packet
- \param[in] ctxt IP Context
- \param[in] notes Annotaion
- \param[in] ip_hdr Pointer to the header of the IP Packet
- \return Status
+ \brief		Handle any Optional field updation in the IP Header, Updates the Stats, and Sends
+		the Packet
+ \param[in]	ctxt	Context
+ \param[in]	notes	Annotaion
+ \param[in]	ip_hdr	Pointer to the header of the IP Packet
+ \return	Status
  */
-enum IP_STATUS ip_forward_finish(struct ip_context_t *ctxt,
+enum IP_STATUS ip_forward_finish(const struct ppam_rx_hash *ctxt,
 				 struct annotations_t *notes,
 				 struct iphdr *ip_hdr,
 				 enum state source);
 
-#endif	/* LIB_IP_IP_FORWARD_H */
+#endif	/* __IP_FORWARD_H */

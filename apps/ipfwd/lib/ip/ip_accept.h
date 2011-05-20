@@ -26,38 +26,38 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef LIB_IP_IP_ACCEPT_H
-#define LIB_IP_IP_ACCEPT_H
+
+#ifndef __IP_ACCEPT_H
+#define __IP_ACCEPT_H
+
+#include "ppam_if.h"
 
 #include "net/annotations.h"
-#include "ip/ip_common.h"
-#include "ip/ip_context.h"
 
 /**
- \brief Accept a new IPv4 datagram. Statistics will be updated.
- \param[in] ctxt IP Context
- \param[in] notes Annotaion
- \param[in] ip_hdr Pointer to the header of the IP Packet that has
- been received
- \return Status
- \note After this function completes, all ingress IP statistics have been
-	updated, and the frame is now ready for processing.
+ \brief		Accept a new IPv4 datagram. Statistics will be updated
+ \param[in]	ctxt	Context
+ \param[in]	notes	Annotaion
+ \param[in]	ip_hdr	Pointer to the header of the IP Packet that has been received
+ \return	Status
+ \note		After this function completes, all ingress IP statistics have been updated, and the
+		frame is now ready for processing
  */
-enum IP_STATUS ip_accept_preparsed(struct ip_context_t *ctxt,
+enum IP_STATUS ip_accept_preparsed(const struct ppam_rx_hash *ctxt,
 				   struct annotations_t *notes,
 				   struct iphdr *ip_hdr,
 				   enum state);
 
 /**
- \brief IP Options processing, and if dst is still null, call ip_route_input()
- \param[in] ctxt IP Context
- \param[in] notes Annotaion
- \param[in] ip_hdr Pointer to the header of the IP Packet
- \return Status
+ \brief		IP Options processing, and if dst is still null, call ip_route_input()
+ \param[in]	ctxt	Context
+ \param[in]	notes	Annotaion
+ \param[in]	ip_hdr	Pointer to the header of the IP Packet
+ \return	Status
  */
-enum IP_STATUS ip_accept_finish(struct ip_context_t *ctxt,
+enum IP_STATUS ip_accept_finish(const struct ppam_rx_hash *ctxt,
 				struct annotations_t *notes,
 				struct iphdr *ip_hdr,
 				enum state);
 
-#endif	/* LIB_IP_IP_INPUT_H */
+#endif	/* __IP_INPUT_H */

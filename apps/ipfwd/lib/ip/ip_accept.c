@@ -28,19 +28,19 @@
  */
 
 #include "ip_accept.h"
+
 #include "ip_hooks.h"
 #include "ip_route.h"
 
-enum IP_STATUS ip_accept_preparsed(struct ip_context_t *ctxt,
+enum IP_STATUS ip_accept_preparsed(const struct ppam_rx_hash *ctxt,
 				   struct annotations_t *notes,
 				   struct iphdr *ip_hdr,
 				   enum state source)
 {
-	return exec_hook(ctxt->hooks, IP_HOOK_PREROUTING,
-			 ctxt, notes, ip_hdr, &ip_accept_finish, source);
+	return exec_hook(ctxt, IP_HOOK_PREROUTING, notes, ip_hdr, &ip_accept_finish, source);
 }
 
-enum IP_STATUS ip_accept_finish(struct ip_context_t *ctxt,
+enum IP_STATUS ip_accept_finish(const struct ppam_rx_hash *ctxt,
 				struct annotations_t *notes,
 				struct iphdr *ip_hdr,
 				enum state source)

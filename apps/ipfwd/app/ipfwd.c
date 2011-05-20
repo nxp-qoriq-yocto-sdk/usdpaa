@@ -24,10 +24,15 @@
 
 #include "ipfwd.h"
 
-#include "../include/ppam_if.h"
+#include "ppam_if.h"
 #include <ppac_if.h>
 
 #include "ethernet/eth.h"
+#include "arp/arp.h"
+#include "ip/ip_hooks.h"
+#include "ip/ip_protos.h"
+#include "ip/ip_handler.h"
+#include "ip/ip_appconf.h"
 
 #include <mqueue.h>
 
@@ -649,10 +654,10 @@ static void ppam_if_tx_fqid(struct ppam_if *p, unsigned idx, uint32_t fqid)
 static int ppam_rx_error_init(struct ppam_rx_error *p, struct ppam_if *_if,
 			      struct qm_fqd_stashing *stash_opts)
 {
-	p->ctxt.stats = stack.ip_stats;
-	p->ctxt.hooks = &stack.hooks;
-	p->ctxt.protos = &stack.protos;
-	p->ctxt.rc = &stack.rc;
+	p->stats = stack.ip_stats;
+	p->hooks = &stack.hooks;
+	p->protos = &stack.protos;
+	p->rc = &stack.rc;
 
 	return 0;
 }
@@ -668,10 +673,10 @@ static inline void ppam_rx_error_cb(struct ppam_rx_error *p,
 static int ppam_rx_default_init(struct ppam_rx_default *p, struct ppam_if *_if,
 				struct qm_fqd_stashing *stash_opts)
 {
-	p->ctxt.stats = stack.ip_stats;
-	p->ctxt.hooks = &stack.hooks;
-	p->ctxt.protos = &stack.protos;
-	p->ctxt.rc = &stack.rc;
+	p->stats = stack.ip_stats;
+	p->hooks = &stack.hooks;
+	p->protos = &stack.protos;
+	p->rc = &stack.rc;
 
 	return 0;
 }
@@ -715,10 +720,10 @@ static inline void ppam_tx_confirm_cb(struct ppam_tx_confirm *p,
 static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_if *_if,
 			     unsigned idx, struct qm_fqd_stashing *stash_opts)
 {
-	p->ctxt.stats = stack.ip_stats;
-	p->ctxt.hooks = &stack.hooks;
-	p->ctxt.protos = &stack.protos;
-	p->ctxt.rc = &stack.rc;
+	p->stats = stack.ip_stats;
+	p->hooks = &stack.hooks;
+	p->protos = &stack.protos;
+	p->rc = &stack.rc;
 	/* Override defaults, enable 1 CL of annotation stashing */
 	stash_opts->annotation_cl = 1;
 
@@ -747,7 +752,7 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 	}
 	notes->fd = &dqrr->fd;
 
-	ip_handler(&p->ctxt, notes, data);
+	ip_handler(p, notes, data);
 }
 
 #include <ppac.c>

@@ -30,43 +30,42 @@
 #ifndef __IP_LOCAL_H
 #define __IP_LOCAL_H
 
-#include "net/annotations.h"
-#include "ip/ip_common.h"
-#include "ip/ip_context.h"
+#include "ppam_if.h"
 
-#include <netinet/ip.h>
+#include "net/annotations.h"
 
 /**
- \brief Handles Self terminated Packet. If the Packet is fragmented, and needs reassembly then it is discarded, else it is processed.
- \param[in] ctxt IP Context
- \param[in] notes Annotaion
- \param[in] ip_hdr Pointer to the header of the IP Packet
- \return Status
+ \brief		Handles Self terminated Packet. If the Packet is fragmented, and needs reassembly
+		then it is discarded, else it is processed
+ \param[in]	ctxt	Context
+ \param[in]	notes	Annotaion
+ \param[in]	ip_hdr	Pointer to the header of the IP Packet
+ \return	Status
  */
-enum IP_STATUS ip_local_deliver(struct ip_context_t *ctxt,
+enum IP_STATUS ip_local_deliver(const struct ppam_rx_hash *ctxt,
 				struct annotations_t *notes,
 				struct iphdr *ip_hdr);
 
 /**
- \brief Handles Self terminated Packet. Updates the stats, and Processes the Packet.
- \param[in] ctxt IP Context
- \param[in] notes Annotation
- \param[in] ip_hdr Pointer to the header of the IP Packet
- \return Status
+ \brief		Handles Self terminated Packet. Updates the stats, and Processes the Packet.
+ \param[in]	ctxt	Context
+ \param[in]	notes	Annotation
+ \param[in]	ip_hdr	Pointer to the header of the IP Packet
+ \return	Status
  */
-enum IP_STATUS ip_local_deliver_finish(struct ip_context_t *ctxt,
+enum IP_STATUS ip_local_deliver_finish(const struct ppam_rx_hash *ctxt,
 				       struct annotations_t *notes,
 				       struct iphdr *ip_hdr,
 				       enum state source);
 
 /**
- \brief Defragment a datagram
- \param[in] ctxt IP Context
- \param[in] notes Annotation
- \param[in] ip_hdr Pointer to the header of the IP Packet
- \return none
+ \brief		Defragment a datagram
+ \param[in]	ctxt	Context
+ \param[in]	notes	Annotation
+ \param[in]	ip_hdr	Pointer to the header of the IP Packet
+ \return	none
  */
-void ip_defragment(struct ip_context_t *ctxt,
+void ip_defragment(const struct ppam_rx_hash *ctxt,
 		   const struct annotations_t *notes, struct iphdr *ip_hdr);
 
 #endif	/* __IP_LOCAL_H */

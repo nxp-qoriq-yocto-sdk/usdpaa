@@ -29,13 +29,10 @@
 #ifndef __NEIGH_H
 #define __NEIGH_H
 
-#include "../../include/ppam_if.h"
+#include "ppam_if.h"
 #include <ppac.h>
 
-#include "ll_cache.h"
-#include "crc64.h"
 #include "common/refcount.h"
-#include "statistics.h"
 
 #define NEIGH_STATE_UNKNOWN	0x00
 /**< Entry State - Unknown*/

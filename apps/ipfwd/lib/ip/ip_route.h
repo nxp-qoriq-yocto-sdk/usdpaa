@@ -25,44 +25,46 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #ifndef __IP_ROUTE_H
 #define __IP_ROUTE_H
 
-#include "ip/ip_common.h"
+#include "ppam_if.h"
+
 #include "net/annotations.h"
-#include "ip/ip_context.h"
 
 /**
- \brief Does Route Cache LookUp and Forwards/Drops the packet accordingly
- \param[in] ctxt IP Context came in frame descriptor
- \param[in] notes Annotation prepended in frame buffer
- \param[in] ip_hdr Pointer to the header of the IP Packet
- \return Status
+ \brief		Does Route Cache LookUp and Forwards/Drops the packet accordingly
+ \param[in]	ctxt	Context came in frame descriptor
+ \param[in]	notes	Annotation prepended in frame buffer
+ \param[in]	ip_hdr	Pointer to the header of the IP Packet
+ \return	Status
  */
-enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,
+enum IP_STATUS ip_route_input(const struct ppam_rx_hash *ctxt,
 			      struct annotations_t *notes,
 			      struct iphdr *ip_hdr,
 			      enum state);
 
 /**
- \brief Discards the packet as the Route Cache LookUp failed, and Updates the Stats
- \param[in] ctxt IP Context came in frame descriptor
- \param[in] notes Annotation prepended in frame buffer
- \param[in] ip_hdr Pointer to the header of the IP Packet
- \return Status
+ \brief		Discards the packet as the Route Cache LookUp failed, and Updates the Stats
+ \param[in]	ctxt	Context came in frame descriptor
+ \param[in]	notes	Annotation prepended in frame buffer
+ \param[in]	ip_hdr	Pointer to the header of the IP Packet
+ \return	Status
  */
-enum IP_STATUS ip_route_input_slow(struct ip_context_t *ctxt,
+enum IP_STATUS ip_route_input_slow(const struct ppam_rx_hash *ctxt,
 				   const struct annotations_t *notes,
 				   struct iphdr *ip_hdr);
 
 /**
- \brief Check if the packet is for self or needs to be routed forward, and calls a handling API accordingly
- \param[in] ctxt IP Context came in frame descriptor
- \param[in] notes Annotation prepended in frame buffer
- \param[in] ip_hdr Pointer to the header of the IP Packet
- \return Status
+ \brief		Check if the packet is for self or needs to be routed forward, and calls a handling
+		API accordingly
+ \param[in]	ctxt	Context came in frame descriptor
+ \param[in]	notes	Annotation prepended in frame buffer
+ \param[in]	ip_hdr	Pointer to the header of the IP Packet
+ \return	Status
  */
-enum IP_STATUS ip_route_finish(struct ip_context_t *ctxt,
+enum IP_STATUS ip_route_finish(const struct ppam_rx_hash *ctxt,
 			       struct annotations_t *notes,
 			       struct iphdr *ip_hdr);
 

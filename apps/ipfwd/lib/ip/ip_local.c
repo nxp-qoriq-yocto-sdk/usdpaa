@@ -27,14 +27,10 @@
 
 #include "ip_local.h"
 
-#include <internal/compat.h>
-
-#include "common/common.h"
-
 #include "ip_hooks.h"
 #include "ip_protos.h"
 
-enum IP_STATUS ip_local_deliver(struct ip_context_t *ctxt,
+enum IP_STATUS ip_local_deliver(const struct ppam_rx_hash *ctxt,
 				struct annotations_t *notes,
 				struct iphdr *ip_hdr)
 {
@@ -45,32 +41,30 @@ enum IP_STATUS ip_local_deliver(struct ip_context_t *ctxt,
 		retval = IP_STATUS_STOLEN;
 	} else {
 		/* Call INPUT hooks */
-		retval = exec_hook(ctxt->hooks, IP_HOOK_INPUT, ctxt, notes,
-				ip_hdr, &ip_local_deliver_finish,
-				SOURCE_POST_FMAN);
+		retval = exec_hook(ctxt, IP_HOOK_INPUT, notes, ip_hdr, &ip_local_deliver_finish,
+				   SOURCE_POST_FMAN);
 	}
 
 	return retval;
 }
 
-enum IP_STATUS ip_local_deliver_finish(struct ip_context_t *ctxt,
+enum IP_STATUS ip_local_deliver_finish(const struct ppam_rx_hash *ctxt,
 				       struct annotations_t *notes,
 				       struct iphdr *ip_hdr,
 				       enum state source)
 {
 #ifdef STATS_TBD
-	decorated_notify_inc_32(&(ctxt->stats->ip_local_delivery));
+	decorated_notify_inc_32(&ctxt->stats->ip_local_delivery);
 #endif
-	return ip_protos_exec(ctxt->protos, ip_hdr->protocol,
-			      ctxt, notes, ip_hdr);
+	return ip_protos_exec(ctxt, ip_hdr->protocol, notes, ip_hdr);
 }
 
-void ip_defragment(struct ip_context_t *ctxt,
+void ip_defragment(const struct ppam_rx_hash *ctxt,
 		   const struct annotations_t *notes,
 		   struct iphdr *ip_hdr __always_unused)
 {
 #ifdef STATS_TBD
-	decorated_notify_inc_32(&(ctxt->stats->ip_local_frag_reassem_started));
+	decorated_notify_inc_32(&ctxt->stats->ip_local_frag_reassem_started);
 #endif
 	/* For now, do not reassemble fragments - discard them */
 	free_buff(notes->fd);

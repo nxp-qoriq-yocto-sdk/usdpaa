@@ -26,42 +26,43 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef LIB_IP_IP_OUTPUT_H
-#define LIB_IP_IP_OUTPUT_H
 
-#include "ip/ip_common.h"
-#include "ip/ip_context.h"
+#ifndef __IP_OUTPUT_H
+#define __IP_OUTPUT_H
+
+#include "ppam_if.h"
+
 #include "net/annotations.h"
 
 /**
- \bried Sends IP Packet to respective netdev
- If packet length > next_hop mtu, call ip_fragment
- \param[in] ctxt IP Context
- \param[in] notes Annotations
- \param[in] ip_hdr Pointer to the IP Header
+ \brief			Sends IP Packet to respective netdev. If packet length > next_hop mtu, call
+			ip_fragment
+ \param[in] ctxt	Context
+ \param[in] notes	Annotations
+ \param[in] ip_hdr	Pointer to the IP Header
  */
-enum IP_STATUS ip_send(struct ip_context_t *ctxt,
+enum IP_STATUS ip_send(const struct ppam_rx_hash *ctxt,
 		       struct annotations_t *notes, struct iphdr *ip_hdr);
 
 /**
- \brief  Call intervening POSTROUTING hooks for each frame
- \param[in] ctxt IP Context
- \param[in] notes Annotations
- \param[in] ip_hdr Pointer to the IP Header
+ \brief		Call intervening POSTROUTING hooks for each frame
+ \param[in]	ctxt	Context
+ \param[in]	notes	Annotations
+ \param[in]	ip_hdr	Pointer to the IP Header
  */
-enum IP_STATUS ip_output(struct ip_context_t *ctxt,
+enum IP_STATUS ip_output(const struct ppam_rx_hash *ctxt,
 			 struct annotations_t *notes,
 			 struct iphdr *ip_hdr);
 
 /**
- \brief Find the correct neighbor for this frame, using ARP tables
- \param[in] ctxt IP Context
- \param[in] notes Annotations
- \param[in] ip_hdr Pointer to the IP Header
+ \brief		Find the correct neighbor for this frame, using ARP tables
+ \param[in]	ctxt	Context
+ \param[in]	notes	Annotations
+ \param[in]	ip_hdr	Pointer to the IP Header
  */
-enum IP_STATUS ip_output_finish(struct ip_context_t *ctxt,
+enum IP_STATUS ip_output_finish(const struct ppam_rx_hash *ctxt,
 				struct annotations_t *notes,
 				struct iphdr *ip_hdr,
 				enum state source);
 
-#endif /* ifndef LIB_IP_IP_OUTPUT_H */
+#endif	/* __IP_OUTPUT_H */

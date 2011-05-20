@@ -26,22 +26,14 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #ifndef __IPFWD_H
 #define __IPFWD_H
 
 #include <usdpaa/compat.h>
 #include <usdpaa/fsl_qman.h>
 
-#include "app_common.h"
-#include "ip/ip.h"
-#include "arp/arp.h"
-#include "net/rt.h"
-#include "ip/ip_rc.h"
-#include "ip/ip_handler.h"
-#include "ip/ip_common.h"
-#include "ip/ip_hooks.h"
-#include "ip/ip_protos.h"
-#include "ip/ip_appconf.h"
+#include "ip/ip_common.h"	/* ip_statistics_t */
 
 #define ETHERNET_ADDR_MAGIC	0x0200
 #define LINKLOCAL_NODES_2EXP	10

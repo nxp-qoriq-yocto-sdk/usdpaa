@@ -28,12 +28,11 @@
 #ifndef __ARP_H
 #define __ARP_H
 
-#include "../../include/ppam_if.h"
+#include "ppam_if.h"
 #include <ppac_if.h>
 
 #include "net/neigh.h"
 #include "net/annotations.h"
-#include "ip/ip.h"
 
 #define ARP_RETRANSMIT_INTERVAL	5000
 

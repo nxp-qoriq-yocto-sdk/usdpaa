@@ -26,9 +26,10 @@
  */
 
 #include "ip_handler.h"
+
 #include "ip_accept.h"
 
-void ip_handler(struct ip_context_t *ctxt, struct annotations_t *notes, void *data)
+void ip_handler(const struct ppam_rx_hash *ctxt, struct annotations_t *notes, void *data)
 {
 #ifdef STATS_TBD
 	decorated_notify_inc_32(&ctxt->stats->ip_in_received);

@@ -28,12 +28,10 @@
 
 #include "ip_route.h"
 
-#include "common/common.h"
 #include "ip_forward.h"
 #include "ip_local.h"
-#include "ip_rc.h"
 
-enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,
+enum IP_STATUS ip_route_input(const struct ppam_rx_hash *ctxt,
 			      struct annotations_t *notes,
 			      struct iphdr *ip_hdr, enum state source)
 {
@@ -43,10 +41,8 @@ enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,
 	case SOURCE_POST_FMAN:
 	{
 		struct rc_entry_t *entry;
-		entry = rc_entry_fast_lookup(ctxt->rc,
-					ip_hdr->saddr,
-					ip_hdr->daddr,
-					RC_BUCKET_INDEX(notes));
+		entry = rc_entry_fast_lookup(ctxt->rc, ip_hdr->saddr, ip_hdr->daddr,
+					     RC_BUCKET_INDEX(notes));
 		pr_debug("Hash index= %x\n", RC_BUCKET_INDEX(notes));
 
 		if (entry == NULL) {
@@ -77,18 +73,18 @@ enum IP_STATUS ip_route_input(struct ip_context_t *ctxt,
 	return retval;
 }
 
-enum IP_STATUS ip_route_input_slow(struct ip_context_t *ctxt,
+enum IP_STATUS ip_route_input_slow(const struct ppam_rx_hash *ctxt,
 				   const struct annotations_t *notes,
 				   struct iphdr *ip_hdr __always_unused)
 {
 #ifdef STATS_TBD
-	decorated_notify_inc_64(&(ctxt->stats->ip_route_input_slow));
+	decorated_notify_inc_64(&ctxt->stats->ip_route_input_slow);
 #endif
 	free_buff(notes->fd);
 	return IP_STATUS_DROP;
 }
 
-enum IP_STATUS ip_route_finish(struct ip_context_t *ctxt,
+enum IP_STATUS ip_route_finish(const struct ppam_rx_hash *ctxt,
 			       struct annotations_t *notes,
 			       struct iphdr *ip_hdr)
 {
@@ -102,9 +98,7 @@ enum IP_STATUS ip_route_finish(struct ip_context_t *ctxt,
 			return ip_forward(ctxt, notes, ip_hdr);
 		} else {
 #ifdef STATS_TBD
-			decorated_notify_inc_64(&
-				(ctxt->
-				stats->ip_xmit_icmp_unreach_no_egress));
+			decorated_notify_inc_64(&ctxt->stats->ip_xmit_icmp_unreach_no_egress);
 #endif
 		}
 		break;

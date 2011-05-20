@@ -28,7 +28,7 @@
 #ifndef __LIB_ETHERNET_ETH_H
 #define __LIB_ETHERNET_ETH_H
 
-#include "../../include/ppam_if.h"
+#include "ppam_if.h"
 
 void eth_setup(struct ppam_if *p);
 
