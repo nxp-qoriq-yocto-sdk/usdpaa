@@ -72,7 +72,8 @@
 #undef PPAC_2FWD_HOLDACTIVE		/* Process each FQ on one portal at a time */
 #undef PPAC_2FWD_ORDER_PRESERVATION	/* HOLDACTIVE + enqueue-DCAs */
 #define PPAC_2FWD_AVOIDBLOCK		/* No full-DQRR blocking of FQs */
-#define PPAC_2FWD_RX_PREFERINCACHE	/* Keep rx FQDs in-cache even when empty */
+#define PPAC_2FWD_RX_10G_PREFERINCACHE	/* Keep 10G rx FQDs in-cache even when empty */
+#define PPAC_2FWD_RX_1G_PREFERINCACHE	/* Keep 1G rx FQDs in-cache even when empty */
 #define PPAC_2FWD_TX_PREFERINCACHE	/* Keep tx FQDs in-cache even when empty */
 #undef PPAC_2FWD_TX_FORCESFDR		/* Priority allocation of SFDRs to egress */
 #define PPAC_DEPLETION			/* Trace depletion entry/exit */
@@ -277,7 +278,8 @@ cb_dqrr_rx_hash(struct qman_portal *qm __always_unused,
 
 void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
 		      enum qm_channel channel,
-		      const struct qm_fqd_stashing *stashing);
+		      const struct qm_fqd_stashing *stashing,
+		      int prefer_in_cache);
 
 void cb_ern(struct qman_portal *qm __always_unused,
 	    struct qman_fq *fq,

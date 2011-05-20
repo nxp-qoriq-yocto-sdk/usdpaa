@@ -147,7 +147,8 @@ void ppac_fq_nonpcd_init(struct qman_fq *fq, u32 fqid,
 
 void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
 		      enum qm_channel channel,
-		      const struct qm_fqd_stashing *stashing)
+		      const struct qm_fqd_stashing *stashing,
+		      int prefer_in_cache)
 {
 	struct qm_mcc_initfq opts;
 	int ret;
@@ -166,10 +167,9 @@ void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
 #ifdef PPAC_2FWD_AVOIDBLOCK
 		QM_FQCTRL_AVOIDBLOCK |
 #endif
-#ifdef PPAC_2FWD_RX_PREFERINCACHE
-		QM_FQCTRL_PREFERINCACHE |
-#endif
 		QM_FQCTRL_CTXASTASHING;
+	if (prefer_in_cache)
+		opts.fqd.fq_ctrl |= QM_FQCTRL_PREFERINCACHE;
 #ifdef PPAC_CGR
 	opts.we_mask |= QM_INITFQ_WE_CGID;
 	opts.fqd.cgid = cgr_rx.cgrid;

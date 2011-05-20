@@ -144,6 +144,17 @@ cb_tx_drain(struct qman_portal *qm __always_unused,
 	return qman_cb_dqrr_consume;
 }
 
+#ifdef PPAC_2FWD_RX_1G_PREFERINCACHE
+#define RX_1G_PIC 1
+#else
+#define RX_1G_PIC 0
+#endif
+#ifdef PPAC_2FWD_RX_10G_PREFERINCACHE
+#define RX_10G_PIC 1
+#else
+#define RX_10G_PIC 0
+#endif
+
 /* Initialization code preserved here due to its dependency on ppam_* types.
  * \todo	Move this out of here at some point...
  */
@@ -252,7 +263,9 @@ int ppac_if_init(unsigned idx)
 					loop, &stash_opts);
 		BUG_ON(err);
 		ppac_fq_pcd_init(&i->rx_hash[loop].fq, port->pcd.start + loop,
-				get_rxc(), &stash_opts);
+			get_rxc(), &stash_opts,
+			(fif->mac_type == fman_mac_1g) ? RX_1G_PIC :
+			(fif->mac_type == fman_mac_10g) ? RX_10G_PIC : 0);
 	}
 	ppac_if_enable_rx(i);
 	list_add_tail(&i->node, &ifs);
