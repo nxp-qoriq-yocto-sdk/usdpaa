@@ -1876,7 +1876,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Get the number of cores */
-	if (ncpus < 1 && ncpus > 8) {
+	if (ncpus < 1 || ncpus > 8) {
 		pr_err("Invalid Parameters: Pass valid number of"
 				" cpus (1 to 8)\n");
 		exit(-EINVAL);
