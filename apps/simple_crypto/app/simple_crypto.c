@@ -429,7 +429,7 @@ static void *setup_init_descriptor(bool mode)
 	struct sec_descriptor_t *prehdr_desc;
 	uint32_t *shared_desc = NULL;
 	uint16_t shared_desc_len;
-	int i, ret;
+	int i, ret, length;
 
 	prehdr_desc = dma_mem_memalign(L1_CACHE_BYTES,
 				sizeof(struct sec_descriptor_t));
@@ -478,12 +478,17 @@ static void *setup_init_descriptor(bool mode)
 			return NULL;
 		}
 
+		if (CIPHER == crypto_info.mode)
+			length = ref_test_vector.length;
+		else
+			length = crypto_info.buf_size * BITS_PER_BYTE;
+
 		ret = cnstr_shdsc_snow_f9(shared_desc, &shared_desc_len,
 			ref_test_vector.key, F9_KEY_LEN * BITS_PER_BYTE,
 			DIR_ENCRYPT, ref_test_vector.iv.f9.count,
 			ref_test_vector.iv.f9.fresh,
 			ref_test_vector.iv.f9.direction, 0,
-			ref_test_vector.length);
+			length);
 		break;
 
 	case KASUMI_F8:
@@ -502,12 +507,17 @@ static void *setup_init_descriptor(bool mode)
 			return NULL;
 		}
 
+		if (CIPHER == crypto_info.mode)
+			length = ref_test_vector.length;
+		else
+			length = crypto_info.buf_size * BITS_PER_BYTE;
+
 		ret = cnstr_shdsc_kasumi_f9(shared_desc, &shared_desc_len,
 			ref_test_vector.key, F9_KEY_LEN * BITS_PER_BYTE,
 			DIR_ENCRYPT, ref_test_vector.iv.f9.count,
 			ref_test_vector.iv.f9.fresh,
 			ref_test_vector.iv.f9.direction, 0,
-			ref_test_vector.length);
+			length);
 		break;
 
 	case CRC:
