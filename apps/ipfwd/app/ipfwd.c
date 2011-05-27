@@ -732,8 +732,6 @@ static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_if *_if,
 	p->protos = &stack.protos;
 	p->rc = &stack.rc;
 
-	p->tx_fqid = _if->tx_fqids[idx % _if->num_tx_fqids];
-
 	/* Override defaults, enable 1 CL of annotation stashing */
 	stash_opts->annotation_cl = (sizeof(struct annotations_t) + L1_CACHE_BYTES - 1) /
 		L1_CACHE_BYTES;
@@ -762,6 +760,7 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 		return;
 	}
 	notes->fd = &dqrr->fd;
+	notes->fqid = dqrr->fqid;
 
 	ip_handler(p, notes, data);
 }

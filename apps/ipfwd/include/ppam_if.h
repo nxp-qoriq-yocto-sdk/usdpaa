@@ -75,8 +75,6 @@ struct ppam_rx_hash
 	struct ip_hooks_t *hooks;
 	struct ip_protos_t *protos;
 	struct rc_t *rc;
-
-	uint32_t tx_fqid;
 };
 
 #endif	/* __PPAM_IF_H */

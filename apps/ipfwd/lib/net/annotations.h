@@ -25,8 +25,8 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef LIB_COMMON_ANNOTATIONS_H
-#define LIB_COMMON_ANNOTATIONS_H
+#ifndef __ANNOTATIONS_H
+#define __ANNOTATIONS_H
 
 #include <usdpaa/compat.h>
 #include <usdpaa/fsl_qman.h>
@@ -43,10 +43,11 @@ struct annotations_t {
 	/**< Pointer to frame descriptor*/
 	struct rt_dest_t *dest;
 	/**< Pointer to the info related to Next Hop*/
-	uint8_t reserved1[8];
+	uint32_t fqid;
+	uint8_t reserved1[4];
 	struct output_parse_result_t parse;	/**< Pointer to Parsed result*/
 	uint64_t timestamp;			/**< TimeStamp */
 	uint64_t hash_result;			/**< Hash Result */
 } __PACKED;
 
-#endif	/* LIB_COMMON_ANNOTATIONS_H */
+#endif	/* __ANNOTATIONS_H */

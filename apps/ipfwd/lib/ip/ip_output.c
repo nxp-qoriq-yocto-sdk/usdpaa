@@ -105,6 +105,7 @@ enum IP_STATUS ip_output_finish(const struct ppam_rx_hash *ctxt,
 {
 	struct ll_cache_t *ll_cache;
 	struct neigh_t *neighbor;
+	const struct ppam_if *p;
 	enum IP_STATUS retval;
 	struct ether_header *ll_hdr;
 #ifdef NOT_USDPAA
@@ -158,14 +159,15 @@ enum IP_STATUS ip_output_finish(const struct ppam_rx_hash *ctxt,
 		neighbor->retransmit_count = 0;
 	} else {
 		ll_hdr = (void *)ip_hdr - ll_cache->ll_hdr_len;
-		neighbor->dev->module_if.output_header(ll_hdr, ll_cache);
+		p = &neighbor->dev->module_if;
+		p->output_header(ll_hdr, ll_cache);
 #ifdef IPSECFWD_HYBRID_GENERATOR
 		eth_header_swap(ll_hdr);
 		temp = ip_hdr->src_addr;
 		ip_hdr->src_addr = ip_hdr->dst_addr;
 		ip_hdr->dst_addr = temp;
 #endif
-		ppac_send_frame(ctxt->tx_fqid, notes->fd);
+		ppac_send_frame(p->tx_fqids[notes->fqid % p->num_tx_fqids], notes->fd);
 	}
 
 	return retval;
