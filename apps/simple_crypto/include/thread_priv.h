@@ -70,8 +70,12 @@ static inline int start_threads(struct thread_data *ctxs, int num_ctxs,
 			int first_cpu, int (*fn)(thread_data_t *))
 {
 	int loop;
+	long num_online_cpus;
+
+	num_online_cpus = sysconf(_SC_NPROCESSORS_ONLN);
+
 	for (loop = 0; loop < num_ctxs; loop++) {
-		ctxs[loop].cpu = (first_cpu + loop) % MAX_THREADS;
+		ctxs[loop].cpu = (first_cpu + loop) % num_online_cpus;
 		ctxs[loop].index = loop;
 		ctxs[loop].fn = fn;
 		ctxs[loop].total_cpus = num_ctxs;

@@ -102,8 +102,6 @@ static bool ctrl_error;
 
 /* Number of active cpus */
 long ncpus;
-/* Number of isolcpus */
-long num_isolcpus;
 __PERCPU uint32_t cpu_ind;
 
 /* Counters to accumulate time taken for packet processing */
@@ -1686,7 +1684,7 @@ static int worker_fn(thread_data_t *tdata)
 
 	pr_debug("\nThis is the thread on cpu %d\n", tdata->cpu);
 
-	cpu_ind = (tdata->cpu + num_isolcpus - 1) % num_isolcpus;
+	cpu_ind = tdata->cpu;
 
 	if (unlikely(init_sec_fq() != 0)) {
 		pr_err("%s: init_sec_fq() failure\n", __func__);
@@ -1858,8 +1856,9 @@ static struct argp argp = { options, parse_opt, NULL, NULL, NULL, NULL, NULL };
  */
 int main(int argc, char *argv[])
 {
-	thread_data_t thread_data[MAX_THREADS];
-	struct crypto_msg appdata[MAX_THREADS];
+	long num_online_cpus = sysconf(_SC_NPROCESSORS_ONLN);
+	thread_data_t thread_data[num_online_cpus];
+	struct crypto_msg appdata[num_online_cpus];
 	int loop, err;
 	uint16_t enc_cycles_per_frame = 0;
 	uint16_t dec_cycles_per_frame = 0;
@@ -1875,7 +1874,7 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	num_isolcpus = ncpus = sysconf(_SC_NPROCESSORS_ONLN);
+	ncpus = num_online_cpus;
 
 	/* Where the magic happens */
 	argp_parse(&argp, argc, argv, 0, 0, &crypto_info);
@@ -1886,17 +1885,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Get the number of cores */
-	if (ncpus < 1 || ncpus > 8) {
-		pr_err("Invalid Parameters: Pass valid number of"
-				" cpus (1 to 8)\n");
-		exit(-EINVAL);
-	}
-
-	/*
-	 * If number of active cpu's are less than required by user
-	 * (with -c parameter)
-	 */
-	if (ncpus > sysconf(_SC_NPROCESSORS_ONLN)) {
+	if (ncpus < 1 || ncpus > num_online_cpus) {
 		pr_err("Invalid Parameters: Number of cpu's given in"
 				" argument is more than the active cpu's\n");
 		exit(-EINVAL);
@@ -1988,7 +1977,7 @@ int main(int argc, char *argv[])
 
 	/* Starting threads on all active cpus */
 	if (unlikely(start_threads(thread_data, ncpus,
-					1, worker_fn))) {
+					0, worker_fn))) {
 		pr_err("start_threads failiure");
 		exit(EXIT_FAILURE);
 	}
