@@ -8,13 +8,13 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
+ *	 notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
+ *	 notice, this list of conditions and the following disclaimer in the
+ *	 documentation and/or other materials provided with the distribution.
  *     * Neither the name of Freescale Semiconductor nor the
- *       names of its contributors may be used to endorse or promote products
- *       derived from this software without specific prior written permission.
+ *	 names of its contributors may be used to endorse or promote products
+ *	 derived from this software without specific prior written permission.
  *
  *
  * ALTERNATIVELY, this software may be distributed under the terms of the
@@ -38,7 +38,7 @@
 #include <fsl_sec/dcl.h>
 #include <internal/compat.h>
 
-#define SPR_PVR          287  /* Processor Version Register */
+#define SPR_PVR		 287  /* Processor Version Register */
 
 /**
  * Construct IPSec ESP encapsulation protocol-level sharedesc
@@ -50,10 +50,10 @@
  * @bufsize - pointer to size to be written back upon completion
  *
  * @pdb - pointer to the PDB to be used with this descriptor. This
- *       structure will be copied inline to the descriptor under
- *       construction. No error checking will be made. Refer to the
- *       block guide for a detailed discussion of the decapsulation
- *       PDB, and it's unioned sub structure that is cipher-dependent
+ *	 structure will be copied inline to the descriptor under
+ *	 construction. No error checking will be made. Refer to the
+ *	 block guide for a detailed discussion of the decapsulation
+ *	 PDB, and it's unioned sub structure that is cipher-dependent
  *
  * @opthdr - Optional header to be prepended to an encapsulated frame.
  *	   Size of the optional header is defined in pdb.opt_hdr_len
@@ -142,10 +142,10 @@ EXPORT_SYMBOL(cnstr_shdsc_ipsec_encap);
  * @bufsize - pointer to size to be written back upon completion
  *
  * @pdb - pointer to the PDB to be used with this descriptor. This
- *       structure will be copied inline to the descriptor under
- *       construction. No error checking will be made. Refer to the
- *       block guide for a detailed discussion of the decapsulation
- *       PDB, and it's unioned sub structure that is cipher-dependent
+ *	 structure will be copied inline to the descriptor under
+ *	 construction. No error checking will be made. Refer to the
+ *	 block guide for a detailed discussion of the decapsulation
+ *	 PDB, and it's unioned sub structure that is cipher-dependent
  *
  * @cipherdata - Pointer to blockcipher transform definitions.
  *
@@ -493,8 +493,8 @@ int32_t cnstr_shdsc_snow_f8(uint32_t *descbuf, uint16_t *bufsize,
 	uint16_t startidx, endidx;
 	uint32_t mval;
 
-	uint64_t COUNT       = count;
-	uint64_t BEARER      = bearer;
+	uint64_t COUNT	     = count;
+	uint64_t BEARER	     = bearer;
 	uint64_t DIRECTION   = direction;
 
 	uint64_t context = (COUNT << 32) | (BEARER << 27) | (DIRECTION << 26);
@@ -582,27 +582,11 @@ int32_t cnstr_shdsc_snow_f9(uint32_t *descbuf, uint16_t *bufsize,
 
 	uint64_t context[2];
 
-	enum item_purpose purpose = ITEM_CLASS2;
-	uint32_t class_access = LDST_CLASS_2_CCB;
-	uint32_t optype = OP_TYPE_CLASS2_ALG;
 	uint32_t op_alg_alg_sel_snow = 0xA0 << OP_ALG_ALGSEL_SHIFT;
-	uint32_t offset = 0;
-	/* 24:27 -> Major Revision */
-	uint32_t major_rev = (mfspr(SPR_PVR) >> 4) & 0xf;
-
 
 	context[0] = (ct << 32) | (dr << 26);
 	context[1] = fr << 32;
 
-	/* Check if Si is rev1 */
-	if (major_rev == 1) {
-		purpose = ITEM_CLASS1;
-		class_access = LDST_CLASS_1_CCB;
-		optype = OP_TYPE_CLASS1_ALG;
-		context[1] = fr;
-		op_alg_alg_sel_snow = 0x60 << OP_ALG_ALGSEL_SHIFT;
-		offset = 4;
-	}
 	start = descbuf++; /* header skip */
 
 	if (!descbuf)
@@ -616,7 +600,7 @@ int32_t cnstr_shdsc_snow_f9(uint32_t *descbuf, uint16_t *bufsize,
 
 	descbuf = cmd_insert_key(descbuf, key, keylen, PTR_DIRECT,
 				 KEYDST_KEYREG, KEY_CLEAR, ITEM_INLINE,
-				 purpose);
+				 ITEM_CLASS2);
 
 	/* compute sequences */
 	mval = 0;
@@ -624,22 +608,22 @@ int32_t cnstr_shdsc_snow_f9(uint32_t *descbuf, uint16_t *bufsize,
 				  MATH_SRC1_REG2, MATH_DEST_VARSEQINLEN,
 				  4, 0, 0, 0, &mval);
 
-	descbuf = cmd_insert_alg_op(descbuf, optype,
+	descbuf = cmd_insert_alg_op(descbuf, OP_TYPE_CLASS2_ALG,
 				    op_alg_alg_sel_snow, OP_ALG_AAI_F9,
 				    MDSTATE_COMPLETE, ICV_CHECK_OFF, dir);
 
-	descbuf = cmd_insert_load(descbuf, &context, class_access,
+	descbuf = cmd_insert_load(descbuf, &context, LDST_CLASS_2_CCB,
 				  0, LDST_SRCDST_BYTE_CONTEXT, 0, 16,
 				  ITEM_INLINE);
 
-	descbuf = cmd_insert_seq_fifo_load(descbuf, class_access,
+	descbuf = cmd_insert_seq_fifo_load(descbuf, LDST_CLASS_2_CCB,
 					   0,
 					   (FIFOLD_TYPE_BITDATA |
 					   FIFOLD_TYPE_LASTBOTH), datalen);
 
 	/* Save lower half of MAC out into a 32-bit sequence */
-	descbuf = cmd_insert_seq_store(descbuf, class_access, 0,
-				       LDST_SRCDST_BYTE_CONTEXT, offset, 4);
+	descbuf = cmd_insert_seq_store(descbuf, LDST_CLASS_2_CCB, 0,
+				       LDST_SRCDST_BYTE_CONTEXT, 0, 4);
 
 	endidx = descbuf - start;
 
@@ -655,11 +639,11 @@ EXPORT_SYMBOL(cnstr_shdsc_snow_f9);
  * CBC blockcipher
  * @descbuf - descriptor buffer
  * @bufsize - limit/returned descriptor buffer size
- * @key     - key data to inline
+ * @key	    - key data to inline
  * @keylen  - key length
- * @iv      - iv data
+ * @iv	    - iv data
  * @ivsize  - iv length
- * @dir     - DIR_ENCRYPT/DIR_DECRYPT
+ * @dir	    - DIR_ENCRYPT/DIR_DECRYPT
  * @cipher  - OP_ALG_ALGSEL_AES/DES/3DES
  * @clear   - clear buffer before writing
  **/
@@ -732,9 +716,9 @@ EXPORT_SYMBOL(cnstr_shdsc_cbc_blkcipher);
  * HMAC shared
  * @descbuf - descriptor buffer
  * @bufsize - limit/returned descriptor buffer size
- * @key     - key data to inline (length based on cipher)
+ * @key	    - key data to inline (length based on cipher)
  * @cipher  - OP_ALG_ALGSEL_MD5/SHA1-512
- * @icv     - HMAC comparison for ICV, NULL if no check desired
+ * @icv	    - HMAC comparison for ICV, NULL if no check desired
  * @clear   - clear buffer before writing
  **/
 int32_t cnstr_shdsc_hmac(uint32_t *descbuf, uint16_t *bufsize,
