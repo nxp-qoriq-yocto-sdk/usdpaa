@@ -35,23 +35,30 @@
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
 
 static LIST_HEAD(irqs);
+static pthread_mutex_t irqs_lock = PTHREAD_MUTEX_INITIALIZER;
 
 int qbman_request_irq(int irq, irqreturn_t (*isr)(int irq, void *arg),
 			unsigned long flags, const char *name, void *arg)
 {
 	struct qbman_uio_irq *it, *newirq;
+	int ret = 0;
+
+	pthread_mutex_lock(&irqs_lock);
 	list_for_each_entry(it, &irqs, node) {
 		if (it->irq == irq) {
 			pr_err("%s: irq %d, conflict '%s' and '%s'\n", __func__,
 				irq, it->name, name);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto end;
 		}
 		if (it->irq > irq)
 			break;
 	}
 	newirq = malloc(sizeof(*newirq));
-	if (!newirq)
-		return -ENOMEM;
+	if (!newirq) {
+		ret = -ENOMEM;
+		goto end;
+	}
 	newirq->irq = irq;
 	newirq->isr = isr;
 	newirq->flags = flags;
@@ -60,12 +67,16 @@ int qbman_request_irq(int irq, irqreturn_t (*isr)(int irq, void *arg),
 	/* Append to the tail. NB this works if the for() loop found no
 	 * insertion point, because in that case it->node==&irqs. */
 	list_add_tail(&newirq->node, &it->node);
-	return 0;
+end:
+	pthread_mutex_unlock(&irqs_lock);
+	return ret;
 }
 
+/* Internal, assumes the lock is held */
 static struct qbman_uio_irq *find_irq(int irq)
 {
 	struct qbman_uio_irq *it;
+
 	list_for_each_entry(it, &irqs, node) {
 		if (it->irq == irq)
 			return it;
@@ -75,23 +86,35 @@ static struct qbman_uio_irq *find_irq(int irq)
 
 int qbman_free_irq(int irq, void *arg)
 {
-	struct qbman_uio_irq *it = find_irq(irq);
+	struct qbman_uio_irq *it;
+	int ret = -EINVAL;
+
+	pthread_mutex_lock(&irqs_lock);
+	it = find_irq(irq);
 	if (!it) {
 		pr_err("%s: no irq %d\n", __func__, irq);
-		return -EINVAL;
+		goto end;
 	}
 	if (it->arg != arg) {
 		pr_err("%s: irq %d:%s arg mismatch\n", __func__, irq, it->name);
-		return -EINVAL;
+		goto end;
 	}
 	list_del(&it->node);
 	free(it);
-	return 0;
+	ret = 0;
+end:
+	pthread_mutex_unlock(&irqs_lock);
+	return ret;
 }
 
 const struct qbman_uio_irq *qbman_get_irq_handler(int irq)
 {
-	return find_irq(irq);
+	const struct qbman_uio_irq *it;
+
+	pthread_mutex_lock(&irqs_lock);
+	it = find_irq(irq);
+	pthread_mutex_unlock(&irqs_lock);
+	return it;
 }
 
 #endif
