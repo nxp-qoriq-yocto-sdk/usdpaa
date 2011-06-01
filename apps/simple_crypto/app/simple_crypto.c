@@ -1737,7 +1737,7 @@ static int worker_fn(thread_data_t *tdata)
 
 		if (!tdata->index) {
 			pr_debug("Encrypt mode: Total packet returned from "
-				 "SEC = %d\n", atomic_read(&enc_packet_from_sec));
+				 "SEC = %d\n", enc_pkts_from_sec);
 
 			/* accumulated time difference */
 			enc_delta += (mfatb() - atb_start_enc);
@@ -1797,7 +1797,7 @@ error2:
 
 		if (!tdata->index) {
 			pr_debug("Decrypt mode: Total packet returned from "
-				 "SEC = %d\n", atomic_read(&dec_packet_from_sec));
+				 "SEC = %d\n", dec_pkts_from_sec);
 
 			/* accumulated time difference */
 			dec_delta += (mfatb() - atb_start_dec);
