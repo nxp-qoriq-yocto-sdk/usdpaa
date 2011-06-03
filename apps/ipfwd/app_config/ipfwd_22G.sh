@@ -52,8 +52,8 @@ net_pair_routes()
 }
 
 case $(basename $0 .sh) in
-	ipfwd_22G)				# 1008
-		net_pair_routes 130 140	 6  7	# 2 *  6 *  7 =	 84
+	ipfwd_22G)				# 1022
+		net_pair_routes 130 140	 7  7	# 2 *  7 *  7 =	 98
 		net_pair_routes	 60 160 21 22	# 2 * 21 * 22 = 924
 		;;
 	ipfwd_20G)				# 1012
