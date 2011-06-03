@@ -32,13 +32,16 @@ ipfwd_config -G -s 192.168.130.2 -m 02:00:c0:a8:82:02 -r true
 ipfwd_config -G -s 192.168.140.2 -m 02:00:c0:a8:8c:02 -r true
 ipfwd_config -G -s 192.168.160.2 -m 02:00:c0:a8:a0:02 -r true
 
+# $1, $2	- Subnets as in 192.168.$1.* and 192.168.$2.*
+# $3		- Number of sources
+# $4		- Number of destinations
 net_pair_routes()
 {
 	for net in $1 $2
 	do
-		for src in $(seq 2 $(expr $3 - 1))
+		for src in $(seq 2 $(expr $3 + 1))
 		do
-			for dst in $(seq 2 $3)
+			for dst in $(seq 2 $(expr $4 + 1))
 			do
 				ipfwd_config -B -s 192.168.$net.$src			\
 						-d 192.168.$(expr $1 + $2 - $net).$dst	\
@@ -50,11 +53,11 @@ net_pair_routes()
 
 case $(basename $0 .sh) in
 	ipfwd_22G)				# 1008
-		net_pair_routes 130 140 8	# 2 *  6 *  7 =	 84
-		net_pair_routes 60 160 23	# 2 * 21 * 22 = 924
+		net_pair_routes 130 140	 6  7	# 2 *  6 *  7 =	 84
+		net_pair_routes	 60 160 21 22	# 2 * 21 * 22 = 924
 		;;
 	ipfwd_20G)				# 1012
-		net_pair_routes 60 160 24	# 2 * 22 * 23 = 1012
+		net_pair_routes 60 160 22 23	# 2 * 22 * 23 = 1012
 		;;
 esac
 ipfwd_config -O
