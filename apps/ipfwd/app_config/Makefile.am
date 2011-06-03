@@ -30,7 +30,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 bin_PROGRAMS = ipfwd_config
-dist_DATA = ipfwd_22G.sh ipfwd_20G.sh
+dist_DATA = ipfwd_22G.sh ipfwd_20G.sh ipfwd_15G.sh
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/ipfwd/lib -I$(TOP_LEVEL)/apps/ipfwd/include
 
@@ -41,3 +41,5 @@ ipfwd_22G.sh_install = $(INSTALL_BIN)
 ipfwd_22G.sh_install_flags = $(INSTALL_BIN_FLAGS)
 ipfwd_20G.sh_install = $(INSTALL_BIN)
 ipfwd_20G.sh_install_flags = $(INSTALL_BIN_FLAGS)
+ipfwd_15G.sh_install = $(INSTALL_BIN)
+ipfwd_15G.sh_install_flags = $(INSTALL_BIN_FLAGS)
