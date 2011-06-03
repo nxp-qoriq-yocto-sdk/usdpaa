@@ -1234,7 +1234,7 @@ static void do_enqueues(enum SEC_MODE mode)
 		if (i >= pkts_to_sec)
 			return;
 
-		fd_ind = i*ncpus + cpu_ind;
+		fd_ind = (i*ncpus + cpu_ind) % crypto_info.buf_num;
 
 		if (ENCRYPT == mode)
 			fq_to_sec = enc_fq_to_sec[i % FQ_PER_CORE];
@@ -1977,7 +1977,7 @@ int main(int argc, char *argv[])
 
 	/* Starting threads on all active cpus */
 	if (unlikely(start_threads(thread_data, ncpus,
-					0, worker_fn))) {
+				   1, worker_fn))) {
 		pr_err("start_threads failiure");
 		exit(EXIT_FAILURE);
 	}
