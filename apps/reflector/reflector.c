@@ -65,112 +65,6 @@
 /* Override the default command prompt */
 const char ppam_prompt[] = "reflector> ";
 
-/* There is no configuration that specifies how many Tx FQs to use
- * per-interface, it's an internal choice for ppac.c and may depend on
- * optimisations, link-speeds, command-line options, etc. Also the Tx FQIDs are
- * dynamically allocated, so they're not known until ppac.c has already
- * initialised them. So firstly, the # of Tx FQs is passed in as a parameter
- * here because there's no other place where it could be meaningfully captured.
- * (NB, an interesting alternative would be to have this hook *choose* how many
- * Tx FQs to use!) Secondly, the Tx FQIDs are "notified" to us post-allocation
- * but prior to Rx initialisation. */
-static int ppam_if_init(struct ppam_if *p,
-			const struct fm_eth_port_cfg *cfg,
-			unsigned int num_tx_fqs)
-{
-	p->num_tx_fqids = num_tx_fqs;
-	p->tx_fqids = malloc(p->num_tx_fqids * sizeof(*p->tx_fqids));
-	if (!p->tx_fqids)
-		return -ENOMEM;
-	return 0;
-}
-static void ppam_if_finish(struct ppam_if *p)
-{
-	free(p->tx_fqids);
-}
-static void ppam_if_tx_fqid(struct ppam_if *p, unsigned idx, uint32_t fqid)
-{
-	p->tx_fqids[idx] = fqid;
-}
-
-static int ppam_rx_error_init(struct ppam_rx_error *p, struct ppam_if *_if,
-			      struct qm_fqd_stashing *stash_opts)
-{
-	return 0;
-}
-static void ppam_rx_error_finish(struct ppam_rx_error *p, struct ppam_if *_if)
-{
-}
-static inline void ppam_rx_error_cb(struct ppam_rx_error *p,
-				    struct ppam_if *_if,
-				    const struct qm_dqrr_entry *dqrr)
-{
-	const struct qm_fd *fd = &dqrr->fd;
-	ppac_drop_frame(fd);
-}
-
-static int ppam_rx_default_init(struct ppam_rx_default *p, struct ppam_if *_if,
-				struct qm_fqd_stashing *stash_opts)
-{
-	return 0;
-}
-static void ppam_rx_default_finish(struct ppam_rx_default *p, struct ppam_if *_if)
-{
-}
-static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
-				      struct ppam_if *_if,
-				      const struct qm_dqrr_entry *dqrr)
-{
-	const struct qm_fd *fd = &dqrr->fd;
-	ppac_drop_frame(fd);
-}
-
-static int ppam_tx_error_init(struct ppam_tx_error *p,	struct ppam_if *_if,
-			      struct qm_fqd_stashing *stash_opts)
-{
-	return 0;
-}
-static void ppam_tx_error_finish(struct ppam_tx_error *p, struct ppam_if *_if)
-{
-}
-static inline void ppam_tx_error_cb(struct ppam_tx_error *p,
-				    struct ppam_if *_if,
-				    const struct qm_dqrr_entry *dqrr)
-{
-	const struct qm_fd *fd = &dqrr->fd;
-	ppac_drop_frame(fd);
-}
-
-static int ppam_tx_confirm_init(struct ppam_tx_confirm *p, struct ppam_if *_if,
-				struct qm_fqd_stashing *stash_opts)
-{
-	return 0;
-}
-static void ppam_tx_confirm_finish(struct ppam_tx_confirm *p, struct ppam_if *_if)
-{
-}
-static inline void ppam_tx_confirm_cb(struct ppam_tx_confirm *p,
-				      struct ppam_if *_if,
-				      const struct qm_dqrr_entry *dqrr)
-{
-	const struct qm_fd *fd = &dqrr->fd;
-	ppac_drop_frame(fd);
-}
-
-static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_if *_if,
-			     unsigned idx, struct qm_fqd_stashing *stash_opts)
-{
-	p->tx_fqid = _if->tx_fqids[idx % _if->num_tx_fqids];
-	TRACE("Mapping Rx FQ %p:%d --> Tx FQID %d\n", p, idx, p->tx_fqid);
-	return 0;
-}
-
-static void ppam_rx_hash_finish(struct ppam_rx_hash *p,
-			 struct ppam_if *_if,
-			 unsigned idx)
-{
-}
-
 /* Swap 6-byte MAC headers "efficiently" (hopefully) */
 static inline void ether_header_swap(struct ether_header *prot_eth)
 {
@@ -184,8 +78,10 @@ static inline void ether_header_swap(struct ether_header *prot_eth)
 	overlay[2] = (a << 16) | (b >> 16);
 }
 
-static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
-				   const struct qm_dqrr_entry *dqrr)
+/* This is the basic "reflect" logic. It either drops the packet or forwards it
+ * to 'tx_fqid'. It is used by the rx_hash DQRR callback, but may be called from
+ * the default FQ callback too if that option is being compiled in. */
+static inline void reflect_cb(u32 tx_fqid, const struct qm_dqrr_entry *dqrr)
 {
 	void *addr;
 	struct ether_header *prot_eth;
@@ -240,7 +136,7 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 		TRACE("Tx: 2fwd	 fqid=%d\n", p->tx_fqid);
 		TRACE("	     phys=0x%"PRIx64", offset=%d, len=%d, bpid=%d\n",
 			qm_fd_addr(fd), fd->offset, fd->length20, fd->bpid);
-		ppac_send_frame(p->tx_fqid, fd);
+		ppac_send_frame(tx_fqid, fd);
 		}
 		return;
 	case ETHERTYPE_ARP:
@@ -261,6 +157,125 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 		TRACE("		  -> dropping unknown packet\n");
 	}
 	ppac_drop_frame(fd);
+}
+/* There is no configuration that specifies how many Tx FQs to use
+ * per-interface, it's an internal choice for ppac.c and may depend on
+ * optimisations, link-speeds, command-line options, etc. Also the Tx FQIDs are
+ * dynamically allocated, so they're not known until ppac.c has already
+ * initialised them. So firstly, the # of Tx FQs is passed in as a parameter
+ * here because there's no other place where it could be meaningfully captured.
+ * (NB, an interesting alternative would be to have this hook *choose* how many
+ * Tx FQs to use!) Secondly, the Tx FQIDs are "notified" to us post-allocation
+ * but prior to Rx initialisation. */
+static int ppam_if_init(struct ppam_if *p,
+			const struct fm_eth_port_cfg *cfg,
+			unsigned int num_tx_fqs)
+{
+	p->num_tx_fqids = num_tx_fqs;
+	p->tx_fqids = malloc(p->num_tx_fqids * sizeof(*p->tx_fqids));
+	if (!p->tx_fqids)
+		return -ENOMEM;
+	return 0;
+}
+static void ppam_if_finish(struct ppam_if *p)
+{
+	free(p->tx_fqids);
+}
+static void ppam_if_tx_fqid(struct ppam_if *p, unsigned idx, uint32_t fqid)
+{
+	p->tx_fqids[idx] = fqid;
+}
+
+static int ppam_rx_error_init(struct ppam_rx_error *p, struct ppam_if *_if,
+			      struct qm_fqd_stashing *stash_opts)
+{
+	return 0;
+}
+static void ppam_rx_error_finish(struct ppam_rx_error *p, struct ppam_if *_if)
+{
+}
+static inline void ppam_rx_error_cb(struct ppam_rx_error *p,
+				    struct ppam_if *_if,
+				    const struct qm_dqrr_entry *dqrr)
+{
+	const struct qm_fd *fd = &dqrr->fd;
+	ppac_drop_frame(fd);
+}
+
+static int ppam_rx_default_init(struct ppam_rx_default *p, struct ppam_if *_if,
+				struct qm_fqd_stashing *stash_opts)
+{
+#ifdef REFLECTOR_FORWARD_DEFAULT_FQ
+	p->tx_fqid = _if->tx_fqids[0];
+	TRACE("Mapping default Rx FQ --> Tx FQID %d\n", p->tx_fqid);
+#endif
+	return 0;
+}
+static void ppam_rx_default_finish(struct ppam_rx_default *p, struct ppam_if *_if)
+{
+}
+static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
+				      struct ppam_if *_if,
+				      const struct qm_dqrr_entry *dqrr)
+{
+#ifdef REFLECTOR_FORWARD_DEFAULT_FQ
+	reflect_cb(p->tx_fqid, dqrr);
+#else
+	const struct qm_fd *fd = &dqrr->fd;
+	ppac_drop_frame(fd);
+#endif
+}
+
+static int ppam_tx_error_init(struct ppam_tx_error *p,	struct ppam_if *_if,
+			      struct qm_fqd_stashing *stash_opts)
+{
+	return 0;
+}
+static void ppam_tx_error_finish(struct ppam_tx_error *p, struct ppam_if *_if)
+{
+}
+static inline void ppam_tx_error_cb(struct ppam_tx_error *p,
+				    struct ppam_if *_if,
+				    const struct qm_dqrr_entry *dqrr)
+{
+	const struct qm_fd *fd = &dqrr->fd;
+	ppac_drop_frame(fd);
+}
+
+static int ppam_tx_confirm_init(struct ppam_tx_confirm *p, struct ppam_if *_if,
+				struct qm_fqd_stashing *stash_opts)
+{
+	return 0;
+}
+static void ppam_tx_confirm_finish(struct ppam_tx_confirm *p, struct ppam_if *_if)
+{
+}
+static inline void ppam_tx_confirm_cb(struct ppam_tx_confirm *p,
+				      struct ppam_if *_if,
+				      const struct qm_dqrr_entry *dqrr)
+{
+	const struct qm_fd *fd = &dqrr->fd;
+	ppac_drop_frame(fd);
+}
+
+static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_if *_if,
+			     unsigned idx, struct qm_fqd_stashing *stash_opts)
+{
+	p->tx_fqid = _if->tx_fqids[idx % _if->num_tx_fqids];
+	TRACE("Mapping Rx FQ %p:%d --> Tx FQID %d\n", p, idx, p->tx_fqid);
+	return 0;
+}
+
+static void ppam_rx_hash_finish(struct ppam_rx_hash *p,
+			 struct ppam_if *_if,
+			 unsigned idx)
+{
+}
+
+static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
+				   const struct qm_dqrr_entry *dqrr)
+{
+	reflect_cb(p->tx_fqid, dqrr);
 }
 
 #include <ppac.c>

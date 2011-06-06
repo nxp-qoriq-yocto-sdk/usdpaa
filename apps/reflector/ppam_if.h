@@ -35,6 +35,8 @@
 
 #include <stdint.h>
 
+#define REFLECTOR_FORWARD_DEFAULT_FQ	/* Otherwise drops from default FQ */
+
 /* structs required by ppac.c */
 struct ppam_if {
 	/* We simply capture Tx FQIDs as they initialise, in order to use them
@@ -47,7 +49,14 @@ struct ppam_if {
 	uint32_t *tx_fqids;
 };
 struct ppam_rx_error { };
+#ifdef REFLECTOR_FORWARD_DEFAULT_FQ
+struct ppam_rx_default {
+	/* See note below for "struct ppam_rx_hash" */
+	uint32_t tx_fqid;
+};
+#else
 struct ppam_rx_default { };
+#endif
 struct ppam_tx_error { };
 struct ppam_tx_confirm { };
 struct ppam_rx_hash {
