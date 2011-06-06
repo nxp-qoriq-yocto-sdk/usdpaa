@@ -93,7 +93,6 @@ static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 {
 	const struct device_node *dt_node;
 	struct bm_portal_config *pcfg;
-	u32 irq_sources = 0;
 	int ret = 0;
 	char name[20]; /* Big enough for "/dev/bman-uio-xx" */
 
@@ -160,10 +159,7 @@ static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 	if (pcfg->public_cfg.cpu == -1)
 		goto end;
 
-#ifdef CONFIG_FSL_DPA_HAVE_IRQ
-	irq_sources = BM_PIRQ_RCRI | BM_PIRQ_BSCN;
-#endif
-	ret = bman_create_affine_portal(pcfg, irq_sources, recovery_mode);
+	ret = bman_create_affine_portal(pcfg, 0, recovery_mode);
 	if (ret) {
 		pr_err("Bman portal initialisation failed (%d), ret=%d\n",
 			pcfg->public_cfg.cpu, ret);

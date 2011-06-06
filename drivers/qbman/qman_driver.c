@@ -94,7 +94,6 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 	struct qm_portal_config *pcfg;
 	size_t lenp;
 	u32 flags = 0;
-	u32 irq_sources = 0;
 	int ret = 0;
 	char name[20]; /* Big enough for "/dev/qman-uio-xx" */
 
@@ -193,19 +192,13 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 
 	if (pcfg->has_hv_dma)
 		flags = QMAN_PORTAL_FLAG_RSTASH | QMAN_PORTAL_FLAG_DSTASH;
-#ifdef CONFIG_FSL_DPA_PIRQ_SLOW
-	irq_sources = QM_PIRQ_EQCI | QM_PIRQ_EQRI | QM_PIRQ_MRI | QM_PIRQ_CSCI;
-#endif
-#ifdef CONFIG_FSL_QMAN_PIRQ_FAST
-	irq_sources |= QM_PIRQ_DQRI;
-#endif
 	ret = qman_create_affine_portal(pcfg, flags, NULL,
 #ifdef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
 			 	&null_cb,
 #else
 				NULL,
 #endif
-				irq_sources, recovery_mode);
+				0, recovery_mode);
 	if (ret) {
 		pr_err("Qman portal initialisation failed (%d), ret=%d\n",
 			pcfg->public_cfg.cpu, ret);
