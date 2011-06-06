@@ -496,6 +496,7 @@ static inline int check_msg(struct worker *worker)
 #define WORKER_SLOWPOLL_IDLE 400
 #define WORKER_FASTPOLL_DQRR 16
 #define WORKER_FASTPOLL_DOIRQ 2000
+#ifdef PPAC_IDLE_IRQ
 static void drain_4_bytes(int fd, fd_set *fdset)
 {
 	if (FD_ISSET(fd, fdset)) {
@@ -505,12 +506,16 @@ static void drain_4_bytes(int fd, fd_set *fdset)
 			perror("UIO irq read error");
 	}
 }
+#endif
 static void *worker_fn(void *__worker)
 {
 	struct worker *worker = __worker;
 	cpu_set_t cpuset;
 	int s, fd_qman, fd_bman, nfds;
-	int calm_down = 16, irq_mode = 0, slowpoll = 0, fastpoll = 0;
+	int calm_down = 16, slowpoll = 0;
+#ifdef PPAC_IDLE_IRQ
+	int irq_mode = 0, fastpoll = 0;
+#endif
 
 	TRACE("This is the thread on cpu %d\n", worker->cpu);
 
@@ -559,6 +564,7 @@ static void *worker_fn(void *__worker)
 	/* Run! */
 	TRACE("Starting poll loop on cpu %d\n", worker->cpu);
 	while (check_msg(worker)) {
+#ifdef PPAC_IDLE_IRQ
 		/* IRQ mode */
 		if (irq_mode) {
 			/* Go into (and back out of) IRQ mode for each select,
@@ -589,7 +595,7 @@ static void *worker_fn(void *__worker)
 			qman_poll_slow();
 			if (s < 0) {
 				perror("QBMAN select error");
-				goto end;
+				break;
 			}
 			if (!s)
 				/* timeout, stay in IRQ mode */
@@ -601,23 +607,29 @@ static void *worker_fn(void *__worker)
 			fastpoll = 0;
 			slowpoll = 0;
 		}
+#endif
 		/* non-IRQ mode */
 		if (!(slowpoll--)) {
 			if (qman_poll_slow() || bman_poll_slow()) {
 				slowpoll = WORKER_SLOWPOLL_BUSY;
+#ifdef PPAC_IDLE_IRQ
 				fastpoll = 0;
+#endif
 			} else
 				slowpoll = WORKER_SLOWPOLL_IDLE;
 		}
+#ifdef PPAC_IDLE_IRQ
 		if (qman_poll_dqrr(WORKER_FASTPOLL_DQRR))
 			fastpoll = 0;
 		else
 			/* No fast-path work, do we transition to IRQ mode? */
 			if (++fastpoll > WORKER_FASTPOLL_DOIRQ)
 				irq_mode = 1;
+#else
+		qman_poll_dqrr(WORKER_FASTPOLL_DQRR);
+#endif
 	}
 
-end:
 	qman_static_dequeue_del(~(u32)0);
 	while (calm_down--) {
 		qman_poll_slow();
