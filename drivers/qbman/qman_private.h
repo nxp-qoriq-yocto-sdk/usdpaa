@@ -75,24 +75,6 @@ extern u16 qman_ip_rev; /* 0 if uninitialised, otherwise QMAN_REVx */
 int qman_init_error_int(struct device_node *node);
 #endif
 
-/* This struct represents a pool channel */
-struct qm_pool_channel {
-	/* The QM_SDQCR_CHANNELS_POOL(n) bit that corresponds to this channel */
-	u32 pool;
-	/* The channel id, used for initialising frame queues to target this
-	 * channel. */
-	enum qm_channel channel;
-	/* Bitmask of portal (logical-, not cell-)indices that have dequeue
-	 * access to this channel;
-	 * 0x001 -> qm_portal_get(0)
-	 * 0x002 -> qm_portal_get(1)
-	 * 0x004 -> qm_portal_get(2)
-	 * ...
-	 * 0x200 -> qm_portal_get(9)
-	 */
-	u32 portals;
-};
-
 /* Hooks from qman_driver.c in to qman_high.c */
 #define QMAN_PORTAL_FLAG_RSTASH      0x00000001 /* enable DQRR entry stashing */
 #define QMAN_PORTAL_FLAG_DSTASH      0x00000002 /* enable data stashing */
@@ -127,11 +109,6 @@ int qman_testwrite_cgr(struct qman_cgr *cgr, u64 i_bcnt,
 /* Obtain a mask of the available pool channels, expressed using
  * QM_SDQCR_CHANNELS_POOL(n). */
 u32 qm_pools(void);
-
-/* Retrieve a pool channel configuration, given a QM_SDQCR_CHANNEL_POOL(n)
- * bit-mask (the least significant bit of 'mask' is used if more than one bit is
- * set). */
-const struct qm_pool_channel *qm_pool_channel(u32 mask);
 
 /* For qm_dqrr_sdqcr_set(); Choose one SOURCE. Choose one COUNT. Choose one
  * dequeue TYPE. Choose TOKEN (8-bit).
