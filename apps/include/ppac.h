@@ -272,19 +272,18 @@ void ppac_fq_nonpcd_init(struct qman_fq *fq, u32 fqid,
 			 const struct qm_fqd_stashing *stashing,
 			 qman_cb_dqrr cb);
 
-enum qman_cb_dqrr_result
-cb_dqrr_rx_hash(struct qman_portal *qm __always_unused,
-		struct qman_fq *fq,
-		const struct qm_dqrr_entry *dqrr);
-
 void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
 		      enum qm_channel channel,
 		      const struct qm_fqd_stashing *stashing,
 		      int prefer_in_cache);
 
-void cb_ern(struct qman_portal *qm __always_unused,
-	    struct qman_fq *fq,
-	    const struct qm_mr_entry *msg);
+void ppac_fq_tx_init(struct qman_fq *fq,
+		     enum qm_channel channel);
+
+enum qman_cb_dqrr_result
+cb_dqrr_rx_hash(struct qman_portal *qm __always_unused,
+		struct qman_fq *fq,
+		const struct qm_dqrr_entry *dqrr);
 
 enum qm_channel get_rxc(void);
 

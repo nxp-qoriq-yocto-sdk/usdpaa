@@ -124,26 +124,6 @@ cb_dqrr_rx_hash(struct qman_portal *qm __always_unused,
 	return POST_DQRR();
 }
 
-void cb_ern(struct qman_portal *qm __always_unused,
-	    struct qman_fq *fq,
-	    const struct qm_mr_entry *msg)
-{
-	TRACE("Tx_ern: fqid=%d\tfd_status = 0x%08x\n", msg->ern.fqid,
-	      msg->ern.fd.status);
-	ppac_drop_frame(&msg->ern.fd);
-}
-
-static enum qman_cb_dqrr_result
-cb_tx_drain(struct qman_portal *qm __always_unused,
-	    struct qman_fq *fq __always_unused,
-	    const struct qm_dqrr_entry *dqrr)
-{
-	TRACE("Tx_drain: fqid=%d\tfd_status = 0x%08x\n", fq->fqid,
-		dqrr->fd.status);
-	ppac_drop_frame(&dqrr->fd);
-	return qman_cb_dqrr_consume;
-}
-
 #ifdef PPAC_2FWD_RX_1G_PREFERINCACHE
 #define RX_1G_PIC 1
 #else
@@ -198,39 +178,8 @@ int ppac_if_init(unsigned idx)
 	}
 	memset(i->tx_fqs, 0, sizeof(*i->tx_fqs) * i->num_tx_fqs);
 	for (loop = 0; loop < i->num_tx_fqs; loop++) {
-		struct qm_mcc_initfq opts;
 		struct qman_fq *fq = &i->tx_fqs[loop];
-		/* These FQ objects need to be able to handle DQRR callbacks,
-		 * when cleaning up. */
-		fq->cb.dqrr = cb_tx_drain;
-		err = qman_create_fq(0, QMAN_FQ_FLAG_DYNAMIC_FQID |
-					QMAN_FQ_FLAG_TO_DCPORTAL, fq);
-		/* TODO: handle errors here, BUG_ON()s are compiled out in
-		 * performance builds (ie. the default) and this code isn't even
-		 * performance-sensitive. */
-		BUG_ON(err);
-		opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
-			       QM_INITFQ_WE_CONTEXTB | QM_INITFQ_WE_CONTEXTA;
-		opts.fqd.dest.channel = fif->tx_channel_id;
-		opts.fqd.dest.wq = PPAC_PRIO_2TX;
-		opts.fqd.fq_ctrl =
-#ifdef PPAC_2FWD_TX_PREFERINCACHE
-			QM_FQCTRL_PREFERINCACHE |
-#endif
-#ifdef PPAC_2FWD_TX_FORCESFDR
-			QM_FQCTRL_FORCESFDR |
-#endif
-			0;
-#if defined(PPAC_CGR)
-		opts.we_mask |= QM_INITFQ_WE_CGID;
-		opts.fqd.cgid = cgr_tx.cgrid;
-		opts.fqd.fq_ctrl |= QM_FQCTRL_CGE;
-#endif
-		opts.fqd.context_b = 0;
-		opts.fqd.context_a.hi = 0x80000000;
-		opts.fqd.context_a.lo = 0;
-		err = qman_init_fq(fq, QMAN_INITFQ_FLAG_SCHED, &opts);
-		BUG_ON(err);
+		ppac_fq_tx_init(fq, fif->tx_channel_id);
 		TRACE("I/F %d, using Tx FQID %d\n", idx, fq->fqid);
 		ppam_if_tx_fqid(&i->module_if, loop, fq->fqid);
 	}
