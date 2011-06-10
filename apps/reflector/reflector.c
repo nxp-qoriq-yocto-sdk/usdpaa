@@ -226,7 +226,7 @@ static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
 #endif
 }
 
-static int ppam_tx_error_init(struct ppam_tx_error *p,	struct ppam_if *_if,
+static int ppam_tx_error_init(struct ppam_tx_error *p, struct ppam_if *_if,
 			      struct qm_fqd_stashing *stash_opts)
 {
 	return 0;
