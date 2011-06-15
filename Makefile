@@ -206,16 +206,13 @@ $(eval $(call process_dir,.,./Makefile))
 $(foreach x,$(TO_INSTALL),$(eval $(call process_install,$(x))))
 
 # ----=[ Rules to create the required build directories. ]=----
-$(BIN_DIR):
-	$(Q)mkdir -p $(BIN_DIR)
-$(LIB_DIR):
-	$(Q)mkdir -p $(LIB_DIR)
+$(BIN_DIR) $(LIB_DIR):
+	$(Q)mkdir -p $@
 
 # ----=["All targets" targets ]=----
 
 build:$(foreach lib,$(LIBS),$(LIB_DIR)/lib$(lib).a) $(foreach bin,$(BINS),$(BIN_DIR)/$(bin))
-install: $(addprefix do_install_,$(TO_INSTALL))
-uninstall: $(addprefix do_uninstall_,$(TO_INSTALL))
+install uninstall: %: $(addprefix do_%_,$(TO_INSTALL))
 
 debug:
 	@echo "ALLDIRS"
