@@ -120,6 +120,8 @@ do_install_$(1):$($(1)_install_from)/$($(1)_install_name)
 do_uninstall_$(1):
 	$$(Q)echo " [UNINSTALL] $(1)"
 	$$(Q)$(RM) $(DESTDIR)/$($(1)_install_to)/$($(1)_install_name)
+
+.PHONY: do_install_$(1) do_uninstall_$(1)
 endef
 
 define pre_process_target
@@ -246,6 +248,8 @@ distclean:
 	$(Q)find -name $(OBJ_DIR) | xargs $(RM) -r
 	$(Q)find -name \*.o | xargs $(RM)
 	$(Q)find -name \*.d | xargs $(RM)
+
+.PHONY: all build install uninstall debug clean distclean
 
 # ----=[ Include auto-generated dependencies ]=----
 -include $(foreach lib,$(LIBS),$(patsubst %.o,%.d,$($(lib)_objs)))
