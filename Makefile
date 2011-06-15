@@ -83,7 +83,7 @@ ifndef V
 endif
 
 # ----=[ Default target ]=----
-all: $(BIN_DIR) $(LIB_DIR) build
+all: build
 
 #----=[ Helpers for "make debug" ]=----
 print_obj = echo "	     (compile) $(2) -> $(3)$(1)";
@@ -164,7 +164,7 @@ $(eval $(call pre_process_target,$(1),$(2),$(3),$(1),$(INSTALL_BIN),$(BIN_DIR),$
 $(eval $(1)_type := bin)
 $(eval BINS += $(1))
 $(foreach x,$(filter %.c,$($(1)_SOURCES)),$(eval $(call process_obj,$(1),$(x),$(basename $(x)),$(2))))
-$(BIN_DIR)/$(1):$($(1)_objs) $(addprefix $(LIB_DIR)/lib,$(addsuffix .a,$($(1)_LDADD)))
+$(BIN_DIR)/$(1):$($(1)_objs) $(addprefix $(LIB_DIR)/lib,$(addsuffix .a,$($(1)_LDADD))) | $(BIN_DIR)
 	$$(Q)echo " [LD] $$(notdir $$@)";
 	$$(Q)$(CC) $($(1)_objs) $(LDFLAGS) $($(1)_LDFLAGS) -Wl,--gc-sections $(addprefix -l,$($(1)_priv_LDADD)) $(addprefix -l,$($(1)_LDADD)) $(addprefix -l,$($(1)_sys_LDADD)) -Wl,-Map,$$@.map -o $$@
 endef
@@ -174,7 +174,7 @@ $(eval $(call pre_process_target,$(1),$(2),$(3),lib$(1).a,$(INSTALL_LIB),$(LIB_D
 $(eval $(1)_type := lib)
 $(eval LIBS += $(1))
 $(foreach x,$(filter %.c,$($(1)_SOURCES)),$(eval $(call process_obj,$(1),$(x),$(basename $(x)),$(2))))
-$(LIB_DIR)/lib$(1).a:$($(1)_objs)
+$(LIB_DIR)/lib$(1).a:$($(1)_objs) | $(LIB_DIR)
 	$(Q)echo " [AR] $$(notdir $$@)"
 	$(Q)$(RM) $$@
 	$(Q)$(AR) $(ARFLAGS) $$@ $($(1)_objs)
