@@ -44,8 +44,7 @@ ifneq (distclean,$(MAKECMDGOALS))
  endif
 endif
 
-# ----[ Tools ]----
-MAKE		?= make
+# ----=[ Tools ]=----
 INSTALL		?= install
 CC		:= $(CROSS_COMPILE)gcc
 LD		:= $(CROSS_COMPILE)ld
@@ -191,7 +190,7 @@ define process_dir
   $(foreach B,$(bin_PROGRAMS),$(eval $(call process_bin,$(B),$(1),$(AM_CFLAGS))))
   $(foreach L,$(lib_LIBRARIES),$(eval $(call process_lib,$(L),$(1),$(AM_CFLAGS))))
   $(foreach x,$(dist_DATA),$(eval $(call pre_process_target,$(x),$(1),\
-  	$(AM_CFLAGS),$(x),$(INSTALL_OTHER),,$(INSTALL_OTHER_FLAGS))))
+	$(AM_CFLAGS),$(x),$(INSTALL_OTHER),,$(INSTALL_OTHER_FLAGS))))
   $(eval ALLDIRS += $(1))
   $(foreach s,$(SUBDIRS),$(eval $(call process_dir,$(1)/$(s),$(1)/Makefile.am)))
 $(1)/Makefile.am:$(2)
@@ -248,6 +247,6 @@ distclean:
 	$(Q)find -name \*.o | xargs $(RM)
 	$(Q)find -name \*.d | xargs $(RM)
 
-# ----=[ Include auto-generated dependencies ]=---- 
+# ----=[ Include auto-generated dependencies ]=----
 -include $(foreach lib,$(LIBS),$(patsubst %.o,%.d,$($(lib)_objs)))
 -include $(foreach bin,$(BINS),$(patsubst %.o,%.d,$($(bin)_objs)))
