@@ -87,6 +87,10 @@ endif
 # ----=[ Default target ]=----
 all: build
 
+# Internal QA stuff
+# Don't fail if it doesn't exist because released packages would not contain it
+-include Makefile.kw
+
 #----=[ Helpers for "make debug" ]=----
 print_obj = echo "	     (compile) $(2) -> $(3)$(1)";
 define print_debug_dir
