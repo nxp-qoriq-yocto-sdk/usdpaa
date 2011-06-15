@@ -196,7 +196,7 @@ define process_dir
   $(eval ALLDIRS += $(1))
   $(foreach s,$(SUBDIRS),$(eval $(call process_dir,$(1)/$(s),$(1)/Makefile.am)))
 $(1)/Makefile.am:$(2)
-	$$(Q)touch $(1)/Makefile.am
+	$$(Q)touch $$@
 endef
 
 # ----=[ Parse top-level Makefile.am (and recurse), define build targets ]=----
