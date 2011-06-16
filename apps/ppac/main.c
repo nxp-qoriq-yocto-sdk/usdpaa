@@ -384,10 +384,21 @@ static void do_global_init(void)
 #ifdef PPAC_CGR
 	unsigned int numrxfqs = 0, numtxfqs = 0;
 	struct qm_mcc_initcgr opts = {
-		.we_mask = QM_CGR_WE_CSCN_EN | QM_CGR_WE_CS_THRES |
+		.we_mask = QM_CGR_WE_CS_THRES |
+#ifdef PPAC_CSCN
+				QM_CGR_WE_CSCN_EN |
+#endif
+#ifdef PPAC_CSTD
+				QM_CGR_WE_CSTD_EN |
+#endif
 				QM_CGR_WE_MODE,
 		.cgr = {
+#ifdef PPAC_CSCN
 			.cscn_en = QM_CGR_EN,
+#endif
+#ifdef PPAC_CSTD
+			.cstd_en = QM_CGR_EN,
+#endif
 			.mode = QMAN_CGR_MODE_FRAME
 		}
 	};

@@ -80,6 +80,8 @@
 #undef PPAC_2FWD_TX_FORCESFDR		/* Priority allocation of SFDRs to egress */
 #define PPAC_DEPLETION			/* Trace depletion entry/exit */
 #undef PPAC_CGR				/* Track rx and tx fill-levels via CGR */
+#undef PPAC_CSTD 			/* CGR tail-drop */
+#undef PPAC_CSCN 			/* Log CGR state-change notifications */
 #define PPAC_IDLE_IRQ			/* Block in interrupt-mode when idle */
 
 #if defined(PPAC_2FWD_HOLDACTIVE) && defined(PPAC_2FWD_AVOIDBLOCK)
