@@ -32,6 +32,16 @@
 #include "dpa_sys.h"
 #include <linux/fsl_bman.h>
 
+/* Revision info (for errata and feature handling) */
+#define BMAN_REV10 0x0100
+#define BMAN_REV20 0x0200
+extern u16 bman_ip_rev; /* 0 if uninitialised, otherwise QMAN_REVx */
+
+/*
+ * Global variables of the max portal/pool number this bman version supported
+ */
+extern u16 bman_pool_max;
+
 struct bm_addr {
 	void __iomem *addr_ce;	/* cache-enabled */
 	void __iomem *addr_ci;	/* cache-inhibited */

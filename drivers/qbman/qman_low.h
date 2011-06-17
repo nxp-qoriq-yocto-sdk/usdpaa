@@ -859,7 +859,7 @@ static inline struct qm_mr_entry *MR_INC(struct qm_mr_entry *e)
 #ifdef CONFIG_FSL_QMAN_BUG_AND_FEATURE_REV1
 static inline void __mr_copy_and_fixup(struct qm_portal *p, u8 idx)
 {
-	if (qman_ip_rev == QMAN_REV1) {
+	if (qman_ip_rev == QMAN_REV10) {
 		struct qm_mr_entry *shadow = qm_cl(p->bugs.mr, idx);
 		struct qm_mr_entry *res = qm_cl(p->mr.ring, idx);
 		copy_words(shadow, res, sizeof(*res));
@@ -881,7 +881,7 @@ static inline int qm_mr_init(struct qm_portal *portal, enum qm_mr_pmode pmode,
 	int loop;
 
 #ifdef CONFIG_FSL_QMAN_BUG_AND_FEATURE_REV1
-	if ((qman_ip_rev == QMAN_REV1) && (pmode != qm_mr_pvb)) {
+	if ((qman_ip_rev == QMAN_REV10) && (pmode != qm_mr_pvb)) {
 		pr_err("Qman is rev1, so QMAN9 workaround requires 'pvb'\n");
 		return -EINVAL;
 	}
@@ -890,7 +890,7 @@ static inline int qm_mr_init(struct qm_portal *portal, enum qm_mr_pmode pmode,
 	mr->pi = qm_in(MR_PI_CINH) & (QM_MR_SIZE - 1);
 	mr->ci = qm_in(MR_CI_CINH) & (QM_MR_SIZE - 1);
 #ifdef CONFIG_FSL_QMAN_BUG_AND_FEATURE_REV1
-	if (qman_ip_rev == QMAN_REV1)
+	if (qman_ip_rev == QMAN_REV10)
 		/* Situate the cursor in the shadow ring */
 		mr->cursor = portal->bugs.mr + mr->ci;
 	else
@@ -1100,7 +1100,7 @@ static inline void qm_mc_commit(struct qm_portal *portal, u8 myverb)
 	DPA_ASSERT(mc->state == mc_user);
 	lwsync();
 #ifdef CONFIG_FSL_QMAN_BUG_AND_FEATURE_REV1
-	if ((qman_ip_rev == QMAN_REV1) && ((myverb & QM_MCC_VERB_MASK) ==
+	if ((qman_ip_rev == QMAN_REV10) && ((myverb & QM_MCC_VERB_MASK) ==
 					QM_MCC_VERB_INITFQ_SCHED)) {
 		u32 fqid = mc->cr->initfq.fqid;
 		/* Do two commands to avoid the hw bug. Note, we poll locally
@@ -1154,7 +1154,7 @@ static inline struct qm_mc_result *qm_mc_result(struct qm_portal *portal)
 		return NULL;
 	}
 #ifdef CONFIG_FSL_QMAN_BUG_AND_FEATURE_REV1
-	if (qman_ip_rev == QMAN_REV1) {
+	if (qman_ip_rev == QMAN_REV10) {
 		if ((readb(&rr->verb) & QM_MCR_VERB_MASK) ==
 						QM_MCR_VERB_QUERYFQ) {
 			void *misplaced = (void *)rr + 50;

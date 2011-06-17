@@ -35,7 +35,7 @@
 
 /* Global variable containing revision id (even on non-control plane systems
  * where CCSR isn't available). FIXME: hard-coded. */
-u16 qman_ip_rev = QMAN_REV2;
+u16 qman_ip_rev = QMAN_REV20;
 
 struct qman_fqid_ranges {
 	unsigned int num_ranges;

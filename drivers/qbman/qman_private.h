@@ -131,8 +131,10 @@ __init int fqalloc_init(int use_bman);
 #endif
 
 /* Revision info (for errata and feature handling) */
-#define QMAN_REV1 0x0100
-#define QMAN_REV2 0x0101
+#define QMAN_REV10 0x0100
+#define QMAN_REV11 0x0101
+#define QMAN_REV12 0x0102
+#define QMAN_REV20 0x0200
 extern u16 qman_ip_rev; /* 0 if uninitialised, otherwise QMAN_REVx */
 
 #ifdef CONFIG_FSL_QMAN_CONFIG

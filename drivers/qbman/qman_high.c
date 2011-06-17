@@ -1354,8 +1354,8 @@ int qman_init_fq(struct qman_fq *fq, u32 flags, struct qm_mcc_initfq *opts)
 		return -EINVAL;
 #endif
 	if (opts && (opts->we_mask & QM_INITFQ_WE_OAC)) {
-		/* OAC not supported on rev1 */
-		if (unlikely(qman_ip_rev == QMAN_REV1))
+		/* OAC not supported on rev1.0 */
+		if (unlikely(qman_ip_rev == QMAN_REV10))
 			return -EINVAL;
 		/* And can't be set at the same time as TDTHRESH */
 		if (opts->we_mask & QM_INITFQ_WE_TDTHRESH)
@@ -2090,8 +2090,8 @@ int qman_modify_cgr(struct qman_cgr *cgr, u32 flags,
 	u8 res;
 	u8 verb = QM_MCC_VERB_MODIFYCGR;
 
-	/* frame mode not supported on rev1 */
-	if (unlikely(qman_ip_rev == QMAN_REV1)) {
+	/* frame mode not supported on rev1.0 */
+	if (unlikely(qman_ip_rev == QMAN_REV10)) {
 		if (opts && (opts->we_mask & QM_CGR_WE_MODE) &&
 				opts->cgr.mode == QMAN_CGR_MODE_FRAME) {
 			put_affine_portal();
