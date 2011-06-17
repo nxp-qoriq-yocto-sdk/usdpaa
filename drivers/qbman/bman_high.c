@@ -84,6 +84,9 @@ struct bman_pool {
 	/* stockpile state - NULL unless BMAN_POOL_FLAG_STOCKPILE is set */
 	struct bm_buffer *sp;
 	unsigned int sp_fill;
+#ifdef CONFIG_FSL_DPA_CHECKING
+	atomic_t in_use;
+#endif
 };
 
 /* (De)Registration of depletion notification callbacks */
@@ -533,6 +536,9 @@ struct bman_pool *bman_new_pool(const struct bman_pool_params *params)
 	pool->sp = NULL;
 	pool->sp_fill = 0;
 	pool->params = *params;
+#ifdef CONFIG_FSL_DPA_CHECKING
+	atomic_set(&pool->in_use, 1);
+#endif
 	if (params->flags & BMAN_POOL_FLAG_DYNAMIC_BPID)
 		pool->params.bpid = bpid;
 	if (params->flags & BMAN_POOL_FLAG_STOCKPILE) {
@@ -762,15 +768,22 @@ static inline int __bman_release(struct bman_pool *pool,
 int bman_release(struct bman_pool *pool, const struct bm_buffer *bufs, u8 num,
 			u32 flags)
 {
+	int ret = 0;
 #ifdef CONFIG_FSL_DPA_CHECKING
 	if (!num || (num > 8))
 		return -EINVAL;
 	if (pool->params.flags & BMAN_POOL_FLAG_NO_RELEASE)
 		return -EINVAL;
+	if (!atomic_dec_and_test(&pool->in_use)) {
+		pr_crit("Parallel attempts to enter bman_released() detected.");
+		panic("only one instance of bman_released/acquired allowed");
+	}
 #endif
 	/* Without stockpile, this API is a pass-through to the h/w operation */
-	if (!(pool->params.flags & BMAN_POOL_FLAG_STOCKPILE))
-		return __bman_release(pool, bufs, num, flags);
+	if (!(pool->params.flags & BMAN_POOL_FLAG_STOCKPILE)) {
+		ret = __bman_release(pool, bufs, num, flags);
+		goto release_done;
+	}
 	/* This needs some explanation. Adding the given buffers may take the
 	 * stockpile over the threshold, but in fact the stockpile may already
 	 * *be* over the threshold if a previous release-to-hw attempt had
@@ -778,7 +791,7 @@ int bman_release(struct bman_pool *pool, const struct bm_buffer *bufs, u8 num,
 	 *   1. we add to the stockpile and don't hit the threshold,
 	 *   2. we add to the stockpile, hit the threshold and release-to-hw,
 	 *   3. we have to release-to-hw before adding to the stockpile
-	 *	(not enough room in the stockpile for case 2).
+	 *      (not enough room in the stockpile for case 2).
 	 * Our constraints on thresholds guarantee that in case 3, there must be
 	 * at least 8 bufs already in the stockpile, so all release-to-hw ops
 	 * are for 8 bufs. Despite all this, the API must indicate whether the
@@ -794,14 +807,20 @@ int bman_release(struct bman_pool *pool, const struct bm_buffer *bufs, u8 num,
 		}
 		/* Do hw op if hitting the high-water threshold */
 		if ((pool->sp_fill + num) >= BMAN_STOCKPILE_HIGH) {
-			u8 ret = __bman_release(pool,
+			ret = __bman_release(pool,
 				pool->sp + (pool->sp_fill - 8), 8, flags);
-			if (ret)
-				return (num ? ret : 0);
+			if (ret) {
+				ret = (num ? ret : 0);
+				goto release_done;
+			}
 			pool->sp_fill -= 8;
 		}
 	}
-	return 0;
+release_done:
+#ifdef CONFIG_FSL_DPA_CHECKING
+	atomic_inc(&pool->in_use);
+#endif
+	return ret;
 }
 EXPORT_SYMBOL(bman_release);
 
@@ -835,35 +854,55 @@ static inline int __bman_acquire(struct bman_pool *pool, struct bm_buffer *bufs,
 int bman_acquire(struct bman_pool *pool, struct bm_buffer *bufs, u8 num,
 			u32 flags)
 {
+	int ret = 0;
 #ifdef CONFIG_FSL_DPA_CHECKING
 	if (!num || (num > 8))
 		return -EINVAL;
 	if (pool->params.flags & BMAN_POOL_FLAG_ONLY_RELEASE)
 		return -EINVAL;
+	if (!atomic_dec_and_test(&pool->in_use)) {
+		pr_crit("Parallel attempts to enter bman_acquire() detected.");
+		panic("only one instance of bman_released/acquired allowed");
+	}
 #endif
 	/* Without stockpile, this API is a pass-through to the h/w operation */
-	if (!(pool->params.flags & BMAN_POOL_FLAG_STOCKPILE))
-		return __bman_acquire(pool, bufs, num);
-#ifdef CONFIG_SMP
-	panic("Bman stockpiles are not SMP-safe!");
-#endif
+	if (!(pool->params.flags & BMAN_POOL_FLAG_STOCKPILE)) {
+		ret = __bman_acquire(pool, bufs, num);
+		goto acquire_done;
+	}
 	/* Only need a h/w op if we'll hit the low-water thresh */
 	if (!(flags & BMAN_ACQUIRE_FLAG_STOCKPILE) &&
 			(pool->sp_fill <= (BMAN_STOCKPILE_LOW + num))) {
-		int ret = __bman_acquire(pool, pool->sp + pool->sp_fill, 8);
+		/* refill stockpile with max amount, but if max amount
+		 * isn't available, try amount the user wants */
+		int bufcount = 8;
+		ret = __bman_acquire(pool, pool->sp + pool->sp_fill, bufcount);
+		if (ret < 0 && bufcount != num) {
+			bufcount = num;
+			/* Maybe buffer pool has less than 8 */
+			ret = __bman_acquire(pool, pool->sp + pool->sp_fill,
+						bufcount);
+		}
 		if (ret < 0)
 			goto hw_starved;
-		DPA_ASSERT(ret == 8);
-		pool->sp_fill += 8;
+		DPA_ASSERT(ret == bufcount);
+		pool->sp_fill += bufcount;
 	} else {
 hw_starved:
-		if (pool->sp_fill < num)
-			return -ENOMEM;
+		if (pool->sp_fill < num) {
+			ret = -ENOMEM;
+			goto acquire_done;
+		}
 	}
 	copy_words(bufs, pool->sp + (pool->sp_fill - num),
 		sizeof(struct bm_buffer) * num);
 	pool->sp_fill -= num;
-	return num;
+	ret = num;
+acquire_done:
+#ifdef CONFIG_FSL_DPA_CHECKING
+	atomic_inc(&pool->in_use);
+#endif
+	return ret;
 }
 EXPORT_SYMBOL(bman_acquire);
 
