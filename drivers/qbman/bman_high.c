@@ -50,7 +50,7 @@ struct bman_portal {
 	struct tasklet_struct tasklet;
 #endif
 	/* When the cpu-affine portal is activated, this is non-NULL */
-	struct bm_portal_config *config;
+	const struct bm_portal_config *config;
 	/* 64-entry hash-table of pool objects that are tracking depletion
 	 * entry/exit (ie. BMAN_POOL_FLAG_DEPLETION). This isn't fast-path, so
 	 * we're not fussy about cache-misses and so forth - whereas the above
@@ -280,10 +280,10 @@ fail_rcr:
 	return -EINVAL;
 }
 
-struct bm_portal_config *bman_destroy_affine_portal(void)
+const struct bm_portal_config *bman_destroy_affine_portal(void)
 {
 	struct bman_portal *bm = get_affine_portal();
-	struct bm_portal_config *cfg = bm->config;
+	const struct bm_portal_config *cfg = bm->config;
 	bm_rcr_cce_update(&bm->p);
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
 	free_irq(bm->config->public_cfg.irq, bm);
