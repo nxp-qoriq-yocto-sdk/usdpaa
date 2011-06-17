@@ -60,6 +60,7 @@ LWE_QMAN=$TOPDIR/usdpaa/drivers/qbman
 ######################
 
 DIRECTION=""
+IS_STAT="no"
 IS_DIFF="no"
 IS_MELD="no"
 IS_FORCE="no"
@@ -67,7 +68,7 @@ CP_UPDATE="--update"
 
 usage () {
 	echo "Usage:"
-	echo "	dpasync.sh [diff|meld|force] <2linux|2usd>"
+	echo "	dpasync.sh <stat|diff|meld|force> <2linux|2usd>"
 	exit 1
 }
 
@@ -99,7 +100,13 @@ if [ $# -lt 1 ]; then
 	usage
 fi
 
-if [ $1 = "diff" ]; then
+if [ $1 = "stat" ]; then
+	if [ $# -ne 2 ]; then
+		usage
+	fi
+	parse_direction $2
+	IS_STAT="yes"
+elif [ $1 = "diff" ]; then
 	if [ $# -ne 2 ]; then
 		usage
 	fi
@@ -134,6 +141,22 @@ mycmp() {
 	return $R
 }
 
+mymeld() {
+	DONE="no"
+	while [ $DONE = "no" ];
+	do
+		read -e -p "Examine? (Y/y/N/n/Q/q) "
+		if [ $REPLY = "Y" -o $REPLY = "y" ]; then
+			meld $1 $2
+			DONE="yes"
+		elif [ $REPLY = "N" -o $REPLY = "n" ]; then
+			DONE="yes"
+		elif [ $REPLY = "Q" -o $REPLY = "q" ]; then
+			exit 0
+		fi
+	done
+}
+
 process () {
 	S=$1
 	D=$2
@@ -144,11 +167,13 @@ process () {
 	fi
 	if [ ! -f $D ]; then
 		if [ $IS_DIFF = "yes" ]; then
+			echo "New file: $S"
+		elif [ $IS_DIFF = "yes" ]; then
 			echo "New file: $S" >&2
 			diff -u /dev/null $S
 		elif [ $IS_MELD = "yes" ]; then
 			echo "New file: $S" >&2
-			meld /dev/null $S
+			mymeld /dev/null $S
 		else
 			echo "New: copying $SS"
 			cp -a $S $D || exit 1
@@ -160,7 +185,9 @@ process () {
 			echo "OK: $SS unchanged"
 		fi
 	else
-		if [ $IS_DIFF = "yes" ]; then
+		if [ $IS_STAT = "yes" ]; then
+			echo "File change: $S"
+		elif [ $IS_DIFF = "yes" ]; then
 			echo "File change: $S" >&2
 			# for diff, we want to see changes in the source
 			# relative to the destination, hence the apparently
@@ -168,7 +195,7 @@ process () {
 			diff -u $D $S
 		elif [ $IS_MELD = "yes" ]; then
 			echo "File change: $S" >&2
-			meld $S $D
+			mymeld $S $D
 		else
 			echo "Updated: copying $SS"
 			cp $CP_UPDATE $S $D || exit 1
