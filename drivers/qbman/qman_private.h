@@ -37,6 +37,72 @@
 #error "_QMAN_ADAPTIVE_EQCR_THROTTLE requires _QMAN_BUG_AND_FEATURE_REV1"
 #endif
 
+	/* ----------------- */
+	/* Congestion Groups */
+	/* ----------------- */
+/* This wrapper represents a bit-array for the state of the 256 Qman congestion
+ * groups. Is also used as a *mask* for congestion groups, eg. so we ignore
+ * those that don't concern us. We harness the structure and accessor details
+ * already used in the management command to query congestion groups. */
+struct qman_cgrs {
+	struct __qm_mcr_querycongestion q;
+};
+static inline void qman_cgrs_init(struct qman_cgrs *c)
+{
+	memset(c, 0, sizeof(*c));
+}
+static inline void qman_cgrs_fill(struct qman_cgrs *c)
+{
+	memset(c, 0xff, sizeof(*c));
+}
+static inline int qman_cgrs_get(struct qman_cgrs *c, int num)
+{
+	return QM_MCR_QUERYCONGESTION(&c->q, num);
+}
+static inline void qman_cgrs_set(struct qman_cgrs *c, int num)
+{
+	c->q.__state[__CGR_WORD(num)] |= (0x80000000 >> __CGR_SHIFT(num));
+}
+static inline void qman_cgrs_unset(struct qman_cgrs *c, int num)
+{
+	c->q.__state[__CGR_WORD(num)] &= ~(0x80000000 >> __CGR_SHIFT(num));
+}
+static inline int qman_cgrs_next(struct qman_cgrs *c, int num)
+{
+	while ((++num < __CGR_NUM) && !qman_cgrs_get(c, num))
+		;
+	return num;
+}
+static inline void qman_cgrs_cp(struct qman_cgrs *dest,
+				const struct qman_cgrs *src)
+{
+	memcpy(dest, src, sizeof(*dest));
+}
+static inline void qman_cgrs_and(struct qman_cgrs *dest,
+			const struct qman_cgrs *a, const struct qman_cgrs *b)
+{
+	int ret;
+	u32 *_d = dest->q.__state;
+	const u32 *_a = a->q.__state;
+	const u32 *_b = b->q.__state;
+	for (ret = 0; ret < 8; ret++)
+		*(_d++) = *(_a++) & *(_b++);
+}
+static inline void qman_cgrs_xor(struct qman_cgrs *dest,
+			const struct qman_cgrs *a, const struct qman_cgrs *b)
+{
+	int ret;
+	u32 *_d = dest->q.__state;
+	const u32 *_a = a->q.__state;
+	const u32 *_b = b->q.__state;
+	for (ret = 0; ret < 8; ret++)
+		*(_d++) = *(_a++) ^ *(_b++);
+}
+
+#define qman_cgrs_for_each_1(cgr, cgrs) \
+	for ((cgr) = -1; (cgr) = qman_cgrs_next((cgrs), (cgr)),\
+					(cgr) < __CGR_NUM;)
+
 struct qm_addr {
 	void __iomem *addr_ce;	/* cache-enabled */
 	void __iomem *addr_ci;	/* cache-inhibited */
@@ -227,4 +293,3 @@ u32 qm_pools(void);
 /* TODO: unfortunate name-clash here, reword? */
 #define qm_isr_inhibit(qm)		__qm_isr_write(qm, qm_isr_inhibit, 1)
 #define qm_isr_uninhibit(qm)		__qm_isr_write(qm, qm_isr_inhibit, 0)
-

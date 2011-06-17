@@ -415,7 +415,7 @@ drain_loop:
 	else
 		/* if the given mask is NULL, assume all CGRs can be seen */
 		qman_cgrs_fill(&portal->cgrs[0]);
-	for (ret = 0; ret < 256; ret++)
+	for (ret = 0; ret < __CGR_NUM; ret++)
 		INIT_LIST_HEAD(&portal->cgr_cbs[ret]);
 	spin_lock_init(&portal->cgr_lock);
 	portal->options = flags;
@@ -2126,7 +2126,16 @@ int qman_create_cgr(struct qman_cgr *cgr, u32 flags,
 	struct qm_mcr_querycgr cgr_state;
 	struct qm_mcc_initcgr local_opts;
 	int ret;
-	struct qman_portal *p = get_affine_portal();
+	struct qman_portal *p;
+
+	/* We have to check that the provided CGRID is within the limits of the
+	 * data-structures, for obvious reasons. However we'll let h/w take
+	 * care of determining whether it's within the limits of what exists on
+	 * the SoC. */
+	if (cgr->cgrid >= __CGR_NUM)
+		return -EINVAL;
+
+	p = get_affine_portal();
 
 	memset(&local_opts, 0, sizeof(struct qm_mcc_initcgr));
 	cgr->chan = p->config->public_cfg.channel;
