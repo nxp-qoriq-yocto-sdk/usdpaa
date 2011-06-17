@@ -43,7 +43,6 @@ struct bman_portal {
 	int thresh_set;
 	unsigned long irq_sources;
 	u32 slowpoll;	/* only used when interrupts are off */
-	wait_queue_head_t queue;
 #ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
 	struct bman_pool *rcri_owned; /* only 1 release WAIT_SYNC at a time */
 #endif
@@ -214,7 +213,6 @@ int bman_create_affine_portal(struct bm_portal_config *config,
 		}
 	}
 	portal->slowpoll = 0;
-	init_waitqueue_head(&portal->queue);
 #ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
 	portal->rcri_owned = NULL;
 #endif
@@ -379,7 +377,7 @@ static u32 __poll_portal_slow(struct bman_portal *p, u32 is)
 #endif
 		bm_rcr_set_ithresh(&p->p, 0);
 		local_irq_restore(irqflags);
-		wake_up(&p->queue);
+		wake_up(&affine_queue);
 		bm_isr_status_clear(&p->p, BM_PIRQ_RCRI);
 		is &= ~BM_PIRQ_RCRI;
 	}
