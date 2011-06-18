@@ -63,12 +63,14 @@ DIRECTION=""
 IS_STAT="no"
 IS_DIFF="no"
 IS_MELD="no"
+IS_UPDATE="no"
 IS_FORCE="no"
+REG_EXP="."
 CP_UPDATE="--update"
 
 usage () {
 	echo "Usage:"
-	echo "	dpasync.sh <stat|diff|meld|force> <2linux|2usd>"
+	echo "	dpasync.sh <stat|diff|meld|update|force> <2linux|2usd> [path-regexp]"
 	exit 1
 }
 
@@ -96,40 +98,29 @@ parse_direction() {
 	fi
 }
 
-if [ $# -lt 1 ]; then
+if [ $# -lt 2 -o $# -gt 3 ]; then
 	usage
+elif [ $# -eq 3 ]; then
+	REG_EXP="$3"
 fi
 
 if [ $1 = "stat" ]; then
-	if [ $# -ne 2 ]; then
-		usage
-	fi
 	parse_direction $2
 	IS_STAT="yes"
 elif [ $1 = "diff" ]; then
-	if [ $# -ne 2 ]; then
-		usage
-	fi
 	parse_direction $2
 	IS_DIFF="yes"
 elif [ $1 = "meld" ]; then
-	if [ $# -ne 2 ]; then
-		usage
-	fi
 	parse_direction $2
 	IS_MELD="yes"
+elif [ $1 = "update" ]; then
+	parse_direction $2
 elif [ $1 = "force" ]; then
-	if [ $# -ne 2 ]; then
-		usage
-	fi
 	parse_direction $2
 	IS_FORCE="yes"
 	CP_UPDATE=""
 else
-	if [ $# -ne 1 ]; then
-		usage
-	fi
-	parse_direction $1
+	usage
 fi
 
 mycmp() {
@@ -161,18 +152,20 @@ process () {
 	S=$1
 	D=$2
 	SS=`basename $S`
-	if [ ! -f $S ]; then
+	MATCH=`echo "$SS" | egrep "$REG_EXP" > /dev/null 2>&1 && echo "match"`
+	if [ "x$MATCH" = "x" ]; then
+		echo "Skipping: $i"
+	elif [ ! -f $S ]; then
 		echo "Bad: source file $SS doesn't exist"
 		exit 1
-	fi
-	if [ ! -f $D ]; then
+	elif [ ! -f $D ]; then
 		if [ $IS_DIFF = "yes" ]; then
-			echo "New file: $S"
+			echo "New: $SS"
 		elif [ $IS_DIFF = "yes" ]; then
-			echo "New file: $S" >&2
+			echo "New: $SS" >&2
 			diff -u /dev/null $S
 		elif [ $IS_MELD = "yes" ]; then
-			echo "New file: $S" >&2
+			echo "New: $SS" >&2
 			mymeld /dev/null $S
 		else
 			echo "New: copying $SS"
@@ -180,24 +173,24 @@ process () {
 		fi
 	elif mycmp $S $D; then
 		if [ $IS_DIFF = "yes" -o $IS_MELD = "yes" ]; then
-			echo "File match: $S" >&2
+			echo "Unchanged: $SS" >&2
 		else
-			echo "OK: $SS unchanged"
+			echo "Unchanged: $SS"
 		fi
 	else
 		if [ $IS_STAT = "yes" ]; then
-			echo "File change: $S"
+			echo "Changed: $SS"
 		elif [ $IS_DIFF = "yes" ]; then
-			echo "File change: $S" >&2
+			echo "Changed: $SS" >&2
 			# for diff, we want to see changes in the source
 			# relative to the destination, hence the apparently
 			# counter-intuitive order of parameters.
 			diff -u $D $S
 		elif [ $IS_MELD = "yes" ]; then
-			echo "File change: $S" >&2
+			echo "Changed: $SS" >&2
 			mymeld $S $D
 		else
-			echo "Updated: copying $SS"
+			echo "Changed: updating $SS"
 			cp $CP_UPDATE $S $D || exit 1
 			if ! mycmp $S $D; then
 				echo "Bad: dest file $SS newer than source"
