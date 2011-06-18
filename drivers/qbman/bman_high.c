@@ -581,6 +581,14 @@ void bman_free_pool(struct bman_pool *pool)
 #endif
 	if (pool->params.flags & BMAN_POOL_FLAG_DEPLETION)
 		depletion_unlink(pool);
+	if (pool->params.flags & BMAN_POOL_FLAG_STOCKPILE) {
+		if (pool->sp_fill)
+			pr_err("Stockpile not flushed, has %u in bpid %u.\n",
+				pool->sp_fill, pool->params.bpid);
+		kfree(pool->sp);
+		pool->sp = NULL;
+		pool->params.flags ^= BMAN_POOL_FLAG_STOCKPILE;
+	}
 	if (pool->params.flags & BMAN_POOL_FLAG_DYNAMIC_BPID) {
 		/* When releasing a BPID to the dynamic allocator, that pool
 		 * must be *empty*. This code makes it so by dropping everything
@@ -905,6 +913,23 @@ acquire_done:
 	return ret;
 }
 EXPORT_SYMBOL(bman_acquire);
+
+int bman_flush_stockpile(struct bman_pool *pool, u32 flags)
+{
+	u8 num;
+	int ret;
+
+	while (pool->sp_fill) {
+		num = ((pool->sp_fill > 8) ? 8 : pool->sp_fill);
+		ret = __bman_release(pool, pool->sp + (pool->sp_fill - num),
+				     num, flags);
+		if (ret)
+			return ret;
+		pool->sp_fill -= num;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(bman_flush_stockpile);
 
 int bman_query_pools(struct bm_pool_state *state)
 {

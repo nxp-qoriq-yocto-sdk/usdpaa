@@ -426,6 +426,18 @@ int bman_acquire(struct bman_pool *pool, struct bm_buffer *bufs, u8 num,
 			u32 flags);
 
 /**
+ * bman_flush_stockpile - Flush stockpile buffer(s) to the buffer pool
+ * @pool: the buffer pool object the stockpile belongs
+ * @flags: bit-mask of BMAN_RELEASE_FLAG_*** options
+ *
+ * Adds stockpile buffers to RCR entries until the stockpile is empty.
+ * The return value will be a negative error code if a h/w error occured.
+ * If BMAN_RELEASE_FLAG_NOW flag is passed and RCR ring is full,
+ * -EAGAIN will be returned.
+ */
+int bman_flush_stockpile(struct bman_pool *pool, u32 flags);
+
+/**
  * bman_query_pools - Query all buffer pool states
  * @state: storage for the queried availability and depletion states
  */
