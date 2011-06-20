@@ -54,7 +54,4 @@
 /* don't compile support for NULL FQ handling */
 #undef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
 
-/* don't use rev1-specific adaptive "backoff" for EQCR:CI updates */
-#undef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
-
 #endif /* HEADER_USDPAA_CONF_H */

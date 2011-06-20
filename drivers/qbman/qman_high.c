@@ -36,12 +36,6 @@
 #define DQRR_STASH_RING	0	/* if enabled, we ought to check SDEST */
 #define DQRR_STASH_DATA	0	/* ditto */
 #define EQCR_ITHRESH	4	/* if EQCR congests, interrupt threshold */
-#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
-#define EQCR_CI_THROT_PERIOD 500000 /* min # updates b4 throttle adjust */
-#define EQCR_CI_THROT_MAX 4000	/* max # cycles to throttle by */
-#define EQCR_CI_THROT_STEP 100	/* # cycles to inc/dec throttle by */
-#define EQCR_CI_THROT_TARGET_x10 45 /* throttle if (updatesx10) go lower */
-#endif
 #define IRQNAME		"QMan portal %d"
 #define MAX_IRQNAME	16	/* big enough for "QMan portal %d" */
 
@@ -96,12 +90,6 @@ struct qman_portal {
 #endif
 #ifdef CONFIG_FSL_QMAN_PORTAL_TASKLET
 	struct tasklet_struct tasklet;
-#endif
-#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
-	/* Throttle EQCR::CI updates under load, see try_eq_start() */
-	u64 eq_throt_last_update;
-	u32 eq_throt_last_evaluation;
-	u32 eq_throt_cycles;
 #endif
 	u32 sdqcr;
 	int dqrr_disable_ref;
@@ -426,11 +414,6 @@ drain_loop:
 #endif
 #ifdef CONFIG_FSL_QMAN_PORTAL_TASKLET
 	tasklet_init(&portal->tasklet, portal_tasklet, (unsigned long)portal);
-#endif
-#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
-	portal->eq_throt_last_update = 0;
-	portal->eq_throt_last_evaluation = 0;
-	portal->eq_throt_cycles = 0;
 #endif
 	portal->sdqcr = QM_SDQCR_SOURCE_CHANNELS | QM_SDQCR_COUNT_UPTO3 |
 			QM_SDQCR_DEDICATED_PRECEDENCE | QM_SDQCR_TYPE_PRIO_QOS |
@@ -1852,26 +1835,10 @@ EXPORT_SYMBOL(qman_volatile_dequeue);
 
 static noinline void update_eqcr_ci(struct qman_portal *p, u8 avail)
 {
-#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
-	if (avail < 2) {
-		if (p->bits & PORTAL_BITS_CI_PREFETCH) {
-			qm_eqcr_cce_update(&p->p);
-			clear_bits(PORTAL_BITS_CI_PREFETCH, &p->bits);
-		} else {
-			if (unlikely(!(p->eq_throt_last_evaluation--)))
-				__throttle_reevaluate(p);
-			if (!p->eq_throt_cycles || __throttle_test(p)) {
-				qm_eqcr_cce_prefetch(&p->p);
-				set_bits(PORTAL_BITS_CI_PREFETCH, &p->bits);
-			}
-		}
-	}
-#else
 	if (avail)
 		qm_eqcr_cce_prefetch(&p->p);
 	else
 		qm_eqcr_cce_update(&p->p);
-#endif
 }
 
 int qman_eqcr_is_empty(void)
@@ -1882,11 +1849,6 @@ int qman_eqcr_is_empty(void)
 
 	local_irq_save(irqflags);
 	update_eqcr_ci(p, 0);
-#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
-	/* the adaptive code ignores the zero-valued 'avail' param we're
-	 * passing, so need to call twice to be sure the CI update occurs. */
-	update_eqcr_ci(p, 0);
-#endif
 	avail = qm_eqcr_get_fill(&p->p);
 	local_irq_restore(irqflags);
 	put_affine_portal();

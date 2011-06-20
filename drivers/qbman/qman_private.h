@@ -32,11 +32,6 @@
 #include "dpa_sys.h"
 #include <linux/fsl_qman.h>
 
-#if defined(CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE) && \
-	!defined(CONFIG_FSL_QMAN_BUG_AND_FEATURE_REV1)
-#error "_QMAN_ADAPTIVE_EQCR_THROTTLE requires _QMAN_BUG_AND_FEATURE_REV1"
-#endif
-
 	/* ----------------- */
 	/* Congestion Groups */
 	/* ----------------- */
