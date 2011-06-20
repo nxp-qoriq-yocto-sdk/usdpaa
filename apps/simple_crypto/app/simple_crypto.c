@@ -1346,29 +1346,6 @@ static int check_fd_status()
 	return 0;
 }
 
-/* Stats */
-struct crypto_msg {
-	/* The CLI thread sets this !=crypto_msg_none then waits on the barrier.
-	 * The worker thread checks for !=crypto_msg_none in its polling loop,
-	 * performs the desired function, and sets this ==crypto_msg_none
-	 * before going into the barrier (releasing itself and the CLI thread).
-	 */
-	volatile enum crypto_msg_type {
-		crypto_msg_none = 0,
-				crypto_msg_quit,
-				crypto_msg_dump_if_percpu,
-				crypto_msg_dump_if_all,
-				crypto_msg_reset_if_percpu,
-				crypto_msg_printf_foobar
-	} msg;
-	pthread_barrier_t barr;
-	/* ifs_percpu[] is copied to this by poc_msg_dump_* */
-#ifdef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
-	u32 ci_hist[8];
-	u32 throt_hist[41];
-#endif
-} ____cacheline_aligned;
-
 /*
  * brief	The OPTIONS field contains a pointer to a vector of struct
  *		argp_option's
@@ -1858,8 +1835,7 @@ int main(int argc, char *argv[])
 {
 	long num_online_cpus = sysconf(_SC_NPROCESSORS_ONLN);
 	thread_data_t thread_data[num_online_cpus];
-	struct crypto_msg appdata[num_online_cpus];
-	int loop, err;
+	int err;
 	uint16_t enc_cycles_per_frame = 0;
 	uint16_t dec_cycles_per_frame = 0;
 	uint64_t cpu_freq;
@@ -1900,14 +1876,6 @@ int main(int argc, char *argv[])
 	if (unlikely(dma_mem_setup())) {
 		pr_err("Shared memory initialization failed\n");
 		exit(EXIT_FAILURE);
-	}
-
-	/* Create the threads */
-	for (loop = 0; loop < ncpus; loop++) {
-		struct crypto_msg *msg = &appdata[loop];
-		memset(msg, 0, sizeof(*msg));
-		pthread_barrier_init(&msg->barr, NULL, 2);
-		thread_data[loop].appdata = msg;
 	}
 
 	/* Initialize barrier for all the threads! */

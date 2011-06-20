@@ -55,8 +55,6 @@ struct thread_data {
 	pthread_t id;
 	/* Stores fn() return value on return from run_threads_custom(); */
 	int result;
-	/* application-specific */
-	void *appdata;
 } ____cacheline_aligned;
 
 /* Threads can determine their own thread_data_t using this; */
