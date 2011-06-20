@@ -30,8 +30,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __CONFIG_H
-#define	__CONFIG_H
+#ifndef USDPAA_NETCFG_H
+#define USDPAA_NETCFG_H
 
 #include <usdpaa/fman.h>
 
