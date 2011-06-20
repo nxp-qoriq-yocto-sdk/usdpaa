@@ -917,8 +917,11 @@ void qman_irqsource_add(u32 bits __maybe_unused)
 {
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
 	struct qman_portal *p = get_affine_portal();
+	__maybe_unused unsigned long irqflags;
+	local_irq_save(irqflags);
 	set_bits(bits & QM_PIRQ_VISIBLE, &p->irq_sources);
 	qm_isr_enable_write(&p->p, p->irq_sources);
+	local_irq_restore(irqflags);
 	put_affine_portal();
 #else
 	panic("No Qman portal IRQ support, mustn't spcify IRQ flags!");
@@ -928,19 +931,31 @@ EXPORT_SYMBOL(qman_irqsource_add);
 
 void qman_irqsource_remove(u32 bits)
 {
+#ifdef CONFIG_FSL_DPA_HAVE_IRQ
 	struct qman_portal *p = get_affine_portal();
-	/* Subtle but important: we need to update the interrupt enable register
-	 * prior to clearing p->irq_sources. If we don't, an interrupt-spin
-	 * might happen between us clearing p->irq_sources and preventing the
-	 * same sources from triggering an interrupt. This means we have to read
-	 * the register back with a data-dependency, to ensure the write reaches
-	 * Qman before we update p->irq_sources. Hence the appearance of
-	 * obfuscation... */
-	u32 newval = p->irq_sources & ~(bits & QM_PIRQ_VISIBLE);
-	qm_isr_enable_write(&p->p, newval);
-	newval = qm_isr_enable_read(&p->p);
-	clear_bits(~newval, &p->irq_sources);
+	__maybe_unused unsigned long irqflags;
+	u32 ier;
+	/* Our interrupt handler only processes+clears status register bits that
+	 * are in p->irq_sources. As we're trimming that mask, if one of them
+	 * were to assert in the status register just before we remove it from
+	 * the enable register, there would be an interrupt-storm when we
+	 * release the IRQ lock. So we wait for the enable register update to
+	 * take effect in h/w (by reading it back) and then clear all other bits
+	 * in the status register. Ie. we clear them from ISR once it's certain
+	 * IER won't allow them to reassert. */
+	local_irq_save(irqflags);
+	bits &= QM_PIRQ_VISIBLE;
+	clear_bits(bits, &p->irq_sources);
+	qm_isr_enable_write(&p->p, p->irq_sources);
+	ier = qm_isr_enable_read(&p->p);
+	/* Using "~ier" (rather than "bits" or "~p->irq_sources") creates a
+	 * data-dependency, ie. to protect against re-ordering. */
+	qm_isr_status_clear(&p->p, ~ier);
+	local_irq_restore(irqflags);
 	put_affine_portal();
+#else
+	panic("No Bman portal IRQ support, mustn't spcify IRQ flags!");
+#endif
 }
 EXPORT_SYMBOL(qman_irqsource_remove);
 
