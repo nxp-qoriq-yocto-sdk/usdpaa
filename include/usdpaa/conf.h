@@ -30,13 +30,31 @@
 #ifndef HEADER_USDPAA_CONF_H
 #define HEADER_USDPAA_CONF_H
 
-/* This header is included by <usdpaa/compat.h>, and thus by all other
+/*
+ * This header is included by <usdpaa/compat.h>, and thus by all other
  * <usdpaa/xxx.h> headers. It should provide the minimal set of configuration
  * primitives required by these headers, and thus by any code (internal,
- * application, or 3rd party) that includes them. */
+ * application, or 3rd party) that includes them.
+ *
+ * To determine which CONFIG_* symbols should be covered by this header (and
+ * which should not), grep for CONFIG_ within include/usdpaa/.
+ */
 
-/* ... for now, our build configuration has no remaining impact on API, so it is
- * all within the internal conf.h, however we keep this header around in case
- * something else comes along ... */
+/* don't support blocking (so, WAIT flags won't be #define'd) */
+#undef CONFIG_FSL_DPA_CAN_WAIT
+
+#ifdef CONFIG_FSL_DPA_CAN_WAIT
+/* if we can "WAIT" - can we "WAIT_SYNC" too? */
+#undef CONFIG_FSL_DPA_CAN_WAIT_SYNC
+#endif
+
+/* support FQ allocator built on top of BPID 0 */
+#define CONFIG_FSL_QMAN_FQALLOCATOR
+
+/* don't compile support for NULL FQ handling */
+#undef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
+
+/* don't use rev1-specific adaptive "backoff" for EQCR:CI updates */
+#undef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
 
 #endif /* HEADER_USDPAA_CONF_H */

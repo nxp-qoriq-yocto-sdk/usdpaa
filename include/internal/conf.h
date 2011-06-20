@@ -34,6 +34,12 @@
 extern "C" {
 #endif
 
+/*
+ * This header should define all configuration symbols that have no API
+ * impact. For those that affect the API (and especially the ABI!), put them in
+ * <usdpaa/conf.h> instead.
+ */
+
 /* The contiguous memory map for 'dma_mem' uses the DMA_MEM_*** constants. The
  * first part of the memory map is used to seed buffer pools, as indicated by
  * these constants, and the ad-hoc buffer allocation will be confined to the
@@ -70,14 +76,6 @@ extern "C" {
 /* When copying aligned words or shorts, try to avoid memcpy() */
 #define CONFIG_TRY_BETTER_MEMCPY
 
-/* don't support blocking (so, WAIT flags won't be #define'd) */
-#undef CONFIG_FSL_DPA_CAN_WAIT
-
-#ifdef CONFIG_FSL_DPA_CAN_WAIT
-/* if we can "WAIT" - can we "WAIT_SYNC" too? */
-#undef CONFIG_FSL_DPA_CAN_WAIT_SYNC
-#endif
-
 /* disable support for run-time parameter checking, assertions, etc */
 #undef CONFIG_FSL_DPA_CHECKING
 
@@ -86,12 +84,6 @@ extern "C" {
 
 /* workarounds for errata and missing features in p4080 rev1 */
 #define CONFIG_FSL_QMAN_BUG_AND_FEATURE_REV1
-
-/* don't use rev1-specific adaptive "backoff" for EQCR:CI updates */
-#undef CONFIG_FSL_QMAN_ADAPTIVE_EQCR_THROTTLE
-
-/* support FQ allocator built on top of BPID 0 */
-#define CONFIG_FSL_QMAN_FQALLOCATOR
 
 /* don't disable DCA on auto-initialised portals */
 #undef CONFIG_FSL_QMAN_PORTAL_DISABLEAUTO_DCA
@@ -103,9 +95,6 @@ extern "C" {
 
 /* maximum number of DQRR entries to process in qman_poll() */
 #define CONFIG_FSL_QMAN_POLL_LIMIT 8
-
-/* don't compile support for NULL FQ handling */
-#undef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
 
 /* don't compile support for DQRR prefetching (so stashing is required) */
 #undef CONFIG_FSL_QMAN_DQRR_PREFETCHING
