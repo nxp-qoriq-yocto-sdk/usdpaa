@@ -32,6 +32,10 @@
 #include "dpa_sys.h"
 #include <linux/fsl_qman.h>
 
+#if !defined(CONFIG_FSL_QMAN_FQ_LOOKUP) && defined(CONFIG_PPC64)
+#error "_PPC64 requires _FSL_QMAN_FQ_LOOKUP"
+#endif
+
 	/* ----------------- */
 	/* Congestion Groups */
 	/* ----------------- */
@@ -159,6 +163,12 @@ void qman_recovery_exit_local(void);
  * this API internally. */
 int qman_testwrite_cgr(struct qman_cgr *cgr, u64 i_bcnt,
 	struct qm_mcr_cgrtestwrite *result);
+
+#ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
+/* If the fq object pointer is greater than the size of context_b field,
+ * than a lookup table is required. */
+int qman_setup_fq_lookup_table(size_t num_entries);
+#endif
 
 /*************************************************/
 /*   QMan s/w corenet portal, low-level i/face   */

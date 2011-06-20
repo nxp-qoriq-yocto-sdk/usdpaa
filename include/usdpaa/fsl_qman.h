@@ -1088,6 +1088,9 @@ struct qman_fq {
 	enum qman_fq_state state;
 	int cgr_groupid;
 	struct rb_node node;
+#ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
+	u32 key;
+#endif
 };
 
 /* This callback type is used when handling congestion group entry/exit.

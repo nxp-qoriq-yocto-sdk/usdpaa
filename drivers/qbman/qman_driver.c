@@ -310,8 +310,16 @@ void qman_thread_irq(void)
 
 int qman_global_init(int recovery_mode)
 {
+#ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
+	int ret;
+#endif
 	static int done = 0;
 	if (done)
 		return -EBUSY;
+#ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
+	ret = qman_setup_fq_lookup_table(CONFIG_FSL_QMAN_FQ_LOOKUP_MAX);
+	if (ret)
+		return ret;
+#endif
 	return fsl_fqid_range_init(recovery_mode, &fqid_allocator);
 }

@@ -140,18 +140,6 @@ IMPLEMENT_DPA_RBTREE(fqtree, struct qman_fq, node, fqid);
  * to the one whose affine portal it is waiting on. */
 static DECLARE_WAIT_QUEUE_HEAD(affine_queue);
 
-/* Convert 32-bit contextB (or "tag" for enqueues+ERNs) to corresponding object
- * pointers. For 64-bit CPUs, this will be something other than a cast. */
-static inline struct qman_fq *fq_lookup(u32 tag)
-{
-	return (void *)(unsigned long)tag;
-}
-/* Convert in the other direction */
-static inline u32 fq_tag(struct qman_fq *fq)
-{
-	return (unsigned long)fq;
-}
-
 static inline int table_push_fq(struct qman_portal *p, struct qman_fq *fq)
 {
 	int ret = fqtree_push(&p->retire_table, fq);
@@ -169,6 +157,64 @@ static inline struct qman_fq *table_find_fq(struct qman_portal *p, u32 fqid)
 {
 	return fqtree_find(&p->retire_table, fqid);
 }
+
+#ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
+static void **qman_fq_lookup_table;
+static size_t qman_fq_lookup_table_size;
+
+int qman_setup_fq_lookup_table(size_t num_entries)
+{
+	num_entries++;
+	/* Allocate 1 more entry since the first entry is not used */
+	qman_fq_lookup_table = vmalloc((num_entries * sizeof(void *)));
+	if (!qman_fq_lookup_table) {
+		pr_err("QMan: Could not allocate fq lookup table\n");
+		return -ENOMEM;
+	}
+	memset(qman_fq_lookup_table, 0, num_entries * sizeof(void *));
+	qman_fq_lookup_table_size = num_entries;
+	pr_info("QMan: Allocated lookup table at %p, entry count %lu\n",
+			qman_fq_lookup_table,
+			(unsigned long)qman_fq_lookup_table_size);
+	return 0;
+}
+
+/* global structure that maintains fq object mapping */
+static DEFINE_SPINLOCK(fq_hash_table_lock);
+
+static int find_empty_fq_table_entry(u32 *entry, struct qman_fq *fq)
+{
+	u32 i;
+
+	spin_lock(&fq_hash_table_lock);
+	/* Can't use index zero because this has special meaning
+	 * in context_b field. */
+	for (i = 1; i < qman_fq_lookup_table_size; i++) {
+		if (qman_fq_lookup_table[i] == NULL) {
+			*entry = i;
+			qman_fq_lookup_table[i] = fq;
+			spin_unlock(&fq_hash_table_lock);
+			return 0;
+		}
+	}
+	spin_unlock(&fq_hash_table_lock);
+	return -ENOMEM;
+}
+
+static void clear_fq_table_entry(u32 entry)
+{
+	spin_lock(&fq_hash_table_lock);
+	BUG_ON(entry >= qman_fq_lookup_table_size);
+	qman_fq_lookup_table[entry] = NULL;
+	spin_unlock(&fq_hash_table_lock);
+}
+
+static inline struct qman_fq *get_fq_table_entry(u32 entry)
+{
+	BUG_ON(entry >= qman_fq_lookup_table_size);
+	return  qman_fq_lookup_table[entry];
+}
+#endif
 
 /* In the case that slow- and fast-path handling are both done by qman_poll()
  * (ie. because there is no interrupt handling), we ought to balance how often
@@ -675,8 +721,12 @@ mr_loop:
 		qm_mr_pvb_update(&p->p);
 		msg = qm_mr_current(&p->p);
 		if (msg) {
-			struct qman_fq *fq = fq_lookup(msg->ern.tag);
 			u8 verb = msg->verb & QM_MR_VERB_TYPE_MASK;
+#ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
+			struct qman_fq *fq;
+#else
+			struct qman_fq *fq = (void *)msg->ern.tag;
+#endif
 			if (verb == QM_MR_VERB_FQRNI) {
 				; /* nada, we drop FQRNIs on the floor */
 			} else if ((verb == QM_MR_VERB_FQRN) ||
@@ -688,7 +738,12 @@ mr_loop:
 				fq_state_change(p, fq, msg, verb);
 				if (fq->cb.fqs)
 					fq->cb.fqs(p, fq, msg);
+#ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
+			} else if (likely(msg->ern.tag)) {
+				fq = get_fq_table_entry(msg->ern.tag);
+#else
 			} else if (likely(fq)) {
+#endif
 				/* As per the header note, this is the way to
 				 * determine if it's a s/w ERN or not. */
 				if (likely(!(verb & QM_MR_VERB_DC_ERN)))
@@ -797,7 +852,11 @@ loop:
 			clear_vdqcr(p, fq);
 	} else {
 		/* SDQCR: contextB points to the FQ */
-		fq = fq_lookup(dq->contextB);
+#ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
+		fq = get_fq_table_entry(dq->contextB);
+#else
+		fq = (void *)dq->contextB;
+#endif
 #ifdef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
 		if (unlikely(!fq)) {
 			/* use portal default handlers */
@@ -1223,6 +1282,10 @@ int qman_create_fq(u32 fqid, u32 flags, struct qman_fq *fq)
 	fq->flags = flags;
 	fq->state = qman_fq_state_oos;
 	fq->cgr_groupid = 0;
+#ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
+	if (unlikely(find_empty_fq_table_entry(&fq->key, fq)))
+		return -ENOMEM;
+#endif
 	if (!(flags & QMAN_FQ_FLAG_AS_IS) || (flags & QMAN_FQ_FLAG_NO_MODIFY))
 		return 0;
 	/* Everything else is AS_IS support */
@@ -1298,6 +1361,9 @@ void qman_destroy_fq(struct qman_fq *fq, u32 flags __maybe_unused)
 	case qman_fq_state_oos:
 		if (fq_isset(fq, QMAN_FQ_FLAG_DYNAMIC_FQID))
 			qm_fq_free(fq->fqid);
+#ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
+		clear_fq_table_entry(fq->key);
+#endif
 		return;
 	default:
 		break;
@@ -1369,8 +1435,13 @@ int qman_init_fq(struct qman_fq *fq, u32 flags, struct qm_mcc_initfq *opts)
 			fq_isclear(fq, QMAN_FQ_FLAG_TO_DCPORTAL)) {
 		dma_addr_t phys_fq;
 		mcc->initfq.we_mask |= QM_INITFQ_WE_CONTEXTB;
+#ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
 		mcc->initfq.fqd.context_b = (flags & QMAN_INITFQ_FLAG_NULL) ?
-						0 : fq_tag(fq);
+						0 : fq->key;
+#else
+		mcc->initfq.fqd.context_b = (flags & QMAN_INITFQ_FLAG_NULL) ?
+						0 : (u32)fq;
+#endif
 		/* and the physical address - NB, if the user wasn't trying to
 		 * set CONTEXTA, clear the stashing settings. */
 		if (!(mcc->initfq.we_mask & QM_INITFQ_WE_CONTEXTA)) {
@@ -1528,7 +1599,11 @@ int qman_retire_fq(struct qman_fq *fq, u32 *flags)
 			msg.verb = QM_MR_VERB_FQRNI;
 			msg.fq.fqs = mcr->alterfq.fqs;
 			msg.fq.fqid = fq->fqid;
-			msg.fq.contextB = fq_tag(fq);
+#ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
+			msg.fq.contextB = fq->key;
+#else
+			msg.fq.contextB = (u32)fq;
+#endif
 			fq->cb.fqs(p, fq, &msg);
 		}
 	} else if (res == QM_MCR_RESULT_PENDING) {
@@ -1898,7 +1973,11 @@ static inline struct qm_eqcr_entry *try_eq_start(struct qman_portal **p,
 					QM_EQCR_DCA_PARK : 0) |
 			((flags >> 8) & QM_EQCR_DCA_IDXMASK);
 	eq->fqid = fq->fqid;
-	eq->tag = fq_tag(fq);
+#ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
+	eq->tag = fq->key;
+#else
+	eq->tag = (u32)fq;
+#endif
 	/* From p4080 rev1 -> rev2, the FD struct's address went from 48-bit to
 	 * 40-bit but rev1 chips will still interpret it as 48-bit, meaning we
 	 * have to scrub the upper 8-bits, just in case the user left noise in
