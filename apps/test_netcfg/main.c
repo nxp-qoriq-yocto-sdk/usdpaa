@@ -47,12 +47,6 @@ int main(int argc, char *argv[])
 	int err;
 	struct usdpaa_netcfg_info *uscfg_info;
 
-	err = of_init();
-	if (err) {
-		pr_err("of_init() failed\n");
-		exit(EXIT_FAILURE);
-	}
-
 	printf("---------------START------------------\n");
 
 	if (argc != 3)
@@ -72,6 +66,5 @@ int main(int argc, char *argv[])
 
 	usdpaa_netcfg_release(uscfg_info);
 	printf("---------------END------------------\n");
-	of_finish();
 	return EXIT_SUCCESS;
 }
