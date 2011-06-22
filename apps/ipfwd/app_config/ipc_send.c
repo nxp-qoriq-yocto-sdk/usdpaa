@@ -652,12 +652,6 @@ int main(int argc, char **argv)
 	struct app_ctrl_op_info route_info;
 	int ret, tmp;
 
-	ret = of_init();
-	if (ret) {
-		pr_err("of_init() failed\n");
-		exit(EXIT_FAILURE);
-	}
-
 	response_flag = 0;
 	/* Opens message queue to write */
 	mq_fd_wr = mq_open("/mq_rcv",  O_WRONLY);
@@ -787,6 +781,5 @@ _close:
 		pr_err("%s: %d error in closing MQ: errno = %d\n",
 					__FILE__, __LINE__, errno);
 	}
-	of_finish();
 	return 0;
 }
