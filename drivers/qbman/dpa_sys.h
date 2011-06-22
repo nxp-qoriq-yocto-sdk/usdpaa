@@ -46,13 +46,6 @@
 #define DPA_ASSERT(x)		do { ; } while(0)
 #endif
 
-/* Commonly used combo */
-static inline void dcbit_ro(void *p)
-{
-	dcbi(p);
-	dcbt_ro(p);
-}
-
 /* For trees that contain such support, these stubs are re-mapped to
  * hypervisor+failover features. */
 #define for_each_child_of_node(n1,n2) while (0)

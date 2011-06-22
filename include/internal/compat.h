@@ -68,8 +68,6 @@
 typedef unsigned int	gfp_t;
 typedef uint32_t	phandle;
 
-#define L1_CACHE_BYTES 64
-
 #define noinline	__attribute__((noinline))
 #define ____cacheline_aligned __attribute__((aligned(L1_CACHE_BYTES)))
 #define likely(x)	__builtin_expect(!!(x), 1)
@@ -103,6 +101,12 @@ static inline u8 readb(volatile u8 *p)
 {
 	return *p;
 }
+#define __raw_readb(p)	*(const volatile unsigned char *)(p)
+#define __raw_readl(p)	*(const volatile unsigned int *)(p)
+#define __raw_writel(v, p) \
+do { \
+	*(volatile unsigned int *)(p) = (v); \
+} while (0)
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
 /* printk() stuff */
@@ -226,25 +230,64 @@ static inline void out_be32(volatile void *__p, u32 val)
 	*p = val;
 }
 #define hwsync __sync_synchronize
-#define dcbt_ro(p) __builtin_prefetch(p, 0)
-#define dcbt_rw(p) __builtin_prefetch(p, 1)
 #define lwsync() \
 	do { \
 		asm volatile ("lwsync" : : : "memory"); \
-	} while(0)
-#define dcbzl(p) \
-	do { \
-		asm volatile ("dcbzl 0,%0" : : "r" (p)); \
 	} while(0)
 #define dcbf(p) \
 	do { \
 		asm volatile ("dcbf 0,%0" : : "r" (p)); \
 	} while(0)
+#define dcbt_ro(p) __builtin_prefetch(p, 0)
+#define dcbt_rw(p) __builtin_prefetch(p, 1)
+#define dcbi(p) dcbf(p)
+#ifdef CONFIG_PPC_E500MC
+#define dcbzl(p) \
+	do { \
+		__asm__ __volatile__ ("dcbzl 0,%0" : : "r" (p)); \
+	} while (0)
+#define dcbz_64(p) \
+	do { \
+		dcbzl(p); \
+	} while (0)
+#define dcbf_64(p) \
+	do { \
+		dcbf(p); \
+	} while (0)
+/* Commonly used combo */
+#define dcbit_ro(p) \
+	do { \
+		dcbi(p); \
+		dcbt_ro(p); \
+	} while (0)
+#else
+#define dcbz(p) \
+	do { \
+		__asm__ __volatile__ ("dcbz 0,%0" : : "r" (p)); \
+	} while (0)
+#define dcbz_64(p) \
+	do { \
+		dcbz((u32)p + 32);	\
+		dcbz(p);	\
+	} while (0)
+#define dcbf_64(p) \
+	do { \
+		dcbf((u32)p + 32); \
+		dcbf(p); \
+	} while (0)
+/* Commonly used combo */
+#define dcbit_ro(p) \
+	do { \
+		dcbi(p); \
+		dcbi((u32)p + 32); \
+		dcbt_ro(p); \
+		dcbt_ro((u32)p + 32); \
+	} while (0)
+#endif /* CONFIG_PPC_E500MC */
 #define barrier() \
 	do { \
 		asm volatile ("" : : : "memory"); \
 	} while(0)
-#define dcbi(p) dcbf(p)
 #define cpu_relax barrier
 
 /* Alternate Time Base */

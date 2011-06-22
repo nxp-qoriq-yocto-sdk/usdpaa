@@ -70,6 +70,15 @@ extern "C" {
 #define FSL_BPID_RANGE_START	56
 #define FSL_BPID_RANGE_LENGTH	8
 
+/* e500mc SoCs have 64-byte cachelines. #undef this for 32-byte cachelines */
+#define CONFIG_PPC_E500MC
+
+#ifdef CONFIG_PPC_E500MC
+#define L1_CACHE_BYTES 64
+#else
+#define L1_CACHE_BYTES 32
+#endif
+
 /* support for BUG_ON()s, might_sleep()s, etc */
 #undef CONFIG_BUGON
 
