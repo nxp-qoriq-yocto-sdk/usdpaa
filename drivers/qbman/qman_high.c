@@ -41,9 +41,9 @@
 
 /* Lock/unlock frame queues, subject to the "LOCKED" flag. This is about
  * inter-processor locking only. Note, FQLOCK() is always called either under a
- * local_irq_save() or from interrupt context - hence there's no need for
- * spin_lock_irq() (and indeed, the nesting breaks as the "irq" bit isn't
- * recursive...). */
+ * local_irq_save() or from interrupt context - hence there's no need for irq
+ * protection (and indeed, attempting to nest irq-protection doesn't work, as
+ * the "irq en/disable" machinery isn't recursive...). */
 #define FQLOCK(fq) \
 	do { \
 		struct qman_fq *__fq478 = (fq); \
@@ -284,7 +284,7 @@ const struct qm_portal_config *qman_get_affine_portal_config(void)
 
 static int drain_mr_fqrni(struct qm_portal *p)
 {
-	struct qm_mr_entry *msg;
+	const struct qm_mr_entry *msg;
 loop:
 	msg = qm_mr_current(p);
 	if (!msg) {
@@ -391,8 +391,8 @@ int qman_create_affine_portal(struct qm_portal_config *config, u32 flags,
 	/* for recovery mode, quiesce SDQCR/VDQCR and drain DQRR+MR until h/w
 	 * wraps up anything it was doing (5ms is ample idle time). */
 	if (recovery_mode) {
-		struct qm_dqrr_entry *dq;
-		struct qm_mr_entry *msg;
+		const struct qm_dqrr_entry *dq;
+		const struct qm_mr_entry *msg;
 		int idle = 0;
 		/* quiesce SDQCR/VDQCR, then drain till h/w wraps up anything it
 		 * was doing (5ms is more than enough to ensure it's done). */
@@ -632,7 +632,7 @@ EXPORT_SYMBOL(qman_set_null_cb);
 
 /* Inline helper to reduce nesting in __poll_portal_slow() */
 static inline void fq_state_change(struct qman_portal *p, struct qman_fq *fq,
-				struct qm_mr_entry *msg, u8 verb)
+				const struct qm_mr_entry *msg, u8 verb)
 {
 	FQLOCK(fq);
 	switch(verb) {
@@ -664,7 +664,7 @@ static inline void fq_state_change(struct qman_portal *p, struct qman_fq *fq,
 
 static u32 __poll_portal_slow(struct qman_portal *p, u32 is)
 {
-	struct qm_mr_entry *msg;
+	const struct qm_mr_entry *msg;
 
 	BUG_ON(p->bits & PORTAL_BITS_RECOVERY);
 
@@ -813,7 +813,7 @@ static noinline void clear_vdqcr(struct qman_portal *p, struct qman_fq *fq)
 static inline unsigned int __poll_portal_fast(struct qman_portal *p,
 					unsigned int poll_limit)
 {
-	struct qm_dqrr_entry *dq;
+	const struct qm_dqrr_entry *dq;
 	struct qman_fq *fq;
 	enum qman_cb_dqrr_result res;
 #ifdef CONFIG_FSL_QMAN_DQRR_PREFETCHING
@@ -1011,7 +1011,7 @@ EXPORT_SYMBOL(qman_poll);
 /* Recovery processing. */
 static int recovery_poll_mr(struct qman_portal *p, u32 fqid)
 {
-	struct qm_mr_entry *msg;
+	const struct qm_mr_entry *msg;
 	enum {
 		wait_for_fqrn,
 		wait_for_fqrl,
@@ -1056,7 +1056,7 @@ next_msg:
 }
 static unsigned int recovery_poll_dqrr(struct qman_portal *p, u32 fqid)
 {
-	struct qm_dqrr_entry *dq;
+	const struct qm_dqrr_entry *dq;
 	u8 empty = 0, num_fds = 0;
 
 loop:

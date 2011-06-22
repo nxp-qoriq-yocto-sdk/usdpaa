@@ -97,10 +97,6 @@ do { \
 	abort(); \
 } while(0)
 #define container_of(p, t, f) (t *)((void *)p - offsetof(t, f))
-static inline u8 readb(volatile u8 *p)
-{
-	return *p;
-}
 #define __raw_readb(p)	*(const volatile unsigned char *)(p)
 #define __raw_readl(p)	*(const volatile unsigned int *)(p)
 #define __raw_writel(v, p) \

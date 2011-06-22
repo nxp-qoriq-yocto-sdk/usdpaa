@@ -51,51 +51,35 @@
 #define CL_RCR_PI_CENA		0x3000
 #define CL_RCR_CI_CENA		0x3100
 
-/* Cache-inhibited register access. BTW, we do not need the "sync()" inherent in
- * in_be32()/out_be32() operations, so our register accesses use a volatile
- * dereference instead. */
-static inline u32 __bm_in(struct bm_addr *bm, unsigned long offset)
-{
-	return *((volatile u32 *)(bm->addr_ci + offset));
-}
-static inline void __bm_out(struct bm_addr *bm, unsigned long offset, u32 val)
-{
-	*((volatile u32 *)(bm->addr_ci + offset)) = val;
-}
+/* BTW, the drivers (and h/w programming model) already obtain the required
+ * synchronisation for portal accesses via lwsync(), hwsync(), and
+ * data-dependencies. Use of barrier()s or other order-preserving primitives
+ * simply degrade performance. Hence the use of the __raw_*() interfaces, which
+ * simply ensure that the compiler treats the portal registers as volatile (ie.
+ * non-coherent). */
+
+/* Cache-inhibited register access. */
+#define __bm_in(bm, o)		__raw_readl((bm)->addr_ci + (o))
+#define __bm_out(bm, o, val)	__raw_writel((val), (bm)->addr_ci + (o))
 #define bm_in(reg)		__bm_in(&portal->addr, REG_##reg)
 #define bm_out(reg, val)	__bm_out(&portal->addr, REG_##reg, val)
 
 /* Cache-enabled (index) register access */
-static inline void __bm_cl_touch_ro(struct bm_addr *bm, unsigned long offset)
-{
-	dcbt_ro(bm->addr_ce + offset);
-}
-static inline void __bm_cl_touch_rw(struct bm_addr *bm, unsigned long offset)
-{
-	dcbt_rw(bm->addr_ce + offset);
-}
-static inline u32 __bm_cl_in(struct bm_addr *bm, unsigned long offset)
-{
-	return *((volatile u32 *)(bm->addr_ce + offset));
-}
-static inline void __bm_cl_out(struct bm_addr *bm, unsigned long offset,
-				u32 val)
-{
-	*((volatile u32 *)(bm->addr_ce + offset)) = val;
-	dcbf(bm->addr_ce + offset);
-}
-static inline void __bm_cl_invalidate(struct bm_addr *bm, unsigned long offset)
-{
-	dcbi(bm->addr_ce + offset);
-}
+#define __bm_cl_touch_ro(bm, o) dcbt_ro((bm)->addr_ce + (o))
+#define __bm_cl_touch_rw(bm, o) dcbt_rw((bm)->addr_ce + (o))
+#define __bm_cl_in(bm, o)	__raw_readl((bm)->addr_ce + (o))
+#define __bm_cl_out(bm, o, val) \
+	do { \
+		u32 *__tmpclout = (bm)->addr_ce + (o); \
+		__raw_writel((val), __tmpclout); \
+		dcbf(__tmpclout); \
+	} while (0)
+#define __bm_cl_invalidate(bm, o) dcbi((bm)->addr_ce + (o))
 #define bm_cl_touch_ro(reg)	__bm_cl_touch_ro(&portal->addr, CL_##reg##_CENA)
 #define bm_cl_touch_rw(reg)	__bm_cl_touch_rw(&portal->addr, CL_##reg##_CENA)
 #define bm_cl_in(reg)		__bm_cl_in(&portal->addr, CL_##reg##_CENA)
 #define bm_cl_out(reg, val)	__bm_cl_out(&portal->addr, CL_##reg##_CENA, val)
 #define bm_cl_invalidate(reg) __bm_cl_invalidate(&portal->addr, CL_##reg##_CENA)
-
-/* Cache-enabled ring access */
-#define bm_cl(base, idx)	((void *)base + ((idx) << 6))
 
 /* Cyclic helper for rings. FIXME: once we are able to do fine-grain perf
  * analysis, look at using the "extra" bit in the ring index registers to avoid
@@ -243,7 +227,7 @@ static inline struct bm_rcr_entry *bm_rcr_start(struct bm_portal *portal)
 #ifdef CONFIG_FSL_DPA_CHECKING
 	rcr->busy = 1;
 #endif
-	dcbzl(rcr->cursor);
+	dcbz_64(rcr->cursor);
 	return rcr->cursor;
 }
 
@@ -265,10 +249,10 @@ static inline struct bm_rcr_entry *bm_rcr_pend_and_next(
 	if (rcr->available == 1)
 		return NULL;
 	rcr->cursor->__dont_write_directly__verb = myverb | rcr->vbit;
-	dcbf(rcr->cursor);
+	dcbf_64(rcr->cursor);
 	RCR_INC(rcr);
 	rcr->available--;
-	dcbzl(rcr->cursor);
+	dcbz_64(rcr->cursor);
 	return rcr->cursor;
 }
 
@@ -319,7 +303,7 @@ static inline void bm_rcr_pvb_commit(struct bm_portal *portal, u8 myverb)
 	lwsync();
 	rcursor = rcr->cursor;
 	rcursor->__dont_write_directly__verb = myverb | rcr->vbit;
-	dcbf(rcursor);
+	dcbf_64(rcursor);
 	RCR_INC(rcr);
 	rcr->available--;
 #ifdef CONFIG_FSL_DPA_CHECKING
@@ -391,7 +375,7 @@ static inline int bm_mc_init(struct bm_portal *portal)
 	register struct bm_mc *mc = &portal->mc;
 	mc->cr = portal->addr.addr_ce + CL_CR;
 	mc->rr = portal->addr.addr_ce + CL_RR0;
-	mc->rridx = (readb(&mc->cr->__dont_write_directly__verb) &
+	mc->rridx = (__raw_readb(&mc->cr->__dont_write_directly__verb) &
 			BM_MCC_VERB_VBIT) ?  0 : 1;
 	mc->vbit = mc->rridx ? BM_MCC_VERB_VBIT : 0;
 #ifdef CONFIG_FSL_DPA_CHECKING
@@ -417,7 +401,7 @@ static inline struct bm_mc_command *bm_mc_start(struct bm_portal *portal)
 #ifdef CONFIG_FSL_DPA_CHECKING
 	mc->state = mc_user;
 #endif
-	dcbzl(mc->cr);
+	dcbz_64(mc->cr);
 	return mc->cr;
 }
 
@@ -452,7 +436,7 @@ static inline struct bm_mc_result *bm_mc_result(struct bm_portal *portal)
 	/* The inactive response register's verb byte always returns zero until
 	 * its command is submitted and completed. This includes the valid-bit,
 	 * in case you were wondering... */
-	if (!readb(&rr->verb)) {
+	if (!__raw_readb(&rr->verb)) {
 		dcbit_ro(rr);
 		return NULL;
 	}
@@ -483,7 +467,7 @@ static inline void bm_isr_bscn_mask(struct bm_portal *portal, u8 bpid,
 					int enable)
 {
 	u32 val;
-	DPA_ASSERT(bpid < 64);
+	DPA_ASSERT(bpid < bman_pool_max);
 	/* REG_SCN for bpid=0..31, REG_SCN+4 for bpid=32..63 */
 	val = __bm_in(&portal->addr, SCN_REG(bpid));
 	if (enable)
