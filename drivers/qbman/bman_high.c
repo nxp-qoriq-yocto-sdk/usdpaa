@@ -133,8 +133,8 @@ static void depletion_unlink(struct bman_pool *pool)
  * slow-path poll. We'll use two decrementer sources. The idle decrementer
  * constant is used when the last slow-poll detected no work to do, and the busy
  * decrementer constant when the last slow-poll had work to do. */
-#define SLOW_POLL_IDLE	 1000
-#define SLOW_POLL_BUSY	 10
+#define SLOW_POLL_IDLE 1000
+#define SLOW_POLL_BUSY 10
 static u32 __poll_portal_slow(struct bman_portal *p, u32 is);
 
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
@@ -208,7 +208,7 @@ int bman_create_affine_portal(struct bm_portal_config *config,
 			goto fail_pools;
 		portal->pools[0] = *pools;
 		bman_depletion_init(portal->pools + 1);
-		while (bpid < 64) {
+		while (bpid < bman_pool_max) {
 			/* Default to all BPIDs disabled, we enable as required
 			 * at run-time. */
 			bm_isr_bscn_mask(__p, bpid, 0);
@@ -533,8 +533,11 @@ struct bman_pool *bman_new_pool(const struct bman_pool_params *params)
 		int ret = bm_pool_new(&bpid);
 		if (ret)
 			return NULL;
-	} else
+	} else {
+		if (params->bpid >= bman_pool_max)
+			return NULL;
 		bpid = params->bpid;
+	}
 #ifdef CONFIG_FSL_BMAN_CONFIG
 	if (params->flags & BMAN_POOL_FLAG_THRESH) {
 		int ret = bm_pool_set(bpid, params->thresholds);

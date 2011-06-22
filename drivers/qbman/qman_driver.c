@@ -34,8 +34,9 @@
 #include "qman_private.h"
 
 /* Global variable containing revision id (even on non-control plane systems
- * where CCSR isn't available). FIXME: hard-coded. */
-u16 qman_ip_rev = QMAN_REV20;
+ * where CCSR isn't available) */
+u16 qman_ip_rev;
+EXPORT_SYMBOL(qman_ip_rev);
 
 struct qman_fqid_ranges {
 	unsigned int num_ranges;
@@ -56,8 +57,6 @@ static const struct qman_fqid_ranges fqid_allocator = {
 /*****************/
 /* Portal driver */
 /*****************/
-
-#define PORTAL_MAX	10
 
 static __thread int fd = -1;
 static __thread const struct qbman_uio_irq *irq;
@@ -310,12 +309,31 @@ void qman_thread_irq(void)
 
 int qman_global_init(int recovery_mode)
 {
+	const struct device_node *dt_node;
 #ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
 	int ret;
 #endif
 	static int done = 0;
 	if (done)
 		return -EBUSY;
+
+	dt_node = of_find_compatible_node(NULL, NULL, "fsl,qman-portal");
+	if (!dt_node) {
+		pr_err("No qman portals available for any CPU\n");
+		return -ENODEV;
+	}
+	if (of_device_is_compatible(dt_node, "fsl,qman-portal-1.0"))
+		qman_ip_rev = QMAN_REV10;
+	else if (of_device_is_compatible(dt_node, "fsl,qman-portal-1.1"))
+		qman_ip_rev = QMAN_REV11;
+	else if	(of_device_is_compatible(dt_node, "fsl,qman-portal-1.2"))
+		qman_ip_rev = QMAN_REV12;
+	else if (of_device_is_compatible(dt_node, "fsl,qman-portal-2.0"))
+		qman_ip_rev = QMAN_REV20;
+	if (!qman_ip_rev) {
+		pr_err("Unknown qman portal version\n");
+		return -ENODEV;
+	}
 #ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
 	ret = qman_setup_fq_lookup_table(CONFIG_FSL_QMAN_FQ_LOOKUP_MAX);
 	if (ret)

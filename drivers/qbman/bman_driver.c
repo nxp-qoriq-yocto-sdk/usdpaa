@@ -33,18 +33,23 @@
 #include <usdpaa/fsl_usd.h>
 #include "bman_private.h"
 
+/*
+ * Global variables of the max portal/pool number this bman version supported
+ */
+u16 bman_ip_rev;
+EXPORT_SYMBOL(bman_ip_rev);
+u16 bman_pool_max;
+EXPORT_SYMBOL(bman_pool_max);
+
 /*****************/
 /* Portal driver */
 /*****************/
 
-#define PORTAL_MAX	10
-#define POOL_MAX	64
-
 static __thread int fd = -1;
 static __thread const struct qbman_uio_irq *irq;
 
-static struct bman_depletion pools = BMAN_DEPLETION_FULL;
-static u8 num_pools = 64;
+static struct bman_depletion pools;
+static u8 num_pools;
 static DEFINE_SPINLOCK(pools_lock);
 
 struct bman_bpid_ranges {
@@ -63,9 +68,9 @@ static const struct bman_bpid_ranges bpid_allocator = {
 
 int bm_pool_new(u32 *bpid)
 {
-	int ret = 0, b = 64;
+	int ret = 0, b = bman_pool_max;
 	spin_lock(&pools_lock);
-	if (num_pools > 63)
+	if (num_pools >= bman_pool_max)
 		ret = -ENOMEM;
 	else {
 		while (b-- && bman_depletion_get(&pools, b))
@@ -82,7 +87,7 @@ int bm_pool_new(u32 *bpid)
 void bm_pool_free(u32 bpid)
 {
 	spin_lock(&pools_lock);
-	BUG_ON(bpid > 63);
+	BUG_ON(bpid >= bman_pool_max);
 	BUG_ON(!bman_depletion_get(&pools, bpid));
 	bman_depletion_unset(&pools, bpid);
 	num_pools--;
@@ -231,7 +236,7 @@ static int fsl_bpool_range_init(int recovery_mode,
 				bpid < (bpids->ranges[range].start +
 					bpids->ranges[range].num);
 				bpid++) {
-			if (bpid > 63) {
+			if (bpid >= bman_pool_max) {
 				pr_err("BPIDs out range\n");
 				return -EINVAL;
 			}
@@ -290,8 +295,34 @@ void bman_thread_irq(void)
 
 int bman_global_init(int recovery_mode)
 {
+	const struct device_node *dt_node;
+	int ret;
 	static int done = 0;
 	if (done)
 		return -EBUSY;
-	return fsl_bpool_range_init(recovery_mode, &bpid_allocator);
+	dt_node = of_find_compatible_node(NULL, NULL, "fsl,bman-portal");
+	if (!dt_node) {
+		pr_err("No bman portals available for any CPU\n");
+		return -ENODEV;
+	}
+	if (of_device_is_compatible(dt_node, "fsl,bman-portal-1.0")) {
+		bman_ip_rev = BMAN_REV10;
+		bman_pool_max = 64;
+	} else if (of_device_is_compatible(dt_node, "fsl,bman-portal-2.0")) {
+		bman_ip_rev = BMAN_REV20;
+		bman_pool_max = 8;
+	}
+	if (!bman_ip_rev) {
+		pr_err("Unknown bman portal version\n");
+		return -ENODEV;
+	}
+	num_pools = bman_pool_max;
+	bman_depletion_fill(&pools);
+	ret = fsl_bpool_range_init(recovery_mode, &bpid_allocator);
+	if (ret) {
+		pr_err("Bman pool range set failed\n");
+		return ret;
+	}
+	done = 1;
+	return 0;
 }
