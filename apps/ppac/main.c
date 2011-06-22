@@ -35,17 +35,11 @@
 #include <unistd.h>
 #include <readline.h>  /* libedit */
 
+#include <internal/compat.h>
+
 /***************/
 /* Global data */
 /***************/
-
-/* Configuration */
-struct usdpaa_netcfg_info *netcfg;
-/* Default paths to configuration files - these are determined from the build,
- * but can be overriden at run-time using "DEF_PCD_PATH" and "DEF_CFG_PATH"
- * environment variables. */
-const char ppam_pcd_path[] __attribute__((weak)) = __stringify(DEF_PCD_PATH);
-const char ppam_cfg_path[] __attribute__((weak)) = __stringify(DEF_CFG_PATH);
 
 /* Seed buffer pools according to the configuration symbols */
 const struct ppac_bpool_static {
@@ -62,26 +56,15 @@ const struct ppac_bpool_static {
 /* The SDQCR mask to use (computed from netcfg's pool-channels) */
 static uint32_t sdqcr;
 
-/* We want a trivial mapping from bpid->pool, so just have a 64-wide array of
- * pointers, most of which are NULL. */
+/* The follow global variables are documented in ppac.h */
+struct usdpaa_netcfg_info *netcfg;
+const char ppam_pcd_path[] __attribute__((weak)) = __stringify(DEF_PCD_PATH);
+const char ppam_cfg_path[] __attribute__((weak)) = __stringify(DEF_CFG_PATH);
 struct bman_pool *pool[64];
-
-/* The interfaces in this list are allocated from dma_mem (stashing==DMA) */
 LIST_HEAD(ifs);
-
-/* The forwarding logic uses a per-cpu FQ object for handling enqueues (and
- * ERNs), irrespective of the destination FQID. In this way, cache-locality is
- * more assured, and any ERNs that do occur will show up on the same CPUs they
- * were enqueued from. This works because ERN messages contain the FQID of the
- * original enqueue operation, so in principle any demux that's required by the
- * ERN callback can be based on that. Ie. the FQID set within "local_fq" is from
- * whatever the last executed enqueue was, the ERN handler can ignore it. */
-__PERCPU struct qman_fq local_fq;
-
+__thread struct qman_fq local_fq;
 #ifdef PPAC_2FWD_ORDER_PRESERVATION
-/* Similarly, PPAC APIs to send/drop a frame use this state in order to support
- * order preservation. */
-__PERCPU const struct qm_dqrr_entry *local_dqrr;
+__thread const struct qm_dqrr_entry *local_dqrr;
 #endif
 
 #ifdef PPAC_CGR

@@ -45,8 +45,6 @@
 #include <usdpaa/dma_mem.h>
 #include <usdpaa/usdpaa_netcfg.h>
 
-#include <internal/compat.h>
-
 #include <argp.h>
 
 /* If defined, be lippy about everything */
@@ -171,12 +169,17 @@ extern struct list_head ifs;
  * original enqueue operation, so in principle any demux that's required by the
  * ERN callback can be based on that. Ie. the FQID set within "local_fq" is from
  * whatever the last executed enqueue was, the ERN handler can ignore it. */
-extern __PERCPU struct qman_fq local_fq;
+extern __thread struct qman_fq local_fq;
 
+/* This is a backdoor from PPAC to itself in order to support order
+ * preservation. Packet-handling goes from a PPAC handler to a PPAM handler
+ * which in turn calls PPAC APIs to perform the required packet operations. Call
+ * stack is PPAC->PPAM->PPAC, with the possibility for inlining to collapse it
+ * all down. The backdoors allow the packet operations to know what was known
+ * back up in the PPAC handler but not passed down through the call stack, like
+ * what DQRR entry was being processed (to encode enqueue-DCAs). */
 #ifdef PPAC_2FWD_ORDER_PRESERVATION
-/* Similarly, PPAC APIs to send/drop a frame use this state in order to support
- * order preservation. */
-extern __PERCPU const struct qm_dqrr_entry *local_dqrr;
+extern __thread const struct qm_dqrr_entry *local_dqrr;
 #endif
 
 #ifdef PPAC_CGR

@@ -33,11 +33,7 @@
 #ifndef __PPAC_IF_H
 #define __PPAC_IF_H
 
-#include <usdpaa/compat.h>
-#include <usdpaa/fsl_qman.h>
-#include <usdpaa/usdpaa_netcfg.h>
-
-#include <internal/compat.h>
+#include <ppac.h>
 
 /*********************************/
 /* Net interface data structures */
