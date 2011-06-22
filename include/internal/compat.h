@@ -69,9 +69,6 @@ typedef unsigned int	gfp_t;
 typedef uint32_t	phandle;
 
 #define noinline	__attribute__((noinline))
-#define ____cacheline_aligned __attribute__((aligned(L1_CACHE_BYTES)))
-#define likely(x)	__builtin_expect(!!(x), 1)
-#define unlikely(x)	__builtin_expect(!!(x), 0)
 #define __iomem
 #define __stringify_1(x) #x
 #define __stringify(x)	__stringify_1(x)
@@ -89,14 +86,11 @@ typedef uint32_t	phandle;
 #define GFP_KERNEL	0
 #define __KERNEL__
 #define __init
-#define lower_32_bits(x) ((u32)(x))
-#define upper_32_bits(x) ((u32)(((x) >> 16) >> 16))
 #define panic(x) \
 do { \
 	printf("panic: %s", x); \
 	abort(); \
 } while(0)
-#define container_of(p, t, f) (t *)((void *)p - offsetof(t, f))
 #define __raw_readb(p)	*(const volatile unsigned char *)(p)
 #define __raw_readl(p)	*(const volatile unsigned int *)(p)
 #define __raw_writel(v, p) \
@@ -109,48 +103,7 @@ do { \
 #define printk(fmt, args...)	do_not_use_printk
 #define nada(fmt, args...)	do { ; } while(0)
 
-#define prflush(fmt, args...) \
-	do { \
-		printf(fmt, ##args); \
-		fflush(stdout); \
-	} while (0)
-#define pr_crit(fmt, args...)	 prflush("CRIT:" fmt, ##args)
-#define pr_err(fmt, args...)	 prflush("ERR:" fmt, ##args)
-#define pr_warning(fmt, args...) prflush("WARN:" fmt, ##args)
-#define pr_info(fmt, args...)	 prflush(fmt, ##args)
-
 /* Debug stuff */
-#define BUG()	abort()
-#ifdef CONFIG_BUGON
-#define pr_debug(fmt, args...)	printf(fmt, ##args)
-#define BUG_ON(c) \
-do { \
-	if (c) { \
-		pr_crit("BUG: %s:%d\n", __FILE__, __LINE__); \
-		abort(); \
-	} \
-} while(0)
-#define might_sleep_if(c)	BUG_ON(c)
-#define msleep(x) \
-do { \
-	pr_crit("BUG: illegal call %s:%d\n", __FILE__, __LINE__); \
-	exit(EXIT_FAILURE); \
-} while(0)
-#else
-#define pr_debug(fmt, args...)	do { ; } while(0)
-#define BUG_ON(c)		do { ; } while(0)
-#define might_sleep_if(c)	do { ; } while(0)
-#define msleep(x)		do { ; } while(0)
-#endif
-#define WARN_ON(c, str) \
-do { \
-	static int warned_##__LINE__; \
-	if ((c) && !warned_##__LINE__) { \
-		pr_warning("%s\n", str); \
-		pr_warning("(%s:%d)\n", __FILE__, __LINE__); \
-		warned_##__LINE__ = 1; \
-	} \
-} while (0)
 #ifdef CONFIG_FSL_BMAN_CHECKING
 #define BM_ASSERT(x) \
 	do { \
@@ -285,33 +238,6 @@ static inline void out_be32(volatile void *__p, u32 val)
 		asm volatile ("" : : : "memory"); \
 	} while(0)
 #define cpu_relax barrier
-
-/* Alternate Time Base */
-#define SPR_ATBL	526
-#define SPR_ATBU	527
-#define mfspr(reg) \
-({ \
-	register_t ret; \
-	asm volatile("mfspr %0, %1" : "=r" (ret) : "i" (reg) : "memory"); \
-	ret; \
-})
-static inline uint64_t mfatb(void)
-{
-	uint32_t hi, lo, chk;
-	do {
-		hi = mfspr(SPR_ATBU);
-		lo = mfspr(SPR_ATBL);
-		chk = mfspr(SPR_ATBU);
-	} while (unlikely(hi != chk));
-	return (uint64_t) hi << 32 | (uint64_t) lo;
-}
-/* Spin for a few cycles without bothering the bus */
-static inline void cpu_spin(int cycles)
-{
-	uint64_t now = mfatb();
-	while (mfatb() < (now + cycles))
-		;
-}
 
 /* SMP stuff */
 static inline int cpumask_test_cpu(int cpu, cpumask_t *mask)

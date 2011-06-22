@@ -40,6 +40,18 @@
  * which should not), grep for CONFIG_ within include/usdpaa/.
  */
 
+/* e500mc SoCs have 64-byte cachelines. #undef this for 32-byte cachelines */
+#define CONFIG_PPC_E500MC
+
+#ifdef CONFIG_PPC_E500MC
+#define L1_CACHE_BYTES 64
+#else
+#define L1_CACHE_BYTES 32
+#endif
+
+/* support for BUG_ON()s, might_sleep()s, etc */
+#undef CONFIG_BUGON
+
 /* don't support blocking (so, WAIT flags won't be #define'd) */
 #undef CONFIG_FSL_DPA_CAN_WAIT
 

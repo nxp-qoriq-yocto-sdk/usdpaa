@@ -62,6 +62,10 @@
 #define __always_unused	__attribute__((unused))
 #define __packed	__attribute__((__packed__))
 #define __user
+#define likely(x)	__builtin_expect(!!(x), 1)
+#define unlikely(x)	__builtin_expect(!!(x), 0)
+#define ____cacheline_aligned __attribute__((aligned(L1_CACHE_BYTES)))
+#define container_of(p, t, f) (t *)((void *)p - offsetof(t, f))
 
 /* Required types */
 typedef uint8_t		u8;
@@ -75,9 +79,86 @@ struct rb_node {
 	struct rb_node *prev, *next;
 };
 
+/* Debugging */
+#define prflush(fmt, args...) \
+	do { \
+		printf(fmt, ##args); \
+		fflush(stdout); \
+	} while (0)
+#define pr_crit(fmt, args...)	 prflush("CRIT:" fmt, ##args)
+#define pr_err(fmt, args...)	 prflush("ERR:" fmt, ##args)
+#define pr_warning(fmt, args...) prflush("WARN:" fmt, ##args)
+#define pr_info(fmt, args...)	 prflush(fmt, ##args)
+
+#define BUG()	abort()
+#ifdef CONFIG_BUGON
+#define pr_debug(fmt, args...)	printf(fmt, ##args)
+#define BUG_ON(c) \
+do { \
+	if (c) { \
+		pr_crit("BUG: %s:%d\n", __FILE__, __LINE__); \
+		abort(); \
+	} \
+} while(0)
+#define might_sleep_if(c)	BUG_ON(c)
+#define msleep(x) \
+do { \
+	pr_crit("BUG: illegal call %s:%d\n", __FILE__, __LINE__); \
+	exit(EXIT_FAILURE); \
+} while(0)
+#else
+#define pr_debug(fmt, args...)	do { ; } while(0)
+#define BUG_ON(c)		do { ; } while(0)
+#define might_sleep_if(c)	do { ; } while(0)
+#define msleep(x)		do { ; } while(0)
+#endif
+#define WARN_ON(c, str) \
+do { \
+	static int warned_##__LINE__; \
+	if ((c) && !warned_##__LINE__) { \
+		pr_warning("%s\n", str); \
+		pr_warning("(%s:%d)\n", __FILE__, __LINE__); \
+		warned_##__LINE__ = 1; \
+	} \
+} while (0)
+
 /* "struct list_head" is needed by fsl_qman.h and fman.h, and the latter is not
  * much use to users unless related logic is available too
  * ("list_for_each_entry()", etc), so we put all of it in here; */
 #include <usdpaa/compat_list.h>
+
+/* Other miscellaneous interfaces our APIs depend on; */
+
+/* Qman/Bman API inlines and macros; */
+#define lower_32_bits(x) ((u32)(x))
+#define upper_32_bits(x) ((u32)(((x) >> 16) >> 16))
+
+/* PPAC inlines require cpu_spin(); */
+/* Alternate Time Base */
+#define SPR_ATBL	526
+#define SPR_ATBU	527
+#define mfspr(reg) \
+({ \
+	register_t ret; \
+	asm volatile("mfspr %0, %1" : "=r" (ret) : "i" (reg) : "memory"); \
+	ret; \
+})
+static inline uint64_t mfatb(void)
+{
+	uint32_t hi, lo, chk;
+	do {
+		hi = mfspr(SPR_ATBU);
+		lo = mfspr(SPR_ATBL);
+		chk = mfspr(SPR_ATBU);
+	} while (unlikely(hi != chk));
+	return (uint64_t) hi << 32 | (uint64_t) lo;
+}
+/* Spin for a few cycles without bothering the bus */
+static inline void cpu_spin(int cycles)
+{
+	uint64_t now = mfatb();
+	while (mfatb() < (now + cycles))
+		;
+}
 
 #endif /* HEADER_USDPAA_COMPAT_H */
