@@ -66,7 +66,7 @@ extern "C" {
 /* Until device-trees (or device-tree replacements) are available, another thing
  * to hard-code is the FQID and BPID range allocation. */
 #define FSL_FQID_RANGE_START	0x200	/* 512 */
-#define FSL_FQID_RANGE_LENGTH	0x080	/* 128 */
+#define FSL_FQID_RANGE_LENGTH	0x200	/* 512 */
 #define FSL_BPID_RANGE_START	56
 #define FSL_BPID_RANGE_LENGTH	8
 
