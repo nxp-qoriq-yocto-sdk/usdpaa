@@ -122,6 +122,8 @@ struct qm_portal_config {
 	/* does this portal have PAMU assistance from hypervisor? */
 	int has_hv_dma;
 	struct device_node *node;
+	/* Allow these to be joined in lists */
+	struct list_head list;
 };
 
 /* Hooks for driver initialisation */
@@ -139,6 +141,7 @@ extern u16 qman_ip_rev; /* 0 if uninitialised, otherwise QMAN_REVx */
 #ifdef CONFIG_FSL_QMAN_CONFIG
 /* Hooks from qman_driver.c to qman_config.c */
 int qman_init_error_int(struct device_node *node);
+void qman_liodn_fixup(enum qm_channel channel);
 #endif
 
 /* Hooks from qman_driver.c in to qman_high.c */
@@ -177,10 +180,6 @@ int qman_setup_fq_lookup_table(size_t num_entries);
 /* Note: most functions are only used by the high-level interface, so are
  * inlined from qman_low.h. The stuff below is for use by other parts of the
  * driver. */
-
-/* Obtain a mask of the available pool channels, expressed using
- * QM_SDQCR_CHANNELS_POOL(n). */
-u32 qm_pools(void);
 
 /* For qm_dqrr_sdqcr_set(); Choose one SOURCE. Choose one COUNT. Choose one
  * dequeue TYPE. Choose TOKEN (8-bit).
