@@ -35,6 +35,8 @@ KWWRAP		?= kwwrap
 KWINJECT	?= kwinject
 KWCHECK		?= kwcheck
 
+KWINJECT_PROG	:= --prog $(notdir $(CC))=gnu,$(notdir $(LD))=gnu_ld,$(notdir $(AR))=ar
+
 CC		:= $(KWWRAP) --force-relative-path --output $(BIN_DIR)/kwwrap.trace $(CC)
 LD		:= $(KWWRAP) --force-relative-path --output $(BIN_DIR)/kwwrap.trace $(LD)
 AR		:= $(KWWRAP) --force-relative-path --output $(BIN_DIR)/kwwrap.trace $(AR)
@@ -46,7 +48,7 @@ kwbuild: $(BIN_DIR)/kwinject.out | $(BIN_DIR)/.kwlp
 $(BIN_DIR)/.kwlp:
 	$(Q)$(KWCHECK) create --project-dir $@ --settings-dir $(@D)/.kwps
 $(BIN_DIR)/kwinject.out: $(BIN_DIR)/kwwrap.trace
-	$(Q)$(KWINJECT) --trace-in $< --output $@
+	$(Q)$(KWINJECT) $(KWINJECT_PROG) --trace-in $< --output $@
 .SECONDEXPANSION:
 $(BIN_DIR)/kwwrap.trace: $$(foreach lib,$$(LIBS),$(LIB_DIR)/lib$$(lib).a) $$(foreach bin,$$(BINS),$$(BIN_DIR)/$$(bin)) Makefile.kw
 	$(Q)$(MAKE) --silent --no-print-directory --touch $@
