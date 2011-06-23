@@ -315,7 +315,7 @@ const cpumask_t *bman_affine_cpus(void);
  * which implies some latency even if there's nothing to do. The bman_poll()
  * wrapper on the other hand (like the qman_poll() wrapper) attenuates this by
  * checking for (and doing) portal processing infrequently. Ie. such that
- * qman_poll() and bmna_poll() can be called from core-processing loops. Use
+ * qman_poll() and bman_poll() can be called from core-processing loops. Use
  * bman_poll_slow() when you yourself are deciding when to incur the overhead of
  * processing.
  */
