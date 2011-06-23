@@ -100,7 +100,7 @@ struct qman_portal {
 	struct qman_fq_cb null_cb;
 #endif
 	/* When the cpu-affine portal is activated, this is non-NULL */
-	struct qm_portal_config *config;
+	const struct qm_portal_config *config;
 	/* This is needed for providing a non-NULL device to dma_map_***() */
 	struct platform_device *pdev;
 	struct dpa_rbtree retire_table;
@@ -338,7 +338,7 @@ static void post_recovery(struct qman_portal *p __always_unused,
 				tmp_node->full_name);
 }
 
-int qman_create_affine_portal(struct qm_portal_config *config, u32 flags,
+int qman_create_affine_portal(const struct qm_portal_config *config, u32 flags,
 			const struct qman_cgrs *cgrs,
 			const struct qman_fq_cb *null_cb,
 			u32 irq_sources, int recovery_mode)
@@ -572,10 +572,10 @@ fail_eqcr:
 	return -EINVAL;
 }
 
-struct qm_portal_config *qman_destroy_affine_portal(void)
+const struct qm_portal_config *qman_destroy_affine_portal(void)
 {
 	struct qman_portal *qm = get_affine_portal();
-	struct qm_portal_config *cfg = qm->config;
+	const struct qm_portal_config *cfg = qm->config;
 	/* NB we do this to "quiesce" EQCR. If we add enqueue-completions or
 	 * something related to QM_PIRQ_EQCI, this may need fixing.
 	 * Also, due to the prefetching model used for CI updates in the enqueue

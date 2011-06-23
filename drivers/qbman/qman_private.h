@@ -152,11 +152,11 @@ static inline int qman_have_affine_portal(void)
 {
 	return qman_get_affine_portal_config() ? 1 : 0;
 }
-int qman_create_affine_portal(struct qm_portal_config *config, u32 flags,
+int qman_create_affine_portal(const struct qm_portal_config *config, u32 flags,
 			const struct qman_cgrs *cgrs,
 			const struct qman_fq_cb *null_cb,
 			u32 irq_sources, int recovery_mode);
-struct qm_portal_config *qman_destroy_affine_portal(void);
+const struct qm_portal_config *qman_destroy_affine_portal(void);
 void qman_recovery_exit_local(void);
 
 /* This CGR feature is supported by h/w and required by unit-tests and the

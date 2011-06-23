@@ -175,7 +175,7 @@ const struct bm_portal_config *bman_get_affine_portal_config(void)
 	return bm->config;
 }
 
-int bman_create_affine_portal(struct bm_portal_config *config,
+int bman_create_affine_portal(const struct bm_portal_config *config,
 			u32 irq_sources, int recovery_mode __maybe_unused)
 {
 	struct bman_portal *portal = get_affine_portal();

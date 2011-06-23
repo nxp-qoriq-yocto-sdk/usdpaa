@@ -59,6 +59,8 @@ struct bm_portal_config {
 	struct bman_portal_config public_cfg;
 	/* Mapped corenet portal regions */
 	struct bm_addr addr;
+	/* Allow these to be joined in lists */
+	struct list_head list;
 };
 
 #ifdef CONFIG_FSL_BMAN_CONFIG
@@ -71,7 +73,7 @@ static inline int bman_have_affine_portal(void)
 {
 	return bman_get_affine_portal_config() ? 1 : 0;
 }
-int bman_create_affine_portal(struct bm_portal_config *config,
+int bman_create_affine_portal(const struct bm_portal_config *config,
 			u32 irq_sources, int recovery_mode);
 const struct bm_portal_config *bman_destroy_affine_portal(void);
 void bman_recovery_exit_local(void);

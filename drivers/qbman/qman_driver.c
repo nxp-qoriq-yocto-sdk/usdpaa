@@ -226,7 +226,7 @@ end:
 
 static int fsl_qman_portal_finish(void)
 {
-	struct qm_portal_config *cfg;
+	const struct qm_portal_config *cfg;
 	int ret;
 
 	if (!qman_have_affine_portal())
@@ -246,7 +246,12 @@ end:
 	if (ret)
 		pr_err("Qman portal cleanup failed (%d), ret=%d\n",
 			cfg->public_cfg.cpu, ret);
-	free(cfg);
+	/* The cast is to remove the const attribute. NB, the 'cfg' pointer
+	 * lives in the portal and is supposed to be read-only while it is being
+	 * used. However qman_driver.c allocates it when setting up the portal
+	 * and destroys it here when tearing the portal down, so that's why this
+	 * is justified. */
+	free((void *)cfg);
 	close(fd);
 	fd = -1;
 	return ret;
