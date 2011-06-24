@@ -68,13 +68,14 @@ struct bm_portal_config {
 int bman_init_error_int(struct device_node *node);
 #endif
 
-const struct bm_portal_config *bman_get_affine_portal_config(void);
-static inline int bman_have_affine_portal(void)
-{
-	return bman_get_affine_portal_config() ? 1 : 0;
-}
-int bman_create_affine_portal(const struct bm_portal_config *config,
+/* Hooks from bman_driver.c in to bman_high.c */
+#define BMAN_PORTAL_FLAG_SHARE		0x00000001 /* used by multiple CPUs */
+#define BMAN_PORTAL_FLAG_SHARE_SLAVE	0x00000002 /* redirect to a shared */
+struct bman_portal *bman_create_affine_portal(
+			const struct bm_portal_config *config, u32 flags,
 			u32 irq_sources, int recovery_mode);
+struct bman_portal *bman_create_affine_slave(struct bman_portal *redirect,
+						int cpu);
 const struct bm_portal_config *bman_destroy_affine_portal(void);
 void bman_recovery_exit_local(void);
 

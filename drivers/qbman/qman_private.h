@@ -147,15 +147,15 @@ void qman_liodn_fixup(enum qm_channel channel);
 /* Hooks from qman_driver.c in to qman_high.c */
 #define QMAN_PORTAL_FLAG_RSTASH      0x00000001 /* enable DQRR entry stashing */
 #define QMAN_PORTAL_FLAG_DSTASH      0x00000002 /* enable data stashing */
-const struct qm_portal_config *qman_get_affine_portal_config(void);
-static inline int qman_have_affine_portal(void)
-{
-	return qman_get_affine_portal_config() ? 1 : 0;
-}
-int qman_create_affine_portal(const struct qm_portal_config *config, u32 flags,
+#define QMAN_PORTAL_FLAG_SHARE       0x00000004 /* used by multiple CPUs */
+#define QMAN_PORTAL_FLAG_SHARE_SLAVE 0x00000008 /* redirect to a shared */
+struct qman_portal *qman_create_affine_portal(
+			const struct qm_portal_config *config, u32 flags,
 			const struct qman_cgrs *cgrs,
 			const struct qman_fq_cb *null_cb,
 			u32 irq_sources, int recovery_mode);
+struct qman_portal *qman_create_affine_slave(struct qman_portal *redirect,
+						int cpu);
 const struct qm_portal_config *qman_destroy_affine_portal(void);
 void qman_recovery_exit_local(void);
 

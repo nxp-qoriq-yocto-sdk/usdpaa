@@ -98,6 +98,7 @@ static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 {
 	const struct device_node *dt_node;
 	struct bm_portal_config *pcfg;
+	struct bman_portal *portal;
 	int ret = 0;
 	char name[20]; /* Big enough for "/dev/bman-uio-xx" */
 
@@ -164,10 +165,10 @@ static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 	if (pcfg->public_cfg.cpu == -1)
 		goto end;
 
-	ret = bman_create_affine_portal(pcfg, 0, recovery_mode);
-	if (ret) {
-		pr_err("Bman portal initialisation failed (%d), ret=%d\n",
-			pcfg->public_cfg.cpu, ret);
+	portal = bman_create_affine_portal(pcfg, 0, 0, recovery_mode);
+	if (!portal) {
+		pr_err("Bman portal initialisation failed (%d)\n",
+			pcfg->public_cfg.cpu);
 		goto end;
 	}
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
@@ -196,10 +197,6 @@ static int fsl_bman_portal_finish(void)
 	const struct bm_portal_config *cfg;
 	int ret;
 
-	if (!bman_have_affine_portal()) {
-		pr_err("Bman portal cleanup, no portal!\n");
-		return -ENODEV;
-	}
 	cfg = bman_destroy_affine_portal();
 	ret = munmap(cfg->addr.addr_ce, 16*1024);
 	if (ret) {
@@ -282,7 +279,9 @@ int bman_thread_fd(void)
 
 void bman_thread_irq(void)
 {
-	const struct bm_portal_config *cfg = bman_get_affine_portal_config();
+	const struct bman_portal_config *cfg = bman_get_portal_config();
+	const struct bm_portal_config *pcfg = container_of(cfg,
+			const struct bm_portal_config, public_cfg);
 	if (!irq)
 		return;
 	irq->isr(fd, irq->arg);
@@ -290,7 +289,7 @@ void bman_thread_irq(void)
 	 * the regular portal driver that manipulates any portal register, so
 	 * rather than breaking that encapsulation I am simply hard-coding the
 	 * offset to the inhibit register here. */
-	out_be32(cfg->addr.addr_ci + 0xe0c, 0);
+	out_be32(pcfg->addr.addr_ci + 0xe0c, 0);
 }
 
 int bman_global_init(int recovery_mode)

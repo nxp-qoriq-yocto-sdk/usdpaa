@@ -1206,7 +1206,8 @@ void qman_set_null_cb(const struct qman_fq_cb *null_cb);
  * sources will trigger the portal interrupt and the interrupt handler (or a
  * tasklet/bottom-half it defers to) will perform the corresponding processing
  * work. The qman_poll_***() functions will only process sources that are not in
- * this bitmask.
+ * this bitmask. If the current CPU is sharing a portal hosted on another CPU,
+ * this always returns zero.
  */
 u32 qman_irqsource_get(void);
 
@@ -1215,18 +1216,20 @@ u32 qman_irqsource_get(void);
  * @bits: bitmask of QM_PIRQ_**I processing sources
  *
  * Adds processing sources that should be interrupt-driven (rather than
- * processed via qman_poll_***() functions).
+ * processed via qman_poll_***() functions). Returns zero for success, or
+ * -EINVAL if the current CPU is sharing a portal hosted on another CPU.
  */
-void qman_irqsource_add(u32 bits);
+int qman_irqsource_add(u32 bits);
 
 /**
  * qman_irqsource_remove - remove processing sources from being interrupt-driven
  * @bits: bitmask of QM_PIRQ_**I processing sources
  *
  * Removes processing sources from being interrupt-driven, so that they will
- * instead be processed via qman_poll_***() functions.
+ * instead be processed via qman_poll_***() functions. Returns zero for success,
+ * or -EINVAL if the current CPU is sharing a portal hosted on another CPU.
  */
-void qman_irqsource_remove(u32 bits);
+int qman_irqsource_remove(u32 bits);
 
 /**
  * qman_affine_cpus - return a mask of cpus that have affine portals
@@ -1239,16 +1242,19 @@ const cpumask_t *qman_affine_cpus(void);
  *
  * Use of this function requires that DQRR processing not be interrupt-driven.
  * Ie. the value returned by qman_irqsource_get() should not include
- * QM_PIRQ_DQRI.
+ * QM_PIRQ_DQRI. If the current CPU is sharing a portal hosted on another CPU,
+ * this function will return -EINVAL, otherwise the return value is >=0 and
+ * represents the number of DQRR entries processed.
  */
-unsigned int qman_poll_dqrr(unsigned int limit);
+int qman_poll_dqrr(unsigned int limit);
 
 /**
  * qman_poll_slow - process anything (except DQRR) that isn't interrupt-driven.
  *
- * This function does any portal processing that isn't interrupt-driven. The
- * return value is a bitmask of QM_PIRQ_* sources indicating what interrupt
- * sources were actually processed by the call.
+ * This function does any portal processing that isn't interrupt-driven. If the
+ * current CPU is sharing a portal hosted on another CPU, this function will
+ * return (u32)-1, otherwise the return value is a bitmask of QM_PIRQ_* sources
+ * indicating what interrupt sources were actually processed by the call.
  */
 u32 qman_poll_slow(void);
 

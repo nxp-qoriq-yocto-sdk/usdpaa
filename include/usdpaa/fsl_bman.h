@@ -276,7 +276,8 @@ const struct bman_portal_config *bman_get_portal_config(void);
  * sources will trigger the portal interrupt and the interrupt handler (or a
  * tasklet/bottom-half it defers to) will perform the corresponding processing
  * work. The bman_poll_***() functions will only process sources that are not in
- * this bitmask.
+ * this bitmask. If the current CPU is sharing a portal hosted on another CPU,
+ * this always returns zero.
  */
 u32 bman_irqsource_get(void);
 
@@ -284,19 +285,19 @@ u32 bman_irqsource_get(void);
  * bman_irqsource_add - add processing sources to be interrupt-driven
  * @bits: bitmask of BM_PIRQ_**I processing sources
  *
- * Adds processing sources that should be interrupt-driven, rather than
- * processed via bman_poll().
- */
-void bman_irqsource_add(u32 bits);
+ * Adds processing sources that should be interrupt-driven (rather than
+ * processed via bman_poll_***() functions). Returns zero for success, or
+ * -EINVAL if the current CPU is sharing a portal hosted on another CPU. */
+int bman_irqsource_add(u32 bits);
 
 /**
  * bman_irqsource_remove - remove processing sources from being interrupt-driven
  * @bits: bitmask of BM_PIRQ_**I processing sources
  *
  * Removes processing sources from being interrupt-driven, so that they will
- * instead be processed via bman_poll().
- */
-void bman_irqsource_remove(u32 bits);
+ * instead be processed via bman_poll_***() functions. Returns zero for success,
+ * or -EINVAL if the current CPU is sharing a portal hosted on another CPU. */
+int bman_irqsource_remove(u32 bits);
 
 /**
  * bman_affine_cpus - return a mask of cpus that have affine portals
@@ -306,9 +307,10 @@ const cpumask_t *bman_affine_cpus(void);
 /**
  * bman_poll_slow - process anything that isn't interrupt-driven.
  *
- * This function does any portal processing that isn't interrupt-driven. The
- * return value is a bitmask of BM_PIRQ_* sources indicating what interrupt
- * sources were actually processed by the call.
+ * This function does any portal processing that isn't interrupt-driven. If the
+ * current CPU is sharing a portal hosted on another CPU, this function will
+ * return -EINVAL, otherwise the return value is a bitmask of BM_PIRQ_* sources
+ * indicating what interrupt sources were actually processed by the call.
  *
  * NB, unlike the legacy wrapper bman_poll(), this function will
  * deterministically check for the presence of portal processing work and do it,

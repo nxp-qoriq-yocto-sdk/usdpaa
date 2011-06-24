@@ -91,6 +91,10 @@ struct qman_portal {
 #ifdef CONFIG_FSL_QMAN_PORTAL_TASKLET
 	struct tasklet_struct tasklet;
 #endif
+#ifdef CONFIG_FSL_DPA_PORTAL_SHARE
+	spinlock_t sharing_lock; /* only used with QMAN_PORTAL_FLAG_SHARE */
+	struct qman_portal *sharing_redirect;
+#endif
 	u32 sdqcr;
 	int dqrr_disable_ref;
 #ifdef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
@@ -113,18 +117,51 @@ struct qman_portal {
 	spinlock_t cgr_lock;
 };
 
+#ifdef CONFIG_FSL_DPA_PORTAL_SHARE
+#define PORTAL_IRQ_LOCK(p, irqflags) \
+	do { \
+		if ((p)->options & QMAN_PORTAL_FLAG_SHARE) \
+			spin_lock_irqsave(&(p)->sharing_lock, irqflags); \
+		else \
+			local_irq_save(irqflags); \
+	} while (0)
+#define PORTAL_IRQ_UNLOCK(p, irqflags) \
+	do { \
+		if ((p)->options & QMAN_PORTAL_FLAG_SHARE) \
+			spin_unlock_irqrestore(&(p)->sharing_lock, irqflags); \
+		else \
+			local_irq_restore(irqflags); \
+	} while (0)
+#else
+#define PORTAL_IRQ_LOCK(p, irqflags) local_irq_save(irqflags)
+#define PORTAL_IRQ_UNLOCK(p, irqflags) local_irq_restore(irqflags)
+#endif
+
 static cpumask_t affine_mask;
 static DEFINE_SPINLOCK(affine_mask_lock);
 static DEFINE_PER_CPU(struct qman_portal, qman_affine_portal);
-static inline struct qman_portal *get_affine_portal(void)
+/* "raw" gets the cpu-local struct whether it's a redirect or not. */
+static inline struct qman_portal *get_raw_affine_portal(void)
 {
 	return &get_cpu_var(qman_affine_portal);
 }
+/* For ops that can redirect, this obtains the portal to use */
+#ifdef CONFIG_FSL_DPA_PORTAL_SHARE
+static inline struct qman_portal *get_affine_portal(void)
+{
+	struct qman_portal *p = get_raw_affine_portal();
+	if (p->options & QMAN_PORTAL_FLAG_SHARE_SLAVE)
+		return p->sharing_redirect;
+	return p;
+}
+#else
+#define get_affine_portal() get_raw_affine_portal()
+#endif
+/* For every "get", there must be a "put" */
 static inline void put_affine_portal(void)
 {
 	put_cpu_var(qman_affine_portal);
 }
-
 
 /* This gives a FQID->FQ lookup to cover the fact that we can't directly demux
  * retirement notifications (the fact they are sometimes h/w-consumed means that
@@ -269,17 +306,10 @@ static irqreturn_t portal_isr(__always_unused int irq, void *ptr)
 static inline void qman_stop_dequeues_ex(struct qman_portal *p)
 {
 	unsigned long irqflags __maybe_unused;
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(p, irqflags);
 	if (!(p->dqrr_disable_ref++))
 		qm_dqrr_set_maxfill(&p->p, 0);
-	local_irq_restore(irqflags);
-}
-
-const struct qm_portal_config *qman_get_affine_portal_config(void)
-{
-	struct qman_portal *qm = get_affine_portal();
-	put_affine_portal();
-	return qm->config;
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 }
 
 static int drain_mr_fqrni(struct qm_portal *p)
@@ -338,17 +368,19 @@ static void post_recovery(struct qman_portal *p __always_unused,
 				tmp_node->full_name);
 }
 
-int qman_create_affine_portal(const struct qm_portal_config *config, u32 flags,
+struct qman_portal *qman_create_affine_portal(
+			const struct qm_portal_config *config, u32 flags,
 			const struct qman_cgrs *cgrs,
 			const struct qman_fq_cb *null_cb,
 			u32 irq_sources, int recovery_mode)
 {
-	struct qman_portal *portal = get_affine_portal();
+	struct qman_portal *portal = get_raw_affine_portal();
 	struct qm_portal *__p = &portal->p;
 	char buf[16];
 	int ret;
 	u32 isdr;
 
+	BUG_ON(flags & QMAN_PORTAL_FLAG_SHARE_SLAVE);
 	/* A criteria for calling this function (from qman_driver.c) is that
 	 * we're already affine to the cpu and won't schedule onto another cpu.
 	 * This means we can put_affine_portal() and yet continue to use
@@ -357,7 +389,7 @@ int qman_create_affine_portal(const struct qm_portal_config *config, u32 flags,
 #ifndef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
 	if (null_cb) {
 		pr_err("Driver does not support 'NULL FQ' callbacks\n");
-		return -EINVAL;
+		return NULL;
 	}
 #endif
 	/* prep the low-level portal struct with the mapped addresses from the
@@ -461,6 +493,10 @@ drain_loop:
 #ifdef CONFIG_FSL_QMAN_PORTAL_TASKLET
 	tasklet_init(&portal->tasklet, portal_tasklet, (unsigned long)portal);
 #endif
+#ifdef CONFIG_FSL_DPA_PORTAL_SHARE
+	spin_lock_init(&portal->sharing_lock);
+	portal->sharing_redirect = NULL;
+#endif
 	portal->sdqcr = QM_SDQCR_SOURCE_CHANNELS | QM_SDQCR_COUNT_UPTO3 |
 			QM_SDQCR_DEDICATED_PRECEDENCE | QM_SDQCR_TYPE_PRIO_QOS |
 			QM_SDQCR_TOKEN_SET(0xab) | QM_SDQCR_CHANNELS_DEDICATED;
@@ -473,14 +509,10 @@ drain_loop:
 #endif
 	sprintf(buf, "qportal-%d", config->public_cfg.channel);
 	portal->pdev = platform_device_alloc(buf, -1);
-	if (!portal->pdev) {
-		ret = -ENOMEM;
+	if (!portal->pdev)
 		goto fail_devalloc;
-	}
-	if (dma_set_mask(&portal->pdev->dev, DMA_BIT_MASK(40))) {
-		ret = -ENODEV;
+	if (dma_set_mask(&portal->pdev->dev, DMA_BIT_MASK(40)))
 		goto fail_devadd;
-	}
 	ret = platform_device_add(portal->pdev);
 	if (ret)
 		goto fail_devadd;
@@ -543,7 +575,7 @@ drain_loop:
 	qm_isr_disable_write(__p, 0);
 	/* Write a sane SDQCR */
 	qm_dqrr_sdqcr_set(__p, recovery_mode ? 0 : portal->sdqcr);
-	return 0;
+	return portal;
 fail_dqrr_mr_empty:
 fail_eqcr_empty:
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
@@ -569,38 +601,73 @@ fail_dqrr:
 	qm_eqcr_finish(__p);
 fail_eqcr:
 	put_affine_portal();
-	return -EINVAL;
+	return NULL;
+}
+
+/* These checks are BUG_ON()s because the driver is already supposed to avoid
+ * these cases. */
+struct qman_portal *qman_create_affine_slave(struct qman_portal *redirect,
+						int cpu)
+{
+#ifdef CONFIG_FSL_DPA_PORTAL_SHARE
+	struct qman_portal *p = get_raw_affine_portal();
+	/* Check that we don't already have our own portal */
+	BUG_ON(p->config);
+	/* Check that we aren't already slaving to another portal */
+	BUG_ON(p->options & QMAN_PORTAL_FLAG_SHARE_SLAVE);
+	/* Check that 'redirect' is prepared to have us */
+	BUG_ON(!(redirect->options & QMAN_PORTAL_FLAG_SHARE));
+	/* These are the only elements to initialise when redirecting */
+	p->options = QMAN_PORTAL_FLAG_SHARE_SLAVE;
+	p->irq_sources = 0;
+	p->sharing_redirect = redirect;
+	/* we "bodge" the cpu into an unused field, because normally it's
+	 * available in p->config.cpu, but p->config==NULL when redirecting. We
+	 * use p->slowpoll, because it's unused when redirecting (polling is
+	 * only possible on the CPU a portal is assigned to). */
+	p->slowpoll = (u32)cpu;
+	put_affine_portal();
+	return p;
+#else
+	BUG();
+	return NULL;
+#endif
 }
 
 const struct qm_portal_config *qman_destroy_affine_portal(void)
 {
-	struct qman_portal *qm = get_affine_portal();
-	const struct qm_portal_config *cfg = qm->config;
+	/* We don't want to redirect if we're a slave, use "raw" */
+	struct qman_portal *qm = get_raw_affine_portal();
+	const struct qm_portal_config *pcfg;
+	int cpu;
+#ifdef CONFIG_FSL_DPA_PORTAL_SHARE
+	if (qm->options & QMAN_PORTAL_FLAG_SHARE_SLAVE) {
+		qm->options = 0;
+		put_affine_portal();
+		return NULL;
+	}
+#endif
+	pcfg = qm->config;
+	cpu = pcfg->public_cfg.cpu;
 	/* NB we do this to "quiesce" EQCR. If we add enqueue-completions or
-	 * something related to QM_PIRQ_EQCI, this may need fixing.
-	 * Also, due to the prefetching model used for CI updates in the enqueue
-	 * path, this update will only invalidate the CI cacheline *after*
-	 * working on it, so we need to call this twice to ensure a full update
-	 * irrespective of where the enqueue processing was at when the teardown
-	 * began. */
-	qm_eqcr_cce_update(&qm->p);
+	 * something related to QM_PIRQ_EQCI, this may need fixing. */
 	qm_eqcr_cce_update(&qm->p);
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
-	free_irq(qm->config->public_cfg.irq, qm);
+	free_irq(pcfg->public_cfg.irq, qm);
 #endif
-	if (qm->cgrs)
-		kfree(qm->cgrs);
+	kfree(qm->cgrs);
 	qm_isr_finish(&qm->p);
 	qm_mc_finish(&qm->p);
 	qm_mr_finish(&qm->p);
 	qm_dqrr_finish(&qm->p);
 	qm_eqcr_finish(&qm->p);
-	spin_lock(&affine_mask_lock);
-	cpumask_clear_cpu(qm->config->public_cfg.cpu, &affine_mask);
-	spin_unlock(&affine_mask_lock);
+	qm->options = 0;
 	qm->config = NULL;
+	spin_lock(&affine_mask_lock);
+	cpumask_clear_cpu(cpu, &affine_mask);
+	spin_unlock(&affine_mask_lock);
 	put_affine_portal();
-	return cfg;
+	return pcfg;
 }
 
 const struct qman_portal_config *qman_get_portal_config(void)
@@ -699,19 +766,19 @@ static u32 __poll_portal_slow(struct qman_portal *p, u32 is)
 #ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
 	if (is & QM_PIRQ_EQCI) {
 		unsigned long irqflags;
-		local_irq_save(irqflags);
+		PORTAL_IRQ_LOCK(p, irqflags);
 		p->eqci_owned = NULL;
-		local_irq_restore(irqflags);
+		PORTAL_IRQ_UNLOCK(p, irqflags);
 		wake_up(&affine_queue);
 	}
 #endif
 
 	if (is & QM_PIRQ_EQRI) {
 		unsigned long irqflags __maybe_unused;
-		local_irq_save(irqflags);
+		PORTAL_IRQ_LOCK(p, irqflags);
 		qm_eqcr_cce_update(&p->p);
 		qm_eqcr_set_ithresh(&p->p, 0);
-		local_irq_restore(irqflags);
+		PORTAL_IRQ_UNLOCK(p, irqflags);
 		wake_up(&affine_queue);
 	}
 
@@ -906,35 +973,54 @@ done:
 
 u32 qman_irqsource_get(void)
 {
-	struct qman_portal *p = get_affine_portal();
+	/* "irqsource" and "poll" APIs mustn't redirect when sharing, they
+	 * should shut the user out if they are not the primary CPU hosting the
+	 * portal. That's why we use the "raw" interface. */
+	struct qman_portal *p = get_raw_affine_portal();
 	u32 ret = p->irq_sources & QM_PIRQ_VISIBLE;
 	put_affine_portal();
 	return ret;
 }
 EXPORT_SYMBOL(qman_irqsource_get);
 
-void qman_irqsource_add(u32 bits __maybe_unused)
+int qman_irqsource_add(u32 bits __maybe_unused)
 {
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
-	struct qman_portal *p = get_affine_portal();
-	__maybe_unused unsigned long irqflags;
-	local_irq_save(irqflags);
-	set_bits(bits & QM_PIRQ_VISIBLE, &p->irq_sources);
-	qm_isr_enable_write(&p->p, p->irq_sources);
-	local_irq_restore(irqflags);
+	struct qman_portal *p = get_raw_affine_portal();
+	int ret = 0;
+#ifdef CONFIG_FSL_DPA_PORTAL_SHARE
+	if (p->options & QMAN_PORTAL_FLAG_SHARE_SLAVE)
+		ret = -EINVAL;
+	else
+#endif
+	{
+		__maybe_unused unsigned long irqflags;
+		PORTAL_IRQ_LOCK(p, irqflags);
+		set_bits(bits & QM_PIRQ_VISIBLE, &p->irq_sources);
+		qm_isr_enable_write(&p->p, p->irq_sources);
+		PORTAL_IRQ_UNLOCK(p, irqflags);
+	}
 	put_affine_portal();
+	return ret;
 #else
-	panic("No Qman portal IRQ support, mustn't spcify IRQ flags!");
+	pr_err("No Qman portal IRQ support, mustn't specify IRQ flags!");
+	return -EINVAL;
 #endif
 }
 EXPORT_SYMBOL(qman_irqsource_add);
 
-void qman_irqsource_remove(u32 bits)
+int qman_irqsource_remove(u32 bits)
 {
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
-	struct qman_portal *p = get_affine_portal();
+	struct qman_portal *p = get_raw_affine_portal();
 	__maybe_unused unsigned long irqflags;
 	u32 ier;
+#ifdef CONFIG_FSL_DPA_PORTAL_SHARE
+	if (p->options & QMAN_PORTAL_FLAG_SHARE_SLAVE) {
+		put_affine_portal();
+		return -EINVAL;
+	}
+#endif
 	/* Our interrupt handler only processes+clears status register bits that
 	 * are in p->irq_sources. As we're trimming that mask, if one of them
 	 * were to assert in the status register just before we remove it from
@@ -943,7 +1029,7 @@ void qman_irqsource_remove(u32 bits)
 	 * take effect in h/w (by reading it back) and then clear all other bits
 	 * in the status register. Ie. we clear them from ISR once it's certain
 	 * IER won't allow them to reassert. */
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(p, irqflags);
 	bits &= QM_PIRQ_VISIBLE;
 	clear_bits(bits, &p->irq_sources);
 	qm_isr_enable_write(&p->p, p->irq_sources);
@@ -951,10 +1037,12 @@ void qman_irqsource_remove(u32 bits)
 	/* Using "~ier" (rather than "bits" or "~p->irq_sources") creates a
 	 * data-dependency, ie. to protect against re-ordering. */
 	qm_isr_status_clear(&p->p, ~ier);
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
+	return 0;
 #else
-	panic("No Bman portal IRQ support, mustn't spcify IRQ flags!");
+	pr_err("No Qman portal IRQ support, mustn't specify IRQ flags!");
+	return -EINVAL;
 #endif
 }
 EXPORT_SYMBOL(qman_irqsource_remove);
@@ -965,12 +1053,20 @@ const cpumask_t *qman_affine_cpus(void)
 }
 EXPORT_SYMBOL(qman_affine_cpus);
 
-unsigned int qman_poll_dqrr(unsigned int limit)
+int qman_poll_dqrr(unsigned int limit)
 {
-	unsigned int ret;
-	struct qman_portal *p = get_affine_portal();
-	BUG_ON(p->irq_sources & QM_PIRQ_DQRI);
-	ret = __poll_portal_fast(p, limit);
+	/* We need to fail when called for a "slave", so use "raw" */
+	struct qman_portal *p = get_raw_affine_portal();
+	int ret;
+#ifdef CONFIG_FSL_DPA_PORTAL_SHARE
+	if (unlikely(p->options & QMAN_PORTAL_FLAG_SHARE_SLAVE))
+		ret = -EINVAL;
+	else
+#endif
+	{
+		BUG_ON(p->irq_sources & QM_PIRQ_DQRI);
+		ret = __poll_portal_fast(p, limit);
+	}
 	put_affine_portal();
 	return ret;
 }
@@ -978,19 +1074,32 @@ EXPORT_SYMBOL(qman_poll_dqrr);
 
 u32 qman_poll_slow(void)
 {
-	struct qman_portal *p = get_affine_portal();
-	u32 is = qm_isr_status_read(&p->p) & ~p->irq_sources;
-	u32 active = __poll_portal_slow(p, is);
-	qm_isr_status_clear(&p->p, active);
+	/* We need to fail when called for a "slave", so use "raw" */
+	struct qman_portal *p = get_raw_affine_portal();
+	u32 ret;
+#ifdef CONFIG_FSL_DPA_PORTAL_SHARE
+	if (unlikely(p->options & QMAN_PORTAL_FLAG_SHARE_SLAVE))
+		ret = (u32)-1;
+	else
+#endif
+	{
+		u32 is = qm_isr_status_read(&p->p) & ~p->irq_sources;
+		ret = __poll_portal_slow(p, is);
+		qm_isr_status_clear(&p->p, ret);
+	}
 	put_affine_portal();
-	return active;
+	return ret;
 }
 EXPORT_SYMBOL(qman_poll_slow);
 
 /* Legacy wrapper */
 void qman_poll(void)
 {
-	struct qman_portal *p = get_affine_portal();
+	struct qman_portal *p = get_raw_affine_portal();
+#ifdef CONFIG_FSL_DPA_PORTAL_SHARE
+	if (unlikely(p->options & QMAN_PORTAL_FLAG_SHARE_SLAVE))
+		goto done;
+#endif
 	if ((~p->irq_sources) & QM_PIRQ_SLOW) {
 		if (!(p->slowpoll--)) {
 			u32 is = qm_isr_status_read(&p->p) & ~p->irq_sources;
@@ -1004,6 +1113,9 @@ void qman_poll(void)
 	}
 	if ((~p->irq_sources) & QM_PIRQ_DQRI)
 		__poll_portal_fast(p, CONFIG_FSL_QMAN_POLL_LIMIT);
+#ifdef CONFIG_FSL_DPA_PORTAL_SHARE
+done:
+#endif
 	put_affine_portal();
 }
 EXPORT_SYMBOL(qman_poll);
@@ -1098,13 +1210,13 @@ int qman_recovery_cleanup_fq(u32 fqid)
 	u8 state;
 
 	/* Lock this whole flow down via the portal's "vdqcr" */
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(p, irqflags);
 	BUG_ON(!(p->bits & PORTAL_BITS_RECOVERY));
 	if (p->vdqcr_owned)
 		ret = -EBUSY;
 	else
 		p->vdqcr_owned = (void *)1;
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	if (ret)
 		goto out;
 
@@ -1161,15 +1273,16 @@ oos:
 		(state == QM_MCR_NP_STATE_PARKED) ? "parked" : "scheduled";
 	pr_info("Qman: %s FQID %d recovered (%d frames)\n", s, fqid, num_fds);
 out:
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(p, irqflags);
 	p->vdqcr_owned = NULL;
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 	return ret;
 }
 EXPORT_SYMBOL(qman_recovery_cleanup_fq);
 
-/* called from qman_driver.c::qman_recovery_exit() only */
+/* called from qman_driver.c::qman_recovery_exit() only (if exporting, use
+ * get_raw_affine_portal() and check for the "SLAVE" bit). */
 void qman_recovery_exit_local(void)
 {
 	struct qman_portal *p = get_affine_portal();
@@ -1201,11 +1314,11 @@ void qman_start_dequeues(void)
 {
 	struct qman_portal *p = get_affine_portal();
 	unsigned long irqflags __maybe_unused;
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(p, irqflags);
 	DPA_ASSERT(p->dqrr_disable_ref > 0);
 	if (!(--p->dqrr_disable_ref))
 		qm_dqrr_set_maxfill(&p->p, DQRR_MAXFILL);
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 }
 EXPORT_SYMBOL(qman_start_dequeues);
@@ -1214,11 +1327,11 @@ void qman_static_dequeue_add(u32 pools)
 {
 	unsigned long irqflags __maybe_unused;
 	struct qman_portal *p = get_affine_portal();
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(p, irqflags);
 	pools &= p->config->public_cfg.pools;
 	p->sdqcr |= pools;
 	qm_dqrr_sdqcr_set(&p->p, p->sdqcr);
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 }
 EXPORT_SYMBOL(qman_static_dequeue_add);
@@ -1227,11 +1340,11 @@ void qman_static_dequeue_del(u32 pools)
 {
 	struct qman_portal *p = get_affine_portal();
 	unsigned long irqflags __maybe_unused;
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(p, irqflags);
 	pools &= p->config->public_cfg.pools;
 	p->sdqcr &= ~pools;
 	qm_dqrr_sdqcr_set(&p->p, p->sdqcr);
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 }
 EXPORT_SYMBOL(qman_static_dequeue_del);
@@ -1305,7 +1418,7 @@ int qman_create_fq(u32 fqid, u32 flags, struct qman_fq *fq)
 		return 0;
 	/* Everything else is AS_IS support */
 	p = get_affine_portal();
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(p, irqflags);
 	mcc = qm_mc_start(&p->p);
 	mcc->queryfq.fqid = fqid;
 	qm_mc_commit(&p->p, QM_MCC_VERB_QUERYFQ);
@@ -1354,11 +1467,11 @@ int qman_create_fq(u32 fqid, u32 flags, struct qman_fq *fq)
 	}
 	if (fqd.fq_ctrl & QM_FQCTRL_CGE)
 		fq->state |= QMAN_FQ_STATE_CGR_EN;
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 	return 0;
 err:
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 	if (flags & QMAN_FQ_FLAG_DYNAMIC_FQID)
 		qm_fq_free(fqid);
@@ -1427,13 +1540,13 @@ int qman_init_fq(struct qman_fq *fq, u32 flags, struct qm_mcc_initfq *opts)
 	}
 	/* Issue an INITFQ_[PARKED|SCHED] management command */
 	p = get_affine_portal();
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(p, irqflags);
 	FQLOCK(fq);
 	if (unlikely((fq_isset(fq, QMAN_FQ_STATE_CHANGING)) ||
 			((fq->state != qman_fq_state_oos) &&
 				(fq->state != qman_fq_state_parked)))) {
 		FQUNLOCK(fq);
-		local_irq_restore(irqflags);
+		PORTAL_IRQ_UNLOCK(p, irqflags);
 		put_affine_portal();
 		return -EBUSY;
 	}
@@ -1483,7 +1596,7 @@ int qman_init_fq(struct qman_fq *fq, u32 flags, struct qm_mcc_initfq *opts)
 	res = mcr->result;
 	if (res != QM_MCR_RESULT_OK) {
 		FQUNLOCK(fq);
-		local_irq_restore(irqflags);
+		PORTAL_IRQ_UNLOCK(p, irqflags);
 		put_affine_portal();
 		return -EIO;
 	}
@@ -1500,7 +1613,7 @@ int qman_init_fq(struct qman_fq *fq, u32 flags, struct qm_mcc_initfq *opts)
 	fq->state = (flags & QMAN_INITFQ_FLAG_SCHED) ?
 			qman_fq_state_sched : qman_fq_state_parked;
 	FQUNLOCK(fq);
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 	return 0;
 }
@@ -1522,7 +1635,7 @@ int qman_schedule_fq(struct qman_fq *fq)
 #endif
 	/* Issue a ALTERFQ_SCHED management command */
 	p = get_affine_portal();
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(p, irqflags);
 	FQLOCK(fq);
 	if (unlikely((fq_isset(fq, QMAN_FQ_STATE_CHANGING)) ||
 			(fq->state != qman_fq_state_parked))) {
@@ -1543,7 +1656,7 @@ int qman_schedule_fq(struct qman_fq *fq)
 	fq->state = qman_fq_state_sched;
 out:
 	FQUNLOCK(fq);
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 	return ret;
 }
@@ -1565,7 +1678,7 @@ int qman_retire_fq(struct qman_fq *fq, u32 *flags)
 		return -EINVAL;
 #endif
 	p = get_affine_portal();
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(p, irqflags);
 	FQLOCK(fq);
 	if (unlikely((fq_isset(fq, QMAN_FQ_STATE_CHANGING)) ||
 			(fq->state == qman_fq_state_retired) ||
@@ -1630,7 +1743,7 @@ int qman_retire_fq(struct qman_fq *fq, u32 *flags)
 	}
 out:
 	FQUNLOCK(fq);
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 	return rval;
 }
@@ -1651,7 +1764,7 @@ int qman_oos_fq(struct qman_fq *fq)
 		return -EINVAL;
 #endif
 	p = get_affine_portal();
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(p, irqflags);
 	FQLOCK(fq);
 	if (unlikely((fq_isset(fq, QMAN_FQ_STATE_BLOCKOOS)) ||
 			(fq->state != qman_fq_state_retired))) {
@@ -1672,7 +1785,7 @@ int qman_oos_fq(struct qman_fq *fq)
 	fq->state = qman_fq_state_oos;
 out:
 	FQUNLOCK(fq);
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 	return ret;
 }
@@ -1686,7 +1799,7 @@ int qman_query_fq(struct qman_fq *fq, struct qm_fqd *fqd)
 	unsigned long irqflags __maybe_unused;
 	u8 res;
 
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(p, irqflags);
 	mcc = qm_mc_start(&p->p);
 	mcc->queryfq.fqid = fq->fqid;
 	qm_mc_commit(&p->p, QM_MCC_VERB_QUERYFQ);
@@ -1696,7 +1809,7 @@ int qman_query_fq(struct qman_fq *fq, struct qm_fqd *fqd)
 	res = mcr->result;
 	if (res == QM_MCR_RESULT_OK)
 		*fqd = mcr->queryfq.fqd;
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 	if (res != QM_MCR_RESULT_OK)
 		return -EIO;
@@ -1712,7 +1825,7 @@ int qman_query_fq_np(struct qman_fq *fq, struct qm_mcr_queryfq_np *np)
 	unsigned long irqflags __maybe_unused;
 	u8 res;
 
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(p, irqflags);
 	mcc = qm_mc_start(&p->p);
 	mcc->queryfq.fqid = fq->fqid;
 	qm_mc_commit(&p->p, QM_MCC_VERB_QUERYFQ_NP);
@@ -1722,7 +1835,7 @@ int qman_query_fq_np(struct qman_fq *fq, struct qm_mcr_queryfq_np *np)
 	res = mcr->result;
 	if (res == QM_MCR_RESULT_OK)
 		*np = mcr->queryfq_np;
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 	if (res != QM_MCR_RESULT_OK)
 		return -EIO;
@@ -1738,7 +1851,7 @@ int qman_query_wq(u8 query_dedicated, struct qm_mcr_querywq *wq)
 	unsigned long irqflags __maybe_unused;
 	u8 res, myverb;
 
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(p, irqflags);
 	myverb = (query_dedicated) ? QM_MCR_VERB_QUERYWQ_DEDICATED :
 				 QM_MCR_VERB_QUERYWQ;
 	mcc = qm_mc_start(&p->p);
@@ -1750,7 +1863,7 @@ int qman_query_wq(u8 query_dedicated, struct qm_mcr_querywq *wq)
 	res = mcr->result;
 	if (res == QM_MCR_RESULT_OK)
 		*wq = mcr->querywq;
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 	if (res != QM_MCR_RESULT_OK) {
 		pr_err("QUERYWQ failed: %s\n", mcr_result_str(res));
@@ -1769,7 +1882,7 @@ int qman_testwrite_cgr(struct qman_cgr *cgr, u64 i_bcnt,
 	unsigned long irqflags __maybe_unused;
 	u8 res;
 
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(p, irqflags);
 	mcc = qm_mc_start(&p->p);
 	mcc->cgrtestwrite.cgid = cgr->cgrid;
 	mcc->cgrtestwrite.i_bcnt_hi = (u8)(i_bcnt >> 32);
@@ -1781,7 +1894,7 @@ int qman_testwrite_cgr(struct qman_cgr *cgr, u64 i_bcnt,
 	res = mcr->result;
 	if (res == QM_MCR_RESULT_OK)
 		*result = mcr->cgrtestwrite;
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 	if (res != QM_MCR_RESULT_OK) {
 		pr_err("CGR TEST WRITE failed: %s\n", mcr_result_str(res));
@@ -1799,7 +1912,7 @@ int qman_query_cgr(struct qman_cgr *cgr, struct qm_mcr_querycgr *cgrd)
 	unsigned long irqflags __maybe_unused;
 	u8 res;
 
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(p, irqflags);
 	mcc = qm_mc_start(&p->p);
 	mcc->querycgr.cgid = cgr->cgrid;
 	qm_mc_commit(&p->p, QM_MCC_VERB_QUERYCGR);
@@ -1809,7 +1922,7 @@ int qman_query_cgr(struct qman_cgr *cgr, struct qm_mcr_querycgr *cgrd)
 	res = mcr->result;
 	if (res == QM_MCR_RESULT_OK)
 		*cgrd = mcr->querycgr;
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 	if (res != QM_MCR_RESULT_OK) {
 		pr_err("QUERY_CGR failed: %s\n", mcr_result_str(res));
@@ -1826,7 +1939,7 @@ int qman_query_congestion(struct qm_mcr_querycongestion *congestion)
 	unsigned long irqflags __maybe_unused;
 	u8 res;
 
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(p, irqflags);
 	qm_mc_start(&p->p);
 	qm_mc_commit(&p->p, QM_MCC_VERB_QUERYCONGESTION);
 	while (!(mcr = qm_mc_result(&p->p)))
@@ -1836,7 +1949,7 @@ int qman_query_congestion(struct qm_mcr_querycongestion *congestion)
 	res = mcr->result;
 	if (res == QM_MCR_RESULT_OK)
 		*congestion = mcr->querycongestion;
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 	if (res != QM_MCR_RESULT_OK) {
 		pr_err("QUERY_CONGESTION failed: %s\n", mcr_result_str(res));
@@ -1852,7 +1965,7 @@ static int set_vdqcr(struct qman_portal **p, struct qman_fq *fq, u32 vdqcr)
 	unsigned long irqflags __maybe_unused;
 	int ret = -EBUSY;
 	*p = get_affine_portal();
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(*p, irqflags);
 	if (!(*p)->vdqcr_owned) {
 		FQLOCK(fq);
 		if (fq_isset(fq, QMAN_FQ_STATE_VDQCR))
@@ -1863,7 +1976,7 @@ static int set_vdqcr(struct qman_portal **p, struct qman_fq *fq, u32 vdqcr)
 		ret = 0;
 	}
 escape:
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(*p, irqflags);
 	if (!ret)
 		qm_dqrr_vdqcr_set(&(*p)->p, vdqcr);
 	put_affine_portal();
@@ -1937,10 +2050,10 @@ int qman_eqcr_is_empty(void)
 	struct qman_portal *p = get_affine_portal();
 	u8 avail;
 
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(p, irqflags);
 	update_eqcr_ci(p, 0);
 	avail = qm_eqcr_get_fill(&p->p);
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 	return (avail == 0);
 }
@@ -1956,12 +2069,12 @@ static inline struct qm_eqcr_entry *try_eq_start(struct qman_portal **p,
 	u8 avail;
 
 	*p = get_affine_portal();
-	local_irq_save((*irqflags));
+	PORTAL_IRQ_LOCK(*p, (*irqflags));
 #ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
 	if (unlikely((flags & QMAN_ENQUEUE_FLAG_WAIT) &&
 			(flags & QMAN_ENQUEUE_FLAG_WAIT_SYNC))) {
 		if ((*p)->eqci_owned) {
-			local_irq_restore((*irqflags));
+			PORTAL_IRQ_UNLOCK(*p, (*irqflags));
 			put_affine_portal();
 			return NULL;
 		}
@@ -1978,7 +2091,7 @@ static inline struct qm_eqcr_entry *try_eq_start(struct qman_portal **p,
 				(flags & QMAN_ENQUEUE_FLAG_WAIT_SYNC)))
 			(*p)->eqci_owned = NULL;
 #endif
-		local_irq_restore((*irqflags));
+		PORTAL_IRQ_UNLOCK(*p, (*irqflags));
 		put_affine_portal();
 		return NULL;
 	}
@@ -2071,7 +2184,7 @@ int qman_enqueue(struct qman_fq *fq, const struct qm_fd *fd, u32 flags)
 	qm_eqcr_pvb_commit(&p->p, QM_EQCR_VERB_CMD_ENQUEUE |
 		(flags & (QM_EQCR_VERB_COLOUR_MASK | QM_EQCR_VERB_INTERRUPT)));
 	/* Factor the below out, it's used from qman_enqueue_orp() too */
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 #ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
 	if (unlikely((flags & QMAN_ENQUEUE_FLAG_WAIT) &&
@@ -2120,7 +2233,7 @@ int qman_enqueue_orp(struct qman_fq *fq, const struct qm_fd *fd, u32 flags,
 		((flags & (QMAN_ENQUEUE_FLAG_HOLE | QMAN_ENQUEUE_FLAG_NESN)) ?
 				0 : QM_EQCR_VERB_CMD_ENQUEUE) |
 		(flags & (QM_EQCR_VERB_COLOUR_MASK | QM_EQCR_VERB_INTERRUPT)));
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 #ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
 	if (unlikely((flags & QMAN_ENQUEUE_FLAG_WAIT) &&
@@ -2154,7 +2267,7 @@ int qman_modify_cgr(struct qman_cgr *cgr, u32 flags,
 			return -EIO;
 		}
 	}
-	local_irq_save(irqflags);
+	PORTAL_IRQ_LOCK(p, irqflags);
 	mcc = qm_mc_start(&p->p);
 	if (opts)
 		mcc->initcgr = *opts;
@@ -2166,7 +2279,7 @@ int qman_modify_cgr(struct qman_cgr *cgr, u32 flags,
 		cpu_relax();
 	DPA_ASSERT((mcr->verb & QM_MCR_VERB_MASK) == verb);
 	res = mcr->result;
-	local_irq_restore(irqflags);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 	return (res == QM_MCR_RESULT_OK) ? 0 : -EIO;
 }

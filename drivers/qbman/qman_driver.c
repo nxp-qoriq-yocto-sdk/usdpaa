@@ -91,6 +91,7 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 	const u32 *channel, *cell_index;
 	const phandle *ph;
 	struct qm_portal_config *pcfg;
+	struct qman_portal *portal;
 	size_t lenp;
 	u32 flags = 0;
 	int ret = 0;
@@ -191,16 +192,16 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 
 	if (pcfg->has_hv_dma)
 		flags = QMAN_PORTAL_FLAG_RSTASH | QMAN_PORTAL_FLAG_DSTASH;
-	ret = qman_create_affine_portal(pcfg, flags, NULL,
+	portal = qman_create_affine_portal(pcfg, flags, NULL,
 #ifdef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
 			 	&null_cb,
 #else
 				NULL,
 #endif
 				0, recovery_mode);
-	if (ret) {
-		pr_err("Qman portal initialisation failed (%d), ret=%d\n",
-			pcfg->public_cfg.cpu, ret);
+	if (!portal) {
+		pr_err("Qman portal initialisation failed (%d)\n",
+			pcfg->public_cfg.cpu);
 		goto end;
 	}
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
@@ -229,8 +230,6 @@ static int fsl_qman_portal_finish(void)
 	const struct qm_portal_config *cfg;
 	int ret;
 
-	if (!qman_have_affine_portal())
-		return -ENODEV;
 	cfg = qman_destroy_affine_portal();
 	ret = munmap(cfg->addr.addr_ce, 16*1024);
 	if (ret) {
@@ -301,7 +300,9 @@ int qman_thread_fd(void)
 
 void qman_thread_irq(void)
 {
-	const struct qm_portal_config *cfg = qman_get_affine_portal_config();
+	const struct qman_portal_config *cfg = qman_get_portal_config();
+	const struct qm_portal_config *pcfg = container_of(cfg,
+			const struct qm_portal_config, public_cfg);
 	if (!irq)
 		return;
 	irq->isr(fd, irq->arg);
@@ -309,7 +310,7 @@ void qman_thread_irq(void)
 	 * the regular portal driver that manipulates any portal register, so
 	 * rather than breaking that encapsulation I am simply hard-coding the
 	 * offset to the inhibit register here. */
-	out_be32(cfg->addr.addr_ci + 0xe0c, 0);
+	out_be32(pcfg->addr.addr_ci + 0xe0c, 0);
 }
 
 int qman_global_init(int recovery_mode)
