@@ -449,7 +449,7 @@ static inline void platform_device_put(struct platform_device *pdev)
 /* Allocator stuff */
 #define kmalloc(sz, t)	malloc(sz)
 #define vmalloc(sz)	malloc(sz)
-#define kfree(p)	free(p)
+#define kfree(p)	do { if (p) free(p); } while (0)
 static inline void *kzalloc(size_t sz, gfp_t foo __always_unused)
 {
 	void *ptr = malloc(sz);
