@@ -136,13 +136,14 @@ mymeld() {
 	DONE="no"
 	while [ $DONE = "no" ];
 	do
-		read -e -p "Examine? (Y/y/N/n/Q/q) "
-		if [ $REPLY = "Y" -o $REPLY = "y" ]; then
+		read -e -p "Examine? (Y/n/q) "
+		C="x$REPLY"
+		if [ $C = "xY" -o $C = "xy" -o "$C" = "x" ]; then
 			meld $1 $2
 			DONE="yes"
-		elif [ $REPLY = "N" -o $REPLY = "n" ]; then
+		elif [ $C = "xN" -o $C = "xn" ]; then
 			DONE="yes"
-		elif [ $REPLY = "Q" -o $REPLY = "q" ]; then
+		elif [ $C = "xQ" -o $C = "xq" ]; then
 			exit 0
 		fi
 	done
