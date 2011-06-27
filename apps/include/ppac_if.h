@@ -70,6 +70,13 @@ struct ppac_if {
 	} tx_confirm;
 	struct ppac_rx_hash {
 		struct qman_fq fq;
+#ifdef PPAC_2FWD_ORDER_RESTORATION
+		/* Rather than embedding a whole ORP object, we embed only the
+		 * ORPID so that it takes less (stashable) space. We can plug
+		 * the ORPID into a temporary ORP object on the fly when
+		 * performing ORP-enabled enqueues. */
+		u32 orp_id;
+#endif
 		struct ppam_rx_hash s;
 	} ____cacheline_aligned rx_hash[0];
 } ____cacheline_aligned;

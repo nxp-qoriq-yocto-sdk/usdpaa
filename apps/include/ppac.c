@@ -48,12 +48,21 @@ static const struct qm_fqd_stashing default_stash_opts = {
 /* Packet handling */
 /*******************/
 
-#ifdef PPAC_2FWD_ORDER_PRESERVATION
+#if defined(PPAC_2FWD_ORDER_PRESERVATION) || \
+	defined(PPAC_2FWD_ORDER_RESTORATION)
 #define PRE_DQRR()  local_dqrr = dqrr
 #define POST_DQRR() (local_dqrr ? qman_cb_dqrr_consume : qman_cb_dqrr_defer)
 #else
 #define PRE_DQRR()  do { ; } while (0)
 #define POST_DQRR() qman_cb_dqrr_consume
+#endif
+
+#ifdef PPAC_2FWD_ORDER_RESTORATION
+#define PRE_ORP(orpid) local_orp_id = orpid
+#define POST_ORP()     local_orp_id = 0
+#else
+#define PRE_ORP(orpid) do { ; } while (0)
+#define POST_ORP()     do { ; } while (0)
 #endif
 
 static enum qman_cb_dqrr_result
@@ -120,7 +129,9 @@ cb_dqrr_rx_hash(struct qman_portal *qm __always_unused,
 	struct ppac_rx_hash *p = container_of(fq, struct ppac_rx_hash, fq);
 	TRACE("Rx_hash: fqid=%d\tfd_status = 0x%08x\n", fq->fqid, dqrr->fd.status);
 	PRE_DQRR();
+	PRE_ORP(p->orp_id);
 	ppam_rx_hash_cb(&p->s, dqrr);
+	POST_ORP();
 	return POST_DQRR();
 }
 
@@ -211,6 +222,11 @@ int ppac_if_init(unsigned idx)
 		err = ppam_rx_hash_init(&i->rx_hash[loop].s, &i->module_if,
 					loop, &stash_opts);
 		BUG_ON(err);
+#ifdef PPAC_2FWD_ORDER_RESTORATION
+		ppac_orp_init(&i->rx_hash[loop].orp_id);
+		TRACE("I/F %d, Rx FQID %d associated with ORP ID %d\n",
+			idx, i->rx_hash[loop].fq.fqid, i->rx_hash[loop].orp_id);
+#endif
 		ppac_fq_pcd_init(&i->rx_hash[loop].fq, port->pcd.start + loop,
 			get_rxc(), &stash_opts,
 			(fif->mac_type == fman_mac_1g) ? RX_1G_PIC :

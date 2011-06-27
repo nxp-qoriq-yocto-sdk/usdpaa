@@ -63,8 +63,12 @@ const char ppam_cfg_path[] __attribute__((weak)) = __stringify(DEF_CFG_PATH);
 struct bman_pool *pool[64];
 LIST_HEAD(ifs);
 __thread struct qman_fq local_fq;
-#ifdef PPAC_2FWD_ORDER_PRESERVATION
+#if defined(PPAC_2FWD_ORDER_PRESERVATION) || \
+	defined(PPAC_2FWD_ORDER_RESTORATION)
 __thread const struct qm_dqrr_entry *local_dqrr;
+#endif
+#ifdef PPAC_2FWD_ORDER_RESTORATION
+__thread u32 local_orp_id;
 #endif
 
 #ifdef PPAC_CGR
@@ -162,6 +166,24 @@ void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
 	ret = qman_init_fq(fq, QMAN_INITFQ_FLAG_SCHED, &opts);
 	BUG_ON(ret);
 }
+
+#ifdef PPAC_2FWD_ORDER_RESTORATION
+void ppac_orp_init(u32 *orp_id)
+{
+	struct qm_mcc_initfq opts;
+	struct qman_fq tmp_fq;
+	int ret = qman_create_fq(0, QMAN_FQ_FLAG_DYNAMIC_FQID, &tmp_fq);
+	BUG_ON(ret);
+	opts.we_mask = QM_INITFQ_WE_FQCTRL | QM_INITFQ_WE_ORPC;
+	opts.fqd.fq_ctrl = QM_FQCTRL_PREFERINCACHE | QM_FQCTRL_ORP;
+	opts.fqd.orprws = PPAC_ORP_WINDOW_SIZE;
+	opts.fqd.oa = PPAC_ORP_AUTO_ADVANCE;
+	opts.fqd.olws = PPAC_ORP_ACCEPT_LATE;
+	ret = qman_init_fq(&tmp_fq, QMAN_INITFQ_FLAG_SCHED, &opts);
+	BUG_ON(ret);
+	*orp_id = tmp_fq.fqid;
+}
+#endif
 
 static enum qman_cb_dqrr_result
 cb_tx_drain(struct qman_portal *qm __always_unused,
@@ -589,6 +611,7 @@ static void *worker_fn(void *__worker)
 		nfds = fd_qman + 1;
 	else
 		nfds = fd_bman + 1;
+
 	/* Initialise the enqueue-only FQ object for this cpu/thread. NB, the
 	 * fqid argument ("1") is superfluous, the point is to mark the object
 	 * as ready for enqueuing and handling ERNs, but unfit for any FQD
