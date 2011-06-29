@@ -37,6 +37,41 @@
 
 #include <internal/compat.h>
 
+/*
+ * PPAM global startup/teardown
+ *
+ * These hooks are not performance-sensitive and so are declared as real
+ * functions, called from the PPAC library code (ie. not from the inline
+ * packet-handling support).
+ */
+int __attribute__((weak)) ppam_init(void)
+{
+	/* Return zero for success, not the number of characters printed */
+	int ret = printf("%s starting\n", program_invocation_short_name);
+	if (ret < 0)
+		return ret;
+	return 0;
+}
+void __attribute__((weak)) ppam_finish(void)
+{
+	printf("%s stopping\n", program_invocation_short_name);
+}
+
+/*
+ * PPAM thread startup/teardown
+ *
+ * Same idea, but these are invoked as each thread is set up (after portals are
+ * initialised but prior to the appication-loop starting) or torn down (prior to
+ * portals being torn down).
+ */
+int __attribute__((weak)) ppam_thread_init(void)
+{
+	return 0;
+}
+void __attribute__((weak)) ppam_thread_finish(void)
+{
+}
+
 /***************/
 /* Global data */
 /***************/
@@ -635,6 +670,20 @@ static void *worker_fn(void *__worker)
 	/* Set the qman portal's SDQCR mask */
 	qman_static_dequeue_add(sdqcr);
 
+	/* Global init is triggered by having the message preset to
+	 * "do_global_init" before the thread even runs. This means we can catch
+	 * it here before entering the loop (which in turn means we can call
+	 * ppam_thread_init() after global init but prior to the app loop). */
+	if (worker->msg->msg == worker_msg_do_global_init) {
+		s = process_msg(worker, worker->msg);
+		if (s <= 0)
+			goto global_init_fail;
+	}
+
+	/* Do any PPAM-specific thread initialisation */
+	s = ppam_thread_init();
+	BUG_ON(s);
+
 	/* Run! */
 	TRACE("Starting poll loop on cpu %d\n", worker->cpu);
 	while (check_msg(worker)) {
@@ -704,6 +753,10 @@ static void *worker_fn(void *__worker)
 #endif
 	}
 
+	/* Do any PPAM-specific thread cleanup */
+	ppam_thread_finish();
+
+global_init_fail:
 	qman_static_dequeue_del(~(u32)0);
 	while (calm_down--) {
 		qman_poll_slow();
@@ -743,11 +796,6 @@ static int msg_list(struct worker *worker)
 static int msg_quit(struct worker *worker)
 {
 	return msg_post(worker, worker_msg_quit);
-}
-
-static int msg_do_global_init(struct worker *worker)
-{
-	return msg_post(worker, worker_msg_do_global_init);
 }
 
 static int msg_do_global_finish(struct worker *worker)
@@ -799,7 +847,7 @@ static unsigned long ncpus;
  * portal.) */
 static struct worker *primary;
 
-static struct worker *worker_new(int cpu)
+static struct worker *worker_new(int cpu, int is_primary)
 {
 	struct worker *ret;
 	int err = posix_memalign((void **)&ret, L1_CACHE_BYTES, sizeof(*ret));
@@ -812,12 +860,28 @@ static struct worker *worker_new(int cpu)
 	}
 	ret->cpu = cpu;
 	ret->uid = next_worker_uid++;
-	ret->msg->msg = worker_msg_none;
+	ret->msg->msg = is_primary ? worker_msg_do_global_init :
+			worker_msg_none;
 	INIT_LIST_HEAD(&ret->node);
 	err = pthread_create(&ret->id, NULL, worker_fn, ret);
 	if (err) {
+		free(ret->msg);
 		free(ret);
 		goto out;
+	}
+	/* If is_primary, global init is processed on thread startup, so we poll
+	 * for the message queue to be idle before proceeding. Note, the reason
+	 * for doing this is to ensure global-init happens before the regular
+	 * message processing loop, which is turn to allow the
+	 * ppam_thread_init() hook to be placed between the two. */
+	while (ret->msg->msg != worker_msg_none) {
+		if (!pthread_tryjoin_np(ret->id, NULL)) {
+			/* The worker is already gone */
+			free(ret->msg);
+			free(ret);
+			goto out;
+		}
+		pthread_yield();
 	}
 	/* Block until the worker is in its polling loop (by sending a "list"
 	 * command and waiting for it to get processed). This ensures any
@@ -1024,7 +1088,7 @@ static int ppac_cli_add(int argc, char *argv[])
 
 	if (parse_cpus(argv[1], &first, &last) == 0)
 		for (loop = first; loop <= last; loop++) {
-			worker = worker_new(loop);
+			worker = worker_new(loop, 0);
 			if (worker)
 				worker_add(worker);
 		}
@@ -1118,21 +1182,6 @@ cli_cmd(rm, ppac_cli_rm);
 
 const char ppam_prompt[] __attribute__((weak)) = "> ";
 
-/* PPAM global startup/teardown
- *
- * These hooks are not performance-sensitive and so are declared as real
- * functions, called from the PPAC library code (ie. not from the inline
- * packet-handling support).
- */
-int __attribute__((weak)) ppam_init(void)
-{
-	return printf("%s starting\n", program_invocation_short_name);
-}
-void __attribute__((weak)) ppam_finish(void)
-{
-	printf("%s stopping\n", program_invocation_short_name);
-}
-
 int main(int argc, char *argv[])
 {
 	struct worker *worker, *tmpworker;
@@ -1222,17 +1271,13 @@ int main(int argc, char *argv[])
 	TRACE("Starting %d threads for cpu-range '%d..%d'\n",
 	      ppac_args.last - ppac_args.first + 1, ppac_args.first, ppac_args.last);
 	for (loop = ppac_args.first; loop <= ppac_args.last; loop++) {
-		worker = worker_new(loop);
+		worker = worker_new(loop, !primary);
 		if (!worker) {
 			rcode = -1;
 			goto leave;
 		}
-		if (!primary) {
-			/* Do datapath-dependent global init on "primary" */
-			msg_do_global_init(worker);
+		if (!primary)
 			primary = worker;
-
-		}
 		worker_add(worker);
 	}
 
