@@ -72,6 +72,28 @@ void __attribute__((weak)) ppam_thread_finish(void)
 {
 }
 
+/*
+ * PPAM thread polling hook
+ *
+ * The idea here is that a PPAM can implement an override for this function if
+ * it wishes to perform processing from within the core application-loop running
+ * in each thread. In this case, the application-loop invokes ppam_thread_poll()
+ * whenever the 'ppam_thread_poll_enabled' thread-local boolean variable is set
+ * non-zero. This boolean is zero by default, so can be enabled/disabled as
+ * required by PPAM itself (during initialisation, packet-processing, and/or
+ * from within ppam_thread_poll() itself). For this reason, it is illegal for
+ * the weakly-linked default to ever execute - it implies the PPAM has activated
+ * the polling hook without implementing it. If the hook returns non-zero, the
+ * thread will cleanup and terminate.
+ */
+__thread int ppam_thread_poll_enabled;
+int __attribute__((weak)) ppam_thread_poll(void)
+{
+	fprintf(stderr, "PPAM requested polling but didn't implement it!\n");
+	abort();
+	return 0;
+}
+
 /***************/
 /* Global data */
 /***************/
@@ -687,6 +709,11 @@ static void *worker_fn(void *__worker)
 	/* Run! */
 	TRACE("Starting poll loop on cpu %d\n", worker->cpu);
 	while (check_msg(worker)) {
+		if (ppam_thread_poll_enabled) {
+			s = ppam_thread_poll();
+			if (s)
+				break;
+		}
 #ifdef PPAC_IDLE_IRQ
 		/* IRQ mode */
 		if (irq_mode) {

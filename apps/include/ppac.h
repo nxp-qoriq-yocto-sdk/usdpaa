@@ -161,6 +161,12 @@ extern const char ppam_cfg_path[];
  * can declare its own and it will take precedence. */
 extern const char ppam_prompt[];
 
+/* Thread-local boolean indicating whether the per-thread application-loop
+ * should be invoking ppam_thread_poll(). PPAM sets this on and off as required,
+ * but should not do so unless it has implemented that function (thus overriding
+ * the weakly-linked version defined by PPAC that will abort() if executed). */
+extern __thread int ppam_thread_poll_enabled;
+
 /* We want a trivial mapping from bpid->pool, so just have a 64-wide array of
  * pointers, most of which are NULL. */
 extern struct bman_pool *pool[64];
