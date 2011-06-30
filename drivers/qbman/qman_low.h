@@ -236,6 +236,11 @@ struct qm_portal_bugs {
 #define QM_PORTAL_ALIGNMENT ____cacheline_aligned
 #endif
 
+struct qm_addr {
+	void __iomem *addr_ce;	/* cache-enabled */
+	void __iomem *addr_ci;	/* cache-inhibited */
+};
+
 struct qm_portal {
 #ifdef CONFIG_FSL_QMAN_BUG_AND_FEATURE_REV1
 	struct qm_portal_bugs bugs;
@@ -516,13 +521,12 @@ static inline int qm_dqrr_init(struct qm_portal *portal,
 				enum qm_dqrr_dmode dmode,
 				__maybe_unused enum qm_dqrr_pmode pmode,
 				enum qm_dqrr_cmode cmode, u8 max_fill,
-				int stash_ring, int stash_data)
+				int disable_stash)
 {
 	register struct qm_dqrr *dqrr = &portal->dqrr;
 	u32 cfg;
 
-	if ((stash_ring || stash_data) &&
-			((config->public_cfg.cpu == -1) || !config->has_hv_dma))
+	if ((config->public_cfg.has_stashing) && (config->public_cfg.cpu == -1))
 		return -EINVAL;
 	/* Make sure the DQRR will be idle when we enable */
 	qm_out(DQRR_SDQCR, 0);
@@ -550,9 +554,9 @@ static inline int qm_dqrr_init(struct qm_portal *portal,
 		((max_fill & (QM_DQRR_SIZE - 1)) << 20) | /* DQRR_MF */
 		((dmode & 1) << 18) |			/* DP */
 		((cmode & 3) << 16) |			/* DCM */
-		(stash_ring ? 0x80 : 0) |		/* RE */
+		(disable_stash ? 0 :			/* RE+SE */
+			config->public_cfg.has_stashing ? 0xa0 : 0) |
 		(0 ? 0x40 : 0) |			/* Ignore RP */
-		(stash_data ? 0x20 : 0) |		/* SE */
 		(0 ? 0x10 : 0);				/* Ignore SP */
 	qm_out(CFG, cfg);
 	qm_dqrr_set_maxfill(portal, max_fill);
@@ -1181,3 +1185,4 @@ static inline void __qm_isr_write(struct qm_portal *portal, enum qm_isr_reg n,
 {
 	__qm_out(&portal->addr, REG_ISR + (n << 2), val);
 }
+

@@ -209,6 +209,11 @@ struct bman_portal_config {
 	int cpu;
 	/* portal interrupt line */
 	int irq;
+	/* the unique index of this portal */
+	u32 index;
+	/* Is this portal shared? (If so, it has coarser locking and demuxes
+	 * processing on behalf of other CPUs.) */
+	int is_shared;
 	/* These are the buffer pool IDs that may be used via this portal. */
 	struct bman_depletion mask;
 };

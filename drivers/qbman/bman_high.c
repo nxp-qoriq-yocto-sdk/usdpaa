@@ -38,7 +38,6 @@
 
 struct bman_portal {
 	struct bm_portal p;
-	u32 options;	/* BMAN_PORTAL_FLAGS_*** - static, caller-provided */
 	/* 2-element array. pools[0] is mask, pools[1] is snapshot. */
 	struct bman_depletion *pools;
 	int thresh_set;
@@ -51,7 +50,8 @@ struct bman_portal {
 	struct tasklet_struct tasklet;
 #endif
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
-	spinlock_t sharing_lock; /* only used with BMAN_PORTAL_FLAG_SHARE */
+	spinlock_t sharing_lock; /* only used if is_shared */
+	int is_shared;
 	struct bman_portal *sharing_redirect;
 #endif
 	/* When the cpu-affine portal is activated, this is non-NULL */
@@ -72,14 +72,14 @@ struct bman_portal {
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
 #define PORTAL_IRQ_LOCK(p, irqflags) \
 	do { \
-		if ((p)->options & BMAN_PORTAL_FLAG_SHARE) \
+		if ((p)->is_shared) \
 			spin_lock_irqsave(&(p)->sharing_lock, irqflags); \
 		else \
 			local_irq_save(irqflags); \
 	} while (0)
 #define PORTAL_IRQ_UNLOCK(p, irqflags) \
 	do { \
-		if ((p)->options & BMAN_PORTAL_FLAG_SHARE) \
+		if ((p)->is_shared) \
 			spin_unlock_irqrestore(&(p)->sharing_lock, irqflags); \
 		else \
 			local_irq_restore(irqflags); \
@@ -100,7 +100,7 @@ static inline struct bman_portal *get_raw_affine_portal(void)
 static inline struct bman_portal *get_affine_portal(void)
 {
 	struct bman_portal *p = get_raw_affine_portal();
-	if (p->options & BMAN_PORTAL_FLAG_SHARE_SLAVE)
+	if (p->sharing_redirect)
 		return p->sharing_redirect;
 	return p;
 }
@@ -209,8 +209,7 @@ static irqreturn_t portal_isr(__always_unused int irq, void *ptr)
 #endif
 
 struct bman_portal *bman_create_affine_portal(
-			const struct bm_portal_config *config, u32 flags,
-			u32 irq_sources,
+			const struct bm_portal_config *config,
 			int recovery_mode __maybe_unused)
 {
 	struct bman_portal *portal = get_raw_affine_portal();
@@ -218,11 +217,11 @@ struct bman_portal *bman_create_affine_portal(
 	const struct bman_depletion *pools = &config->public_cfg.mask;
 	int ret;
 
-	BUG_ON(flags & BMAN_PORTAL_FLAG_SHARE_SLAVE);
 	/* prep the low-level portal struct with the mapped addresses from the
 	 * config, everything that follows depends on it and "config" is more
 	 * for (de)reference... */
-	__p->addr = config->addr;
+	__p->addr.addr_ce = config->addr_virt[BM_ADDR_CE];
+	__p->addr.addr_ci = config->addr_virt[BM_ADDR_CI];
 	if (bm_rcr_init(__p, bm_rcr_pvb, bm_rcr_cce)) {
 		pr_err("Bman RCR initialisation failed\n");
 		goto fail_rcr;
@@ -251,7 +250,6 @@ struct bman_portal *bman_create_affine_portal(
 			bpid++;
 		}
 	}
-	portal->options = flags;
 	portal->slowpoll = 0;
 #ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
 	portal->rcri_owned = NULL;
@@ -261,12 +259,13 @@ struct bman_portal *bman_create_affine_portal(
 #endif
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
 	spin_lock_init(&portal->sharing_lock);
+	portal->is_shared = config->public_cfg.is_shared;
 	portal->sharing_redirect = NULL;
 #endif
 	memset(&portal->cb, 0, sizeof(portal->cb));
 	/* Write-to-clear any stale interrupt status bits */
 	bm_isr_disable_write(__p, 0xffffffff);
-	portal->irq_sources = irq_sources;
+	portal->irq_sources = 0;
 	bm_isr_enable_write(__p, portal->irq_sources);
 	bm_isr_status_clear(__p, 0xffffffff);
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
@@ -286,9 +285,6 @@ struct bman_portal *bman_create_affine_portal(
 	/* Enable the bits that make sense */
 	if (!recovery_mode)
 		bm_isr_uninhibit(__p);
-#else
-	if (irq_sources)
-		panic("No Bman portal IRQ support, mustn't specify IRQ flags!");
 #endif
 	/* Need RCR to be empty before continuing */
 	bm_isr_disable_write(__p, ~BM_PIRQ_RCRI);
@@ -324,18 +320,15 @@ fail_rcr:
 	return NULL;
 }
 
-struct bman_portal *bman_create_affine_slave(struct bman_portal *redirect,
-						int cpu)
+struct bman_portal *bman_create_affine_slave(struct bman_portal *redirect)
 {
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
 	struct bman_portal *p = get_raw_affine_portal();
 	BUG_ON(p->config);
-	BUG_ON(p->options & BMAN_PORTAL_FLAG_SHARE_SLAVE);
-	BUG_ON(!(redirect->options & BMAN_PORTAL_FLAG_SHARE));
-	p->options = BMAN_PORTAL_FLAG_SHARE_SLAVE;
+	BUG_ON(p->is_shared);
+	BUG_ON(!redirect->config->public_cfg.is_shared);
 	p->irq_sources = 0;
 	p->sharing_redirect = redirect;
-	p->slowpoll = (u32)cpu;
 	put_affine_portal();
 	return p;
 #else
@@ -349,11 +342,12 @@ const struct bm_portal_config *bman_destroy_affine_portal(void)
 	struct bman_portal *bm = get_raw_affine_portal();
 	const struct bm_portal_config *pcfg;
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
-	if (bm->options & BMAN_PORTAL_FLAG_SHARE_SLAVE) {
-		bm->options = 0;
+	if (bm->sharing_redirect) {
+		bm->sharing_redirect = NULL;
 		put_affine_portal();
 		return NULL;
 	}
+	bm->is_shared = 0;
 #endif
 	pcfg = bm->config;
 	bm_rcr_cce_update(&bm->p);
@@ -364,7 +358,6 @@ const struct bm_portal_config *bman_destroy_affine_portal(void)
 	bm_isr_finish(&bm->p);
 	bm_mc_finish(&bm->p);
 	bm_rcr_finish(&bm->p);
-	bm->options = 0;
 	bm->config = NULL;
 	spin_lock(&affine_mask_lock);
 	cpumask_clear_cpu(pcfg->public_cfg.cpu, &affine_mask);
@@ -484,7 +477,7 @@ int bman_irqsource_add(__maybe_unused u32 bits)
 	struct bman_portal *p = get_raw_affine_portal();
 	int ret = 0;
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
-	if (p->options & BMAN_PORTAL_FLAG_SHARE_SLAVE)
+	if (p->sharing_redirect)
 		ret = -EINVAL;
 	else
 #endif
@@ -511,7 +504,7 @@ int bman_irqsource_remove(u32 bits)
 	__maybe_unused unsigned long irqflags;
 	u32 ier;
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
-	if (p->options & BMAN_PORTAL_FLAG_SHARE_SLAVE) {
+	if (p->sharing_redirect) {
 		put_affine_portal();
 		return -EINVAL;
 	}
@@ -553,7 +546,7 @@ u32 bman_poll_slow(void)
 	struct bman_portal *p = get_raw_affine_portal();
 	u32 ret;
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
-	if (unlikely(p->options & BMAN_PORTAL_FLAG_SHARE_SLAVE))
+	if (unlikely(p->sharing_redirect))
 		ret = (u32)-1;
 	else
 #endif
@@ -572,7 +565,7 @@ void bman_poll(void)
 {
 	struct bman_portal *p = get_raw_affine_portal();
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
-	if (unlikely(p->options & BMAN_PORTAL_FLAG_SHARE_SLAVE))
+	if (unlikely(p->sharing_redirect))
 		goto done;
 #endif
 	if (!(p->slowpoll--)) {
@@ -1071,3 +1064,4 @@ int bman_query_pools(struct bm_pool_state *state)
 	return 0;
 }
 EXPORT_SYMBOL(bman_query_pools);
+

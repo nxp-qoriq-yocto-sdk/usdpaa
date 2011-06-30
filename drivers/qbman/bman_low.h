@@ -144,6 +144,11 @@ struct bm_mc {
 #endif
 };
 
+struct bm_addr {
+	void __iomem *addr_ce;	/* cache-enabled */
+	void __iomem *addr_ci;	/* cache-inhibited */
+};
+
 struct bm_portal {
 	struct bm_addr addr;
 	struct bm_rcr rcr;

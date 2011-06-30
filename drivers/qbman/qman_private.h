@@ -102,11 +102,6 @@ static inline void qman_cgrs_xor(struct qman_cgrs *dest,
 	for ((cgr) = -1; (cgr) = qman_cgrs_next((cgrs), (cgr)),\
 					(cgr) < __CGR_NUM;)
 
-struct qm_addr {
-	void __iomem *addr_ce;	/* cache-enabled */
-	void __iomem *addr_ci;	/* cache-inhibited */
-};
-
 /* used by CCSR and portal interrupt code */
 enum qm_isr_reg {
 	qm_isr_status = 0,
@@ -115,21 +110,22 @@ enum qm_isr_reg {
 	qm_isr_inhibit = 3
 };
 
+#define QM_ADDR_CE 0
+#define QM_ADDR_CI 1
 struct qm_portal_config {
-	struct qman_portal_config public_cfg;
-	/* Mapped corenet portal regions */
-	struct qm_addr addr;
-	/* does this portal have PAMU assistance from hypervisor? */
-	int has_hv_dma;
+	/* Corenet portal addresses;
+	 * [0]==cache-enabled, [1]==cache-inhibited. */
+	__iomem void *addr_virt[2];
+	struct resource addr_phys[2];
 	struct device_node *node;
 	/* Allow these to be joined in lists */
 	struct list_head list;
+	/* User-visible portal configuration settings */
+	struct qman_portal_config public_cfg;
 };
 
 /* Hooks for driver initialisation */
-#ifdef CONFIG_FSL_QMAN_FQALLOCATOR
 __init int fqalloc_init(int use_bman);
-#endif
 
 /* Revision info (for errata and feature handling) */
 #define QMAN_REV10 0x0100
@@ -145,17 +141,12 @@ void qman_liodn_fixup(enum qm_channel channel);
 #endif
 
 /* Hooks from qman_driver.c in to qman_high.c */
-#define QMAN_PORTAL_FLAG_RSTASH      0x00000001 /* enable DQRR entry stashing */
-#define QMAN_PORTAL_FLAG_DSTASH      0x00000002 /* enable data stashing */
-#define QMAN_PORTAL_FLAG_SHARE       0x00000004 /* used by multiple CPUs */
-#define QMAN_PORTAL_FLAG_SHARE_SLAVE 0x00000008 /* redirect to a shared */
 struct qman_portal *qman_create_affine_portal(
-			const struct qm_portal_config *config, u32 flags,
+			const struct qm_portal_config *config,
 			const struct qman_cgrs *cgrs,
 			const struct qman_fq_cb *null_cb,
-			u32 irq_sources, int recovery_mode);
-struct qman_portal *qman_create_affine_slave(struct qman_portal *redirect,
-						int cpu);
+			int recovery_mode);
+struct qman_portal *qman_create_affine_slave(struct qman_portal *redirect);
 const struct qm_portal_config *qman_destroy_affine_portal(void);
 void qman_recovery_exit_local(void);
 

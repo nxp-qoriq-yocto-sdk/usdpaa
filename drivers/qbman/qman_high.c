@@ -79,8 +79,6 @@ static inline int fq_isclear(struct qman_fq *fq, u32 mask)
 
 struct qman_portal {
 	struct qm_portal p;
-	/* To avoid overloading the term "flags", we use these 2; */
-	u32 options;	/* QMAN_PORTAL_FLAG_*** - static, caller-provided */
 	unsigned long bits; /* PORTAL_BITS_*** - dynamic, strictly internal */
 	unsigned long irq_sources;
 	u32 slowpoll;	/* only used when interrupts are off */
@@ -92,7 +90,8 @@ struct qman_portal {
 	struct tasklet_struct tasklet;
 #endif
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
-	spinlock_t sharing_lock; /* only used with QMAN_PORTAL_FLAG_SHARE */
+	spinlock_t sharing_lock; /* only used if is_shared */
+	int is_shared;
 	struct qman_portal *sharing_redirect;
 #endif
 	u32 sdqcr;
@@ -120,14 +119,14 @@ struct qman_portal {
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
 #define PORTAL_IRQ_LOCK(p, irqflags) \
 	do { \
-		if ((p)->options & QMAN_PORTAL_FLAG_SHARE) \
+		if ((p)->is_shared) \
 			spin_lock_irqsave(&(p)->sharing_lock, irqflags); \
 		else \
 			local_irq_save(irqflags); \
 	} while (0)
 #define PORTAL_IRQ_UNLOCK(p, irqflags) \
 	do { \
-		if ((p)->options & QMAN_PORTAL_FLAG_SHARE) \
+		if ((p)->is_shared) \
 			spin_unlock_irqrestore(&(p)->sharing_lock, irqflags); \
 		else \
 			local_irq_restore(irqflags); \
@@ -150,7 +149,7 @@ static inline struct qman_portal *get_raw_affine_portal(void)
 static inline struct qman_portal *get_affine_portal(void)
 {
 	struct qman_portal *p = get_raw_affine_portal();
-	if (p->options & QMAN_PORTAL_FLAG_SHARE_SLAVE)
+	if (p->sharing_redirect)
 		return p->sharing_redirect;
 	return p;
 }
@@ -369,10 +368,10 @@ static void post_recovery(struct qman_portal *p __always_unused,
 }
 
 struct qman_portal *qman_create_affine_portal(
-			const struct qm_portal_config *config, u32 flags,
+			const struct qm_portal_config *config,
 			const struct qman_cgrs *cgrs,
 			const struct qman_fq_cb *null_cb,
-			u32 irq_sources, int recovery_mode)
+			int recovery_mode)
 {
 	struct qman_portal *portal = get_raw_affine_portal();
 	struct qm_portal *__p = &portal->p;
@@ -380,7 +379,6 @@ struct qman_portal *qman_create_affine_portal(
 	int ret;
 	u32 isdr;
 
-	BUG_ON(flags & QMAN_PORTAL_FLAG_SHARE_SLAVE);
 	/* A criteria for calling this function (from qman_driver.c) is that
 	 * we're already affine to the cpu and won't schedule onto another cpu.
 	 * This means we can put_affine_portal() and yet continue to use
@@ -395,7 +393,8 @@ struct qman_portal *qman_create_affine_portal(
 	/* prep the low-level portal struct with the mapped addresses from the
 	 * config, everything that follows depends on it and "config" is more
 	 * for (de)reference... */
-	__p->addr = config->addr;
+	__p->addr.addr_ce = config->addr_virt[QM_ADDR_CE];
+	__p->addr.addr_ci = config->addr_virt[QM_ADDR_CI];
 	if (qm_eqcr_init(__p, qm_eqcr_pvb, qm_eqcr_cce)) {
 		pr_err("Qman EQCR initialisation failed\n");
 		goto fail_eqcr;
@@ -408,11 +407,7 @@ struct qman_portal *qman_create_affine_portal(
 	/* for recovery mode, don't enable stashing yet */
 	if (qm_dqrr_init(__p, config, qm_dqrr_dpush, qm_dqrr_pvb,
 			recovery_mode ?  qm_dqrr_cci : QM_DQRR_CMODE,
-			DQRR_MAXFILL,
-			recovery_mode ? 0 :
-			(flags & QMAN_PORTAL_FLAG_RSTASH) ? 1 : 0,
-			recovery_mode ? 0 :
-			(flags & QMAN_PORTAL_FLAG_DSTASH) ? 1 : 0)) {
+			DQRR_MAXFILL, recovery_mode)) {
 		pr_err("Qman DQRR initialisation failed\n");
 		goto fail_dqrr;
 	}
@@ -484,7 +479,6 @@ drain_loop:
 	for (ret = 0; ret < __CGR_NUM; ret++)
 		INIT_LIST_HEAD(&portal->cgr_cbs[ret]);
 	spin_lock_init(&portal->cgr_lock);
-	portal->options = flags;
 	portal->bits = recovery_mode ? PORTAL_BITS_RECOVERY : 0;
 	portal->slowpoll = 0;
 #ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
@@ -495,6 +489,7 @@ drain_loop:
 #endif
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
 	spin_lock_init(&portal->sharing_lock);
+	portal->is_shared = config->public_cfg.is_shared;
 	portal->sharing_redirect = NULL;
 #endif
 	portal->sdqcr = QM_SDQCR_SOURCE_CHANNELS | QM_SDQCR_COUNT_UPTO3 |
@@ -519,7 +514,7 @@ drain_loop:
 	dpa_rbtree_init(&portal->retire_table);
 	isdr = 0xffffffff;
 	qm_isr_disable_write(__p, isdr);
-	portal->irq_sources = irq_sources;
+	portal->irq_sources = 0;
 	qm_isr_enable_write(__p, portal->irq_sources);
 	qm_isr_status_clear(__p, 0xffffffff);
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
@@ -542,9 +537,6 @@ drain_loop:
 		post_recovery(portal, config);
 		qm_isr_uninhibit(__p);
 	}
-#else
-	if (irq_sources)
-		panic("No Qman portal IRQ support, mustn't spcify IRQ flags!");
 #endif
 	/* Need EQCR to be empty before continuing */
 	isdr ^= QM_PIRQ_EQCI;
@@ -606,26 +598,19 @@ fail_eqcr:
 
 /* These checks are BUG_ON()s because the driver is already supposed to avoid
  * these cases. */
-struct qman_portal *qman_create_affine_slave(struct qman_portal *redirect,
-						int cpu)
+struct qman_portal *qman_create_affine_slave(struct qman_portal *redirect)
 {
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
 	struct qman_portal *p = get_raw_affine_portal();
 	/* Check that we don't already have our own portal */
 	BUG_ON(p->config);
 	/* Check that we aren't already slaving to another portal */
-	BUG_ON(p->options & QMAN_PORTAL_FLAG_SHARE_SLAVE);
+	BUG_ON(p->is_shared);
 	/* Check that 'redirect' is prepared to have us */
-	BUG_ON(!(redirect->options & QMAN_PORTAL_FLAG_SHARE));
+	BUG_ON(!redirect->config->public_cfg.is_shared);
 	/* These are the only elements to initialise when redirecting */
-	p->options = QMAN_PORTAL_FLAG_SHARE_SLAVE;
 	p->irq_sources = 0;
 	p->sharing_redirect = redirect;
-	/* we "bodge" the cpu into an unused field, because normally it's
-	 * available in p->config.cpu, but p->config==NULL when redirecting. We
-	 * use p->slowpoll, because it's unused when redirecting (polling is
-	 * only possible on the CPU a portal is assigned to). */
-	p->slowpoll = (u32)cpu;
 	put_affine_portal();
 	return p;
 #else
@@ -641,11 +626,12 @@ const struct qm_portal_config *qman_destroy_affine_portal(void)
 	const struct qm_portal_config *pcfg;
 	int cpu;
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
-	if (qm->options & QMAN_PORTAL_FLAG_SHARE_SLAVE) {
-		qm->options = 0;
+	if (qm->sharing_redirect) {
+		qm->sharing_redirect = NULL;
 		put_affine_portal();
 		return NULL;
 	}
+	qm->is_shared = 0;
 #endif
 	pcfg = qm->config;
 	cpu = pcfg->public_cfg.cpu;
@@ -661,7 +647,6 @@ const struct qm_portal_config *qman_destroy_affine_portal(void)
 	qm_mr_finish(&qm->p);
 	qm_dqrr_finish(&qm->p);
 	qm_eqcr_finish(&qm->p);
-	qm->options = 0;
 	qm->config = NULL;
 	spin_lock(&affine_mask_lock);
 	cpumask_clear_cpu(cpu, &affine_mask);
@@ -884,7 +869,7 @@ static inline unsigned int __poll_portal_fast(struct qman_portal *p,
 	struct qman_fq *fq;
 	enum qman_cb_dqrr_result res;
 #ifdef CONFIG_FSL_QMAN_DQRR_PREFETCHING
-	int coherent = (p->options & QMAN_PORTAL_FLAG_RSTASH);
+	int coherent = (p->config->public_cfg.has_stashing);
 #endif
 	unsigned int limit = 0;
 
@@ -989,7 +974,7 @@ int qman_irqsource_add(u32 bits __maybe_unused)
 	struct qman_portal *p = get_raw_affine_portal();
 	int ret = 0;
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
-	if (p->options & QMAN_PORTAL_FLAG_SHARE_SLAVE)
+	if (p->sharing_redirect)
 		ret = -EINVAL;
 	else
 #endif
@@ -1016,7 +1001,7 @@ int qman_irqsource_remove(u32 bits)
 	__maybe_unused unsigned long irqflags;
 	u32 ier;
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
-	if (p->options & QMAN_PORTAL_FLAG_SHARE_SLAVE) {
+	if (p->sharing_redirect) {
 		put_affine_portal();
 		return -EINVAL;
 	}
@@ -1059,7 +1044,7 @@ int qman_poll_dqrr(unsigned int limit)
 	struct qman_portal *p = get_raw_affine_portal();
 	int ret;
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
-	if (unlikely(p->options & QMAN_PORTAL_FLAG_SHARE_SLAVE))
+	if (unlikely(p->sharing_redirect))
 		ret = -EINVAL;
 	else
 #endif
@@ -1078,7 +1063,7 @@ u32 qman_poll_slow(void)
 	struct qman_portal *p = get_raw_affine_portal();
 	u32 ret;
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
-	if (unlikely(p->options & QMAN_PORTAL_FLAG_SHARE_SLAVE))
+	if (unlikely(p->sharing_redirect))
 		ret = (u32)-1;
 	else
 #endif
@@ -1097,7 +1082,7 @@ void qman_poll(void)
 {
 	struct qman_portal *p = get_raw_affine_portal();
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
-	if (unlikely(p->options & QMAN_PORTAL_FLAG_SHARE_SLAVE))
+	if (unlikely(p->sharing_redirect))
 		goto done;
 #endif
 	if ((~p->irq_sources) & QM_PIRQ_SLOW) {
@@ -1292,9 +1277,7 @@ void qman_recovery_exit_local(void)
 	post_recovery(p, p->config);
 	clear_bits(PORTAL_BITS_RECOVERY, &p->bits);
 	if (qm_dqrr_init(&p->p, p->config, qm_dqrr_dpush, qm_dqrr_pvb,
-			QM_DQRR_CMODE, DQRR_MAXFILL,
-			(p->options & QMAN_PORTAL_FLAG_RSTASH) ? 1 : 0,
-			(p->options & QMAN_PORTAL_FLAG_DSTASH) ? 1 : 0))
+			QM_DQRR_CMODE, DQRR_MAXFILL, 0))
 		panic("Qman DQRR initialisation failed, recovery broken");
 	qm_dqrr_sdqcr_set(&p->p, p->sdqcr);
 	qm_isr_status_clear(&p->p, 0xffffffff);

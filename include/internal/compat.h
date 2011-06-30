@@ -445,6 +445,9 @@ static inline void platform_device_put(struct platform_device *pdev)
 {
 	free(pdev);
 }
+struct resource {
+	int unused;
+};
 
 /* Allocator stuff */
 #define kmalloc(sz, t)	malloc(sz)

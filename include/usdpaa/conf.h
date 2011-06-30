@@ -60,9 +60,6 @@
 #undef CONFIG_FSL_DPA_CAN_WAIT_SYNC
 #endif
 
-/* support FQ allocator built on top of BPID 0 */
-#define CONFIG_FSL_QMAN_FQALLOCATOR
-
 /* don't compile support for NULL FQ handling */
 #undef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
 

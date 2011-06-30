@@ -146,26 +146,25 @@ static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 		ret = -ENODEV;
 		goto end;
 	}
-	pcfg->addr.addr_ce = mmap(NULL, 16*1024,
+	pcfg->addr_virt[BM_ADDR_CE] = mmap(NULL, 16*1024,
 			PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-	pcfg->addr.addr_ci = mmap(NULL, 4*1024,
+	pcfg->addr_virt[BM_ADDR_CI] = mmap(NULL, 4*1024,
 			PROT_READ | PROT_WRITE, MAP_SHARED, fd, 4*1024);
-	if ((pcfg->addr.addr_ce == MAP_FAILED) ||
-			(pcfg->addr.addr_ci == MAP_FAILED)) {
-		pr_err("Bman mmap()s failed with %p:%p\n",
-			pcfg->addr.addr_ce, pcfg->addr.addr_ci);
+	if ((pcfg->addr_virt[BM_ADDR_CE] == MAP_FAILED) ||
+			(pcfg->addr_virt[BM_ADDR_CI] == MAP_FAILED)) {
 		perror("mmap of CENA or CINH failed");
 		ret = -ENODEV;
 		goto end;
 	}
 	pcfg->public_cfg.cpu = cpu;
 	pcfg->public_cfg.irq = fd;
+	pcfg->public_cfg.is_shared = 0;
 	bman_depletion_fill(&pcfg->public_cfg.mask);
 
 	if (pcfg->public_cfg.cpu == -1)
 		goto end;
 
-	portal = bman_create_affine_portal(pcfg, 0, 0, recovery_mode);
+	portal = bman_create_affine_portal(pcfg, recovery_mode);
 	if (!portal) {
 		pr_err("Bman portal initialisation failed (%d)\n",
 			pcfg->public_cfg.cpu);
@@ -198,12 +197,12 @@ static int fsl_bman_portal_finish(void)
 	int ret;
 
 	cfg = bman_destroy_affine_portal();
-	ret = munmap(cfg->addr.addr_ce, 16*1024);
+	ret = munmap(cfg->addr_virt[BM_ADDR_CE], 16*1024);
 	if (ret) {
 		perror("munmap() of Bman ADDR_CE failed");
 		goto end;
 	}
-	ret = munmap(cfg->addr.addr_ci, 4*1024);
+	ret = munmap(cfg->addr_virt[BM_ADDR_CI], 4*1024);
 	if (ret) {
 		perror("munmap() of Bman ADDR_CI failed");
 		goto end;
@@ -289,7 +288,7 @@ void bman_thread_irq(void)
 	 * the regular portal driver that manipulates any portal register, so
 	 * rather than breaking that encapsulation I am simply hard-coding the
 	 * offset to the inhibit register here. */
-	out_be32(pcfg->addr.addr_ci + 0xe0c, 0);
+	out_be32(pcfg->addr_virt[BM_ADDR_CI] + 0xe0c, 0);
 }
 
 int bman_global_init(int recovery_mode)

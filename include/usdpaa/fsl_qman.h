@@ -91,8 +91,6 @@ enum qm_dc_portal {
 #endif
 #endif
 
-#ifdef CONFIG_FSL_QMAN_FQALLOCATOR
-
 /* Allocate an unused FQID from the FQ allocator, returns zero for failure */
 u32 qm_fq_new(void);
 /* Release a FQID back to the FQ allocator */
@@ -106,14 +104,6 @@ static inline void qm_fq_free(u32 fqid)
 #else
 #define qm_fq_free(fqid) qm_fq_free_flags(fqid, 0)
 #endif
-
-#else /* !CONFIG_FSL_QMAN_FQALLOCATOR */
-
-#define qm_fq_new()                   0
-#define qm_fq_free_flags(fqid,flags)  BUG()
-#define qm_fq_free(fqid)              BUG()
-
-#endif /* !CONFIG_FSL_QMAN_FQALLOCATOR */
 
 /* For qman_static_dequeue_*** APIs */
 #define QM_SDQCR_CHANNELS_POOL_MASK	0x00007fff
@@ -987,12 +977,19 @@ struct qman_portal_config {
 	int cpu;
 	/* portal interrupt line */
 	int irq;
+	/* the unique index of this portal */
+	u32 index;
+	/* Is this portal shared? (If so, it has coarser locking and demuxes
+	 * processing on behalf of other CPUs.) */
+	int is_shared;
 	/* The portal's dedicated channel id, use this value for initialising
 	 * frame queues to target this portal when scheduled. */
 	enum qm_channel channel;
 	/* A mask of which pool channels this portal has dequeue access to
 	 * (using QM_SDQCR_CHANNELS_POOL(n) for the bitmask) */
 	u32 pools;
+	/* Is stashing available? (Depends on PAMU config) */
+	int has_stashing;
 };
 
 /* This enum, and the callback type that returns it, are used when handling

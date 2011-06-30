@@ -42,11 +42,6 @@ extern u16 bman_ip_rev; /* 0 if uninitialised, otherwise QMAN_REVx */
  */
 extern u16 bman_pool_max;
 
-struct bm_addr {
-	void __iomem *addr_ce;	/* cache-enabled */
-	void __iomem *addr_ci;	/* cache-inhibited */
-};
-
 /* used by CCSR and portal interrupt code */
 enum bm_isr_reg {
 	bm_isr_status = 0,
@@ -55,12 +50,17 @@ enum bm_isr_reg {
 	bm_isr_inhibit = 3
 };
 
+#define BM_ADDR_CE 0
+#define BM_ADDR_CI 1
 struct bm_portal_config {
-	struct bman_portal_config public_cfg;
-	/* Mapped corenet portal regions */
-	struct bm_addr addr;
+	/* Corenet portal addresses;
+	 * [0]==cache-enabled, [1]==cache-inhibited. */
+	__iomem void *addr_virt[2];
+	struct resource addr_phys[2];
 	/* Allow these to be joined in lists */
 	struct list_head list;
+	/* User-visible portal configuration settings */
+	struct bman_portal_config public_cfg;
 };
 
 #ifdef CONFIG_FSL_BMAN_CONFIG
@@ -69,13 +69,10 @@ int bman_init_error_int(struct device_node *node);
 #endif
 
 /* Hooks from bman_driver.c in to bman_high.c */
-#define BMAN_PORTAL_FLAG_SHARE		0x00000001 /* used by multiple CPUs */
-#define BMAN_PORTAL_FLAG_SHARE_SLAVE	0x00000002 /* redirect to a shared */
 struct bman_portal *bman_create_affine_portal(
-			const struct bm_portal_config *config, u32 flags,
-			u32 irq_sources, int recovery_mode);
-struct bman_portal *bman_create_affine_slave(struct bman_portal *redirect,
-						int cpu);
+			const struct bm_portal_config *config,
+			int recovery_mode);
+struct bman_portal *bman_create_affine_slave(struct bman_portal *redirect);
 const struct bm_portal_config *bman_destroy_affine_portal(void);
 void bman_recovery_exit_local(void);
 
