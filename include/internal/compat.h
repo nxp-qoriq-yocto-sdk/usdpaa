@@ -453,14 +453,14 @@ struct resource {
 #define kmalloc(sz, t)	malloc(sz)
 #define vmalloc(sz)	malloc(sz)
 #define kfree(p)	do { if (p) free(p); } while (0)
-static inline void *kzalloc(size_t sz, gfp_t foo __always_unused)
+static inline void *kzalloc(size_t sz, gfp_t __foo __always_unused)
 {
 	void *ptr = malloc(sz);
 	if (ptr)
 		memset(ptr, 0, sz);
 	return ptr;
 }
-static inline unsigned long get_zeroed_page(gfp_t foo __always_unused)
+static inline unsigned long get_zeroed_page(gfp_t __foo __always_unused)
 {
 	void *p;
 	if (posix_memalign(&p, 4096, 4096))
