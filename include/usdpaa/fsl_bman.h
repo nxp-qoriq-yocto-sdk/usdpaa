@@ -85,31 +85,45 @@ struct bm_mc_result;	/* MC result */
  * pool id specific to this buffer is needed (BM_RCR_VERB_CMD_BPID_MULTI,
  * BM_MCC_VERB_ACQUIRE), the 'bpid' field is used. */
 struct bm_buffer {
-	u8 __reserved1;
-	u8 bpid;
-	u16 hi; /* High 16-bits of 48-bit address */
-	u32 lo; /* Low 32-bits of 48-bit address */
-} __packed;
+	union {
+		struct {
+			u8 __reserved1;
+			u8 bpid;
+			u16 hi; /* High 16-bits of 48-bit address */
+			u32 lo; /* Low 32-bits of 48-bit address */
+		};
+		struct {
+			u64 __notaddress:16;
+			u64 addr:48;
+		};
+	};
+} __attribute__((aligned(8)));
 static inline u64 bm_buffer_get64(const struct bm_buffer *buf)
 {
-	return ((u64)buf->hi << 32) | (u64)buf->lo;
+	return buf->addr;
 }
 static inline dma_addr_t bm_buf_addr(const struct bm_buffer *buf)
 {
-	return (dma_addr_t)bm_buffer_get64(buf);
+	return (dma_addr_t)buf->addr;
 }
 /* Macro, so we compile better if 'v' isn't always 64-bit */
+/* Note: this first version is causing a noticable performance degradation,
+ * which needs analysis, so leaving it commented out for now. The second version
+ * achieves optimal performance. */
+#if 0
+#define bm_buffer_set64(buf, v) \
+	do { \
+		struct bm_buffer *__buf931 = (buf); \
+		__buf931->addr = v; \
+	} while (0)
+#else
 #define bm_buffer_set64(buf, v) \
 	do { \
 		struct bm_buffer *__buf931 = (buf); \
 		__buf931->hi = upper_32_bits(v); \
 		__buf931->lo = lower_32_bits(v); \
 	} while (0)
-#define BM_BUFFER_INIT64(v) \
-	(struct bm_buffer) { \
-		.hi = upper_32_bits(v), \
-		.lo = lower_32_bits(v) \
-	}
+#endif
 
 /* See 1.5.3.5.4: "Release Command" */
 struct bm_rcr_entry {

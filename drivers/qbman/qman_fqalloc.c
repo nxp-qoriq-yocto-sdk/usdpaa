@@ -88,9 +88,10 @@ EXPORT_SYMBOL(qm_fq_new);
 int qm_fq_free_flags(u32 fqid, __maybe_unused u32 flags)
 {
 #ifdef CONFIG_FSL_BMAN_PORTAL
-	struct bm_buffer buf = BM_BUFFER_INIT64(fqid);
+	struct bm_buffer buf;
 	u32 bflags = 0;
 	int ret;
+	bm_buffer_set64(&buf, fqid);
 #endif
 
 	if (!use_bman) {

@@ -163,13 +163,22 @@ enum qm_fd_format {
 
 /* See 1.5.1.1: "Frame Descriptor (FD)" */
 struct qm_fd {
-	u8 dd:2;	/* dynamic debug */
-	u8 liodn_offset:6; /* aka. "Partition ID" in rev1.0 */
-	u8 bpid;	/* Buffer Pool ID */
-	u8 eliodn_offset:4;
-	u8 __reserved:4;
-	u8 addr_hi;	/* high 8-bits of 40-bit address */
-	u32 addr_lo;	/* low 32-bits of 40-bit address */
+	union {
+		struct {
+			u8 dd:2;	/* dynamic debug */
+			u8 liodn_offset:6;
+			u8 bpid:8;	/* Buffer Pool ID */
+			u8 eliodn_offset:4;
+			u8 __reserved:4;
+			u8 addr_hi;	/* high 8-bits of 40-bit address */
+			u32 addr_lo;	/* low 32-bits of 40-bit address */
+		};
+		struct {
+			u64 __notaddress:24;
+			/* More efficient address accessor */
+			u64 addr:40;
+		};
+	};
 	/* The 'format' field indicates the interpretation of the remaining 29
 	 * bits of the 32-bit word. For packing reasons, it is duplicated in the
 	 * other union elements. Note, union'd structs are difficult to use with
@@ -184,40 +193,39 @@ struct qm_fd {
 			enum qm_fd_format format:3;
 			u16 offset:9;
 			u32 length20:20;
-		} __packed;
+		};
 		/* If 'format' is _contig_big or _sg_big, 29b length */
 		struct {
 			enum qm_fd_format _format1:3;
 			u32 length29:29;
-		} __packed;
+		};
 		/* If 'format' is _compound, 29b "congestion weight" */
 		struct {
 			enum qm_fd_format _format2:3;
 			u32 cong_weight:29;
-		} __packed;
-	} __packed;
+		};
+	};
 	union {
 		u32 cmd;
 		u32 status;
 	};
-} __packed __attribute__((aligned(4)));
+} __attribute__((aligned(8)));
 #define QM_FD_DD_NULL		0x00
 #define QM_FD_PID_MASK		0x3f
 static inline u64 qm_fd_addr_get64(const struct qm_fd *fd)
 {
-	return ((u64)fd->addr_hi << 32) | (u64)fd->addr_lo;
+	return fd->addr;
 }
 
 static inline dma_addr_t qm_fd_addr(const struct qm_fd *fd)
 {
-	return (dma_addr_t)qm_fd_addr_get64(fd);
+	return (dma_addr_t)fd->addr;
 }
 /* Macro, so we compile better if 'v' isn't always 64-bit */
 #define qm_fd_addr_set64(fd, v) \
 	do { \
 		struct qm_fd *__fd931 = (fd); \
-		__fd931->addr_hi = upper_32_bits(v); \
-		__fd931->addr_lo = lower_32_bits(v); \
+		__fd931->addr = v; \
 	} while (0)
 
 /* For static initialisation of FDs (which is complicated by the use of unions
@@ -237,10 +245,18 @@ static inline dma_addr_t qm_fd_addr(const struct qm_fd *fd)
 
 /* See 2.2.1.3 Multi-Core Datapath Acceleration Architecture */
 struct qm_sg_entry {
-	u8 __reserved1[3];
-	u8 addr_hi;		/* high 8-bits of 40-bit address */
-	u32 addr_lo;		/* low 32-bits of 40-bit address */
-	u32 extension:1; 	/* Extension bit */
+	union {
+		struct {
+			u8 __reserved1[3];
+			u8 addr_hi;	/* high 8-bits of 40-bit address */
+			u32 addr_lo;	/* low 32-bits of 40-bit address */
+		};
+		struct {
+			u64 __notaddress:24;
+			u64 addr:40;
+		};
+	};
+	u32 extension:1;	/* Extension bit */
 	u32 final:1; 		/* Final bit */
 	u32 length:30;
 	u8 __reserved2;
@@ -250,18 +266,17 @@ struct qm_sg_entry {
 } __packed;
 static inline u64 qm_sg_entry_get64(const struct qm_sg_entry *sg)
 {
-	return ((u64)sg->addr_hi << 32) | (u64)sg->addr_lo;
+	return sg->addr;
 }
 static inline dma_addr_t qm_sg_addr(const struct qm_sg_entry *sg)
 {
-	return (dma_addr_t)qm_sg_entry_get64(sg);
+	return (dma_addr_t)sg->addr;
 }
 /* Macro, so we compile better if 'v' isn't always 64-bit */
 #define qm_sg_entry_set64(sg, v) \
 	do { \
 		struct qm_sg_entry *__sg931 = (sg); \
-		__sg931->addr_hi = upper_32_bits(v); \
-		__sg931->addr_lo = lower_32_bits(v); \
+		__sg931->addr = v; \
 	} while (0)
 
 /* See 1.5.8.1: "Enqueue Command" */
@@ -304,7 +319,7 @@ struct qm_dqrr_entry {
 	u32 contextB;
 	struct qm_fd fd;
 	u8 __reserved4[32];
-} __packed;
+};
 #define QM_DQRR_VERB_VBIT		0x80
 #define QM_DQRR_VERB_MASK		0x7f	/* where the verb contains; */
 #define QM_DQRR_VERB_FRAME_DEQUEUE	0x60	/* "this format" */
