@@ -73,10 +73,6 @@ struct rt_dest_t {
 	/**< Pointer to the Net Device*/
 	void *tunnel;
 	/**< Pointer to associated Tunnel for IPsec */
-	struct pme_ctx *pme_ctx;
-	/**< Pointer PME Context used by PME Driver */
-	uint32_t flow_id;
-	/**< Flow Id associated with this entry used by PME */
 	uint8_t scope;
 	/**< Scope of the Packet LOCAL/GLOBAL/TUNNEL*/
 	stat32_t *refcnt;

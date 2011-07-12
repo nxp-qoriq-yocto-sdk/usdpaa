@@ -47,8 +47,6 @@
 #define ENTRIES 1024
 #define ENTRIES_POOL_SIZE (ENTRIES << 1)
 
-uint32_t ipsec_flow_id;
-
 int32_t ipsec_config_create(void)
 {
 	struct ipsec_tunnel_config_t *config;
