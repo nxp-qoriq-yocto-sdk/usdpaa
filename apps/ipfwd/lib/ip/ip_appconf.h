@@ -50,7 +50,6 @@ struct app_ctrl_ip_info {
 	in_addr_t dst_ipaddr;			/**<Destination IP Address>*/
 	in_addr_t gw_ipaddr;			/**<Gateway IP Address>*/
 	struct ether_addr mac_addr;		/**< Mac Address */
-	unsigned int flow_id;			/**< Flow Id */
 	unsigned int all;			/**< Show all enabled interfaces */
 	unsigned int replace_entry;		/**< Used for overwriting an existing ARP entry */
 	struct app_ctrl_intf_conf intf_conf;	/**< Interface Configuration */
