@@ -43,8 +43,8 @@
 			/**< Annotation Field Size */
 #define IP_HDR_OFFSET	(ANNOTATION_AREA_SIZE + ETHER_HDR_LEN)
 			/**< IPSec Payload Offset */
-#define ENCRYPT 1		/**< Mode is Encryption */
-#define DECRYPT 2		/**< Mode is Decryption */
+#define ENCRYPT 0		/**< Mode is Encryption */
+#define DECRYPT 1		/**< Mode is Decryption */
 
 /**
  \brief ESP header is constructed when we perform decap test.
