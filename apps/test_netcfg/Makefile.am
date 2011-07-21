@@ -31,6 +31,10 @@
 
 bin_PROGRAMS = test_netcfg
 
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/include
+
 test_netcfg_SOURCES := main.c
-test_netcfg_LDADD := usdpaa_syscfg usdpaa_qbman usdpaa_fman usdpaa_dma_mem
-test_netcfg_LDFLAGS := $(LIBXML2_LDFLAGS)
+test_netcfg_LDADD := usdpaa_ppac usdpaa_syscfg usdpaa_qbman usdpaa_fman \
+		   usdpaa_dma_mem usdpaa_of
+test_netcfg_LDFLAGS := $(LIBXML2_LDFLAGS) $(LIBEDIT_LDFLAGS) \
+		     -T $(TOP_LEVEL)/apps/ppac/ppac.lds

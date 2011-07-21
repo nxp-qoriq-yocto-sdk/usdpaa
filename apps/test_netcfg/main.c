@@ -30,6 +30,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <ppac.h>
 #include <usdpaa/compat.h>
 #include <usdpaa/usdpaa_netcfg.h>
 
@@ -44,7 +45,7 @@ static void usage(void)
 
 int main(int argc, char *argv[])
 {
-	int err;
+	int rcode;
 	struct usdpaa_netcfg_info *uscfg_info;
 
 	printf("---------------START------------------\n");
@@ -52,6 +53,11 @@ int main(int argc, char *argv[])
 	if (argc != 3)
 		usage();
 
+	rcode = of_init();
+	if (rcode) {
+		pr_err("of_init() failed\n");
+		exit(EXIT_FAILURE);
+	}
 /*	PCD file = /usr/etc/us_policy_hash_ipv4_src_dst.xml
 	CFGDATA file = /usr/etc/us_config_serdes_0xe.xml
 */
