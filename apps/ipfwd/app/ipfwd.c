@@ -50,7 +50,6 @@ struct ip_stack_t {
 struct ip_stack_t stack;
 static mqd_t mq_fd_rcv, mq_fd_snd;
 static struct sigevent notification;
-static volatile uint32_t GO_FLAG;
 
 
 int is_iface_ip(in_addr_t addr)
@@ -498,11 +497,6 @@ static void process_req_from_mq(struct app_ctrl_op_info *sa_info)
 
 	case IPC_CTRL_CMD_TYPE_SHOW_INTF:
 		s32Result = ipfwd_show_intf(sa_info);
-		break;
-
-	case IPC_CTRL_CMD_TYPE_GO:
-		s32Result = 0;
-		GO_FLAG = 1;
 		break;
 
 	default:

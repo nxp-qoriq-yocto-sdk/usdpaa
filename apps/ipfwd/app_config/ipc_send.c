@@ -77,7 +77,6 @@ static struct argp_option options[] = {
 	{"arpdel", 'H', "TYPE", 0, "deleting a arp entry", 0},
 	{"intfconf", 'F', "TYPE", 0, "change intf config", 0},
 	{"showintf", 'E', "TYPE", 0, "show interfaces", 0},
-	{"Start/ Go", 'O', "TYPE", 0, "Start the processing of packets", 0},
 	{}
 };
 
@@ -642,11 +641,6 @@ int receive_from_mq(mqd_t mqdes)
 			pr_info("Are all the Enabled Interfaces\n");
 		else
 			pr_info("Show Interfaces failed\n");
-	} else if (ip_info.msg_type == IPC_CTRL_CMD_TYPE_GO) {
-		if (result == IPC_CTRL_RSLT_SUCCESSFULL)
-			pr_info("Application Started successfully\n");
-		else
-			pr_info("Application failed\n");
 	}
 
 	response_flag = 1;
@@ -670,8 +664,6 @@ void mq_handler(union sigval sval)
 int main(int argc, char **argv)
 {
 	struct app_ctrl_op_info sa_info;
-	const char *tmp_argv = "-O";
-	struct app_ctrl_op_info route_info;
 	int ret, tmp;
 
 	response_flag = 0;
@@ -703,22 +695,6 @@ int main(int argc, char **argv)
 	if (argc == 1) {
 		pr_info("Mandatory Parameter missing\n");
 		pr_info("Try `ipfwd_config --help' for more information\n");
-		goto _close;
-	}
-	if (strcmp(argv[1], tmp_argv) == 0) {
-		sa_info.msg_type = IPC_CTRL_CMD_TYPE_GO;
-		pr_debug
-		    ("\nFILE:%s :LINE %d:IN MAIN:TYPE PROVIDED FOR GO OPT: %d",
-		     __FILE__, __LINE__, sa_info.msg_type);
-		/*
-		** Initializing the route info structure
-		*/
-		memset(&route_info, 0, sizeof(route_info));
-		route_info.state = IPC_CTRL_CMD_STATE_IDLE;
-		route_info.msg_type = sa_info.msg_type;
-		route_info.result = IPC_CTRL_RSLT_FAILURE;
-
-		send_to_mq(&route_info);
 		goto _close;
 	}
 

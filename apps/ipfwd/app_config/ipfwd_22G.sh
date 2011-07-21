@@ -84,5 +84,4 @@ case $(basename $0 .sh) in
 		net_pair_routes 50 60 10 10	# 2 * 10 * 10 = 200
 		;;
 esac
-ipfwd_config -O
-echo IPSecFwd CP initialization complete
+echo IPFwd Route Creation completed
