@@ -29,8 +29,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-lib_LIBRARIES = apps_arp
+lib_LIBRARIES = apps_ipsecfwd_arp
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipsecfwd/include -I$(TOP_LEVEL)/apps/ipsecfwd/lib -I$(TOP_LEVEL)/apps/lib -I$(TOP_LEVEL)/apps/ipsecfwd/app
 
-apps_arp_SOURCES := arp.c
+apps_ipsecfwd_arp_SOURCES := arp.c

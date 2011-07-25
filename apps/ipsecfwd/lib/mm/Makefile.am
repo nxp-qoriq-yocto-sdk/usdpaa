@@ -29,8 +29,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-lib_LIBRARIES = app_mm
+lib_LIBRARIES = app_ipsecfwd_mm
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipsecfwd/lib -I$(TOP_LEVEL)/apps/ipsecfwd/include
 
-app_mm_SOURCES := mem_cache.c
+app_ipsecfwd_mm_SOURCES := mem_cache.c

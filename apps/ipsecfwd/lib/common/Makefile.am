@@ -29,8 +29,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-lib_LIBRARIES = app_refcount
+lib_LIBRARIES = app_ipsecfwd_refcount
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipsecfwd/lib -I$(TOP_LEVEL)/apps/ipsecfwd/include
 
-app_refcount_SOURCES := refcount.c
+app_ipsecfwd_refcount_SOURCES := refcount.c

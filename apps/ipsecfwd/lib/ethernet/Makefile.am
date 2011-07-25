@@ -29,8 +29,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-lib_LIBRARIES = app_ethernet
+lib_LIBRARIES = app_ipsecfwd_ethernet
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipsecfwd/lib -I$(TOP_LEVEL)/apps/ipsecfwd/include
 
-app_ethernet_SOURCES := eth.c
+app_ipsecfwd_ethernet_SOURCES := eth.c

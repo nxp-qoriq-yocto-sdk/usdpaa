@@ -29,8 +29,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-lib_LIBRARIES = app_net
+lib_LIBRARIES = app_ipsecfwd_net
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipsecfwd/lib -I$(TOP_LEVEL)/apps/ipsecfwd/include
 
-app_net_SOURCES := neigh.c ll_cache.c rt.c
+app_ipsecfwd_net_SOURCES := neigh.c ll_cache.c rt.c

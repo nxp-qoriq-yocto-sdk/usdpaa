@@ -29,8 +29,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-lib_LIBRARIES = app_ipsec
+lib_LIBRARIES = app_ipsecfwd_ipsec
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipsecfwd/include -I$(TOP_LEVEL)/apps/ipsecfwd/lib -I$(TOP_LEVEL)/apps/lib -I$(TOP_LEVEL)/apps/ipsecfwd/app
 
-app_ipsec_SOURCES := ipsec.c ipsec_init.c ipsec_common.c ipsec_sec.c ipsec_encap.c ipsec_decap.c
+app_ipsecfwd_ipsec_SOURCES := ipsec.c ipsec_init.c ipsec_common.c ipsec_sec.c ipsec_encap.c ipsec_decap.c
