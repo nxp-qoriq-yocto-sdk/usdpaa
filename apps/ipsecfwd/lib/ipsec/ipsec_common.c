@@ -218,6 +218,7 @@ void ipsec_build_outer_ip_hdr(struct iphdr *ip_hdr,
 	   checksum field. compute checksum after we get the
 	   packet back from SEC40.
 	 */
+	ip_hdr->check = 0;
 	ip_hdr->saddr = *saddr;
 	ip_hdr->daddr = *daddr;
 	ip_hdr->check = ip_checksum(ip_hdr, sizeof(struct iphdr));
