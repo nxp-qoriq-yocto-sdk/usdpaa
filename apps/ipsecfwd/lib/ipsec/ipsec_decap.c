@@ -103,13 +103,18 @@ enum IP_STATUS ipsec_decap_send(const struct ppam_rx_hash *ctxt,
 #endif
 
 	if (unlikely(entry->fq_state == PARKED)) {
-		sec_fq = 20480 + (entry->tunnel_id * 2);
-		if (init_sec_fqs(entry, DECRYPT, entry->ctxtA, sec_fq)) {
-			fprintf(stderr, "error: %s: Failed to Initialize"
-				" encap Context\n", __func__);
-			return IP_STATUS_DROP;
+		spin_lock(&entry->tlock);
+		if (entry->fq_state == PARKED) {
+			sec_fq = SEC_FQ_BASE + (entry->tunnel_id * 2);
+			if (init_sec_fqs(entry, DECRYPT, entry->ctxtA,
+					sec_fq)) {
+				fprintf(stderr, "error: %s: Failed to Init"
+					" encap Context\n", __func__);
+				return IP_STATUS_DROP;
+			}
+			entry->fq_state = SCHEDULED;
 		}
-		entry->fq_state = SCHEDULED;
+		spin_unlock(&entry->tlock);
 	}
 
 loop:

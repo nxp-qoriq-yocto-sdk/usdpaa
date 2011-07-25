@@ -35,6 +35,8 @@
 #include <fsl_sec/pdb.h>
 #include "ip/ip_appconf.h"
 
+#define SEC_FQ_BASE	20480
+
 struct preheader_t {
 	union {
 		uint32_t word;

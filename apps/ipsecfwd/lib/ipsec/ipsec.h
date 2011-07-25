@@ -71,6 +71,8 @@ struct ipsec_tunnel_t {
 	/**< Pointer to ctxtA for the tunnel entry */
 	void *ctxtA;
 	enum ipsec_fq_state fq_state;
+	/**< lock for a tunnel */
+	spinlock_t tlock;
 } __attribute__ ((aligned(64)));
 
 /**

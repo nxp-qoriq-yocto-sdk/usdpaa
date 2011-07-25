@@ -190,6 +190,7 @@ int32_t ipsec_tunnel_encap_init(struct ipsec_tunnel_config_entry_t *config,
 	entry->seq_num = config->seq_num;
 	entry->esp_dec_key = (uint8_t *) ealg->alg_key;
 	entry->esp_auth_key = (uint8_t *) aalg->alg_key;
+	spin_lock_init(&entry->tlock);
 	pr_debug("SPI Value is %x\n", config->spi);
 
 	if (false == ipsec_add_tunnel_entry(&(ipsec_stack->itt), entry)) {
@@ -264,6 +265,7 @@ int32_t ipsec_tunnel_decap_init(struct ipsec_tunnel_config_entry_t *config,
 	entry->seq_num = config->seq_num;
 	entry->esp_dec_key = (uint8_t *) ealg->alg_key;
 	entry->esp_auth_key = (uint8_t *) aalg->alg_key;
+	spin_lock_init(&entry->tlock);
 	pr_debug("Added Decap Tunnel src = %x, dst = %x, spi = %x\n",
 		 config->tunnel_src_ip_addr, config->tunnel_dst_ip_addr,
 		 config->spi);
