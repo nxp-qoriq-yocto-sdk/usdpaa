@@ -116,11 +116,6 @@ void ipsec_encap_cb(const struct ipsec_context_t *ipsec_ctxt,
 	ip_notes = dma_mem_ptov(simple_fd.addr_lo);
 
 	ip_hdr = (void *)((uint8_t *) ip_notes + simple_fd.offset);
-#ifndef ENABLE_CKSUM_SEC
-	ip_notes->parse.l3r = FM_L3_PARSE_RESULT_IPV4;
-	ip_notes->parse.ipO = ETHER_HDR_LEN;
-	simple_fd.cmd = FM_FD_CMD_RPD | FM_FD_CMD_DTC;
-#endif
 	ip_notes->fd->offset -= ETHER_HDR_LEN;
 	ip_notes->fd->length20 += ETHER_HDR_LEN;
 #ifdef STATS_TBD

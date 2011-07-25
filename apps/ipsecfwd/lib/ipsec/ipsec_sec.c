@@ -77,9 +77,8 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 	pdb.options = PDBOPTS_ESPCBC_TUNNEL | PDBOPTS_ESPCBC_INCIPHDR |
 			PDBOPTS_ESPCBC_IPHDRSRC | PDBOPTS_ESPCBC_IVSRC;
 	pdb.hmo_cbc.dttl = 1;
-#ifdef ENABLE_CKSUM_SEC
 	pdb.options |= PDBOPTS_ESPCBC_CKSUM;
-#endif
+
 	switch (ealg->alg_type) {
 	case AES_CBC:
 		cipher.algtype = CIPHER_TYPE_IPSEC_AESCBC;
