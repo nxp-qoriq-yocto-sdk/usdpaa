@@ -29,7 +29,7 @@
 #define LIB_IP_IP_RC_H
 
 #include "ip/ip.h"
-#include "crc64.h"
+#include <fsl_fman/crc64.h>
 #include "statistics.h"
 
 #include <internal/compat.h>	/* L1_CACHE_BYTES */

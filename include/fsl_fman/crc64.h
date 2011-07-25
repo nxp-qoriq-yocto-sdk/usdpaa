@@ -1,9 +1,23 @@
 /**
-\file
-\brief	This file contains the CRC64 Table, and inline functions
+ \file
+ \brief	This file contains the CRC64 Table, and inline functions
 	used for calculating FMan crc.
-*/
+	Following is the sample usage of CRC calculator to compute
+	a hash value based on SRC_IP, DST_IP and ESP_SPI values
 
+#define compute_hash(saddr,daddr,spi) \
+	do { \
+		uint64_t result; \
+		result = crc64_init(); \
+		result = crc64_compute_word(saddr, result); \
+		result = crc64_compute_word(daddr, result); \
+		result = crc64_compute_word(spi, result); \
+		return (uint32_t) result & RC_HASH_MASK; \
+	} while (0);
+
+If hash on different number or type of field is required, implementation
+can be done with premitives provided in current crc64.h file.
+*/
 /*
  * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
  *
@@ -45,7 +59,8 @@
 #define CRC64_ODD_MASK		1
 
 /**
-\brief		'64 bit crc' Table
+ \brief		'64 bit crc' Table
+		Internal to CRC64 Implementation. Reader may skip this
 */
 struct crc64_t {
 	uint64_t initial;			/**< Initail seed*/
@@ -314,121 +329,88 @@ static struct crc64_t CRC64_ECMA_182 = {
 };
 
 /**
-\brief		Initializes the crc seed
+ \brief		Initializes the crc seed
+ \note		Call this API before feeding data in crc64_compute_xxx
+		APIs for calculating CRC64
 */
-static inline uint64_t
-crc64_init(void)
+static inline uint64_t crc64_init(void)
 {
 	return CRC64_ECMA_182.initial;
 }
 
 /**
-\brief		Computes 64 bit the crc over 1 word
-
-\param[in]	data  - 32 bit Data
-
-\param[in]	crc - seed
-
-\return		calculated crc
+ \brief		Computes 64 bit the crc over 1 word
+ \param[in]	data  - 32 bit Data
+ \param[in]	seed calculated with crc64_init or last calculated CRC
+ \return	calculated crc output
 */
-static inline uint64_t
-crc64_compute_word(uint32_t data, uint64_t seed)
+static inline uint64_t crc64_compute_word(uint32_t data, uint64_t seed)
 {
 	uint64_t crc = seed;
-	uint8_t *bdata;
-
-	bdata = (uint8_t *) &data;
+	uint8_t *bdata = (uint8_t *) &data;
 
 	crc =
 	    CRC64_ECMA_182.table[(crc ^ bdata[0]) & CRC64_BYTE_MASK] ^ (crc >>
 									8);
-
 	crc =
 	    CRC64_ECMA_182.table[(crc ^ bdata[1]) & CRC64_BYTE_MASK] ^ (crc >>
 									8);
-
 	crc =
 	    CRC64_ECMA_182.table[(crc ^ bdata[2]) & CRC64_BYTE_MASK] ^ (crc >>
 									8);
-
 	crc =
 	    CRC64_ECMA_182.table[(crc ^ bdata[3]) & CRC64_BYTE_MASK] ^ (crc >>
 									8);
-
 	return crc;
 }
 
 /**
-\brief		Computes 64 bit the crc over 1 half word
-
-\param[in]	data  - 16 bit Data
-
-\param[in]	crc - seed
-
-\return		calculated crc
+ \brief		Computes 64 bit the crc over 1 half word
+ \param[in]	data  - 16 bit Data
+ \param[in]	seed calculated with crc64_init or last calculated CRC
+ \return	calculated crc
 */
 static inline uint64_t
 crc64_compute_hword(uint16_t data, uint64_t seed)
 {
 	uint64_t crc = seed;
-	uint8_t *bdata;
-
-	bdata = (uint8_t *) &data;
+	uint8_t *bdata = (uint8_t *) &data;
 
 	crc =
 	    CRC64_ECMA_182.table[(crc ^ bdata[0]) & CRC64_BYTE_MASK] ^ (crc >>
 									8);
-
 	crc =
 	    CRC64_ECMA_182.table[(crc ^ bdata[1]) & CRC64_BYTE_MASK] ^ (crc >>
 									8);
-
 	return crc;
 }
 
 
 /**
-\brief		Computes 64 bit the crc over 1 byte
-
-\param[in]	data - Input data
-
-\param[in]	crc - seed
-
-\return		calculated crc
+ \brief		Computes 64 bit the crc over 1 byte
+ \param[in]	data - Input data
+ \param[in]	seed calculated with crc64_init or last calculated CRC
+ \return	calculated crc
 */
 static inline uint64_t
 crc64_compute_byte(uint8_t data, uint64_t seed)
 {
 	uint64_t crc = seed;
+
 	crc = CRC64_ECMA_182.table[(crc ^ data) & CRC64_BYTE_MASK] ^ (crc >> 8);
 	return crc;
 }
 
 /**
-\brief		returns the 2's compliment for the input seed
-
-\param[in]	seed - Seed
-
-\return		2's compliment of seed
+ \brief		returns the 2's compliment for the input seed
+ \param[in]	seed - Seed
+ \return	2's compliment of seed
 */
 static inline uint64_t
 crc64_finish(uint64_t seed)
 {
 	return ~seed;
 }
-
-void crc64_print_table(void);
-
-/**
-\brief		Computes 64 bit the crc over data of specified length
-
-\param[in]	data  - Input buffer containing data
-
-\param[in]	bytes - length of buffer
-
-\return		calculated crc
-*/
-uint64_t crc64_FMan(uint8_t *bytePtr, uint32_t bytes);
 
 #ifdef __cplusplus
     }
