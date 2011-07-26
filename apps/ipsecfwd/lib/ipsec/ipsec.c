@@ -22,20 +22,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdint.h>
-#include <stdbool.h>
 #include "ipsec/ipsec.h"
-#include "ipsec/ipsec_common.h"
-#include "ipsec/ipsec_decap.h"
-#include "ipsec/ipsec_sec.h"
-#include "net/frame_desc.h"
-#include "mm/mem_cache.h"
-#include "ip/ip.h"
-#include "ip/ip_protos.h"
-#include "ip/ip_hooks.h"
-#include "ethernet/eth.h"
-#include "net/net_dev.h"
-#include "ip/ip_output.h"
 
 static bool __ipsec_lookup(struct ipsec_tunnel_t **entry,
 			   struct ipsec_tunnel_table_t *itt,

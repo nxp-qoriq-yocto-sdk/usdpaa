@@ -22,27 +22,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdint.h>
-#include <stdbool.h>
-#include "ipsec/ipsec.h"
-#include "ipsec/ipsec_sec.h"
 #include "ipsec/ipsec_init.h"
-#include "ipsec/ipsec_common.h"
+
 #include "ipsec/ipsec_encap.h"
 #include "ipsec/ipsec_decap.h"
-#include "net/frame_desc.h"
-#include "mm/mem_cache.h"
-#include "ip/ip.h"
-#include "ip/ip_rc.h"
-#include "ip/ip_protos.h"
-#include "ip/ip_hooks.h"
-#include "ethernet/eth.h"
-#include "net/net_dev.h"
-#include "ip/ip_output.h"
-#include "net/neigh.h"
-#include "app_common.h"
-#include <fsl_sec/dcl.h>
-#include <usdpaa/dma_mem.h>
 
 #define ENTRIES 1024
 #define ENTRIES_POOL_SIZE (ENTRIES << 1)
