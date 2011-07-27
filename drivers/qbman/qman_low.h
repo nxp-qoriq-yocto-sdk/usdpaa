@@ -545,10 +545,8 @@ static inline int qm_dqrr_init(struct qm_portal *portal,
 	dqrr->pmode = pmode;
 	dqrr->cmode = cmode;
 	dqrr->flags = 0;
-	if (stash_ring)
-		dqrr->flags |= QM_DQRR_FLAG_RE;
-	if (stash_data)
-		dqrr->flags |= QM_DQRR_FLAG_SE;
+	if (!disable_stash)
+		dqrr->flags |= QM_DQRR_FLAG_RE | QM_DQRR_FLAG_SE;
 #endif
 	cfg = (qm_in(CFG) & 0xff000f00) |
 		((max_fill & (QM_DQRR_SIZE - 1)) << 20) | /* DQRR_MF */
