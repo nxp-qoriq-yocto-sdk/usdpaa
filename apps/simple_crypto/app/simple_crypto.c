@@ -1661,7 +1661,7 @@ static int worker_fn(thread_data_t *tdata)
 
 	pr_debug("\nThis is the thread on cpu %d\n", tdata->cpu);
 
-	cpu_ind = tdata->cpu;
+	cpu_ind = tdata->index;
 
 	if (unlikely(init_sec_fq() != 0)) {
 		pr_err("%s: init_sec_fq() failure\n", __func__);
