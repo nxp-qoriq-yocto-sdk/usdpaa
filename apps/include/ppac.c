@@ -190,7 +190,7 @@ int ppac_if_init(unsigned idx)
 	memset(i->tx_fqs, 0, sizeof(*i->tx_fqs) * i->num_tx_fqs);
 	for (loop = 0; loop < i->num_tx_fqs; loop++) {
 		struct qman_fq *fq = &i->tx_fqs[loop];
-		ppac_fq_tx_init(fq, fif->tx_channel_id);
+		ppac_fq_tx_init(fq, fif->tx_channel_id, fif->fqid_tx_confirm);
 		TRACE("I/F %d, using Tx FQID %d\n", idx, fq->fqid);
 		ppam_if_tx_fqid(&i->module_if, loop, fq->fqid);
 	}

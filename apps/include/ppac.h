@@ -83,6 +83,7 @@
 #undef PPAC_CSTD 			/* CGR tail-drop */
 #undef PPAC_CSCN 			/* Log CGR state-change notifications */
 #define PPAC_IDLE_IRQ			/* Block in interrupt-mode when idle */
+#undef PPAC_TX_CONFIRM		/* Use Tx confirmation for all transmits */
 
 #if defined(PPAC_2FWD_HOLDACTIVE) && defined(PPAC_2FWD_AVOIDBLOCK)
 #error "HOLDACTIVE and AVOIDBLOCK options are mutually exclusive"
@@ -352,8 +353,8 @@ void ppac_orp_init(u32 *orp_id);
 #endif
 
 void ppac_fq_tx_init(struct qman_fq *fq,
-		     enum qm_channel channel);
-
+		     enum qm_channel channel,
+		     u32 tx_confirm_fqid __maybe_unused);
 enum qman_cb_dqrr_result
 cb_dqrr_rx_hash(struct qman_portal *qm __always_unused,
 		struct qman_fq *fq,

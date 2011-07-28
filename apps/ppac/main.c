@@ -253,8 +253,8 @@ cb_tx_drain(struct qman_portal *qm __always_unused,
 	return qman_cb_dqrr_consume;
 }
 
-void ppac_fq_tx_init(struct qman_fq *fq,
-		     enum qm_channel channel)
+void ppac_fq_tx_init(struct qman_fq *fq, enum qm_channel channel,
+		     u32 tx_confirm_fqid __maybe_unused)
 {
 	struct qm_mcc_initfq opts;
 	int err;
@@ -283,8 +283,13 @@ void ppac_fq_tx_init(struct qman_fq *fq,
 	opts.fqd.cgid = cgr_tx.cgrid;
 	opts.fqd.fq_ctrl |= QM_FQCTRL_CGE;
 #endif
+#ifdef PPAC_TX_CONFIRM
+	opts.fqd.context_b = tx_confirm_fqid;
+	opts.fqd.context_a.hi = 0;
+#else
 	opts.fqd.context_b = 0;
 	opts.fqd.context_a.hi = 0x80000000;
+#endif
 	opts.fqd.context_a.lo = 0;
 	err = qman_init_fq(fq, QMAN_INITFQ_FLAG_SCHED, &opts);
 	BUG_ON(err);
