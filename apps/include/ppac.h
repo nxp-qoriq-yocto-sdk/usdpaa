@@ -53,12 +53,37 @@
 #define PPAC_TRACE
 #endif
 
-/* Application configuration */
+/* Application options */
+#undef PPAC_HOLDACTIVE		/* Process each FQ on one portal at a time */
+#undef PPAC_ORDER_PRESERVATION	/* HOLDACTIVE + enqueue-DCAs */
+#undef PPAC_ORDER_RESTORATION	/* Use ORP */
+#define PPAC_AVOIDBLOCK		/* No full-DQRR blocking of FQs */
+#define PPAC_RX_10G_PREFERINCACHE/* Keep 10G rx FQDs in-cache even when empty */
+#define PPAC_RX_1G_PREFERINCACHE/* Keep 1G rx FQDs in-cache even when empty */
+#define PPAC_TX_PREFERINCACHE	/* Keep tx FQDs in-cache even when empty */
+#undef PPAC_TX_FORCESFDR	/* Priority allocation of SFDRs to egress */
+#define PPAC_DEPLETION		/* Trace depletion entry/exit */
+#undef PPAC_CGR			/* Track rx and tx fill-levels via CGR */
+#undef PPAC_CSTD 		/* CGR tail-drop */
+#undef PPAC_CSCN 		/* Log CGR state-change notifications */
+#define PPAC_IDLE_IRQ		/* Block in interrupt-mode when idle */
+#undef PPAC_TX_CONFIRM		/* Use Tx confirmation for all transmits */
+
+/* sanity check the application options for basic conflicts */
+#if defined(PPAC_HOLDACTIVE) && defined(PPAC_AVOIDBLOCK)
+#error "HOLDACTIVE and AVOIDBLOCK options are mutually exclusive"
+#endif
+#if defined(PPAC_ORDER_PRESERVATION) && !defined(PPAC_HOLDACTIVE)
+#error "ORDER_PRESERVATION requires HOLDACTIVE"
+#endif
+
+/* Application configuration (any modification of these requires an
+ * understanding of valid ranges, consequences, etc). */
 #define PPAC_TX_FQS_10G		2
 #define PPAC_TX_FQS_1G		2
-#define PPAC_PRIO_2DROP		3	/* Error/default/etc */
-#define PPAC_PRIO_2FWD		4	/* rx-hash */
-#define PPAC_PRIO_2TX		4	/* Consumed by Fman */
+#define PPAC_PRIORITY_2DROP	3	/* Error/default/etc */
+#define PPAC_PRIORITY_2FWD	4	/* rx-hash */
+#define PPAC_PRIORITY_2TX	4	/* Consumed by Fman */
 #define PPAC_STASH_ANNOTATION_CL 0	/* Overridable by PPAM */
 #define PPAC_STASH_DATA_CL	1	/* Overridable by PPAM */
 #define PPAC_STASH_CONTEXT_CL	0	/* Overridable by PPAM */
@@ -68,30 +93,7 @@
 #define PPAC_ORP_WINDOW_SIZE	3	/* 0->32, 1->64, 2->128, ... 7->4096 */
 #define PPAC_ORP_AUTO_ADVANCE	0	/* boolean */
 #define PPAC_ORP_ACCEPT_LATE	0	/* 0->no, 3->yes (for 1 & 2->see RM) */
-
-/* Application options */
-#undef PPAC_2FWD_HOLDACTIVE		/* Process each FQ on one portal at a time */
-#undef PPAC_2FWD_ORDER_PRESERVATION	/* HOLDACTIVE + enqueue-DCAs */
-#undef PPAC_2FWD_ORDER_RESTORATION	/* Use ORP */
-#define PPAC_2FWD_AVOIDBLOCK		/* No full-DQRR blocking of FQs */
-#define PPAC_2FWD_RX_10G_PREFERINCACHE	/* Keep 10G rx FQDs in-cache even when empty */
-#define PPAC_2FWD_RX_1G_PREFERINCACHE	/* Keep 1G rx FQDs in-cache even when empty */
-#define PPAC_2FWD_TX_PREFERINCACHE	/* Keep tx FQDs in-cache even when empty */
-#undef PPAC_2FWD_TX_FORCESFDR		/* Priority allocation of SFDRs to egress */
-#define PPAC_DEPLETION			/* Trace depletion entry/exit */
-#undef PPAC_CGR				/* Track rx and tx fill-levels via CGR */
-#undef PPAC_CSTD 			/* CGR tail-drop */
-#undef PPAC_CSCN 			/* Log CGR state-change notifications */
-#define PPAC_IDLE_IRQ			/* Block in interrupt-mode when idle */
-#undef PPAC_TX_CONFIRM		/* Use Tx confirmation for all transmits */
-
-#if defined(PPAC_2FWD_HOLDACTIVE) && defined(PPAC_2FWD_AVOIDBLOCK)
-#error "HOLDACTIVE and AVOIDBLOCK options are mutually exclusive"
-#endif
-
-#if defined(PPAC_2FWD_ORDER_PRESERVATION) && !defined(PPAC_2FWD_HOLDACTIVE)
-#error "ORDER_PRESERVATION requires HOLDACTIVE"
-#endif
+#define PPAC_MAX_BPID		64	/* size of BPID->object lookup array */
 
 /**********/
 /* macros */
@@ -103,21 +105,30 @@
 #define TRACE(x...)	do { ; } while(0)
 #endif
 
+/****************/
+/* ARGP support */
+/****************/
+
+/* PPAMs implement this struct and the corresponding global variables to provide
+ * zero or more command-line switches to the finished executable. The options
+ * controlled by those command-line switches should be declared within this
+ * type; */
 struct ppam_arguments;
-struct ppac_arguments
-{
-	const char *fm_cfg;
-	const char *fm_pcd;
-	int first, last;
-	int noninteractive;
-	struct ppam_arguments *ppam_args;
-};
-
-extern const struct argp ppam_argp;
 extern struct ppam_arguments ppam_args;
-extern const char ppam_doc[];
-extern struct ppac_arguments ppac_args;
 
+/* See GNU "Argp" documentation for how to declare this type. Or consult the
+ * PPAC-internal command-line definitions in apps/ppac/main.c for an example
+ * ("ppac_argp"). */
+extern const struct argp ppam_argp;
+
+/* A NULL-terminated string representing the PPAM */
+extern const char ppam_doc[];
+
+/***************/
+/* CLI support */
+/***************/
+
+/* PPAM can implement new CLI functions using the cli_cmd() macro. */
 typedef int (*cli_handle_t)(int argc, char *argv[]);
 struct cli_table_entry
 {
@@ -129,32 +140,32 @@ struct cli_table_entry
 	__attribute__((used, section(".rodata.cli_table")))	\
 	= {__stringify(cmd), handle}
 
-extern const struct cli_table_entry cli_table_start[], cli_table_end[];
-
-#define foreach_cli_table_entry(cli_cmd)	\
-	for (cli_cmd = cli_table_start; cli_cmd < cli_table_end; cli_cmd++)
-
 /*********************************/
 /* Net interface data structures */
 /*********************************/
 
-/* Each Fman i/face has one of these */
+/* Each Fman interface has one of these */
 struct ppac_interface;
 
-/* PPAM global startup/teardown */
+/************************************/
+/* Items to be implemented by PPAMs */
+/************************************/
+
+/* Note: these are in addition to the ARGP/CLI options mentioned above that PPAM
+ * implements. */
+
+/* PPAM can optionally implement these process/thread startup/teardown hooks.
+ * (PPAC implements weakly-linked versions of these that do nothing, and they
+ * are used if PPAM does not implements its own). */
 int ppam_init(void);
 void ppam_finish(void);
+int ppam_thread_init(void);
+void ppam_thread_finish(void);
 
-/***************/
-/* Global data */
-/***************/
-
-/* Configuration */
-extern struct usdpaa_netcfg_info *netcfg;
-/* Default paths to configuration files - these are determined from the build,
- * but can be overriden at run-time using "DEF_PCD_PATH" and "DEF_CFG_PATH"
- * environment variables. Also, PPAC defines weakly-linked versions of these
- * variables, so a PPAM can declare its own and they will take precedence. */
+/* Default paths to FMan configuration files - these are determined from the
+ * build, but can be overriden at run-time using "DEF_PCD_PATH" and
+ * "DEF_CFG_PATH" environment variables. PPAC defines weakly-linked versions of
+ * these variables, which are used if PPAM does not implement them. */
 extern const char ppam_pcd_path[];
 extern const char ppam_cfg_path[];
 
@@ -162,52 +173,44 @@ extern const char ppam_cfg_path[];
  * can declare its own and it will take precedence. */
 extern const char ppam_prompt[];
 
-/* Thread-local boolean indicating whether the per-thread application-loop
- * should be invoking ppam_thread_poll(). PPAM sets this on and off as required,
- * but should not do so unless it has implemented that function (thus overriding
- * the weakly-linked version defined by PPAC that will abort() if executed). */
+/* PPAM thread polling hook. PPAC defines a weakly-linked version of this, which
+ * will abort the application if it is ever called, so PPAM should implement its
+ * own if it intends to enable/disable the polling hook at run-time. */
+int ppam_thread_poll(void);
+
+/* PPAM should _NOT_ implement this thread-local boolean variable, it is
+ * implemented within PPAC. It's value is zero by default, but PPAM code may
+ * dynamically change this at run-time to enable/disable calling of
+ * ppam_thread_poll() from the thread's run-to-completion loop. If this is ever
+ * set non-zero, PPAM must have implemented its own version of
+ * ppam_thread_poll(). */
 extern __thread int ppam_thread_poll_enabled;
 
-/* We want a trivial mapping from bpid->pool, so just have a 64-wide array of
- * pointers, most of which are NULL. */
-extern struct bman_pool *pool[64];
+/**********************/
+/* PPAC-internal data */
+/**********************/
 
-/* The interfaces in this list are allocated from dma_mem (stashing==DMA) */
+/* The following fields should not be used or re-implemented by PPAMs, they are
+ * only pre-declared here (rather than being private to the PPAC code) because
+ * the inlined PPAC functionality (see the packet-handling section below)
+ * depends on this. These are documented in apps/ppac/main.c, where they are
+ * actually instantiated. */
+
+extern struct usdpaa_netcfg_info *netcfg;
+extern struct bman_pool *pool[PPAC_MAX_BPID];
 extern struct list_head ifs;
-
-/* The forwarding logic uses a per-cpu FQ object for handling enqueues (and
- * ERNs), irrespective of the destination FQID. In this way, cache-locality is
- * more assured, and any ERNs that do occur will show up on the same CPUs they
- * were enqueued from. This works because ERN messages contain the FQID of the
- * original enqueue operation, so in principle any demux that's required by the
- * ERN callback can be based on that. Ie. the FQID set within "local_fq" is from
- * whatever the last executed enqueue was, the ERN handler can ignore it. */
 extern __thread struct qman_fq local_fq;
-
-/* These are backdoors from PPAC to itself in order to support order
- * preservation/restoration. Packet-handling goes from a PPAC handler to a PPAM
- * handler which in turn calls PPAC APIs to perform the required packet
- * operations. Call stack is PPAC->PPAM->PPAC, with the possibility for inlining
- * to collapse it all down. The backdoors allow the packet operations to know
- * what was known back up in the PPAC handler but not passed down through the
- * call stack, like what DQRR entry was being processed (to encode enqueue-DCAs,
- * determine ORP sequeuence numbers, etc), what ORPID should be used (if any)
- * when dropping or forwarding the current frame, etc. */
-#if defined(PPAC_2FWD_ORDER_PRESERVATION) || \
-	defined(PPAC_2FWD_ORDER_RESTORATION)
+#if defined(PPAC_ORDER_PRESERVATION) || \
+	defined(PPAC_ORDER_RESTORATION)
 extern __thread const struct qm_dqrr_entry *local_dqrr;
 #endif
-#ifdef PPAC_2FWD_ORDER_RESTORATION
+#ifdef PPAC_ORDER_RESTORATION
 extern __thread u32 local_orp_id;
 #endif
 
-#ifdef PPAC_CGR
-extern struct qman_cgr cgr_tx;
-#endif
-
-/********************/
-/* Common functions */
-/********************/
+/****************************************/
+/* Packet-handling APIs for use by PPAM */
+/****************************************/
 
 /* Rx handling either leads to a forward (qman enqueue) or a drop (bman
  * release). In either case, we can't "block" and we don't want to defer until
@@ -247,7 +250,7 @@ static inline void ppac_drop_frame(const struct qm_fd *fd)
 {
 	struct bm_buffer buf;
 	int ret;
-#ifdef PPAC_2FWD_ORDER_PRESERVATION
+#ifdef PPAC_ORDER_PRESERVATION
 	local_fq.fqid = local_orp_id;
 	/* The "ORP object" passed to qman_enqueue_orp() is only used to extract
 	 * the ORPID, so declare a temporary object to provide that. */
@@ -257,6 +260,7 @@ static inline void ppac_drop_frame(const struct qm_fd *fd)
 #endif
 
 	BUG_ON(fd->format != qm_fd_contig);
+	BUG_ON(fd->bpid >= PPAC_MAX_BPID);
 	bm_buffer_set64(&buf, qm_fd_addr(fd));
 retry:
 	ret = bman_release(pool[fd->bpid], &buf, 1, 0);
@@ -265,7 +269,7 @@ retry:
 		goto retry;
 	}
 	TRACE("drop: bpid %d <-- 0x%llx\n", fd->bpid, qm_fd_addr(fd));
-#ifdef PPAC_2FWD_ORDER_PRESERVATION
+#ifdef PPAC_ORDER_PRESERVATION
 	/* Perform a "HOLE" enqueue so that the ORP doesn't wait for the
 	 * sequence number that we're dropping. */
 retry_orp:
@@ -279,7 +283,7 @@ retry_orp:
 #endif
 }
 
-#ifdef PPAC_2FWD_ORDER_PRESERVATION
+#ifdef PPAC_ORDER_PRESERVATION
 #define EQ_FLAGS() QMAN_ENQUEUE_FLAG_DCA | QMAN_ENQUEUE_FLAG_DCA_PTR(local_dqrr)
 #else
 #define EQ_FLAGS() 0
@@ -289,7 +293,7 @@ static inline void ppac_send_frame(u32 fqid, const struct qm_fd *fd)
 	int ret;
 	local_fq.fqid = fqid;
 retry:
-#ifdef PPAC_2FWD_ORDER_RESTORATION
+#ifdef PPAC_ORDER_RESTORATION
 	if (local_orp_id) {
 		/* The "ORP object" passed to qman_enqueue_orp() is only used to
 		 * extract the ORPID, so declare a temporary object to provide
@@ -313,7 +317,7 @@ retry:
 		cpu_spin(PPAC_BACKOFF_CYCLES);
 		goto retry;
 	}
-#ifdef PPAC_2FWD_ORDER_PRESERVATION
+#ifdef PPAC_ORDER_PRESERVATION
 	/* NULLing this ensures the driver won't consume the ring entry
 	 * explicitly (ie. PPAC's callback will return qman_cb_dqrr_defer). */
 	local_dqrr = NULL;
@@ -334,9 +338,12 @@ retry:
 
 void teardown_fq(struct qman_fq *fq);
 
-/*******************/
-/* Packet handling */
-/*******************/
+/**********************/
+/* PPAC-internal glue */
+/**********************/
+
+/* The following functions are PPAC-internal, but are required by the PPAC code
+ * that is inlined into PPAM (ppac.c). */
 
 void ppac_fq_nonpcd_init(struct qman_fq *fq, u32 fqid,
 			 enum qm_channel channel,
@@ -347,11 +354,9 @@ void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
 		      enum qm_channel channel,
 		      const struct qm_fqd_stashing *stashing,
 		      int prefer_in_cache);
-
-#ifdef PPAC_2FWD_ORDER_RESTORATION
+#ifdef PPAC_ORDER_RESTORATION
 void ppac_orp_init(u32 *orp_id);
 #endif
-
 void ppac_fq_tx_init(struct qman_fq *fq,
 		     enum qm_channel channel,
 		     u32 tx_confirm_fqid __maybe_unused);
@@ -359,11 +364,8 @@ enum qman_cb_dqrr_result
 cb_dqrr_rx_hash(struct qman_portal *qm __always_unused,
 		struct qman_fq *fq,
 		const struct qm_dqrr_entry *dqrr);
-
 enum qm_channel get_rxc(void);
-
 int lazy_init_bpool(u8 bpid);
-
 int ppac_interface_init(unsigned idx);
 void ppac_interface_enable_rx(const struct ppac_interface *i);
 void ppac_interface_disable_rx(const struct ppac_interface *i);

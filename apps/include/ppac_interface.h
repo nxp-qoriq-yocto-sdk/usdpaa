@@ -42,13 +42,12 @@
 /* Each Fman interface has one of these */
 struct ppac_interface {
 	struct list_head node;
-	size_t sz;
+	size_t size;
 	const struct fm_eth_port_cfg *port_cfg;
-	/* NB: the Tx FQs kept here are created to (a) initialise and schedule
+	/* Note: the Tx FQs kept here are created to (a) initialise and schedule
 	 * the FQIDs on startup, and (b) be able to clean them up on shutdown.
-	 * They aren't used for enqueues, as that's not in keeping with how a
-	 * "generic network processing application" would work. See "local_fq"
-	 * below for more info. */
+	 * They aren't used for enqueue operations though, see "local_fq" in
+	 * ppac.h for more info. */
 	unsigned int num_tx_fqs;
 	struct qman_fq *tx_fqs;
 	struct ppam_interface ppam_data;
@@ -70,7 +69,7 @@ struct ppac_interface {
 	} tx_confirm;
 	struct ppac_rx_hash {
 		struct qman_fq fq;
-#ifdef PPAC_2FWD_ORDER_RESTORATION
+#ifdef PPAC_ORDER_RESTORATION
 		/* Rather than embedding a whole ORP object, we embed only the
 		 * ORPID so that it takes less (stashable) space. We can plug
 		 * the ORPID into a temporary ORP object on the fly when

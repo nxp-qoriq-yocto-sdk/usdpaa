@@ -115,7 +115,7 @@ struct net_if {
 struct bpool_static {
 	int bpid;
 	unsigned int num;
-	unsigned int sz;
+	unsigned int size;
 };
 
 static uint32_t sdqcr;
@@ -641,7 +641,7 @@ static int do_global_init(void)
 						(bp->num - num_bufs);
 			for (loop = 0; loop < rel; loop++) {
 				bm_buffer_set64(&bufs[loop], phys_addr);
-				phys_addr += bp->sz;
+				phys_addr += bp->size;
 			}
 			if (phys_addr > phys_limit) {
 				fprintf(stderr, "Fail: buffer overflow\n");

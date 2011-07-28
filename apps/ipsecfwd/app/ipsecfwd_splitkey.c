@@ -273,7 +273,7 @@ int generate_splitkey(void)
 	g_key_split_flag = 0;
 
 	/* Enqueue on the FQ */
-	/* NB: the use of QMAN_ENQUEUE_FLAG_WAIT is prohibited in LWE
+	/* Note: the use of QMAN_ENQUEUE_FLAG_WAIT is prohibited in LWE
 	 * applications. To avoid thrashing, we implement a throttled poll for
 	 * retrying the enqueue. */
 loop:

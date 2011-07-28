@@ -48,8 +48,8 @@ static const struct qm_fqd_stashing default_stash_opts = {
 /* Packet handling */
 /*******************/
 
-#if defined(PPAC_2FWD_ORDER_PRESERVATION) || \
-	defined(PPAC_2FWD_ORDER_RESTORATION)
+#if defined(PPAC_ORDER_PRESERVATION) || \
+	defined(PPAC_ORDER_RESTORATION)
 #define PRE_DQRR()  local_dqrr = dqrr
 #define POST_DQRR() (local_dqrr ? qman_cb_dqrr_consume : qman_cb_dqrr_defer)
 #else
@@ -57,7 +57,7 @@ static const struct qm_fqd_stashing default_stash_opts = {
 #define POST_DQRR() qman_cb_dqrr_consume
 #endif
 
-#ifdef PPAC_2FWD_ORDER_RESTORATION
+#ifdef PPAC_ORDER_RESTORATION
 #define PRE_ORP(orpid) local_orp_id = orpid
 #define POST_ORP()     local_orp_id = 0
 #else
@@ -70,13 +70,13 @@ cb_dqrr_rx_error(struct qman_portal *qm __always_unused,
 		 struct qman_fq *fq,
 		 const struct qm_dqrr_entry *dqrr)
 {
-	struct ppac_rx_error *rxe = container_of(fq, struct ppac_rx_error, fq);
-	struct ppac_interface *_if = container_of(rxe, struct ppac_interface,
+	struct ppac_rx_error *r = container_of(fq, struct ppac_rx_error, fq);
+	struct ppac_interface *_if = container_of(r, struct ppac_interface,
 						  rx_error);
 	TRACE("Rx_error: fqid=%d\tfd_status = 0x%08x\n",
 	      fq->fqid, dqrr->fd.status);
 	PRE_DQRR();
-	ppam_rx_error_cb(&rxe->s, &_if->ppam_data, dqrr);
+	ppam_rx_error_cb(&r->s, &_if->ppam_data, dqrr);
 	return POST_DQRR();
 }
 
@@ -85,13 +85,13 @@ cb_dqrr_rx_default(struct qman_portal *qm __always_unused,
 		   struct qman_fq *fq,
 		   const struct qm_dqrr_entry *dqrr)
 {
-	struct ppac_rx_default *rxe = container_of(fq, struct ppac_rx_default,
-						   fq);
-	struct ppac_interface *_if = container_of(rxe, struct ppac_interface,
+	struct ppac_rx_default *r = container_of(fq, struct ppac_rx_default,
+						 fq);
+	struct ppac_interface *_if = container_of(r, struct ppac_interface,
 						  rx_default);
 	TRACE("Rx_default: fqid=%d\tfd_status = 0x%08x\n", fq->fqid, dqrr->fd.status);
 	PRE_DQRR();
-	ppam_rx_default_cb(&rxe->s, &_if->ppam_data, dqrr);
+	ppam_rx_default_cb(&r->s, &_if->ppam_data, dqrr);
 	return POST_DQRR();
 }
 
@@ -100,12 +100,12 @@ cb_dqrr_tx_error(struct qman_portal *qm __always_unused,
 		 struct qman_fq *fq,
 		 const struct qm_dqrr_entry *dqrr)
 {
-	struct ppac_tx_error *rxe = container_of(fq, struct ppac_tx_error, fq);
-	struct ppac_interface *_if = container_of(rxe, struct ppac_interface,
+	struct ppac_tx_error *t = container_of(fq, struct ppac_tx_error, fq);
+	struct ppac_interface *_if = container_of(t, struct ppac_interface,
 						  tx_error);
 	TRACE("Tx_error: fqid=%d\tfd_status = 0x%08x\n", fq->fqid, dqrr->fd.status);
 	PRE_DQRR();
-	ppam_tx_error_cb(&rxe->s, &_if->ppam_data, dqrr);
+	ppam_tx_error_cb(&t->s, &_if->ppam_data, dqrr);
 	return POST_DQRR();
 }
 
@@ -114,13 +114,13 @@ cb_dqrr_tx_confirm(struct qman_portal *qm __always_unused,
 		   struct qman_fq *fq,
 		   const struct qm_dqrr_entry *dqrr)
 {
-	struct ppac_tx_confirm *rxe = container_of(fq, struct ppac_tx_confirm,
-						   fq);
-	struct ppac_interface *_if = container_of(rxe, struct ppac_interface,
+	struct ppac_tx_confirm *t = container_of(fq, struct ppac_tx_confirm,
+						 fq);
+	struct ppac_interface *_if = container_of(t, struct ppac_interface,
 						  tx_confirm);
 	TRACE("Tx_confirm: fqid=%d\tfd_status = 0x%08x\n", fq->fqid, dqrr->fd.status);
 	PRE_DQRR();
-	ppam_tx_confirm_cb(&rxe->s, &_if->ppam_data, dqrr);
+	ppam_tx_confirm_cb(&t->s, &_if->ppam_data, dqrr);
 	return POST_DQRR();
 }
 
@@ -138,20 +138,18 @@ cb_dqrr_rx_hash(struct qman_portal *qm __always_unused,
 	return POST_DQRR();
 }
 
-#ifdef PPAC_2FWD_RX_1G_PREFERINCACHE
+#ifdef PPAC_RX_1G_PREFERINCACHE
 #define RX_1G_PIC 1
 #else
 #define RX_1G_PIC 0
 #endif
-#ifdef PPAC_2FWD_RX_10G_PREFERINCACHE
+#ifdef PPAC_RX_10G_PREFERINCACHE
 #define RX_10G_PIC 1
 #else
 #define RX_10G_PIC 0
 #endif
 
-/* Initialization code preserved here due to its dependency on ppam_* types.
- * \todo	Move this out of here at some point...
- */
+/* This is part of the inlined code due to its dependency on ppam_* types. */
 int ppac_interface_init(unsigned idx)
 {
 	struct ppac_interface *i;
@@ -160,34 +158,35 @@ int ppac_interface_init(unsigned idx)
 	struct qm_fqd_stashing stash_opts;
 	const struct fm_eth_port_cfg *port = &netcfg->port_cfg[idx];
 	const struct fman_if *fif = port->fman_if;
-	size_t sz = sizeof(struct ppac_interface) +
+	size_t size = sizeof(struct ppac_interface) +
 		(port->pcd.count * sizeof(struct ppac_rx_hash));
 
-	/* Handle any pools used by this i/f that are not already handled. */
+	/* Make sure we are able to handle drops by initialising pool objects
+	 * for all buffer pools used by the network interface. */
 	fman_if_for_each_bpool(bp, fif) {
 		err = lazy_init_bpool(bp->bpid);
 		if (err)
 			return err;
 	}
 	/* allocate stashable memory for the interface object */
-	i = dma_mem_memalign(L1_CACHE_BYTES, sz);
+	i = dma_mem_memalign(L1_CACHE_BYTES, size);
 	if (!i)
 		return -ENOMEM;
-	memset(i, 0, sz);
-	i->sz = sz;
+	memset(i, 0, size);
+	i->size = size;
 	i->port_cfg = port;
 	/* allocate and initialise Tx FQs for this interface */
 	i->num_tx_fqs = (fif->mac_type == fman_mac_10g) ?
 			PPAC_TX_FQS_10G : PPAC_TX_FQS_1G;
 	i->tx_fqs = malloc(sizeof(*i->tx_fqs) * i->num_tx_fqs);
 	if (!i->tx_fqs) {
-		dma_mem_free(i, sz);
+		dma_mem_free(i, size);
 		return -ENOMEM;
 	}
 	err = ppam_interface_init(&i->ppam_data, port, i->num_tx_fqs);
 	if (err) {
 		free(i->tx_fqs);
-		dma_mem_free(i, sz);
+		dma_mem_free(i, size);
 		return err;
 	}
 	memset(i->tx_fqs, 0, sizeof(*i->tx_fqs) * i->num_tx_fqs);
@@ -197,7 +196,7 @@ int ppac_interface_init(unsigned idx)
 		TRACE("I/F %d, using Tx FQID %d\n", idx, fq->fqid);
 		ppam_interface_tx_fqid(&i->ppam_data, loop, fq->fqid);
 	}
-	/* TODO: as above, we should handle errors and unwind */
+	/* Note: we should handle errors and unwind */
 	stash_opts = default_stash_opts;
 	err = ppam_rx_error_init(&i->rx_error.s, &i->ppam_data, &stash_opts);
 	BUG_ON(err);
@@ -225,7 +224,7 @@ int ppac_interface_init(unsigned idx)
 		err = ppam_rx_hash_init(&i->rx_hash[loop].s, &i->ppam_data,
 					loop, &stash_opts);
 		BUG_ON(err);
-#ifdef PPAC_2FWD_ORDER_RESTORATION
+#ifdef PPAC_ORDER_RESTORATION
 		ppac_orp_init(&i->rx_hash[loop].orp_id);
 		TRACE("I/F %d, Rx FQID %d associated with ORP ID %d\n",
 			idx, i->rx_hash[loop].fq.fqid, i->rx_hash[loop].orp_id);
@@ -242,10 +241,10 @@ int ppac_interface_init(unsigned idx)
 
 void ppac_interface_enable_rx(const struct ppac_interface *i)
 {
-	TRACE("Interface %d:%d, enabling RX\n",
+	fman_if_enable_rx(i->port_cfg->fman_if);
+	TRACE("Interface %d:%d, enabled RX\n",
 	      i->port_cfg->fman_if->fman_idx,
 	      i->port_cfg->fman_if->mac_idx);
-	fman_if_enable_rx(i->port_cfg->fman_if);
 }
 
 void ppac_interface_disable_rx(const struct ppac_interface *i)
@@ -260,20 +259,21 @@ void ppac_interface_finish(struct ppac_interface *i)
 {
 	int loop;
 
-	list_del(&i->node);
+	/* Cleanup in the opposite order of ppac_interface_init() */
 	ppac_interface_disable_rx(i);
-	ppam_rx_error_finish(&i->rx_error.s, &i->ppam_data);
-	teardown_fq(&i->rx_error.fq);
-	ppam_rx_default_finish(&i->rx_default.s, &i->ppam_data);
-	teardown_fq(&i->rx_default.fq);
-	ppam_tx_error_finish(&i->tx_error.s, &i->ppam_data);
-	teardown_fq(&i->tx_error.fq);
-	ppam_tx_confirm_finish(&i->tx_confirm.s, &i->ppam_data);
-	teardown_fq(&i->tx_confirm.fq);
+	list_del(&i->node);
 	for (loop = 0; loop < i->port_cfg->pcd.count; loop++) {
 		ppam_rx_hash_finish(&i->rx_hash[loop].s, &i->ppam_data, loop);
 		teardown_fq(&i->rx_hash[loop].fq);
 	}
+	ppam_tx_confirm_finish(&i->tx_confirm.s, &i->ppam_data);
+	teardown_fq(&i->tx_confirm.fq);
+	ppam_tx_error_finish(&i->tx_error.s, &i->ppam_data);
+	teardown_fq(&i->tx_error.fq);
+	ppam_rx_default_finish(&i->rx_default.s, &i->ppam_data);
+	teardown_fq(&i->rx_default.fq);
+	ppam_rx_error_finish(&i->rx_error.s, &i->ppam_data);
+	teardown_fq(&i->rx_error.fq);
 	for (loop = 0; loop < i->num_tx_fqs; loop++) {
 		struct qman_fq *fq = &i->tx_fqs[loop];
 		TRACE("I/F %d, destroying Tx FQID %d\n",
@@ -282,5 +282,5 @@ void ppac_interface_finish(struct ppac_interface *i)
 	}
 	ppam_interface_finish(&i->ppam_data);
 	free(i->tx_fqs);
-	dma_mem_free(i, i->sz);
+	dma_mem_free(i, i->size);
 }

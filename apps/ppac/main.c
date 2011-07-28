@@ -94,6 +94,12 @@ int __attribute__((weak)) ppam_thread_poll(void)
 	return 0;
 }
 
+/*
+ * PPAM-overridable paths to FMan configuration files.
+ */
+const char ppam_pcd_path[] __attribute__((weak)) = __stringify(DEF_PCD_PATH);
+const char ppam_cfg_path[] __attribute__((weak)) = __stringify(DEF_CFG_PATH);
+
 /***************/
 /* Global data */
 /***************/
@@ -102,7 +108,7 @@ int __attribute__((weak)) ppam_thread_poll(void)
 const struct ppac_bpool_static {
 	int bpid;
 	unsigned int num;
-	unsigned int sz;
+	unsigned int size;
 } ppac_bpool_static[] = {
 	{ DMA_MEM_BP1_BPID, DMA_MEM_BP1_NUM, DMA_MEM_BP1_SIZE},
 	{ DMA_MEM_BP2_BPID, DMA_MEM_BP2_NUM, DMA_MEM_BP2_SIZE},
@@ -113,18 +119,42 @@ const struct ppac_bpool_static {
 /* The SDQCR mask to use (computed from netcfg's pool-channels) */
 static uint32_t sdqcr;
 
-/* The follow global variables are documented in ppac.h */
+/* The follow global variables are non-static because they're used from inlined
+ * code in ppac.h too. */
+
+/* Configuration */
 struct usdpaa_netcfg_info *netcfg;
-const char ppam_pcd_path[] __attribute__((weak)) = __stringify(DEF_PCD_PATH);
-const char ppam_cfg_path[] __attribute__((weak)) = __stringify(DEF_CFG_PATH);
-struct bman_pool *pool[64];
+
+/* We want a trivial mapping from bpid->pool, so just have an array of pointers,
+ * most of which are probably NULL. */
+struct bman_pool *pool[PPAC_MAX_BPID];
+
+/* The interfaces in this list are allocated from dma_mem (stashing==DMA) */
 LIST_HEAD(ifs);
+
+/* The forwarding logic uses a per-cpu FQ object for handling enqueues (and
+ * ERNs), irrespective of the destination FQID. In this way, cache-locality is
+ * more assured, and any ERNs that do occur will show up on the same CPUs they
+ * were enqueued from. This works because ERN messages contain the FQID of the
+ * original enqueue operation, so in principle any demux that's required by the
+ * ERN callback can be based on that. Ie. the FQID set within "local_fq" is from
+ * whatever the last executed enqueue was, the ERN handler can ignore it. */
 __thread struct qman_fq local_fq;
-#if defined(PPAC_2FWD_ORDER_PRESERVATION) || \
-	defined(PPAC_2FWD_ORDER_RESTORATION)
+
+/* These are backdoors from PPAC to itself in order to support order
+ * preservation/restoration. Packet-handling goes from a PPAC handler to a PPAM
+ * handler which in turn calls PPAC APIs to perform the required packet
+ * operations. Call stack is PPAC->PPAM->PPAC, with the possibility for inlining
+ * to collapse it all down. The backdoors allow the packet operations to know
+ * what was known back up in the PPAC handler but not passed down through the
+ * call stack, like what DQRR entry was being processed (to encode enqueue-DCAs,
+ * determine ORP sequeuence numbers, etc), what ORPID should be used (if any)
+ * when dropping or forwarding the current frame, etc. */
+#if defined(PPAC_ORDER_PRESERVATION) || \
+	defined(PPAC_ORDER_RESTORATION)
 __thread const struct qm_dqrr_entry *local_dqrr;
 #endif
-#ifdef PPAC_2FWD_ORDER_RESTORATION
+#ifdef PPAC_ORDER_RESTORATION
 __thread u32 local_orp_id;
 #endif
 
@@ -132,7 +162,7 @@ __thread u32 local_orp_id;
 /* A congestion group to hold Rx FQs (uses netcfg::cgrids[0]) */
 static struct qman_cgr cgr_rx;
 /* Tx FQs go into a separate CGR (uses netcfg::cgrids[1]) */
-struct qman_cgr cgr_tx;
+static struct qman_cgr cgr_tx;
 #endif
 
 void teardown_fq(struct qman_fq *fq)
@@ -182,7 +212,7 @@ void ppac_fq_nonpcd_init(struct qman_fq *fq, u32 fqid,
 	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
 			QM_INITFQ_WE_CONTEXTA;
 	opts.fqd.dest.channel = channel;
-	opts.fqd.dest.wq = PPAC_PRIO_2DROP;
+	opts.fqd.dest.wq = PPAC_PRIORITY_2DROP;
 	opts.fqd.fq_ctrl = QM_FQCTRL_CTXASTASHING;
 	opts.fqd.context_a.stashing = *stashing;
 	ret = qman_init_fq(fq, QMAN_INITFQ_FLAG_SCHED, &opts);
@@ -203,12 +233,12 @@ void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
 	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
 			QM_INITFQ_WE_CONTEXTA;
 	opts.fqd.dest.channel = channel;
-	opts.fqd.dest.wq = PPAC_PRIO_2FWD;
+	opts.fqd.dest.wq = PPAC_PRIORITY_2FWD;
 	opts.fqd.fq_ctrl =
-#ifdef PPAC_2FWD_HOLDACTIVE
+#ifdef PPAC_HOLDACTIVE
 		QM_FQCTRL_HOLDACTIVE |
 #endif
-#ifdef PPAC_2FWD_AVOIDBLOCK
+#ifdef PPAC_AVOIDBLOCK
 		QM_FQCTRL_AVOIDBLOCK |
 #endif
 		QM_FQCTRL_CTXASTASHING;
@@ -224,7 +254,7 @@ void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
 	BUG_ON(ret);
 }
 
-#ifdef PPAC_2FWD_ORDER_RESTORATION
+#ifdef PPAC_ORDER_RESTORATION
 void ppac_orp_init(u32 *orp_id)
 {
 	struct qm_mcc_initfq opts;
@@ -263,19 +293,19 @@ void ppac_fq_tx_init(struct qman_fq *fq, enum qm_channel channel,
 	fq->cb.dqrr = cb_tx_drain;
 	err = qman_create_fq(0, QMAN_FQ_FLAG_DYNAMIC_FQID |
 				QMAN_FQ_FLAG_TO_DCPORTAL, fq);
-	/* TODO: handle errors here, BUG_ON()s are compiled out in performance
+	/* Note: handle errors here, BUG_ON()s are compiled out in performance
 	 * builds (ie. the default) and this code isn't even
 	 * performance-sensitive. */
 	BUG_ON(err);
 	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
 		       QM_INITFQ_WE_CONTEXTB | QM_INITFQ_WE_CONTEXTA;
 	opts.fqd.dest.channel = channel;
-	opts.fqd.dest.wq = PPAC_PRIO_2TX;
+	opts.fqd.dest.wq = PPAC_PRIORITY_2TX;
 	opts.fqd.fq_ctrl = 0;
-#ifdef PPAC_2FWD_TX_PREFERINCACHE
+#ifdef PPAC_TX_PREFERINCACHE
 	opts.fqd.fq_ctrl |= QM_FQCTRL_PREFERINCACHE;
 #endif
-#ifdef PPAC_2FWD_TX_FORCESFDR
+#ifdef PPAC_TX_FORCESFDR
 	opts.fqd.fq_ctrl |= QM_FQCTRL_FORCESFDR;
 #endif
 #if defined(PPAC_CGR)
@@ -342,6 +372,7 @@ int lazy_init_bpool(u8 bpid)
 		.cb_ctx	= &pool[bpid]
 #endif
 	};
+	BUG_ON(bpid >= PPAC_MAX_BPID);
 	if (pool[bpid])
 		/* this BPID is already handled */
 		return 0;
@@ -524,7 +555,7 @@ static void do_global_init(void)
 						(bp->num - num_bufs);
 			for (loop = 0; loop < rel; loop++) {
 				bm_buffer_set64(&bufs[loop], phys_addr);
-				phys_addr += bp->sz;
+				phys_addr += bp->size;
 			}
 			if (phys_addr > phys_limit) {
 				fprintf(stderr, "error: buffer overflow\n");
@@ -685,7 +716,7 @@ static void *worker_fn(void *__worker)
 	else
 		nfds = fd_bman + 1;
 
-	/* Initialise the enqueue-only FQ object for this cpu/thread. NB, the
+	/* Initialise the enqueue-only FQ object for this cpu/thread. Note, the
 	 * fqid argument ("1") is superfluous, the point is to mark the object
 	 * as ready for enqueuing and handling ERNs, but unfit for any FQD
 	 * modifications. The forwarding logic will substitute in the required
@@ -867,9 +898,9 @@ static int msg_query_cgr(struct worker *worker)
 }
 #endif
 
-/********************/
-/* main()/CLI logic */
-/********************/
+/**********************/
+/* worker thread mgmt */
+/**********************/
 
 static LIST_HEAD(workers);
 static unsigned long ncpus;
@@ -972,6 +1003,31 @@ static int worker_reap(struct worker *worker)
 	return 0;
 }
 
+static struct worker *worker_find(int cpu, int can_be_primary)
+{
+	struct worker *worker;
+	list_for_each_entry(worker, &workers, node) {
+		if ((worker->cpu == cpu) && (can_be_primary ||
+					(worker != primary)))
+			return worker;
+	}
+	return NULL;
+}
+
+#ifdef PPAC_CGR
+/* This function is, so far, only used by CGR-specific code. */
+static struct worker *worker_first(void)
+{
+	if (list_empty(&workers))
+		return NULL;
+	return list_entry(workers.next, struct worker, node);
+}
+#endif
+
+/**************************************/
+/* CLI and command-line parsing utils */
+/**************************************/
+
 /* Parse a cpu id. On entry legit/len contain acceptable "next char" values, on
  * exit legit points to the "next char" we found. Return -1 for bad parse. */
 static int parse_cpu(const char *str, const char **legit, int legitlen)
@@ -1003,7 +1059,7 @@ out:
 /* Parse a cpu range (eg. "3"=="3..3"). Return 0 for valid parse. */
 static int parse_cpus(const char *str, int *start, int *end)
 {
-	/* NB: arrays of chars, not strings. Also sizeof(), not strlen()! */
+	/* Note: arrays of chars, not strings. Also sizeof(), not strlen()! */
 	static const char PARSE_STR1[] = { ' ', '.', '\0' };
 	static const char PARSE_STR2[] = { ' ', '\0' };
 	const char *p = &PARSE_STR1[0];
@@ -1022,26 +1078,18 @@ static int parse_cpus(const char *str, int *start, int *end)
 	return 0;
 }
 
-static struct worker *worker_find(int cpu, int can_be_primary)
-{
-	struct worker *worker;
-	list_for_each_entry(worker, &workers, node) {
-		if ((worker->cpu == cpu) && (can_be_primary ||
-					(worker != primary)))
-			return worker;
-	}
-	return NULL;
-}
+/****************/
+/* ARGP support */
+/****************/
 
-#ifdef PPAC_CGR
-/* This function is, so far, only used by CGR-specific code. */
-static struct worker *worker_first(void)
+struct ppac_arguments
 {
-	if (list_empty(&workers))
-		return NULL;
-	return list_entry(workers.next, struct worker, node);
-}
-#endif
+	const char *fm_cfg;
+	const char *fm_pcd;
+	int first, last;
+	int noninteractive;
+	struct ppam_arguments *ppam_args;
+};
 
 const char *argp_program_version = PACKAGE_VERSION;
 const char *argp_program_bug_address = "<usdpa-devel@gforge.freescale.net>";
@@ -1095,7 +1143,16 @@ static error_t ppac_parse(int key, char *arg, struct argp_state *state)
 
 static const struct argp ppac_argp = {argp_opts, ppac_parse, _ppac_args, argp_doc, _ppam_argp};
 
-struct ppac_arguments ppac_args;
+static struct ppac_arguments ppac_args;
+
+/***************/
+/* CLI support */
+/***************/
+
+extern const struct cli_table_entry cli_table_start[], cli_table_end[];
+
+#define foreach_cli_table_entry(cli_cmd)	\
+	for (cli_cmd = cli_table_start; cli_cmd < cli_table_end; cli_cmd++)
 
 static int ppac_cli_help(int argc, char *argv[])
 {
@@ -1261,12 +1318,16 @@ int main(int argc, char *argv[])
 		if (envp != NULL)
 			cfg_path = envp;
 	}
+	/* Parse FMC policy and configuration files for the network
+	 * configuration. This also "extracts" other settings into 'netcfg' that
+	 * are not necessarily from the XML files, such as the pool channels
+	 * that the application is allowed to use (these are currently
+	 * hard-coded into the netcfg code). */
 	netcfg = usdpaa_netcfg_acquire(pcd_path, cfg_path);
 	if (!netcfg) {
 		fprintf(stderr, "error: failed to load configuration\n");
 		return -1;
 	}
-	/* - validate the config */
 	if (!netcfg->num_ethports) {
 		fprintf(stderr, "error: no network interfaces available\n");
 		return -1;
@@ -1312,9 +1373,6 @@ int main(int argc, char *argv[])
 			primary = worker;
 		worker_add(worker);
 	}
-
-	/* TODO: catch dead threads - for now, we rely on the dying thread to
-	 * print an error, and for the CLI user to then "remove" it. */
 
 	/* Run the CLI loop */
 	while (1) {

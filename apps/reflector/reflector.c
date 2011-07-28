@@ -71,9 +71,9 @@ const char ppam_prompt[] = "reflector> ";
  * dynamically allocated, so they're not known until ppac.c has already
  * initialised them. So firstly, the # of Tx FQs is passed in as a parameter
  * here because there's no other place where it could be meaningfully captured.
- * (NB, an interesting alternative would be to have this hook *choose* how many
- * Tx FQs to use!) Secondly, the Tx FQIDs are "notified" to us post-allocation
- * but prior to Rx initialisation. */
+ * (Note, an interesting alternative would be to have this hook *choose* how
+ * many Tx FQs to use!) Secondly, the Tx FQIDs are "notified" to us
+ * post-allocation but prior to Rx initialisation. */
 static int ppam_interface_init(struct ppam_interface *p,
 			       const struct fm_eth_port_cfg *cfg,
 			       unsigned int num_tx_fqs)
