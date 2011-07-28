@@ -86,7 +86,7 @@ struct neigh_func_t {
 	void (*full_output) (struct neigh_t *, void *, void *);
 	void (*reachable_output) (struct neigh_t *, void *, void *);
 	/* Set by Netdevice Init Function */
-	void (*xmit) (struct ppac_if *, struct qm_fd *, void *);
+	void (*xmit) (struct ppac_interface *, struct qm_fd *, void *);
 };
 
 /**
@@ -116,7 +116,7 @@ struct neigh_t {
 	/**< Lock for accessing the Entry*/
 	struct neigh_table_t *nt;
 	/**< Pointer to the Neighbour table*/
-	struct ppac_if *dev;		/**< Net Device Pointer*/
+	struct ppac_interface *dev;		/**< Net Device Pointer*/
 	struct neigh_func_t *funcs;
 	/**< Pointer to the structure having the notification functions*/
 	struct neigh_config_t *config;
@@ -215,7 +215,7 @@ struct neigh_t *neigh_create(struct neigh_table_t *nt);
  \return Pointer to Neighbour Table Entry
  */
 struct neigh_t *neigh_init(struct neigh_table_t *nt, struct neigh_t *n,
-			   struct ppac_if *dev, uint32_t *proto_addr);
+			   struct ppac_interface *dev, uint32_t *proto_addr);
 
 /**
  \brief Updates the Neighbour Table Entry with MAC Address, and State

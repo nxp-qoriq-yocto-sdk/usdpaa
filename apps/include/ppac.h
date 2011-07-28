@@ -139,7 +139,7 @@ extern const struct cli_table_entry cli_table_start[], cli_table_end[];
 /*********************************/
 
 /* Each Fman i/face has one of these */
-struct ppac_if;
+struct ppac_interface;
 
 /* PPAM global startup/teardown */
 int ppam_init(void);
@@ -364,9 +364,9 @@ enum qm_channel get_rxc(void);
 
 int lazy_init_bpool(u8 bpid);
 
-int ppac_if_init(unsigned idx);
-void ppac_if_enable_rx(const struct ppac_if *i);
-void ppac_if_disable_rx(const struct ppac_if *i);
-void ppac_if_finish(struct ppac_if *i);
+int ppac_interface_init(unsigned idx);
+void ppac_interface_enable_rx(const struct ppac_interface *i);
+void ppac_interface_disable_rx(const struct ppac_interface *i);
+void ppac_interface_finish(struct ppac_interface *i);
 
 #endif	/*  __PPAC_H */

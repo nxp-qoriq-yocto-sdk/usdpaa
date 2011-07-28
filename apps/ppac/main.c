@@ -331,7 +331,7 @@ static void bp_depletion(struct bman_portal *bm __always_unused,
 }
 #endif
 
-/* This is also called by ppac_if_init(), hence it shouldn't be static */
+/* This is also called by ppac_interface_init(), hence it shouldn't be static */
 int lazy_init_bpool(u8 bpid)
 {
 	struct bman_pool_params params = {
@@ -424,7 +424,7 @@ static void do_global_finish(void)
 
 	/* Tear down interfaces */
 	list_for_each_safe(i, tmpi, &ifs)
-		ppac_if_finish((struct ppac_if *)i);
+		ppac_interface_finish((struct ppac_interface *)i);
 	/* Tear down buffer pools */
 	for (loop = 0; loop < ARRAY_SIZE(pool); loop++) {
 		if (pool[loop]) {
@@ -558,7 +558,7 @@ static void do_global_init(void)
 	 * ports). */
 	for (loop = 0; loop < netcfg->num_ethports; loop++) {
 		TRACE("Initialising interface %d\n", loop);
-		err = ppac_if_init(loop);
+		err = ppac_interface_init(loop);
 		if (err) {
 			fprintf(stderr, "error: interface %d failed\n", loop);
 			do_global_finish();
@@ -1163,10 +1163,10 @@ static int ppac_cli_macs(int argc, char *argv[])
 
 	if (strcmp(argv[1], "off") == 0)
 		list_for_each(i, &ifs)
-			ppac_if_disable_rx((struct ppac_if *)i);
+			ppac_interface_disable_rx((struct ppac_interface *)i);
 	else if (strcmp(argv[1], "on") == 0) {
 		list_for_each(i, &ifs)
-			ppac_if_enable_rx((struct ppac_if *)i);
+			ppac_interface_enable_rx((struct ppac_interface *)i);
 	}
 	else
 		return -EINVAL;

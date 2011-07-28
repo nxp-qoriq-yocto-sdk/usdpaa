@@ -25,7 +25,7 @@
 #include "ipfwd.h"
 
 #include "ppam_if.h"
-#include <ppac_if.h>
+#include <ppac_interface.h>
 
 #include "net/annotations.h"
 #include "ethernet/eth.h"
@@ -55,22 +55,22 @@ static volatile uint32_t GO_FLAG;
 
 int is_iface_ip(in_addr_t addr)
 {
-	const struct ppac_if *i;
+	const struct ppac_interface *i;
 
 	list_for_each_entry(i, &ifs, node)
-		if (i->module_if.addr == addr)
+		if (i->ppam_data.addr == addr)
 			return 0;
 
 	return -ENXIO;
 }
 
-struct ppac_if *ipfwd_get_iface_for_ip(in_addr_t addr)
+struct ppac_interface *ipfwd_get_iface_for_ip(in_addr_t addr)
 {
-	struct ppac_if *i;
+	struct ppac_interface *i;
 
 	list_for_each_entry(i, &ifs, node)
-		if ((i->module_if.addr & i->module_if.mask) ==
-		    (addr & i->module_if.mask))
+		if ((i->ppam_data.addr & i->ppam_data.mask) ==
+		    (addr & i->ppam_data.mask))
 			return i;
 
 	return NULL;
@@ -85,7 +85,7 @@ static int ipfwd_add_route(const struct app_ctrl_op_info *route_info)
 {
 	struct rc_entry_t *entry;
 	struct rt_dest_t *dest;
-	struct ppac_if *dev = NULL;
+	struct ppac_interface *dev = NULL;
 	in_addr_t gw_ipaddr = route_info->ip_info.gw_ipaddr;
 	int _errno;
 
@@ -205,7 +205,7 @@ static int ipfwd_del_route(const struct app_ctrl_op_info *route_info)
 static int ipfwd_add_arp(const struct app_ctrl_op_info *route_info)
 {
 	in_addr_t ip_addr = route_info->ip_info.src_ipaddr;
-	struct ppac_if *dev = NULL;
+	struct ppac_interface *dev = NULL;
 	struct neigh_t *n;
 
 #if (LOG_LEVEL > 3)
@@ -339,8 +339,8 @@ static int ipfwd_show_intf(const struct app_ctrl_op_info *route_info)
  */
 static int ipfwd_conf_intf(const struct app_ctrl_op_info *route_info)
 {
-	struct ppac_if *i;
-	struct ppam_if *p;
+	struct ppac_interface *i;
+	struct ppam_interface *p;
 	uint16_t addr_hi;
 	int _errno = 1, node, ifnum;
 
@@ -349,7 +349,7 @@ static int ipfwd_conf_intf(const struct app_ctrl_op_info *route_info)
 	addr_hi = ETHERNET_ADDR_MAGIC;
 	ifnum = route_info->ip_info.intf_conf.ifnum;
 	list_for_each_entry(i, &ifs, node) {
-		p = &i->module_if;
+		p = &i->ppam_data;
 		if (p->ifnum == ifnum) {
 			p->addr = route_info->ip_info.intf_conf.ip_addr;
 			pr_info("IPADDR assigned = 0x%x to interface num %d\n",
@@ -627,9 +627,9 @@ int ppam_init(void)
 	return 0;
 }
 
-static int ppam_if_init(struct ppam_if *p,
-			const struct fm_eth_port_cfg *cfg,
-			unsigned int num_tx_fqs)
+static int ppam_interface_init(struct ppam_interface *p,
+			       const struct fm_eth_port_cfg *cfg,
+			       unsigned int num_tx_fqs)
 {
 	int iface;
 	const struct fman_if *fif;
@@ -650,15 +650,17 @@ static int ppam_if_init(struct ppam_if *p,
 
 	return 0;
 }
-static void ppam_if_finish(struct ppam_if *p)
+static void ppam_interface_finish(struct ppam_interface *p)
 {
 	free(p->tx_fqids);
 }
-static void ppam_if_tx_fqid(struct ppam_if *p, unsigned idx, uint32_t fqid)
+static void ppam_interface_tx_fqid(struct ppam_interface *p, unsigned idx,
+				   uint32_t fqid)
 {
 	p->tx_fqids[idx] = fqid;
 }
-static int ppam_rx_error_init(struct ppam_rx_error *p, struct ppam_if *_if,
+static int ppam_rx_error_init(struct ppam_rx_error *p,
+			      struct ppam_interface *_if,
 			      struct qm_fqd_stashing *stash_opts)
 {
 	p->stats = stack.ip_stats;
@@ -668,16 +670,18 @@ static int ppam_rx_error_init(struct ppam_rx_error *p, struct ppam_if *_if,
 
 	return 0;
 }
-static void ppam_rx_error_finish(struct ppam_rx_error *p, struct ppam_if *_if)
+static void ppam_rx_error_finish(struct ppam_rx_error *p,
+				 struct ppam_interface *_if)
 {
 }
 static inline void ppam_rx_error_cb(struct ppam_rx_error *p,
-				    struct ppam_if *_if,
+				    struct ppam_interface *_if,
 				    const struct qm_dqrr_entry *dqrr)
 {
 	ppac_drop_frame(&dqrr->fd);
 }
-static int ppam_rx_default_init(struct ppam_rx_default *p, struct ppam_if *_if,
+static int ppam_rx_default_init(struct ppam_rx_default *p,
+				struct ppam_interface *_if,
 				struct qm_fqd_stashing *stash_opts)
 {
 	p->stats = stack.ip_stats;
@@ -687,44 +691,50 @@ static int ppam_rx_default_init(struct ppam_rx_default *p, struct ppam_if *_if,
 
 	return 0;
 }
-static void ppam_rx_default_finish(struct ppam_rx_default *p, struct ppam_if *_if)
+static void ppam_rx_default_finish(struct ppam_rx_default *p,
+				   struct ppam_interface *_if)
 {
 }
 static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
-				      struct ppam_if *_if,
+				      struct ppam_interface *_if,
 				      const struct qm_dqrr_entry *dqrr)
 {
 }
-static int ppam_tx_error_init(struct ppam_tx_error *p,	struct ppam_if *_if,
+static int ppam_tx_error_init(struct ppam_tx_error *p,
+			      struct ppam_interface *_if,
 			      struct qm_fqd_stashing *stash_opts)
 {
 	return 0;
 }
-static void ppam_tx_error_finish(struct ppam_tx_error *p, struct ppam_if *_if)
+static void ppam_tx_error_finish(struct ppam_tx_error *p,
+				 struct ppam_interface *_if)
 {
 }
 static inline void ppam_tx_error_cb(struct ppam_tx_error *p,
-				    struct ppam_if *_if,
+				    struct ppam_interface *_if,
 				    const struct qm_dqrr_entry *dqrr)
 {
 	ppac_drop_frame(&dqrr->fd);
 }
-static int ppam_tx_confirm_init(struct ppam_tx_confirm *p, struct ppam_if *_if,
+static int ppam_tx_confirm_init(struct ppam_tx_confirm *p,
+				struct ppam_interface *_if,
 				struct qm_fqd_stashing *stash_opts)
 {
 	return 0;
 }
-static void ppam_tx_confirm_finish(struct ppam_tx_confirm *p, struct ppam_if *_if)
+static void ppam_tx_confirm_finish(struct ppam_tx_confirm *p,
+				   struct ppam_interface *_if)
 {
 }
 static inline void ppam_tx_confirm_cb(struct ppam_tx_confirm *p,
-				      struct ppam_if *_if,
+				      struct ppam_interface *_if,
 				      const struct qm_dqrr_entry *dqrr)
 {
 	ppac_drop_frame(&dqrr->fd);
 }
 
-static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_if *_if,
+static int ppam_rx_hash_init(struct ppam_rx_hash *p,
+			     struct ppam_interface *_if,
 			     unsigned idx, struct qm_fqd_stashing *stash_opts)
 {
 	p->stats = stack.ip_stats;
@@ -739,8 +749,8 @@ static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_if *_if,
 	return 0;
 }
 static void ppam_rx_hash_finish(struct ppam_rx_hash *p,
-			 struct ppam_if *_if,
-			 unsigned idx)
+			 	struct ppam_interface *_if,
+				unsigned idx)
 {
 }
 

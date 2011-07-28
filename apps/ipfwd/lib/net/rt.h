@@ -69,7 +69,7 @@ struct rt_dest_t {
 	/**< Pointer to the next node in the Link List*/
 	struct neigh_t *neighbor;
 	/**< Pointer to th einformation related to next hop*/
-	struct ppac_if *dev;
+	struct ppac_interface *dev;
 	/**< Pointer to the Net Device*/
 	void *tunnel;
 	/**< Pointer to associated Tunnel for IPsec */

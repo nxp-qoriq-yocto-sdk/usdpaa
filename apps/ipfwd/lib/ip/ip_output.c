@@ -27,7 +27,7 @@
 
 #include "ip_output.h"
 
-#include <ppac_if.h>
+#include <ppac_interface.h>
 #include <ppac.h>
 
 #include "net/neigh.h"
@@ -38,7 +38,7 @@ void arp_retransmit_cb(uint32_t timer_id, void *p_data)
 {
 	in_addr_t gw_ip;
 	struct neigh_t *n;
-	struct ppac_if *dev;
+	struct ppac_interface *dev;
 
 	pr_debug("%s: ARP retransmit timer ID 0x%x expired\n", __func__,
 			timer_id);
@@ -105,7 +105,7 @@ enum IP_STATUS ip_output_finish(const struct ppam_rx_hash *ctxt,
 {
 	struct ll_cache_t *ll_cache;
 	struct neigh_t *neighbor;
-	const struct ppam_if *p;
+	const struct ppam_interface *p;
 	enum IP_STATUS retval;
 	struct ether_header *ll_hdr;
 #ifdef NOT_USDPAA
@@ -159,7 +159,7 @@ enum IP_STATUS ip_output_finish(const struct ppam_rx_hash *ctxt,
 		neighbor->retransmit_count = 0;
 	} else {
 		ll_hdr = (void *)ip_hdr - ll_cache->ll_hdr_len;
-		p = &neighbor->dev->module_if;
+		p = &neighbor->dev->ppam_data;
 		p->output_header(ll_hdr, ll_cache);
 #ifdef IPSECFWD_HYBRID_GENERATOR
 		eth_header_swap(ll_hdr);

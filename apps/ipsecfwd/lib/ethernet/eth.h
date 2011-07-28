@@ -30,7 +30,7 @@
 
 #include "ppam_if.h"
 
-void eth_setup(struct ppam_if *p);
+void eth_setup(struct ppam_interface *p);
 
 /**
  \brief Swap 6-byte MAC headers "efficiently"

@@ -74,9 +74,9 @@ const char ppam_prompt[] = "reflector> ";
  * (NB, an interesting alternative would be to have this hook *choose* how many
  * Tx FQs to use!) Secondly, the Tx FQIDs are "notified" to us post-allocation
  * but prior to Rx initialisation. */
-static int ppam_if_init(struct ppam_if *p,
-			const struct fm_eth_port_cfg *cfg,
-			unsigned int num_tx_fqs)
+static int ppam_interface_init(struct ppam_interface *p,
+			       const struct fm_eth_port_cfg *cfg,
+			       unsigned int num_tx_fqs)
 {
 	p->num_tx_fqids = num_tx_fqs;
 	p->tx_fqids = malloc(p->num_tx_fqids * sizeof(*p->tx_fqids));
@@ -84,80 +84,89 @@ static int ppam_if_init(struct ppam_if *p,
 		return -ENOMEM;
 	return 0;
 }
-static void ppam_if_finish(struct ppam_if *p)
+static void ppam_interface_finish(struct ppam_interface *p)
 {
 	free(p->tx_fqids);
 }
-static void ppam_if_tx_fqid(struct ppam_if *p, unsigned idx, uint32_t fqid)
+static void ppam_interface_tx_fqid(struct ppam_interface *p, unsigned idx,
+				   uint32_t fqid)
 {
 	p->tx_fqids[idx] = fqid;
 }
 
-static int ppam_rx_error_init(struct ppam_rx_error *p, struct ppam_if *_if,
+static int ppam_rx_error_init(struct ppam_rx_error *p,
+			      struct ppam_interface *_if,
 			      struct qm_fqd_stashing *stash_opts)
 {
 	return 0;
 }
-static void ppam_rx_error_finish(struct ppam_rx_error *p, struct ppam_if *_if)
+static void ppam_rx_error_finish(struct ppam_rx_error *p,
+				 struct ppam_interface *_if)
 {
 }
 static inline void ppam_rx_error_cb(struct ppam_rx_error *p,
-				    struct ppam_if *_if,
+				    struct ppam_interface *_if,
 				    const struct qm_dqrr_entry *dqrr)
 {
 	const struct qm_fd *fd = &dqrr->fd;
 	ppac_drop_frame(fd);
 }
 
-static int ppam_rx_default_init(struct ppam_rx_default *p, struct ppam_if *_if,
+static int ppam_rx_default_init(struct ppam_rx_default *p,
+				struct ppam_interface *_if,
 				struct qm_fqd_stashing *stash_opts)
 {
 	return 0;
 }
-static void ppam_rx_default_finish(struct ppam_rx_default *p, struct ppam_if *_if)
+static void ppam_rx_default_finish(struct ppam_rx_default *p,
+				   struct ppam_interface *_if)
 {
 }
 static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
-				      struct ppam_if *_if,
+				      struct ppam_interface *_if,
 				      const struct qm_dqrr_entry *dqrr)
 {
 	const struct qm_fd *fd = &dqrr->fd;
 	ppac_drop_frame(fd);
 }
 
-static int ppam_tx_error_init(struct ppam_tx_error *p, struct ppam_if *_if,
+static int ppam_tx_error_init(struct ppam_tx_error *p,
+			      struct ppam_interface *_if,
 			      struct qm_fqd_stashing *stash_opts)
 {
 	return 0;
 }
-static void ppam_tx_error_finish(struct ppam_tx_error *p, struct ppam_if *_if)
+static void ppam_tx_error_finish(struct ppam_tx_error *p,
+				 struct ppam_interface *_if)
 {
 }
 static inline void ppam_tx_error_cb(struct ppam_tx_error *p,
-				    struct ppam_if *_if,
+				    struct ppam_interface *_if,
 				    const struct qm_dqrr_entry *dqrr)
 {
 	const struct qm_fd *fd = &dqrr->fd;
 	ppac_drop_frame(fd);
 }
 
-static int ppam_tx_confirm_init(struct ppam_tx_confirm *p, struct ppam_if *_if,
+static int ppam_tx_confirm_init(struct ppam_tx_confirm *p,
+				struct ppam_interface *_if,
 				struct qm_fqd_stashing *stash_opts)
 {
 	return 0;
 }
-static void ppam_tx_confirm_finish(struct ppam_tx_confirm *p, struct ppam_if *_if)
+static void ppam_tx_confirm_finish(struct ppam_tx_confirm *p,
+				   struct ppam_interface *_if)
 {
 }
 static inline void ppam_tx_confirm_cb(struct ppam_tx_confirm *p,
-				      struct ppam_if *_if,
+				      struct ppam_interface *_if,
 				      const struct qm_dqrr_entry *dqrr)
 {
 	const struct qm_fd *fd = &dqrr->fd;
 	ppac_drop_frame(fd);
 }
 
-static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_if *_if,
+static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_interface *_if,
 			     unsigned idx, struct qm_fqd_stashing *stash_opts)
 {
 	p->tx_fqid = _if->tx_fqids[idx % _if->num_tx_fqids];
@@ -166,8 +175,8 @@ static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_if *_if,
 }
 
 static void ppam_rx_hash_finish(struct ppam_rx_hash *p,
-			 struct ppam_if *_if,
-			 unsigned idx)
+			 	struct ppam_interface *_if,
+				unsigned idx)
 {
 }
 

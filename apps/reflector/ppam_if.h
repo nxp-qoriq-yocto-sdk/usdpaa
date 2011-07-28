@@ -36,7 +36,7 @@
 #include <stdint.h>
 
 /* structs required by ppac.c */
-struct ppam_if {
+struct ppam_interface {
 	/* We simply capture Tx FQIDs as they initialise, in order to use them
 	 * when Rx FQs initialise. Indeed, the FQID is the only info we're
 	 * passed during Tx FQ init, which is due to the programming model;

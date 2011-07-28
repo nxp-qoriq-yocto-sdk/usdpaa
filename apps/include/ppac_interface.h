@@ -30,8 +30,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __PPAC_IF_H
-#define __PPAC_IF_H
+#ifndef __PPAC_INTERFACE_H
+#define __PPAC_INTERFACE_H
 
 #include <ppac.h>
 
@@ -39,8 +39,8 @@
 /* Net interface data structures */
 /*********************************/
 
-/* Each Fman i/face has one of these */
-struct ppac_if {
+/* Each Fman interface has one of these */
+struct ppac_interface {
 	struct list_head node;
 	size_t sz;
 	const struct fm_eth_port_cfg *port_cfg;
@@ -51,7 +51,7 @@ struct ppac_if {
 	 * below for more info. */
 	unsigned int num_tx_fqs;
 	struct qman_fq *tx_fqs;
-	struct ppam_if module_if;
+	struct ppam_interface ppam_data;
 	struct ppac_rx_error {
 		struct qman_fq fq;
 		struct ppam_rx_error s;
@@ -81,4 +81,4 @@ struct ppac_if {
 	} ____cacheline_aligned rx_hash[0];
 } ____cacheline_aligned;
 
-#endif	/* __PPAC_IF_H */
+#endif	/* __PPAC_INTERFACE_H */

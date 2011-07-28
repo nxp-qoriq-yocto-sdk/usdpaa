@@ -27,11 +27,12 @@
 
 #include "eth.h"
 
-#include "ppac_if.h"
+#include <ppac_interface.h>
 
 #include "net/ll_cache.h"
 
-static void set_header(const struct ppac_if *i, void *payload, const void *src, const void *dst)
+static void set_header(const struct ppac_interface *i, void *payload,
+		       const void *src, const void *dst)
 {
 	struct ether_header *eth;
 
@@ -58,7 +59,7 @@ static void output_header(void *hdr, const struct ll_cache_t *llc)
 	((struct ether_header *)hdr)->ether_type = ETHERTYPE_IP;
 }
 
-void eth_setup(struct ppam_if *p)
+void eth_setup(struct ppam_interface *p)
 {
 	p->set_header		= set_header;
 	p->cache_header		= cache_header;

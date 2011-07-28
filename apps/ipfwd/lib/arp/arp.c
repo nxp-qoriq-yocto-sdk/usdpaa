@@ -27,7 +27,7 @@
 
 #include "arp.h"
 
-struct ppac_if *ipfwd_get_iface_for_ip(in_addr_t ip_addr);
+struct ppac_interface *ipfwd_get_iface_for_ip(in_addr_t ip_addr);
 
 #ifdef ARP_ENABLE
 #include "ip/ip_common.h"
@@ -67,7 +67,7 @@ void arp_handler(const struct annotations_t *notes, void *data)
 	struct ether_arp *arp;
 	struct neigh_t *n;
 	struct node_t new_node;
-	struct ppac_if *dev;
+	struct ppac_interface *dev;
 	int merge_flag = 0;
 	in_addr_t arp_spa, arp_tpa;
 
@@ -148,7 +148,7 @@ void arp_handler(const struct annotations_t *notes, void *data)
 	}
 }
 
-int arp_send_request(struct ppac_if *dev, in_addr_t target_ip)
+int arp_send_request(struct ppac_interface *dev, in_addr_t target_ip)
 {
 	struct ether_arp *arp;
 	struct node_t *target_iface_node;
@@ -239,7 +239,7 @@ int arp_table_init(struct neigh_table_t *nt)
 	return 0;
 }
 
-int add_arp_entry(struct neigh_table_t *arp_tab, struct ppac_if *dev,
+int add_arp_entry(struct neigh_table_t *arp_tab, struct ppac_interface *dev,
 			struct node_t *node)
 {
 	struct neigh_t *n;

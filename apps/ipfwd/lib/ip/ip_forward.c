@@ -28,7 +28,7 @@
 
 #include "ip_forward.h"
 
-#include <ppac_if.h>
+#include <ppac_interface.h>
 
 #include "common/common.h"
 #include "ip_hooks.h"
@@ -38,7 +38,7 @@ enum IP_STATUS ip_forward(const struct ppam_rx_hash *ctxt,
 			  struct annotations_t *notes,
 			  struct iphdr *ip_hdr)
 {
-	struct ppac_if *dev;
+	struct ppac_interface *dev;
 
 	dev = notes->dest->dev;
 	if (likely(ip_hdr->ttl > 1)) {
@@ -60,8 +60,8 @@ enum IP_STATUS ip_forward(const struct ppam_rx_hash *ctxt,
 	   is uneccessarily in the "DROP" path if the above tests fail - should
 	   not do it if status is not ACCEPT.
 	 */
-	if (unlikely(notes->fd->length20 - dev->module_if.header_len >
-			dev->module_if.mtu)) {
+	if (unlikely(notes->fd->length20 - dev->ppam_data.header_len >
+			dev->ppam_data.mtu)) {
 		pr_err("%s: Dropping pkt, mtu exceeded\n",
 			  __func__);
 #ifdef STATS_TBD

@@ -31,10 +31,10 @@
 #include "ip/ip_rc.h"
 #include "net/annotations.h"
 
-struct ppac_if;
+struct ppac_interface;
 
 /* structs required by ppac.c */
-struct ppam_if {
+struct ppam_interface {
 	size_t mtu;
 	size_t header_len;
 	in_addr_t addr, mask;
@@ -43,7 +43,7 @@ struct ppam_if {
 	size_t num_tx_fqids;
 	uint32_t *tx_fqids;
 
-	void (*set_header)(const struct ppac_if *i, void *payload,
+	void (*set_header)(const struct ppac_interface *i, void *payload,
 		const void *src, const void *dst);
 	void (*cache_header)(struct ll_cache_t *llc, const void *hdr);
 	void (*output_header)(void *hdr, const struct ll_cache_t *llc);
