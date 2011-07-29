@@ -30,16 +30,20 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 bin_PROGRAMS = ipsecfwd_config
-dist_DATA = ipsecfwd_22G.sh ipsecfwd_20G.sh
+dist_DATA = ipsecfwd_enc_20G.sh ipsecfwd_enc_22G.sh ipsecfwd_dec_20G.sh ipsecfwd_dec_22G.sh ipsecfwd_mix_20G.sh
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/ipsecfwd/lib -I$(TOP_LEVEL)/apps/ipsecfwd/include
 
 ipsecfwd_config_SOURCES := ipc_send.c
 ipsecfwd_config_sys_LDADD := rt usdpaa_of
 
-ipsecfwd_22G.sh_install = $(INSTALL_BIN)
-ipsecfwd_22G.sh_install_flags = $(INSTALL_BIN_FLAGS)
-ipsecfwd_20G.sh_install = $(INSTALL_BIN)
-ipsecfwd_20G.sh_install_flags = $(INSTALL_BIN_FLAGS)
-ipfwd_20G.sh_install = $(INSTALL_BIN)
-ipfwd_20G.sh_install_flags = $(INSTALL_BIN_FLAGS)
+ipsecfwd_enc_20G.sh_install = $(INSTALL_BIN)
+ipsecfwd_enc_20G.sh_install_flags = $(INSTALL_BIN_FLAGS)
+ipsecfwd_enc_22G.sh_install = $(INSTALL_BIN)
+ipsecfwd_enc_22G.sh_install_flags = $(INSTALL_BIN_FLAGS)
+ipsecfwd_dec_20G.sh_install = $(INSTALL_BIN)
+ipsecfwd_dec_20G.sh_install_flags = $(INSTALL_BIN_FLAGS)
+ipsecfwd_dec_22G.sh_install = $(INSTALL_BIN)
+ipsecfwd_dec_22G.sh_install_flags = $(INSTALL_BIN_FLAGS)
+ipsecfwd_mix_20G.sh_install = $(INSTALL_BIN)
+ipsecfwd_mix_20G.sh_install_flags = $(INSTALL_BIN_FLAGS)

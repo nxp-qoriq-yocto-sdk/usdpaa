@@ -34,7 +34,7 @@ ipsecfwd_config -G -s 192.168.160.2 -m 02:00:c0:a8:a0:02 -r true
 
 net_pair_routes()
 {
-	i=$4
+	i=$5
 	for net in $1 $2
 	do
 		for src in $(seq 2 $(expr $3 + 1))
@@ -57,7 +57,7 @@ case $(basename $0 .sh) in
 		net_pair_routes 130 140 8 8 1		# 2 *  6 *  7 =	 84
 		net_pair_routes 60 160 21 22 100	# 2 * 21 * 22 = 924
 		;;
-	ipsecfwd_20G)					# 1012
+	ipsecfwd_enc_20G)				# 1012
 		net_pair_routes 60 160 22 23 1		# 2 * 22 * 23 = 1012
 		;;
 esac

@@ -22,30 +22,35 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-ipfwd_config -F -a 192.168.60.1 -i 5
-ipfwd_config -F -a 192.168.130.1 -i 8
-ipfwd_config -F -a 192.168.140.1 -i 9
-ipfwd_config -F -a 192.168.160.1 -i 11
-
-ipfwd_config -G -s 192.168.60.2 -m 02:00:c0:a8:3c:02 -r true
-ipfwd_config -G -s 192.168.130.2 -m 02:00:c0:a8:82:02 -r true
-ipfwd_config -G -s 192.168.140.2 -m 02:00:c0:a8:8c:02 -r true
-ipfwd_config -G -s 192.168.160.2 -m 02:00:c0:a8:a0:02 -r true
+ipsecfwd_config -F -a 192.168.60.1 -i 5
+ipsecfwd_config -F -a 192.168.130.1 -i 8
+ipsecfwd_config -F -a 192.168.140.1 -i 9
+ipsecfwd_config -F -a 192.168.160.1 -i 11
 
 net_pair_routes()
 {
-	i=$4
+	for dst in $(seq 2 $(expr $4 + 1))
+	do
+		ipsecfwd_config -G -s 192.168.$1.$dst -m 02:00:c0:a8:3c:02 -r true
+	done
+
+	for dst in $(seq 2 $(expr $4 + 1))
+	do
+		ipsecfwd_config -G -s 192.168.$2.$dst -m 02:00:c0:a8:a0:02 -r true
+	done
+
+	i=$5
 	for net in $1 $2
 	do
-		for src in $(seq 2 $(expr $3 - 1))
+		for src in $(seq 2 $(expr $3 + 1))
 		do
-			for dst in $(seq 2 $3)
+			for dst in $(seq 2 $(expr $4 + 1))
 			do
-				ipfwd_config -A -s 192.168.$net.$src			\
+				ipsecfwd_config -A -s 192.168.$net.$src			\
 						-d 192.168.$(expr $1 + $2 - $net).$dst	\
-						-g 192.168.$(expr $1 + $2 - $net).1	\
-						-G 192.168.$(expr $1 + $2 - $net).2 	\
-						-i i -r out
+						-g 192.168.$net.2			\
+						-G 192.168.$net.1 			\
+						-i $i -r in
 				i=$((i+1))
 			done
 		done
@@ -53,13 +58,13 @@ net_pair_routes()
 }
 
 case $(basename $0 .sh) in
-	ipsecfwd_22G)				# 1008
-		net_pair_routes 130 140 8 1	# 2 *  6 *  7 =	 84
-		net_pair_routes 60 160 23 100	# 2 * 21 * 22 = 924
+	ipsecfwd_22G)					# 1008
+		net_pair_routes 130 140 8 8 1		# 2 *  6 *  7 =	 84
+		net_pair_routes 60 160 21 22 100	# 2 * 21 * 22 = 924
 		;;
-	ipsecfwd_20G)				# 1012
-		net_pair_routes 60 160 24 1100	# 2 * 22 * 23 = 1012
+	ipsecfwd_dec_20G)				# 1012
+		net_pair_routes 60 160 22 23 1		# 2 * 22 * 23 = 1012
 		;;
 esac
-ipfwd_config -O
+ipsecfwd_config -O
 echo IPSecFwd CP initialization complete
