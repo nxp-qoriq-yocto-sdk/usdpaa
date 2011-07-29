@@ -153,7 +153,6 @@
 #include "rcu_lock.h"
 #endif
 
-#include <assert.h>
 #include <usdpaa/dma_mem.h>
 
 #define BYTES_PER_WORD sizeof(uint32_t)
@@ -181,7 +180,7 @@ struct rc_entry_t *rc_entry_fast_lookup(struct rc_t *rc,
 	struct rc_entry_t **entry_ptr;
 	struct rc_bucket_t *bucket;
 
-	assert(idx < RC_BUCKETS);
+	BUG_ON(idx < RC_BUCKETS);
 	bucket = &(rc->buckets[idx]);
 #ifdef IP_RCU_ENABLE
 	rcu_read_lock();
@@ -246,7 +245,7 @@ struct rc_t *rc_init(uint32_t expire_jiffies, uint32_t proto_len)
 	struct rc_bucket_t *bucket;
 	struct rc_t *rc;
 
-	assert((proto_len % BYTES_PER_WORD) == 0);
+	BUG_ON((proto_len % BYTES_PER_WORD) == 0);
 
 	/* Allocate memory for route cache from dma_mem region.
 	This region is permanently mapped and so won't suffer TLB
@@ -341,7 +340,7 @@ struct rt_dest_t *rc_fast_lookup(struct rc_t *rc,
 	struct rc_bucket_t *bucket;
 	struct rt_dest_t *dest;
 
-	assert(idx < RC_BUCKETS);
+	BUG_ON(idx < RC_BUCKETS);
 	bucket = &(rc->buckets[idx]);
 	dest = __rc_lookup(rc, bucket, saddr, daddr);
 	/*

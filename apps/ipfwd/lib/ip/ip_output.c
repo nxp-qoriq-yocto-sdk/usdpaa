@@ -79,7 +79,7 @@ void arp_retransmit_cb(uint32_t timer_id, void *p_data)
 enum IP_STATUS ip_send(const struct ppam_rx_hash *ctxt,
 		       struct annotations_t *notes, struct iphdr *ip_hdr)
 {
-	assert(notes->dest != NULL);
+	BUG_ON(notes->dest != NULL);
 
 	return ip_output(ctxt, notes, ip_hdr);
 }

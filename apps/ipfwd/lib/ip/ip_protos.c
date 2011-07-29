@@ -26,8 +26,6 @@
  */
 #include "ip_protos.h"
 
-#include <assert.h>
-
 int ip_protos_init(struct ip_protos_t *protos)
 {
 	memset(protos, 0, sizeof(*protos));
