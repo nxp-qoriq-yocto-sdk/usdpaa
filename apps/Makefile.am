@@ -31,8 +31,7 @@
 
 SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback \
 	  hello_reflector
-SUBDIRS += ipfwd
-#SUBDIRS += ipsecfwd
+SUBDIRS += ipfwd ipsecfwd
 
 dist_DATA = SOURCE_THIS
 
