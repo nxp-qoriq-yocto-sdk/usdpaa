@@ -368,14 +368,18 @@ bool rc_add_entry(struct rc_t *rc, struct rc_entry_t *new_entry)
 	struct rc_bucket_t *bucket;
 	struct rc_entry_t **entry_ptr;
 	struct rc_entry_t *prev_entry;
+#ifdef STATS_TBD
 	uint32_t count;
+#endif
 	bool success;
 
 	success = false;
 	/* No decorated api required as USDPAA application
 	 would update rc table */
+#ifdef STATS_TBD
 	count = rc->stats->entry_count;
 	if (count < MAX_RC_ENTRIES) {
+#endif
 		bucket = __rc_find_bucket(rc, new_entry->saddr, new_entry->daddr);
 #ifdef IP_RCU_ENABLE
 		rcu_read_lock();
@@ -402,14 +406,14 @@ bool rc_add_entry(struct rc_t *rc, struct rc_entry_t *new_entry)
 #ifdef IP_RCU_ENABLE
 		rcu_read_unlock();
 #endif
+#ifdef STATS_TBD
 	}
 
 	if (success == true) {
-#ifdef STATS_TBD
 		decorated_notify_inc_32(&(rc->stats->new_entries));
 		decorated_notify_inc_32(&(rc->stats->entry_count));
-#endif
 	}
+#endif
 	return success;
 }
 
@@ -418,12 +422,16 @@ bool rc_add_update_entry(struct rc_t *rc, struct rc_entry_t *new_entry)
 	struct rc_bucket_t *bucket;
 	struct rc_entry_t **entry_ptr;
 	struct rc_entry_t *prev_entry;
+#ifdef STATS_TBD
 	uint32_t count;
+#endif
 	bool success;
 
 	success = false;
+#ifdef STATS_TBD
 	count = rc->stats->entry_count;
 	if (count < MAX_RC_ENTRIES) {
+#endif
 		bucket = __rc_find_bucket(rc, new_entry->saddr, new_entry->daddr);
 #ifdef IP_RCU_ENABLE
 		rcu_read_lock();
@@ -452,14 +460,14 @@ bool rc_add_update_entry(struct rc_t *rc, struct rc_entry_t *new_entry)
 #ifdef IP_RCU_ENABLE
 		rcu_read_unlock();
 #endif
+#ifdef STATS_TBD
 	}
 
 	if (success == true) {
-#ifdef STATS_TBD
 		decorated_notify_inc_32(&(rc->stats->new_entries));
 		decorated_notify_inc_32(&(rc->stats->entry_count));
-#endif
 	}
+#endif
 	return success;
 }
 
@@ -496,8 +504,8 @@ bool rc_remove_entry(struct rc_t *rc,
 	rcu_read_unlock();
 #endif
 	if (entry != NULL) {
-		rc->stats->entry_count--;
 #ifdef STATS_TBD
+		rc->stats->entry_count--;
 		decorated_notify_inc_32(&(rc->stats->stale_entries));
 		decorated_notify_inc_32(&(rc->stats->removed_entries));
 #endif
