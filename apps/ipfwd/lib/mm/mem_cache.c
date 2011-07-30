@@ -26,6 +26,7 @@
  */
 
 #include <usdpaa/compat.h>
+#include <usdpaa/dma_mem.h>
 
 #include <internal/compat.h>
 
@@ -46,7 +47,6 @@ static uint32_t __mem_cache_refill(struct mem_cache_t *cachep,
 
 struct mem_cache_t *mem_cache_init(void)
 {
-	int _errno;
 	void *cache_mem;
 	void *ptr_array_mem;
 	void *first_cache;
@@ -54,18 +54,24 @@ struct mem_cache_t *mem_cache_init(void)
 	uint32_t ptr_array_space;
 
 	/* Allocate memory for all of the caches, and zero it */
+	/* Memory for soft caches should be allocated from dma_mem region.
+	This region is permanently mapped and so won't suffer TLB faults
+	unlike conventional memory allocations */
 	mem_space = sizeof(struct mem_cache_t) * (MAX_MEM_CACHES);
-	_errno = posix_memalign(&cache_mem, L1_CACHE_BYTES, mem_space);
-	if (unlikely(_errno < 0))
+	cache_mem = dma_mem_memalign(L1_CACHE_BYTES, mem_space);
+	if (unlikely(!cache_mem))
 		return NULL;
+
 	memset(cache_mem, 0, mem_space);
 
 	ptr_array_space = sizeof(uintptr_t) * MAX_MEM_CACHES;
-	_errno = posix_memalign(&ptr_array_mem, L1_CACHE_BYTES, ptr_array_space);
-	if (unlikely(_errno < 0)) {
-		free(cache_mem);
+	ptr_array_mem = dma_mem_memalign(L1_CACHE_BYTES, ptr_array_space);
+	if (ptr_array_mem == NULL) {
+		dma_mem_free(cache_mem, mem_space);
 		return NULL;
 	}
+
+
 	memset(ptr_array_mem, 0, ptr_array_space);
 
 	/* The memory for the rest of the caches starts right past this one */
@@ -81,7 +87,6 @@ struct mem_cache_t *mem_cache_init(void)
 
 struct mem_cache_t *mem_cache_create(size_t objsize, uint32_t capacity)
 {
-	int _errno;
 	struct mem_cache_t *cachep;
 	void *parray_mem;
 
@@ -89,8 +94,9 @@ struct mem_cache_t *mem_cache_create(size_t objsize, uint32_t capacity)
 	if (cachep == NULL)
 		return NULL;
 
-	_errno = posix_memalign(&parray_mem, L1_CACHE_BYTES, sizeof(void *) * capacity);
-	if (unlikely(_errno < 0)) {
+	parray_mem = dma_mem_memalign(L1_CACHE_BYTES,
+					sizeof(void *) * capacity);
+	if (parray_mem == NULL) {
 		mem_cache_free(cache_cache, cachep);
 		return NULL;
 	}
@@ -189,11 +195,7 @@ drop:
 
 static void *__mem_cache_slab_alloc(uint32_t size)
 {
-	int _errno;
-	void *p;
-
-	_errno = posix_memalign(&p, L1_CACHE_BYTES, size);
-	return unlikely(_errno < 0) ? NULL : p;
+	return dma_mem_memalign(L1_CACHE_BYTES, size);
 }
 
 static uint32_t __mem_cache_refill(struct mem_cache_t *cachep,

@@ -174,7 +174,7 @@ static inline uint32_t compute_rc_hash(in_addr_t saddr,
  *				valid after its last access
  *  \param[in]	proto_len	Length of the IP address
  */
-int rc_init(struct rc_t *rc, uint32_t expire_jiffies, uint32_t proto_len);
+struct rc_t *rc_init(uint32_t expire_jiffies, uint32_t proto_len);
 
 /**
  \brief Allocates a Route Entry to be added to the Route Cache

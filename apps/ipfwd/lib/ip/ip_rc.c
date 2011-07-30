@@ -154,6 +154,7 @@
 #endif
 
 #include <assert.h>
+#include <usdpaa/dma_mem.h>
 
 #define BYTES_PER_WORD sizeof(uint32_t)
 
@@ -238,20 +239,30 @@ struct rc_entry_t *rc_entry_lookup(struct rc_t *rc,
 	return entry;
 }
 
-int rc_init(struct rc_t *rc, uint32_t expire_jiffies, uint32_t proto_len)
+struct rc_t *rc_init(uint32_t expire_jiffies, uint32_t proto_len)
 {
-	int _errno, i;
+	int i;
 	uint32_t entries;
 	struct rc_bucket_t *bucket;
+	struct rc_t *rc;
 
 	assert((proto_len % BYTES_PER_WORD) == 0);
 
-	_errno = posix_memalign((void **)&rc->stats, L1_CACHE_BYTES,
-				   sizeof(struct rc_statistics_t));
-	if (unlikely(_errno < 0)) {
+	/* Allocate memory for route cache from dma_mem region.
+	This region is permanently mapped and so won't suffer TLB
+	faults unlike conventional memory allocations */
+	rc = dma_mem_memalign(L1_CACHE_BYTES, sizeof(struct rc_t));
+	if (rc == NULL) {
+		pr_err("%s : Route Cache Creation Failed", __func__);
+		return NULL;
+	}
+	rc->stats =
+		dma_mem_memalign(L1_CACHE_BYTES,
+				sizeof(struct rc_statistics_t));
+	if (rc->stats == NULL) {
 		pr_err("%s : Unable to allocate Route Cache Stats\n",
-							 __func__);
-		return _errno;
+							__func__);
+		return NULL;
 	}
 	memset(rc->stats, 0, sizeof(struct rc_statistics_t));
 	rc->free_entries = mem_cache_create(sizeof(struct rc_entry_t),
@@ -259,27 +270,27 @@ int rc_init(struct rc_t *rc, uint32_t expire_jiffies, uint32_t proto_len)
 	if (unlikely(rc->free_entries == NULL)) {
 		pr_err("%s : Unable to create Free Route Cache"
 				"Entries\n", __func__);
-		free(rc->stats);
-		return -ENOMEM;
+		dma_mem_free(rc->stats, sizeof(struct rc_statistics_t));
+		return NULL;
 	}
 
 	entries = mem_cache_refill(rc->free_entries, RC_ENTRY_POOL_SIZE);
 	if (unlikely(entries != RC_ENTRY_POOL_SIZE)) {
-		free(rc->stats);
+		dma_mem_free(rc->stats, sizeof(struct rc_statistics_t));
 		/** \todo mem_cache_destory(rc->free_entries); */
-		return -ENOMEM;
+		return NULL;
 	}
 
 	rc->expire_jiffies = expire_jiffies;
 	rc->proto_len = proto_len;
 	rc->proto_word_len = proto_len / BYTES_PER_WORD;
 	for (i = 0; i < ARRAY_SIZE(rc->buckets); i++) {
-		bucket = rc->buckets + i;
+		bucket = &(rc->buckets[i]);
 		bucket->head_entry = NULL;
 		spin_lock_init(&bucket->wlock);
 	}
 
-	return 0;
+	return rc;
 }
 
 void rc_delete(struct rc_t *rc)
@@ -297,9 +308,9 @@ void rc_delete(struct rc_t *rc)
 	if (rc->free_entries == NULL)
 		return NULL;
 #endif
-	free(rc->stats);
+	dma_mem_free(rc->stats, sizeof(struct rc_statistics_t));
 
-	free(rc);
+	dma_mem_free(rc, sizeof(struct rc_t));
 
 	return;
 }
@@ -574,7 +585,7 @@ struct rc_bucket_t *__rc_find_bucket(struct rc_t *rc,
 	hash = compute_rc_hash(saddr, daddr);
 	pr_debug("Bucket hash is %x\n", hash);
 	pr_debug("Src = 0x%x Dest = 0x%x\n", saddr, daddr);
-	return rc->buckets + hash;
+	return &(rc->buckets[hash]);
 }
 
 

@@ -44,7 +44,7 @@ struct ip_stack_t {
 	struct ip_protos_t protos;		/**< Protocol Handler */
 	struct neigh_table_t arp_table;		/**< ARP Table */
 	struct rt_t rt;				/**< Routing Table */
-	struct rc_t rc;				/**< Route Cache */
+	struct rc_t *rc;				/**< Route Cache */
 };
 
 struct ip_stack_t stack;
@@ -150,7 +150,7 @@ static int ipfwd_add_route(const struct app_ctrl_op_info *route_info)
 			dest->dev = dest->neighbor->dev;
 			dest->scope = ROUTE_SCOPE_GLOBAL;
 
-			entry = rc_create_entry(&stack.rc);
+			entry = rc_create_entry(stack.rc);
 			if (entry == NULL) {
 				pr_err("Couldn't allocate route cache entry\n");
 				rt_dest_free(&stack.rt, dest);
@@ -173,9 +173,9 @@ static int ipfwd_add_route(const struct app_ctrl_op_info *route_info)
 
 			entry->dest = dest;
 
-			if (rc_add_update_entry(&stack.rc, entry) == false) {
+			if (rc_add_update_entry(stack.rc, entry) == false) {
 				pr_err("Route cache entry updated\n");
-				rc_free_entry(&stack.rc, entry);
+				rc_free_entry(stack.rc, entry);
 			}
 			daddr += 1;
 		}
@@ -196,7 +196,7 @@ static int ipfwd_del_route(const struct app_ctrl_op_info *route_info)
 	struct rt_dest_t *dest;
 	pr_debug("ipfwd_del_route: Enter\n");
 
-	dest = rc_lookup(&stack.rc,
+	dest = rc_lookup(stack.rc,
 			 route_info->ip_info.src_ipaddr,
 			 route_info->ip_info.dst_ipaddr);
 	if (dest == NULL) {
@@ -206,7 +206,7 @@ static int ipfwd_del_route(const struct app_ctrl_op_info *route_info)
 
 	refcount_release(dest->neighbor->refcnt);
 
-	if (rc_remove_entry(&stack.rc,
+	if (rc_remove_entry(stack.rc,
 			    route_info->ip_info.src_ipaddr,
 			    route_info->ip_info.dst_ipaddr) == false) {
 		pr_err("Could not delete route cache entry\n");
@@ -436,11 +436,12 @@ static int initialize_ip_stack(struct ip_stack_t *ip_stack)
 		pr_err("Failed in Route table initialized\n");
 		return _errno;
 	}
-	_errno = rc_init(&ip_stack->rc, IP_RC_EXPIRE_JIFFIES, sizeof(in_addr_t));
-	if (unlikely(_errno < 0)) {
-		pr_err("Failed in Route cache initialized\n");
-		return _errno;
+	ip_stack->rc = rc_init(IP_RC_EXPIRE_JIFFIES, sizeof(in_addr_t));
+	if (unlikely(ip_stack->rc == NULL)) {
+		pr_err("Unable to allocate rc structure for stack\n");
+		return -ENOMEM;
 	}
+
 	_errno = ip_hooks_init(&ip_stack->hooks);
 	if (unlikely(_errno < 0)) {
 		pr_err("Failed in IP Stack hooks initialized\n");
@@ -687,7 +688,7 @@ static int ppam_rx_error_init(struct ppam_rx_error *p,
 	p->stats = stack.ip_stats;
 	p->hooks = &stack.hooks;
 	p->protos = &stack.protos;
-	p->rc = &stack.rc;
+	p->rc = stack.rc;
 
 	return 0;
 }
@@ -708,7 +709,7 @@ static int ppam_rx_default_init(struct ppam_rx_default *p,
 	p->stats = stack.ip_stats;
 	p->hooks = &stack.hooks;
 	p->protos = &stack.protos;
-	p->rc = &stack.rc;
+	p->rc = stack.rc;
 
 	return 0;
 }
@@ -761,7 +762,7 @@ static int ppam_rx_hash_init(struct ppam_rx_hash *p,
 	p->stats = stack.ip_stats;
 	p->hooks = &stack.hooks;
 	p->protos = &stack.protos;
-	p->rc = &stack.rc;
+	p->rc = stack.rc;
 
 	/* Override defaults, enable 1 CL of annotation stashing */
 	stash_opts->annotation_cl = (sizeof(struct annotations_t) + L1_CACHE_BYTES - 1) /
