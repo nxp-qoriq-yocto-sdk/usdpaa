@@ -125,7 +125,7 @@ struct cli_table_entry
 };
 #define cli_cmd(cmd, handle)					\
 	const struct cli_table_entry cli_table_entry_##cmd	\
-	__attribute__((used, section(".data.cli_table")))	\
+	__attribute__((used, section(".rodata.cli_table")))	\
 	= {__stringify(cmd), handle}
 
 extern const struct cli_table_entry cli_table_start[], cli_table_end[];

@@ -32,7 +32,7 @@
 
 SECTIONS
 {
-	.rodata.cli_table ALIGN(64)	: { KEEP(*(.data.cli_table)) }
+	.rodata.cli_table ALIGN(64)	: { KEEP(*(.rodata.cli_table)) }
 	PROVIDE(cli_table_start	= ADDR(.rodata.cli_table));
 	PROVIDE(cli_table_end	= ADDR(.rodata.cli_table) + SIZEOF(.rodata.cli_table));
 }
