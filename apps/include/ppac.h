@@ -90,9 +90,9 @@
 #define PPAC_CGR_RX_PERFQ_THRESH 32
 #define PPAC_CGR_TX_PERFQ_THRESH 64
 #define PPAC_BACKOFF_CYCLES	512
-#define PPAC_ORP_WINDOW_SIZE	3	/* 0->32, 1->64, 2->128, ... 7->4096 */
-#define PPAC_ORP_AUTO_ADVANCE	0	/* boolean */
-#define PPAC_ORP_ACCEPT_LATE	0	/* 0->no, 3->yes (for 1 & 2->see RM) */
+#define PPAC_ORP_WINDOW_SIZE	7	/* 0->32, 1->64, 2->128, ... 7->4096 */
+#define PPAC_ORP_AUTO_ADVANCE	1	/* boolean */
+#define PPAC_ORP_ACCEPT_LATE	3	/* 0->no, 3->yes (for 1 & 2->see RM) */
 #define PPAC_MAX_BPID		64	/* size of BPID->object lookup array */
 
 /**********/
