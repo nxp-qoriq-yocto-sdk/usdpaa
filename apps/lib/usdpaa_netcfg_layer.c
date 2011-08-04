@@ -67,7 +67,7 @@ void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr)
 
 	/* Pool channels */
 	printf("Available pool channels: %d\n", cfg_ptr->num_pool_channels);
-	printf("	{");
+	printf("\t{");
 	for (i = 0; i < cfg_ptr->num_pool_channels; i++)
 		printf("%s%d", i ? "," : "", cfg_ptr->pool_channels[i]);
 	printf("}\n\n");
@@ -78,20 +78,30 @@ void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr)
 		struct fman_if_bpool *bpool;
 		struct fm_eth_port_cfg *p_cfg = &cfg_ptr->port_cfg[i];
 		struct fman_if *__if = p_cfg->fman_if;
+		struct fm_eth_port_fqrange *fqr;
+
 		printf("\n+ Fman %d, MAC %d (%s);\n",
 			__if->fman_idx, __if->mac_idx,
 			__if->mac_type == fman_mac_1g ? "1G" : "10G");
-		printf("	  mac_addr: " ETH_MAC_PRINTF_FMT "\n",
+		printf("\tmac_addr: " ETH_MAC_PRINTF_FMT "\n",
 			ETH_MAC_PRINTF_ARGS(&__if->mac_addr));
-		printf("     tx_channel_id: 0x%02x\n", __if->tx_channel_id);
-		printf("      fqid_rx_hash: (PCD: start 0x%x, count %d)\n",
-			p_cfg->pcd.start, p_cfg->pcd.count);
-		printf("       fqid_rx_def: 0x%x\n", p_cfg->rx_def);
-		printf("       fqid_rx_err: 0x%x\n", __if->fqid_rx_err);
-		printf("       fqid_tx_err: 0x%x\n", __if->fqid_tx_err);
-		printf("   fqid_tx_confirm: 0x%x\n", __if->fqid_tx_confirm);
+		printf("\ttx_channel_id: 0x%02x\n", __if->tx_channel_id);
+
+		if (list_empty(p_cfg->list)) {
+			printf("PCD List not found\n");
+		} else {
+			printf("\tfqid_rx_hash: \n");
+			list_for_each_entry(fqr, p_cfg->list, list) {
+				printf("\t\t(PCD: start 0x%x, count %d)\n",
+					fqr->start, fqr->count);
+			}
+		}
+		printf("\tfqid_rx_def: 0x%x\n", p_cfg->rx_def);
+		printf("\tfqid_rx_err: 0x%x\n", __if->fqid_rx_err);
+		printf("\tfqid_tx_err: 0x%x\n", __if->fqid_tx_err);
+		printf("\tfqid_tx_confirm: 0x%x\n", __if->fqid_tx_confirm);
 		fman_if_for_each_bpool(bpool, __if)
-			printf("       buffer pool: (bpid=%d, count=%"PRId64
+			printf("\tbuffer pool: (bpid=%d, count=%"PRId64
 			       "size=%"PRId64", addr=0x%"PRIx64")\n",
 			       bpool->bpid, bpool->count, bpool->size,
 			       bpool->addr);
@@ -184,8 +194,7 @@ struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
 			__if->mac_type == fman_mac_1g ? 1 : 10,
 			__if->mac_idx, &xmlcfg);
 		if (_errno == 0) {
-			cfg->pcd.start = xmlcfg.pcd.start;
-			cfg->pcd.count = xmlcfg.pcd.count;
+			cfg->list = xmlcfg.list;
 			cfg->rx_def = xmlcfg.rxdef;
 			num_cfg_ports++;
 			idx++;

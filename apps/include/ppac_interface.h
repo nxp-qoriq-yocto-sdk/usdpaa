@@ -67,6 +67,12 @@ struct ppac_interface {
 		struct qman_fq fq;
 		struct ppam_tx_confirm s;
 	} tx_confirm;
+	struct list_head list;
+} ____cacheline_aligned;
+
+struct pcd_list {
+	struct list_head list;
+	uint32_t count;
 	struct ppac_rx_hash {
 		struct qman_fq fq;
 #ifdef PPAC_ORDER_RESTORATION

@@ -66,7 +66,7 @@ struct interface_info {
 	uint8_t fman_num;		/* 0 => FMAN0, 1 => FMAN1 and so on */
 	uint8_t port_type;		/* 1 => "1G" or 10 => "10G" ,so on*/
 	uint8_t port_num;		/* 0 onwards */
-	struct fmc_netcfg_fqrange pcd;	/* FIXME multiple PCD support */
+	struct list_head *list;		/* List of PCD FQs*/
 	uint32_t rxdef;			/* default RX fq range */
 };
 
@@ -127,7 +127,7 @@ static char *distribution_ref(xmlNodePtr nd)
 	return (char *)get_attributes(nd, BAD_CAST NPCD_POLICY_DISTREF_NA_name);
 }
 
-static int pcdinfo(char *dist_name, struct fmc_netcfg_fqrange *fqr)
+static int pcdinfo(char *dist_name, struct fm_eth_port_fqrange *fqr)
 {
 	uint8_t len;
 	char *name;
@@ -256,6 +256,7 @@ static int parse_policy(xmlNodePtr cur, struct fmc_netcfg_fqs *fqs)
 	char *name;
 	xmlNodePtr distp;
 	xmlNodePtr dist_node;
+	struct list_head *fqlist;
 
 	distp = cur->xmlChildrenNode;
 	while (distp) {
@@ -269,44 +270,64 @@ static int parse_policy(xmlNodePtr cur, struct fmc_netcfg_fqs *fqs)
 			NPCD_POLICY_DISTORDER_NODE);
 		return -ENXIO;
 	}
+	fqlist = malloc(sizeof(struct list_head));
+	if (!fqlist) {
+		fprintf(stderr, "%s: No memory for fqlist\n", __FILE__);
+		return -ENOMEM;
+	}
 
+	INIT_LIST_HEAD(fqlist);
 	dist_node = distp->xmlChildrenNode;
-	if (unlikely(dist_node == NULL)) {
-		fprintf(stderr, "%s:%hu:%s() error: (Node(%s) have no "
-			"child node\n", __FILE__, __LINE__, __func__,
-			distp->name);
-		return -ENXIO;
-	}
-	/* FIXME:  Assuming that PCD FQs will always be first entry
-	 * and default FQ range will be next entry
-	 */
-	name = distribution_ref(dist_node);
-	if (unlikely(name == NULL))
-		return -ENXIO;
+	for_all_sibling_nodes(dist_node) {
+		struct fm_eth_port_fqrange *fqr, *fqr_temp;
 
-	if(pcdinfo(name, &fqs->pcd)) {
-		fprintf(stderr, "%s:%hu:%s() error: PCD %s information not"
-			" found\n", __FILE__, __LINE__, __func__, name);
-		return -ENXIO;
+		if (unlikely(dist_node == NULL)) {
+			fprintf(stderr, "%s:%hu:%s() error: (Node(%s) have no "
+				"child node\n", __FILE__, __LINE__, __func__,
+				distp->name);
+			return -ENXIO;
+		}
+		name = distribution_ref(dist_node);
+		if (unlikely(name == NULL))
+			return -ENXIO;
+
+		if (dist_node->next == NULL) {
+			if (rxdefinfo(name, &fqs->rxdef)) {
+				fprintf(stderr, "%s:%hu:%s() error: DEFRX %s"
+					" information not found\n", __FILE__,
+					 __LINE__, __func__, name);
+				return -ENXIO;
+			}
+			fqs->list = fqlist;
+			return 0;
+		}
+
+		fqr = malloc(sizeof(*fqr));
+		if (!fqr) {
+			fprintf(stderr, "%s: Unable to allocate memory for"
+				" fqr\n", __FILE__);
+			return -ENOMEM;
+		}
+
+		memset(fqr, 0, sizeof(*fqr));
+		INIT_LIST_HEAD(&fqr->list);
+
+		if (pcdinfo(name, fqr)) {
+			fprintf(stderr, "%s:%hu:%s() error: PCD %s information"
+			" not found\n", __FILE__, __LINE__, __func__, name);
+			return -ENXIO;
+		}
+		list_for_each_entry(fqr_temp, fqlist, list) {
+			if (fqr->start == fqr_temp->start) {
+				free(fqr);
+				fqr = NULL;
+				break;
+			}
+		}
+		if (fqr)
+			list_add_tail(&fqr->list, fqlist);
 	}
 
-	dist_node = dist_node->next;
-	if (unlikely(dist_node == NULL)) {
-		fprintf(stderr, "%s:%hu:%s() error: Node RXdef not"
-			" found in Node(%s)\n", __FILE__, __LINE__,
-			__func__, distp->name);
-		return -EINVAL;
-	}
-
-	name = distribution_ref(dist_node);
-	if (unlikely(name == NULL))
-		return -ENXIO;
-
-	if (rxdefinfo(name, &fqs->rxdef)) {
-		fprintf(stderr, "%s:%hu:%s() error: DEFRX %s information not"
-			" found\n", __FILE__, __LINE__, __func__, name);
-		return -ENXIO;
-	}
 	return 0;
 }
 
@@ -418,19 +439,18 @@ static int parse_engine(xmlNodePtr enode, const char *pcd_file)
 			break;
 
 		strip_blanks(tmp);
+		memset(&fqs, 0, sizeof(struct fmc_netcfg_fqs));
 		_errno = process_pcdfile(pcd_file, tmp, &fqs);
 		if (unlikely(_errno))
 			break;
 
 		i_info = &(netcfg_info->interface_info[p_curr]);
-		p_curr++;
-
 		i_info->fman_num = fman;
 		i_info->port_num = p_num;
+		i_info->list = fqs.list;
 		i_info->port_type = p_type;
-		i_info->pcd.start = fqs.pcd.start;
-		i_info->pcd.count = fqs.pcd.count;
 		i_info->rxdef = fqs.rxdef;
+		p_curr++;
 	}
 	return _errno;
 }
@@ -510,14 +530,25 @@ static int parse_cfgfile(const char *cfg_file, const char *pcd_file)
 
 	cur = cur->xmlChildrenNode;
 	for_all_sibling_nodes(cur) {
+		uint16_t sz;
+
 		if (unlikely(!is_node(cur, BAD_CAST CFG_NETCONFIG_NODE)))
 			continue;
 
 		numof_interface = get_num_of_interface(cur);
+		sz = sizeof(struct fmc_netcfg_info)
+			+ (sizeof(struct interface_info) * numof_interface);
 
-		netcfg_info = malloc(sizeof(struct fmc_netcfg_info)
-				+ (sizeof(struct interface_info)
-					* numof_interface));
+		netcfg_info = malloc(sz);
+
+		if (!netcfg_info) {
+			fprintf(stderr, "Memory allocation failure for netcfg"
+				"\n");
+			xmlFreeDoc(doc);
+			return -ENOMEM;
+		}
+
+		memset(netcfg_info, 0, sz);
 
 		netcfg_info->numof_interface = numof_interface;
 
@@ -563,8 +594,7 @@ int fmc_netcfg_get_info(uint8_t fman, uint8_t p_type, uint8_t p_num,
 						p_num != i_info->port_num)
 			continue;
 
-		cfg->pcd.start = i_info->pcd.start;
-		cfg->pcd.count = i_info->pcd.count;
+		cfg->list = i_info->list;
 		cfg->rxdef = i_info->rxdef;
 
 		return 0;

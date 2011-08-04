@@ -104,11 +104,18 @@ struct net_if_rx {
 	uint32_t tx_fqid;
 } __attribute__((aligned(MAX_CACHELINE)));
 
+/* Each PCD FQ-range within an interface is represented by one of these */
+struct net_if_rx_fqrange {
+	struct net_if_rx *rx; /* array size ::rx_count */
+	unsigned int rx_count;
+	struct list_head list;
+};
+
 /* Each network interface is represented by one of these */
 struct net_if {
 	struct qman_fq *tx_fqs; /* array size NET_IF_NUM_TX */
 	struct net_if_admin admin[ADMIN_FQ_NUM];
-	struct net_if_rx *rx; /* array size port_cfg->pcd.count */
+	struct list_head rx_list; /* list of "struct net_if_rx_fqrange" */
 };
 
 /* Seed buffer pools according to the configuration symbols */
@@ -460,14 +467,17 @@ static int net_if_admin_init(struct net_if_admin *a, uint32_t fqid, int idx)
 }
 
 /* Initialise an Rx FQ */
-static int net_if_rx_init(struct net_if *interface, int idx, uint32_t fqid)
+static int net_if_rx_init(struct net_if *interface,
+			  struct net_if_rx_fqrange *fqrange,
+			  int offset, int overall,
+			  uint32_t fqid)
 {
-	struct net_if_rx *rx = &interface->rx[idx];
+	struct net_if_rx *rx = &fqrange->rx[offset];
 	struct qm_mcc_initfq opts;
 	int ret;
 
 	/* "map" this Rx FQ to one of the interfaces Tx FQID */
-	rx->tx_fqid = interface->tx_fqs[idx % NET_IF_NUM_TX].fqid;
+	rx->tx_fqid = interface->tx_fqs[overall % NET_IF_NUM_TX].fqid;
 	rx->fq.cb.dqrr = cb_rx;
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_NO_ENQUEUE, &rx->fq);
 	if (ret)
@@ -491,6 +501,7 @@ static int net_if_init(struct net_if *interface,
 {
 	const struct fman_if_bpool *bp;
 	const struct fman_if *fif = cfg->fman_if;
+	struct fm_eth_port_fqrange *fq_range;
 	int ret, loop;
 
 	/* Handle any pools used by this interface */
@@ -529,15 +540,29 @@ static int net_if_init(struct net_if *interface,
 					ADMIN_FQ_TX_CONFIRM);
 	if (ret)
 		return ret;
-	
-	/* Initialise Rx FQs */
-	interface->rx = calloc(cfg->pcd.count, sizeof(interface->rx[0]));
-	if (!interface->rx)
-		return -ENOMEM;
-	for (loop = 0; loop < cfg->pcd.count; loop++) {
-		ret = net_if_rx_init(interface, loop, cfg->pcd.start + loop);
-		if (ret)
-			return ret;
+
+	/* Initialise each Rx FQ-range for the interface */
+	INIT_LIST_HEAD(&interface->rx_list);
+	loop = 0;
+	list_for_each_entry(fq_range, cfg->list, list) {
+		int tmp;
+		struct net_if_rx_fqrange *newrange = malloc(sizeof(*newrange));
+		if (!newrange)
+			return -ENOMEM;
+		newrange->rx_count = fq_range->count;
+		newrange->rx = calloc(newrange->rx_count,
+				      sizeof(newrange->rx[0]));
+		if (!newrange->rx)
+			return -ENOMEM;
+		/* Initialise each Rx FQ within the range */
+		for (tmp = 0; tmp < fq_range->count; tmp++, loop++) {
+			ret = net_if_rx_init(interface, newrange, tmp, loop,
+					     fq_range->start + tmp);
+			if (ret)
+				return ret;
+		}
+		/* Range initialised, at it to the interface's rx-list */
+		list_add_tail(&newrange->list, &interface->rx_list);
 	}
 
 	/* Enable RX and TX */
@@ -585,14 +610,16 @@ static void net_if_finish(struct net_if *interface,
 			  const struct fm_eth_port_cfg *cfg)
 {
 	const struct fman_if *fif = cfg->fman_if;
+	struct net_if_rx_fqrange *rx_fqrange;
 	int loop;
 
 	/* Disable Rx */
 	fman_if_disable_rx(fif);
 
 	/* Cleanup Rx FQs */
-	for (loop = 0; loop < cfg->pcd.count; loop++)
-		teardown_fq(&interface->rx[loop].fq);
+	list_for_each_entry(rx_fqrange, &interface->rx_list, list)
+		for (loop = 0; loop < rx_fqrange->rx_count; loop++)
+			teardown_fq(&rx_fqrange->rx[loop].fq);
 
 	/* Cleanup admin FQs */
 	for (loop = 0; loop < ADMIN_FQ_NUM; loop++)

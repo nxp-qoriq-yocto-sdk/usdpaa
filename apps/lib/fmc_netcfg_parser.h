@@ -34,19 +34,14 @@
 #define	__FMC_NETCFG_PARSER_H
 
 #include <usdpaa/fsl_usd.h>
+#include <usdpaa/usdpaa_netcfg.h>
 #include <internal/compat.h>
 #include <libxml/parser.h>
 
-struct fmc_netcfg_fqrange {
-	uint32_t start;
-	uint32_t count;
-};
-
-
 /* Range of frame queues specified for PCD and Default RX */
 struct fmc_netcfg_fqs {
-	struct fmc_netcfg_fqrange pcd;
-	uint32_t rxdef;
+	struct list_head *list; /* List of "struct fm_eth_port_fqrange" */
+	uint32_t rxdef;	/* Default FQID */
 };
 
 /* pcd_file@ : netpcd file (XML). which have a PCD information.

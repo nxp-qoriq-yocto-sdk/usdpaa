@@ -44,6 +44,12 @@ static const struct qm_fqd_stashing default_stash_opts = {
 	.context_cl = PPAC_STASH_CONTEXT_CL
 };
 
+struct fmc_netcfg_fqrange {
+	struct list_head list;
+	uint32_t start;
+	uint32_t count;
+};
+
 /*******************/
 /* Packet handling */
 /*******************/
@@ -158,8 +164,8 @@ int ppac_interface_init(unsigned idx)
 	struct qm_fqd_stashing stash_opts;
 	const struct fm_eth_port_cfg *port = &netcfg->port_cfg[idx];
 	const struct fman_if *fif = port->fman_if;
-	size_t size = sizeof(struct ppac_interface) +
-		(port->pcd.count * sizeof(struct ppac_rx_hash));
+	size_t size = sizeof(struct ppac_interface);
+	struct fmc_netcfg_fqrange *fqr;
 
 	/* Make sure we are able to handle drops by initialising pool objects
 	 * for all buffer pools used by the network interface. */
@@ -173,6 +179,7 @@ int ppac_interface_init(unsigned idx)
 	if (!i)
 		return -ENOMEM;
 	memset(i, 0, size);
+	INIT_LIST_HEAD(&i->list);
 	i->size = size;
 	i->port_cfg = port;
 	/* allocate and initialise Tx FQs for this interface */
@@ -219,21 +226,40 @@ int ppac_interface_init(unsigned idx)
 	BUG_ON(err);
 	ppac_fq_nonpcd_init(&i->tx_confirm.fq, fif->fqid_tx_confirm, get_rxc(),
 			    &stash_opts, cb_dqrr_tx_confirm);
-	for (loop = 0; loop < port->pcd.count; loop++) {
-		stash_opts = default_stash_opts;
-		err = ppam_rx_hash_init(&i->rx_hash[loop].s, &i->ppam_data,
-					loop, &stash_opts);
-		BUG_ON(err);
+	list_for_each_entry(fqr, port->list, list) {
+		uint32_t fqid = fqr->start;
+		struct pcd_list *pcd_list;
+
+		size = sizeof(struct pcd_list) +
+			fqr->count*sizeof(struct ppac_rx_hash);
+		pcd_list = dma_mem_memalign(L1_CACHE_BYTES, size);
+		if (!pcd_list)
+			return -ENOMEM;
+
+		memset(pcd_list, 0, size);
+		INIT_LIST_HEAD(&pcd_list->list);
+		pcd_list->count = fqr->count;
+
+		for (loop = 0; loop < fqr->count; loop++) {
+			stash_opts = default_stash_opts;
+			err = ppam_rx_hash_init(&pcd_list->rx_hash[loop].s,
+				 &i->ppam_data, loop, &stash_opts);
+			BUG_ON(err);
 #ifdef PPAC_ORDER_RESTORATION
-		ppac_orp_init(&i->rx_hash[loop].orp_id);
-		TRACE("I/F %d, Rx FQID %d associated with ORP ID %d\n",
-			idx, i->rx_hash[loop].fq.fqid, i->rx_hash[loop].orp_id);
+			ppac_orp_init(&pcd_list->rx_hash[loop].orp_id);
+			TRACE("I/F %d, Rx FQID %d associated with ORP ID %d\n",
+				idx, pcd_list->rx_hash[loop].fq.fqid,
+				pcd_list->rx_hash[loop].orp_id);
 #endif
-		ppac_fq_pcd_init(&i->rx_hash[loop].fq, port->pcd.start + loop,
-			get_rxc(), &stash_opts,
-			(fif->mac_type == fman_mac_1g) ? RX_1G_PIC :
-			(fif->mac_type == fman_mac_10g) ? RX_10G_PIC : 0);
+			ppac_fq_pcd_init(&pcd_list->rx_hash[loop].fq, fqid++,
+				get_rxc(), &stash_opts,
+				(fif->mac_type == fman_mac_1g) ? RX_1G_PIC :
+				(fif->mac_type == fman_mac_10g) ? RX_10G_PIC :
+				0);
+		}
+		list_add_tail(&pcd_list->list, &i->list);
 	}
+
 	ppac_interface_enable_rx(i);
 	list_add_tail(&i->node, &ifs);
 	return 0;
@@ -258,13 +284,17 @@ void ppac_interface_disable_rx(const struct ppac_interface *i)
 void ppac_interface_finish(struct ppac_interface *i)
 {
 	int loop;
+	struct pcd_list *pcd_list;
 
 	/* Cleanup in the opposite order of ppac_interface_init() */
 	ppac_interface_disable_rx(i);
 	list_del(&i->node);
-	for (loop = 0; loop < i->port_cfg->pcd.count; loop++) {
-		ppam_rx_hash_finish(&i->rx_hash[loop].s, &i->ppam_data, loop);
-		teardown_fq(&i->rx_hash[loop].fq);
+	list_for_each_entry(pcd_list, &i->list, list) {
+		for (loop = 0; loop < pcd_list->count; loop++) {
+			ppam_rx_hash_finish(&pcd_list->rx_hash[loop].s,
+				 &i->ppam_data, loop);
+			teardown_fq(&pcd_list->rx_hash[loop].fq);
+		}
 	}
 	ppam_tx_confirm_finish(&i->tx_confirm.s, &i->ppam_data);
 	teardown_fq(&i->tx_confirm.fq);
@@ -280,6 +310,7 @@ void ppac_interface_finish(struct ppac_interface *i)
 		      i->port_cfg->fman_if->fman_idx, fq->fqid);
 		teardown_fq(fq);
 	}
+
 	ppam_interface_finish(&i->ppam_data);
 	free(i->tx_fqs);
 	dma_mem_free(i, i->size);

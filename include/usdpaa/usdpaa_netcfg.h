@@ -35,13 +35,18 @@
 
 #include <usdpaa/fman.h>
 
+/* Represents a contiguous range of FQIDs (to be linked into a per-port list) */
+struct fm_eth_port_fqrange {
+	struct list_head list;
+	uint32_t start;
+	uint32_t count;
+};
+
 /* Configuration information related to a specific ethernet port */
 struct fm_eth_port_cfg {
-	/* PCD and "Rx default" FQIDs, obtained from FMC configuration */
-	struct	{
-		uint32_t start;
-		uint32_t count;
-	} pcd;
+	/* A list of PCD FQ ranges, obtained from FMC configuration */
+	struct list_head *list;
+	/* The "Rx default" FQID, obtained from FMC configuration */
 	uint32_t rx_def;
 	/* Other interface details are in the fman driver interface */
 	struct fman_if *fman_if;
