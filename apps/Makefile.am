@@ -30,8 +30,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback \
-	  hello_reflector
-SUBDIRS += ipfwd ipsecfwd
+	  hello_reflector double_reflector ipfwd ipsecfwd
 
 dist_DATA = SOURCE_THIS
 
