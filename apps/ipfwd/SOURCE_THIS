@@ -22,6 +22,6 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-fmc -c /usr/etcus_config_serdes_0xe.xml -p /usr/etc/us_policy_hash_ipv4_src_dst.xml -a
+fmc -c /usr/etc/us_config_serdes_0xe.xml -p /usr/etc/us_policy_hash_ipv4.xml -a
 ipfwd_app 1..7 &
 ipfwd_20G.sh & fg %1

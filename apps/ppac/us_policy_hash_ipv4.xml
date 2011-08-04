@@ -53,9 +53,13 @@ to associate them with FMan MACs as follows.
 
 Likely, no single config file will use all of the policies in this file.
 
-The policies all form a key using only the IPv4 source and destination IP address
-fields.	 The key is then used to hash to "count" FQs.  The base (i.e. first) FQID
-is different for each policy.
+The policies form a key using only the IPv4 source and destination IP address and SPI
+field of ESP header. The key is then used to hash to "count" FQs.  The base (i.e. first)
+FQID is different for each policy.
+
+If frame is non-ESP, the policies form a key using only the IPv4 source and destination
+IP address fields. The key is then used to hash to "count" FQs.  The base (i.e. first)
+FQID is different for each policy.
 
 Non-IPv4 packets are sent to the default FQ, the ID of which is distinct for each
 policy.
@@ -151,6 +155,102 @@ policy.
 			<fieldref name="ipv4.dst"/>
 		</key>
 	</distribution>
+	<distribution name="hash_ipsec_src_dst_spi_dist0">
+		<queue count="32" base="0x400"/>
+		<key>
+			<fieldref name="ipv4.src"/>
+			<fieldref name="ipv4.dst"/>
+			<fieldref name="ipsec_esp.spi"/>
+		</key>
+	</distribution>
+	<distribution name="hash_ipsec_src_dst_spi_dist1">
+		<queue count="32" base="0x500"/>
+		<key>
+			<fieldref name="ipv4.src"/>
+			<fieldref name="ipv4.dst"/>
+			<fieldref name="ipsec_esp.spi"/>
+		</key>
+	</distribution>
+	<distribution name="hash_ipsec_src_dst_spi_dist2">
+		<queue count="32" base="0x600"/>
+		<key>
+			<fieldref name="ipv4.src"/>
+			<fieldref name="ipv4.dst"/>
+			<fieldref name="ipsec_esp.spi"/>
+		</key>
+	</distribution>
+	<distribution name="hash_ipsec_src_dst_spi_dist3">
+		<queue count="32" base="0x700"/>
+		<key>
+			<fieldref name="ipv4.src"/>
+			<fieldref name="ipv4.dst"/>
+			<fieldref name="ipsec_esp.spi"/>
+		</key>
+	</distribution>
+	<distribution name="hash_ipsec_src_dst_spi_dist4">
+		<queue count="32" base="0x800"/>
+		<key>
+			<fieldref name="ipv4.src"/>
+			<fieldref name="ipv4.dst"/>
+			<fieldref name="ipsec_esp.spi"/>
+		</key>
+	</distribution>
+	<distribution name="hash_ipsec_src_dst_spi_dist5">
+		<queue count="32" base="0x900"/>
+		<key>
+			<fieldref name="ipv4.src"/>
+			<fieldref name="ipv4.dst"/>
+			<fieldref name="ipsec_esp.spi"/>
+		</key>
+	</distribution>
+	<distribution name="hash_ipsec_src_dst_spi_dist6">
+		<queue count="32" base="0xa00"/>
+		<key>
+			<fieldref name="ipv4.src"/>
+			<fieldref name="ipv4.dst"/>
+			<fieldref name="ipsec_esp.spi"/>
+		</key>
+	</distribution>
+	<distribution name="hash_ipsec_src_dst_spi_dist7">
+		<queue count="32" base="0xb00"/>
+		<key>
+			<fieldref name="ipv4.src"/>
+			<fieldref name="ipv4.dst"/>
+			<fieldref name="ipsec_esp.spi"/>
+		</key>
+	</distribution>
+	<distribution name="hash_ipsec_src_dst_spi_dist8">
+		<queue count="32" base="0xc00"/>
+		<key>
+			<fieldref name="ipv4.src"/>
+			<fieldref name="ipv4.dst"/>
+			<fieldref name="ipsec_esp.spi"/>
+		</key>
+	</distribution>
+	<distribution name="hash_ipsec_src_dst_spi_dist9">
+		<queue count="32" base="0xd00"/>
+		<key>
+			<fieldref name="ipv4.src"/>
+			<fieldref name="ipv4.dst"/>
+			<fieldref name="ipsec_esp.spi"/>
+		</key>
+	</distribution>
+	<distribution name="hash_ipsec_src_dst_spi_dist10">
+		<queue count="32" base="0xe00"/>
+		<key>
+			<fieldref name="ipv4.src"/>
+			<fieldref name="ipv4.dst"/>
+			<fieldref name="ipsec_esp.spi"/>
+		</key>
+	</distribution>
+	<distribution name="hash_ipsec_src_dst_spi_dist11">
+		<queue count="32" base="0xf00"/>
+		<key>
+			<fieldref name="ipv4.src"/>
+			<fieldref name="ipv4.dst"/>
+			<fieldref name="ipsec_esp.spi"/>
+		</key>
+	</distribution>
 
 	<distribution name="default_dist0">
 		<queue count="1" base="0x51"/>
@@ -191,86 +291,98 @@ policy.
 
 <!--	xxxxxxxxxxxxxxxxxxxxxxxxxx Policies xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx -->
 
-	<policy name="hash_ipv4_src_dst_policy0">
+	<policy name="hash_ipsec_src_dst_spi_policy0">
 		<dist_order>
+			<distributionref name="hash_ipsec_src_dst_spi_dist0"/>
 			<distributionref name="hash_ipv4_src_dst_dist0"/>
 			<distributionref name="default_dist0"/>
 		</dist_order>
 	</policy>
 
-	<policy name="hash_ipv4_src_dst_policy1">
+	<policy name="hash_ipsec_src_dst_spi_policy1">
 		<dist_order>
+			<distributionref name="hash_ipsec_src_dst_spi_dist1"/>
 			<distributionref name="hash_ipv4_src_dst_dist1"/>
 			<distributionref name="default_dist1"/>
 		</dist_order>
 	</policy>
 
-	<policy name="hash_ipv4_src_dst_policy2">
+	<policy name="hash_ipsec_src_dst_spi_policy2">
 		<dist_order>
+			<distributionref name="hash_ipsec_src_dst_spi_dist2"/>
 			<distributionref name="hash_ipv4_src_dst_dist2"/>
 			<distributionref name="default_dist2"/>
 		</dist_order>
 	</policy>
 
 
-	<policy name="hash_ipv4_src_dst_policy3">
+	<policy name="hash_ipsec_src_dst_spi_policy3">
 		<dist_order>
+			<distributionref name="hash_ipsec_src_dst_spi_dist3"/>
 			<distributionref name="hash_ipv4_src_dst_dist3"/>
 			<distributionref name="default_dist3"/>
 		</dist_order>
 	</policy>
 
-	<policy name="hash_ipv4_src_dst_policy4">
+	<policy name="hash_ipsec_src_dst_spi_policy4">
 		<dist_order>
+			<distributionref name="hash_ipsec_src_dst_spi_dist4"/>
 			<distributionref name="hash_ipv4_src_dst_dist4"/>
 			<distributionref name="default_dist4"/>
 		</dist_order>
 	</policy>
 
-	<policy name="hash_ipv4_src_dst_policy5">
+	<policy name="hash_ipsec_src_dst_spi_policy5">
 		<dist_order>
+			<distributionref name="hash_ipsec_src_dst_spi_dist5"/>
 			<distributionref name="hash_ipv4_src_dst_dist5"/>
 			<distributionref name="default_dist5"/>
 		</dist_order>
 	</policy>
 
-	<policy name="hash_ipv4_src_dst_policy6">
+	<policy name="hash_ipsec_src_dst_spi_policy6">
 		<dist_order>
+			<distributionref name="hash_ipsec_src_dst_spi_dist6"/>
 			<distributionref name="hash_ipv4_src_dst_dist6"/>
 			<distributionref name="default_dist6"/>
 		</dist_order>
 	</policy>
 
-	<policy name="hash_ipv4_src_dst_policy7">
+	<policy name="hash_ipsec_src_dst_spi_policy7">
 		<dist_order>
+			<distributionref name="hash_ipsec_src_dst_spi_dist7"/>
 			<distributionref name="hash_ipv4_src_dst_dist7"/>
 			<distributionref name="default_dist7"/>
 		</dist_order>
 	</policy>
 
-	<policy name="hash_ipv4_src_dst_policy8">
+	<policy name="hash_ipsec_src_dst_spi_policy8">
 		<dist_order>
+			<distributionref name="hash_ipsec_src_dst_spi_dist8"/>
 			<distributionref name="hash_ipv4_src_dst_dist8"/>
 			<distributionref name="default_dist8"/>
 		</dist_order>
 	</policy>
 
-	<policy name="hash_ipv4_src_dst_policy9">
+	<policy name="hash_ipsec_src_dst_spi_policy9">
 		<dist_order>
+			<distributionref name="hash_ipsec_src_dst_spi_dist9"/>
 			<distributionref name="hash_ipv4_src_dst_dist9"/>
 			<distributionref name="default_dist9"/>
 		</dist_order>
 	</policy>
 
-	<policy name="hash_ipv4_src_dst_policy10">
+	<policy name="hash_ipsec_src_dst_spi_policy10">
 		<dist_order>
+			<distributionref name="hash_ipsec_src_dst_spi_dist10"/>
 			<distributionref name="hash_ipv4_src_dst_dist10"/>
 			<distributionref name="default_dist10"/>
 		</dist_order>
 	</policy>
 
-	<policy name="hash_ipv4_src_dst_policy11">
+	<policy name="hash_ipsec_src_dst_spi_policy11">
 		<dist_order>
+			<distributionref name="hash_ipsec_src_dst_spi_dist11"/>
 			<distributionref name="hash_ipv4_src_dst_dist11"/>
 			<distributionref name="default_dist11"/>
 		</dist_order>
