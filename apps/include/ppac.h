@@ -250,13 +250,13 @@ static inline void ppac_drop_frame(const struct qm_fd *fd)
 {
 	struct bm_buffer buf;
 	int ret;
-#ifdef PPAC_ORDER_PRESERVATION
-	local_fq.fqid = local_orp_id;
+#ifdef PPAC_ORDER_RESTORATION
 	/* The "ORP object" passed to qman_enqueue_orp() is only used to extract
 	 * the ORPID, so declare a temporary object to provide that. */
 	struct qman_fq tmp_orp = {
 		.fqid = local_orp_id
 	};
+	local_fq.fqid = local_orp_id;
 #endif
 
 	BUG_ON(fd->format != qm_fd_contig);
@@ -269,12 +269,13 @@ retry:
 		goto retry;
 	}
 	TRACE("drop: bpid %d <-- 0x%llx\n", fd->bpid, qm_fd_addr(fd));
-#ifdef PPAC_ORDER_PRESERVATION
+#ifdef PPAC_ORDER_RESTORATION
 	/* Perform a "HOLE" enqueue so that the ORP doesn't wait for the
 	 * sequence number that we're dropping. */
 retry_orp:
 	ret = qman_enqueue_orp(&local_fq, fd, QMAN_ENQUEUE_FLAG_HOLE, &tmp_orp,
 				local_dqrr->seqnum);
+	if (ret) {
 		cpu_spin(PPAC_BACKOFF_CYCLES);
 		goto retry_orp;
 	}
