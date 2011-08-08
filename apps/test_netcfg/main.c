@@ -71,6 +71,7 @@ int main(int argc, char *argv[])
 	dump_usdpaa_netcfg(uscfg_info);
 
 	usdpaa_netcfg_release(uscfg_info);
+	of_finish();
 	printf("---------------END------------------\n");
 	return EXIT_SUCCESS;
 }
