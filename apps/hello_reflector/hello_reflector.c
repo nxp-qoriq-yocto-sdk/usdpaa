@@ -89,8 +89,7 @@ struct worker {
 #define ADMIN_FQ_RX_DEFAULT 1
 #define ADMIN_FQ_TX_ERROR   2
 #define ADMIN_FQ_TX_CONFIRM 3
-#define ADMIN_FQ_NUM        4
-#define ADMIN_FQ_OFFLINECOUNT 2
+#define ADMIN_FQ_NUM        4 /* Upper limit for loops */
 struct net_if_admin {
 	struct qman_fq fq;
 	int idx; /* ADMIN_FQ_<x> */
@@ -114,7 +113,7 @@ struct net_if_rx_fqrange {
 
 /* Each network interface is represented by one of these */
 struct net_if {
-	int8_t p_type; /* 0=>Offline, 1=>1G, 2=>10G */
+	const struct fm_eth_port_cfg *cfg;
 	struct qman_fq *tx_fqs; /* array size NET_IF_NUM_TX */
 	struct net_if_admin admin[ADMIN_FQ_NUM];
 	struct list_head rx_list; /* list of "struct net_if_rx_fqrange" */
@@ -451,6 +450,18 @@ static enum qm_channel get_next_rx_channel(void)
 	return ret;
 }
 
+/* Helper to determine whether an admin FQ is used on the given interface */
+static int net_if_admin_is_used(struct net_if *interface, int idx)
+{
+	if ((idx < 0) || (idx >= ADMIN_FQ_NUM))
+		return 0;
+	/* Offline ports don't support tx_error nor tx_confirm */
+	if ((idx <= ADMIN_FQ_RX_DEFAULT) ||
+			(interface->cfg->fman_if->mac_type != fman_offline))
+		return 1;
+	return 0;
+}
+
 /* Initialise a admin FQ ([rt]x_error, rx_default, tx_confirm). */
 static int net_if_admin_init(struct net_if_admin *a, uint32_t fqid, int idx)
 {
@@ -506,6 +517,8 @@ static int net_if_init(struct net_if *interface,
 	struct fm_eth_port_fqrange *fq_range;
 	int ret, loop;
 
+	interface->cfg = cfg;
+
 	/* Handle any pools used by this interface */
 	fman_if_for_each_bpool(bp, fif) {
 		ret = lazy_init_bpool(bp->bpid);
@@ -524,31 +537,22 @@ static int net_if_init(struct net_if *interface,
 	}
 
 	/* Initialise admin FQs */
-	if (!ret)
+	if (!ret && net_if_admin_is_used(interface, ADMIN_FQ_RX_ERROR))
 		ret = net_if_admin_init(&interface->admin[ADMIN_FQ_RX_ERROR],
 					fif->fqid_rx_err,
 					ADMIN_FQ_RX_ERROR);
-	if (!ret)
+	if (!ret && net_if_admin_is_used(interface, ADMIN_FQ_RX_DEFAULT))
 		ret = net_if_admin_init(&interface->admin[ADMIN_FQ_RX_DEFAULT],
 					cfg->rx_def,
 					ADMIN_FQ_RX_DEFAULT);
-
-	interface->p_type = fif->mac_type;
-	/* Offline ports don't have Tx Error or Confirm FQs */
-	if (interface->p_type == fman_offline) {
-		printf("Skipping Tx error or confirm init for OH port\n");
-		goto skip;
-	}
-
-	if (!ret)
+	if (!ret && net_if_admin_is_used(interface, ADMIN_FQ_TX_ERROR))
 		ret = net_if_admin_init(&interface->admin[ADMIN_FQ_TX_ERROR],
 					fif->fqid_tx_err,
 					ADMIN_FQ_TX_ERROR);
-	if (!ret)
+	if (!ret && net_if_admin_is_used(interface, ADMIN_FQ_TX_CONFIRM))
 		ret = net_if_admin_init(&interface->admin[ADMIN_FQ_TX_CONFIRM],
 					fif->fqid_tx_confirm,
 					ADMIN_FQ_TX_CONFIRM);
-skip:
 	if (ret)
 		return ret;
 
@@ -622,7 +626,7 @@ static void net_if_finish(struct net_if *interface,
 {
 	const struct fman_if *fif = cfg->fman_if;
 	struct net_if_rx_fqrange *rx_fqrange;
-	int loop, adm_fqcount;
+	int loop;
 
 	/* Disable Rx */
 	fman_if_disable_rx(fif);
@@ -632,12 +636,15 @@ static void net_if_finish(struct net_if *interface,
 		for (loop = 0; loop < rx_fqrange->rx_count; loop++)
 			teardown_fq(&rx_fqrange->rx[loop].fq);
 
-	adm_fqcount = (interface->p_type == fman_offline) ?
-			ADMIN_FQ_OFFLINECOUNT : ADMIN_FQ_NUM;
-
 	/* Cleanup admin FQs */
-	for (loop = 0; loop < adm_fqcount; loop++)
-		teardown_fq(&interface->admin[loop].fq);
+	if (net_if_admin_is_used(interface, ADMIN_FQ_RX_ERROR))
+		teardown_fq(&interface->admin[ADMIN_FQ_RX_ERROR].fq);
+	if (net_if_admin_is_used(interface, ADMIN_FQ_RX_DEFAULT))
+		teardown_fq(&interface->admin[ADMIN_FQ_RX_DEFAULT].fq);
+	if (net_if_admin_is_used(interface, ADMIN_FQ_TX_ERROR))
+		teardown_fq(&interface->admin[ADMIN_FQ_TX_ERROR].fq);
+	if (net_if_admin_is_used(interface, ADMIN_FQ_TX_CONFIRM))
+		teardown_fq(&interface->admin[ADMIN_FQ_TX_CONFIRM].fq);
 
 	/* Cleanup Tx FQs */
 	for (loop = 0; loop < NET_IF_NUM_TX; loop++)

@@ -36,17 +36,20 @@
 #include <usdpaa/compat.h>
 #include <usdpaa/fsl_qman.h>
 
+/* Represents the different flavour of network interface */
+enum fman_mac_type {
+	fman_offline = 0,
+	fman_mac_1g,
+	fman_mac_10g
+};
+
 /* This struct exports parameters about an Fman network interface, determined
  * from the device-tree. */
 struct fman_if {
 	/* Which Fman this interface belongs to */
 	uint8_t fman_idx;
 	/* The type/speed of the interface */
-	enum {
-		fman_offline = 0,
-		fman_mac_1g,
-		fman_mac_10g
-	} mac_type;
+	enum fman_mac_type mac_type;
 	/* The index of this MAC (within the Fman it belongs to) */
 	uint8_t mac_idx;
 	/* The MAC address */

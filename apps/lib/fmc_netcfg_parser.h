@@ -41,7 +41,6 @@
 /* Range of frame queues specified for PCD and Default RX */
 struct fmc_netcfg_fqs {
 	struct list_head *list; /* List of "struct fm_eth_port_fqrange" */
-	uint8_t p_type;	/* Port type = 0=>Offline, 1=>1G, 2=>10G */
 	uint32_t rxdef;	/* Default FQID */
 };
 
@@ -63,7 +62,7 @@ int fmc_netcfg_parser_exit(void);
  * This function returns the configuration information extracted from file
  * FMC configuration file (XML as of now) for the requested port id.
  * */
-int fmc_netcfg_get_info(uint8_t fman, uint8_t p_type, uint8_t p_num,
+int fmc_netcfg_get_info(uint8_t fman, enum fman_mac_type p_type, uint8_t p_num,
 					struct fmc_netcfg_fqs *cfg);
 
 #endif

@@ -189,7 +189,8 @@ int ppac_interface_init(unsigned idx)
 	i->port_cfg = port;
 	/* allocate and initialise Tx FQs for this interface */
 	i->num_tx_fqs = (fif->mac_type == fman_mac_10g) ?
-			PPAC_TX_FQS_10G : (fif->mac_type == fman_offline) ?
+			PPAC_TX_FQS_10G :
+			(fif->mac_type == fman_offline) ?
 			PPAC_TX_FQS_OFFLINE : PPAC_TX_FQS_1G;
 	i->tx_fqs = malloc(sizeof(*i->tx_fqs) * i->num_tx_fqs);
 	if (!i->tx_fqs) {
@@ -239,47 +240,41 @@ int ppac_interface_init(unsigned idx)
 
 	list_for_each_entry(fqr, port->list, list) {
 		uint32_t fqid = fqr->start;
-		struct pcd_list *pcd_list;
+		struct ppac_pcd_range *pcd_range;
 
-		size = sizeof(struct pcd_list) +
+		size = sizeof(struct ppac_pcd_range) +
 			fqr->count*sizeof(struct ppac_rx_hash);
-		pcd_list = dma_mem_memalign(L1_CACHE_BYTES, size);
-		if (!pcd_list)
+		pcd_range = dma_mem_memalign(L1_CACHE_BYTES, size);
+		if (!pcd_range)
 			return -ENOMEM;
 
-		memset(pcd_list, 0, size);
-		INIT_LIST_HEAD(&pcd_list->list);
-		pcd_list->count = fqr->count;
+		memset(pcd_range, 0, size);
+		INIT_LIST_HEAD(&pcd_range->list);
+		pcd_range->count = fqr->count;
 
 		for (loop = 0; loop < fqr->count; loop++) {
 			stash_opts = default_stash_opts;
-			err = ppam_rx_hash_init(&pcd_list->rx_hash[loop].s,
+			err = ppam_rx_hash_init(&pcd_range->rx_hash[loop].s,
 				 &i->ppam_data, loop, &stash_opts);
 			BUG_ON(err);
 #ifdef PPAC_ORDER_RESTORATION
-			ppac_orp_init(&pcd_list->rx_hash[loop].orp_id);
+			ppac_orp_init(&pcd_range->rx_hash[loop].orp_id);
 			TRACE("I/F %d, Rx FQID %d associated with ORP ID %d\n",
-				idx, pcd_list->rx_hash[loop].fq.fqid,
-				pcd_list->rx_hash[loop].orp_id);
+				idx, pcd_range->rx_hash[loop].fq.fqid,
+				pcd_range->rx_hash[loop].orp_id);
 #endif
-			ppac_fq_pcd_init(&pcd_list->rx_hash[loop].fq, fqid++,
+			ppac_fq_pcd_init(&pcd_range->rx_hash[loop].fq, fqid++,
 				get_rxc(), &stash_opts,
 				(fif->mac_type == fman_mac_1g) ? RX_1G_PIC :
 				(fif->mac_type == fman_mac_10g) ? RX_10G_PIC :
 				(fif->mac_type == fman_offline) ? RX_OFFLINE_PIC:
 				0);
 		}
-		list_add_tail(&pcd_list->list, &i->list);
+		list_add_tail(&pcd_range->list, &i->list);
 	}
-	i->mac_type = fif->mac_type;
 
 	ppac_interface_enable_rx(i);
 	list_add_tail(&i->node, &ifs);
-
-	/* Keep All OH port nodes in a seperate list too */
-	/* to get a quick access to offline ports */
-	if (fif->mac_type == fman_offline)
-		list_add_tail(&i->oh_node, &oh_ifs);
 
 	return 0;
 }
@@ -303,21 +298,21 @@ void ppac_interface_disable_rx(const struct ppac_interface *i)
 void ppac_interface_finish(struct ppac_interface *i)
 {
 	int loop;
-	struct pcd_list *pcd_list;
+	struct ppac_pcd_range *pcd_range;
 
 	/* Cleanup in the opposite order of ppac_interface_init() */
 	ppac_interface_disable_rx(i);
 	list_del(&i->node);
-	list_for_each_entry(pcd_list, &i->list, list) {
-		for (loop = 0; loop < pcd_list->count; loop++) {
-			ppam_rx_hash_finish(&pcd_list->rx_hash[loop].s,
+	list_for_each_entry(pcd_range, &i->list, list) {
+		for (loop = 0; loop < pcd_range->count; loop++) {
+			ppam_rx_hash_finish(&pcd_range->rx_hash[loop].s,
 				 &i->ppam_data, loop);
-			teardown_fq(&pcd_list->rx_hash[loop].fq);
+			teardown_fq(&pcd_range->rx_hash[loop].fq);
 		}
 	}
 
 	/* Offline ports don't have Tx Error or Confirm FQs */
-	if (i->mac_type != fman_offline) {
+	if (ppac_interface_type(i) != fman_offline) {
 		ppam_tx_confirm_finish(&i->tx_confirm.s, &i->ppam_data);
 		teardown_fq(&i->tx_confirm.fq);
 		ppam_tx_error_finish(&i->tx_error.s, &i->ppam_data);

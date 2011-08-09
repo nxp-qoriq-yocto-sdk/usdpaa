@@ -64,7 +64,7 @@
  * */
 struct interface_info {
 	uint8_t fman_num;		/* 0 => FMAN0, 1 => FMAN1 and so on */
-	uint8_t port_type;		/*0 => "OFFLINE", 1 => "1G", 2 => "10G"*/
+	enum fman_mac_type port_type;
 	uint8_t port_num;		/* 0 onwards */
 	struct list_head *list;		/* List of PCD FQs*/
 	uint32_t rxdef;			/* default RX fq range */
@@ -393,7 +393,8 @@ static int parse_engine(xmlNodePtr enode, const char *pcd_file)
 	struct fmc_netcfg_fqs fqs;
 	char *tmp;
 	static uint8_t p_curr;
-	uint8_t fman, p_type, p_num;
+	uint8_t fman, p_num;
+	enum fman_mac_type p_type;
 	xmlNodePtr cur;
 
 	if (unlikely(!is_node(enode, BAD_CAST CFG_FMAN_NODE))) {
@@ -584,7 +585,7 @@ int fmc_netcfg_parser_exit(void)
 	return 0;
 }
 
-int fmc_netcfg_get_info(uint8_t fman, uint8_t p_type, uint8_t p_num,
+int fmc_netcfg_get_info(uint8_t fman, enum fman_mac_type p_type, uint8_t p_num,
 				struct fmc_netcfg_fqs *cfg)
 {
 	struct interface_info *i_info;

@@ -42,9 +42,7 @@
 /* Each Fman interface has one of these */
 struct ppac_interface {
 	struct list_head node;
-	struct list_head oh_node;
 	size_t size;
-	uint8_t mac_type;
 	const struct fm_eth_port_cfg *port_cfg;
 	/* Note: the Tx FQs kept here are created to (a) initialise and schedule
 	 * the FQIDs on startup, and (b) be able to clean them up on shutdown.
@@ -69,10 +67,10 @@ struct ppac_interface {
 		struct qman_fq fq;
 		struct ppam_tx_confirm s;
 	} tx_confirm;
-	struct list_head list;
+	struct list_head list; /* list of "ppac_pcd_range"s */
 } ____cacheline_aligned;
 
-struct pcd_list {
+struct ppac_pcd_range {
 	struct list_head list;
 	uint32_t count;
 	struct ppac_rx_hash {
@@ -87,5 +85,12 @@ struct pcd_list {
 		struct ppam_rx_hash s;
 	} ____cacheline_aligned rx_hash[0];
 } ____cacheline_aligned;
+
+/* This helper simplifies the method for drilling into the interface
+ * configuration to determine what flavour it is. */
+static inline enum fman_mac_type ppac_interface_type(struct ppac_interface *i)
+{
+	return i->port_cfg->fman_if->mac_type;
+}
 
 #endif	/* __PPAC_INTERFACE_H */

@@ -200,7 +200,6 @@ extern __thread int ppam_thread_poll_enabled;
 
 extern struct usdpaa_netcfg_info *netcfg;
 extern struct bman_pool *pool[PPAC_MAX_BPID];
-extern struct list_head oh_ifs;
 extern struct list_head ifs;
 extern __thread struct qman_fq local_fq;
 #if defined(PPAC_ORDER_PRESERVATION) || \
