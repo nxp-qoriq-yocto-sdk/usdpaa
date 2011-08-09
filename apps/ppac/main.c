@@ -132,6 +132,10 @@ struct bman_pool *pool[PPAC_MAX_BPID];
 /* The interfaces in this list are allocated from dma_mem (stashing==DMA) */
 LIST_HEAD(ifs);
 
+/* List of Offline port Interfaces. Application can take one Offline port
+ * and use it if required for Offline Parsing*/
+LIST_HEAD(oh_ifs);
+
 /* The forwarding logic uses a per-cpu FQ object for handling enqueues (and
  * ERNs), irrespective of the destination FQID. In this way, cache-locality is
  * more assured, and any ERNs that do occur will show up on the same CPUs they
@@ -505,7 +509,8 @@ static void do_global_init(void)
 		const struct fm_eth_port_cfg *p = &netcfg->port_cfg[loop];
 		numrxfqs += p->pcd.count;
 		numtxfqs += (p->fman_if->mac_type == fman_mac_10g) ?
-			PPAC_TX_FQS_10G : PPAC_TX_FQS_1G;
+		PPAC_TX_FQS_10G : (p->fman_if->mac_type == fman_offline) ?
+				PPC_TX_FQS_OFFLINE : PPAC_TX_FQS_1G;
 	}
 	qm_cgr_cs_thres_set64(&opts.cgr.cs_thres,
 		numrxfqs * PPAC_CGR_RX_PERFQ_THRESH, 0);

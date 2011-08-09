@@ -43,6 +43,7 @@ struct fman_if {
 	uint8_t fman_idx;
 	/* The type/speed of the interface */
 	enum {
+		fman_offline = 0,
 		fman_mac_1g,
 		fman_mac_10g
 	} mac_type;

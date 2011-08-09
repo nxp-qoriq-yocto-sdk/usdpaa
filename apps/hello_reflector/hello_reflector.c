@@ -90,6 +90,7 @@ struct worker {
 #define ADMIN_FQ_TX_ERROR   2
 #define ADMIN_FQ_TX_CONFIRM 3
 #define ADMIN_FQ_NUM        4
+#define ADMIN_FQ_OFFLINECOUNT 2
 struct net_if_admin {
 	struct qman_fq fq;
 	int idx; /* ADMIN_FQ_<x> */
@@ -113,6 +114,7 @@ struct net_if_rx_fqrange {
 
 /* Each network interface is represented by one of these */
 struct net_if {
+	int8_t p_type; /* 0=>Offline, 1=>1G, 2=>10G */
 	struct qman_fq *tx_fqs; /* array size NET_IF_NUM_TX */
 	struct net_if_admin admin[ADMIN_FQ_NUM];
 	struct list_head rx_list; /* list of "struct net_if_rx_fqrange" */
@@ -530,6 +532,14 @@ static int net_if_init(struct net_if *interface,
 		ret = net_if_admin_init(&interface->admin[ADMIN_FQ_RX_DEFAULT],
 					cfg->rx_def,
 					ADMIN_FQ_RX_DEFAULT);
+
+	interface->p_type = fif->mac_type;
+	/* Offline ports don't have Tx Error or Confirm FQs */
+	if (interface->p_type == fman_offline) {
+		printf("Skipping Tx error or confirm init for OH port\n");
+		goto skip;
+	}
+
 	if (!ret)
 		ret = net_if_admin_init(&interface->admin[ADMIN_FQ_TX_ERROR],
 					fif->fqid_tx_err,
@@ -538,6 +548,7 @@ static int net_if_init(struct net_if *interface,
 		ret = net_if_admin_init(&interface->admin[ADMIN_FQ_TX_CONFIRM],
 					fif->fqid_tx_confirm,
 					ADMIN_FQ_TX_CONFIRM);
+skip:
 	if (ret)
 		return ret;
 
@@ -611,7 +622,7 @@ static void net_if_finish(struct net_if *interface,
 {
 	const struct fman_if *fif = cfg->fman_if;
 	struct net_if_rx_fqrange *rx_fqrange;
-	int loop;
+	int loop, adm_fqcount;
 
 	/* Disable Rx */
 	fman_if_disable_rx(fif);
@@ -621,8 +632,11 @@ static void net_if_finish(struct net_if *interface,
 		for (loop = 0; loop < rx_fqrange->rx_count; loop++)
 			teardown_fq(&rx_fqrange->rx[loop].fq);
 
+	adm_fqcount = (interface->p_type == fman_offline) ?
+			ADMIN_FQ_OFFLINECOUNT : ADMIN_FQ_NUM;
+
 	/* Cleanup admin FQs */
-	for (loop = 0; loop < ADMIN_FQ_NUM; loop++)
+	for (loop = 0; loop < adm_fqcount; loop++)
 		teardown_fq(&interface->admin[loop].fq);
 
 	/* Cleanup Tx FQs */

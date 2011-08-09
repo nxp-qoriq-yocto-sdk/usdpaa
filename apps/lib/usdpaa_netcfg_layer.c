@@ -82,9 +82,13 @@ void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr)
 
 		printf("\n+ Fman %d, MAC %d (%s);\n",
 			__if->fman_idx, __if->mac_idx,
-			__if->mac_type == fman_mac_1g ? "1G" : "10G");
-		printf("\tmac_addr: " ETH_MAC_PRINTF_FMT "\n",
-			ETH_MAC_PRINTF_ARGS(&__if->mac_addr));
+			(__if->mac_type == fman_mac_1g) ? "1G" :
+			(__if->mac_type == fman_offline) ? "OFFLINE" : "10G");
+		if (__if->mac_type != fman_offline) {
+			printf("\tmac_addr: " ETH_MAC_PRINTF_FMT "\n",
+				ETH_MAC_PRINTF_ARGS(&__if->mac_addr));
+		}
+
 		printf("\ttx_channel_id: 0x%02x\n", __if->tx_channel_id);
 
 		if (list_empty(p_cfg->list)) {
@@ -98,13 +102,15 @@ void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr)
 		}
 		printf("\tfqid_rx_def: 0x%x\n", p_cfg->rx_def);
 		printf("\tfqid_rx_err: 0x%x\n", __if->fqid_rx_err);
-		printf("\tfqid_tx_err: 0x%x\n", __if->fqid_tx_err);
-		printf("\tfqid_tx_confirm: 0x%x\n", __if->fqid_tx_confirm);
-		fman_if_for_each_bpool(bpool, __if)
-			printf("\tbuffer pool: (bpid=%d, count=%"PRId64
-			       "size=%"PRId64", addr=0x%"PRIx64")\n",
-			       bpool->bpid, bpool->count, bpool->size,
-			       bpool->addr);
+		if (__if->mac_type != fman_offline) {
+			printf("\tfqid_tx_err: 0x%x\n", __if->fqid_tx_err);
+			printf("\tfqid_tx_confirm: 0x%x\n", __if->fqid_tx_confirm);
+			fman_if_for_each_bpool(bpool, __if)
+				printf("\tbuffer pool: (bpid=%d, count=%"PRId64
+				       "size=%"PRId64", addr=0x%"PRIx64")\n",
+				       bpool->bpid, bpool->count, bpool->size,
+				       bpool->addr);
+		}
 	}
 }
 
@@ -189,10 +195,10 @@ struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
 		struct fm_eth_port_cfg *cfg = &usdpaa_netcfg->port_cfg[idx];
 		/* Hook in the fman driver interface */
 		cfg->fman_if = __if;
+
 		/* Extract FMC configuration */
 		_errno = fmc_netcfg_get_info(__if->fman_idx,
-			__if->mac_type == fman_mac_1g ? 1 : 10,
-			__if->mac_idx, &xmlcfg);
+			__if->mac_type, __if->mac_idx, &xmlcfg);
 		if (_errno == 0) {
 			cfg->list = xmlcfg.list;
 			cfg->rx_def = xmlcfg.rxdef;

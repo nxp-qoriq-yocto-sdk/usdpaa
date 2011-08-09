@@ -42,7 +42,9 @@
 /* Each Fman interface has one of these */
 struct ppac_interface {
 	struct list_head node;
+	struct list_head oh_node;
 	size_t size;
+	uint8_t mac_type;
 	const struct fm_eth_port_cfg *port_cfg;
 	/* Note: the Tx FQs kept here are created to (a) initialise and schedule
 	 * the FQIDs on startup, and (b) be able to clean them up on shutdown.

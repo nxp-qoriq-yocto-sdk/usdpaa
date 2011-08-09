@@ -64,7 +64,7 @@
  * */
 struct interface_info {
 	uint8_t fman_num;		/* 0 => FMAN0, 1 => FMAN1 and so on */
-	uint8_t port_type;		/* 1 => "1G" or 10 => "10G" ,so on*/
+	uint8_t port_type;		/*0 => "OFFLINE", 1 => "1G", 2 => "10G"*/
 	uint8_t port_num;		/* 0 onwards */
 	struct list_head *list;		/* List of PCD FQs*/
 	uint32_t rxdef;			/* default RX fq range */
@@ -430,7 +430,8 @@ static int parse_engine(xmlNodePtr enode, const char *pcd_file)
 		tmp = (char *)get_attributes(cur, BAD_CAST CFG_PORT_NA_type);
 		if (unlikely(tmp == NULL))
 			break;
-		p_type = strtoul(tmp, NULL, 0);
+		p_type = (strcmp(tmp, "OFFLINE") == 0) ? fman_offline :
+			(strcmp(tmp,"10G") == 0) ? fman_mac_10g : fman_mac_1g;
 
 		/* Get the policy applied with the MAC port from PORT node
 		 attribute "policy" */
@@ -452,6 +453,7 @@ static int parse_engine(xmlNodePtr enode, const char *pcd_file)
 		i_info->rxdef = fqs.rxdef;
 		p_curr++;
 	}
+
 	return _errno;
 }
 

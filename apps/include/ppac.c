@@ -154,6 +154,11 @@ cb_dqrr_rx_hash(struct qman_portal *qm __always_unused,
 #else
 #define RX_10G_PIC 0
 #endif
+#ifdef PPAC_2FWD_RX_OFFLINE_PREFERINCACHE
+#define RX_OFFLINE_PIC 1
+#else
+#define RX_OFFLINE_PIC 0
+#endif
 
 /* This is part of the inlined code due to its dependency on ppam_* types. */
 int ppac_interface_init(unsigned idx)
@@ -184,7 +189,8 @@ int ppac_interface_init(unsigned idx)
 	i->port_cfg = port;
 	/* allocate and initialise Tx FQs for this interface */
 	i->num_tx_fqs = (fif->mac_type == fman_mac_10g) ?
-			PPAC_TX_FQS_10G : PPAC_TX_FQS_1G;
+			PPAC_TX_FQS_10G : (fif->mac_type == fman_offline) ?
+			PPAC_TX_FQS_OFFLINE : PPAC_TX_FQS_1G;
 	i->tx_fqs = malloc(sizeof(*i->tx_fqs) * i->num_tx_fqs);
 	if (!i->tx_fqs) {
 		dma_mem_free(i, size);
@@ -215,17 +221,22 @@ int ppac_interface_init(unsigned idx)
 	BUG_ON(err);
 	ppac_fq_nonpcd_init(&i->rx_default.fq, port->rx_def, get_rxc(),
 			    &stash_opts, cb_dqrr_rx_default);
-	stash_opts = default_stash_opts;
-	err = ppam_tx_error_init(&i->tx_error.s, &i->ppam_data, &stash_opts);
-	BUG_ON(err);
-	ppac_fq_nonpcd_init(&i->tx_error.fq, fif->fqid_tx_err, get_rxc(),
+
+	/* Offline ports don't have Tx Error or Tx Confirm FQs */
+	if (fif->mac_type != fman_offline) {
+		stash_opts = default_stash_opts;
+		err = ppam_tx_error_init(&i->tx_error.s, &i->ppam_data, &stash_opts);
+		BUG_ON(err);
+		ppac_fq_nonpcd_init(&i->tx_error.fq, fif->fqid_tx_err, get_rxc(),
 			    &stash_opts, cb_dqrr_tx_error);
-	stash_opts = default_stash_opts;
-	err = ppam_tx_confirm_init(&i->tx_confirm.s, &i->ppam_data,
+		stash_opts = default_stash_opts;
+		err = ppam_tx_confirm_init(&i->tx_confirm.s, &i->ppam_data,
 				   &stash_opts);
-	BUG_ON(err);
-	ppac_fq_nonpcd_init(&i->tx_confirm.fq, fif->fqid_tx_confirm, get_rxc(),
+		BUG_ON(err);
+		ppac_fq_nonpcd_init(&i->tx_confirm.fq, fif->fqid_tx_confirm, get_rxc(),
 			    &stash_opts, cb_dqrr_tx_confirm);
+	}
+
 	list_for_each_entry(fqr, port->list, list) {
 		uint32_t fqid = fqr->start;
 		struct pcd_list *pcd_list;
@@ -255,13 +266,21 @@ int ppac_interface_init(unsigned idx)
 				get_rxc(), &stash_opts,
 				(fif->mac_type == fman_mac_1g) ? RX_1G_PIC :
 				(fif->mac_type == fman_mac_10g) ? RX_10G_PIC :
+				(fif->mac_type == fman_offline) ? RX_OFFLINE_PIC:
 				0);
 		}
 		list_add_tail(&pcd_list->list, &i->list);
 	}
+	i->mac_type = fif->mac_type;
 
 	ppac_interface_enable_rx(i);
 	list_add_tail(&i->node, &ifs);
+
+	/* Keep All OH port nodes in a seperate list too */
+	/* to get a quick access to offline ports */
+	if (fif->mac_type == fman_offline)
+		list_add_tail(&i->oh_node, &oh_ifs);
+
 	return 0;
 }
 
@@ -296,10 +315,14 @@ void ppac_interface_finish(struct ppac_interface *i)
 			teardown_fq(&pcd_list->rx_hash[loop].fq);
 		}
 	}
-	ppam_tx_confirm_finish(&i->tx_confirm.s, &i->ppam_data);
-	teardown_fq(&i->tx_confirm.fq);
-	ppam_tx_error_finish(&i->tx_error.s, &i->ppam_data);
-	teardown_fq(&i->tx_error.fq);
+
+	/* Offline ports don't have Tx Error or Confirm FQs */
+	if (i->mac_type != fman_offline) {
+		ppam_tx_confirm_finish(&i->tx_confirm.s, &i->ppam_data);
+		teardown_fq(&i->tx_confirm.fq);
+		ppam_tx_error_finish(&i->tx_error.s, &i->ppam_data);
+		teardown_fq(&i->tx_error.fq);
+	}
 	ppam_rx_default_finish(&i->rx_default.s, &i->ppam_data);
 	teardown_fq(&i->rx_default.fq);
 	ppam_rx_error_finish(&i->rx_error.s, &i->ppam_data);

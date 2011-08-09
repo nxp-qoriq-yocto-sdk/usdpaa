@@ -57,10 +57,15 @@ const struct list_head *fman_if_list = &__ifs;
 static void if_destructor(struct __fman_if *__if)
 {
 	struct fman_if_bpool *bp, *tmpbp;
+
+	if (__if->__if.mac_type == fman_offline)
+		goto cleanup;
+
 	list_for_each_entry_safe(bp, tmpbp, &__if->__if.bpool_list, node) {
 		list_del(&bp->node);
 		free(bp);
 	}
+cleanup:
 	free(__if);
 }
 
@@ -335,6 +340,97 @@ int fman_if_init(void)
 		list_add_tail(&__if->__if.node, &__ifs);
 	}
 
+	for_each_compatible_node(dpa_node, NULL, "fsl,dpa-oh") {
+		if (of_device_is_available(dpa_node) == false)
+			continue;
+
+		/* Allocate an object for this network interface */
+		__if = malloc(sizeof(*__if));
+		if (!__if) {
+			_errno = -ENOMEM;
+			goto err;
+		}
+		INIT_LIST_HEAD(&__if->__if.bpool_list);
+		strncpy(__if->node_path, dpa_node->full_name, PATH_MAX - 1);
+		__if->node_path[PATH_MAX - 1] = '\0';
+
+		/* Obtain the MAC node used by this interface */
+		mac_phandle = of_get_property(dpa_node, "fsl,fman-oh-port", &lenp);
+		if (unlikely(mac_phandle == NULL)) {
+			_errno = -EINVAL;
+			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s, fsl,fman-mac) failed\n",
+				__FILE__, __LINE__, __func__, dpa_node->full_name);
+			goto err;
+		}
+		assert(lenp == sizeof(phandle));
+		mac_node = of_find_node_by_phandle(*mac_phandle);
+		if (unlikely(mac_node == NULL)) {
+			_errno = -ENXIO;
+			fprintf(stderr, "%s:%hu:%s(): "
+				"of_find_node_by_phandle(fsl,fman-mac) failed\n",
+				__FILE__, __LINE__, __func__);
+			goto err;
+		}
+
+		/* Get the index of the Fman this i/f belongs to */
+		fman_node = of_get_parent(mac_node);
+		if (!fman_node) {
+			_errno = -ENXIO;
+			fprintf(stderr, "%s:%hu:%s(): of_get_parent(%s)\n",
+				__FILE__, __LINE__, __func__, mac_node->name);
+			goto err;
+		}
+
+		cell_idx = of_get_property(fman_node, "cell-index", &lenp);
+		if (!cell_idx) {
+			_errno = -ENXIO;
+			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s, "
+				"cell-index) failed\n", __FILE__, __LINE__,
+				__func__, fman_node->full_name);
+			goto err;
+		}
+		assert(lenp == sizeof(*cell_idx));
+		__if->__if.fman_idx = *cell_idx;
+		__if->__if.mac_type = fman_offline;
+
+		/* Extract the index of the MAC */
+		cell_idx = of_get_property(mac_node, "cell-index", &lenp);
+		if (!cell_idx) {
+			_errno = -ENXIO;
+			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s, "
+				"cell-index) failed\n", __FILE__, __LINE__,
+				__func__, mac_node->full_name);
+			goto err;
+		}
+		assert(lenp == sizeof(*cell_idx));
+		__if->__if.mac_idx = *cell_idx;
+
+		tx_channel_id = of_get_property(mac_node, "fsl,qman-channel-id",
+						&lenp);
+		assert(lenp == sizeof(*tx_channel_id));
+		__if->__if.tx_channel_id = *tx_channel_id;
+
+		/* Extract the Rx/Tx FQIDs. (Note, the device representation is
+		 * silly, there are "counts" that must always be 1.) */
+		rx_phandle = of_get_property(dpa_node,
+				"fsl,qman-frame-queues-oh", &lenp);
+		if (!rx_phandle) {
+			_errno = -EINVAL;
+			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s, "
+				"fsl,qman-frame-queues-oh) failed\n",
+				__FILE__, __LINE__, __func__, dpa_node->full_name);
+			goto err;
+		}
+		assert(lenp == (4 * sizeof(phandle)));
+		assert((rx_phandle[1] == 1) && (rx_phandle[3] == 1));
+		__if->__if.fqid_rx_err = rx_phandle[0];
+
+		/* Parsing of the offline interface is complete, add it to the
+		 * list. */
+		printf("Found %s, Tx Channel = %x, FMAN = %x, Port ID = %x\n", dpa_node->full_name, __if->__if.tx_channel_id, __if->__if.fman_idx, __if->__if.mac_idx);
+		list_add_tail(&__if->__if.node, &__ifs);
+	}
+
 	return 0;
 err:
 	if_destructor(__if);
@@ -350,6 +446,11 @@ void fman_if_finish(void)
 
 	list_for_each_entry_safe(__if, tmpif, &__ifs, __if.node) {
 		int _errno;
+
+		/* No need to enable Offline port */
+		if (__if->__if.mac_type == fman_offline)
+			continue;
+
 		/* disable Rx and Tx */
 		if (__if->__if.mac_type == fman_mac_1g)
 			out_be32(__if->ccsr_map + 0x100,
@@ -378,6 +479,10 @@ void fman_if_enable_rx(const struct fman_if *p)
 
 	assert(ccsr_map_fd != -1);
 
+	/* No need to enable Offline port */
+	if (__if->__if.mac_type == fman_offline)
+		return;
+
 	/* enable Rx and Tx */
 	if (__if->__if.mac_type == fman_mac_1g)
 		out_be32(__if->ccsr_map + 0x100,
@@ -392,6 +497,10 @@ void fman_if_disable_rx(const struct fman_if *p)
 	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
 
 	assert(ccsr_map_fd != -1);
+
+	/* No need to disable Offline port */
+	if (__if->__if.mac_type == fman_offline)
+		return;
 
 	/* only disable Rx, not Tx */
 	if (__if->__if.mac_type == fman_mac_1g)

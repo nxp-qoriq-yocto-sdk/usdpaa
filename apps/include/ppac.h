@@ -60,6 +60,7 @@
 #define PPAC_AVOIDBLOCK		/* No full-DQRR blocking of FQs */
 #define PPAC_RX_10G_PREFERINCACHE/* Keep 10G rx FQDs in-cache even when empty */
 #define PPAC_RX_1G_PREFERINCACHE/* Keep 1G rx FQDs in-cache even when empty */
+#define PPAC_2FWD_RX_OFFLINE_PREFERINCACHE /* Keep OFFLINE rx FQDs in-cache even when empty */
 #define PPAC_TX_PREFERINCACHE	/* Keep tx FQDs in-cache even when empty */
 #undef PPAC_TX_FORCESFDR	/* Priority allocation of SFDRs to egress */
 #define PPAC_DEPLETION		/* Trace depletion entry/exit */
@@ -79,8 +80,9 @@
 
 /* Application configuration (any modification of these requires an
  * understanding of valid ranges, consequences, etc). */
-#define PPAC_TX_FQS_10G		2
-#define PPAC_TX_FQS_1G		2
+#define PPAC_TX_FQS_10G		2	/* 10G Port Tx FQ count */
+#define PPAC_TX_FQS_1G		2	/* 1G Port Tx FQ count */
+#define PPAC_TX_FQS_OFFLINE	2	/* Offline Port Tx FQ count */
 #define PPAC_PRIORITY_2DROP	3	/* Error/default/etc */
 #define PPAC_PRIORITY_2FWD	4	/* rx-hash */
 #define PPAC_PRIORITY_2TX	4	/* Consumed by Fman */
@@ -198,6 +200,7 @@ extern __thread int ppam_thread_poll_enabled;
 
 extern struct usdpaa_netcfg_info *netcfg;
 extern struct bman_pool *pool[PPAC_MAX_BPID];
+extern struct list_head oh_ifs;
 extern struct list_head ifs;
 extern __thread struct qman_fq local_fq;
 #if defined(PPAC_ORDER_PRESERVATION) || \
