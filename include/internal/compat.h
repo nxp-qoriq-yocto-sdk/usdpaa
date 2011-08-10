@@ -70,8 +70,6 @@ typedef uint32_t	phandle;
 
 #define noinline	__attribute__((noinline))
 #define __iomem
-#define __stringify_1(x) #x
-#define __stringify(x)	__stringify_1(x)
 #define EINTR		4
 #define ENODEV		19
 #define MODULE_AUTHOR(s)

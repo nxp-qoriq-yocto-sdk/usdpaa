@@ -66,6 +66,8 @@
 #define unlikely(x)	__builtin_expect(!!(x), 0)
 #define ____cacheline_aligned __attribute__((aligned(L1_CACHE_BYTES)))
 #define container_of(p, t, f) (t *)((void *)p - offsetof(t, f))
+#define __stringify_1(x) #x
+#define __stringify(x)	__stringify_1(x)
 
 /* Required types */
 typedef uint8_t		u8;
