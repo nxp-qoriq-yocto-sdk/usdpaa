@@ -53,6 +53,8 @@ const char *argp_program_version = "argex 1.0";
 #define IPC_CTRL_PARAM_BIT_ATYPE	(1 << 10)
 /**< Bit Mask for Authentication type */
 #define IPC_CTRL_PARAM_BIT_FLOWID	(1 << 11)
+/**< Bit Mask for Default Gateway */
+#define IPC_CTRL_PARAM_BIT_DEFGW	(1 << 12)
 #define IPC_CTRL_PARAM_MAX_IPSEC_BIT_NO	12
 
 #define IPC_CTRL_PARAM_BMASK_SRCIP		(1 << 0)
@@ -117,6 +119,7 @@ static struct argp_option sa_add_options[] = {
 	{"ss", 'g', "SRCGW", 0, "Source Gateway IP", 0},
 	{"sd", 'G', "SRCGW", 0, "Destination Gateway IP", 0},
 	{"dir", 'r', "DIR", 0, "DIR- in/ out", 0},
+	{"dg", 'D', "DEFGW", 0, "Default Gateway", 0},
 	{"a", 'a', "AKEY", 0, "Authentication Key", 0},
 	{"e", 'e', "EKEY", 0, "Encryption Key", 0},
 	{"spi", 'i', "SPI", 0, "SPI - 32 bit unsigned int", 0},

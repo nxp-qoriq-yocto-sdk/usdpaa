@@ -125,6 +125,7 @@ int32_t ipsecfwd_create_sa(struct app_ctrl_ipsec_info *ipsec_info,
 	ipsec_tunnel_config_entry->dst_ip = ipsec_info->sel.daddr;
 	ipsec_tunnel_config_entry->tunnel_src_ip_addr = ipsec_info->id.saddr;
 	ipsec_tunnel_config_entry->tunnel_dst_ip_addr = ipsec_info->id.daddr;
+	ipsec_tunnel_config_entry->defgw = ipsec_info->id.defgw;
 
 	memcpy(&ipsec_tunnel_config_entry->enc_key[0],
 		ipsec_info->ealg.alg_key, ipsec_info->ealg.alg_key_len);
@@ -137,11 +138,18 @@ int32_t ipsecfwd_create_sa(struct app_ctrl_ipsec_info *ipsec_info,
 
 	if (encryption_mode == ENCRYPT) {
 		ipsec_tunnel_config_entry->seq_num = 0;
-		next_hop_addr = &ipsec_tunnel_config_entry->tunnel_dst_ip_addr;
+		if (ipsec_tunnel_config_entry->defgw == 0)
+			next_hop_addr =
+				&ipsec_tunnel_config_entry->tunnel_dst_ip_addr;
+		else
+			next_hop_addr = &ipsec_tunnel_config_entry->defgw;
 	} else {
 		/* per generated data for decap */
 		ipsec_tunnel_config_entry->seq_num = 1;
-		next_hop_addr = &ipsec_tunnel_config_entry->dst_ip;
+		if (ipsec_tunnel_config_entry->defgw == 0)
+			next_hop_addr = &ipsec_tunnel_config_entry->dst_ip;
+		else
+			next_hop_addr = &ipsec_tunnel_config_entry->defgw;
 	}
 	ret = ipsec_tunnel_create(ipsec_tunnel_config_entry,
 			    ipsec_stack, next_hop_addr, encryption_mode,

@@ -338,6 +338,10 @@ void ipc_sa_add_del_command(int argc, char **argv, unsigned type)
 			sa_info.ipsec_info.aalg.alg_key_len = 20;
 		}
 
+		/* Setting the default */
+		if ((g_mndtr_param & IPC_CTRL_PARAM_BIT_DEFGW) == 0)
+			sa_info.ipsec_info.id.defgw = 0;
+
 	} else {
 		if ((g_mndtr_param & IPC_CTRL_SA_DEL_MDTR_PARAM_MAP) !=
 		    IPC_CTRL_SA_DEL_MDTR_PARAM_MAP) {
@@ -575,6 +579,13 @@ static error_t parse_sa_add_opt(int key, char *arg, struct argp_state *state)
 		inet_aton(arg, &in_addr);
 		sa_info->ipsec_info.id.daddr = in_addr.s_addr;
 		g_mndtr_param |= IPC_CTRL_PARAM_BIT_DESTGW;
+		pr_debug("\nkey = %c; value = %s", key, arg);
+		break;
+
+	case 'D':
+		inet_aton(arg, &in_addr);
+		sa_info->ipsec_info.id.defgw = in_addr.s_addr;
+		g_mndtr_param |= IPC_CTRL_PARAM_BIT_DEFGW;
 		pr_debug("\nkey = %c; value = %s", key, arg);
 		break;
 
