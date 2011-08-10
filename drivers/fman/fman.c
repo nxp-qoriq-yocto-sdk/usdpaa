@@ -69,19 +69,211 @@ cleanup:
 	free(__if);
 }
 
-int fman_if_init(void)
+/* These constructs shrink the size of fman_[if_]init() considerably */
+#define my_log(err, fmt, args...) \
+	fprintf(stderr, "ERR: %s:%hu:%s()\n%s: " fmt, \
+		__FILE__, __LINE__, __func__, strerror(err), ##args)
+#define my_err(cond, rc, fmt, args...) \
+	if (unlikely(cond)) { \
+		_errno = (rc); \
+		my_log(_errno, fmt, ##args); \
+		goto err; \
+	}
+
+static int fman_if_init(const struct device_node *dpa_node, int is_offline)
 {
-	int			 _errno;
-	const struct device_node *dpa_node, *mac_node, *tx_node, *pool_node;
-	const struct device_node *fman_node;
-	const uint32_t		*regs_addr;
-	uint64_t		phys_addr;
-	const phandle		*mac_phandle, *ports_phandle, *pools_phandle;
-	const phandle		*tx_channel_id, *mac_addr;
-	const phandle		*rx_phandle, *tx_phandle, *cell_idx;
-	struct __fman_if	*__if;
-	size_t			 lenp;
-	struct fman_if_bpool	*bpool;
+	const char *rprop = is_offline ? "fsl,qman-frame-queues-oh" :
+					 "fsl,qman-frame-queues-rx";
+	const char *mprop = is_offline ? "fsl,fman-oh-port" :
+					 "fsl,fman-mac";
+	uint64_t phys_addr;
+	struct __fman_if *__if;
+	struct fman_if_bpool *bpool;
+	const phandle *mac_phandle, *ports_phandle, *pools_phandle;
+	const phandle *tx_channel_id, *mac_addr, *cell_idx;
+	const phandle *rx_phandle, *tx_phandle;
+	const struct device_node *mac_node, *tx_node, *pool_node, *fman_node;
+	const uint32_t *regs_addr;
+	const char *mname, *fname;
+	const char *dname = dpa_node->full_name;
+	size_t lenp;
+	int _errno;
+
+	if (of_device_is_available(dpa_node) == false)
+		return 0;
+
+	/* Allocate an object for this network interface */
+	__if = malloc(sizeof(*__if));
+	my_err(!__if, -ENOMEM, "malloc(%d)\n", sizeof(*__if));
+	INIT_LIST_HEAD(&__if->__if.bpool_list);
+	strncpy(__if->node_path, dpa_node->full_name, PATH_MAX - 1);
+	__if->node_path[PATH_MAX - 1] = '\0';
+
+	/* Obtain the MAC node used by this interface */
+	mac_phandle = of_get_property(dpa_node, mprop, &lenp);
+	my_err(!mac_phandle, -EINVAL, "%s: no %s\n", dname, mprop);
+	assert(lenp == sizeof(phandle));
+	mac_node = of_find_node_by_phandle(*mac_phandle);
+	my_err(!mac_node, -ENXIO, "%s: bad 'fsl,fman-mac\n", dname);
+	mname = mac_node->full_name;
+
+	/* Map the CCSR regs for the MAC node */
+	if (!is_offline) {
+		regs_addr = of_get_address(mac_node, 0, &__if->regs_size, NULL);
+		my_err(!regs_addr, -EINVAL, "of_get_address(%s)\n", mname);
+		phys_addr = of_translate_address(mac_node, regs_addr);
+		my_err(!phys_addr, -EINVAL, "of_translate_address(%s, %p)\n",
+			mname, regs_addr);
+		__if->ccsr_map = mmap(NULL, __if->regs_size,
+				PROT_READ | PROT_WRITE, MAP_SHARED,
+				ccsr_map_fd, phys_addr);
+		my_err(__if->ccsr_map == MAP_FAILED, -errno,
+			"mmap(0x%"PRIx64")\n", phys_addr);
+	}
+
+	/* Get the index of the Fman this i/f belongs to */
+	fman_node = of_get_parent(mac_node);
+	my_err(!fman_node, -ENXIO, "of_get_parent(%s)\n", mname);
+	fname = fman_node->full_name;
+	cell_idx = of_get_property(fman_node, "cell-index", &lenp);
+	my_err(!cell_idx, -ENXIO, "%s: no cell-index)\n", fname);
+	assert(lenp == sizeof(*cell_idx));
+	__if->__if.fman_idx = *cell_idx;
+
+	/* Is the MAC node 1G or 10G? */
+	if (is_offline)
+		__if->__if.mac_type = fman_offline;
+	else if (of_device_is_compatible(mac_node, "fsl,fman-1g-mac"))
+		__if->__if.mac_type = fman_mac_1g;
+	else if (of_device_is_compatible(mac_node, "fsl,fman-10g-mac"))
+		__if->__if.mac_type = fman_mac_10g;
+	else
+		my_err(1, -EINVAL, "%s: unknown MAC type\n", mname);
+
+	/* Extract the index of the MAC */
+	cell_idx = of_get_property(mac_node, "cell-index", &lenp);
+	my_err(!cell_idx, -ENXIO, "%s: no cell-index\n", mname);
+	assert(lenp == sizeof(*cell_idx));
+	__if->__if.mac_idx = *cell_idx;
+
+	if (!is_offline) {
+		/* Extract the MAC address */
+		mac_addr = of_get_property(mac_node, "local-mac-address",
+					&lenp);
+		my_err(!mac_addr, -EINVAL, "%s: no local-mac-address\n",
+			mname);
+		memcpy(&__if->__if.mac_addr, mac_addr, ETH_ALEN);
+	
+		/* Extract the Tx port (it's the second of the two port handles)
+		 * and get its channel ID */
+		ports_phandle = of_get_property(mac_node, "fsl,port-handles",
+						&lenp);
+		my_err(!ports_phandle, -EINVAL, "%s: no fsl,port-handles\n",
+			mname);
+		assert(lenp == (2 * sizeof(phandle)));
+		tx_node = of_find_node_by_phandle(ports_phandle[1]);
+		my_err(!tx_node, -ENXIO, "%s: bad fsl,port-handle[1]\n", mname);
+		/* Extract the channel ID (from tx-port-handle) */
+		tx_channel_id = of_get_property(tx_node, "fsl,qman-channel-id",
+						&lenp);
+		my_err(!tx_channel_id, -EINVAL, "%s: no fsl-qman-channel-id\n",
+			tx_node->full_name);
+	} else {
+		/* Extract the channel ID (from mac) */
+		tx_channel_id = of_get_property(mac_node, "fsl,qman-channel-id",
+						&lenp);
+		my_err(!tx_channel_id, -EINVAL, "%s: no fsl-qman-channel-id\n",
+			mac_node->full_name);
+	}
+	assert(lenp == sizeof(*tx_channel_id));
+	__if->__if.tx_channel_id = *tx_channel_id;
+
+	/* Extract the Rx FQIDs. (Note, the device representation is silly,
+	 * there are "counts" that must always be 1.) */
+	rx_phandle = of_get_property(dpa_node, rprop, &lenp);
+	my_err(!rx_phandle, -EINVAL, "%s: no fsl,qman-frame-queues-rx\n",
+		dname);
+	assert(lenp == (4 * sizeof(phandle)));
+	assert((rx_phandle[1] == 1) && (rx_phandle[3] == 1));
+	__if->__if.fqid_rx_err = rx_phandle[0];
+
+	/* No special Tx FQs for offline interfaces, nor hard-coded pools */
+	if (is_offline)
+		goto ok;
+
+	/* Extract the Tx FQIDs */
+	tx_phandle = of_get_property(dpa_node,
+			"fsl,qman-frame-queues-tx", &lenp);
+	my_err(!tx_phandle, -EINVAL, "%s: no fsl,qman-frame-queues-tx\n",
+		dname);
+	assert(lenp == (4 * sizeof(phandle)));
+	assert((tx_phandle[1] == 1) && (tx_phandle[3] == 1));
+	__if->__if.fqid_tx_err = tx_phandle[0];
+	__if->__if.fqid_tx_confirm = tx_phandle[2];
+
+	/* Obtain the buffer pool nodes used by this interface */
+	pools_phandle = of_get_property(dpa_node, "fsl,bman-buffer-pools",
+					&lenp);
+	my_err(!pools_phandle, -EINVAL, "%s: no fsl,bman-buffer-pools\n",
+		dname);
+	/* For each pool, parse the corresponding node and add a pool object to
+	 * the interface's "bpool_list" */
+	assert(lenp && !(lenp % sizeof(phandle)));
+	while (lenp) {
+		size_t proplen;
+		const phandle *prop;
+		const char *pname;
+		/* Allocate an object for the pool */
+		bpool = malloc(sizeof(*bpool));
+		my_err(!bpool, -ENOMEM, "malloc(%d)\n", sizeof(*bpool));
+		/* Find the pool node */
+		pool_node = of_find_node_by_phandle(*pools_phandle);
+		my_err(!pool_node, -ENXIO, "%s: bad fsl,bman-buffer-pools\n",
+			dname);
+		pname = pool_node->full_name;
+		/* Extract the BPID property */
+		prop = of_get_property(pool_node, "fsl,bpid", &proplen);
+		my_err(!prop, -EINVAL, "%s: no fsl,bpid\n", pname);
+		assert(proplen == sizeof(*prop));
+		bpool->bpid = *prop;
+		/* Extract the cfg property (count/size/addr) */
+		prop = of_get_property(pool_node, "fsl,bpool-cfg",
+					&proplen);
+		if (!prop) {
+			/* It's OK for there to be no bpool-cfg */
+			bpool->count = bpool->size = bpool->addr = 0;
+		} else {
+			assert(proplen == (6 * sizeof(*prop)));
+			bpool->count = ((uint64_t)prop[0] << 32) |
+					prop[1];
+			bpool->size = ((uint64_t)prop[2] << 32) |
+					prop[3];
+			bpool->addr = ((uint64_t)prop[4] << 32) |
+					prop[5];
+		}
+		/* Parsing of the pool is complete, add it to the interface
+		 * list. */
+		list_add_tail(&bpool->node, &__if->__if.bpool_list);
+		lenp -= sizeof(phandle);
+		pools_phandle++;
+	}
+
+ok:
+	/* Parsing of the network interface is complete, add it to the list. */
+	printf("Found %s, Tx Channel = %x, FMAN = %x, Port ID = %x\n",
+		dname, __if->__if.tx_channel_id, __if->__if.fman_idx,
+		__if->__if.mac_idx);
+	list_add_tail(&__if->__if.node, &__ifs);
+	return 0;
+err:
+	if_destructor(__if);
+	return _errno;
+}
+
+int fman_init(void)
+{
+	const struct device_node *dpa_node;
+	int _errno;
 
 	/* If multiple dependencies try to initialise the Fman driver, don't
 	 * panic. */
@@ -90,355 +282,28 @@ int fman_if_init(void)
 
 	ccsr_map_fd = open("/dev/mem", O_RDWR);
 	if (unlikely(ccsr_map_fd < 0)) {
-		fprintf(stderr, "%s:%hu:%s(): open(/dev/mem) = %d (%s)\n",
-			__FILE__, __LINE__, __func__, -errno, strerror(errno));
+		my_log(-errno, "open(/dev/mem)\n");
 		return ccsr_map_fd;
 	}
 
-	for_each_compatible_node(dpa_node, NULL, "fsl,dpa-ethernet-init") {
-		if (of_device_is_available(dpa_node) == false)
-			continue;
-
-		/* Allocate an object for this network interface */
-		__if = malloc(sizeof(*__if));
-		if (!__if) {
-			_errno = -ENOMEM;
-			goto err;
-		}
-		INIT_LIST_HEAD(&__if->__if.bpool_list);
-		strncpy(__if->node_path, dpa_node->full_name, PATH_MAX - 1);
-		__if->node_path[PATH_MAX - 1] = '\0';
-
-		/* Obtain the MAC node used by this interface */
-		mac_phandle = of_get_property(dpa_node, "fsl,fman-mac", &lenp);
-		if (unlikely(mac_phandle == NULL)) {
-			_errno = -EINVAL;
-			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s, fsl,fman-mac) failed\n",
-				__FILE__, __LINE__, __func__, dpa_node->full_name);
-			goto err;
-		}
-		assert(lenp == sizeof(phandle));
-		mac_node = of_find_node_by_phandle(*mac_phandle);
-		if (unlikely(mac_node == NULL)) {
-			_errno = -ENXIO;
-			fprintf(stderr, "%s:%hu:%s(): "
-				"of_find_node_by_phandle(fsl,fman-mac) failed\n",
-				__FILE__, __LINE__, __func__);
-			goto err;
-		}
-
-		/* Map the CCSR regs for the MAC node */
-		regs_addr = of_get_address(mac_node, 0, &__if->regs_size, NULL);
-		if (unlikely(regs_addr == NULL)) {
-			_errno = -EINVAL;
-			fprintf(stderr, "%s:%hu:%s(): "
-				"of_get_address(%s) failed\n",
-				__FILE__, __LINE__, __func__,
-				mac_node->full_name);
-			goto err;
-		}
-		phys_addr = of_translate_address(mac_node, regs_addr);
-		if (unlikely(phys_addr == 0)) {
-			_errno = -EINVAL;
-			fprintf(stderr, "%s:%hu:%s(): "
-				"of_translate_address(%s) failed\n",
-				__FILE__, __LINE__, __func__,
-				mac_node->full_name);
-			goto err;
-		}
-		__if->ccsr_map = mmap(NULL, __if->regs_size,
-				PROT_READ | PROT_WRITE, MAP_SHARED,
-				ccsr_map_fd, phys_addr);
-		if (unlikely(__if->ccsr_map == MAP_FAILED)) {
-			_errno = -ENOMEM;
-			fprintf(stderr, "%s:%hu:%s(): mmap() = %d (%s)\n",
-				__FILE__, __LINE__, __func__,
-				-errno, strerror(errno));
-			goto err;
-		}
-
-		/* Get the index of the Fman this i/f belongs to */
-		fman_node = of_get_parent(mac_node);
-		if (!fman_node) {
-			_errno = -ENXIO;
-			fprintf(stderr, "%s:%hu:%s(): of_get_parent(%s)\n",
-				__FILE__, __LINE__, __func__, mac_node->name);
-			goto err;
-		}
-		cell_idx = of_get_property(fman_node, "cell-index", &lenp);
-		if (!cell_idx) {
-			_errno = -ENXIO;
-			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s, "
-				"cell-index) failed\n", __FILE__, __LINE__,
-				__func__, fman_node->full_name);
-			goto err;
-		}
-		assert(lenp == sizeof(*cell_idx));
-		__if->__if.fman_idx = *cell_idx;
-
-		/* Is the MAC node 1G or 10G? */
-		if (of_device_is_compatible(mac_node, "fsl,fman-1g-mac"))
-			__if->__if.mac_type = fman_mac_1g;
-		else if (of_device_is_compatible(mac_node, "fsl,fman-10g-mac"))
-			__if->__if.mac_type = fman_mac_10g;
-		else {
-			_errno = -EINVAL;
-			fprintf(stderr, "%s:%hu:%s: %s:0x%09"PRIx64": unknown MAC type\n",
-				__FILE__, __LINE__, __func__,
-				mac_node->full_name, phys_addr);
-			goto err;
-		}
-
-		/* Extract the index of the MAC */
-		cell_idx = of_get_property(mac_node, "cell-index", &lenp);
-		if (!cell_idx) {
-			_errno = -ENXIO;
-			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s, "
-				"cell-index) failed\n", __FILE__, __LINE__,
-				__func__, mac_node->full_name);
-			goto err;
-		}
-		assert(lenp == sizeof(*cell_idx));
-		__if->__if.mac_idx = *cell_idx;
-
-		/* Extract the MAC address */
-		mac_addr = of_get_property(mac_node, "local-mac-address",
-					&lenp);
-		if (!mac_addr) {
-			_errno = -EINVAL;
-			fprintf(stderr, "%s:%hu:%s: %s:0x%09"PRIx64": unknown MAC "
-				"address\n", __FILE__, __LINE__, __func__,
-				mac_node->full_name, phys_addr);
-			goto err;
-		}
-		/* TODO: assert(lenp == ??!!) */
-		memcpy(&__if->__if.mac_addr, mac_addr, ETH_ALEN);
-
-		/* Extract the Tx port (it's the second of the two port handles)
-		 * and get its channel ID */
-		ports_phandle = of_get_property(mac_node, "fsl,port-handles",
-						&lenp);
-		if (!ports_phandle) {
-			_errno = -EINVAL;
-			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s, "
-				"fsl,port-handles) failed\n",
-				__FILE__, __LINE__, __func__, mac_node->full_name);
-			goto err;
-		}
-		assert(lenp == (2 * sizeof(phandle)));
-		tx_node = of_find_node_by_phandle(ports_phandle[1]);
-		if (!tx_node) {
-			_errno = -ENXIO;
-			fprintf(stderr, "%s:%hu:%s(): of_find_node_by_phandle("
-				"fsl,port-handles) failed\n",
-				__FILE__, __LINE__, __func__);
-			goto err;
-		}
-		tx_channel_id = of_get_property(tx_node, "fsl,qman-channel-id",
-						&lenp);
-		assert(lenp == sizeof(*tx_channel_id));
-		__if->__if.tx_channel_id = *tx_channel_id;
-
-		/* Extract the Rx/Tx FQIDs. (Note, the device representation is
-		 * silly, there are "counts" that must always be 1.) */
-		rx_phandle = of_get_property(dpa_node,
-				"fsl,qman-frame-queues-rx", &lenp);
-		if (!rx_phandle) {
-			_errno = -EINVAL;
-			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s, "
-				"fsl,qman-frame-queues-rx) failed\n",
-				__FILE__, __LINE__, __func__, dpa_node->full_name);
-			goto err;
-		}
-		assert(lenp == (4 * sizeof(phandle)));
-		assert((rx_phandle[1] == 1) && (rx_phandle[3] == 1));
-		__if->__if.fqid_rx_err = rx_phandle[0];
-		tx_phandle = of_get_property(dpa_node,
-				"fsl,qman-frame-queues-tx", &lenp);
-		if (!tx_phandle) {
-			_errno = -EINVAL;
-			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s, "
-				"fsl,qman-frame-queues-tx) failed\n",
-				__FILE__, __LINE__, __func__, dpa_node->full_name);
-			goto err;
-		}
-		assert(lenp == (4 * sizeof(phandle)));
-		assert((tx_phandle[1] == 1) && (tx_phandle[3] == 1));
-		__if->__if.fqid_tx_err = tx_phandle[0];
-		__if->__if.fqid_tx_confirm = tx_phandle[2];
-
-		/* Obtain the buffer pool nodes used by this interface */
-		pools_phandle = of_get_property(dpa_node,
-					"fsl,bman-buffer-pools", &lenp);
-		if (!pools_phandle) {
-			_errno = -EINVAL;
-			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s, "
-				"fsl,bman-buffer-pools) failed\n",
-				__FILE__, __LINE__, __func__, dpa_node->full_name);
-			goto err;
-		}
-		/* For each pool, parse the corresponding node and add a pool
-		 * object to the interface's "bpool_list" */
-		assert(lenp && !(lenp % sizeof(phandle)));
-		while (lenp) {
-			size_t proplen;
-			const phandle *prop;
-			/* Allocate an object for the pool */
-			bpool = malloc(sizeof(*bpool));
-			if (!bpool) {
-				_errno = -ENOMEM;
-				goto err;
-			}
-			/* Find the pool node */
-			pool_node = of_find_node_by_phandle(*pools_phandle);
-			if (!pool_node) {
-				free(bpool);
-				_errno = -ENXIO;
-				fprintf(stderr, "%s:%hu:%s(): "
-					"of_find_node_by_phandle(fsl,"
-					"bman-buffer-pools) failed\n",
-					__FILE__, __LINE__, __func__);
-				goto err;
-			}
-			/* Extract the BPID property */
-			prop = of_get_property(pool_node, "fsl,bpid", &proplen);
-			if (!prop) {
-				free(bpool);
-				_errno = -EINVAL;
-				fprintf(stderr, "%s:%hu:%s(): of_get_property("
-					"%s, fsl,bpid) failed\n",
-					__FILE__, __LINE__, __func__,
-					pool_node->full_name);
-				goto err;
-			}
-			assert(proplen == sizeof(*prop));
-			bpool->bpid = *prop;
-			/* Extract the cfg property (count/size/addr) */
-			prop = of_get_property(pool_node, "fsl,bpool-cfg",
-						&proplen);
-			if (!prop) {
-				/* It's OK for there to be no bpool-cfg */
-				bpool->count = bpool->size = bpool->addr = 0;
-			} else {
-				assert(proplen == (6 * sizeof(*prop)));
-				bpool->count = ((uint64_t)prop[0] << 32) |
-						prop[1];
-				bpool->size = ((uint64_t)prop[2] << 32) |
-						prop[3];
-				bpool->addr = ((uint64_t)prop[4] << 32) |
-						prop[5];
-			}
-			/* Parsing of the pool is complete, add it to the
-			 * interface list. */
-			list_add_tail(&bpool->node, &__if->__if.bpool_list);
-			lenp -= sizeof(phandle);
-			pools_phandle++;
-		}
-		/* Parsing of the network interface is complete, add it to the
-		 * list. */
-		printf("Found %s\n", dpa_node->full_name);
-		list_add_tail(&__if->__if.node, &__ifs);
-	}
-
+	/* Parse offline ports first, so they initialise first. That way,
+	 * initialisation of regular ports can "choose" an offline port to
+	 * association with. */
 	for_each_compatible_node(dpa_node, NULL, "fsl,dpa-oh") {
-		if (of_device_is_available(dpa_node) == false)
-			continue;
-
-		/* Allocate an object for this network interface */
-		__if = malloc(sizeof(*__if));
-		if (!__if) {
-			_errno = -ENOMEM;
-			goto err;
-		}
-		INIT_LIST_HEAD(&__if->__if.bpool_list);
-		strncpy(__if->node_path, dpa_node->full_name, PATH_MAX - 1);
-		__if->node_path[PATH_MAX - 1] = '\0';
-
-		/* Obtain the MAC node used by this interface */
-		mac_phandle = of_get_property(dpa_node, "fsl,fman-oh-port", &lenp);
-		if (unlikely(mac_phandle == NULL)) {
-			_errno = -EINVAL;
-			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s, fsl,fman-mac) failed\n",
-				__FILE__, __LINE__, __func__, dpa_node->full_name);
-			goto err;
-		}
-		assert(lenp == sizeof(phandle));
-		mac_node = of_find_node_by_phandle(*mac_phandle);
-		if (unlikely(mac_node == NULL)) {
-			_errno = -ENXIO;
-			fprintf(stderr, "%s:%hu:%s(): "
-				"of_find_node_by_phandle(fsl,fman-mac) failed\n",
-				__FILE__, __LINE__, __func__);
-			goto err;
-		}
-
-		/* Get the index of the Fman this i/f belongs to */
-		fman_node = of_get_parent(mac_node);
-		if (!fman_node) {
-			_errno = -ENXIO;
-			fprintf(stderr, "%s:%hu:%s(): of_get_parent(%s)\n",
-				__FILE__, __LINE__, __func__, mac_node->name);
-			goto err;
-		}
-
-		cell_idx = of_get_property(fman_node, "cell-index", &lenp);
-		if (!cell_idx) {
-			_errno = -ENXIO;
-			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s, "
-				"cell-index) failed\n", __FILE__, __LINE__,
-				__func__, fman_node->full_name);
-			goto err;
-		}
-		assert(lenp == sizeof(*cell_idx));
-		__if->__if.fman_idx = *cell_idx;
-		__if->__if.mac_type = fman_offline;
-
-		/* Extract the index of the MAC */
-		cell_idx = of_get_property(mac_node, "cell-index", &lenp);
-		if (!cell_idx) {
-			_errno = -ENXIO;
-			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s, "
-				"cell-index) failed\n", __FILE__, __LINE__,
-				__func__, mac_node->full_name);
-			goto err;
-		}
-		assert(lenp == sizeof(*cell_idx));
-		__if->__if.mac_idx = *cell_idx;
-
-		tx_channel_id = of_get_property(mac_node, "fsl,qman-channel-id",
-						&lenp);
-		assert(lenp == sizeof(*tx_channel_id));
-		__if->__if.tx_channel_id = *tx_channel_id;
-
-		/* Extract the Rx/Tx FQIDs. (Note, the device representation is
-		 * silly, there are "counts" that must always be 1.) */
-		rx_phandle = of_get_property(dpa_node,
-				"fsl,qman-frame-queues-oh", &lenp);
-		if (!rx_phandle) {
-			_errno = -EINVAL;
-			fprintf(stderr, "%s:%hu:%s(): of_get_property(%s, "
-				"fsl,qman-frame-queues-oh) failed\n",
-				__FILE__, __LINE__, __func__, dpa_node->full_name);
-			goto err;
-		}
-		assert(lenp == (4 * sizeof(phandle)));
-		assert((rx_phandle[1] == 1) && (rx_phandle[3] == 1));
-		__if->__if.fqid_rx_err = rx_phandle[0];
-
-		/* Parsing of the offline interface is complete, add it to the
-		 * list. */
-		printf("Found %s, Tx Channel = %x, FMAN = %x, Port ID = %x\n", dpa_node->full_name, __if->__if.tx_channel_id, __if->__if.fman_idx, __if->__if.mac_idx);
-		list_add_tail(&__if->__if.node, &__ifs);
+		_errno = fman_if_init(dpa_node, 1);
+		my_err(_errno, _errno, "if_init(%s)\n", dpa_node->full_name);
 	}
-
+	for_each_compatible_node(dpa_node, NULL, "fsl,dpa-ethernet-init") {
+		_errno = fman_if_init(dpa_node, 0);
+		my_err(_errno, _errno, "if_init(%s)\n", dpa_node->full_name);
+	}
 	return 0;
 err:
-	if_destructor(__if);
-	fman_if_finish();
+	fman_finish();
 	return _errno;
 }
 
-void fman_if_finish(void)
+void fman_finish(void)
 {
 	struct __fman_if *__if, *tmpif;
 

@@ -165,7 +165,7 @@ struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
 	}
 
 	/* Initialise the Fman driver */
-	_errno = fman_if_init();
+	_errno = fman_init();
 	if (_errno) {
 		fprintf(stderr, "%s:%hu:%s(): fman driver init failed "
 			"(ERRNO = %d)\n", __FILE__, __LINE__, __func__, _errno);

@@ -84,8 +84,8 @@ struct fman_if_bpool {
 const struct list_head *fman_if_list;
 
 /* "init" discovers all Fman interfaces. "finish" tears down the driver. */
-int fman_if_init(void);
-void fman_if_finish(void);
+int fman_init(void);
+void fman_finish(void);
 
 /* Enable/disable Rx on specific interfaces */
 void fman_if_enable_rx(const struct fman_if *);
