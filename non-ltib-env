@@ -46,6 +46,6 @@ ROOTFS_PATH=$PWD/../ltib/rootfs
 export PKG_CONFIG_PATH=$ROOTFS_PATH/usr/lib/pkgconfig
 export LIBXML2_CFLAGS=$(pkg-config --define-variable=prefix=$ROOTFS_PATH$(pkg-config --variable=prefix libxml-2.0) --cflags libxml-2.0)
 export LIBXML2_LDFLAGS=$(pkg-config --define-variable=prefix=$ROOTFS_PATH$(pkg-config --variable=prefix libxml-2.0) --libs --static libxml-2.0)
-export LIBEDIT_CFLAGS=$(pkg-config --define-variable=prefix=$ROOTFS_PATH$(pkg-config --variable=prefix libxml-2.0) --cflags libedit)
-export LIBEDIT_LDFLAGS=$(pkg-config --define-variable=prefix=$ROOTFS_PATH$(pkg-config --variable=prefix libxml-2.0) --libs --static libedit)
+export LIBEDIT_CFLAGS=$(pkg-config --define-variable=prefix=$ROOTFS_PATH$(pkg-config --variable=prefix libedit) --cflags libedit)
+export LIBEDIT_LDFLAGS=$(pkg-config --define-variable=prefix=$ROOTFS_PATH$(pkg-config --variable=prefix libedit) --libs --static libedit)
 unset ROOTFS_PATH PKG_CONFIG_PATH
