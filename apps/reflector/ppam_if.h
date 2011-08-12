@@ -47,7 +47,29 @@ struct ppam_interface {
 	uint32_t *tx_fqids;
 };
 struct ppam_rx_error { };
-struct ppam_rx_default { };
+struct ppam_rx_default {
+	/* Is non-zero if this network interface is an offline port */
+	int am_offline_port;
+	union {
+		/* Rx-default processing settings */
+		struct {
+			/* What does Rx handling for an offline port need to do?
+			 * Eg. after flipping headers, where does it transmit?
+			 * If that's determined per-interface (rather than, say,
+			 * per-packet), then store it here... TBD */
+			int dummy;
+		} offline;
+		struct {
+			/* Cache the Tx FQID of an offline port here. All Rx
+			 * traffic for this interface will be forwarded to that
+			 * port unless (a) offline_fqid is zero (meaning there
+			 * were no offline ports available), or (b) offline
+			 * forwarding is disabled at run-time ("pure reflector"
+			 * mode). */
+			uint32_t offline_fqid;
+		} regular;
+	};
+};
 struct ppam_tx_error { };
 struct ppam_tx_confirm { };
 struct ppam_rx_hash {

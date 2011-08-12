@@ -31,8 +31,8 @@
  */
 
 #include <ppac.h>
-
 #include "ppam_if.h"
+#include <ppac_interface.h>
 
 #include <inttypes.h>
 #include <netinet/if_ether.h>
@@ -64,6 +64,10 @@
 
 /* Override the default command prompt */
 const char ppam_prompt[] = "reflector> ";
+
+/* Global switch to enable/disable forwarding of rx-default traffic to an
+ * offline port. Default to on? TBD */
+static int fwd_offline = 1;
 
 /* There is no configuration that specifies how many Tx FQs to use
  * per-interface, it's an internal choice for ppac.c and may depend on
@@ -112,10 +116,36 @@ static inline void ppam_rx_error_cb(struct ppam_rx_error *p,
 	ppac_drop_frame(fd);
 }
 
+/* Note: this implementation always maps this rx-default to the first available
+ * offline port. Ie. if there are multiple offline ports, only the first gets
+ * used */
 static int ppam_rx_default_init(struct ppam_rx_default *p,
 				struct ppam_interface *_if,
 				struct qm_fqd_stashing *stash_opts)
 {
+	/* Store a static cache of detected offline ports. When initialising
+	 * regular interfaces, we pick first offline port to map it to. */
+	static struct ppac_interface *offline_ports[10];
+	static int num_offline_ports, next_offline_port;
+
+	struct ppac_interface *c_if = container_of(_if, struct ppac_interface,
+						   ppam_data);
+	if (ppac_interface_type(c_if) == fman_offline) {
+		p->am_offline_port = 1;
+		BUG_ON(num_offline_ports == 10);
+		offline_ports[num_offline_ports++] = c_if;
+	} else {
+		p->am_offline_port = 0;
+		if (num_offline_ports) {
+			struct ppac_interface *i =
+				offline_ports[next_offline_port];
+			p->regular.offline_fqid = qman_fq_fqid(&i->tx_fqs[0]);
+			if (++next_offline_port >= num_offline_ports)
+				next_offline_port = 0;
+		} else
+			/* No offline ports available */
+			p->regular.offline_fqid = 0;
+	}
 	return 0;
 }
 static void ppam_rx_default_finish(struct ppam_rx_default *p,
@@ -127,6 +157,18 @@ static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
 				      const struct qm_dqrr_entry *dqrr)
 {
 	const struct qm_fd *fd = &dqrr->fd;
+
+	if (!p->am_offline_port) {
+		/* Only forward to Offline port if it's turned on */
+		if (fwd_offline && (p->regular.offline_fqid)) {
+			uint32_t *annotations = dma_mem_ptov(qm_fd_addr(fd));
+
+			*annotations = _if->tx_fqids[0];
+			BUG_ON(!*annotations);
+			ppac_send_frame(p->regular.offline_fqid, fd);
+			return;
+		}
+	}
 	ppac_drop_frame(fd);
 }
 
@@ -169,7 +211,15 @@ static inline void ppam_tx_confirm_cb(struct ppam_tx_confirm *p,
 static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_interface *_if,
 			     unsigned idx, struct qm_fqd_stashing *stash_opts)
 {
-	p->tx_fqid = _if->tx_fqids[idx % _if->num_tx_fqids];
+	struct ppac_interface *c_if = container_of(_if, struct ppac_interface,
+					ppam_data);
+
+	/* Transmit FQID for Offline port is in annotation area */
+	if (ppac_interface_type(c_if) == fman_offline)
+		p->tx_fqid = 0;
+	else
+		p->tx_fqid = _if->tx_fqids[idx % _if->num_tx_fqids];
+
 	TRACE("Mapping Rx FQ %p:%d --> Tx FQID %d\n", p, idx, p->tx_fqid);
 	return 0;
 }
@@ -197,14 +247,17 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 				   const struct qm_dqrr_entry *dqrr)
 {
 	void *addr;
+	void *annotations;
 	struct ether_header *prot_eth;
 	const struct qm_fd *fd = &dqrr->fd;
+	uint32_t tx_fqid;
+
 	BUG_ON(fd->format != qm_fd_contig);
-	addr = dma_mem_ptov(qm_fd_addr(fd));
+	annotations = dma_mem_ptov(qm_fd_addr(fd));
 	TRACE("Rx: 2fwd	 fqid=%d\n", dqrr->fqid);
 	TRACE("	     phys=0x%"PRIx64", virt=%p, offset=%d, len=%d, bpid=%d\n",
 		qm_fd_addr(fd), addr, fd->offset, fd->length20, fd->bpid);
-	addr += fd->offset;
+	addr = annotations + fd->offset;
 	prot_eth = addr;
 	TRACE("	     dhost="ETH_MAC_PRINTF_FMT"\n",
 	      prot_eth->ether_dhost[0], prot_eth->ether_dhost[1],
@@ -249,7 +302,15 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 		TRACE("Tx: 2fwd	 fqid=%d\n", p->tx_fqid);
 		TRACE("	     phys=0x%"PRIx64", offset=%d, len=%d, bpid=%d\n",
 			qm_fd_addr(fd), fd->offset, fd->length20, fd->bpid);
-		ppac_send_frame(p->tx_fqid, fd);
+
+		/* Frame received on Offline port PCD FQ range */
+		if (!p->tx_fqid) {
+			BUG_ON(fd->offset < sizeof(tx_fqid));
+			tx_fqid = *(uint32_t *)annotations;
+		} else
+			tx_fqid = p->tx_fqid;
+
+		ppac_send_frame(tx_fqid, fd);
 		}
 		return;
 	case ETHERTYPE_ARP:
@@ -272,17 +333,31 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 	ppac_drop_frame(fd);
 }
 
-#include <ppac.c>
-
+/* We implement no arguments, these are the minimal stubs */
 struct ppam_arguments {
 };
-
 struct ppam_arguments ppam_args;
-
 const char ppam_doc[] = "Packet reflector";
-
 static const struct argp_option argp_opts[] = {
 	{}
 };
-
 const struct argp ppam_argp = {argp_opts, 0, 0, ppam_doc};
+
+/* Implement a CLI command to enable/disable forwarding to offline ports */
+static int offline_cli(int argc, char *argv[])
+{
+	if (argc != 2)
+		return -EINVAL;
+	if (strcmp(argv[1], "enable") == 0)
+		fwd_offline = 1;
+	else if (strcmp(argv[1], "disable") == 0)
+		fwd_offline = 0;
+	else
+		return -EINVAL;
+	return 0;
+}
+cli_cmd(offline, offline_cli);
+
+/* Inline the PPAC machinery */
+#include <ppac.c>
+
