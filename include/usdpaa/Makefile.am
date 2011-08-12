@@ -1,4 +1,4 @@
-# Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
+# Copyright (c) 2011 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -28,6 +28,28 @@
 # ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
 
-SUBDIRS = include apps drivers
+dist_DATA = \
+	compat.h \
+	compat_list.h \
+	conf.h \
+	dma_mem.h \
+	fman.h \
+	fsl_bman.h \
+	fsl_pme.h \
+	fsl_qman.h \
+	fsl_usd.h \
+	of.h \
+	usdpaa_netcfg.h
+
+compat.h_install = $(PREFIX)/include/usdpaa
+compat_list.h_install = $(PREFIX)/include/usdpaa
+conf.h_install = $(PREFIX)/include/usdpaa
+dma_mem.h_install = $(PREFIX)/include/usdpaa
+fman.h_install = $(PREFIX)/include/usdpaa
+fsl_bman.h_install = $(PREFIX)/include/usdpaa
+fsl_pme.h_install = $(PREFIX)/include/usdpaa
+fsl_qman.h_install = $(PREFIX)/include/usdpaa
+fsl_usd.h_install = $(PREFIX)/include/usdpaa
+of.h_install = $(PREFIX)/include/usdpaa
+usdpaa_netcfg.h_install = $(PREFIX)/include/usdpaa
