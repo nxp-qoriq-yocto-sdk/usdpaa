@@ -255,7 +255,7 @@ int generate_splitkey(void)
 	sg->length = 60;
 
 	/* Create Job Desc */
-	pr_debug(stderr, "After cnstr_jobdesc_mdsplitkey: %d\n", bufsize);
+	pr_debug("After cnstr_jobdesc_mdsplitkey: %d\n", bufsize);
 
 	/* input buffer */
 	sg++;
