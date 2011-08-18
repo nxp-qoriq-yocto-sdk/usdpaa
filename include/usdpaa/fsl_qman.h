@@ -178,6 +178,7 @@ struct qm_fd {
 			/* More efficient address accessor */
 			u64 addr:40;
 		};
+		u64 opaque_addr;
 	};
 	/* The 'format' field indicates the interpretation of the remaining 29
 	 * bits of the 32-bit word. For packing reasons, it is duplicated in the
