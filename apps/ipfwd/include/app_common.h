@@ -49,4 +49,5 @@
 /**< Mask for reading only the bits that would change when a jiffy passes */
 
 #define MAX_NUM_BMAN_POOLS 64
+#undef ONE_MILLION_ROUTE_SUPPORT
 #endif	/* APP_COMMON__H */

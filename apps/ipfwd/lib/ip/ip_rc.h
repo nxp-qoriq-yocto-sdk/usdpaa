@@ -31,20 +31,24 @@
 #include "ip/ip.h"
 #include <fsl_fman/crc64.h>
 #include "statistics.h"
+#include "app_common.h"
 
 #include <internal/compat.h>	/* L1_CACHE_BYTES */
-
-#define RC_BUCKETS					1024
+#ifdef ONE_MILLION_ROUTE_SUPPORT
+#define RC_BUCKETS					(1024*1024)
 /**< Number of Route cache Buckets */
+#define MAX_RC_ENTRIES					(1024*1024)
+/**< Number of Route cache entries*/
+#else
+#define RC_BUCKETS					(1024)
+/**< Number of Route cache Buckets */
+#define MAX_RC_ENTRIES					(1024)
+/**< Number of Route cache entries*/
+#endif /* endif 1M support */
 #define RC_HASH_MASK					(RC_BUCKETS - 1)
 /**< Hash Mask for Route Cache */
-#define RC_INVALID_HASH					RC_BUCKETS
-/**< Invalid Mask for Route Cache  */
-#define MAX_RC_ENTRIES					1024
-/**< Number of Route cache entries*/
 #define RC_ENTRY_POOL_SIZE				(RC_BUCKETS << 1)
 /**< Size of Route cache entry Pool */
-
 /**
 \brief Route Cache Stats
 \details This object specifies the Route Cache related Statistics

@@ -32,13 +32,18 @@
 
 #include "mm/mem_cache.h"
 #include "statistics.h"
+#include "app_common.h"
 
 #include <internal/compat.h>
 
 #include <stdbool.h>
 
 /**< Pool Size for Routing Table Entries */
-#define RT_DEST_POOL_SIZE	2048
+#ifdef ONE_MILLION_ROUTE_SUPPORT
+#define RT_DEST_POOL_SIZE	(1024*1024)
+#else
+#define RT_DEST_POOL_SIZE	(2048)
+#endif
 
 /**
  \brief Routing Scope of the Packet - Local or Global
