@@ -29,15 +29,9 @@ net_pair_routes()
 {
 	for net in $1 $2
 	do
-		for src in $(seq 2 $(expr $3 + 1))
-		do
-			for dst in $(seq 2 $(expr $4 + 1))
-			do
-				ipfwd_config -B -s 192.168.$net.$src			\
-						-d 192.168.$(expr $1 + $2 - $net).$dst	\
-						-g 192.168.$(expr $1 + $2 - $net).2
-			done
-		done
+		ipfwd_config -B -s 192.168.$net.2 -c $3 \
+		-d 192.168.$(expr $1 + $2 - $net).2 -n $4 -g \
+		192.168.$(expr $1 + $2 - $net).2
 	done
 }
 

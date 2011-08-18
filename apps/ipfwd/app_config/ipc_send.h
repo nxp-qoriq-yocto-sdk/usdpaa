@@ -71,7 +71,9 @@ const char *argp_program_version = "argex 1.0";
 /**< Bit Mask for Gateway IP */
 #define IPC_CTRL_PARAM_BMASK_FLOWID	(1 << 4)
 /**< Bit Mask for Flow ID */
-#define IPC_CTRL_PARAM_MAX_IP_BIT_NO		5
+#define LWE_CTRL_PARAM_BMASK_SRCCNT    (1 << 5)        /**< Bit Mask for Src Count */
+#define LWE_CTRL_PARAM_BMASK_DSTCNT    (1 << 6)        /**< Bit Mask for Dest Count */
+#define IPC_CTRL_PARAM_MAX_IP_BIT_NO		6
 
 #define IPC_CTRL_ROUTE_FLOWID_MIN				0
 #define IPC_CTRL_ROUTE_FLOWID_MAX				1024
@@ -80,11 +82,15 @@ const char *argp_program_version = "argex 1.0";
 /**< Mandatory Parameters needed for creating Route */
 #define IPC_CTRL_ROUTE_ADD_MDTR_PARAM_MAP (IPC_CTRL_PARAM_BMASK_SRCIP | \
 				IPC_CTRL_PARAM_BMASK_DESTIP | \
-				IPC_CTRL_PARAM_BMASK_GWIP)
+				IPC_CTRL_PARAM_BMASK_GWIP | \
+				LWE_CTRL_PARAM_BMASK_SRCCNT | \
+				LWE_CTRL_PARAM_BMASK_DSTCNT)
 
 static struct argp_option route_add_options[] = {
 	{"s", 's', "SRCIP", 0, "Source IP", 0},
+	{"c", 'c', "SRCCNT", 0, "SRC CNT", 0},
 	{"d", 'd', "DESTIP", 0, "Destination IP", 0},
+	{"n", 'n', "DESTCNT", 0, "Destination COUNT", 0},
 	{"g", 'g', "GWIP", 0, "Gateway IP", 0},
 	{"f", 'f', "FLOWID", 0, "Flow ID - (0 - 64) {Default: 0}", 0},
 	{}

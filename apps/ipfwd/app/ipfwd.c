@@ -88,77 +88,98 @@ static int ipfwd_add_route(const struct app_ctrl_op_info *route_info)
 	struct ppac_interface *dev = NULL;
 	in_addr_t gw_ipaddr = route_info->ip_info.gw_ipaddr;
 	int _errno;
+	uint32_t s_cnt, d_cnt, saddr, daddr;
+	int i, j;
 
 	pr_debug("ipfwd_add_route: Enter\n");
+	s_cnt = route_info->ip_info.s_cnt;
+	d_cnt = route_info->ip_info.d_cnt;
+	saddr = route_info->ip_info.src_ipaddr;
+	for (i = 1; i <= s_cnt; i++) {
+		daddr = route_info->ip_info.dst_ipaddr;
+		for (j = 1; j <= d_cnt; j++) {
+			dest = rt_dest_alloc(&stack.rt);
+			if (dest == NULL) {
+				pr_err
+				("Couldn't allocate rc related data struct\n");
+				return -1;
+			}
 
-	dest = rt_dest_alloc(&stack.rt);
-	if (dest == NULL) {
-		pr_err
-		    ("Could not allocate route cache related data structure\n");
-		return -1;
-	}
+			dest->next = NULL;
+			dest->neighbor = neigh_lookup(&stack.arp_table,
+					gw_ipaddr, stack.arp_table.proto_len);
+			if (dest->neighbor == NULL) {
+				pr_debug
+				("%s:Couldn't find neigh entry for link-local"
+					"addr\n", __func__);
 
-	dest->next = NULL;
-	dest->neighbor = neigh_lookup(&stack.arp_table, gw_ipaddr, stack.arp_table.proto_len);
-	if (dest->neighbor == NULL) {
-		pr_debug
-		    ("%s: Could not find neighbor entry for link-local addr\n",
-		     __func__);
+				dev = ipfwd_get_iface_for_ip(gw_ipaddr);
+				if (dev == NULL) {
+					pr_err("%s: not a valid gateway for any"
+						"subnet\n", __func__);
+				return -1;
+				}
 
-		dev = ipfwd_get_iface_for_ip(gw_ipaddr);
-		if (dev == NULL) {
-			pr_err("%s: not a valid gateway for any subnet\n",
-				  __func__);
-			return -1;
+				dest->neighbor = neigh_create(&stack.arp_table);
+				if (unlikely(!dest->neighbor)) {
+					pr_err("%s: Unable to create Neigh"
+						"Entry\n", __func__);
+					return -1;
+				}
+
+				if (NULL == neigh_init(&stack.arp_table,
+					    dest->neighbor, dev, &gw_ipaddr)) {
+					pr_err("%s:Unable to init Neigh Entry\n"
+						, __func__);
+					return -1;
+				}
+
+				if (false == neigh_add(&stack.arp_table,
+							dest->neighbor)) {
+					pr_err("%s: Unable to add Neigh Entry\n"
+						, __func__);
+					return -1;
+				}
+				/* MAC addr would be updated later
+				   through ARP request */
+
+				pr_debug("%s: Created neighbor entry"
+					"IP addr = %x\n", __func__, gw_ipaddr);
+			}
+
+			dest->dev = dest->neighbor->dev;
+			dest->scope = ROUTE_SCOPE_GLOBAL;
+
+			entry = rc_create_entry(&stack.rc);
+			if (entry == NULL) {
+				pr_err("Couldn't allocate route cache entry\n");
+				rt_dest_free(&stack.rt, dest);
+				return -1;
+			}
+
+			entry->saddr = saddr;
+			entry->daddr = daddr;
+
+			_errno = posix_memalign((void **)&entry->stats,
+					L1_CACHE_BYTES,
+					sizeof(struct rc_entry_statistics_t));
+			if (unlikely(_errno < 0)) {
+				pr_err("Unable to allocate route stats\n");
+				return _errno;
+			}
+			memset(entry->stats, 0,
+				sizeof(struct rc_entry_statistics_t));
+			refcount_acquire(dest->neighbor->refcnt);
+
+			entry->dest = dest;
+
+			if (rc_add_update_entry(&stack.rc, entry) == false) {
+				pr_err("Route cache entry updated\n");
+				rc_free_entry(&stack.rc, entry);
+			}
+			daddr += 1;
 		}
-
-		dest->neighbor = neigh_create(&stack.arp_table);
-		if (unlikely(!dest->neighbor)) {
-			pr_err("%s: Unable to create Neigh Entry\n", __func__);
-			return -1;
-		}
-
-		if (NULL == neigh_init(&stack.arp_table, dest->neighbor, dev, &gw_ipaddr)) {
-			pr_err("%s: Unable to init Neigh Entry\n", __func__);
-			return -1;
-		}
-
-		if (false == neigh_add(&stack.arp_table, dest->neighbor)) {
-			pr_err("%s: Unable to add Neigh Entry\n", __func__);
-			return -1;
-		}
-		/* MAC addr would be updated later through ARP request */
-
-		pr_debug("%s: Created neighbor entry, IP addr = %x\n",
-			  __func__, gw_ipaddr);
-	}
-
-	dest->dev = dest->neighbor->dev;
-	dest->scope = ROUTE_SCOPE_GLOBAL;
-
-	entry = rc_create_entry(&stack.rc);
-	if (entry == NULL) {
-		pr_err("Could not allocate route cache entry\n");
-		rt_dest_free(&stack.rt, dest);
-		return -1;
-	}
-
-	entry->saddr = route_info->ip_info.src_ipaddr;
-	entry->daddr = route_info->ip_info.dst_ipaddr;
-	_errno = posix_memalign((void **)&entry->stats, L1_CACHE_BYTES,
-			   sizeof(struct rc_entry_statistics_t));
-	if (unlikely(_errno < 0)) {
-		pr_err("Unable to allocate route entry stats\n");
-		return _errno;
-	}
-	memset(entry->stats, 0, sizeof(struct rc_entry_statistics_t));
-	refcount_acquire(dest->neighbor->refcnt);
-
-	entry->dest = dest;
-
-	if (rc_add_update_entry(&stack.rc, entry) == false) {
-		pr_err("Route cache entry updated\n");
-		rc_free_entry(&stack.rc, entry);
+		saddr += 1;
 	}
 
 	pr_debug("ipfwd_add_route: Exit\n");
@@ -759,7 +780,6 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 {
 	struct annotations_t *notes;
 	void *data;
-
 	switch (dqrr->fd.format) {
 	case qm_fd_contig:
 		notes = dma_mem_ptov(qm_fd_addr(&dqrr->fd));

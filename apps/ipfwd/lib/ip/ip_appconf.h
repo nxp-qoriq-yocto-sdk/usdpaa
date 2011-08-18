@@ -53,6 +53,8 @@ struct app_ctrl_ip_info {
 	unsigned int all;			/**< Show all enabled interfaces */
 	unsigned int replace_entry;		/**< Used for overwriting an existing ARP entry */
 	struct app_ctrl_intf_conf intf_conf;	/**< Interface Configuration */
+	unsigned int s_cnt;                     /**< Count for source ip address */
+	unsigned int d_cnt;                     /**< Count for destination ip address */
 };
 
 /**

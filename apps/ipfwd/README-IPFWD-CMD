@@ -34,5 +34,5 @@ ipfwd_config -G -s 192.168.60.2 -m 02:00:c0:a8:3c:02 -r true
 ipfwd_config -G -s 192.168.160.2 -m 02:00:c0:a8:a0:02 -r true
 
 # Command to add route entry
-ipfwd_config -B -s 192.168.60.2 -d 192.168.160.2 -g 192.168.60.2
-ipfwd_config -B -s 192.168.160.2 -d 192.168.60.2 -g 192.168.160.2
+ipfwd_config -B -s 192.168.60.2 -c 1 -d 192.168.160.2 -n 1 -g 192.168.60.2
+ipfwd_config -B -s 192.168.160.2 -c 1 -d 192.168.60.2 -n 1 -g 192.168.160.2

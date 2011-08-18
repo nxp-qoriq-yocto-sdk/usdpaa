@@ -422,11 +422,33 @@ static error_t parse_route_add_opt(int key, char *arg, struct argp_state *state)
 		g_mndtr_param |= IPC_CTRL_PARAM_BMASK_SRCIP;
 		break;
 
+	case 'c':
+		if ((atoi(arg) < 1) ||
+		   (atoi(arg) > 255)) {
+			printf("Invalid Value \"%s\" for '%c'\n", arg, key);
+			g_parse_error = ERANGE;
+			return -ERANGE;
+		}
+		g_mndtr_param |= LWE_CTRL_PARAM_BMASK_SRCCNT;
+		route_info->ip_info.s_cnt = atoi(arg);
+		break;
+
 	case 'd':
 		inet_aton(arg, &in_addr);
 		route_info->ip_info.dst_ipaddr = in_addr.s_addr;
 		g_mndtr_param |= IPC_CTRL_PARAM_BMASK_DESTIP;
 		pr_debug("\nkey = %c; value = %s", key, arg);
+		break;
+
+	case 'n':
+		if ((atoi(arg) < 1) ||
+		   (atoi(arg) > 255)) {
+			printf("Invalid Value \"%s\" for '%c'\n", arg, key);
+			g_parse_error = ERANGE;
+			return -ERANGE;
+		}
+		g_mndtr_param |= LWE_CTRL_PARAM_BMASK_DSTCNT;
+		route_info->ip_info.d_cnt = atoi(arg);
 		break;
 
 	case 'g':
