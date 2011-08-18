@@ -92,7 +92,7 @@ struct rc_entry_t {
 	/**< Pointer to the Destination Address */
 	struct rt_dest_t *dest;
 	/**< Pointer to the egress interface structure */
-} __attribute__((aligned(L1_CACHE_BYTES)));
+} __attribute__ ((packed));
 
 /**
 \brief Route Cache Bucket

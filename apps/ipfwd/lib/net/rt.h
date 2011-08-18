@@ -82,7 +82,7 @@ struct rt_dest_t {
 	/**< Scope of the Packet LOCAL/GLOBAL/TUNNEL*/
 	stat32_t *refcnt;
 	/**< Counter of application code references */
-};
+} __attribute__ ((packed));
 
 /**
  \brief Free Entries Table Structure for Routing Entries
