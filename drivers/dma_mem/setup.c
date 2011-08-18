@@ -104,7 +104,7 @@ int dma_mem_setup(void)
 		goto err;
 	__dma_virt2phys = region.phys_start - (dma_addr_t)(unsigned long)virt;
 	bpool_base = region.phys_start;
-	bpool_range = region.phys_len;
+	bpool_range = DMA_MEM_BPOOL;
 	printf("FSL dma_mem device mapped (phys=0x%"PRIx64",virt=%p,sz=0x%"PRIx64")\n",
 		region.phys_start, virt, region.phys_len);
 	return 0;
