@@ -23,37 +23,43 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # Script for creating 1M routes
+# $1, $2	- Subnets as in 192.168.$1.* and 192.168.$2.*
+# $3		- Number of sources
+# $4		- Number of destinations
+net_pair_routes()
+{
+	for net in $1
+	do
+		ipfwd_config -B -s 192.168.$net.2 -c $3 \
+		-d 192.168.$2.2 -n $4 -g \
+		192.168.$2.2
+	done
+}
 ipfwd_config -F -a 192.168.24.1 -i 5
 ipfwd_config -F -a 192.168.29.1 -i 11
 
 ipfwd_config -G -s 192.168.24.2 -m 02:00:c0:a8:3c:02 -r true
 ipfwd_config -G -s 192.168.29.2 -m 02:00:c0:a8:a0:02 -r true
 
-ipfwd_config -B -s  192.168.24.2 -c 254 -d  192.168.29.2 -n 254 \
--g 192.168.29.2
-ipfwd_config -B -s  192.168.25.2 -c 254 -d  192.168.29.2 -n 254 \
--g 192.168.29.2
-ipfwd_config -B -s  192.168.26.2 -c 254 -d  192.168.29.2 -n 254 \
--g 192.168.29.2
-ipfwd_config -B -s  192.168.27.2 -c 254 -d  192.168.29.2 -n 254 \
--g 192.168.29.2
-ipfwd_config -B -s  192.168.28.2 -c 254 -d  192.168.29.2 -n 254 \
--g 192.168.29.2
-ipfwd_config -B -s  192.168.1.2 -c 254 -d  192.168.29.2 -n 254 \
--g 192.168.29.2
-ipfwd_config -B -s  192.168.18.2 -c 254 -d  192.168.29.2 -n 254 \
--g 192.168.29.2
-ipfwd_config -B -s  192.168.30.2 -c 254 -d  192.168.29.2 -n 254 \
--g 192.168.29.2
-ipfwd_config -B -s  192.168.31.2 -c 254 -d  192.168.29.2 -n 254 \
--g 192.168.29.2
-ipfwd_config -B -s  192.168.29.2 -c 254 -d  192.168.24.2 -n 254 \
--g 192.168.24.2
-ipfwd_config -B -s  192.168.2.2 -c 254 -d  192.168.24.2 -n 254 -g 192.168.24.2
-ipfwd_config -B -s  192.168.3.2 -c 254 -d  192.168.24.2 -n 254 -g 192.168.24.2
-ipfwd_config -B -s  192.168.4.2 -c 254 -d  192.168.24.2 -n 254 -g 192.168.24.2
-ipfwd_config -B -s  192.168.5.2 -c 254 -d  192.168.24.2 -n 254 -g 192.168.24.2
-ipfwd_config -B -s  192.168.6.2 -c 254 -d  192.168.24.2 -n 254 -g 192.168.24.2
-ipfwd_config -B -s  192.168.17.2 -c 254 -d  192.168.24.2 -n 254 -g 192.168.24.2
-ipfwd_config -B -s  192.168.20.2 -c 127 -d  192.168.24.2 -n 127 -g 192.168.24.2
+			       # 1048456 total routes
+
+net_pair_routes 24 29 254 254  # 254 * 254 = 64516
+net_pair_routes 25 29 254 254  # 254 * 254 = 64516
+net_pair_routes 26 29 254 254  # 254 * 254 = 64516
+net_pair_routes 27 29 254 254  # 254 * 254 = 64516
+net_pair_routes 28 29 254 254  # 254 * 254 = 64516
+net_pair_routes 1 29 254 254  # 254 * 254 = 64516
+net_pair_routes 18 29 254 254  # 254 * 254 = 64516
+net_pair_routes 30 29 254 254  # 254 * 254 = 64516
+net_pair_routes 31 29 90 90  # 90 * 90 = 8100
+net_pair_routes 29 24 254 254  # 254 * 254 = 64516
+net_pair_routes 2 24 254 254  # 254 * 254 = 64516
+net_pair_routes 3 24 254 254  # 254 * 254 = 64516
+net_pair_routes 4 24 254 254  # 254 * 254 = 64516
+net_pair_routes 5 24 254 254  # 254 * 254 = 64516
+net_pair_routes 6 24 254 254  # 254 * 254 = 64516
+net_pair_routes 17 24 254 254  # 254 * 254 = 64516
+net_pair_routes 19 24 254 254  # 254 * 254 = 64516
+net_pair_routes 20 24 90 90  # 90 * 90 = 8100
+
 echo IPFwd Route Creation complete
