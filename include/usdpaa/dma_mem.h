@@ -91,4 +91,10 @@ static inline dma_addr_t dma_mem_vtop(void *v)
 dma_addr_t dma_mem_bpool_base(void);
 size_t dma_mem_bpool_range(void);
 
+/* This API allows the application to change the size of the dma_mem reservation
+ * for use by buffer pools. It will only succeed if no ad-hoc allocations from
+ * dma_mem_memalign() are outstanding. The application is responsible for seeding
+ * buffer pools so it should ensure it does not conflict with this setting. */
+int dma_mem_bpool_set_range(size_t sz);
+
 #endif	/* __DMA_MEM_H */

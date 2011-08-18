@@ -199,3 +199,16 @@ int dma_mem_alloc_init(void *bar, size_t sz)
 {
 	return _dma_mem_free(bar, sz);
 }
+
+int dma_mem_alloc_reinit(void *newbar, size_t newsz,
+			 void *oldbar, size_t oldsz)
+{
+	void *chunk = dma_mem_memalign(1, oldsz);
+	DPRINT("dma_mem_alloc_reinit(new: %p:%x, old: %p:%x, chunk=%p\n",
+	       newbar, newsz, oldbar, oldsz, chunk);
+	DUMP();
+	if (!chunk)
+		return -EBUSY;
+	BUG_ON((chunk != oldbar) && !list_empty(&alloc_list));
+	return _dma_mem_free(newbar, newsz);
+}

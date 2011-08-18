@@ -35,3 +35,5 @@
 
 /* Hook to allocator.c */
 int dma_mem_alloc_init(void *bar, size_t sz);
+int dma_mem_alloc_reinit(void *newbar, size_t newsz,
+			 void *oldbar, size_t oldsz);

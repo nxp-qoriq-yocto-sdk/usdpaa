@@ -57,6 +57,8 @@ static int fd;
 dma_addr_t __dma_virt2phys;
 /* This is the same value, but it's the pointer type */
 static void *virt;
+/* This is the kernel's report on the memory region */
+static struct usdpaa_ioctl_get_region region;
 
 /* This is the physical address range reserved for bpool usage */
 static dma_addr_t bpool_base;
@@ -64,7 +66,6 @@ static size_t bpool_range;
 
 int dma_mem_setup(void)
 {
-	struct usdpaa_ioctl_get_region region;
 	void *trial;
 	int ret;
 	fd = open(DMA_MEM_PATH, O_RDWR);
@@ -122,4 +123,14 @@ dma_addr_t dma_mem_bpool_base(void)
 size_t dma_mem_bpool_range(void)
 {
 	return bpool_range;
+}
+
+int dma_mem_bpool_set_range(size_t sz)
+{
+	int ret = dma_mem_alloc_reinit(virt + sz, region.phys_len - sz,
+				       virt + bpool_range,
+				       region.phys_len - bpool_range);
+	if (!ret)
+		bpool_range = sz;
+	return ret;
 }
