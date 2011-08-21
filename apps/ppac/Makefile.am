@@ -30,7 +30,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 lib_LIBRARIES = usdpaa_ppac
-dist_DATA = us_config_serdes_0xe.xml us_config_serdes_0xe_oh.xml us_config_serdes_0x10_5g.xml us_config_p3_p5_0x36_15g.xml us_policy_hash_ipv4.xml
+dist_DATA = us_config_serdes_0xe.xml us_policer.xml us_config_serdes_0xe_oh.xml us_config_serdes_0x10_5g.xml us_config_p3_p5_0x36_15g.xml us_policy_hash_ipv4.xml
 
 AM_CFLAGS  = -I$(TOP_LEVEL)/apps/include
 
