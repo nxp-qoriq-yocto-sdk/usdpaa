@@ -141,9 +141,9 @@ static inline uint32_t compute_decap_hash(in_addr_t saddr,
 	uint64_t result;
 
 	result = crc64_init();
-	result = crc64_compute_word(saddr, result);
-	result = crc64_compute_word(daddr, result);
-	result = crc64_compute_word(spi, result);
+	result = crc64_compute_32bit(saddr, result);
+	result = crc64_compute_32bit(daddr, result);
+	result = crc64_compute_32bit(spi, result);
 
 	return (uint32_t) result & RC_HASH_MASK;
 }
@@ -160,8 +160,8 @@ static inline uint32_t compute_rc_hash(in_addr_t saddr,
 	uint64_t result;
 
 	result = crc64_init();
-	result = crc64_compute_word(saddr, result);
-	result = crc64_compute_word(daddr, result);
+	result = crc64_compute_32bit(saddr, result);
+	result = crc64_compute_32bit(daddr, result);
 	return (uint32_t) result & RC_HASH_MASK;
 }
 

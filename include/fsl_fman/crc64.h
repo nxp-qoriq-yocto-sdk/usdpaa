@@ -9,9 +9,9 @@
 	do { \
 		uint64_t result; \
 		result = crc64_init(); \
-		result = crc64_compute_word(saddr, result); \
-		result = crc64_compute_word(daddr, result); \
-		result = crc64_compute_word(spi, result); \
+		result = crc64_compute_32bit(saddr, result); \
+		result = crc64_compute_32bit(daddr, result); \
+		result = crc64_compute_32bit(spi, result); \
 		return (uint32_t) result & RC_HASH_MASK; \
 	} while (0);
 
@@ -339,12 +339,12 @@ static inline uint64_t crc64_init(void)
 }
 
 /**
- \brief		Computes 64 bit the crc over 1 word
+ \brief		Computes 64 bit the crc over 32 bit
  \param[in]	data  - 32 bit Data
  \param[in]	seed calculated with crc64_init or last calculated CRC
  \return	calculated crc output
 */
-static inline uint64_t crc64_compute_word(uint32_t data, uint64_t seed)
+static inline uint64_t crc64_compute_32bit(uint32_t data, uint64_t seed)
 {
 	uint64_t crc = seed;
 	uint8_t *bdata = (uint8_t *) &data;
@@ -365,13 +365,13 @@ static inline uint64_t crc64_compute_word(uint32_t data, uint64_t seed)
 }
 
 /**
- \brief		Computes 64 bit the crc over 1 half word
+ \brief		Computes 64 bit the crc over 16 bit data
  \param[in]	data  - 16 bit Data
  \param[in]	seed calculated with crc64_init or last calculated CRC
  \return	calculated crc
 */
 static inline uint64_t
-crc64_compute_hword(uint16_t data, uint64_t seed)
+crc64_compute_16bit(uint16_t data, uint64_t seed)
 {
 	uint64_t crc = seed;
 	uint8_t *bdata = (uint8_t *) &data;
@@ -387,13 +387,13 @@ crc64_compute_hword(uint16_t data, uint64_t seed)
 
 
 /**
- \brief		Computes 64 bit the crc over 1 byte
- \param[in]	data - Input data
+ \brief		Computes 64 bit the crc over 8 bit data
+ \param[in]	data - 8 bit Input data
  \param[in]	seed calculated with crc64_init or last calculated CRC
  \return	calculated crc
 */
 static inline uint64_t
-crc64_compute_byte(uint8_t data, uint64_t seed)
+crc64_compute_8bit(uint8_t data, uint64_t seed)
 {
 	uint64_t crc = seed;
 

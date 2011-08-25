@@ -188,7 +188,7 @@ static inline uint32_t compute_neigh_hash(const void *key, uint32_t key_len)
 	uint64_t result;
 
 	result = crc64_init();
-	result = crc64_compute_word(*(uint32_t *)key, result);
+	result = crc64_compute_32bit(*(uint32_t *)key, result);
 	result = crc64_finish(result);
 	return ((uint32_t) result) & NEIGH_TABLE_BUCKETS_MASK;
 }
