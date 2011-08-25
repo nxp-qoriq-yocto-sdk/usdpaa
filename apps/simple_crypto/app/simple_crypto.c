@@ -626,6 +626,7 @@ struct qman_fq *create_sec_frame_queue(uint32_t fq_id,
 		flags |= QMAN_INITFQ_FLAG_LOCAL;
 		ctx_a_excl = (QM_STASHING_EXCL_DATA | QM_STASHING_EXCL_CTX);
 		ctx_a_len = (1 << 2) | 1;
+		fq_opts.fqd.fq_ctrl |= QM_FQCTRL_CTXASTASHING;
 		fq_opts.fqd.context_a.hi = (ctx_a_excl << 24)
 			| (ctx_a_len << 16);
 	}
