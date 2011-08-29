@@ -58,8 +58,8 @@ int main(int argc, char *argv[])
 		pr_err("of_init() failed\n");
 		exit(EXIT_FAILURE);
 	}
-/*	PCD file = /usr/etc/us_policy_hash_ipv4.xml
- *	CFGDATA file = /usr/etc/us_config_serdes_0xe.xml
+/*	PCD file = /usr/etc/usdpaa_policy_hash_ipv4.xml
+ *	CFGDATA file = /usr/etc/usdpaa_config_p4_serdes_0xe.xml
  */
 
 	uscfg_info = usdpaa_netcfg_acquire(argv[1], argv[2]);

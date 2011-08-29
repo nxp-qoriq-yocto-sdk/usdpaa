@@ -30,11 +30,11 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 lib_LIBRARIES = usdpaa_ppac
-dist_DATA = us_config_serdes_0xe.xml us_policer.xml us_config_serdes_0xe_oh.xml us_config_serdes_0x10_5g.xml us_config_p3_p5_0x36_15g.xml us_policy_hash_ipv4.xml
+dist_DATA = usdpaa_config_p4_serdes_0xe.xml usdpaa_policer.xml usdpaa_config_p4_serdes_0xe_offline_host.xml usdpaa_config_p4_serdes_0x10.xml usdpaa_config_p3_p5_serdes_0x36.xml usdpaa_policy_hash_ipv4.xml
 
 AM_CFLAGS  = -I$(TOP_LEVEL)/apps/include
 
 usdpaa_ppac_SOURCES = main.c
 usdpaa_ppac_CFLAGS := $(LIBEDIT_CFLAGS)								\
-		      -DDEF_PCD_PATH="/$(INSTALL_OTHER)/us_policy_hash_ipv4.xml"	\
-		      -DDEF_CFG_PATH="/$(INSTALL_OTHER)/us_config_serdes_0xe.xml"
+		      -DDEF_PCD_PATH="/$(INSTALL_OTHER)/usdpaa_policy_hash_ipv4.xml"	\
+		      -DDEF_CFG_PATH="/$(INSTALL_OTHER)/usdpaa_config_p4_serdes_0xe.xml"
