@@ -775,6 +775,7 @@ static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
 				      struct ppam_interface *_if,
 				      const struct qm_dqrr_entry *dqrr)
 {
+	ppac_drop_frame(&dqrr->fd);
 }
 static int ppam_tx_error_init(struct ppam_tx_error *p,
 			      struct ppam_interface *_if,
