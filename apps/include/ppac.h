@@ -208,6 +208,7 @@ extern __thread const struct qm_dqrr_entry *local_dqrr;
 #endif
 #ifdef PPAC_ORDER_RESTORATION
 extern __thread u32 local_orp_id;
+extern __thread u32 local_seqnum;
 #endif
 
 /****************************************/
@@ -274,15 +275,17 @@ retry:
 #ifdef PPAC_ORDER_RESTORATION
 	/* Perform a "HOLE" enqueue so that the ORP doesn't wait for the
 	 * sequence number that we're dropping. */
+	if (!local_orp_id)
+		return;
 retry_orp:
 	ret = qman_enqueue_orp(&local_fq, fd, QMAN_ENQUEUE_FLAG_HOLE, &tmp_orp,
-				local_dqrr->seqnum);
+				local_seqnum);
 	if (ret) {
 		cpu_spin(PPAC_BACKOFF_CYCLES);
 		goto retry_orp;
 	}
 	TRACE("drop: fqid %d <-- 0x%x (HOLE)\n",
-		local_fq.fqid, local_dqrr->seqnum);
+		local_fq.fqid, local_seqnum);
 #endif
 }
 
@@ -373,5 +376,7 @@ int ppac_interface_init(unsigned idx);
 void ppac_interface_enable_rx(const struct ppac_interface *i);
 void ppac_interface_disable_rx(const struct ppac_interface *i);
 void ppac_interface_finish(struct ppac_interface *i);
+void cb_ern(struct qman_portal *qm __always_unused,
+	    struct qman_fq *fq, const struct qm_mr_entry *msg);
 
 #endif	/*  __PPAC_H */

@@ -156,6 +156,7 @@ __thread const struct qm_dqrr_entry *local_dqrr;
 #endif
 #ifdef PPAC_ORDER_RESTORATION
 __thread u32 local_orp_id;
+__thread u32 local_seqnum;
 #endif
 
 #ifdef PPAC_CGR
@@ -323,15 +324,6 @@ void ppac_fq_tx_init(struct qman_fq *fq, enum qm_channel channel,
 	opts.fqd.context_a.lo = 0;
 	err = qman_init_fq(fq, QMAN_INITFQ_FLAG_SCHED, &opts);
 	BUG_ON(err);
-}
-
-static void cb_ern(struct qman_portal *qm __always_unused,
-	    struct qman_fq *fq,
-	    const struct qm_mr_entry *msg)
-{
-	TRACE("Tx_ern: fqid=%d\tfd_status = 0x%08x\n", msg->ern.fqid,
-	      msg->ern.fd.status);
-	ppac_drop_frame(&msg->ern.fd);
 }
 
 static uint32_t pchannel_idx;

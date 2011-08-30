@@ -393,6 +393,7 @@ struct qm_mr_entry {
 #define QM_MR_DCERN_COLOUR_YELLOW	0x01
 #define QM_MR_DCERN_COLOUR_RED		0x02
 #define QM_MR_DCERN_COLOUR_OVERRIDE	0x03
+#define QM_MR_ORPID_MASK		0x00ffffff	/* 24-bit ORP ID */
 
 /* An identical structure of FQD fields is present in the "Init FQ" command and
  * the "Query FQ" result, it's suctioned out into the "struct qm_fqd" type.
