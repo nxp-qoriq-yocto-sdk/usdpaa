@@ -36,7 +36,6 @@
 extern "C" {
 #endif
 
-#include <fsl_fman/fsl_fman.h>
 /* Last updated for v00.800 of the BG */
 
 /* Hardware constants */
@@ -210,7 +209,6 @@ struct qm_fd {
 	union {
 		u32 cmd;
 		u32 status;
-		struct fm_status_t fm_status;
 	};
 } __attribute__((aligned(8)));
 #define QM_FD_DD_NULL		0x00
