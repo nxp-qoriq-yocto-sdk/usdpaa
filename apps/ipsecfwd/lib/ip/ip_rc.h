@@ -29,7 +29,7 @@
 #define LIB_IP_IP_RC_H
 
 #include "ip/ip.h"
-#include <fsl_fman/crc64.h>
+#include <fsl_fman.h>
 #include "statistics.h"
 
 #include <internal/compat.h>	/* L1_CACHE_BYTES */
@@ -138,10 +138,10 @@ static inline uint32_t compute_decap_hash(in_addr_t saddr,
 {
 	uint64_t result;
 
-	result = crc64_init();
-	result = crc64_compute_32bit(saddr, result);
-	result = crc64_compute_32bit(daddr, result);
-	result = crc64_compute_32bit(spi, result);
+	result = fman_crc64_init();
+	result = fman_crc64_compute_32bit(saddr, result);
+	result = fman_crc64_compute_32bit(daddr, result);
+	result = fman_crc64_compute_32bit(spi, result);
 
 	return (uint32_t) result & RC_HASH_MASK;
 }
@@ -157,9 +157,9 @@ static inline uint32_t compute_rc_hash(in_addr_t saddr,
 {
 	uint64_t result;
 
-	result = crc64_init();
-	result = crc64_compute_32bit(saddr, result);
-	result = crc64_compute_32bit(daddr, result);
+	result = fman_crc64_init();
+	result = fman_crc64_compute_32bit(saddr, result);
+	result = fman_crc64_compute_32bit(daddr, result);
 	return (uint32_t) result & RC_HASH_MASK;
 }
 

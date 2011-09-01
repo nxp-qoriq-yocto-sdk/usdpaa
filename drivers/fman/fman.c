@@ -30,11 +30,19 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* This header declares the driver interface we implement */
 #include <usdpaa/fman.h>
+
+/* This header declares things about Fman hardware itself (the format of status
+ * words and an inline implementation of CRC64). We include it only in order to
+ * instantiate the one global variable it depends on. */
+#include <fsl_fman.h>
 
 #include <internal/of.h>
 
-#include <inttypes.h>
+/* Instantiate the global variable that the inline CRC64 implementation (in
+ * <fsl_fman.h>) depends on. */
+DECLARE_FMAN_CRC64_TABLE();
 
 /* The exported "struct fman_if" type contains the subset of fields we want
  * exposed. This struct is embedded in a larger "struct __fman_if" which
