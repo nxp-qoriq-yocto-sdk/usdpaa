@@ -495,11 +495,14 @@ static void do_global_init(void)
 	/* Set up Rx CGR */
 	for (loop = 0; loop < netcfg->num_ethports; loop++) {
 		const struct fm_eth_port_cfg *p = &netcfg->port_cfg[loop];
-		numrxfqs += p->pcd.count;
-		numtxfqs += (p->fman_if->mac_type == fman_mac_10g) ?
+		struct fmc_netcfg_fqrange *fqr;
+		list_for_each_entry(fqr, p->list, list) {
+			numrxfqs += fqr->count;
+			numtxfqs += (p->fman_if->mac_type == fman_mac_10g) ?
 				PPAC_TX_FQS_10G :
 				(p->fman_if->mac_type == fman_offline) ?
-				PPC_TX_FQS_OFFLINE : PPAC_TX_FQS_1G;
+				PPAC_TX_FQS_OFFLINE : PPAC_TX_FQS_1G;
+		}
 	}
 	qm_cgr_cs_thres_set64(&opts.cgr.cs_thres,
 		numrxfqs * PPAC_CGR_RX_PERFQ_THRESH, 0);

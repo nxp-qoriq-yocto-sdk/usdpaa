@@ -379,4 +379,13 @@ void ppac_interface_finish(struct ppac_interface *i);
 void cb_ern(struct qman_portal *qm __always_unused,
 	    struct qman_fq *fq, const struct qm_mr_entry *msg);
 
+/**************************************/
+/* FQ Ranges stored in this structure */
+/**************************************/
+struct fmc_netcfg_fqrange {
+	struct list_head list;
+	uint32_t start;
+	uint32_t count;
+};
+
 #endif	/*  __PPAC_H */

@@ -44,12 +44,6 @@ static const struct qm_fqd_stashing default_stash_opts = {
 	.context_cl = PPAC_STASH_CONTEXT_CL
 };
 
-struct fmc_netcfg_fqrange {
-	struct list_head list;
-	uint32_t start;
-	uint32_t count;
-};
-
 /*******************/
 /* Packet handling */
 /*******************/
