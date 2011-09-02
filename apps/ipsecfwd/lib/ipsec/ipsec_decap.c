@@ -133,13 +133,13 @@ loop:
 }
 
 void ipsec_decap_cb(const struct ipsec_context_t *ipsec_ctxt,
-		    struct annotations_t *notes, void *data __always_unused)
+		    struct qm_fd *fd, void *data __always_unused)
 {
 	struct qm_fd simple_fd;
 	struct qm_sg_entry *sg;
 	struct iphdr *ip_hdr;
 	struct annotations_t *ip_notes;
-	struct qm_fd *compound_fd = notes->fd;
+	struct qm_fd *compound_fd = fd;
 	uint8_t padlen = 0;
 
 	/* Error Returned by SEC Block, Refer to Section 1.5.2.9 of BG */

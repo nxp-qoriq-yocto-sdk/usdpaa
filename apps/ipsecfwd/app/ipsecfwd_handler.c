@@ -38,6 +38,7 @@ static inline void ipsec_encap_decap(struct ipsec_context_t *ipsec_ctxt,
 	struct annotations_t *notes;
 	void *data;
 	struct qm_sg_entry *sg;
+	struct qm_fd *fd;
 
 	switch (dqrr->fd.format) {
 	case qm_fd_contig:
@@ -51,7 +52,6 @@ static inline void ipsec_encap_decap(struct ipsec_context_t *ipsec_ctxt,
 		break;
 	case qm_fd_sg:
 		sg = dma_mem_ptov(qm_fd_addr(&dqrr->fd) + dqrr->fd.offset);
-		notes = dma_mem_ptov(qm_fd_addr(&dqrr->fd));
 		data = dma_mem_ptov(qm_sg_entry_get64(sg) + sg->offset);
 		break;
 	default:
@@ -59,9 +59,9 @@ static inline void ipsec_encap_decap(struct ipsec_context_t *ipsec_ctxt,
 			__func__);
 		return;
 	}
-	notes->fd = (struct qm_fd *)&dqrr->fd;
+	fd = (struct qm_fd *)&dqrr->fd;
 
-	ipsec_ctxt->ipsec_handler(ipsec_ctxt, notes, data);
+	ipsec_ctxt->ipsec_handler(ipsec_ctxt, fd, data);
 }
 
 enum qman_cb_dqrr_result

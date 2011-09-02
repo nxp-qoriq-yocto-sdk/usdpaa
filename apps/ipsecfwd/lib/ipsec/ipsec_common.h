@@ -66,7 +66,7 @@ struct ipsec_context_t;
  \param[in] data Pointer to data in buffer
  */
 typedef void (*ipsec_cb) (const struct ipsec_context_t *ipsec_ctxt,
-				struct annotations_t *notes, void *data);
+				struct qm_fd *fd, void *data);
 
 struct ipsec_context_t {
 #ifdef STATS_TBD

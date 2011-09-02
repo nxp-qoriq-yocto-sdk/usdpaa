@@ -63,7 +63,7 @@ enum IP_STATUS ipsec_decap_send(const struct ppam_rx_hash *ip_ctxt,
  \return none
  */
 void ipsec_decap_cb(const struct ipsec_context_t *ipsec_ctxt,
-		    struct annotations_t *notes, void *data __always_unused);
+		    struct qm_fd *fd, void *data __always_unused);
 
 /**
  \brief This routine is called on a per tunnel creation basis.
