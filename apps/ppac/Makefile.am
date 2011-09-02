@@ -35,6 +35,6 @@ dist_DATA = usdpaa_config_p4_serdes_0xe.xml usdpaa_policer.xml usdpaa_config_p4_
 AM_CFLAGS  = -I$(TOP_LEVEL)/apps/include
 
 usdpaa_ppac_SOURCES = main.c
-usdpaa_ppac_CFLAGS := $(LIBEDIT_CFLAGS)								\
-		      -DDEF_PCD_PATH="/$(INSTALL_OTHER)/usdpaa_policy_hash_ipv4.xml"	\
+usdpaa_ppac_CFLAGS := $(LIBEDIT_CFLAGS) \
+		      -DDEF_PCD_PATH="/$(INSTALL_OTHER)/usdpaa_policy_hash_ipv4.xml" \
 		      -DDEF_CFG_PATH="/$(INSTALL_OTHER)/usdpaa_config_p4_serdes_0xe.xml"
