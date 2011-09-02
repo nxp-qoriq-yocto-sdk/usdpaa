@@ -97,6 +97,9 @@ do { \
 	*(volatile unsigned int *)(p) = (v); \
 } while (0)
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+#if defined(__powerpc64__)
+#define CONFIG_PPC64
+#endif
 
 /* printk() stuff */
 #define printk(fmt, args...)	do_not_use_printk
