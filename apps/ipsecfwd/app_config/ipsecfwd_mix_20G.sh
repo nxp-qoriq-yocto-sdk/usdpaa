@@ -78,18 +78,6 @@ do
     i=`expr $i + 1`
 done
 
-i=24
-j=2
-while [ "$j" -le 7 ]
-do
-    ipsecfwd_config -A -s  192.168.60.$i -d  192.168.160.$j -g 192.168.60.2 -G 192.168.160.2 -i $w -r $f
-    w=`expr $w + 1`
-    ipsecfwd_config -A -s  192.168.160.$i -d  192.168.60.$j -g 192.168.160.2 -G 192.168.60.2 -i $w -r $s
-    w=`expr $w + 1`
-
-    j=`expr $j + 1`
-done
-
 ipsecfwd_config -O
 echo IPSecfwd CP initialization complete
 
