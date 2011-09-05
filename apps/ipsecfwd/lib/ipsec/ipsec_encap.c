@@ -113,7 +113,7 @@ void ipsec_encap_cb(const struct ipsec_context_t *ipsec_ctxt,
 		return;
 	}
 	ipsec_create_simple_fd(&simple_fd, compound_fd, ENCRYPT);
-	ip_notes = dma_mem_ptov(simple_fd.addr_lo);
+	ip_notes = dma_mem_ptov(qm_fd_addr(&simple_fd));
 
 	ip_hdr = (void *)((uint8_t *) ip_notes + simple_fd.offset);
 	ip_notes->fd->offset -= ETHER_HDR_LEN;

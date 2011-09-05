@@ -141,8 +141,7 @@ int32_t init_split_key_fqs(void)
 	flags = QMAN_INITFQ_FLAG_SCHED;
 	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_CONTEXTA |
 	    QM_INITFQ_WE_CONTEXTB;
-	opts.fqd.context_a.hi = 0;
-	opts.fqd.context_a.lo = dma_mem_vtop(ctxt_a);
+	qm_fqd_context_a_set64(&opts.fqd, dma_mem_vtop(ctxt_a));
 	opts.fqd.context_b = KEY_SPLIT_FQ_FROM_SEC;
 	opts.fqd.dest.channel = qm_channel_caam;
 	opts.fqd.dest.wq = 0;

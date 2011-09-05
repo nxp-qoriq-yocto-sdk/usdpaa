@@ -151,7 +151,7 @@ void ipsec_decap_cb(const struct ipsec_context_t *ipsec_ctxt,
 
 	ipsec_create_simple_fd(&simple_fd, compound_fd, DECRYPT);
 
-	ip_notes = dma_mem_ptov(simple_fd.addr_lo);
+	ip_notes = dma_mem_ptov(qm_fd_addr(&simple_fd));
 #ifdef STATS_TBD
 	decorated_notify_inc_32(&(ipsec_ctxt->stats->decap_post_sec));
 #endif
@@ -180,13 +180,14 @@ void ipsec_decap_cb(const struct ipsec_context_t *ipsec_ctxt,
 			return;
 		}
 	} else {
-		sg = dma_mem_ptov(simple_fd.addr_lo + simple_fd.offset);
-		ip_hdr = dma_mem_ptov(sg->addr_lo + sg->offset);
+		sg = dma_mem_ptov(qm_fd_addr(&simple_fd) + simple_fd.offset);
+		ip_hdr = dma_mem_ptov(qm_fd_addr(&simple_fd) + sg->offset);
 		do {
 			sg++;
 		} while (!sg->final);
-		padlen = *(uint8_t *)(dma_mem_ptov(sg->addr_lo + sg->offset)
-				+ sg->length - PADLEN_OFFSET) + PADLEN_OFFSET;
+		padlen = *(uint8_t *)(dma_mem_ptov(qm_fd_addr(&simple_fd) +
+			sg->offset) + sg->length - PADLEN_OFFSET) +
+			PADLEN_OFFSET;
 		if (padlen == sg->length) {
 			sg--;
 			sg->final = 1;
@@ -198,7 +199,7 @@ void ipsec_decap_cb(const struct ipsec_context_t *ipsec_ctxt,
 	if (likely(qm_fd_contig == simple_fd.format))
 		ip_notes->fd->offset -= ETHER_HDR_LEN;
 	else if (qm_fd_sg == simple_fd.format) {
-		sg = dma_mem_ptov(simple_fd.addr_lo + simple_fd.offset);
+		sg = dma_mem_ptov(qm_fd_addr(&simple_fd) + simple_fd.offset);
 		sg->offset -= ETHER_HDR_LEN;
 		sg->length += ETHER_HDR_LEN;
 	}
