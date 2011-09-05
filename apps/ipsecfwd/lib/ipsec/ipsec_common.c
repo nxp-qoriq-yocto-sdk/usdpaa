@@ -89,36 +89,28 @@ int32_t ipsec_create_compound_fd(struct qm_fd *fd, struct qm_fd *old_fd,
 	/* we are passing in the input frame & data */
 	struct qm_sg_entry *sg;
 	struct qm_sg_entry *next_sg;
-	void *out_buf = NULL;
-	uint8_t out_bpid = 0;
-	struct bm_buffer bman_buf, bman_buf_sg;
+	struct bm_buffer bman_buf_sg;
 	uint32_t size = 0;
 	dma_addr_t addr;
 
-	if (mode == ENCRYPT) {
-		size = ip_hdr->tot_len + sizeof(struct iphdr) +
-			IP_HDR_OFFSET * 2;
-/* TBD Remove hardcoded buffer pool aquiring */
-		if (unlikely(1 != bman_acquire(pool[9], &bman_buf, 1, 0)))
-			return -ENOMEM;
-		out_buf = (void *)bman_buf.lo;
-		out_bpid = bman_buf.bpid;
+#define MAX_PADDING_LEN 16
+#define PAD_LEN		2
+#define ESP_HDR_LEN	12
+#define PRIV_DATA_SIZE	32
 
-	} else {
+	if (mode == ENCRYPT)
+		size = PRIV_DATA_SIZE + ETHER_HDR_LEN + ESP_HDR_LEN +
+			sizeof(struct iphdr) + ip_hdr->tot_len + PAD_LEN +
+			MAX_PADDING_LEN;
+	else
 		size = ip_hdr->tot_len;
-		out_buf = (void *)old_fd->addr_lo;
-		out_bpid = old_fd->bpid;
-	}
 
-/* TBD Remove hardcoded buffer pool aquiring */
-	if (unlikely(1 != bman_acquire(pool[8], &bman_buf_sg, 1, 0)))
-		return -ENOMEM;
-	sg = dma_mem_ptov(bman_buf_sg.lo);
-	memset(sg, 0, sizeof(struct qm_sg_entry));
+	sg = dma_mem_ptov(old_fd->addr_lo);
+	memset(sg, 0, 2*sizeof(struct qm_sg_entry));
 
 	/* output buffer */
-	sg->addr_hi = 0;
-	sg->addr_lo = (uint32_t) out_buf;
+	sg->addr_hi = old_fd->addr_hi;
+	sg->addr_lo = old_fd->addr_lo;
 	sg->length = size;
 	if (DECRYPT == mode) {
 		if (qm_fd_contig == old_fd->format) {
@@ -129,9 +121,9 @@ int32_t ipsec_create_compound_fd(struct qm_fd *fd, struct qm_fd *old_fd,
 			sg->extension = 1;
 		}
 	} else {
-		sg->offset = old_fd->offset + ETHER_HDR_LEN;
+		sg->offset = PRIV_DATA_SIZE + ETHER_HDR_LEN;
 	}
-	sg->bpid = out_bpid;
+	sg->bpid = old_fd->bpid;
 
 	/* input buffer */
 	sg++;
@@ -168,7 +160,6 @@ void ipsec_create_simple_fd(struct qm_fd *simple_fd,
 {
 	struct qm_sg_entry *sg;
 	struct annotations_t *new_notes;
-	struct annotations_t *old_notes;
 
 	sg = dma_mem_ptov(compound_fd->addr_lo);
 	simple_fd->addr_hi = 0;
@@ -192,14 +183,7 @@ void ipsec_create_simple_fd(struct qm_fd *simple_fd,
 
 	new_notes = dma_mem_ptov(simple_fd->addr_lo);
 
-	if (mode == ENCRYPT) {
-		sg++;
-		old_notes = dma_mem_ptov(sg->addr_lo);
-		free_buffer(old_notes, sg->bpid);
-		sg--;
-	}
 	new_notes->fd = simple_fd;
-	free_buffer(sg, compound_fd->bpid);
 }
 
 void ipsec_build_outer_ip_hdr(struct iphdr *ip_hdr,
