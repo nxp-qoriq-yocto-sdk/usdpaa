@@ -50,18 +50,18 @@ extern "C" {
  */
 #define DMA_MEM_PATH		"/dev/fsl-usdpaa-shmem"
 #define DMA_MEM_BP1_BPID	7
-#define DMA_MEM_BP1_SIZE	192
-#define DMA_MEM_BP1_NUM		0x4000 /* 0x4000*192==3145728 (3MB) */
+#define DMA_MEM_BP1_SIZE	256
+#define DMA_MEM_BP1_NUM		0x4000 /* 0x4000*256==4194304 (4MB) */
 #define DMA_MEM_BP2_BPID	8
-#define DMA_MEM_BP2_SIZE	576
-#define DMA_MEM_BP2_NUM		0x1000 /* 0x1000*576==2359296 (2.25MB) */
+#define DMA_MEM_BP2_SIZE	640
+#define DMA_MEM_BP2_NUM		0x1000 /* 0x1000*640==2621440 (2.5MB) */
 #define DMA_MEM_BP3_BPID	9
-#define DMA_MEM_BP3_SIZE	1600
-#define DMA_MEM_BP3_NUM		0x1000 /* 0x1000*1600==6553600 (6.25MB) */
+#define DMA_MEM_BP3_SIZE	1664
+#define DMA_MEM_BP3_NUM		0x1000 /* 0x1000*1664==6815744 (6.5MB) */
 #define DMA_MEM_BPOOL \
 	(DMA_MEM_BP1_SIZE * DMA_MEM_BP1_NUM + \
 	DMA_MEM_BP2_SIZE * DMA_MEM_BP2_NUM + \
-	DMA_MEM_BP3_SIZE * DMA_MEM_BP3_NUM) /* 12058624 (11.5MB) */
+	DMA_MEM_BP3_SIZE * DMA_MEM_BP3_NUM) /* 13631448 (13MB) */
 
 /* Until device-trees (or device-tree replacements) are available, another thing
  * to hard-code is the FQID and BPID range allocation. */
