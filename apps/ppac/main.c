@@ -445,13 +445,21 @@ static void do_global_finish(void)
 	struct list_head *i, *tmpi;
 	int loop;
 
-	/* Tear down interfaces */
-	list_for_each_safe(i, tmpi, &ifs)
+	/* During init, we initialise all interfaces and their Tx FQs in a first
+	 * phase, then we initialise their Rx FQs in a second phase. This means
+	 * PPAM handlers know about all frame destinations before initialising
+	 * their handling of frame sources. This cleanup logic uses a similar
+	 * split, in the reverse order. */
+	list_for_each(i, &ifs)
 		/* NB: we cast rather than use list_for_each_entry_safe()
 		 * because this code can not include ppac_interface.h to know
 		 * about "struct ppac_interface" internals - doing so requires
 		 * that the PPAM structs be known too, which is impossible in
 		 * this PPAM-agnostic code. */
+		ppac_interface_finish_rx((struct ppac_interface *)i);
+	list_for_each_safe(i, tmpi, &ifs)
+		/* This loop uses "_safe()" because the list entries delete
+		 * themselves. */
 		ppac_interface_finish((struct ppac_interface *)i);
 	/* Tear down buffer pools */
 	for (loop = 0; loop < ARRAY_SIZE(pool); loop++) {

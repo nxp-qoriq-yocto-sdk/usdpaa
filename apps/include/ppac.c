@@ -321,18 +321,9 @@ void ppac_interface_disable_rx(const struct ppac_interface *i)
 void ppac_interface_finish(struct ppac_interface *i)
 {
 	int loop;
-	struct ppac_pcd_range *pcd_range;
 
 	/* Cleanup in the opposite order of ppac_interface_init() */
-	ppac_interface_disable_rx(i);
 	list_del(&i->node);
-	list_for_each_entry(pcd_range, &i->list, list) {
-		for (loop = 0; loop < pcd_range->count; loop++) {
-			ppam_rx_hash_finish(&pcd_range->rx_hash[loop].s,
-				 &i->ppam_data, loop);
-			teardown_fq(&pcd_range->rx_hash[loop].fq);
-		}
-	}
 
 	/* Offline ports don't have Tx Error or Confirm FQs */
 	if (ppac_interface_type(i) != fman_offline) {
@@ -341,10 +332,6 @@ void ppac_interface_finish(struct ppac_interface *i)
 		ppam_tx_error_finish(&i->tx_error.s, &i->ppam_data);
 		teardown_fq(&i->tx_error.fq);
 	}
-	ppam_rx_default_finish(&i->rx_default.s, &i->ppam_data);
-	teardown_fq(&i->rx_default.fq);
-	ppam_rx_error_finish(&i->rx_error.s, &i->ppam_data);
-	teardown_fq(&i->rx_error.fq);
 	for (loop = 0; loop < i->num_tx_fqs; loop++) {
 		struct qman_fq *fq = &i->tx_fqs[loop];
 		TRACE("I/F %d, destroying Tx FQID %d\n",
@@ -355,4 +342,23 @@ void ppac_interface_finish(struct ppac_interface *i)
 	ppam_interface_finish(&i->ppam_data);
 	free(i->tx_fqs);
 	dma_mem_free(i, i->size);
+}
+void ppac_interface_finish_rx(struct ppac_interface *i)
+{
+	int loop;
+	struct ppac_pcd_range *pcd_range;
+
+	/* Cleanup in the opposite order of ppac_interface_init_rx() */
+	ppac_interface_disable_rx(i);
+	ppam_rx_default_finish(&i->rx_default.s, &i->ppam_data);
+	teardown_fq(&i->rx_default.fq);
+	ppam_rx_error_finish(&i->rx_error.s, &i->ppam_data);
+	teardown_fq(&i->rx_error.fq);
+	list_for_each_entry(pcd_range, &i->list, list) {
+		for (loop = 0; loop < pcd_range->count; loop++) {
+			ppam_rx_hash_finish(&pcd_range->rx_hash[loop].s,
+				 &i->ppam_data, loop);
+			teardown_fq(&pcd_range->rx_hash[loop].fq);
+		}
+	}
 }
