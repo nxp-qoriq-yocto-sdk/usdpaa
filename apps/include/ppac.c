@@ -183,7 +183,6 @@ int ppac_interface_init(unsigned idx)
 	const struct fm_eth_port_cfg *port = &netcfg->port_cfg[idx];
 	const struct fman_if *fif = port->fman_if;
 	size_t size = sizeof(struct ppac_interface);
-	struct fmc_netcfg_fqrange *fqr;
 
 	/* Make sure we are able to handle drops by initialising pool objects
 	 * for all buffer pools used by the network interface. */
@@ -225,17 +224,6 @@ int ppac_interface_init(unsigned idx)
 	}
 	/* Note: we should handle errors and unwind */
 	stash_opts = default_stash_opts;
-	err = ppam_rx_error_init(&i->rx_error.s, &i->ppam_data, &stash_opts);
-	BUG_ON(err);
-	ppac_fq_nonpcd_init(&i->rx_error.fq, fif->fqid_rx_err, get_rxc(),
-			    &stash_opts, cb_dqrr_rx_error);
-	stash_opts = default_stash_opts;
-	err = ppam_rx_default_init(&i->rx_default.s, &i->ppam_data,
-				   &stash_opts);
-	BUG_ON(err);
-	ppac_fq_nonpcd_init(&i->rx_default.fq, port->rx_def, get_rxc(),
-			    &stash_opts, cb_dqrr_rx_default);
-
 	/* Offline ports don't have Tx Error or Tx Confirm FQs */
 	if (fif->mac_type != fman_offline) {
 		stash_opts = default_stash_opts;
@@ -251,12 +239,35 @@ int ppac_interface_init(unsigned idx)
 			    &stash_opts, cb_dqrr_tx_confirm);
 	}
 
-	list_for_each_entry(fqr, port->list, list) {
+	list_add_tail(&i->node, &ifs);
+
+	return 0;
+}
+int ppac_interface_init_rx(struct ppac_interface *i)
+{
+	int err, loop;
+	struct qm_fqd_stashing stash_opts;
+	const struct fman_if *fif = i->port_cfg->fman_if;
+	struct fmc_netcfg_fqrange *fqr;
+
+	/* Note: we should handle errors and unwind */
+	stash_opts = default_stash_opts;
+	err = ppam_rx_error_init(&i->rx_error.s, &i->ppam_data, &stash_opts);
+	BUG_ON(err);
+	ppac_fq_nonpcd_init(&i->rx_error.fq, fif->fqid_rx_err, get_rxc(),
+			    &stash_opts, cb_dqrr_rx_error);
+	stash_opts = default_stash_opts;
+	err = ppam_rx_default_init(&i->rx_default.s, &i->ppam_data,
+				   &stash_opts);
+	BUG_ON(err);
+	ppac_fq_nonpcd_init(&i->rx_default.fq, i->port_cfg->rx_def, get_rxc(),
+			    &stash_opts, cb_dqrr_rx_default);
+
+	list_for_each_entry(fqr, i->port_cfg->list, list) {
 		uint32_t fqid = fqr->start;
 		struct ppac_pcd_range *pcd_range;
-
-		size = sizeof(struct ppac_pcd_range) +
-			fqr->count*sizeof(struct ppac_rx_hash);
+		size_t size = sizeof(struct ppac_pcd_range) +
+				fqr->count * sizeof(struct ppac_rx_hash);
 		pcd_range = dma_mem_memalign(L1_CACHE_BYTES, size);
 		if (!pcd_range)
 			return -ENOMEM;
@@ -287,7 +298,6 @@ int ppac_interface_init(unsigned idx)
 	}
 
 	ppac_interface_enable_rx(i);
-	list_add_tail(&i->node, &ifs);
 
 	return 0;
 }

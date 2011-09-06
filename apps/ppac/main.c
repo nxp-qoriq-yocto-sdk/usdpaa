@@ -447,6 +447,11 @@ static void do_global_finish(void)
 
 	/* Tear down interfaces */
 	list_for_each_safe(i, tmpi, &ifs)
+		/* NB: we cast rather than use list_for_each_entry_safe()
+		 * because this code can not include ppac_interface.h to know
+		 * about "struct ppac_interface" internals - doing so requires
+		 * that the PPAM structs be known too, which is impossible in
+		 * this PPAM-agnostic code. */
 		ppac_interface_finish((struct ppac_interface *)i);
 	/* Tear down buffer pools */
 	for (loop = 0; loop < ARRAY_SIZE(pool); loop++) {
@@ -463,6 +468,7 @@ static void do_global_init(void)
 	const struct ppac_bpool_static *bp = ppac_bpool_static;
 	dma_addr_t phys_addr = dma_mem_bpool_base();
 	dma_addr_t phys_limit = phys_addr + dma_mem_bpool_range();
+	struct list_head *i;
 	unsigned int loop;
 	int err;
 
@@ -583,10 +589,26 @@ static void do_global_init(void)
 	}
 	/* Initialise interface objects (internally, this takes care of
 	 * initialising buffer pool objects for any BPIDs used by the Fman Rx
-	 * ports). */
+	 * ports). We initialise the interface objects and their Tx FQs in one
+	 * loop (so each interface generates hooks to PPAM for both phases
+	 * before we move on to the next interface). We do a second loop for
+	 * setting up Rx FQs, meaning that PPAM hooks have already seen all
+	 * interfaces and Tx FQs before being forced to determine how to handle
+	 * Rx FQs ... (ie. "know all the destinations before knowing how you'll
+	 * handle any of the sources") */
 	for (loop = 0; loop < netcfg->num_ethports; loop++) {
 		TRACE("Initialising interface %d\n", loop);
 		err = ppac_interface_init(loop);
+		if (err) {
+			fprintf(stderr, "error: interface %d failed\n", loop);
+			do_global_finish();
+			return;
+		}
+	}
+	list_for_each(i, &ifs) {
+		TRACE("Initialising interface Tx %p\n", i);
+		/* Same comment applies as the cast in do_global_finish() */
+		err = ppac_interface_init_rx((struct ppac_interface *)i);
 		if (err) {
 			fprintf(stderr, "error: interface %d failed\n", loop);
 			do_global_finish();
