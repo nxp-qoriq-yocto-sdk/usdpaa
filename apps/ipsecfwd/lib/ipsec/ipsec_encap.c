@@ -97,12 +97,12 @@ loop:
 }
 
 void ipsec_encap_cb(const struct ipsec_context_t *ipsec_ctxt,
-		    struct qm_fd *fd, void *data __always_unused)
+		    const struct qm_fd *fd, void *data __always_unused)
 {
 	struct qm_fd simple_fd;
 	struct iphdr *ip_hdr;
 	struct annotations_t *ip_notes;
-	struct qm_fd *compound_fd = fd;
+	const struct qm_fd *compound_fd = fd;
 
 	if (unlikely(compound_fd->status)) {
 		fprintf(stderr, "error: %s: Non-Zero Status from"

@@ -149,7 +149,7 @@ int32_t ipsec_create_compound_fd(struct qm_fd *fd, struct qm_fd *old_fd,
 }
 
 void ipsec_create_simple_fd(struct qm_fd *simple_fd,
-			    struct qm_fd *compound_fd, uint8_t mode)
+			    const struct qm_fd *compound_fd, uint8_t mode)
 {
 	struct qm_sg_entry *sg;
 	struct annotations_t *new_notes;

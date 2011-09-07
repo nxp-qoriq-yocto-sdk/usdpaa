@@ -66,7 +66,7 @@ struct ipsec_context_t;
  \param[in] data Pointer to data in buffer
  */
 typedef void (*ipsec_cb) (const struct ipsec_context_t *ipsec_ctxt,
-				struct qm_fd *fd, void *data);
+				const struct qm_fd *fd, void *data);
 
 struct ipsec_context_t {
 #ifdef STATS_TBD
@@ -143,7 +143,7 @@ int32_t ipsec_create_compound_fd(struct qm_fd *fd, struct qm_fd *old_fd,
  \return none
  */
 void ipsec_create_simple_fd(struct qm_fd *simple_fd,
-			    struct qm_fd *compound_fd, uint8_t);
+			    const struct qm_fd *compound_fd, uint8_t);
 /**
  \brief Creates an IP header.
 	This helper routine is used to prepare outer IP header

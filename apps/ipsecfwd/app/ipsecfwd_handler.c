@@ -38,7 +38,7 @@ static inline void ipsec_encap_decap(struct ipsec_context_t *ipsec_ctxt,
 	struct annotations_t *notes;
 	void *data;
 	struct qm_sg_entry *sg;
-	struct qm_fd *fd;
+	const struct qm_fd *fd;
 
 	switch (dqrr->fd.format) {
 	case qm_fd_contig:
@@ -59,7 +59,7 @@ static inline void ipsec_encap_decap(struct ipsec_context_t *ipsec_ctxt,
 			__func__);
 		return;
 	}
-	fd = (struct qm_fd *)&dqrr->fd;
+	fd = &dqrr->fd;
 
 	ipsec_ctxt->ipsec_handler(ipsec_ctxt, fd, data);
 }
