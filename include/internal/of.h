@@ -69,6 +69,13 @@ const struct device_node *of_find_node_by_phandle(phandle ph);
 
 const struct device_node *of_get_parent(const struct device_node *dev_node);
 
+const struct device_node *of_get_next_child(const struct device_node *dev_node,
+					    const struct device_node *prev);
+
+#define for_each_child_node(parent, child) \
+	for (child = of_get_next_child(parent, NULL); child != NULL; \
+			child = of_get_next_child(parent, child))
+
 uint32_t of_n_addr_cells(const struct device_node *dev_node);
 uint32_t of_n_size_cells(const struct device_node *dev_node);
 

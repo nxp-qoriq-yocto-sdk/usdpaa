@@ -386,6 +386,32 @@ const struct device_node *of_get_parent(const struct device_node *dev_node)
 	return &d->parent->node.node;
 }
 
+const struct device_node *of_get_next_child(const struct device_node *dev_node,
+					    const struct device_node *prev)
+{
+	const struct dt_dir *p, *c;
+	WARN_ON(!alive, "Device-tree driver not initialised");
+	if (!dev_node)
+		return NULL;
+	p = node2dir(dev_node);
+	if (prev) {
+		c = node2dir(prev);
+		WARN_ON(c->parent != p, "Parent/child mismatch");
+		if (c->parent != p)
+			return NULL;
+		if (c->node.list.next == &p->subdirs)
+			/* prev was the last child */
+			return NULL;
+		c = list_entry(c->node.list.next, struct dt_dir, node.list);
+		return &c->node.node;
+	}
+	/* Return first child */
+	if (list_empty(&p->subdirs))
+		return NULL;
+	c = list_entry(p->subdirs.next, struct dt_dir, node.list);
+	return &c->node.node;
+}
+
 uint32_t of_n_addr_cells(const struct device_node *dev_node)
 {
 	const struct dt_dir *d;
