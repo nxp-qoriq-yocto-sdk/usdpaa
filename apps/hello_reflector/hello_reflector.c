@@ -71,8 +71,10 @@
 #define NET_IF_RX_DATA_STASH 1
 #define NET_IF_RX_CONTEXT_STASH 0
 #define CPU_SPIN_BACKOFF_CYCLES 512
-const char PCD_PATH[] = __stringify(DEF_PCD_PATH);
-const char CFG_PATH[] = __stringify(DEF_CFG_PATH);
+static const char __PCD_PATH[] = __stringify(DEF_PCD_PATH);
+static const char __CFG_PATH[] = __stringify(DEF_CFG_PATH);
+static const char *PCD_PATH = __PCD_PATH;
+static const char *CFG_PATH = __CFG_PATH;
 
 /* Each thread is represented by a "worker" struct. It will exit when 'quit' is
  * set non-zero. The thread for 'cpu==0' will perform global init and set
@@ -180,6 +182,18 @@ int main(int argc, char *argv[])
 				exit(EXIT_FAILURE);
 			}
 			ncpus = val;
+		} else if (!strcmp(*argv, "-p")) {
+			if (!ARGINC()) {
+				fprintf(stderr, "Missing argument to -p\n");
+				exit(EXIT_FAILURE);
+			}
+			PCD_PATH = *argv;
+		} else if (!strcmp(*argv, "-c")) {
+			if (!ARGINC()) {
+				fprintf(stderr, "Missing argument to -c\n");
+				exit(EXIT_FAILURE);
+			}
+			CFG_PATH = *argv;
 		}
 	}
 
