@@ -33,8 +33,6 @@
 
 /* Compilation constants */
 #define DQRR_MAXFILL	15
-#define DQRR_STASH_RING	0	/* if enabled, we ought to check SDEST */
-#define DQRR_STASH_DATA	0	/* ditto */
 #define EQCR_ITHRESH	4	/* if EQCR congests, interrupt threshold */
 #define IRQNAME		"QMan portal %d"
 #define MAX_IRQNAME	16	/* big enough for "QMan portal %d" */
