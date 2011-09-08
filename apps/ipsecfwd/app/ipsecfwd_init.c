@@ -35,7 +35,7 @@
 #include "ipsec/ipsec_common.h"
 #include "ipsec/ipsec_encap.c"
 
-static struct ipsec_context_t *g_ipsec_ctxt[IPSEC_TUNNEL_ENTRIES];
+struct ipsec_context_t *g_ipsec_ctxt[IPSEC_TUNNEL_ENTRIES];
 extern struct ipsec_stack_t ipsec_stack;
 
 void init_ppam_ctxt(struct ppam_rx_hash *ppam_ctxt)

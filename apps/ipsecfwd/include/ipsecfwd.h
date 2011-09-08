@@ -68,6 +68,10 @@ struct thread_data_t {
 extern struct ip_statistics_t *ipfwd_stats_init(void);
 #endif
 
+extern struct ipsec_context_t *g_ipsec_ctxt[];
+extern struct qman_fq *g_splitkey_fq_to_sec;
+extern struct qman_fq *g_splitkey_fq_from_sec;
+
 extern const struct qman_fq_cb ipfwd_rx_cb_err;
 extern const struct qman_fq_cb ipfwd_tx_cb_err;
 extern const struct qman_fq_cb ipfwd_tx_cb_confirm;

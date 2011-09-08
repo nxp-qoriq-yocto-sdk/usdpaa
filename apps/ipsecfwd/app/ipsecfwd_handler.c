@@ -108,7 +108,6 @@ static enum qman_cb_dqrr_result dqrr_split_key_handler(struct qman_portal *qm,
 static void my_cb_notimplemented(struct qman_portal *qm, struct qman_fq *fq,
 			const struct qm_mr_entry *msg)
 {
-	fprintf(stdout, "info: In %s\n", __func__);
 }
 
 /**
