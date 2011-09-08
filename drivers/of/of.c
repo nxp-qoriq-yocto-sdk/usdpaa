@@ -82,17 +82,25 @@ static struct dt_dir root_dir;
 static const char *base_dir;
 static LIST_HEAD(linear);
 
-static DIR *my_open_dir(const char *relative_path)
+static int my_open_dir(const char *relative_path, struct dirent ***d)
 {
-	DIR *ret;
+	int ret;
 	char full_path[PATH_MAX];
+
 	snprintf(full_path, PATH_MAX, "%s/%s", base_dir, relative_path);
-	ret = opendir(full_path);
-	if (!ret) {
+	ret = scandir(full_path, d, 0, versionsort);
+	if (ret < 0) {
 		fprintf(stderr, "Failed to open directory %s\n", full_path);
-		perror("opendir");
+		perror("scandir");
 	}
 	return ret;
+}
+
+static void my_close_dir(struct dirent **d, int num)
+{
+	while (num--)
+		free(d[num]);
+	free(d);
 }
 
 static int my_open_file(const char *relative_path)
@@ -108,7 +116,7 @@ static int my_open_file(const char *relative_path)
 	return ret;
 }
 
-static void process_file(DIR *d, struct dirent *dent, struct dt_dir *parent)
+static void process_file(struct dirent *dent, struct dt_dir *parent)
 {
 	int fd;
 	struct dt_file *f = malloc(sizeof(*f));
@@ -135,46 +143,65 @@ static void process_file(DIR *d, struct dirent *dent, struct dt_dir *parent)
 	list_add_tail(&f->node.list, &parent->files);
 }
 
-static void process_dir(DIR *d, struct dt_dir *dt)
+/* process_dir() calls iterate_dir(), but the latter will also call the former
+ * when recursing into sub-directories, so a predeclaration is needed. */
+static int process_dir(const char *relative_path, struct dt_dir *dt);
+
+static int iterate_dir(struct dirent **d, int num, struct dt_dir *dt)
 {
-	struct dirent *dent;
-	struct dt_dir *subdir;
-	DIR *subdir_open;
+	int loop;
 	/* Iterate the directory contents */
-	while ((dent = readdir(d))) {
+	for (loop = 0; loop < num; loop++) {
+		struct dt_dir *subdir;
+		int ret;
 		/* Ignore dot files of all types (especially "..") */
-		if (dent->d_name[0] == '.')
+		if (d[loop]->d_name[0] == '.')
 			continue;
-		switch (dent->d_type) {
+		switch (d[loop]->d_type) {
 		case DT_REG:
-			process_file(d, dent, dt);
+			process_file(d[loop], dt);
 			break;
 		case DT_DIR:
 			subdir = malloc(sizeof(*subdir));
 			if (!subdir) {
 				perror("malloc");
-				goto done;
+				return -ENOMEM;
 			}
-			subdir->node.is_file = 0;
 			snprintf(subdir->node.node.name, NAME_MAX, "%s",
-				dent->d_name);
+				d[loop]->d_name);
 			snprintf(subdir->node.node.full_name, PATH_MAX, "%s/%s",
-				dt->node.node.full_name, dent->d_name);
-			INIT_LIST_HEAD(&subdir->subdirs);
-			INIT_LIST_HEAD(&subdir->files);
+				dt->node.node.full_name, d[loop]->d_name);
 			subdir->parent = dt;
+			ret = process_dir(subdir->node.node.full_name, subdir);
+			if (ret)
+				/* NOTE: we leak 'subdir' here, but to fix that
+				 * requires support for unwinding... */
+				return ret;
 			list_add_tail(&subdir->node.list, &dt->subdirs);
-			subdir_open = my_open_dir(subdir->node.node.full_name);
-			if (subdir_open)
-				process_dir(subdir_open, subdir);
 			break;
 		default:
 			fprintf(stderr, "Ignoring invalid dt entry %s/%s\n",
-				dt->node.node.full_name, dent->d_name);
+				dt->node.node.full_name, d[loop]->d_name);
 		}
 	}
-done:
-	closedir(d);
+	return 0;
+}
+
+static int process_dir(const char *relative_path, struct dt_dir *dt)
+{
+	struct dirent **d;
+	int ret, num;
+
+	dt->node.is_file = 0;
+	INIT_LIST_HEAD(&dt->subdirs);
+	INIT_LIST_HEAD(&dt->files);
+	ret = my_open_dir(relative_path, &d);
+	if (ret < 0)
+		return ret;
+	num = ret;
+	ret = iterate_dir(d, num, dt);
+	my_close_dir(d, num);
+	return (ret < 0) ? ret : 0;
 }
 
 static void linear_dir(struct dt_dir *d)
@@ -228,23 +255,19 @@ static void linear_dir(struct dt_dir *d)
 
 int of_init_path(const char *dt_path)
 {
-	DIR *dt;
+	int ret;
+
 	base_dir = dt_path;
 	WARN_ON(alive, "Double-init of device-tree driver!");
-	/* Open root directory */
-	dt = my_open_dir("");
-	if (!dt)
-		return -EINVAL;
-	/* Prepare root node */
-	root_dir.node.is_file = 0;
+	/* Prepare root node (the remaining fields are set in process_dir()) */
 	root_dir.node.node.name[0] = '\0';
 	root_dir.node.node.full_name[0] = '\0';
 	INIT_LIST_HEAD(&root_dir.node.list);
-	INIT_LIST_HEAD(&root_dir.subdirs);
-	INIT_LIST_HEAD(&root_dir.files);
 	root_dir.parent = NULL;
 	/* Kick things off... */
-	process_dir(dt, &root_dir);
+	ret = process_dir("", &root_dir);
+	if (ret)
+		return ret;
 	/* Now make a flat, linear list of directories */
 	linear_dir(&root_dir);
 	alive = 1;
