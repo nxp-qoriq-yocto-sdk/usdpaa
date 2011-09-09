@@ -204,7 +204,7 @@ static uint32_t __mem_cache_refill(struct mem_cache_t *cachep,
 	uint32_t idx, new_index, objs_added;
 	void *objp;
 
-	BUG_ON(refill_mem != NULL);
+	BUG_ON(refill_mem == NULL);
 
 	idx = cachep->next_free;
 	new_index = ((idx + count) <= cachep->free_limit) ?
