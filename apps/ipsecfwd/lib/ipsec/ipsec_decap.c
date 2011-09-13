@@ -83,19 +83,7 @@ enum IP_STATUS ipsec_decap_send(const struct ppam_rx_hash *ctxt,
 	}
 	fd = notes->fd;
 
-	/* note to self, does data come in at ip_hdr or at mac_hdr? */
-	if (unlikely(ipsec_create_compound_fd(&fd2, fd, ip_hdr, DECRYPT))) {
-		pr_debug("%s :Unable to Allocate compound FD\n", __func__);
-		/* We may have to drop original pkt */
-#ifdef STATS_TBD
-		decorated_notify_inc_64(&(ctxt->stats->ip_in_dropped));
-#endif
-/* TBD
-		free_buffer(notes, notes->fd->bpid);
-*/
-		return IP_STATUS_DROP;
-	}
-
+	ipsec_create_compound_fd(&fd2, fd, ip_hdr, DECRYPT);
 	fd = &fd2;
 #ifdef STATS_TBD
 	/* update statistics that enqueue to sec is done for decap */

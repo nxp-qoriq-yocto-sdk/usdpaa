@@ -83,7 +83,7 @@ int ipsec_free_fd()
 
 #endif
 
-int32_t ipsec_create_compound_fd(struct qm_fd *fd, struct qm_fd *old_fd,
+void ipsec_create_compound_fd(struct qm_fd *fd, struct qm_fd *old_fd,
 				 struct iphdr *ip_hdr, uint8_t mode)
 {
 	/* we are passing in the input frame & data */
@@ -145,7 +145,6 @@ int32_t ipsec_create_compound_fd(struct qm_fd *fd, struct qm_fd *old_fd,
 	fd->_format1 = qm_fd_compound;
 	fd->cong_weight = 0;
 	fd->cmd = 0;
-	return 0;
 }
 
 void ipsec_create_simple_fd(struct qm_fd *simple_fd,

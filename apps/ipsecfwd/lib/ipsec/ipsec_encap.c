@@ -50,17 +50,7 @@ enum IP_STATUS ipsec_encap_send(const struct ppam_rx_hash *ctxt,
 	uint32_t ret;
 	uint32_t sec_fq;
 
-	if (unlikely(ipsec_create_compound_fd(&fd2, fd, ip_hdr, ENCRYPT))) {
-		/* We may have to drop original pkt */
-#ifdef STATS_TBD
-		decorated_notify_inc_64(&(ip_ctxt->stats->ip_in_dropped));
-#endif
-/* TBD
-		ipsec_free_fd(buff_allocator, fd);
-*/
-		return IP_STATUS_DROP;
-	}
-
+	ipsec_create_compound_fd(&fd2, fd, ip_hdr, ENCRYPT);
 	fd = &fd2;
 #ifdef STATS_TBD
 #ifdef INFINITE_IPSECFWD
