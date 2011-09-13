@@ -154,43 +154,6 @@ int32_t init_split_key_fqs(void)
 	return 0;
 }
 
-int destroy_split_key_fqs(void)
-{
-	uint32_t flags;
-	struct qman_fq *fq;
-
-	fq = g_splitkey_fq_to_sec;
-
-	if (qman_retire_fq(fq, &flags)) {
-		fprintf(stderr, "error: %s: qman_retire_fq failed for fq %d\n",
-			__func__, fq->fqid);
-		return -1;
-	}
-	if (0 > qman_oos_fq(fq)) {
-		fprintf(stderr, "error: %s: Moving FQID: %u to OOS failed\n",
-			__func__, g_splitkey_fq_from_sec->fqid);
-		return -1;
-	}
-	qman_destroy_fq(fq, 0);
-	free(fq);
-
-	fq = g_splitkey_fq_from_sec;
-
-	if (0 > qman_retire_fq(fq, &flags)) {
-		fprintf(stderr, "error: %s: qman_retire_fq failed for fq %d\n",
-			__func__, fq->fqid);
-		return -1;
-	}
-	if (0 > qman_oos_fq(fq)) {
-		fprintf(stderr, "error: %s: Moving FQID: %u to OOS failed\n",
-			__func__, g_splitkey_fq_from_sec->fqid);
-		return -1;
-	}
-	qman_destroy_fq(fq, 0);
-	free(fq);
-	return 0;
-}
-
 int generate_splitkey(void)
 {
 	struct qm_sg_entry *sg;

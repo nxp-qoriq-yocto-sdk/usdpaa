@@ -38,51 +38,6 @@
 #include "ip/ip_output.h"
 #include "ip/ip_forward.h"
 
-void free_buffer(void *virt_addr, uint8_t bpid)
-{
-	struct bm_buffer bman_buf;
-
-	bman_buf.hi = 0;
-	bman_buf.lo = (uint32_t) dma_mem_vtop(virt_addr);
-	bman_buf.bpid = bpid;
-
-	if (bman_release(pool[bpid], &bman_buf, 1, 0))
-		fprintf(stderr, "error: %s: Failed to free buffer to"
-			" bpid %d\n", __func__, bpid);
-}
-
-/* TBD */
-#if 0
-/**
-\brief		Drop a compound frame descriptor
-\details	Parse and free scatter/gather list of compound frame
-		and individual buffers
-\param[in]
-\return
-*/
-static int ipsec_free_compound_fd()
-{
-	/* TBD */
-}
-
-/**
-\brief		Drop a simple single buffer frame descriptor
-\details	Free memory associated with a simple frame descriptor.
-\param[in]
-\return
-*/
-static int ipsec_free_simple_fd()
-{
-	/* TBD */
-}
-
-int ipsec_free_fd()
-{
-	/* TBD */
-}
-
-#endif
-
 void ipsec_create_compound_fd(struct qm_fd *fd, struct qm_fd *old_fd,
 				 struct iphdr *ip_hdr, uint8_t mode)
 {

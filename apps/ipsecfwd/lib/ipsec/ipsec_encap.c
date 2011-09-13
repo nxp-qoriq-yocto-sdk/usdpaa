@@ -53,9 +53,7 @@ enum IP_STATUS ipsec_encap_send(const struct ppam_rx_hash *ctxt,
 	ipsec_create_compound_fd(&fd2, fd, ip_hdr, ENCRYPT);
 	fd = &fd2;
 #ifdef STATS_TBD
-#ifdef INFINITE_IPSECFWD
 	decorated_notify_inc_32(&(ctxt->stats->encap_pre_sec));
-#endif
 #endif
 	if (unlikely(entry->fq_state == PARKED)) {
 		spin_lock(&entry->tlock);
