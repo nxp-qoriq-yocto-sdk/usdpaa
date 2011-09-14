@@ -57,11 +57,11 @@ extern "C" {
 #define DMA_MEM_BP2_NUM		0 /* 0*704==0 (0MB) */
 #define DMA_MEM_BP3_BPID	9
 #define DMA_MEM_BP3_SIZE	1728
-#define DMA_MEM_BP3_NUM		0x1000 /* 0x1000*1728==7077888 (6.75MB) */
+#define DMA_MEM_BP3_NUM		0x2000 /* 0x2000*1728==13.5MB */
 #define DMA_MEM_BPOOL \
 	(DMA_MEM_BP1_SIZE * DMA_MEM_BP1_NUM + \
 	DMA_MEM_BP2_SIZE * DMA_MEM_BP2_NUM + \
-	DMA_MEM_BP3_SIZE * DMA_MEM_BP3_NUM) /* 7077888 (6.75MB) */
+	DMA_MEM_BP3_SIZE * DMA_MEM_BP3_NUM) /* 13.5MB */
 
 /* Until device-trees (or device-tree replacements) are available, another thing
  * to hard-code is the FQID and BPID range allocation. */
