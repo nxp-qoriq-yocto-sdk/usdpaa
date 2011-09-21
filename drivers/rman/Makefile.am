@@ -29,4 +29,10 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = dma_mem fman of qbman sec pme dma srio rman
+lib_LIBRARIES = usdpaa_rman
+
+dist_DATA = 07-rman-uio.rules
+
+usdpaa_rman_SOURCES := rman_driver.c
+
+07-rman-uio.rules_install := etc/udev/rules.d

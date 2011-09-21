@@ -29,4 +29,5 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = dma_mem fman of qbman sec pme dma srio rman
+# Create symlinks for RMan UIO portals
+SUBSYSTEM=="uio", ATTR{name}=="rman*", SYMLINK+="rman-uio"
