@@ -29,10 +29,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback \
-	  hello_reflector ipfwd ipsecfwd sra fra
+lib_LIBRARIES = fra_bpool
 
-dist_DATA = SOURCE_THIS
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/fra/include
 
-# install the SOURCE_THIS file in the 'root' home directory
-SOURCE_THIS_install := root
+fra_bpool_SOURCES := fra_bpool.c
