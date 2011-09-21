@@ -1,4 +1,4 @@
-# Copyright (c) 2011 Freescale Semiconductor, Inc.
+# Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -29,12 +29,9 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-lib_LIBRARIES = usdpaa_ppac
-dist_DATA = usdpaa_config_p4_serdes_0xe.xml usdpaa_policer.xml usdpaa_config_p4_serdes_0xe_offline_host.xml usdpaa_config_p4_serdes_0x10.xml usdpaa_config_p3_p5_serdes_0x36.xml usdpaa_config_p3_p5_serdes_0x04.xml usdpaa_config_p3_p5_serdes_0x33.xml usdpaa_policy_hash_ipv4.xml
-
-AM_CFLAGS  = -I$(TOP_LEVEL)/apps/include
-
-usdpaa_ppac_SOURCES = main.c
-usdpaa_ppac_CFLAGS := $(LIBEDIT_CFLAGS) \
-		      -DDEF_PCD_PATH="/$(INSTALL_OTHER)/usdpaa_policy_hash_ipv4.xml" \
-		      -DDEF_CFG_PATH="/$(INSTALL_OTHER)/usdpaa_config_p4_serdes_0xe.xml"
+dist_DATA = fra_config_dstr_processing1.xml \
+	    fra_config_dstr_processing2.xml \
+	    fra_config_dstr_port1_port2_loopback.xml \
+	    fra_config_dstr_testspeed_rxpoint.xml \
+	    fra_config_mbox_processing1.xml \
+	    fra_config_mbox_processing2.xml
