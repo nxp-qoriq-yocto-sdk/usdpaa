@@ -371,7 +371,7 @@ cb_dqrr_rx_hash(struct qman_portal *qm __always_unused,
 		struct qman_fq *fq,
 		const struct qm_dqrr_entry *dqrr);
 enum qm_channel get_rxc(void);
-int lazy_init_bpool(u8 bpid);
+int lazy_init_bpool(u8 bpid, u8 depletion_notify);
 int ppac_interface_init(unsigned idx);
 int ppac_interface_init_rx(struct ppac_interface *i);
 void ppac_interface_enable_rx(const struct ppac_interface *i);

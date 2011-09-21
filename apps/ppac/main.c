@@ -353,13 +353,16 @@ static void bp_depletion(struct bman_portal *bm __always_unused,
 }
 #endif
 
-/* This is also called by ppac_interface_init(), hence it shouldn't be static */
-int lazy_init_bpool(u8 bpid)
+/* This is also called by ppac_interface_init(), hence it shouldn't be static
+ * Depletion notification can be enabled with depletion_notify set to 1.
+ * depletion_notify value of 0 means no depletion notification required
+ */
+int lazy_init_bpool(u8 bpid, u8 depletion_notify)
 {
 	struct bman_pool_params params = {
 		.bpid	= bpid,
 #ifdef PPAC_DEPLETION
-		.flags	= BMAN_POOL_FLAG_DEPLETION,
+		.flags	=  depletion_notify ? BMAN_POOL_FLAG_DEPLETION : 0,
 		.cb	= bp_depletion,
 		.cb_ctx	= &pool[bpid]
 #endif
@@ -538,9 +541,10 @@ static void do_global_init(void)
 	/* Initialise and see any BPIDs we've been configured to set up */
 	while (bp->bpid != -1) {
 		struct bm_buffer bufs[8];
+		u8 depletion_notify = bp->num ? 1 : 0;
 		unsigned int num_bufs = 0;
 		u8 bpid = bp->bpid;
-		err = lazy_init_bpool(bpid);
+		err = lazy_init_bpool(bpid, depletion_notify);
 		if (err) {
 			fprintf(stderr, "error: bpool (%d) init failure\n",
 				bpid);

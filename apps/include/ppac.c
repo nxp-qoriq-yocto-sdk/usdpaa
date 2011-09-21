@@ -187,7 +187,7 @@ int ppac_interface_init(unsigned idx)
 	/* Make sure we are able to handle drops by initialising pool objects
 	 * for all buffer pools used by the network interface. */
 	fman_if_for_each_bpool(bp, fif) {
-		err = lazy_init_bpool(bp->bpid);
+		err = lazy_init_bpool(bp->bpid, 0);
 		if (err)
 			return err;
 	}
