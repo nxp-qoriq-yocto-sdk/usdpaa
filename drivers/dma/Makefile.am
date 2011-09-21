@@ -29,4 +29,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = dma_mem fman of qbman sec pme dma
+lib_LIBRARIES = usdpaa_dma
+dist_DATA = 08-dma-uio.rules
+
+usdpaa_dma_SOURCES := dma_driver.c
+08-dma-uio.rules_install := etc/udev/rules.d
