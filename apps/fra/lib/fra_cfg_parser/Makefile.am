@@ -29,4 +29,10 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = fra_bpool rman_interface fra_network_interface fra_cfg_parser
+lib_LIBRARIES = fra_cfg_parser
+
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/fra/include -I$(TOP_LEVEL)/apps/include
+
+fra_cfg_parser_SOURCES = fra_cfg_parser.c
+
+fra_cfg_parser_CFLAGS := $(LIBXML2_CFLAGS)
