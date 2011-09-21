@@ -29,4 +29,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = dma_mem fman of qbman sec pme dma srio
+lib_LIBRARIES = usdpaa_srio
+dist_DATA = 09-srio-uio.rules
+
+usdpaa_srio_SOURCES := srio_driver.c
+09-srio-uio.rules_install := etc/udev/rules.d
