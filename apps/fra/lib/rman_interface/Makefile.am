@@ -29,4 +29,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = fra_bpool rman_interface
+lib_LIBRARIES = rman_interface
+
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/fra/include -I$(TOP_LEVEL)/apps/include
+
+rman_interface_SOURCES := rman_interface.c
