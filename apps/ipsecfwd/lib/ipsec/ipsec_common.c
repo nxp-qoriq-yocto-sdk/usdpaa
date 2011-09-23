@@ -44,7 +44,6 @@ void ipsec_create_compound_fd(struct qm_fd *fd, struct qm_fd *old_fd,
 	/* we are passing in the input frame & data */
 	struct qm_sg_entry *sg;
 	struct qm_sg_entry *next_sg;
-	struct bm_buffer bman_buf_sg;
 	uint32_t size = 0;
 
 #define MAX_PADDING_LEN 16
@@ -96,7 +95,6 @@ void ipsec_create_compound_fd(struct qm_fd *fd, struct qm_fd *old_fd,
 	sg->final = 1;
 	sg--;
 	qm_fd_addr_set64(fd, dma_mem_vtop(sg));
-	fd->bpid = bman_buf_sg.bpid;
 	fd->_format1 = qm_fd_compound;
 	fd->cong_weight = 0;
 	fd->cmd = 0;
