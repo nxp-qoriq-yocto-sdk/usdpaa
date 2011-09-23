@@ -68,7 +68,7 @@ int32_t init_sec_fqs(struct ipsec_tunnel_t *entry, bool mode,
 	flags = QMAN_FQ_FLAG_NO_ENQUEUE | QMAN_FQ_FLAG_LOCKED;
 
 	g_ipsec_ctxt[entry->tunnel_id] =
-		(struct ipsec_context_t *)memalign(L1_CACHE_BYTES,
+		(struct ipsec_context_t *)dma_mem_memalign(L1_CACHE_BYTES,
 			sizeof(struct ipsec_context_t));
 	if (unlikely(NULL == g_ipsec_ctxt[entry->tunnel_id])) {
 		pr_err("malloc failed in create_fqs for FQ ID: %u\n",
