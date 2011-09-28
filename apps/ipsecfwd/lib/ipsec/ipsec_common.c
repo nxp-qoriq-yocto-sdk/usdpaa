@@ -38,7 +38,7 @@
 #include "ip/ip_output.h"
 #include "ip/ip_forward.h"
 
-void ipsec_create_compound_fd(struct qm_fd *fd, struct qm_fd *old_fd,
+void ipsec_create_compound_fd(struct qm_fd *fd, const struct qm_fd *old_fd,
 				 struct iphdr *ip_hdr, uint8_t mode)
 {
 	/* we are passing in the input frame & data */
@@ -126,7 +126,6 @@ void ipsec_create_simple_fd(struct qm_fd *simple_fd,
 	     sg->offset, sg->addr_lo, simple_fd->bpid);
 
 	new_notes = dma_mem_ptov(qm_fd_addr(simple_fd));
-	new_notes->fd = simple_fd;
 }
 
 void ipsec_build_outer_ip_hdr(struct iphdr *ip_hdr,

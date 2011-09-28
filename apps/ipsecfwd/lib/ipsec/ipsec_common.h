@@ -133,7 +133,7 @@ void ipsec_print_statistics(const struct ipsec_pkt_statistics_t *stats,
  \param[in] ip_hdr IPv4 header pointer in frame
  \return void
  */
-void ipsec_create_compound_fd(struct qm_fd *fd, struct qm_fd *old_fd,
+void ipsec_create_compound_fd(struct qm_fd *fd, const struct qm_fd *old_fd,
 				 struct iphdr *ip_hdr, uint8_t);
 /**
  \brief Helper routine to convert compound fd to simple fd.

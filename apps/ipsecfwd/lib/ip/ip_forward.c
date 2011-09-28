@@ -51,7 +51,7 @@ enum IP_STATUS ip_forward(const struct ppam_rx_hash *ctxt,
 #ifdef STATS_TBD
 		decorated_notify_inc_64(&ctxt->stats->ip_ttl_time_exceeded);
 #endif
-		free_buff(notes->fd);
+		free_buff(&notes->dqrr->fd);
 		return IP_STATUS_DROP;
 	}
 
@@ -60,7 +60,7 @@ enum IP_STATUS ip_forward(const struct ppam_rx_hash *ctxt,
 	   is uneccessarily in the "DROP" path if the above tests fail - should
 	   not do it if status is not ACCEPT.
 	 */
-	if (unlikely(notes->fd->length20 - dev->ppam_data.header_len >
+	if (unlikely(notes->dqrr->fd.length20 - dev->ppam_data.header_len >
 			dev->ppam_data.mtu)) {
 		pr_err("%s: Dropping pkt, mtu exceeded\n",
 			  __func__);
@@ -68,7 +68,7 @@ enum IP_STATUS ip_forward(const struct ppam_rx_hash *ctxt,
 		decorated_notify_inc_64(
 			&ctxt->stats->ip_xmit_icmp_unreach_need_frag);
 #endif
-		free_buff(notes->fd);
+		free_buff(&notes->dqrr->fd);
 		return IP_STATUS_DROP;
 	}
 

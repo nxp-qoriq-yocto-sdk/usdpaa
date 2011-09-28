@@ -47,7 +47,8 @@ enum IP_STATUS ipsec_decap_send(const struct ppam_rx_hash *ctxt,
 	bool retval = false;
 	struct ipsec_esp_hdr_t *esp_hdr;
 	struct iphdr *ip_hdr = ip_hdr_ptr;
-	struct qm_fd *fd, fd2;
+	const struct qm_fd *fd;
+	struct qm_fd fd2;
 	uint32_t ret;
 	uint32_t sec_fq;
 
@@ -81,10 +82,9 @@ enum IP_STATUS ipsec_decap_send(const struct ppam_rx_hash *ctxt,
 			return IP_STATUS_HOLD;
 		}
 	}
-	fd = notes->fd;
+	fd = &notes->dqrr->fd;
 
 	ipsec_create_compound_fd(&fd2, fd, ip_hdr, DECRYPT);
-	fd = &fd2;
 #ifdef STATS_TBD
 	/* update statistics that enqueue to sec is done for decap */
 	decorated_notify_inc_32(&(ctxt->stats->decap_pre_sec));
@@ -107,7 +107,7 @@ enum IP_STATUS ipsec_decap_send(const struct ppam_rx_hash *ctxt,
 
 loop:
 	/* enqueue frame to SEC4.0 for Encap*/
-	ret = qman_enqueue(entry->qm_fq_to_sec, fd, 0);
+	ret = qman_enqueue(entry->qm_fq_to_sec, &fd2, 0);
 
 	if (unlikely(ret)) {
 		uint64_t now, then = mfatb();
@@ -123,7 +123,8 @@ loop:
 void ipsec_decap_cb(const struct ipsec_context_t *ipsec_ctxt,
 		    const struct qm_fd *fd, void *data __always_unused)
 {
-	struct qm_fd simple_fd;
+	struct qm_dqrr_entry dqrr;
+	struct qm_fd *simple_fd = &dqrr.fd;
 	struct qm_sg_entry *sg;
 	struct iphdr *ip_hdr;
 	struct annotations_t *ip_notes;
@@ -137,9 +138,9 @@ void ipsec_decap_cb(const struct ipsec_context_t *ipsec_ctxt,
 		return;
 	}
 
-	ipsec_create_simple_fd(&simple_fd, compound_fd, DECRYPT);
+	ipsec_create_simple_fd(simple_fd, compound_fd, DECRYPT);
 
-	ip_notes = dma_mem_ptov(qm_fd_addr(&simple_fd));
+	ip_notes = dma_mem_ptov(qm_fd_addr(simple_fd));
 #ifdef STATS_TBD
 	decorated_notify_inc_32(&(ipsec_ctxt->stats->decap_post_sec));
 #endif
@@ -148,16 +149,16 @@ void ipsec_decap_cb(const struct ipsec_context_t *ipsec_ctxt,
 	   over the processing to the remainder of IPv4 processing
 	   chain
 	 */
-	if (unlikely(qm_fd_contig == simple_fd.format)) {
-		ip_hdr = (void *)((uint8_t *) ip_notes + simple_fd.offset);
+	if (unlikely(qm_fd_contig == simple_fd->format)) {
+		ip_hdr = (void *)((uint8_t *) ip_notes + simple_fd->offset);
 
 		padlen = *(uint8_t *)((uint8_t *)ip_hdr +
-				ip_notes->fd->length20 - PADLEN_OFFSET)
+				simple_fd->length20 - PADLEN_OFFSET)
 				 + PADLEN_OFFSET;
 		if (unlikely(padlen > IPSEC_MAX_HMAC_KEY_SIZE_BYTES)) {
 			fprintf(stderr, "error: %s: Bad Padlen = %d\n",
 				__func__, padlen);
-			if (simple_fd.bpid)
+			if (simple_fd->bpid)
 				;
 /* TBD
 				ipsec_free_fd(buff_allocator, &simple_fd);
@@ -168,12 +169,12 @@ void ipsec_decap_cb(const struct ipsec_context_t *ipsec_ctxt,
 			return;
 		}
 	} else {
-		sg = dma_mem_ptov(qm_fd_addr(&simple_fd) + simple_fd.offset);
-		ip_hdr = dma_mem_ptov(qm_fd_addr(&simple_fd) + sg->offset);
+		sg = dma_mem_ptov(qm_fd_addr(simple_fd) + simple_fd->offset);
+		ip_hdr = dma_mem_ptov(qm_fd_addr(simple_fd) + sg->offset);
 		do {
 			sg++;
 		} while (!sg->final);
-		padlen = *(uint8_t *)(dma_mem_ptov(qm_fd_addr(&simple_fd) +
+		padlen = *(uint8_t *)(dma_mem_ptov(qm_fd_addr(simple_fd) +
 			sg->offset) + sg->length - PADLEN_OFFSET) +
 			PADLEN_OFFSET;
 		if (padlen == sg->length) {
@@ -182,16 +183,17 @@ void ipsec_decap_cb(const struct ipsec_context_t *ipsec_ctxt,
 		} else
 			sg->length -= padlen;
 	}
-	ip_notes->fd->length20 -= padlen;
+	simple_fd->length20 -= padlen;
 
-	if (likely(qm_fd_contig == simple_fd.format))
-		ip_notes->fd->offset -= ETHER_HDR_LEN;
-	else if (qm_fd_sg == simple_fd.format) {
-		sg = dma_mem_ptov(qm_fd_addr(&simple_fd) + simple_fd.offset);
+	if (likely(qm_fd_contig == simple_fd->format))
+		simple_fd->offset -= ETHER_HDR_LEN;
+	else if (qm_fd_sg == simple_fd->format) {
+		sg = dma_mem_ptov(qm_fd_addr(simple_fd) + simple_fd->offset);
 		sg->offset -= ETHER_HDR_LEN;
 		sg->length += ETHER_HDR_LEN;
 	}
-	ip_notes->fd->length20 += ETHER_HDR_LEN;
+	simple_fd->length20 += ETHER_HDR_LEN;
+	ip_notes->dqrr = &dqrr;
 
 	/* hand over the packet to IP layer for egress transmission */
 	ip_accept_preparsed(&(ipsec_ctxt->ppam_ctxt), ip_notes, ip_hdr,

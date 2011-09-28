@@ -67,5 +67,5 @@ void ip_defragment(const struct ppam_rx_hash *ctxt,
 	decorated_notify_inc_32(&ctxt->stats->ip_local_frag_reassem_started);
 #endif
 	/* For now, do not reassemble fragments - discard them */
-	free_buff(notes->fd);
+	free_buff(&notes->dqrr->fd);
 }

@@ -861,7 +861,7 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 		pr_err("Unsupported format packet came\n");
 		return;
 	}
-	notes->fd = (struct qm_fd *)&dqrr->fd;
+	notes->dqrr = dqrr;
 
 	ip_handler(p, notes, data);
 }

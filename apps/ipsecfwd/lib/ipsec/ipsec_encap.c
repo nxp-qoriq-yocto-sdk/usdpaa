@@ -46,7 +46,8 @@ enum IP_STATUS ipsec_encap_send(const struct ppam_rx_hash *ctxt,
 {
 	struct iphdr *ip_hdr = ip_hdr_ptr;
 	struct ipsec_tunnel_t *entry = notes->dest->tunnel;
-	struct qm_fd *fd = notes->fd, fd2;
+	const struct qm_fd *fd = &notes->dqrr->fd;
+	struct qm_fd fd2;
 	uint32_t ret;
 	uint32_t sec_fq;
 
@@ -87,11 +88,13 @@ loop:
 void ipsec_encap_cb(const struct ipsec_context_t *ipsec_ctxt,
 		    const struct qm_fd *fd, void *data __always_unused)
 {
-	struct qm_fd simple_fd;
+	struct qm_dqrr_entry dqrr;
+	struct qm_fd *simple_fd = &dqrr.fd;
 	struct iphdr *ip_hdr;
 	struct annotations_t *ip_notes;
 	const struct qm_fd *compound_fd = fd;
 
+	memset(&dqrr, 0, sizeof(struct qm_dqrr_entry));
 	if (unlikely(compound_fd->status)) {
 		fprintf(stderr, "error: %s: Non-Zero Status from"
 			" SEC Block %x\n", __func__, compound_fd->status);
@@ -100,12 +103,13 @@ void ipsec_encap_cb(const struct ipsec_context_t *ipsec_ctxt,
 */
 		return;
 	}
-	ipsec_create_simple_fd(&simple_fd, compound_fd, ENCRYPT);
-	ip_notes = dma_mem_ptov(qm_fd_addr(&simple_fd));
+	ipsec_create_simple_fd(simple_fd, compound_fd, ENCRYPT);
+	ip_notes = dma_mem_ptov(qm_fd_addr(simple_fd));
 
-	ip_hdr = (void *)((uint8_t *) ip_notes + simple_fd.offset);
-	ip_notes->fd->offset -= ETHER_HDR_LEN;
-	ip_notes->fd->length20 += ETHER_HDR_LEN;
+	ip_hdr = (void *)((uint8_t *) ip_notes + simple_fd->offset);
+	simple_fd->offset -= ETHER_HDR_LEN;
+	simple_fd->length20 += ETHER_HDR_LEN;
+	ip_notes->dqrr = &dqrr;
 #ifdef STATS_TBD
 	decorated_notify_inc_32(&(ipsec_ctxt->stats->encap_post_sec));
 #endif

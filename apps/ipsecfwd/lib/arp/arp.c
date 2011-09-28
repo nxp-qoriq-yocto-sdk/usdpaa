@@ -117,7 +117,7 @@ void arp_handler(const struct annotations_t *notes, void *data)
 
 	if (is_iface_ip(arp_tpa)) {
 		pr_info("%s: Target IP is not for own interface\n", __func__);
-		free_buff(notes->fd);
+		free_buff(&notes->dqrr->fd);
 		spin_unlock(&arp_lock);
 		return;
 	}
@@ -127,7 +127,7 @@ void arp_handler(const struct annotations_t *notes, void *data)
 		memcpy(&new_node.ip, arp->arp_spa, arp->arp_pln);
 		if (0 > add_arp_entry(stack.arp_table, NULL, &new_node)) {
 			pr_err("%s: failed to add ARP entry\n", __func__);
-			free_buff(notes->fd);
+			free_buff(&notes->dqrr->fd);
 			spin_unlock(&arp_lock);
 			return;
 		}
@@ -142,10 +142,10 @@ void arp_handler(const struct annotations_t *notes, void *data)
 		memcpy(&new_node.mac, dev->dev_addr, dev->dev_addr_len);
 		memcpy(&new_node.ip, arp->arp_tpa, arp->arp_pln);
 		arp_handle_request(data, &new_node);
-		dev->xmit(dev, (struct qm_fd *)notes->fd, NULL);
+		dev->xmit(dev, &notes->dqrr->fd, NULL);
 		pr_info("Sent ARP reply for IP 0x%x\n", arp_tpa);
 	} else {
-		free_buff(notes->fd);
+		free_buff(&notes->dqrr->fd);
 	}
 }
 
@@ -211,7 +211,7 @@ static void arp_solicit(struct neigh_t *n, const void *annotations,
 #ifdef STATS_TBD
 	decorated_notify_inc_64(&n->nt->stats->solicit_errors);
 #endif
-	free_buff(notes->fd);
+	free_buff(&notes->dqrr->fd);
 }
 
 static void arp_error_handler(struct neigh_t *n, const void *annotations,
@@ -221,7 +221,7 @@ static void arp_error_handler(struct neigh_t *n, const void *annotations,
 #ifdef STATS_TBD
 	decorated_notify_inc_64(&n->nt->stats->protocol_errors);
 #endif
-	free_buff(notes->fd);
+	free_buff(&notes->dqrr->fd);
 }
 
 static void arp_constructor(struct neigh_t *n)

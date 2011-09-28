@@ -39,12 +39,12 @@
  \details The structure is the Prepended Data to the Frame which is used by FMAN
 */
 struct annotations_t {
-	struct qm_fd *fd;
-	/**< Pointer to frame descriptor*/
+	const struct qm_dqrr_entry *dqrr;
 	struct rt_dest_t *dest;
 	/**< Pointer to the info related to Next Hop*/
-	uint32_t fqid;
-	uint8_t reserved1[4];
+#ifndef __powerpc64__
+	uint8_t reserved1[8];
+#endif
 	struct output_parse_result_t parse;	/**< Pointer to Parsed result*/
 	uint64_t timestamp;			/**< TimeStamp */
 	uint64_t hash_result;			/**< Hash Result */

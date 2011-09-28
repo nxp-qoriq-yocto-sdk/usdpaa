@@ -129,7 +129,7 @@ enum IP_STATUS ip_output_finish(const struct ppam_rx_hash *ctxt,
 			 * packet will be retransmitted by a higher network
 			 * layer)
 			 */
-			free_buff(notes->fd);
+			free_buff(&notes->dqrr->fd);
 			return IP_STATUS_DROP;
 		}
 
@@ -137,7 +137,7 @@ enum IP_STATUS ip_output_finish(const struct ppam_rx_hash *ctxt,
 				neighbor->proto_addr[0]);
 
 		/* Save first packet and forward it upon ARP reply */
-		neighbor->fd = *notes->fd;
+		neighbor->fd = notes->dqrr->fd;
 
 		/* Create and send ARP request */
 #ifdef NOT_USDPAA
@@ -167,8 +167,8 @@ enum IP_STATUS ip_output_finish(const struct ppam_rx_hash *ctxt,
 		ip_hdr->src_addr = ip_hdr->dst_addr;
 		ip_hdr->dst_addr = temp;
 #endif
-		ppac_send_frame(p->tx_fqids[notes->fqid % p->num_tx_fqids],
-			notes->fd);
+		ppac_send_frame(p->tx_fqids[notes->dqrr->fqid %
+			p->num_tx_fqids], &notes->dqrr->fd);
 	}
 
 	return retval;
