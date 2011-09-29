@@ -44,6 +44,7 @@
 
 #include <argp.h>
 #include <math.h>
+#include <error.h>
 
 #define INV_LWE_ID	255	/* Invalid LWE core ID */
 #define SEC40_FQ_BASE	9000	/* start of FQ number for encryption FQ */

@@ -1885,6 +1885,10 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
+	err = qman_global_init(0);
+	if (err)
+		error(err, 0, "error: qman global init failed");
+
 	/* Store the number of bytes for the job descriptor.
 	 * The SNOW_JDESC_ENC_F8_F9_LEN and SNOW_JDESC_DEC_F8_F9_LEN macros
 	 * return the length in 32 bit words.
