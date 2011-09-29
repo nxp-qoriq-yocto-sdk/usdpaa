@@ -351,6 +351,7 @@ const struct bm_portal_config *bman_destroy_affine_portal(void)
 #endif
 	pcfg = bm->config;
 	bm_rcr_cce_update(&bm->p);
+	bm_rcr_cce_update(&bm->p);
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
 	free_irq(pcfg->public_cfg.irq, bm);
 #endif
