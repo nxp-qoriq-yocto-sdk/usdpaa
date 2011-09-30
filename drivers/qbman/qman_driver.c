@@ -281,7 +281,9 @@ static int fsl_fqid_range_init(int recovery_mode,
 
 int qman_thread_init(int cpu, int recovery_mode)
 {
-	return fsl_qman_portal_init(cpu, recovery_mode);
+	/* Convert from contiguous/virtual cpu numbering to real cpu when
+	 * calling into the code that is dependent on the device naming */
+	return fsl_qman_portal_init(of_phys_cpu(cpu), recovery_mode);
 }
 
 int qman_thread_finish(void)
