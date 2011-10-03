@@ -629,14 +629,13 @@ struct qman_fq *create_sec_frame_queue(uint32_t fq_id,
 		fq_opts.fqd.dest.channel = qm_channel_caam;
 		fq_opts.fqd.dest.wq = 0;
 	} else {
-		uint32_t ctx_a_excl, ctx_a_len;
 		flags |= QMAN_INITFQ_FLAG_LOCAL;
-		ctx_a_excl = (QM_STASHING_EXCL_DATA | QM_STASHING_EXCL_CTX);
-		ctx_a_len = (1 << 2) | 1;
 		fq_opts.fqd.fq_ctrl |= QM_FQCTRL_CTXASTASHING;
 		fq_opts.we_mask |= QM_INITFQ_WE_FQCTRL;
-		fq_opts.fqd.context_a.hi = (ctx_a_excl << 24)
-			| (ctx_a_len << 16);
+		fq_opts.fqd.context_a.stashing.exclusive =
+			QM_STASHING_EXCL_DATA | QM_STASHING_EXCL_CTX;
+		fq_opts.fqd.context_a.stashing.data_cl = 1;
+		fq_opts.fqd.context_a.stashing.context_cl = 1;
 	}
 
 	if (unlikely(qman_init_fq(fq, flags, &fq_opts) != 0)) {
