@@ -346,7 +346,8 @@ static int create_compound_fd(void)
 
 		break;
 	default:
-		pr_err("%s: algorithm not supported\n", __func__);
+		fprintf(stderr, "error: %s: algorithm not supported\n",
+			__func__);
 		return -EINVAL;
 	}
 
@@ -361,7 +362,8 @@ static int create_compound_fd(void)
 			(L1_CACHE_BYTES, total_size);
 
 		if (unlikely(!sg_priv_and_data)) {
-			pr_err("Unable to allocate memory for buffer!\n");
+			fprintf(stderr, "error: Unable to allocate memory"
+				" for buffer!\n");
 			return -EINVAL;
 		}
 		memset(sg_priv_and_data, 0, total_size);
@@ -405,8 +407,8 @@ static void *setup_preheader(uint32_t shared_desc_len, uint32_t pool_id,
 	memset(prehdr, 0, sizeof(struct preheader_s));
 
 	if (unlikely(!prehdr)) {
-		pr_err("%s: dma_mem_memalign failed for preheader\n"
-				, __func__);
+		fprintf(stderr, "error: %s: dma_mem_memalign failed for"
+			" preheader\n", __func__);
 		return NULL;
 	}
 
@@ -439,8 +441,8 @@ static void *setup_init_descriptor(bool mode)
 	prehdr_desc = dma_mem_memalign(L1_CACHE_BYTES,
 				sizeof(struct sec_descriptor_t));
 	if (unlikely(!prehdr_desc)) {
-		pr_err("%s: dma_mem_memalign failed for preheader\n"
-				, __func__);
+		fprintf(stderr, "error: %s: dma_mem_memalign failed for"
+			" preheader\n", __func__);
 		return NULL;
 	}
 
@@ -478,8 +480,8 @@ static void *setup_init_descriptor(bool mode)
 
 	case SNOW_F9:
 		if (DECRYPT == mode) {
-			pr_err("%s: enc bit not selected as protect\n",
-				__func__);
+			fprintf(stderr, "error: %s: enc bit not selected as"
+				" protect\n", __func__);
 			return NULL;
 		}
 
@@ -507,8 +509,8 @@ static void *setup_init_descriptor(bool mode)
 
 	case KASUMI_F9:
 		if (DECRYPT == mode) {
-			pr_err("%s: enc bit not selected as protect\n",
-				__func__);
+			fprintf(stderr, "error: %s: enc bit not selected as"
+				" protect\n", __func__);
 			return NULL;
 		}
 
@@ -527,7 +529,7 @@ static void *setup_init_descriptor(bool mode)
 
 	case CRC:
 		if (DECRYPT == mode) {
-			pr_err("%s: enc bit not selected as"
+			fprintf(stderr, "error: %s: enc bit not selected as"
 				" protect\n", __func__);
 			return NULL;
 		}
@@ -537,7 +539,7 @@ static void *setup_init_descriptor(bool mode)
 
 	case HMAC_SHA1:
 		if (DECRYPT == mode) {
-			pr_err("%s: enc bit not selected as"
+			fprintf(stderr, "error: %s: enc bit not selected as"
 				" protect\n", __func__);
 			return NULL;
 		}
@@ -547,7 +549,8 @@ static void *setup_init_descriptor(bool mode)
 		break;
 
 	default:
-		pr_err("%s: algorithm not supported\n", __func__);
+		fprintf(stderr, "error: %s: algorithm not supported\n",
+			__func__);
 		return NULL;
 	}
 
@@ -564,8 +567,8 @@ static void *setup_init_descriptor(bool mode)
 	return prehdr_desc;
 
 error:
-	pr_err("%s: %s shared descriptor initilization failed\n",
-			__func__, algorithm);
+	fprintf(stderr, "error: %s: %s shared descriptor initilization"
+		" failed\n", __func__, algorithm);
 	return NULL;
 }
 
@@ -600,8 +603,8 @@ struct qman_fq *create_sec_frame_queue(uint32_t fq_id,
 	fq = (struct qman_fq *)dma_mem_memalign(L1_CACHE_BYTES,
 			sizeof(struct qman_fq));
 	if (unlikely(NULL == fq)) {
-		pr_err("dma_mem_memalign failed in create_fqs for FQ ID:\n"
-			"%u", fq_id);
+		fprintf(stderr, "error: dma_mem_memalign failed in create_fqs"
+			" for FQ ID:%u\n", fq_id);
 		return NULL;
 	}
 	memset(fq, 0, sizeof(struct qman_fq));
@@ -615,7 +618,8 @@ struct qman_fq *create_sec_frame_queue(uint32_t fq_id,
 	}
 
 	if (unlikely(qman_create_fq(fq_id, flags, fq) != 0)) {
-		pr_err("qman_create_fq failed for FQ ID: %u\n", fq_id);
+		fprintf(stderr, "error: qman_create_fq failed for FQ ID: %u\n",
+			fq_id);
 		return NULL;
 	}
 
@@ -639,7 +643,8 @@ struct qman_fq *create_sec_frame_queue(uint32_t fq_id,
 	}
 
 	if (unlikely(qman_init_fq(fq, flags, &fq_opts) != 0)) {
-		pr_err("qm_init_fq failed for fq_id: %u\n", fq_id);
+		fprintf(stderr, "error: qm_init_fq failed for fq_id: %u\n",
+			fq_id);
 		return NULL;
 	}
 
@@ -668,8 +673,8 @@ static int init_sec_frame_queues(enum SEC_MODE mode)
 	for (i = 0; i < FQ_PER_CORE; i++) {
 		ctxt_a = setup_sec_descriptor(mode);
 		if (0 == ctxt_a) {
-			pr_err("%s: Initializing shared descriptor failure!\n",
-				__func__);
+			fprintf(stderr, "error: %s: Initializing shared"
+				" descriptor failure!\n", __func__);
 			return -1;
 		}
 		addr = dma_mem_vtop(ctxt_a);
@@ -680,17 +685,17 @@ static int init_sec_frame_queues(enum SEC_MODE mode)
 		fq_from_sec_ptr[i] =
 			create_sec_frame_queue(fq_from_sec, 0, 0);
 		if (!fq_from_sec_ptr[i]) {
-			pr_err("%s : Encrypt FQ(from SEC)"
-				" couldn't be allocated, ID = %d\n",
-				__func__, fq_from_sec);
+			fprintf(stderr, "error: %s : Encrypt FQ(from SEC)"
+				" couldn't be allocated, ID = %d\n", __func__,
+				fq_from_sec);
 			return -1;
 		}
 
 		fq_to_sec_ptr[i] =
 			create_sec_frame_queue(fq_to_sec, addr, fq_from_sec);
 		if (!fq_to_sec_ptr[i]) {
-			pr_err("%s : Encrypt FQ(to SEC) couldn't be"
-				" allocated, ID = %d\n",
+			fprintf(stderr, "error: %s : Encrypt FQ(to SEC)"
+				" couldn't be allocated, ID = %d\n",
 				__func__, fq_to_sec);
 			return -1;
 		}
@@ -711,16 +716,15 @@ static int init_sec_fq(void)
 	fq_base_decrypt += 2 * cpu_ind * FQ_PER_CORE;
 
 	if (init_sec_frame_queues(ENCRYPT)) {
-		pr_err("%s: couldn't Initialize SEC 4.0 Encrypt Queues\n",
-				__func__);
+		fprintf(stderr, "error: %s: couldn't Initialize SEC 4.0 Encrypt"
+			" Queues\n", __func__);
 		return -1;
 	}
 
 	if (!authnct) {
 		if (init_sec_frame_queues(DECRYPT)) {
-			pr_err
-				("%s: couldn't Initialize SEC 4.0 Decrypt"
-					" Queues\n", __func__);
+			fprintf(stderr, "error: %s: couldn't Initialize SEC 4.0"
+				" Decrypt Queues\n", __func__);
 			return -1;
 		}
 	}
@@ -776,7 +780,8 @@ static int free_sec_frame_queues(struct qman_fq *fq[],
 	for (i = 0; i < FQ_PER_CORE; i++) {
 		res = qman_retire_fq(fq[i], &flags);
 		if (0 > res) {
-			pr_err("qman_retire_fq failed for fq %d\n", i);
+			fprintf(stderr, "error: qman_retire_fq failed for"
+				" fq %d\n", i);
 			return -EINVAL;
 		}
 
@@ -784,11 +789,13 @@ static int free_sec_frame_queues(struct qman_fq *fq[],
 			qman_poll();
 
 		if (flags & QMAN_FQ_STATE_BLOCKOOS) {
-			pr_err("leaking frames for fq %d\n", i);
+			fprintf(stderr, "error: leaking frames for"
+				" fq %d\n", i);
 			return -1;
 		}
 		if (qman_oos_fq(fq[i])) {
-			pr_err("qman_oos_fq failed for fq %d\n", i);
+			fprintf(stderr, "error: qman_oos_fq failed for"
+				" fq %d\n", i);
 			return -EINVAL;
 		}
 		qman_destroy_fq(fq[i], 0);
@@ -800,28 +807,30 @@ int free_sec_fq(void)
 {
 	if (unlikely(free_sec_frame_queues(enc_fq_from_sec,
 		enc_fq_from_sec_retire) != 0)) {
-		pr_err("free_sec_frame_queues failed for enc_fq_from_sec\n");
+		fprintf(stderr, "error: free_sec_frame_queues failed for"
+			" enc_fq_from_sec\n");
 		return -1;
 	}
 
 	if (unlikely(free_sec_frame_queues(enc_fq_to_sec,
 		enc_fq_to_sec_retire) != 0)) {
-		pr_err("free_sec_frame_queues failed for enc_fq_to_sec\n");
+		fprintf(stderr, "error: free_sec_frame_queues failed for"
+			" enc_fq_to_sec\n");
 		return -1;
 	}
 
 	if (!authnct) {
 		if (unlikely(free_sec_frame_queues(dec_fq_from_sec,
 			dec_fq_from_sec_retire) != 0)) {
-			pr_err("free_sec_frame_queues failed for"
-				" dec_fq_from_sec\n");
+			fprintf(stderr, "error: free_sec_frame_queues failed"
+				" for dec_fq_from_sec\n");
 			return -1;
 		}
 
 		if (unlikely(free_sec_frame_queues(dec_fq_to_sec,
 			dec_fq_to_sec_retire) != 0)) {
-			pr_err("free_sec_frame_queues failed for"
-				" dec_fq_to_sec\n");
+			fprintf(stderr, "error: free_sec_frame_queues failed"
+				" for dec_fq_to_sec\n");
 			return -1;
 		}
 	}
@@ -932,7 +941,8 @@ static void set_dec_auth_buf(void)
 	uint8_t *dec_job_descriptor = NULL;
 
 	if (SNOW_F8_F9 != crypto_info.algo) {
-		pr_err("%s: algorithm not supported\n", __func__);
+		fprintf(stderr, "error: %s: algorithm not supported\n",
+			__func__);
 		return;
 	}
 
@@ -959,7 +969,8 @@ static void set_dec_auth_buf(void)
 		 */
 		if (output_buf_size != (snow_dec_f8_f9_reference_length
 					[crypto_info.test_set - 1]/8)) {
-			pr_err("Invalid output buffer length\n");
+			fprintf(stderr, "error: Invalid output buffer"
+				" length\n");
 			abort();
 		}
 
@@ -994,7 +1005,7 @@ static int test_vector_match(uint32_t *left, uint32_t *right,
 	uint32_t i;
 
 	if (!left || !right) {
-		pr_err("Wrong parameters to %s\n", __func__);
+		fprintf(stderr, "error: Wrong parameters to %s\n", __func__);
 		abort();
 	}
 
@@ -1006,9 +1017,8 @@ static int test_vector_match(uint32_t *left, uint32_t *right,
 	/* compare the full 32-bit quantities */
 	for (i = 0; i < (bitlen >> 5); i++) {
 		if (left[i] != right[i]) {
-			pr_err
-				("%s(): Bytes at offset %d don't match "
-				 "(0x%x, 0x%x)\n", __func__, i, left[i],
+			fprintf(stderr, "error: %s(): Bytes at offset %d don't"
+				" match (0x%x, 0x%x)\n", __func__, i, left[i],
 				 right[i]);
 			return -1;
 		}
@@ -1026,9 +1036,9 @@ static int test_vector_match(uint32_t *left, uint32_t *right,
 
 		if ((left_last | bitmasks[reminder_bitlen])
 				!= (right_last | bitmasks[reminder_bitlen])) {
-			pr_err("%s(): Last bytes (%d) don't match on full"
-				" %d bitlength\n", __func__, bitlen >> 5,
-				reminder_bitlen);
+			fprintf(stderr, "error: %s(): Last bytes (%d) don't"
+				" match on full %d bitlength\n", __func__,
+				bitlen >> 5, reminder_bitlen);
 			return -1;
 		}
 	}
@@ -1046,51 +1056,58 @@ void print_frame_desc(struct qm_fd *frame_desc)
 	dma_addr_t addr;
 	uint32_t i;
 
-	pr_err("Frame Description at address %p\n", (void *)frame_desc);
+	fprintf(stdout, "error: Frame Description at address %p\n",
+		(void *)frame_desc);
 	if (!frame_desc) {
-		pr_err(" - NULL pointer\n");
+		fprintf(stdout, "error: - NULL pointer\n");
 	} else {
-		pr_err(" - debug	: %d\n", frame_desc->dd);
-		pr_err(" - bpid	: %d\n", frame_desc->bpid);
-		pr_err(" - address	: 0x%"PRIx64"\n",
+		fprintf(stdout, "error: - debug : %d\n",
+			frame_desc->dd);
+		fprintf(stdout, "error: - bpid	: %d\n", frame_desc->bpid);
+		fprintf(stdout, "error: - address : 0x%"PRIx64"\n",
 			qm_fd_addr_get64(frame_desc));
 
 		switch (frame_desc->format) {
 		case 0:
-			pr_err(" - format		: 0"
-					" - Short single buffer FD\n");
-			pr_err(" - offset	: %d\n", frame_desc->offset);
-			pr_err(" - length	: %d\n", frame_desc->length20);
+			fprintf(stdout, "error: - format : 0"
+				" - Short single buffer FD\n");
+			fprintf(stdout, "error: - offset : %d\n",
+				frame_desc->offset);
+			fprintf(stdout, "error: - length : %d\n",
+				frame_desc->length20);
 			break;
 		case 1:
-			pr_err(" - format	: 1 - Compound FD\n");
-			pr_err(" - congestion weight	: %d\n",
-					frame_desc->cong_weight);
+			fprintf(stdout, "error: - format : 1 - Compound FD\n");
+			fprintf(stdout, "error: - congestion weight : %d\n",
+				frame_desc->cong_weight);
 			break;
 		case 2:
-			pr_err(" - format		: 2"
-					" - Long single buffer FD\n");
-			pr_err(" - length	: %d\n", frame_desc->length29);
+			fprintf(stdout, "error: - format : 2"
+				" - Long single buffer FD\n");
+			fprintf(stdout, "error: - length : %d\n",
+				frame_desc->length29);
 			break;
 		case 4:
-			pr_err
-				(" - format		: 4"
-					" - Short multi buffer FD\n");
-			pr_err(" - offset	: %d\n", frame_desc->offset);
-			pr_err(" - length	: %d\n", frame_desc->length29);
+			fprintf(stderr, "error: - format : 4"
+				" - Short multi buffer FD\n");
+			fprintf(stdout, "error: - offset : %d\n",
+				frame_desc->offset);
+			fprintf(stdout, "error: - length : %d\n",
+				frame_desc->length29);
 			break;
 		case 6:
-			pr_err(" - format		: 6"
-					" - Long multi buffer FD\n");
-			pr_err(" - length	: %d\n", frame_desc->length29);
+			fprintf(stdout, "error: - format : 6"
+				" - Long multi buffer FD\n");
+			fprintf(stdout, "error: - length : %d\n",
+				frame_desc->length29);
 			break;
 		default:
-			pr_err
-				(" - format		: INVALID"
+			fprintf(stderr, "error: - format : INVALID"
 				 " format %d\n", frame_desc->format);
 		}
 
-		pr_err(" - status/command	: 0x%08x\n", frame_desc->cmd);
+		fprintf(stdout, "error: - status/command : 0x%08x\n",
+			 frame_desc->cmd);
 
 		if (frame_desc->format == qm_fd_compound) {
 			struct qm_sg_entry *sgentry;
@@ -1098,35 +1115,46 @@ void print_frame_desc(struct qm_fd *frame_desc)
 			addr = qm_fd_addr_get64(frame_desc);
 			sgentry = dma_mem_ptov(addr);
 
-			pr_err(" - compound FD S/G list at 0x%"PRIx64"\n", addr);
+			fprintf(stdout, "error: - compound FD S/G list at 0x%"
+				PRIx64"\n", addr);
 			addr = qm_sg_entry_get64(sgentry);
-			pr_err("   - SG Entry\n");
-			pr_err("      - address	0x%"PRIx64"\n", addr);
-			pr_err("      - F	     %d\n", sgentry->final);
-			pr_err("      - E	     %d\n",
-					sgentry->extension);
-			pr_err("      - length	%d\n", sgentry->length);
-			pr_err("      - bpid	  %d\n", sgentry->bpid);
-			pr_err("      - offset	%d\n", sgentry->offset);
+			fprintf(stdout, "error: - SG Entry\n");
+			fprintf(stdout, "error:       - address	0x%"
+				PRIx64"\n", addr);
+			fprintf(stdout, "error:       - F %d\n",
+				sgentry->final);
+			fprintf(stdout, "error:       - E %d\n",
+				sgentry->extension);
+			fprintf(stdout, "error:       - length %d\n",
+				sgentry->length);
+			fprintf(stdout, "error:       - bpid %d\n",
+				sgentry->bpid);
+			fprintf(stdout, "error:       - offset %d\n",
+				sgentry->offset);
 
 			v = dma_mem_ptov(addr);
 			for (i = 0; i < sgentry->length; i++)
-				pr_err("	0x%x\n", *v++);
+				fprintf(stdout, "error: 0x%x\n", *v++);
 
 			sgentry++;
 			addr = qm_sg_entry_get64(sgentry);
-			pr_err("   - Next SG Entry\n");
-			pr_err("      - address	0x%"PRIx64"\n", addr);
-			pr_err("      - F	     %d\n", sgentry->final);
-			pr_err("      - E	     %d\n",
-					sgentry->extension);
-			pr_err("      - length	%d\n", sgentry->length);
-			pr_err("      - bpid	  %d\n", sgentry->bpid);
-			pr_err("      - offset	%d\n", sgentry->offset);
+			fprintf(stdout, "error:    - Next SG Entry\n");
+			fprintf(stdout, "error:       - address	0x%"
+				PRIx64"\n", addr);
+			fprintf(stdout, "error:       - F %d\n",
+				sgentry->final);
+			fprintf(stdout, "error:       - E %d\n",
+				sgentry->extension);
+			fprintf(stdout, "error:       - length %d\n",
+				sgentry->length);
+			fprintf(stdout, "error:       - bpid %d\n",
+				sgentry->bpid);
+			fprintf(stdout, "error:       - offset %d\n",
+				sgentry->offset);
 
 			v = dma_mem_ptov(addr);
 			for (i = 0; i < sgentry->length; i++)
-				pr_err("	0x%x\n", *v++);
+				fprintf(stdout, "error: 0x%x\n", *v++);
 		}
 	}
 }
@@ -1157,23 +1185,23 @@ static int test_enc_match(void)
 			authnct ? output_buf_size * BITS_PER_BYTE :
 			ref_test_vector.length) != 0) {
 			if (!authnct)
-				pr_err("%s: Encrypted frame %d with"
-						" CIPHERTEXT test vector"
-						" doesn't"
-						" match\n" , __func__,
-						ind + 1);
+				fprintf(stderr, "error: %s: Encrypted frame %d"
+					" with CIPHERTEXT test vector doesn't"
+					" match\n" , __func__, ind + 1);
 			else
-				pr_err("%s digest match failed\n", algorithm);
+				fprintf(stderr, "error: %s digest match"
+					" failed\n", algorithm);
 
 			print_frame_desc(&fd[ind]);
 			return -1;
 		}
 	}
 	if (!authnct)
-		pr_info("All %s encrypted frame match found with cipher text\n",
-				algorithm);
+		fprintf(stdout, "All %s encrypted frame match found with"
+			" cipher text\n", algorithm);
 	else
-		pr_info("All %s digest successfully matched\n", algorithm);
+		fprintf(stdout, "All %s digest successfully matched\n",
+			algorithm);
 
 	return 0;
 }
@@ -1202,18 +1230,18 @@ static int test_dec_match(void)
 			if (test_vector_match((uint32_t *) dec_buf, (uint32_t *)
 						ref_test_vector.plaintext,
 						ref_test_vector.length) != 0) {
-				pr_err("%s: Decrypted frame %d with"
-						" PLAINTEXT test vector"
-						" doesn't match\n",
-						__func__, ind + 1);
+				fprintf(stderr, "error: %s: Decrypted frame %d"
+					" with PLAINTEXT test vector doesn't"
+					" match\n", __func__, ind + 1);
 				print_frame_desc(&fd[ind]);
 				return -1;
 			}
 		} else {
 			for (i = 0; i < crypto_info.buf_size; i++) {
 				if (dec_buf[i] != plain_data) {
-					pr_err("%s: %s decrypted frame %d"
-						" doesn't match!\n" , __func__,
+					fprintf(stderr, "error: %s: %s"
+						" decrypted frame %d doesn't"
+						" match!\n" , __func__,
 						algorithm, ind + 1);
 					print_frame_desc(&fd[ind]);
 					return -1;
@@ -1222,7 +1250,8 @@ static int test_dec_match(void)
 			}
 		}
 	}
-	pr_info("All %s decrypted frame matches initial text\n", algorithm);
+	fprintf(stdout, "All %s decrypted frame matches initial text\n",
+		algorithm);
 	return 0;
 }
 
@@ -1275,8 +1304,8 @@ loop:
 static void cb_ern(struct qman_portal *qm, struct qman_fq *fq,
 		const struct qm_mr_entry *msg)
 {
-	pr_err("%s: RC = %x, seqnum = %x\n", __func__,\
-			msg->ern.rc, msg->ern.seqnum);
+	fprintf(stderr, "error: %s: RC = %x, seqnum = %x\n", __func__,
+		msg->ern.rc, msg->ern.seqnum);
 	/* TODO Add handling */
 	return;
 }
@@ -1303,8 +1332,8 @@ enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 		dec_pkts_from_sec++;
 		mode = DECRYPT;
 	} else {
-		pr_err("%s: Invalid Frame Queue ID Returned by SEC = %d\n",
-			__func__, dqrr->fqid);
+		fprintf(stderr, "error: %s: Invalid Frame Queue ID Returned"
+			" by SEC = %d\n", __func__, dqrr->fqid);
 		abort();
 	}
 
@@ -1346,7 +1375,7 @@ static int check_fd_status()
 {
 	for (ind = 0; ind < crypto_info.buf_num; ind++) {
 		if (fd[ind].status) {
-			pr_err("Bad status return from SEC\n");
+			fprintf(stderr, "error: Bad status return from SEC\n");
 			print_frame_desc(&fd[ind]);
 			return -1;
 		}
@@ -1457,43 +1486,44 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 	case 'm':
 		crypto_info.mode = atoi(arg);
 		g_cmd_params |= BMASK_SEC_TEST_MODE;
-		pr_info("Test mode = %s\n", arg);
+		fprintf(stdout, "Test mode = %s\n", arg);
 		break;
 
 	case 't':
 		crypto_info.test_set = atoi(arg);
 		g_cmd_params |= BMASK_SEC_TEST_SET;
-		pr_info("Test set = %d\n", crypto_info.test_set);
+		fprintf(stdout, "Test set = %d\n", crypto_info.test_set);
 		break;
 
 	case 's':
 		crypto_info.buf_size = atoi(arg);
 		g_cmd_params |= BMASK_SEC_BUFFER_SIZE;
-		pr_info("Buffer size = %d\n", crypto_info.buf_size);
+		fprintf(stdout, "Buffer size = %d\n", crypto_info.buf_size);
 		break;
 
 	case 'n':
 		crypto_info.buf_num = atoi(arg);
 		g_cmd_params |= BMASK_SEC_BUFFER_NUM;
-		pr_info("Number of Buffers per core = %d\n",
+		fprintf(stdout, "Number of Buffers per core = %d\n",
 				crypto_info.buf_num);
 		break;
 
 	case 'o':
 		crypto_info.algo = atoi(arg);
 		g_cmd_params |= BMASK_SEC_ALG;
-		pr_info("SEC4.0 cryptographic operation = %s\n", arg);
+		fprintf(stdout, "SEC4.0 cryptographic operation = %s\n", arg);
 		break;
 
 	case 'l':
 		crypto_info.itr_num = atoi(arg);
 		g_cmd_params |= BMASK_SEC_ITR_NUM;
-		pr_info("Number of iteration = %d\n", crypto_info.itr_num);
+		fprintf(stdout, "Number of iteration = %d\n",
+			crypto_info.itr_num);
 		break;
 
 	case 'c':
 		ncpus = atoi(arg);
-		pr_info("Number of cpus = %ld\n", ncpus);
+		fprintf(stdout, "Number of cpus = %ld\n", ncpus);
 		break;
 
 	default:
@@ -1560,11 +1590,13 @@ static int validate_test_set(void)
 		else
 			goto err;
 	default:
-		pr_err("Invalid Parameters: Invalid SEC algorithm\n");
+		fprintf(stderr, "error: Invalid Parameters: Invalid SEC"
+			" algorithm\n");
 		return -EINVAL;
 	}
 err:
-	pr_err("Invalid Parameters: Test set number is invalid\n");
+	fprintf(stderr, "error: Invalid Parameters: Test set number is"
+		" invalid\n");
 	return -EINVAL;
 }
 
@@ -1581,37 +1613,37 @@ static int validate_params(void)
 	} else if ((CIPHER == crypto_info.mode)
 			&& g_cmd_params == BMASK_SEC_CIPHER_MODE) {
 		if (validate_test_set() != 0) {
-			pr_err("Invalid Parameters: Invalid test set\n"
-				"see --help option\n");
+			fprintf(stderr, "error: Invalid Parameters: Invalid"
+				" test set\nsee --help option\n");
 			return -EINVAL;
 		}
 	} else {
-		pr_err
-			("Invalid Parameters: provide a valid combination"
-			 " of mandatory arguments see --help option\n");
+		fprintf(stderr, "error: Invalid Parameters: provide a valid"
+			" combination of mandatory arguments\n"
+			"see --help option\n");
 		return -EINVAL;
 	}
 
 	if (crypto_info.buf_num == 0 ||
 		crypto_info.buf_num > BUFF_NUM) {
-		pr_err("Invalid Parameters: Invalid number of buffers\n"
-				"see --help option\n");
+		fprintf(stderr, "error: Invalid Parameters: Invalid number of"
+			" buffers\nsee --help option\n");
 		return -EINVAL;
 	}
 
 	if (PERF == crypto_info.mode && (crypto_info.buf_size == 0 ||
 		crypto_info.buf_size % L1_CACHE_BYTES != 0 ||
 		crypto_info.buf_size > BUFF_SIZE)) {
-		pr_err("Invalid Parameters: Invalid number of buffers\n"
-				"see --help option\n");
+		fprintf(stderr, "error: Invalid Parameters: Invalid number of"
+			" buffers\nsee --help option\n");
 		return -EINVAL;
 	}
 
 	if (PERF == crypto_info.mode && (crypto_info.buf_num > BUFF_NUM / 2
 		&& crypto_info.buf_size > BUFF_SIZE / 2)) {
-		pr_err("Both of number of buffers and buffer size\n"
-				"cannot be more than 3200 at the same time\n"
-				"see --help option\n");
+		fprintf(stderr, "error: Both of number of buffers and buffer"
+			" size\ncannot be more than 3200 at the same time\n"
+			"see --help option\n");
 		return -EINVAL;
 	}
 
@@ -1627,8 +1659,8 @@ static int validate_params(void)
 	case SNOW_F8_F9:
 		break;
 	default:
-		pr_err("Invalid Parameters: SEC algorithm not supported\n"
-			"see --help option\n");
+		fprintf(stderr, "error: Invalid Parameters: SEC algorithm not"
+			" supported\nsee --help option\n");
 		return -EINVAL;
 	}
 
@@ -1672,7 +1704,8 @@ static int worker_fn(thread_data_t *tdata)
 	cpu_ind = tdata->index;
 
 	if (unlikely(init_sec_fq() != 0)) {
-		pr_err("%s: init_sec_fq() failure\n", __func__);
+		fprintf(stderr, "error: %s: init_sec_fq() failure\n",
+			__func__);
 		abort();
 	}
 
@@ -1682,10 +1715,10 @@ static int worker_fn(thread_data_t *tdata)
 		/* Set encryption buffer */
 		if (!tdata->index) {
 			if (crypto_info.itr_num < ONE_MEGA) {
-				pr_info("Iteration %d started\n", i);
+				fprintf(stdout, "Iteration %d started\n", i);
 			} else {
 				if (1 == (i % ONE_MEGA/10))
-					pr_info("Iteration %d started."
+					fprintf(stdout, "Iteration %d started."
 							" working....\n", i);
 			}
 			set_enc_buf();
@@ -1693,8 +1726,9 @@ static int worker_fn(thread_data_t *tdata)
 		enc_pkts_from_sec = 0;
 
 		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
-			pr_err("Encrypt mode: pthread_barrier_wait failed"
-					"before enqueue\n");
+			fprintf(stderr, "error: Encrypt mode:"
+				" pthread_barrier_wait failed"
+				" before enqueue\n");
 			abort();
 		}
 
@@ -1713,8 +1747,9 @@ static int worker_fn(thread_data_t *tdata)
 		enc_qman_poll();
 
 		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
-			pr_err("Encrypt mode: pthread_barrier_wait failed"
-					"before enqueue\n");
+			fprintf(stderr, "error: Encrypt mode:"
+				" pthread_barrier_wait failed"
+				" before enqueue\n");
 			abort();
 		}
 
@@ -1747,8 +1782,9 @@ static int worker_fn(thread_data_t *tdata)
 		dec_pkts_from_sec = 0;
 error2:
 		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
-			pr_err("Decrypt mode: pthread_barrier_wait failed"
-					" before enqueue\n");
+			fprintf(stderr, "error: Decrypt mode:"
+				" pthread_barrier_wait failed"
+				" before enqueue\n");
 			abort();
 		}
 
@@ -1773,8 +1809,9 @@ error2:
 		dec_qman_poll();
 
 		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
-			pr_err("Encrypt mode: pthread_barrier_wait failed"
-					"before enqueue\n");
+			fprintf(stderr, "error: Encrypt mode:"
+				" pthread_barrier_wait failed"
+				" before enqueue\n");
 			abort();
 		}
 
@@ -1797,8 +1834,8 @@ error2:
 		}
 error3:
 		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
-			pr_err("pthread_barrier_wait failed after"
-					" test_dec_match\n");
+			fprintf(stderr, "error: pthread_barrier_wait failed"
+				" after test_dec_match\n");
 			abort();
 		}
 
@@ -1808,10 +1845,10 @@ error3:
 result:
 		if (!tdata->index) {
 			if (ONE_MEGA > crypto_info.itr_num) {
-				pr_info("Iteration %d finished\n", i);
+				fprintf(stdout, "Iteration %d finished\n", i);
 			} else {
 				if (1 == (i % ONE_MEGA/10))
-					pr_info("Iteration %d finished."
+					fprintf(stdout, "Iteration %d finished."
 							" working....\n", i);
 			}
 		}
@@ -1822,7 +1859,8 @@ result:
 
 err_free_fq:
 	if (unlikely(free_sec_fq() != 0)) {
-			pr_err("%s: free_sec_fq failed\n", __func__);
+			fprintf(stderr, "error: %s: free_sec_fq failed\n",
+				__func__);
 			abort();
 	}
 
@@ -1850,51 +1888,47 @@ int main(int argc, char *argv[])
 	FILE *p_cpuinfo;
 	char buf[255], cpu_f[20];
 
-	pr_info("\nWelcome to FSL SEC 4.0 application!\n");
+	fprintf(stdout, "\nWelcome to FSL SEC 4.0 application!\n");
 
 	err = of_init();
-	if (err) {
-		pr_err("of_init() failed\n");
-		exit(EXIT_FAILURE);
-	}
+	if (err)
+		error(err, err, "error: of_init() failed");
 
 	ncpus = num_online_cpus;
 
 	/* Where the magic happens */
 	argp_parse(&argp, argc, argv, 0, 0, &crypto_info);
 
-	if (validate_params() != 0) {
-		pr_err("\nERROR: validate_params failed!\n");
-		exit(-EINVAL);
-	}
+	err = validate_params();
+	if (err)
+		error(err, err, "error: validate_params failed!");
 
 	/* Get the number of cores */
 	if (ncpus < 1 || ncpus > num_online_cpus) {
-		pr_err("Invalid Parameters: Number of cpu's given in"
-				" argument is more than the active cpu's\n");
+		fprintf(stderr, "error: Invalid Parameters: Number of cpu's"
+			" given in argument is more than the active cpu's\n");
 		exit(-EINVAL);
 	}
 
 	if (SNOW_F8_F9 == crypto_info.algo && PERF == crypto_info.mode) {
-		pr_info("PERF mode is not supported for SNOW_F8_F9");
+		fprintf(stdout, "info: PERF mode is not supported for"
+			" SNOW_F8_F9");
 		exit(0);
 	}
 
 	/* map shmem */
-	if (unlikely(dma_mem_setup())) {
-		pr_err("Shared memory initialization failed\n");
-		exit(EXIT_FAILURE);
-	}
+	err = dma_mem_setup();
+	if (err)
+		error(err, err, "error: Shared memory initialization failed");
 
 	/* Initialize barrier for all the threads! */
-	if (unlikely(pthread_barrier_init(&app_barrier, NULL, ncpus))) {
-		pr_err("unable to initialize pthread_barrier");
-		exit(EXIT_FAILURE);
-	}
+	err = pthread_barrier_init(&app_barrier, NULL, ncpus);
+	if (err)
+		error(err, err, "error: unable to initialize pthread_barrier");
 
 	err = qman_global_init(0);
 	if (err)
-		error(err, 0, "error: qman global init failed");
+		error(err, err, "error: qman global init failed");
 
 	/* Store the number of bytes for the job descriptor.
 	 * The SNOW_JDESC_ENC_F8_F9_LEN and SNOW_JDESC_DEC_F8_F9_LEN macros
@@ -1910,7 +1944,7 @@ int main(int argc, char *argv[])
 	p_cpuinfo = fopen("/proc/cpuinfo", "rb");
 
 	if (NULL == p_cpuinfo) {
-		pr_err("ERROR opening file /proc/cpuinfo");
+		fprintf(stderr, "error: opening file /proc/cpuinfo");
 	} else {
 		while (fgets(buf, 255, p_cpuinfo)) {
 			if (strstr(buf, "clock")) {
@@ -1921,10 +1955,9 @@ int main(int argc, char *argv[])
 	}
 
 	cpu_freq = strtoul(cpu_f, NULL, 10); /* cpu_freq in MHz */
-	if (ERANGE == errno || EINVAL == errno) {
-		pr_err("could not read cpu frequency from /proc/cpuinfo\n");
-		exit(EXIT_FAILURE);
-	}
+	if (ERANGE == errno || EINVAL == errno)
+		error(err, err, "error: could not read cpu frequency"
+			" from /proc/cpuinfo");
 
 	/* TODO get pool_channel_offset through API */
 	pool_channel_offset = 9;
@@ -1942,25 +1975,21 @@ int main(int argc, char *argv[])
 			NO_OF_BYTES(ref_test_vector.length);
 	}
 
-	if (unlikely(create_compound_fd() != 0)) {
-		pr_err("%s: create_compound_fd() failed!\n",
-				__func__);
-		exit(EXIT_FAILURE);
-	}
+	err = create_compound_fd();
+	if (err)
+		error(err, err, "error: create_compound_fd() failed");
 
-	pr_info("Processing %s for %d Frames\n", algorithm,
+	fprintf(stdout, "Processing %s for %d Frames\n", algorithm,
 		crypto_info.buf_num);
-	pr_info("%s mode, buffer length = %d\n", mode_type,
+	fprintf(stdout, "%s mode, buffer length = %d\n", mode_type,
 			crypto_info.buf_size);
-	pr_info("Number of iterations = %d\n", crypto_info.itr_num);
-	pr_info("\nStarting threads for %ld cpus\n", ncpus);
+	fprintf(stdout, "Number of iterations = %d\n", crypto_info.itr_num);
+	fprintf(stdout, "\nStarting threads for %ld cpus\n", ncpus);
 
 	/* Starting threads on all active cpus */
-	if (unlikely(start_threads(thread_data, ncpus,
-				   1, worker_fn))) {
-		pr_err("start_threads failiure");
-		exit(EXIT_FAILURE);
-	}
+	err = start_threads(thread_data, ncpus, 1, worker_fn);
+	if (err)
+		error(err, err, "error: start_threads failiure");
 
 	/* Wait for all the threads to finish */
 	wait_threads(thread_data, ncpus);
@@ -1969,23 +1998,21 @@ int main(int argc, char *argv[])
 		enc_cycles_per_frame = (enc_delta) /
 			(crypto_info.itr_num * crypto_info.buf_num);
 
-		pr_info("%s: Throughput = %"PRIu64" Mbps\n",
-			 authnct ? "Authenticate" : "Encrypt",
-				(cpu_freq * BITS_PER_BYTE *
-				crypto_info.buf_size) /
-				enc_cycles_per_frame);
+		fprintf(stdout, "%s: Throughput = %"PRIu64" Mbps\n", authnct ?
+			"Authenticate" : "Encrypt", (cpu_freq * BITS_PER_BYTE *
+			crypto_info.buf_size) / enc_cycles_per_frame);
 
 		if (!authnct) {
 			dec_cycles_per_frame = (dec_delta) /
 				(crypto_info.itr_num * crypto_info.buf_num);
 
-			pr_info("%s: Throughput = %"PRIu64" Mbps\n",
+			fprintf(stdout, "%s: Throughput = %"PRIu64" Mbps\n",
 				"Decrypt", (cpu_freq * BITS_PER_BYTE *
 				crypto_info.buf_size) / dec_cycles_per_frame);
 		}
-		pr_info("SEC 4.0 TEST PASSED\n");
+		fprintf(stdout, "SEC 4.0 TEST PASSED\n");
 	} else {
-		pr_info("TEST FAILED\n");
+		fprintf(stdout, "info: TEST FAILED\n");
 	}
 
 	free_fd();
