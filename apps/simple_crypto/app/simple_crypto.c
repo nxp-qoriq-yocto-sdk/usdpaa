@@ -388,6 +388,7 @@ static int create_compound_fd(void)
 		/* Frame Descriptor */
 		qm_fd_addr_set64(&fd[ind], dma_mem_vtop(sg));
 		fd[ind]._format1 = qm_fd_compound;
+		fd[ind].length29 = 2 * sizeof(struct qm_sg_entry);
 
 		sg_priv_and_data->index = ind;
 	}
@@ -633,6 +634,7 @@ struct qman_fq *create_sec_frame_queue(uint32_t fq_id,
 		ctx_a_excl = (QM_STASHING_EXCL_DATA | QM_STASHING_EXCL_CTX);
 		ctx_a_len = (1 << 2) | 1;
 		fq_opts.fqd.fq_ctrl |= QM_FQCTRL_CTXASTASHING;
+		fq_opts.we_mask |= QM_INITFQ_WE_FQCTRL;
 		fq_opts.fqd.context_a.hi = (ctx_a_excl << 24)
 			| (ctx_a_len << 16);
 	}
