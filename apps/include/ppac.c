@@ -152,7 +152,7 @@ void cb_ern(struct qman_portal *qm __always_unused,
 {
 	TRACE("Tx_ern: fqid=%d\tfd_status = 0x%08x\n", msg->ern.fqid,
 	      msg->ern.fd.status);
-	PRE_ORP((msg->ern.orp & QM_MR_ORPID_MASK), msg->ern.seqnum);
+	PRE_ORP(msg->ern.orp, msg->ern.seqnum);
 	ppac_drop_frame(&msg->ern.fd);
 	POST_ORP();
 }
