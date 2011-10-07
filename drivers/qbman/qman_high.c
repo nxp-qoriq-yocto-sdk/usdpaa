@@ -84,9 +84,6 @@ struct qman_portal {
 #ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
 	struct qman_fq *eqci_owned; /* only 1 enqueue WAIT_SYNC at a time */
 #endif
-#ifdef CONFIG_FSL_QMAN_PORTAL_TASKLET
-	struct tasklet_struct tasklet;
-#endif
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
 	spinlock_t sharing_lock; /* only used if is_shared */
 	int is_shared;
@@ -264,9 +261,10 @@ static inline unsigned int __poll_portal_fast(struct qman_portal *p,
 					unsigned int poll_limit);
 
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
-/* This is called from the ISR or from a deferred tasklet */
-static inline void do_isr_work(struct qman_portal *p)
+/* Portal interrupt handler */
+static irqreturn_t portal_isr(__always_unused int irq, void *ptr)
 {
+	struct qman_portal *p = ptr;
 	u32 clear = QM_DQAVAIL_MASK | p->irq_sources;
 	u32 is = qm_isr_status_read(&p->p) & p->irq_sources;
 	/* DQRR-handling if it's interrupt-driven */
@@ -275,25 +273,6 @@ static inline void do_isr_work(struct qman_portal *p)
 	/* Handling of anything else that's interrupt-driven */
 	clear |= __poll_portal_slow(p, is);
 	qm_isr_status_clear(&p->p, clear);
-}
-#ifdef CONFIG_FSL_QMAN_PORTAL_TASKLET
-static void portal_tasklet(unsigned long __p)
-{
-	struct qman_portal *p = (struct qman_portal *)__p;
-	do_isr_work(p);
-	qm_isr_uninhibit(&p->p);
-}
-#endif
-/* Portal interrupt handler */
-static irqreturn_t portal_isr(__always_unused int irq, void *ptr)
-{
-	struct qman_portal *p = ptr;
-#ifdef CONFIG_FSL_QMAN_PORTAL_TASKLET
-	qm_isr_inhibit(&p->p);
-	tasklet_schedule(&p->tasklet);
-#else
-	do_isr_work(p);
-#endif
 	return IRQ_HANDLED;
 }
 #endif
@@ -481,9 +460,6 @@ drain_loop:
 	portal->slowpoll = 0;
 #ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
 	portal->eqci_owned = NULL;
-#endif
-#ifdef CONFIG_FSL_QMAN_PORTAL_TASKLET
-	tasklet_init(&portal->tasklet, portal_tasklet, (unsigned long)portal);
 #endif
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
 	spin_lock_init(&portal->sharing_lock);

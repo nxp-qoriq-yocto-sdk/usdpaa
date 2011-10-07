@@ -46,9 +46,6 @@ struct bman_portal {
 #ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
 	struct bman_pool *rcri_owned; /* only 1 release WAIT_SYNC at a time */
 #endif
-#ifdef CONFIG_FSL_BMAN_PORTAL_TASKLET
-	struct tasklet_struct tasklet;
-#endif
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
 	spinlock_t sharing_lock; /* only used if is_shared */
 	int is_shared;
@@ -178,32 +175,14 @@ static void depletion_unlink(struct bman_pool *pool)
 static u32 __poll_portal_slow(struct bman_portal *p, u32 is);
 
 #ifdef CONFIG_FSL_DPA_HAVE_IRQ
-/* This is called from the ISR or from a deferred tasklet */
-static inline void do_isr_work(struct bman_portal *p)
-{
-	u32 clear = p->irq_sources;
-	u32 is = bm_isr_status_read(&p->p) & p->irq_sources;
-	clear |= __poll_portal_slow(p, is);
-	bm_isr_status_clear(&p->p, clear);
-}
-#ifdef CONFIG_FSL_BMAN_PORTAL_TASKLET
-static void portal_tasklet(unsigned long __p)
-{
-	struct bman_portal *p = (struct bman_portal *)__p;
-	do_isr_work(p);
-	bm_isr_uninhibit(&p->p);
-}
-#endif
 /* Portal interrupt handler */
 static irqreturn_t portal_isr(__always_unused int irq, void *ptr)
 {
 	struct bman_portal *p = ptr;
-#ifdef CONFIG_FSL_BMAN_PORTAL_TASKLET
-	bm_isr_inhibit(&p->p);
-	tasklet_schedule(&p->tasklet);
-#else
-	do_isr_work(p);
-#endif
+	u32 clear = p->irq_sources;
+	u32 is = bm_isr_status_read(&p->p) & p->irq_sources;
+	clear |= __poll_portal_slow(p, is);
+	bm_isr_status_clear(&p->p, clear);
 	return IRQ_HANDLED;
 }
 #endif
@@ -253,9 +232,6 @@ struct bman_portal *bman_create_affine_portal(
 	portal->slowpoll = 0;
 #ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
 	portal->rcri_owned = NULL;
-#endif
-#ifdef CONFIG_FSL_BMAN_PORTAL_TASKLET
-	tasklet_init(&portal->tasklet, portal_tasklet, (unsigned long)portal);
 #endif
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
 	spin_lock_init(&portal->sharing_lock);
