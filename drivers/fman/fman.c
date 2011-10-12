@@ -244,9 +244,16 @@ static int fman_if_init(const struct device_node *dpa_node, int is_offline)
 		my_err(!prop, -EINVAL, "%s: no fsl,bpid\n", pname);
 		assert(proplen == sizeof(*prop));
 		bpool->bpid = *prop;
-		/* Extract the cfg property (count/size/addr) */
+		/* Extract the cfg property (count/size/addr). "fsl,bpool-cfg"
+		 * indicates for the Bman driver to seed the pool.
+		 * "fsl,bpool-ethernet-cfg" is used by the network driver. The
+		 * two are mutually exclusive, so check for either of them. */
 		prop = of_get_property(pool_node, "fsl,bpool-cfg",
 					&proplen);
+		if (!prop)
+			prop = of_get_property(pool_node,
+					       "fsl,bpool-ethernet-cfg",
+					       &proplen);
 		if (!prop) {
 			/* It's OK for there to be no bpool-cfg */
 			bpool->count = bpool->size = bpool->addr = 0;
