@@ -31,13 +31,8 @@
  */
 
 #define SRIO_PORT_MAX_NUM	2	/* SRIO port max number */
-#define SRIO_PORT_DEFAULT_NUM	2	/* SRIO port default number */
 #define SRIO_OB_WIN_NUM		9	/* SRIO outbound window number */
 #define SRIO_IB_WIN_NUM		5	/* SRIO inbound window number */
-#define SRIO_UIO_MEM_SIZE	0x20000
-#define SRIO_UIO_WIN_SIZE	0x20000000
-#define SRIO_WIN_BASE_PHYS	0xc20000000ull	/* outbound win base */
-#define SRIO_SYS_ADDR		0x10000000	/* used for srio system addr */
 
 #define RIO_ISR_AACR_AA		0x1	/* Accept All ID */
 #define RIO_ROWAR_WR_MASK	(0xff << 12)
@@ -229,15 +224,28 @@ struct rio_regs {
 	struct rio_atmu		atmu;
 };
 
-struct rio_mport {
+struct addr_info {
+	uint64_t start;
+	uint64_t size;
+};
+
+struct srio_port_info {
+	struct addr_info range;
+};
+
+struct srio_port {
 	uint8_t enable;
-	struct rio_dev *dev;
+	uint8_t port_id;
+	struct addr_info win_range;
+	void *mem_win;
+	int port_fd;
 	void *priv;
 };
 
 struct srio_dev {
-	void *mem_win;
-	struct rio_regs	*rio_regs;
-	struct rio_mport port[SRIO_PORT_MAX_NUM];
-	uint32_t port_num;	/* how many ports for a silicon */
+	struct rio_regs *rio_regs;
+	uint64_t regs_size;
+	int reg_fd;
+	struct srio_port *port;
+	uint32_t port_num;
 };

@@ -60,6 +60,11 @@ enum srio_lawbar_size {
 	LAWAR_SIZE_2G
 };
 
+struct srio_port_info {
+	uint64_t range_start;
+	uint64_t range_size;
+};
+
 struct srio_dev;
 
 int fsl_srio_uio_init(struct srio_dev **srio);
@@ -68,12 +73,14 @@ int fsl_srio_connection(struct srio_dev *sriodev, uint8_t port_id);
 int fsl_srio_set_attr(struct srio_dev *sriodev,
 		      uint8_t port_id, int32_t win_id, uint32_t win_attr);
 int fsl_srio_set_obwin(struct srio_dev *sriodev, uint8_t port_id,
-		       uint8_t win_id, dma_addr_t ob_win_phys,
-		       size_t win_size);
+		       uint8_t win_id, uint64_t ob_win_phys,
+		       uint64_t ob_win_sys, size_t win_size);
 int fsl_srio_set_ibwin(struct srio_dev *sriodev, uint8_t port_id,
-		       uint8_t win_id, dma_addr_t ib_win_phys,
-		       size_t win_size);
+		      uint8_t win_id, uint64_t ib_win_phys, uint64_t ib_win_sys,
+		      size_t win_size);
 int fsl_srio_clr_bus_err(struct srio_dev *sriodev);
 int fsl_srio_port_connected(struct srio_dev *sriodev);
-
+int fsl_srio_get_port_num(struct srio_dev *sriodev);
+int fsl_srio_get_port_info(struct srio_dev *sriodev, uint8_t port_id,
+			   struct srio_port_info *port);
 #endif
