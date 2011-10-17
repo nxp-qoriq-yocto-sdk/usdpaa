@@ -30,24 +30,18 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <usdpaa/compat.h>
+#include <internal/of.h>
 #include <usdpaa/fsl_rman.h>
-#include <internal/compat.h>
 #include <error.h>
 
-#define RMAN_CU_NUM_PER_IB		8
-#define RMAN_IB_OFFSET			0x1000
-#define RMAN_CU_OFFSET			0x100
-#define RMAN_IPBRR0			0xBF8
-#define RMAN_IPBRR1			0xBFC
-
-#define RMAN_REG_WIN_SIZE		0x20000
-#define RMAN_GOLABEL_REG_OFFSET		0xF00
-
-#define MMIER_ENABLE_ALL		0x800000FF
-#define MMEDR_CLEAR			0x800000FF
-
-#define IBCU_IDLE_FQID			0
+#define RMAN_UIO_FILE		"/dev/rman-uio"
+#define RMAN_IB_FILE		"/dev/rman-inbound-block"
+#define RMAN_IB_INDEX_OFFSET	12
+#define RMAN_CU_NUM_PER_IB	8
+#define RMAN_CU_OFFSET		0x100
+#define MMIER_ENABLE_ALL	0x800000FF
+#define MMEDR_CLEAR		0x800000FF
+#define IBCU_IDLE_FQID		0
 
 /* Inbound Block TypeX Classification Registers */
 struct rman_ibcu_regs {
@@ -67,10 +61,13 @@ struct rman_ibcu_regs {
 };
 
 struct rman_global_reg {
+	uint32_t res0[766];	/* 0x1E_0000 - Add for 4K aligned */
+	uint32_t ipbrr[2];	/* 0x1E_0BFB - IP block revision register 0/1 */
+	uint32_t res1[192];
 	uint32_t mmmr;		/* 0x1E_0F00 - Message manager Mode Register */
 	uint32_t mmsr;		/* 0x1E_0F04 -
 				   Message manager Status Register */
-	uint32_t res1[2];
+	uint32_t res2[2];
 	uint32_t mmt8fqar;	/* 0x1E_0F10 - Message manager
 				   T8 Frame Queue Assembly Register */
 	uint32_t mmt9fqar;	/* 0x1E_0F14 - Message manager
@@ -99,7 +96,7 @@ struct rman_global_reg {
 				   Arbitration Weight Register */
 	uint32_t mmiomr;	/* 0x1E_0F54 - Message manager
 				   Outbound Interleaving Mask Register */
-	uint32_t res2[3];
+	uint32_t res3[3];
 	uint32_t mmliodnbr;	/* 0x1E_0F64 - Message manager
 				   logical I/O device number base Register */
 	uint32_t mmitar;	/* 0x1E_0F68- Message manager
@@ -108,24 +105,44 @@ struct rman_global_reg {
 				   Inbound Translation Data Register*/
 	uint32_t mmsepr0;	/* 0x1E_0F70- Message Unit Segmentation
 				   Execution Privilege Register 0 */
-	uint32_t res3[3];
+	uint32_t res4[3];
 	uint32_t mmrcar[3];	/* 0x1E_0F80- Message manager
 				   Reassembly Context Assignment Register 0/1/2 */
-	uint32_t res4[21];
+	uint32_t res5[21];
 	uint32_t mmsmr;		/* 0x1E_0FE0- Message manager
 				   support mode register */
 };
 
+/**
+ * A RMan classification unit contains a set of run-time registers to filter
+ * and reassembles transaction then put onto a specified queue for processing
+ * by software.
+ */
+struct rman_classification_unit {
+	volatile struct rman_ibcu_regs *cu_regs;
+	int fqid;
+};
+
+/**
+ * A RMan device contains multiple inbound blocks.
+ * Each block contains eight classification units.
+ */
+struct rman_inbound_block {
+	int index;
+	int uiofd;
+	volatile void *ib_regs;
+	uint64_t regs_size;
+	struct rman_classification_unit cu[RMAN_CU_NUM_PER_IB];
+};
+
 struct rman_dev {
+	int uiofd;
 	int irq;
-	uint32_t ib_num;
-	uint32_t ibcu_num;
-	volatile void *regs_win;
+	int ib_num;
+	int channel_id[RMAN_MAX_NUM_OF_CHANNELS];
 	volatile struct rman_global_reg *global_regs;
-	struct ibcu {
-		volatile struct rman_ibcu_regs *regs_win;
-		int fqid;
-	} ibcu[0];
+	uint64_t regs_size;
+	struct rman_inbound_block *ib;
 };
 
 static inline void write_reg(volatile uint32_t *p, int v)
@@ -142,32 +159,46 @@ static inline uint32_t read_reg(const volatile uint32_t *p)
 	return ret;
 }
 
-static int uiofd = -1;
+int rman_get_channel_id(const struct rman_dev *rmdev, int idx)
+{
+	if (!rmdev || idx > RMAN_MAX_NUM_OF_CHANNELS)
+		return -EINVAL;
+
+	return rmdev->channel_id[idx];
+}
 
 /************************* ibcu handler ***************************/
 void rman_release_ibcu(struct rman_dev *rmdev, int idx)
 {
-	/* disable ibcu */
-	write_reg(&rmdev->ibcu[idx].regs_win->mr, 0);
-	rmdev->ibcu[idx].fqid = IBCU_IDLE_FQID;
+	int ib_index, cu_index;
+
+	ib_index = idx / RMAN_CU_NUM_PER_IB;
+	cu_index = idx % RMAN_CU_NUM_PER_IB;
+	write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->mr, 0);
+	rmdev->ib[ib_index].cu[cu_index].fqid = IBCU_IDLE_FQID;
 }
 
 int rman_request_ibcu(struct rman_dev *rmdev, int fqid)
 {
-	int i;
+	int ib_index, cu_index, ibcu_index;
 
 	if (!fqid)
 		return -EINVAL;
 
-	for (i = 0; i < rmdev->ibcu_num; i++) {
-		if (rmdev->ibcu[i].fqid == fqid)
-			return i;
-	}
+	ibcu_index = rman_get_ibcu(rmdev, fqid);
+	if (ibcu_index > 0)
+		return ibcu_index;
 
-	for (i = 0; i < rmdev->ibcu_num; i++) {
-		if (rmdev->ibcu[i].fqid == IBCU_IDLE_FQID) {
-			rmdev->ibcu[i].fqid = fqid;
-			return i;
+	for (ib_index = 0; ib_index < rmdev->ib_num; ib_index++) {
+		if (!rmdev->ib[ib_index].ib_regs)
+			continue;
+		for (cu_index = 0; cu_index < RMAN_CU_NUM_PER_IB; cu_index++) {
+			if (rmdev->ib[ib_index].cu[cu_index].fqid ==
+				IBCU_IDLE_FQID) {
+				rmdev->ib[ib_index].cu[cu_index].fqid = fqid;
+				return ib_index * RMAN_CU_NUM_PER_IB +
+					cu_index;
+			}
 		}
 	}
 	return -EINVAL;
@@ -175,14 +206,18 @@ int rman_request_ibcu(struct rman_dev *rmdev, int fqid)
 
 int rman_get_ibcu(const struct rman_dev *rmdev, int fqid)
 {
-	int i;
+	int ib_index, cu_index;
 
 	if (!fqid)
 		return -EINVAL;
 
-	for (i = 0; i < rmdev->ibcu_num; i++) {
-		if (rmdev->ibcu[i].fqid == fqid)
-			return i;
+	for (ib_index = 0; ib_index < rmdev->ib_num; ib_index++) {
+		if (!rmdev->ib[ib_index].ib_regs)
+			continue;
+		for (cu_index = 0; cu_index < RMAN_CU_NUM_PER_IB; cu_index++)
+			if (rmdev->ib[ib_index].cu[cu_index].fqid == fqid)
+				return ib_index * RMAN_CU_NUM_PER_IB +
+					cu_index;
 	}
 
 	return -EINVAL;
@@ -190,147 +225,169 @@ int rman_get_ibcu(const struct rman_dev *rmdev, int fqid)
 
 int rman_enable_ibcu(struct rman_dev *rmdev, const struct ibcu_cfg *cfg)
 {
-	if (rmdev->ibcu[cfg->ibcu].fqid != cfg->fqid) {
+	int ib_index, cu_index;
+
+	ib_index = cfg->ibcu / RMAN_CU_NUM_PER_IB;
+	cu_index = cfg->ibcu % RMAN_CU_NUM_PER_IB;
+
+	if (rmdev->ib[ib_index].cu[cu_index].fqid != cfg->fqid) {
 		error(0, EINVAL, "RMan: please firstly request a ibcu");
 		return -EINVAL;
 	}
 
-	write_reg(&rmdev->ibcu[cfg->ibcu].regs_win->fqr, cfg->fqid);
-	write_reg(&rmdev->ibcu[cfg->ibcu].regs_win->rvr[0],
+	write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->fqr, cfg->fqid);
+	write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->rvr[0],
 		  cfg->sid << 16 | cfg->did);
-	write_reg(&rmdev->ibcu[cfg->ibcu].regs_win->rmr[0],
+	write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->rmr[0],
 		  cfg->sid_mask << 16 | cfg->did_mask);
 	switch (cfg->tran->type) {
 	case RIO_TYPE_DBELL:
-		write_reg(&rmdev->ibcu[cfg->ibcu].regs_win->rvr[1],
+		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->rvr[1],
 			  cfg->tran->flowlvl << 28 |
 			  cfg->port << 24);
-		write_reg(&rmdev->ibcu[cfg->ibcu].regs_win->rmr[1],
+		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->rmr[1],
 			  cfg->tran->flowlvl << 28 |
 			  cfg->port_mask << 24);
-		write_reg(&rmdev->ibcu[cfg->ibcu].regs_win->dbpr,
+		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->dbpr,
 			  (cfg->msgsize << 16) | cfg->bpid);
-		write_reg(&rmdev->ibcu[cfg->ibcu].regs_win->dor,
+		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->dor,
 			  cfg->data_offset);
 		break;
 	case RIO_TYPE_MBOX:
-		write_reg(&rmdev->ibcu[cfg->ibcu].regs_win->rvr[1],
+		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->rvr[1],
 			  cfg->tran->flowlvl << 28 |
 			  cfg->port << 24 |
 			  cfg->tran->mbox.msglen << 8 |
 			  cfg->tran->mbox.ltr << 6 |
 			  cfg->tran->mbox.mbox);
-		write_reg(&rmdev->ibcu[cfg->ibcu].regs_win->rmr[1],
+		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->rmr[1],
 			  cfg->tran->flowlvl_mask << 28 |
 			  cfg->port_mask << 24 |
 			  cfg->tran->mbox.msglen_mask << 8 |
 			  cfg->tran->mbox.ltr_mask << 6 |
 			  cfg->tran->mbox.mbox_mask);
-		write_reg(&rmdev->ibcu[cfg->ibcu].regs_win->dbpr,
+		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->dbpr,
 			  (cfg->msgsize << 16) | cfg->bpid);
-		write_reg(&rmdev->ibcu[cfg->ibcu].regs_win->dor,
+		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->dor,
 			  cfg->data_offset);
 		break;
 	case RIO_TYPE_DSTR:
-		write_reg(&rmdev->ibcu[cfg->ibcu].regs_win->rvr[1],
+		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->rvr[1],
 			  cfg->tran->flowlvl << 28 |
 			  cfg->port << 24 |
 			  cfg->tran->dstr.cos << 16 |
 			  cfg->tran->dstr.streamid);
-		write_reg(&rmdev->ibcu[cfg->ibcu].regs_win->rmr[1],
+		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->rmr[1],
 			  cfg->tran->flowlvl_mask << 28 |
 			  cfg->port_mask << 24 |
 			  cfg->tran->dstr.cos_mask << 16 |
 			  cfg->tran->dstr.streamid_mask);
-		write_reg(&rmdev->ibcu[cfg->ibcu].regs_win->dbpr,
+		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->dbpr,
 			  (cfg->msgsize << 16) | cfg->bpid);
-		write_reg(&rmdev->ibcu[cfg->ibcu].regs_win->t9sgbpr,
+		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->t9sgbpr,
 			  (cfg->sgsize << 16) | cfg->sgbpid);
-		write_reg(&rmdev->ibcu[cfg->ibcu].regs_win->dor,
+		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->dor,
 			  cfg->data_offset);
 		break;
 	default:
 		return -EINVAL;
 	}
-	write_reg(&rmdev->ibcu[cfg->ibcu].regs_win->mr,
+	write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->mr,
 		  0x80000000 | cfg->fq_mode << 28 | (cfg->tran->type << 24));
 	return 0;
 }
 
-static struct rman_dev *rman_uio_init(const char *filename)
+static int rman_get_ib_number(struct rman_dev *rmdev)
 {
+	uint32_t ip_cfg;
 
-	uint32_t revision, conf_version, rman_size;
-	void *win;
-	uint8_t ib_num, ibcu_num;
-	struct rman_dev *rmdev;
-
-	if (uiofd >= 0)	 {
-		error(0, EBUSY, "%s()", __func__);
-		return NULL;
-	}
-
-	uiofd = open(filename, O_RDWR);
-	if (uiofd < 0) {
-		error(0, errno, "%s()", __func__);
-		return NULL;
-	}
-
-	win = mmap(NULL, RMAN_REG_WIN_SIZE,
-			PROT_READ | PROT_WRITE, MAP_SHARED, uiofd, 0);
-	if (MAP_FAILED == win) {
-		error(0, errno, "%s()", __func__);
-		close(uiofd);
-		uiofd = -1;
-		return NULL;
-	}
-
-	revision = read_reg(win + RMAN_IPBRR0);
-	conf_version = read_reg(win + RMAN_IPBRR1);
-	ib_num = ((conf_version >> 6) & 0x3) * 4 + 4;
-	ibcu_num = ib_num * RMAN_CU_NUM_PER_IB;
-	fprintf(stderr, "RMan: major revision is %d, "
-		"minor revision is %d, has %d blocks\n",
-		(revision >> 8) & 0xff, revision & 0xff, ib_num);
-
-	rman_size = sizeof(*rmdev) + ibcu_num * sizeof(struct ibcu);
-	rmdev = malloc(rman_size);
-	if (!rmdev) {
-		error(0, errno, "%s()", __func__);
-		return NULL;
-	}
-	memset(rmdev, 0, rman_size);
-
-	rmdev->regs_win = win;
-	rmdev->ibcu_num = ibcu_num;
-	rmdev->ib_num = ib_num;
-
-	return rmdev;
-}
-
-static int rman_dev_setup(struct rman_dev *rmdev, const struct rman_cfg *cfg)
-{
-	uint8_t ib_num, cu_num, idx = 0;
-
-	if (!rmdev)
+	if (!rmdev || !rmdev->global_regs)
 		return -EINVAL;
 
-	rmdev->global_regs = (typeof(rmdev->global_regs))
-		(rmdev->regs_win + RMAN_GOLABEL_REG_OFFSET);
-	for (ib_num = 0; ib_num < rmdev->ib_num; ib_num++)
-		for (cu_num = 0; cu_num < RMAN_CU_NUM_PER_IB; cu_num++)
-			rmdev->ibcu[idx++].regs_win = rmdev->regs_win +
-				ib_num * RMAN_IB_OFFSET +
-				cu_num * RMAN_CU_OFFSET;
+	ip_cfg = read_reg(&rmdev->global_regs->ipbrr[1]);
+	return 2 << (((ip_cfg >> 6) & 0x3) + 1);
+}
 
-	/* reset */
-	write_reg(&rmdev->global_regs->mmmr, 1);
-	/* set inbound message descriptor write status */
+static int rman_ib_init(const struct device_node *ib_node,
+			struct rman_dev *rmdev)
+{
+	struct rman_inbound_block *ib;
+	const uint32_t *regs_addr;
+	uint64_t regs_size;
+	uint64_t phys_addr;
+	int ib_index;
+	char ib_name[PATH_MAX];
+	int cu_index;
+
+	if (!ib_node || !rmdev)
+		return -EINVAL;
+
+	regs_addr = of_get_address(ib_node, 0, &regs_size, NULL);
+	if (!regs_addr) {
+		error(0, 0, "%s missed reg property", ib_node->full_name);
+		return -EINVAL;
+	}
+
+	phys_addr = of_translate_address(ib_node, regs_addr);
+	if (!phys_addr) {
+		error(0, 0, "%s of_translate_address failed",
+		      ib_node->full_name);
+		return -EINVAL;
+	}
+	ib_index = (phys_addr >> RMAN_IB_INDEX_OFFSET) & 0xf;
+	if (ib_index >= rmdev->ib_num)
+		return -EFAULT;
+
+	ib = &rmdev->ib[ib_index];
+	ib->index = ib_index;
+	ib->regs_size = regs_size;
+	sprintf(ib_name, RMAN_IB_FILE"%d", ib->index);
+
+	ib->uiofd = open(ib_name, O_RDWR);
+	if (ib->uiofd < 0) {
+		error(0, errno, "%s", __func__);
+		return -errno;
+	}
+
+	ib->ib_regs = mmap(NULL, ib->regs_size, PROT_READ | PROT_WRITE,
+			   MAP_SHARED, ib->uiofd, 0);
+	if (MAP_FAILED == ib->ib_regs) {
+		error(0, errno, "%s", __func__);
+		return -errno;
+	}
+
+	for (cu_index = 0; cu_index < RMAN_CU_NUM_PER_IB; cu_index++)
+		ib->cu[cu_index].cu_regs = ib->ib_regs +
+					   cu_index * RMAN_CU_OFFSET;
+	error(0, 0, "RMan inbound block%d initialized", ib->index);
+	return 0;
+}
+
+
+static int
+rman_global_regs_init(const struct device_node *global_regs_node,
+		      struct rman_dev *rmdev, const struct rman_cfg *cfg)
+{
+	if (!global_regs_node || !rmdev || !cfg || rmdev->uiofd < 0)
+		return -EINVAL;
+
+	if (!of_get_address(global_regs_node, 0, &rmdev->regs_size, NULL))
+		return -EINVAL;
+
+	rmdev->global_regs = mmap(NULL, rmdev->regs_size,
+				  PROT_READ | PROT_WRITE, MAP_SHARED,
+				  rmdev->uiofd, 0);
+
+	if (MAP_FAILED == rmdev->global_regs) {
+		error(0, errno, "%s", __func__);
+		return -errno;
+	}
+
+	/* Set inbound message descriptor write status */
 	write_reg(&rmdev->global_regs->mmmr, cfg->md_create << 31);
 	/* Enable Error Interrupt */
 	write_reg(&rmdev->global_regs->mmedr, MMEDR_CLEAR);
 	write_reg(&rmdev->global_regs->mmier, MMIER_ENABLE_ALL);
-	/* to do  initialize LIODN */
 	/* initialize the frame queue assembly register */
 	/* data streaming supports max 32 receive frame queue */
 	write_reg(&rmdev->global_regs->mmt9fqar,
@@ -344,36 +401,99 @@ static int rman_dev_setup(struct rman_dev *rmdev, const struct rman_cfg *cfg)
 	return 0;
 }
 
-struct rman_dev *rman_dev_init(const char *filename, const struct rman_cfg *cfg)
+struct rman_dev *rman_dev_init(const struct rman_cfg *cfg)
 {
-	int err;
 	struct rman_dev *rmdev;
+	int uiofd = -1, channel_num, i;
+	const struct device_node *rman_node, *child;
+	size_t lenp;
+	const phandle *prop;
 
-	rmdev = rman_uio_init(filename);
-	if (!rmdev) {
-		error(0, EINVAL, "RMan: failed to initialize");
+	uiofd = open(RMAN_UIO_FILE, O_RDWR);
+	if (uiofd < 0) {
+		error(0, errno, "%s", __func__);
 		return NULL;
 	}
 
-	err = rman_dev_setup(rmdev, cfg);
-	if (err < 0) {
-		error(0, -err, "RMan: failed to setup");
-		rman_dev_finish(rmdev);
+	rman_node = of_find_compatible_node(NULL, NULL, "fsl,rman");
+	if (of_device_is_available(rman_node) == false)
 		return NULL;
+
+	rmdev = malloc(sizeof(*rmdev));
+	if (!rmdev) {
+		error(0, errno, "%s", __func__);
+		return NULL;
+	}
+	memset(rmdev, 0, sizeof(*rmdev));
+
+	rmdev->uiofd = uiofd;
+
+	/* Setup channels */
+	prop = of_get_property(rman_node, "fsl,qman-channels-id", &lenp);
+	if (!prop) {
+		error(0, 0, "missed fsl,qman-channels-id property");
+		goto _err;
+	}
+	channel_num = lenp/sizeof(*prop);
+	if (channel_num > RMAN_MAX_NUM_OF_CHANNELS)
+		channel_num = RMAN_MAX_NUM_OF_CHANNELS;
+	for (i = 0; i < channel_num; i++)
+		rmdev->channel_id[i] = prop[i];
+
+	/* Setup global regs */
+	for_each_child_node(rman_node, child) {
+		if (of_device_is_compatible(child, "fsl,rman-global-cfg"))
+			if (rman_global_regs_init(child, rmdev, cfg))
+				goto _err;
+	}
+
+	/* Setup inbound blocks */
+	rmdev->ib_num = rman_get_ib_number(rmdev);
+	if (rmdev->ib_num < 1) {
+		error(0, 0, "%s has no inbound block", __func__);
+		goto _err;
+	}
+	rmdev->ib = malloc(rmdev->ib_num * sizeof(*rmdev->ib));
+	if (!rmdev->ib) {
+		error(0, errno, "%s", __func__);
+		goto _err;
+	}
+	memset(rmdev->ib, 0, rmdev->ib_num * sizeof(*rmdev->ib));
+
+	for_each_child_node(rman_node, child) {
+		if (of_device_is_compatible(child, "fsl,rman-inbound-block"))
+			if (rman_ib_init(child, rmdev))
+				goto _err;
 	}
 
 	return rmdev;
+_err:
+	rman_dev_finish(rmdev);
+	return NULL;
 }
 
 void rman_dev_finish(struct rman_dev *rmdev)
 {
+	int ib_index;
+
 	if (!rmdev)
 		return;
 
-	if (rmdev->regs_win)
-		munmap((void *)rmdev->regs_win, RMAN_REG_WIN_SIZE);
-	if (uiofd > 0)
-		close(uiofd);
+	if (rmdev->ib) {
+		for (ib_index = 0; ib_index < rmdev->ib_num; ib_index++) {
+			if (rmdev->ib[ib_index].ib_regs)
+				munmap((void *)rmdev->ib[ib_index].ib_regs,
+					rmdev->ib[ib_index].regs_size);
+			if (rmdev->ib[ib_index].uiofd > 0)
+				close(rmdev->ib[ib_index].uiofd);
+		}
+		free(rmdev->ib);
+	}
+
+	if (rmdev->global_regs)
+		munmap((void *)rmdev->global_regs, rmdev->regs_size);
+	if (rmdev->uiofd > 0)
+		close(rmdev->uiofd);
 
 	free(rmdev);
 }

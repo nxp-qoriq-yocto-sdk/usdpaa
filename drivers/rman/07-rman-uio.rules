@@ -30,4 +30,4 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # Create symlinks for RMan UIO portals
-SUBSYSTEM=="uio", ATTR{name}=="rman*", SYMLINK+="rman-uio"
+SUBSYSTEM=="uio", ATTR{name}=="rman-*", SYMLINK+="$attr{name}"

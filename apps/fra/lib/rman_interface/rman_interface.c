@@ -30,18 +30,13 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <internal/of.h>
+#include <usdpaa/compat.h>
 #include <usdpaa/fsl_srio.h>
 #include "rman_interface.h"
 #include "fra.h"
 
-#define RMAN_UIO_FILE		"/dev/rman-uio"
-#define SRIO_UIO_DEV_NAME	"/dev/srio-uio"
-
-#define SRIO_PORT_NUM		2
-
 const char *rio_type_to_str[] = {
-	[RIO_TYPE0] = "Implementation-defind",
+	[RIO_TYPE0] = "Implementation-defined",
 	[RIO_TYPE1] = "reserved",
 	[RIO_TYPE2] = "NREAD",
 	[RIO_TYPE3] = "reserved",
@@ -59,13 +54,20 @@ struct rman_if {
 	struct rman_dev *rmdev;
 	struct rman_cfg cfg;
 	struct srio_dev *sriodev;
-	struct rio_mport *mport;
+	int port_status;
 	enum qm_channel tx_channel_id[RMAN_MAX_NUM_OF_CHANNELS];
 	uint32_t msg_size[RIO_TYPE_NUM];
 	int sg_size;
 };
 
 static struct rman_if *rmif;
+
+int rman_get_port_status(int port_number)
+{
+	if (!rmif)
+		return 0;
+	return rmif->port_status & (1 << (port_number - 1));
+}
 
 int fqid_to_ibcu(int fqid)
 {
@@ -554,51 +556,9 @@ int rman_send_msg(struct rman_outb_md *std_md, struct tx_opt *opt,
 	return 0;
 }
 
-static int rman_if_setup(void)
-{
-	int type;
-	size_t lenp;
-	const struct device_node *rman_node, *channel_node;
-	const phandle *prop;
-#define channel_str "rman_channel@"
-
-	rman_node = of_find_compatible_node(NULL, NULL, "fsl,rman");
-	if (of_device_is_available(rman_node) == false)
-		return -EINVAL;
-
-	/* Setup channels */
-	channel_node = NULL;
-	for_each_child_node(rman_node, channel_node) {
-		int idx = -1;
-		sscanf(channel_node->name, channel_str"%d", &idx);
-		if (idx < 0 || idx >= RMAN_MAX_NUM_OF_CHANNELS)
-			return -EINVAL;
-
-		/* Get the tx channel id */
-		prop = of_get_property(channel_node,
-				       "fsl,tx-qman-channel-id", &lenp);
-		if (prop == NULL || lenp != sizeof(uint32_t)) {
-			error(0, 0,
-			      "missed fsl,tx-qman-channel-id property");
-			return -EINVAL;
-		} else
-			rmif->tx_channel_id[idx] = *prop;
-
-		FRA_DBG("RMan channel-%d: tx-channel ID is 0x%x",
-			idx, rmif->tx_channel_id[idx]);
-	}
-
-	/* Get transaction message size */
-	for (type = RIO_TYPE0; type < RIO_TYPE_NUM; type++)
-		rmif->msg_size[type] = bpool_get_size(rmif->cfg.bpid[type]);
-	rmif->sg_size = bpool_get_size(rmif->cfg.sgbpid);
-
-	return 0;
-}
-
 int rman_if_init(struct rman_cfg *cfg)
 {
-	int err, i;
+	int err, port_num, i;
 
 	if (!cfg)
 		return -EINVAL;
@@ -618,26 +578,34 @@ int rman_if_init(struct rman_cfg *cfg)
 		return err;
 	}
 
-
-	for (i = 0; i < SRIO_PORT_NUM; i++)
+	port_num = fsl_srio_get_port_num(rmif->sriodev);
+	for (i = 0; i < port_num; i++)
 		fsl_srio_connection(rmif->sriodev, i);
 
-	err = fsl_srio_port_connected(rmif->sriodev);
-	if (err < 0) {
-		error(0, -err, "%s fsl_srio_connection", __func__);
+	rmif->port_status = fsl_srio_port_connected(rmif->sriodev);
+	if (rmif->port_status < 0)
+		err = -rmif->port_status;
+	else if (!rmif->port_status)
+		err = -ENODEV;
+	if (err) {
+		error(0, err, "%s fsl_srio_connection",
+		      __func__);
 		goto _err;
 	}
 
-	rmif->rmdev = rman_dev_init(RMAN_UIO_FILE, cfg);
+	rmif->rmdev = rman_dev_init(cfg);
 	if (!rmif->rmdev) {
 		error(0, ENODEV, "rman_dev_init()");
 		err = -EINVAL;
 		goto _err;
 	}
 
-	err = rman_if_setup();
-	if (err)
-		goto _err;
+	for (i = RIO_TYPE0; i < RIO_TYPE_NUM; i++)
+		rmif->msg_size[i] = bpool_get_size(rmif->cfg.bpid[i]);
+	rmif->sg_size = bpool_get_size(rmif->cfg.sgbpid);
+
+	for (i = 0; i < RMAN_MAX_NUM_OF_CHANNELS; i++)
+		rmif->tx_channel_id[i] = rman_get_channel_id(rmif->rmdev, i);
 
 	return 0;
 _err:

@@ -363,6 +363,12 @@ static struct distribution *dist_rx_init(struct dist_cfg *cfg)
 
 	rxcfg = &cfg->dist_rx_cfg;
 
+	if (!rman_get_port_status(rxcfg->port)) {
+		error(0, 0, "SRIO port%d is not connected",
+		      rxcfg->port);
+		return NULL;
+	}
+
 	rxcfg->fq_count = rman_get_rxfq_count(rxcfg->fq_mode, rxcfg->tran);
 
 	if (rxcfg->fq_count < 0)
@@ -408,6 +414,14 @@ static struct distribution *dist_tx_init(struct dist_cfg *cfg)
 	size_t sz;
 	int i;
 
+	txcfg = &cfg->dist_tx_cfg;
+
+	if (!rman_get_port_status(txcfg->port)) {
+		error(0, 0, "SRIO port%d is not connected",
+		      txcfg->port);
+		return NULL;
+	}
+
 	sz = sizeof(*dist) + 1 * sizeof(struct dist_tx);
 
 	dist = dma_mem_memalign(L1_CACHE_BYTES, sz);
@@ -419,7 +433,6 @@ static struct distribution *dist_tx_init(struct dist_cfg *cfg)
 	dist->cfg = cfg;
 	tx = &dist->tx[0];
 	tx->dist = dist;
-	txcfg = &cfg->dist_tx_cfg;
 	tran = txcfg->tran;
 
 	if (rman_stfq_init(&tx->stfq, 0, 0, 0)) {

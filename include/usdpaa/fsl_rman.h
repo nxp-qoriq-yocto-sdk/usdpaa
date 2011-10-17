@@ -121,6 +121,15 @@ struct rman_cfg {
 
 struct rman_dev;
 
+/**
+ * rman_get_channel_id - get the default transmission channel id
+ * @rmdev: RMan device info
+ * @index: RMan channel index
+ *
+ * RMan device has two channels, each channel is assigned to QMan channel.
+ * This function returns the corresponding QMan channel id.
+ */
+int rman_get_channel_id(const struct rman_dev *rmdev, int index);
 /************************* ibcu handler ***************************/
 /**
  * rman_release_ibcu - release the ibcu resource
@@ -163,15 +172,13 @@ int rman_enable_ibcu(struct rman_dev *rmdev, const struct ibcu_cfg *cfg);
 /************************* init function ***************************/
 /**
  * rman_dev_init - initialize the RMan device
- * @filename: RMan UIO file name
  * @cfg: RMan device configuration
  *
  * This function firstly opens RMan uio file, then maps the RMan register space,
  * finally configures RMan according to rman configuration
  * Returns the pointer of rman_dev on success or %NULL on failure.
  */
-struct rman_dev *rman_dev_init(const char *filename,
-			       const struct rman_cfg *cfg);
+struct rman_dev *rman_dev_init(const struct rman_cfg *cfg);
 /**
  * rman_dev_finish - release the RMan resource
  * @rmdev: RMan device info

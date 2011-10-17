@@ -205,6 +205,13 @@ static inline int dstr_get_size(const struct msg_buf *msg)
 	return msg->imd.count & 0xffffff;
 }
 
+/**
+ * This function returns the status of SRIO port.
+ * If the port has been connected returns 1,
+ * otherwise returns 0.
+ */
+int rman_get_port_status(int port_number);
+
 /* If create frame queue directly this function returns 1,
  * Otherwise, this function  returns the number of receive frame queue
  * calculated according to transaction configuration
