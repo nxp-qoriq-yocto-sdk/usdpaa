@@ -182,7 +182,7 @@ static uint32_t pchannel_idx;
 
 int lazy_init_bpool(uint8_t bpid, uint8_t depletion_notify)
 {
-	return bpool_init(bpid);
+	return 0;
 }
 
 enum qm_channel get_rxc(void)
