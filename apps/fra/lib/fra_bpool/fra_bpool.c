@@ -43,7 +43,7 @@ static void bp_depletion(struct bman_portal *bm __always_unused,
 	uint8_t bpid = bman_get_params(p)->bpid;
 	BUG_ON(p != *(typeof(&p))cb_ctx);
 
-	error(0, 0, "%s: BP%u -> %s\n", __func__, bpid,
+	error(0, 0, "%s: BP%u -> %s", __func__, bpid,
 	      depleted ? "entry" : "exit");
 }
 #endif
@@ -109,7 +109,7 @@ static int bpool_node_init(const struct bpool_config *cfg, dma_addr_t phys_addr)
 			num_bufs += err;
 	} while (err > 0);
 	if (num_bufs)
-		error(0, 0, "warn: drained %u bufs from BPID %d\n",
+		error(0, 0, "warn: drained %u bufs from BPID %d",
 		      num_bufs, bpid);
 	/* Fill the pool */
 	for (num_bufs = 0; num_bufs < cfg->num; ) {
@@ -125,7 +125,7 @@ static int bpool_node_init(const struct bpool_config *cfg, dma_addr_t phys_addr)
 			error(0, -err, "%s", __func__);
 		num_bufs += rel;
 	}
-	error(0, 0, "BPOOL: Release %u bufs to BPID %d\n",
+	error(0, 0, "BPOOL: Release %u bufs to BPID %d",
 	      num_bufs, bpid);
 	return 0;
 }
