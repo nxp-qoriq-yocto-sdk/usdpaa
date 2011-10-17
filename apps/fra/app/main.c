@@ -98,17 +98,15 @@ int __attribute__((weak)) ppam_thread_poll(void)
 #define DMA_MEM_BP4_NUM		0x100 /* 0x100*80==20480 (20KB) */
 #define DMA_MEM_BP5_BPID	11
 #define DMA_MEM_BP5_SIZE	1600
-#define DMA_MEM_BP5_NUM		0x6000 /* 0x6000*1600==39321600 (37.5M) */
+#define DMA_MEM_BP5_NUM		0x2000 /* 0x2000*1600==13107200 (12.5M) */
 #define DMA_MEM_BP6_BPID	12
 #define DMA_MEM_BP6_SIZE	64
-#define DMA_MEM_BP6_NUM		0x6000 /* 0x6000*64==1572864 (1.5MB) */
+#define DMA_MEM_BP6_NUM		0x2000 /* 0x2000*64==524288 (0.5MB) */
 #define DMA_MEM_BPOOL_SIZE						\
-	(DMA_MEM_BP1_SIZE * DMA_MEM_BP1_NUM +				\
-	 DMA_MEM_BP2_SIZE * DMA_MEM_BP2_NUM +				\
-	 DMA_MEM_BP3_SIZE * DMA_MEM_BP3_NUM +				\
+	(DMA_MEM_BP3_SIZE * DMA_MEM_BP3_NUM +				\
 	 DMA_MEM_BP4_SIZE * DMA_MEM_BP4_NUM +				\
 	 DMA_MEM_BP5_SIZE * DMA_MEM_BP5_NUM +				\
-	 DMA_MEM_BP6_SIZE * DMA_MEM_BP6_NUM) /* 52973568 (50.52MB) */
+	 DMA_MEM_BP6_SIZE * DMA_MEM_BP6_NUM) /* 27787264 (26.5MB) */
 
 /*
  * PPAM-overridable paths to FMan configuration files.
@@ -124,8 +122,6 @@ const char default_fra_cfg_path[] __attribute__((weak)) =
 
 /* Seed buffer pools according to the configuration symbols */
 const struct bpool_config  bpool_config[] = {
-	{ DMA_MEM_BP1_BPID, DMA_MEM_BP1_NUM, DMA_MEM_BP1_SIZE},
-	{ DMA_MEM_BP2_BPID, DMA_MEM_BP2_NUM, DMA_MEM_BP2_SIZE},
 	{ DMA_MEM_BP3_BPID, DMA_MEM_BP3_NUM, DMA_MEM_BP3_SIZE},
 	{ DMA_MEM_BP4_BPID, DMA_MEM_BP4_NUM, DMA_MEM_BP4_SIZE},
 	{ DMA_MEM_BP5_BPID, DMA_MEM_BP5_NUM, DMA_MEM_BP5_SIZE},
