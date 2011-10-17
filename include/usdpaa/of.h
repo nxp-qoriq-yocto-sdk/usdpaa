@@ -4,13 +4,13 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
+ *	 notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
+ *	 notice, this list of conditions and the following disclaimer in the
+ *	 documentation and/or other materials provided with the distribution.
  *     * Neither the name of Freescale Semiconductor nor the
- *       names of its contributors may be used to endorse or promote products
- *       derived from this software without specific prior written permission.
+ *	 names of its contributors may be used to endorse or promote products
+ *	 derived from this software without specific prior written permission.
  *
  *
  * ALTERNATIVELY, this software may be distributed under the terms of the
@@ -55,5 +55,18 @@ static inline int of_init(void)
 /* of_finish() allows a controlled tear-down of the device-tree layer, eg. if a
  * full USDPAA reload is desired without a process exit. */
 void of_finish(void);
+
+/* Read a numeric property according to its size and return it as a 64-bit value
+ * for a big endian CPU
+ */
+static inline uint64_t of_read_number(const uint32_t *cell, uint32_t cell_size)
+{
+	uint64_t n = cell[0];
+
+	if (cell_size > 1)
+		n = (n << 32) | cell[1];
+
+	return n;
+}
 
 #endif	/*  __OF_H */
