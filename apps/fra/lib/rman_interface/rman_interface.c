@@ -584,12 +584,11 @@ int rman_if_init(struct rman_cfg *cfg)
 
 	rmif->port_status = fsl_srio_port_connected(rmif->sriodev);
 	if (rmif->port_status < 0)
-		err = -rmif->port_status;
+		err = rmif->port_status;
 	else if (!rmif->port_status)
 		err = -ENODEV;
-	if (err) {
-		error(0, err, "%s fsl_srio_connection",
-		      __func__);
+	if (err < 0) {
+		error(0, -err, "%s(): fsl_srio_port_connected()", __func__);
 		goto _err;
 	}
 
