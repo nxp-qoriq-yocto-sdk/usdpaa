@@ -48,7 +48,7 @@ void ppac_fq_nonpcd_init(struct qman_fq *fq, uint32_t fqid,
 	BUG_ON(ret);
 	/* FIXME: no taildrop/holdactive for "2drop" FQs */
 	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
-			QM_INITFQ_WE_CONTEXTA;
+		QM_INITFQ_WE_CONTEXTA;
 	opts.fqd.dest.channel = channel;
 	opts.fqd.dest.wq = PPAC_PRIORITY_2DROP;
 	opts.fqd.fq_ctrl = QM_FQCTRL_CTXASTASHING;
@@ -69,7 +69,7 @@ void ppac_fq_pcd_init(struct qman_fq *fq, uint32_t fqid,
 	BUG_ON(ret);
 	/* FIXME: no taildrop/holdactive for "2fwd" FQs */
 	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
-			QM_INITFQ_WE_CONTEXTA;
+		QM_INITFQ_WE_CONTEXTA;
 	opts.fqd.dest.channel = channel;
 	opts.fqd.dest.wq = PPAC_PRIORITY_2FWD;
 	opts.fqd.fq_ctrl =
@@ -130,13 +130,13 @@ void ppac_fq_tx_init(struct qman_fq *fq, enum qm_channel channel,
 	 * cleaning up. */
 	fq->cb.dqrr = cb_tx_drain;
 	err = qman_create_fq(0, QMAN_FQ_FLAG_DYNAMIC_FQID |
-				QMAN_FQ_FLAG_TO_DCPORTAL, fq);
+			     QMAN_FQ_FLAG_TO_DCPORTAL, fq);
 	/* Note: handle errors here, BUG_ON()s are compiled out in performance
 	 * builds (ie. the default) and this code isn't even
 	 * performance-sensitive. */
 	BUG_ON(err);
 	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
-		       QM_INITFQ_WE_CONTEXTB | QM_INITFQ_WE_CONTEXTA;
+		QM_INITFQ_WE_CONTEXTB | QM_INITFQ_WE_CONTEXTA;
 	opts.fqd.dest.channel = channel;
 	opts.fqd.dest.wq = PPAC_PRIORITY_2TX;
 	opts.fqd.fq_ctrl = 0;
@@ -172,29 +172,29 @@ static void cgr_rx_cb(struct qman_portal *qm, struct qman_cgr *c, int congested)
 {
 	BUG_ON(c != &cgr_rx);
 
-	error(EXIT_SUCCESS, 0, "%s: rx CGR -> congestion %s", __func__,
-		congested ? "entry" : "exit");
+	error(0, 0, "%s(): RX CGR -> congestion %s", __func__,
+	      congested ? "entry" : "exit");
 }
 static void cgr_tx_cb(struct qman_portal *qm, struct qman_cgr *c, int congested)
 {
 	BUG_ON(c != &cgr_tx);
 
-	error(EXIT_SUCCESS, 0, "%s: tx CGR -> congestion %s", __func__,
-		congested ? "entry" : "exit");
+	error(0, 0, "%s(): TX CGR -> congestion %s", __func__,
+	      congested ? "entry" : "exit");
 }
 int ppac_cgr_init(struct usdpaa_netcfg_info *netcfg)
 {
-
+	int err;
 	uint32_t loop, numrxfqs = 0, numtxfqs = 0;
 	struct qm_mcc_initcgr opts = {
 		.we_mask = QM_CGR_WE_CS_THRES |
 #ifdef PPAC_CSCN
-			QM_CGR_WE_CSCN_EN |
+		QM_CGR_WE_CSCN_EN |
 #endif
 #ifdef PPAC_CSTD
-			QM_CGR_WE_CSTD_EN |
+		QM_CGR_WE_CSTD_EN |
 #endif
-			QM_CGR_WE_MODE,
+		QM_CGR_WE_MODE,
 		.cgr = {
 #ifdef PPAC_CSCN
 			.cscn_en = QM_CGR_EN,
@@ -205,37 +205,34 @@ int ppac_cgr_init(struct usdpaa_netcfg_info *netcfg)
 			.mode = QMAN_CGR_MODE_FRAME
 		}
 	};
-	if (netcfg->num_cgrids < 2) {
-		error(EXIT_SUCCESS, 0,
-			"error: insufficient CGRIDs available");
-		exit(EXIT_FAILURE);
-	}
+	if (netcfg->num_cgrids < 2)
+		error(EXIT_FAILURE, 0, "%s(): insufficient CGRIDs available", __func__);
 
 	/* Set up Rx CGR */
 	for (loop = 0; loop < netcfg->num_ethports; loop++) {
 		const struct fm_eth_port_cfg *p = &netcfg->port_cfg[loop];
 		numrxfqs += p->pcd.count;
 		numtxfqs += (p->fman_if->mac_type == fman_mac_10g) ?
-				PPAC_TX_FQS_10G :
-				(p->fman_if->mac_type == fman_offline) ?
-				PPC_TX_FQS_OFFLINE : PPAC_TX_FQS_1G;
+			PPAC_TX_FQS_10G :
+			(p->fman_if->mac_type == fman_offline) ?
+			PPC_TX_FQS_OFFLINE : PPAC_TX_FQS_1G;
 	}
 	qm_cgr_cs_thres_set64(&opts.cgr.cs_thres,
-		numrxfqs * PPAC_CGR_RX_PERFQ_THRESH, 0);
+			      numrxfqs * PPAC_CGR_RX_PERFQ_THRESH, 0);
 	cgr_rx.cgrid = netcfg->cgrids[0];
 	cgr_rx.cb = cgr_rx_cb;
 	err = qman_create_cgr(&cgr_rx, QMAN_CGR_FLAG_USE_INIT, &opts);
-	if (err)
-		error(EXIT_SUCCESS, -err, "error: rx CGR init, continuing");
+	if (err < 0)
+		error(0, -err, "%s(): qman_create_cgr(RX), continuing", __func__);
 
 	/* Set up Tx CGR */
 	qm_cgr_cs_thres_set64(&opts.cgr.cs_thres,
-		numtxfqs * PPAC_CGR_TX_PERFQ_THRESH, 0);
+			      numtxfqs * PPAC_CGR_TX_PERFQ_THRESH, 0);
 	cgr_tx.cgrid = netcfg->cgrids[1];
 	cgr_tx.cb = cgr_tx_cb;
 	err = qman_create_cgr(&cgr_tx, QMAN_CGR_FLAG_USE_INIT, &opts);
-	if (err)
-		error(EXIT_SUCCESS, -err, "error: tx CGR init, continuing");
+	if (err < 0)
+		error(0, -err, "%s(): qman_create_cgr(TX), continuing", __func__);
 
 	return err;
 }
@@ -255,7 +252,7 @@ void teardown_fq(struct qman_fq *fq)
 		if (flags & QMAN_FQ_STATE_NE) {
 			/* FQ isn't empty, drain it */
 			s = qman_volatile_dequeue(fq, 0,
-				QM_VDQCR_NUMFRAMES_TILLEMPTY);
+						  QM_VDQCR_NUMFRAMES_TILLEMPTY);
 			BUG_ON(s);
 			/* Poll for completion */
 			do {
