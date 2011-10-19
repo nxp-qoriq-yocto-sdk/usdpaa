@@ -259,6 +259,8 @@ static inline void cpumask_clear_cpu(int cpu, cpumask_t *mask)
 #define get_cpu_var(x)		per_cpu__##x
 #define put_cpu_var(x)		do { ; } while(0)
 #define __PERCPU		__thread
+/* to be used as an upper-limit only */
+#define NR_CPUS			64
 
 /* Interrupt stuff */
 typedef uint32_t	irqreturn_t;
