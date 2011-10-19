@@ -182,7 +182,7 @@ static void cgr_tx_cb(struct qman_portal *qm, struct qman_cgr *c, int congested)
 	error(0, 0, "%s(): TX CGR -> congestion %s", __func__,
 	      congested ? "entry" : "exit");
 }
-int ppac_cgr_init(struct usdpaa_netcfg_info *netcfg)
+int ppac_cgr_init(struct usdpaa_netcfg_info *cfg)
 {
 	int err;
 	uint32_t loop, numrxfqs = 0, numtxfqs = 0;
@@ -205,12 +205,12 @@ int ppac_cgr_init(struct usdpaa_netcfg_info *netcfg)
 			.mode = QMAN_CGR_MODE_FRAME
 		}
 	};
-	if (netcfg->num_cgrids < 2)
+	if (cfg->num_cgrids < 2)
 		error(EXIT_FAILURE, 0, "%s(): insufficient CGRIDs available", __func__);
 
 	/* Set up Rx CGR */
-	for (loop = 0; loop < netcfg->num_ethports; loop++) {
-		const struct fm_eth_port_cfg *p = &netcfg->port_cfg[loop];
+	for (loop = 0; loop < cfg->num_ethports; loop++) {
+		const struct fm_eth_port_cfg *p = &cfg->port_cfg[loop];
 		numrxfqs += p->pcd.count;
 		numtxfqs += (p->fman_if->mac_type == fman_mac_10g) ?
 			PPAC_TX_FQS_10G :
@@ -219,7 +219,7 @@ int ppac_cgr_init(struct usdpaa_netcfg_info *netcfg)
 	}
 	qm_cgr_cs_thres_set64(&opts.cgr.cs_thres,
 			      numrxfqs * PPAC_CGR_RX_PERFQ_THRESH, 0);
-	cgr_rx.cgrid = netcfg->cgrids[0];
+	cgr_rx.cgrid = cfg->cgrids[0];
 	cgr_rx.cb = cgr_rx_cb;
 	err = qman_create_cgr(&cgr_rx, QMAN_CGR_FLAG_USE_INIT, &opts);
 	if (err < 0)
@@ -228,7 +228,7 @@ int ppac_cgr_init(struct usdpaa_netcfg_info *netcfg)
 	/* Set up Tx CGR */
 	qm_cgr_cs_thres_set64(&opts.cgr.cs_thres,
 			      numtxfqs * PPAC_CGR_TX_PERFQ_THRESH, 0);
-	cgr_tx.cgrid = netcfg->cgrids[1];
+	cgr_tx.cgrid = cfg->cgrids[1];
 	cgr_tx.cb = cgr_tx_cb;
 	err = qman_create_cgr(&cgr_tx, QMAN_CGR_FLAG_USE_INIT, &opts);
 	if (err < 0)
