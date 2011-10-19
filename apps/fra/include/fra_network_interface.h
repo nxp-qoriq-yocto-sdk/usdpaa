@@ -90,6 +90,8 @@ struct ppam_rx_hash {
 #ifdef PPAC_CGR
 extern struct qman_cgr cgr_rx;
 extern struct qman_cgr cgr_tx;
+
+int ppac_cgr_init(struct usdpaa_netcfg_info *cfg);
 #endif
 
 #endif /* _FRA_NETWORK_INTERFACE_H */
