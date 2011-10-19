@@ -87,4 +87,9 @@ struct ppam_rx_hash {
 	struct tx_opt opt;
 };
 
+#ifdef PPAC_CGR
+extern struct qman_cgr cgr_rx;
+extern struct qman_cgr cgr_tx;
+#endif
+
 #endif /* _FRA_NETWORK_INTERFACE_H */

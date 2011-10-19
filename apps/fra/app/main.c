@@ -173,9 +173,9 @@ __thread uint32_t local_seqnum;
 
 #ifdef PPAC_CGR
 /* A congestion group to hold Rx FQs (uses netcfg::cgrids[0]) */
-static struct qman_cgr cgr_rx;
+struct qman_cgr cgr_rx;
 /* Tx FQs go into a separate CGR (uses netcfg::cgrids[1]) */
-static struct qman_cgr cgr_tx;
+struct qman_cgr cgr_tx;
 #endif
 
 static uint32_t pchannel_idx;
@@ -617,7 +617,7 @@ static void dump_cgr(const struct qm_mcr_querycgr *res)
 	error(EXIT_SUCCESS, 0, "	   cs: %d", res->cgr.cs);
 	val64 = qm_cgr_cs_thres_get64(&res->cgr.cs_thres);
 	error(EXIT_SUCCESS, 0,
-	      "    cs_thresh: 0x%02x_%04x_%04x", (uint32_t)(val64 >> 32),
+	      "	   cs_thresh: 0x%02x_%04x_%04x", (uint32_t)(val64 >> 32),
 	      (uint32_t)(val64 >> 16) & 0xffff, (uint32_t)val64 & 0xffff);
 	error(EXIT_SUCCESS, 0, "	 mode: %d", res->cgr.mode);
 	val64 = qm_mcr_querycgr_i_get64(res);
