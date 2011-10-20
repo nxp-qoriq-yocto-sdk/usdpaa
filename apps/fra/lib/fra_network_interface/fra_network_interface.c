@@ -215,7 +215,7 @@ int ppac_cgr_init(struct usdpaa_netcfg_info *cfg)
 		numtxfqs += (p->fman_if->mac_type == fman_mac_10g) ?
 			PPAC_TX_FQS_10G :
 			(p->fman_if->mac_type == fman_offline) ?
-			PPC_TX_FQS_OFFLINE : PPAC_TX_FQS_1G;
+			PPAC_TX_FQS_OFFLINE : PPAC_TX_FQS_1G;
 	}
 	qm_cgr_cs_thres_set64(&opts.cgr.cs_thres,
 			      numrxfqs * PPAC_CGR_RX_PERFQ_THRESH, 0);
