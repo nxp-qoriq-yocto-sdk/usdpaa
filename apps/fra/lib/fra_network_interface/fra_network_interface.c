@@ -211,60 +211,63 @@ int ppac_cgr_init(struct usdpaa_netcfg_info *cfg)
 	/* Set up Rx CGR */
 	for (loop = 0; loop < cfg->num_ethports; loop++) {
 		const struct fm_eth_port_cfg *p = &cfg->port_cfg[loop];
-		numrxfqs += p->pcd.count;
-		numtxfqs += (p->fman_if->mac_type == fman_mac_10g) ?
-			PPAC_TX_FQS_10G :
-			(p->fman_if->mac_type == fman_offline) ?
-			PPAC_TX_FQS_OFFLINE : PPAC_TX_FQS_1G;
+		const struct fmc_netcfg_fqrange *fqr;
+		list_for_each_entry(fqr, p->list, list) {
+			numrxfqs += fqr->count;
+			numtxfqs += (p->fman_if->mac_type == fman_mac_10g) ?
+				PPAC_TX_FQS_10G :
+				(p->fman_if->mac_type == fman_offline) ?
+				PPAC_TX_FQS_OFFLINE : PPAC_TX_FQS_1G;
+		}
 	}
-	qm_cgr_cs_thres_set64(&opts.cgr.cs_thres,
-			      numrxfqs * PPAC_CGR_RX_PERFQ_THRESH, 0);
-	cgr_rx.cgrid = cfg->cgrids[0];
-	cgr_rx.cb = cgr_rx_cb;
-	err = qman_create_cgr(&cgr_rx, QMAN_CGR_FLAG_USE_INIT, &opts);
-	if (err < 0)
-		error(0, -err, "%s(): qman_create_cgr(RX), continuing", __func__);
+		qm_cgr_cs_thres_set64(&opts.cgr.cs_thres,
+				      numrxfqs * PPAC_CGR_RX_PERFQ_THRESH, 0);
+		cgr_rx.cgrid = cfg->cgrids[0];
+		cgr_rx.cb = cgr_rx_cb;
+		err = qman_create_cgr(&cgr_rx, QMAN_CGR_FLAG_USE_INIT, &opts);
+		if (err < 0)
+			error(0, -err, "%s(): qman_create_cgr(RX), continuing", __func__);
 
-	/* Set up Tx CGR */
-	qm_cgr_cs_thres_set64(&opts.cgr.cs_thres,
-			      numtxfqs * PPAC_CGR_TX_PERFQ_THRESH, 0);
-	cgr_tx.cgrid = cfg->cgrids[1];
-	cgr_tx.cb = cgr_tx_cb;
-	err = qman_create_cgr(&cgr_tx, QMAN_CGR_FLAG_USE_INIT, &opts);
-	if (err < 0)
-		error(0, -err, "%s(): qman_create_cgr(TX), continuing", __func__);
+		/* Set up Tx CGR */
+		qm_cgr_cs_thres_set64(&opts.cgr.cs_thres,
+				      numtxfqs * PPAC_CGR_TX_PERFQ_THRESH, 0);
+		cgr_tx.cgrid = cfg->cgrids[1];
+		cgr_tx.cb = cgr_tx_cb;
+		err = qman_create_cgr(&cgr_tx, QMAN_CGR_FLAG_USE_INIT, &opts);
+		if (err < 0)
+			error(0, -err, "%s(): qman_create_cgr(TX), continuing", __func__);
 
-	return err;
-}
+		return err;
+	}
 #endif
 
-void teardown_fq(struct qman_fq *fq)
-{
-	uint32_t flags;
-	int s = qman_retire_fq(fq, &flags);
-	if (s == 1) {
-		/* Retire is non-blocking, poll for completion */
-		enum qman_fq_state state;
-		do {
-			qman_poll();
-			qman_fq_state(fq, &state, &flags);
-		} while (state != qman_fq_state_retired);
-		if (flags & QMAN_FQ_STATE_NE) {
-			/* FQ isn't empty, drain it */
-			s = qman_volatile_dequeue(fq, 0,
-						  QM_VDQCR_NUMFRAMES_TILLEMPTY);
-			BUG_ON(s);
-			/* Poll for completion */
+	void teardown_fq(struct qman_fq *fq)
+	{
+		uint32_t flags;
+		int s = qman_retire_fq(fq, &flags);
+		if (s == 1) {
+			/* Retire is non-blocking, poll for completion */
+			enum qman_fq_state state;
 			do {
 				qman_poll();
 				qman_fq_state(fq, &state, &flags);
-			} while (flags & QMAN_FQ_STATE_VDQCR);
+			} while (state != qman_fq_state_retired);
+			if (flags & QMAN_FQ_STATE_NE) {
+				/* FQ isn't empty, drain it */
+				s = qman_volatile_dequeue(fq, 0,
+							  QM_VDQCR_NUMFRAMES_TILLEMPTY);
+				BUG_ON(s);
+				/* Poll for completion */
+				do {
+					qman_poll();
+					qman_fq_state(fq, &state, &flags);
+				} while (flags & QMAN_FQ_STATE_VDQCR);
+			}
 		}
+		s = qman_oos_fq(fq);
+		BUG_ON(s);
+		qman_destroy_fq(fq, 0);
 	}
-	s = qman_oos_fq(fq);
-	BUG_ON(s);
-	qman_destroy_fq(fq, 0);
-}
 
 
 /* There is no configuration that specifies how many Tx FQs to use
@@ -276,115 +279,115 @@ void teardown_fq(struct qman_fq *fq)
  * (Note, an interesting alternative would be to have this hook *choose* how
  * many Tx FQs to use!) Secondly, the Tx FQIDs are "notified" to us
  * post-allocation but prior to Rx initialisation. */
-static int ppam_interface_init(struct ppam_interface *p,
-			       const struct fm_eth_port_cfg *cfg,
-			       uint32_t num_tx_fqs)
-{
-	p->num_tx_fqids = num_tx_fqs;
-	p->tx_fqids = malloc(p->num_tx_fqids * sizeof(*p->tx_fqids));
-	if (!p->tx_fqids)
-		return -ENOMEM;
-	return 0;
-}
-static void ppam_interface_finish(struct ppam_interface *p)
-{
-	free(p->tx_fqids);
-}
-static void ppam_interface_tx_fqid(struct ppam_interface *p, uint8_t idx,
-				   uint32_t fqid)
-{
-	p->tx_fqids[idx] = fqid;
-}
+	static int ppam_interface_init(struct ppam_interface *p,
+				       const struct fm_eth_port_cfg *cfg,
+				       uint32_t num_tx_fqs)
+	{
+		p->num_tx_fqids = num_tx_fqs;
+		p->tx_fqids = malloc(p->num_tx_fqids * sizeof(*p->tx_fqids));
+		if (!p->tx_fqids)
+			return -ENOMEM;
+		return 0;
+	}
+	static void ppam_interface_finish(struct ppam_interface *p)
+	{
+		free(p->tx_fqids);
+	}
+	static void ppam_interface_tx_fqid(struct ppam_interface *p, uint8_t idx,
+					   uint32_t fqid)
+	{
+		p->tx_fqids[idx] = fqid;
+	}
 
-static int ppam_rx_error_init(struct ppam_rx_error *p,
-			      struct ppam_interface *_if,
-			      struct qm_fqd_stashing *stash_opts)
-{
-	return 0;
-}
-static void ppam_rx_error_finish(struct ppam_rx_error *p,
-				 struct ppam_interface *_if)
-{
-}
-static inline void ppam_rx_error_cb(struct ppam_rx_error *p,
-				    struct ppam_interface *_if,
-				    const struct qm_dqrr_entry *dqrr)
-{
-	const struct qm_fd *fd = &dqrr->fd;
-	ppac_drop_frame(fd);
-}
-
-static int ppam_rx_default_init(struct ppam_rx_default *p,
-				struct ppam_interface *_if,
-				struct qm_fqd_stashing *stash_opts)
-{
-	return 0;
-}
-static void ppam_rx_default_finish(struct ppam_rx_default *p,
-				   struct ppam_interface *_if)
-{
-}
-static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
+	static int ppam_rx_error_init(struct ppam_rx_error *p,
 				      struct ppam_interface *_if,
-				      const struct qm_dqrr_entry *dqrr)
-{
-	const struct qm_fd *fd = &dqrr->fd;
-	ppac_drop_frame(fd);
-}
+				      struct qm_fqd_stashing *stash_opts)
+	{
+		return 0;
+	}
+	static void ppam_rx_error_finish(struct ppam_rx_error *p,
+					 struct ppam_interface *_if)
+	{
+	}
+	static inline void ppam_rx_error_cb(struct ppam_rx_error *p,
+					    struct ppam_interface *_if,
+					    const struct qm_dqrr_entry *dqrr)
+	{
+		const struct qm_fd *fd = &dqrr->fd;
+		ppac_drop_frame(fd);
+	}
 
-static int ppam_tx_error_init(struct ppam_tx_error *p,
-			      struct ppam_interface *_if,
-			      struct qm_fqd_stashing *stash_opts)
-{
-	return 0;
-}
-static void ppam_tx_error_finish(struct ppam_tx_error *p,
-				 struct ppam_interface *_if)
-{
-}
-static inline void ppam_tx_error_cb(struct ppam_tx_error *p,
-				    struct ppam_interface *_if,
-				    const struct qm_dqrr_entry *dqrr)
-{
-	const struct qm_fd *fd = &dqrr->fd;
-	ppac_drop_frame(fd);
-}
+	static int ppam_rx_default_init(struct ppam_rx_default *p,
+					struct ppam_interface *_if,
+					struct qm_fqd_stashing *stash_opts)
+	{
+		return 0;
+	}
+	static void ppam_rx_default_finish(struct ppam_rx_default *p,
+					   struct ppam_interface *_if)
+	{
+	}
+	static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
+					      struct ppam_interface *_if,
+					      const struct qm_dqrr_entry *dqrr)
+	{
+		const struct qm_fd *fd = &dqrr->fd;
+		ppac_drop_frame(fd);
+	}
 
-static int ppam_tx_confirm_init(struct ppam_tx_confirm *p,
-				struct ppam_interface *_if,
-				struct qm_fqd_stashing *stash_opts)
-{
-	return 0;
-}
-static void ppam_tx_confirm_finish(struct ppam_tx_confirm *p,
-				   struct ppam_interface *_if)
-{
-}
-static inline void ppam_tx_confirm_cb(struct ppam_tx_confirm *p,
+	static int ppam_tx_error_init(struct ppam_tx_error *p,
 				      struct ppam_interface *_if,
-				      const struct qm_dqrr_entry *dqrr)
-{
-	const struct qm_fd *fd = &dqrr->fd;
-	ppac_drop_frame(fd);
-}
+				      struct qm_fqd_stashing *stash_opts)
+	{
+		return 0;
+	}
+	static void ppam_tx_error_finish(struct ppam_tx_error *p,
+					 struct ppam_interface *_if)
+	{
+	}
+	static inline void ppam_tx_error_cb(struct ppam_tx_error *p,
+					    struct ppam_interface *_if,
+					    const struct qm_dqrr_entry *dqrr)
+	{
+		const struct qm_fd *fd = &dqrr->fd;
+		ppac_drop_frame(fd);
+	}
 
-static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_interface *_if,
-			     uint8_t idx, struct qm_fqd_stashing *stash_opts)
-{
-	return 0;
-}
+	static int ppam_tx_confirm_init(struct ppam_tx_confirm *p,
+					struct ppam_interface *_if,
+					struct qm_fqd_stashing *stash_opts)
+	{
+		return 0;
+	}
+	static void ppam_tx_confirm_finish(struct ppam_tx_confirm *p,
+					   struct ppam_interface *_if)
+	{
+	}
+	static inline void ppam_tx_confirm_cb(struct ppam_tx_confirm *p,
+					      struct ppam_interface *_if,
+					      const struct qm_dqrr_entry *dqrr)
+	{
+		const struct qm_fd *fd = &dqrr->fd;
+		ppac_drop_frame(fd);
+	}
 
-static void ppam_rx_hash_finish(struct ppam_rx_hash *p,
-				struct ppam_interface *_if,
-				uint8_t idx)
-{
-}
+	static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_interface *_if,
+				     uint8_t idx, struct qm_fqd_stashing *stash_opts)
+	{
+		return 0;
+	}
 
-static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
-				   const struct qm_dqrr_entry *dqrr)
-{
-	dist_fwd_from_handler(p, &dqrr->fd);
-}
+	static void ppam_rx_hash_finish(struct ppam_rx_hash *p,
+					struct ppam_interface *_if,
+					uint8_t idx)
+	{
+	}
+
+	static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
+					   const struct qm_dqrr_entry *dqrr)
+	{
+		dist_fwd_from_handler(p, &dqrr->fd);
+	}
 
 /* Inline the PPAC machinery */
 #include <ppac.c>
