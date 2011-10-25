@@ -199,14 +199,12 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 			pcfg->public_cfg.cpu);
 		goto end;
 	}
-#ifdef CONFIG_FSL_DPA_HAVE_IRQ
 	/* qman_create_affine_portal() will have called request_irq(), which in
 	 * USDPAA-speak, means we have to retrieve the handler here. */
 	irq = qbman_get_irq_handler(fd);
 	if (!irq)
 		pr_warning("Qman portal interrupt handling is disabled (%d)\n",
 			pcfg->public_cfg.cpu);
-#endif
 
 end:
 	if (ret) {

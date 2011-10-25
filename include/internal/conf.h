@@ -76,9 +76,6 @@ extern "C" {
 /* disable support for run-time parameter checking, assertions, etc */
 #undef CONFIG_FSL_DPA_CHECKING
 
-/* support IRQs */
-#define CONFIG_FSL_DPA_HAVE_IRQ
-
 /* USDPAA has no concept of portal-sharing, so don't build it */
 #undef CONFIG_FSL_DPA_PORTAL_SHARE
 

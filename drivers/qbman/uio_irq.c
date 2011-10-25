@@ -32,8 +32,6 @@
 
 #include "dpa_sys.h"
 
-#ifdef CONFIG_FSL_DPA_HAVE_IRQ
-
 static LIST_HEAD(irqs);
 static pthread_mutex_t irqs_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -116,6 +114,4 @@ const struct qbman_uio_irq *qbman_get_irq_handler(int irq)
 	pthread_mutex_unlock(&irqs_lock);
 	return it;
 }
-
-#endif
 

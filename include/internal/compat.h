@@ -270,15 +270,10 @@ typedef uint32_t	irqreturn_t;
 #define local_irq_enable()	do { ; } while(0)
 #define local_irq_save(v)	do { ; } while(0)
 #define local_irq_restore(v)	do { ; } while(0)
-#ifdef CONFIG_FSL_DPA_HAVE_IRQ
 #define request_irq(irq, isr, args, devname, portal) \
 	qbman_request_irq(irq, isr, args, devname, portal)
 #define free_irq(irq, portal) \
 	qbman_free_irq(irq, portal)
-#else
-#define request_irq(irq, isr, args, devname, portal) 0
-#define free_irq(irq, portal)	0
-#endif
 #define irq_can_set_affinity(x)	0
 #define irq_set_affinity(x,y)	0
 

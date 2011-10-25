@@ -59,7 +59,6 @@ static inline int pamu_enable_liodn(struct device_node *n __always_unused,
 	return 0;
 }
 
-#ifdef CONFIG_FSL_DPA_HAVE_IRQ
 struct qbman_uio_irq {
 	int irq;
 	irqreturn_t (*isr)(int irq, void *arg);
@@ -76,7 +75,6 @@ int qbman_free_irq(int irq, void *arg);
 /* This is the interface from the platform-specific driver code to obtain
  * interrupt handlers that have been registered. */
 const struct qbman_uio_irq *qbman_get_irq_handler(int irq);
-#endif
 
 /* This takes a "phandle" and dereferences to the cpu device-tree node,
  * returning the cpu index. Returns negative error codes. */

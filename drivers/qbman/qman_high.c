@@ -259,7 +259,6 @@ static u32 __poll_portal_slow(struct qman_portal *p, u32 is);
 static inline unsigned int __poll_portal_fast(struct qman_portal *p,
 					unsigned int poll_limit);
 
-#ifdef CONFIG_FSL_DPA_HAVE_IRQ
 /* Portal interrupt handler */
 static irqreturn_t portal_isr(__always_unused int irq, void *ptr)
 {
@@ -274,7 +273,6 @@ static irqreturn_t portal_isr(__always_unused int irq, void *ptr)
 	qm_isr_status_clear(&p->p, clear);
 	return IRQ_HANDLED;
 }
-#endif
 
 /* This inner version is used privately by qman_create_affine_portal(), as well
  * as by the exported qman_stop_dequeues(). */
@@ -489,7 +487,6 @@ drain_loop:
 	portal->irq_sources = 0;
 	qm_isr_enable_write(__p, portal->irq_sources);
 	qm_isr_status_clear(__p, 0xffffffff);
-#ifdef CONFIG_FSL_DPA_HAVE_IRQ
 	snprintf(portal->irqname, MAX_IRQNAME, IRQNAME, config->public_cfg.cpu);
 	if (request_irq(config->public_cfg.irq, portal_isr, 0, portal->irqname,
 				portal)) {
@@ -509,7 +506,6 @@ drain_loop:
 		post_recovery(portal, config);
 		qm_isr_uninhibit(__p);
 	}
-#endif
 	/* Need EQCR to be empty before continuing */
 	isdr ^= QM_PIRQ_EQCI;
 	qm_isr_disable_write(__p, isdr);
@@ -542,11 +538,9 @@ drain_loop:
 	return portal;
 fail_dqrr_mr_empty:
 fail_eqcr_empty:
-#ifdef CONFIG_FSL_DPA_HAVE_IRQ
 fail_affinity:
 	free_irq(config->public_cfg.irq, portal);
 fail_irq:
-#endif
 	platform_device_del(portal->pdev);
 fail_devadd:
 	platform_device_put(portal->pdev);
@@ -616,9 +610,7 @@ const struct qm_portal_config *qman_destroy_affine_portal(void)
 	 * began. */
 	qm_eqcr_cce_update(&qm->p);
 	qm_eqcr_cce_update(&qm->p);
-#ifdef CONFIG_FSL_DPA_HAVE_IRQ
 	free_irq(pcfg->public_cfg.irq, qm);
-#endif
 	kfree(qm->cgrs);
 	qm_isr_finish(&qm->p);
 	qm_mc_finish(&qm->p);
@@ -941,7 +933,6 @@ EXPORT_SYMBOL(qman_irqsource_get);
 
 int qman_irqsource_add(u32 bits __maybe_unused)
 {
-#ifdef CONFIG_FSL_DPA_HAVE_IRQ
 	struct qman_portal *p = get_raw_affine_portal();
 	int ret = 0;
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
@@ -958,16 +949,11 @@ int qman_irqsource_add(u32 bits __maybe_unused)
 	}
 	put_affine_portal();
 	return ret;
-#else
-	pr_err("No Qman portal IRQ support, mustn't specify IRQ flags!");
-	return -EINVAL;
-#endif
 }
 EXPORT_SYMBOL(qman_irqsource_add);
 
 int qman_irqsource_remove(u32 bits)
 {
-#ifdef CONFIG_FSL_DPA_HAVE_IRQ
 	struct qman_portal *p = get_raw_affine_portal();
 	__maybe_unused unsigned long irqflags;
 	u32 ier;
@@ -996,10 +982,6 @@ int qman_irqsource_remove(u32 bits)
 	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 	return 0;
-#else
-	pr_err("No Qman portal IRQ support, mustn't specify IRQ flags!");
-	return -EINVAL;
-#endif
 }
 EXPORT_SYMBOL(qman_irqsource_remove);
 
