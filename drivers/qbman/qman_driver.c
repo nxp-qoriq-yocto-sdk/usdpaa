@@ -182,7 +182,6 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 	pcfg->public_cfg.cpu = cpu;
 	pcfg->public_cfg.irq = fd;
 	pcfg->public_cfg.is_shared = 0;
-	pcfg->public_cfg.has_stashing = 1;
 	pcfg->node = NULL;
 
 	if (pcfg->public_cfg.cpu == -1)
