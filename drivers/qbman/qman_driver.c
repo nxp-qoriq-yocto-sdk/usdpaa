@@ -169,12 +169,12 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 		pcfg->public_cfg.pools |= QM_SDQCR_CHANNELS_POOL(*cell_index);
 	}
 	/* Make the portal's cache-[enabled|inhibited] regions */
-	pcfg->addr_virt[QM_ADDR_CE] = mmap(NULL, 16*1024,
+	pcfg->addr_virt[DPA_PORTAL_CE] = mmap(NULL, 16*1024,
 			PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-	pcfg->addr_virt[QM_ADDR_CI] = mmap(NULL, 4*1024,
+	pcfg->addr_virt[DPA_PORTAL_CI] = mmap(NULL, 4*1024,
 			PROT_READ | PROT_WRITE, MAP_SHARED, fd, 4*1024);
-	if ((pcfg->addr_virt[QM_ADDR_CE] == MAP_FAILED) ||
-			(pcfg->addr_virt[QM_ADDR_CI] == MAP_FAILED)) {
+	if ((pcfg->addr_virt[DPA_PORTAL_CE] == MAP_FAILED) ||
+			(pcfg->addr_virt[DPA_PORTAL_CI] == MAP_FAILED)) {
 		perror("mmap of CENA or CINH failed");
 		ret = -ENODEV;
 		goto end;
@@ -227,12 +227,12 @@ static int fsl_qman_portal_finish(void)
 	int ret;
 
 	cfg = qman_destroy_affine_portal();
-	ret = munmap(cfg->addr_virt[QM_ADDR_CE], 16*1024);
+	ret = munmap(cfg->addr_virt[DPA_PORTAL_CE], 16*1024);
 	if (ret) {
 		perror("munmap() of Qman ADDR_CE failed");
 		goto end;
 	}
-	ret = munmap(cfg->addr_virt[QM_ADDR_CI], 4*1024);
+	ret = munmap(cfg->addr_virt[DPA_PORTAL_CI], 4*1024);
 	if (ret) {
 		perror("munmap() of Qman ADDR_CI failed");
 		goto end;
@@ -308,7 +308,7 @@ void qman_thread_irq(void)
 	 * the regular portal driver that manipulates any portal register, so
 	 * rather than breaking that encapsulation I am simply hard-coding the
 	 * offset to the inhibit register here. */
-	out_be32(pcfg->addr_virt[QM_ADDR_CI] + 0xe0c, 0);
+	out_be32(pcfg->addr_virt[DPA_PORTAL_CI] + 0xe0c, 0);
 }
 
 int qman_global_init(int recovery_mode)

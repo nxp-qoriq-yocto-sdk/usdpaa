@@ -33,6 +33,10 @@
 #include <usdpaa/dma_mem.h>
 #include <internal/of.h>
 
+/* For 2-element tables related to cache-inhibited and cache-enabled mappings */
+#define DPA_PORTAL_CE 0
+#define DPA_PORTAL_CI 1
+
 #ifdef CONFIG_FSL_DPA_CHECKING
 #define DPA_ASSERT(x) \
 	do { \
