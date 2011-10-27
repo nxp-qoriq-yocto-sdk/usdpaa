@@ -60,9 +60,6 @@
 #undef CONFIG_FSL_DPA_CAN_WAIT_SYNC
 #endif
 
-/* don't compile support for NULL FQ handling */
-#undef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
-
 /* don't compile support for FQ lookups (turn this on for 64bit user-space) */
 #undef CONFIG_FSL_QMAN_FQ_LOOKUP
 #ifdef __powerpc64__

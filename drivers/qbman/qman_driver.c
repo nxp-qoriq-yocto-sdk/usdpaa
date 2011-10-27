@@ -61,30 +61,6 @@ static const struct qman_fqid_ranges fqid_allocator = {
 static __thread int fd = -1;
 static __thread const struct qbman_uio_irq *irq;
 
-#ifdef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
-/* Handlers for NULL portal callbacks (ie. where the contextB field, normally
- * pointing to the corresponding FQ object, is NULL). */
-static enum qman_cb_dqrr_result null_cb_dqrr(struct qman_portal *qm,
-					__UNUSED struct qman_fq *fq,
-					__UNUSED const struct qm_dqrr_entry *dqrr)
-{
-	pr_warning("Ignoring unowned DQRR frame on portal %p.\n", qm);
-	return qman_cb_dqrr_consume;
-}
-static void null_cb_mr(struct qman_portal *qm, __UNUSED struct qman_fq *fq,
-			const struct qm_mr_entry *msg)
-{
-	pr_warning("Ignoring unowned MR msg on portal %p, verb 0x%02x.\n",
-			qm, msg->verb);
-}
-static const struct qman_fq_cb null_cb = {
-	.dqrr = null_cb_dqrr,
-	.ern = null_cb_mr,
-	.dc_ern = null_cb_mr,
-	.fqs = null_cb_mr
-};
-#endif
-
 static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 {
 	const struct device_node *dt_node;
@@ -187,13 +163,7 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 	if (pcfg->public_cfg.cpu == -1)
 		goto end;
 
-	portal = qman_create_affine_portal(pcfg, NULL,
-#ifdef CONFIG_FSL_QMAN_NULL_FQ_DEMUX
-			 	&null_cb,
-#else
-				NULL,
-#endif
-				recovery_mode);
+	portal = qman_create_affine_portal(pcfg, NULL, recovery_mode);
 	if (!portal) {
 		pr_err("Qman portal initialisation failed (%d)\n",
 			pcfg->public_cfg.cpu);
