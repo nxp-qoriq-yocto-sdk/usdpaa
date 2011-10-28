@@ -114,10 +114,16 @@ static void cb_ern(struct qman_portal *qm, struct qman_fq *fq,
 		const struct qm_mr_entry *msg);
 
 /* callback handler for dequeued frames and fq's(from SEC40) state change */
-const struct qman_fq_cb sec40_rx_cb = { cb_dqrr, NULL, NULL, cb_fqs };
+const struct qman_fq_cb sec40_rx_cb = {
+	.dqrr = cb_dqrr,
+	.fqs = cb_fqs
+};
 
 /* callback handler for fq's(to SEC40) state change */
-const struct qman_fq_cb sec40_tx_cb = { NULL, cb_ern, NULL, cb_fqs };
+const struct qman_fq_cb sec40_tx_cb = {
+	.ern = cb_ern,
+	.fqs = cb_fqs
+};
 
 /*
  * brief	Initialises the reference test vector for aes-cbc

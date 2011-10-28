@@ -50,13 +50,10 @@ static enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *,
 					const struct qm_dqrr_entry *);
 static void cb_ern(struct qman_portal *, struct qman_fq *,
 			const struct qm_mr_entry *);
-static void cb_dc_ern(struct qman_portal *, struct qman_fq *,
-			const struct qm_mr_entry *);
 static const struct qman_fq fq_base = {
 	.cb = {
 		.dqrr = cb_dqrr,
-		.ern = cb_ern,
-		.dc_ern = cb_dc_ern
+		.ern = cb_ern
 	}
 };
 
@@ -190,13 +187,6 @@ static void cb_ern(struct qman_portal *p __always_unused,
 			const struct qm_mr_entry *msg __always_unused)
 {
 	panic("cb_ern() unimplemented");
-}
-
-static void cb_dc_ern(struct qman_portal *p __always_unused,
-			struct qman_fq *fq __always_unused,
-			const struct qm_mr_entry *msg __always_unused)
-{
-	panic("cb_dc_ern() unimplemented");
 }
 
 void speed(struct worker *worker)

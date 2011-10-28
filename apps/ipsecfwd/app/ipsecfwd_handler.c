@@ -116,14 +116,12 @@ static void my_cb_notimplemented(struct qman_portal *qm, struct qman_fq *fq,
 const struct qman_fq_cb ipsecfwd_rx_cb_pcd = {
 	.dqrr = ipsec_dqrr_entry_handler,
 	.ern = ipsecfwd_ern_handler,
-	.dc_ern = my_cb_notimplemented,
 	.fqs = my_cb_notimplemented
 };
 
 const struct qman_fq_cb ipsecfwd_tx_cb = {
 	.dqrr = NULL,
 	.ern = ipsecfwd_ern_handler,
-	.dc_ern = my_cb_notimplemented,
 	.fqs = my_cb_notimplemented
 };
 
@@ -133,7 +131,6 @@ const struct qman_fq_cb ipsecfwd_tx_cb = {
 const struct qman_fq_cb ipfwd_split_key_cb = {
 	.dqrr = dqrr_split_key_handler,
 	.ern = my_cb_notimplemented,
-	.dc_ern = my_cb_notimplemented,
 	.fqs = my_cb_notimplemented
 };
 
