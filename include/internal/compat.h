@@ -371,8 +371,8 @@ static inline void copy_bytes(void *dest, const void *src, size_t sz)
 
 /* Spinlock stuff */
 #define spinlock_t		pthread_mutex_t
-#define SPIN_LOCK_UNLOCKED	PTHREAD_MUTEX_INITIALIZER
-#define DEFINE_SPINLOCK(x)	spinlock_t x = SPIN_LOCK_UNLOCKED
+#define __SPIN_LOCK_UNLOCKED(x)	PTHREAD_MUTEX_INITIALIZER
+#define DEFINE_SPINLOCK(x)	spinlock_t x = __SPIN_LOCK_UNLOCKED(x)
 #define spin_lock_init(x) \
 	do { \
 		__maybe_unused int __foo = pthread_mutex_init(x, NULL); \

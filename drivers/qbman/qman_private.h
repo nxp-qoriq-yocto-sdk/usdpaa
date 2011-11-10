@@ -122,9 +122,6 @@ struct qm_portal_config {
 	struct qman_portal_config public_cfg;
 };
 
-/* Hooks for driver initialisation */
-__init int fqalloc_init(int use_bman);
-
 /* Revision info (for errata and feature handling) */
 #define QMAN_REV10 0x0100
 #define QMAN_REV11 0x0101

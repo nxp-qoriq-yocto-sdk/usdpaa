@@ -39,20 +39,17 @@ TOPDIR="`dirname $0`/.."
 INCL="fsl_qman.h fsl_bman.h"
 
 # source files
-QMAN="qman_high.c qman_low.h qman_private.h qman_utility.c qman_fqalloc.c"
-BMAN="bman_high.c bman_low.h bman_private.h"
+QBMAN="qman_high.c qman_low.h qman_private.h qman_utility.c bman_high.c bman_low.h bman_private.h"
 #PME2="pme2_high.c pme2_low.c pme2_private.h"
 
 # Location of files in linux
 LIN_INCL=$TOPDIR/linux-2.6/include/linux
-LIN_BMAN=$TOPDIR/linux-2.6/drivers/staging/fsl_qbman
-LIN_QMAN=$TOPDIR/linux-2.6/drivers/staging/fsl_qbman
+LIN_QBMAN=$TOPDIR/linux-2.6/drivers/staging/fsl_qbman
 #LIN_PME2=$TOPDIR/linux-2.6/drivers/staging/fsl_pme2
 
 # Location of files in usd
 LWE_INCL=$TOPDIR/usdpaa/include/usdpaa
-LWE_BMAN=$TOPDIR/usdpaa/drivers/qbman
-LWE_QMAN=$TOPDIR/usdpaa/drivers/qbman
+LWE_QBMAN=$TOPDIR/usdpaa/drivers/qbman
 #LWE_PME2=$TOPDIR/usdpaa/drivers/pme2
 
 ####$#################
@@ -77,21 +74,17 @@ usage () {
 parse_direction() {
 	if [ $1 = "2linux" ]; then
 		SRC_INCL=$LWE_INCL
-		SRC_BMAN=$LWE_BMAN
-		SRC_QMAN=$LWE_QMAN
+		SRC_QBMAN=$LWE_QBMAN
 		#SRC_PME2=$LWE_PME2
 		DST_INCL=$LIN_INCL
-		DST_BMAN=$LIN_BMAN
-		DST_QMAN=$LIN_QMAN
+		DST_QBMAN=$LIN_QBMAN
 		#DST_PME2=$LIN_PME2
 	elif [ $1 = "2usd" ]; then
 		SRC_INCL=$LIN_INCL
-		SRC_BMAN=$LIN_BMAN
-		SRC_QMAN=$LIN_QMAN
+		SRC_QBMAN=$LIN_QBMAN
 		#SRC_PME2=$LIN_PME2
 		DST_INCL=$LWE_INCL
-		DST_BMAN=$LWE_BMAN
-		DST_QMAN=$LWE_QMAN
+		DST_QBMAN=$LWE_QBMAN
 		#DST_PME2=$LWE_PME2
 	else
 		usage
@@ -205,12 +198,8 @@ for i in $INCL; do
 	process $SRC_INCL/$i $DST_INCL/$i
 done
 
-for i in $BMAN; do
-	process $SRC_BMAN/$i $DST_BMAN/$i
-done
-
-for i in $QMAN; do
-	process $SRC_QMAN/$i $DST_QMAN/$i
+for i in $QBMAN; do
+	process $SRC_QBMAN/$i $DST_QBMAN/$i
 done
 
 #for i in $PME2; do

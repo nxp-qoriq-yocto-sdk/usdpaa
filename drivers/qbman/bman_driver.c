@@ -48,10 +48,6 @@ EXPORT_SYMBOL(bman_pool_max);
 static __thread int fd = -1;
 static __thread const struct qbman_uio_irq *irq;
 
-static struct bman_depletion pools;
-static u8 num_pools;
-static DEFINE_SPINLOCK(pools_lock);
-
 struct bman_bpid_ranges {
 	unsigned int num_ranges;
 	const struct bman_bpid_range {
@@ -65,34 +61,6 @@ static const struct bman_bpid_ranges bpid_allocator = {
 	.num_ranges = 1,
 	.ranges = bpid_range
 };
-
-int bm_pool_new(u32 *bpid)
-{
-	int ret = 0, b = bman_pool_max;
-	spin_lock(&pools_lock);
-	if (num_pools >= bman_pool_max)
-		ret = -ENOMEM;
-	else {
-		while (b-- && bman_depletion_get(&pools, b))
-			;
-		BUG_ON(b < 0);
-		bman_depletion_set(&pools, b);
-		*bpid = b;
-		num_pools++;
-	}
-	spin_unlock(&pools_lock);
-	return ret;
-}
-
-void bm_pool_free(u32 bpid)
-{
-	spin_lock(&pools_lock);
-	BUG_ON(bpid >= bman_pool_max);
-	BUG_ON(!bman_depletion_get(&pools, bpid));
-	bman_depletion_unset(&pools, bpid);
-	num_pools--;
-	spin_unlock(&pools_lock);
-}
 
 static int __init fsl_bman_portal_init(int cpu)
 {
@@ -220,29 +188,12 @@ end:
 	return ret;
 }
 
-static int fsl_bpool_range_init(const struct bman_bpid_ranges *bpids)
+static int fsl_bpid_range_init(const struct bman_bpid_ranges *bpids)
 {
-	int ret, warned = 0;
-	u32 bpid, range;
+	u32 range;
 	for (range = 0; range < bpids->num_ranges; range++) {
-		for (bpid = bpids->ranges[range].start;
-				bpid < (bpids->ranges[range].start +
+		bman_release_bpid_range(bpids->ranges[range].start,
 					bpids->ranges[range].num);
-				bpid++) {
-			if (bpid >= bman_pool_max) {
-				pr_err("BPIDs out range\n");
-				return -EINVAL;
-			}
-			if (!bman_depletion_get(&pools, bpid)) {
-				if (!warned) {
-					warned = 1;
-					pr_err("BPID overlap in, ignoring\n");
-				}
-			} else {
-				bman_depletion_unset(&pools, bpid);
-				num_pools--;
-			}
-		}
 		pr_info("Bman: BPID allocator includes range %d:%d\n",
 			bpids->ranges[range].start, bpids->ranges[range].num);
 	}
@@ -304,9 +255,7 @@ int bman_global_init(void)
 		pr_err("Unknown bman portal version\n");
 		return -ENODEV;
 	}
-	num_pools = bman_pool_max;
-	bman_depletion_fill(&pools);
-	ret = fsl_bpool_range_init(&bpid_allocator);
+	ret = fsl_bpid_range_init(&bpid_allocator);
 	if (ret) {
 		pr_err("Bman pool range set failed\n");
 		return ret;

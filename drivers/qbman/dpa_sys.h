@@ -33,6 +33,26 @@
 #include <usdpaa/dma_mem.h>
 #include <internal/of.h>
 
+/* For now, USDPAA FQID/BPID allocation uses the common logic in dpa_alloc.c via the
+ * following interface. This is to match the kernel's implementation, but it
+ * will be replaced by an interface that calls into the kernel for allocations,
+ * once the dynamic portal->cpu affinity stuff is complete. */
+struct dpa_alloc {
+	struct list_head list;
+	spinlock_t lock;
+};
+#define DECLARE_DPA_ALLOC(name) \
+	struct dpa_alloc name = { \
+		.list = { \
+			.prev = &name.list, \
+			.next = &name.list \
+		}, \
+		.lock = __SPIN_LOCK_UNLOCKED(name.lock) \
+	}
+int dpa_alloc_new(struct dpa_alloc *alloc, u32 *result, u32 count, u32 align,
+		  int partial);
+void dpa_alloc_free(struct dpa_alloc *alloc, u32 fqid, u32 count);
+
 /* For 2-element tables related to cache-inhibited and cache-enabled mappings */
 #define DPA_PORTAL_CE 0
 #define DPA_PORTAL_CI 1

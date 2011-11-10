@@ -127,10 +127,6 @@ int bman_have_ccsr(void);
 #define bm_isr_inhibit(bm)		__bm_isr_write(bm, bm_isr_inhibit, 1)
 #define bm_isr_uninhibit(bm)		__bm_isr_write(bm, bm_isr_inhibit, 0)
 
-/* Allocate/release an unreserved buffer pool id */
-int bm_pool_new(u32 *bpid);
-void bm_pool_free(u32 bpid);
-
 #ifdef CONFIG_FSL_BMAN_CONFIG
 /* Set depletion thresholds associated with a buffer pool. Requires that the
  * operating system have access to Bman CCSR (ie. compiled in support and
