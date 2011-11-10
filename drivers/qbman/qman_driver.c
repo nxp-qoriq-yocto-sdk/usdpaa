@@ -61,7 +61,7 @@ static const struct qman_fqid_ranges fqid_allocator = {
 static __thread int fd = -1;
 static __thread const struct qbman_uio_irq *irq;
 
-static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
+static int __init fsl_qman_portal_init(int cpu)
 {
 	const struct device_node *dt_node;
 	const u32 *channel, *cell_index;
@@ -163,7 +163,7 @@ static int __init fsl_qman_portal_init(int cpu, int recovery_mode)
 	if (pcfg->public_cfg.cpu == -1)
 		goto end;
 
-	portal = qman_create_affine_portal(pcfg, NULL, recovery_mode);
+	portal = qman_create_affine_portal(pcfg, NULL);
 	if (!portal) {
 		pr_err("Qman portal initialisation failed (%d)\n",
 			pcfg->public_cfg.cpu);
@@ -219,38 +219,23 @@ end:
 	return ret;
 }
 
-static int fsl_fqid_range_init(int recovery_mode,
-				const struct qman_fqid_ranges *fqids)
+static int fsl_fqid_range_init(const struct qman_fqid_ranges *fqids)
 {
 	u32 fqid, range;
 	for (range = 0; range < fqids->num_ranges; range++) {
-		for (fqid = fqids->ranges[range].start;
-				fqid < (fqids->ranges[range].start +
-					fqids->ranges[range].num);
-				fqid++) {
-			if (recovery_mode) {
-				int ret = qman_recovery_cleanup_fq(fqid);
-				if (ret) {
-					pr_err("Failed to recover FQID %d\n",
-						fqid);
-					return ret;
-				}
-			}
-		}
 		qman_release_fqid_range(fqids->ranges[range].start,
 					fqids->ranges[range].num);
-		pr_info("Qman: FQID allocator includes range %d:%d%s\n",
-			fqids->ranges[range].start, fqids->ranges[range].num,
-			recovery_mode ? " (recovered)" : "");
+		pr_info("Qman: FQID allocator includes range %d:%d\n",
+			fqids->ranges[range].start, fqids->ranges[range].num);
 	}
 	return 0;
 }
 
-int qman_thread_init(int cpu, int recovery_mode)
+int qman_thread_init(int cpu)
 {
 	/* Convert from contiguous/virtual cpu numbering to real cpu when
 	 * calling into the code that is dependent on the device naming */
-	return fsl_qman_portal_init(of_phys_cpu(cpu), recovery_mode);
+	return fsl_qman_portal_init(of_phys_cpu(cpu));
 }
 
 int qman_thread_finish(void)
@@ -278,7 +263,7 @@ void qman_thread_irq(void)
 	out_be32(pcfg->addr_virt[DPA_PORTAL_CI] + 0xe0c, 0);
 }
 
-int qman_global_init(int recovery_mode)
+int qman_global_init(void)
 {
 	const struct device_node *dt_node;
 #ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
@@ -310,5 +295,5 @@ int qman_global_init(int recovery_mode)
 	if (ret)
 		return ret;
 #endif
-	return fsl_fqid_range_init(recovery_mode, &fqid_allocator);
+	return fsl_fqid_range_init(&fqid_allocator);
 }

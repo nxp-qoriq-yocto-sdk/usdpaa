@@ -43,8 +43,8 @@ extern "C" {
 /* USDPAA-specific initialisation: */
 
 /* Thread-entry/exit hooks; */
-int qman_thread_init(int cpu, int recovery_mode);
-int bman_thread_init(int cpu, int recovery_mode);
+int qman_thread_init(int cpu);
+int bman_thread_init(int cpu);
 int qman_thread_finish(void);
 int bman_thread_finish(void);
 
@@ -59,9 +59,9 @@ int bman_thread_fd(void);
 void qman_thread_irq(void);
 void bman_thread_irq(void);
 
-/* Global setup, must be called on an initialised thread if recovery_mode!=0 */
-int qman_global_init(int recovery_mode);
-int bman_global_init(int recovery_mode);
+/* Global setup */
+int qman_global_init(void);
+int bman_global_init(void);
 
 #ifdef __cplusplus
 }

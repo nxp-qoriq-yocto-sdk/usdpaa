@@ -94,7 +94,7 @@ void bm_pool_free(u32 bpid)
 	spin_unlock(&pools_lock);
 }
 
-static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
+static int __init fsl_bman_portal_init(int cpu)
 {
 	const struct device_node *dt_node;
 	struct bm_portal_config *pcfg;
@@ -164,7 +164,7 @@ static int __init fsl_bman_portal_init(int cpu, int recovery_mode)
 	if (pcfg->public_cfg.cpu == -1)
 		goto end;
 
-	portal = bman_create_affine_portal(pcfg, recovery_mode);
+	portal = bman_create_affine_portal(pcfg);
 	if (!portal) {
 		pr_err("Bman portal initialisation failed (%d)\n",
 			pcfg->public_cfg.cpu);
@@ -220,8 +220,7 @@ end:
 	return ret;
 }
 
-static int fsl_bpool_range_init(int recovery_mode,
-				const struct bman_bpid_ranges *bpids)
+static int fsl_bpool_range_init(const struct bman_bpid_ranges *bpids)
 {
 	int ret, warned = 0;
 	u32 bpid, range;
@@ -240,30 +239,21 @@ static int fsl_bpool_range_init(int recovery_mode,
 					pr_err("BPID overlap in, ignoring\n");
 				}
 			} else {
-				if (recovery_mode) {
-					ret = bman_recovery_cleanup_bpid(bpid);
-					if (ret) {
-						pr_err("Failed to recover BPID "
-							"%d\n", bpid);
-						return ret;
-					}
-				}
 				bman_depletion_unset(&pools, bpid);
 				num_pools--;
 			}
 		}
-		pr_info("Bman: BPID allocator includes range %d:%d%s\n",
-			bpids->ranges[range].start, bpids->ranges[range].num,
-			recovery_mode ? " (recovered)" : "");
+		pr_info("Bman: BPID allocator includes range %d:%d\n",
+			bpids->ranges[range].start, bpids->ranges[range].num);
 	}
 	return 0;
 }
 
-int bman_thread_init(int cpu, int recovery_mode)
+int bman_thread_init(int cpu)
 {
 	/* Convert from contiguous/virtual cpu numbering to real cpu when
 	 * calling into the code that is dependent on the device naming */
-	return fsl_bman_portal_init(of_phys_cpu(cpu), recovery_mode);
+	return fsl_bman_portal_init(of_phys_cpu(cpu));
 }
 
 int bman_thread_finish(void)
@@ -291,7 +281,7 @@ void bman_thread_irq(void)
 	out_be32(pcfg->addr_virt[DPA_PORTAL_CI] + 0xe0c, 0);
 }
 
-int bman_global_init(int recovery_mode)
+int bman_global_init(void)
 {
 	const struct device_node *dt_node;
 	int ret;
@@ -316,7 +306,7 @@ int bman_global_init(int recovery_mode)
 	}
 	num_pools = bman_pool_max;
 	bman_depletion_fill(&pools);
-	ret = fsl_bpool_range_init(recovery_mode, &bpid_allocator);
+	ret = fsl_bpool_range_init(&bpid_allocator);
 	if (ret) {
 		pr_err("Bman pool range set failed\n");
 		return ret;

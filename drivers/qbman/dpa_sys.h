@@ -50,15 +50,6 @@
 #define DPA_ASSERT(x)		do { ; } while(0)
 #endif
 
-/* For trees that contain such support, these stubs are re-mapped to
- * hypervisor+failover features. */
-#define for_each_child_of_node(n1,n2) while (0)
-static inline int pamu_enable_liodn(struct device_node *n __always_unused,
-					int i __always_unused)
-{
-	return 0;
-}
-
 struct qbman_uio_irq {
 	int irq;
 	irqreturn_t (*isr)(int irq, void *arg);

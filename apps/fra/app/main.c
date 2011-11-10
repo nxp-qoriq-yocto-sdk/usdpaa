@@ -431,14 +431,14 @@ static void *worker_fn(void *__worker)
 	}
 
 	/* Initialise bman/qman portals */
-	s = bman_thread_init(worker->cpu, 0);
+	s = bman_thread_init(worker->cpu);
 	if (s) {
 		error(0, -s,
 		      "No available Bman portals for cpu %d",
 		      worker->cpu);
 		goto err;
 	}
-	s = qman_thread_init(worker->cpu, 0);
+	s = qman_thread_init(worker->cpu);
 	if (s) {
 		error(0, -s,
 		      "No available Qman portals for cpu %d",
@@ -1123,11 +1123,11 @@ int main(int argc, char *argv[])
 		return -EINVAL;
 	}
 	/* - initialise DPAA */
-	rcode = qman_global_init(0);
+	rcode = qman_global_init();
 	if (rcode)
 		error(0, 0,
 		      "error: qman global init, continuing");
-	rcode = bman_global_init(0);
+	rcode = bman_global_init();
 	if (rcode)
 		error(0, 0,
 		      "error: bman global init, continuing");

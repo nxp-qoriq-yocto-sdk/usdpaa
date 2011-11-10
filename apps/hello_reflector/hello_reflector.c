@@ -239,12 +239,12 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 	/* Load the Qman/Bman drivers */
-	ret = qman_global_init(0);
+	ret = qman_global_init();
 	if (ret) {
 		fprintf(stderr, "Fail: %s: %d\n", "qman_global_init()", ret);
 		exit(EXIT_FAILURE);
 	}
-	ret = bman_global_init(0);
+	ret = bman_global_init();
 	if (ret) {
 		fprintf(stderr, "Fail: %s: %d\n", "bman_global_init()", ret);
 		exit(EXIT_FAILURE);
@@ -769,13 +769,13 @@ static void *worker_fn(void *__worker)
 	}
 
 	/* Initialise thread/cpu-local portals */
-	ret = bman_thread_init(worker->cpu, 0);
+	ret = bman_thread_init(worker->cpu);
 	if (ret) {
 		fprintf(stderr, "(%d): Fail: %s\n", worker->cpu,
 			"bman_thread_init()");
 		goto fail_bman;
 	}
-	ret = qman_thread_init(worker->cpu, 0);
+	ret = qman_thread_init(worker->cpu);
 	if (ret) {
 		fprintf(stderr, "(%d): Fail: %s\n", worker->cpu,
 			"qman_thread_init()");

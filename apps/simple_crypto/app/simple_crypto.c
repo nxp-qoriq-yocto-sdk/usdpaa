@@ -1926,7 +1926,7 @@ int main(int argc, char *argv[])
 	if (err)
 		error(err, err, "error: unable to initialize pthread_barrier");
 
-	err = qman_global_init(0);
+	err = qman_global_init();
 	if (err)
 		error(err, err, "error: qman global init failed");
 

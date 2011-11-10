@@ -74,13 +74,13 @@ static void *worker_fn(void *__worker)
 	}
 
 	/* Initialise bman/qman portals */
-	err = bman_thread_init(worker->cpu, 0);
+	err = bman_thread_init(worker->cpu);
 	if (err) {
 		fprintf(stderr, "bman_thread_init(%d) failed, ret=%d\n",
 			worker->cpu, err);
 		exit(EXIT_FAILURE);
 	}
-	err = qman_thread_init(worker->cpu, 0);
+	err = qman_thread_init(worker->cpu);
 	if (err) {
 		fprintf(stderr, "qman_thread_init(%d) failed, ret=%d\n",
 			worker->cpu, err);
@@ -89,14 +89,14 @@ static void *worker_fn(void *__worker)
 
 	if (worker->do_global_init) {
 		/* Set up the bpid allocator */
-		err = bman_global_init(0);
+		err = bman_global_init();
 		if (err) {
 			fprintf(stderr, "bman_global_init() failed, ret=%d\n",
 				err);
 			exit(EXIT_FAILURE);
 		}
 		/* Set up the fqid allocator */
-		err = qman_global_init(0);
+		err = qman_global_init();
 		if (err) {
 			fprintf(stderr, "qman_global_init() failed, ret=%d\n",
 				err);

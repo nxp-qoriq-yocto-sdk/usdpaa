@@ -597,13 +597,13 @@ static void *worker_fn(void *__worker)
 	}
 
 	/* Initialise bman/qman portals */
-	s = bman_thread_init(worker->cpu, 0);
+	s = bman_thread_init(worker->cpu);
 	if (s) {
 		fprintf(stderr, "bman_thread_init(%d) failed, ret=%d\n",
 			worker->cpu, s);
 		goto end;
 	}
-	s = qman_thread_init(worker->cpu, 0);
+	s = qman_thread_init(worker->cpu);
 	if (s) {
 		fprintf(stderr, "qman_thread_init(%d) failed, ret=%d\n",
 			worker->cpu, s);
@@ -1394,10 +1394,10 @@ int main(int argc, char *argv[])
 		return -rcode;
 
 	/* - initialise DPAA */
-	rcode = qman_global_init(0);
+	rcode = qman_global_init();
 	if (rcode)
 		fprintf(stderr, "error: qman global init, continuing\n");
-	rcode = bman_global_init(0);
+	rcode = bman_global_init();
 	if (rcode)
 		fprintf(stderr, "error: bman global init, continuing\n");
 	/* - map shmem */

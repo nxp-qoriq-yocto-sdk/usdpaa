@@ -727,13 +727,13 @@ static void *worker_fn(void *__worker)
 	}
 
 	/* Initialise bman/qman portals */
-	s = bman_thread_init(worker->cpu, 0);
+	s = bman_thread_init(worker->cpu);
 	if (s) {
 		fprintf(stderr, "No available Bman portals for cpu %d\n",
 			worker->cpu);
 		goto err;
 	}
-	s = qman_thread_init(worker->cpu, 0);
+	s = qman_thread_init(worker->cpu);
 	if (s) {
 		fprintf(stderr, "No available Qman portals for cpu %d\n",
 			worker->cpu);
@@ -1368,10 +1368,10 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 	/* - initialise DPAA */
-	rcode = qman_global_init(0);
+	rcode = qman_global_init();
 	if (rcode)
 		fprintf(stderr, "error: qman global init, continuing\n");
-	rcode = bman_global_init(0);
+	rcode = bman_global_init();
 	if (rcode)
 		fprintf(stderr, "error: bman global init, continuing\n");
 	printf("Configuring for %d network interface%s and %d pool channel%s\n",
