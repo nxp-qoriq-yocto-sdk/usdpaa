@@ -769,13 +769,13 @@ static void *worker_fn(void *__worker)
 	}
 
 	/* Initialise thread/cpu-local portals */
-	ret = bman_thread_init(worker->cpu);
+	ret = bman_thread_init();
 	if (ret) {
 		fprintf(stderr, "(%d): Fail: %s\n", worker->cpu,
 			"bman_thread_init()");
 		goto fail_bman;
 	}
-	ret = qman_thread_init(worker->cpu);
+	ret = qman_thread_init();
 	if (ret) {
 		fprintf(stderr, "(%d): Fail: %s\n", worker->cpu,
 			"qman_thread_init()");

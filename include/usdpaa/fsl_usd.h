@@ -43,8 +43,8 @@ extern "C" {
 /* USDPAA-specific initialisation: */
 
 /* Thread-entry/exit hooks; */
-int qman_thread_init(int cpu);
-int bman_thread_init(int cpu);
+int qman_thread_init(void);
+int bman_thread_init(void);
 int qman_thread_finish(void);
 int bman_thread_finish(void);
 

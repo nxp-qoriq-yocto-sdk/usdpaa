@@ -597,13 +597,13 @@ static void *worker_fn(void *__worker)
 	}
 
 	/* Initialise bman/qman portals */
-	s = bman_thread_init(worker->cpu);
+	s = bman_thread_init();
 	if (s) {
 		fprintf(stderr, "bman_thread_init(%d) failed, ret=%d\n",
 			worker->cpu, s);
 		goto end;
 	}
-	s = qman_thread_init(worker->cpu);
+	s = qman_thread_init();
 	if (s) {
 		fprintf(stderr, "qman_thread_init(%d) failed, ret=%d\n",
 			worker->cpu, s);

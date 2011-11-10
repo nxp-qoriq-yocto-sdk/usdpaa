@@ -74,13 +74,13 @@ static void *worker_fn(void *__worker)
 	}
 
 	/* Initialise bman/qman portals */
-	err = bman_thread_init(worker->cpu);
+	err = bman_thread_init();
 	if (err) {
 		fprintf(stderr, "bman_thread_init(%d) failed, ret=%d\n",
 			worker->cpu, err);
 		exit(EXIT_FAILURE);
 	}
-	err = qman_thread_init(worker->cpu);
+	err = qman_thread_init();
 	if (err) {
 		fprintf(stderr, "qman_thread_init(%d) failed, ret=%d\n",
 			worker->cpu, err);

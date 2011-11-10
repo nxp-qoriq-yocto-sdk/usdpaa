@@ -62,12 +62,13 @@ static const struct bman_bpid_ranges bpid_allocator = {
 	.ranges = bpid_range
 };
 
-static int __init fsl_bman_portal_init(int cpu)
+static int __init fsl_bman_portal_init(void)
 {
+	cpu_set_t cpuset;
 	const struct device_node *dt_node;
 	struct bm_portal_config *pcfg;
 	struct bman_portal *portal;
-	int ret = 0;
+	int loop, ret = 0;
 	char name[20]; /* Big enough for "/dev/bman-uio-xx" */
 
 	if (fd >= 0) {
@@ -80,26 +81,34 @@ static int __init fsl_bman_portal_init(int cpu)
 		ret = -ENOMEM;
 		goto end;
 	}
-	/* Loop the portal nodes looking for a matching cpu, and for each such
-	 * match, use the cell-index to determine the UIO device name and try
-	 * opening it. */
+	ret = pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t),
+				     &cpuset);
+	if (ret) {
+		errno = ret;
+		perror("pthread_getaffinity_np");
+		goto end;
+	}
+	pcfg->public_cfg.cpu = -1;
+	for (loop = 0; loop < CPU_SETSIZE; loop++)
+		if (CPU_ISSET(loop, &cpuset)) {
+			if (pcfg->public_cfg.cpu != -1) {
+				pr_err("Thread is not affine to 1 cpu\n");
+				ret = -EINVAL;
+				goto end;
+			}
+			pcfg->public_cfg.cpu = loop;
+		}
+	if (pcfg->public_cfg.cpu == -1) {
+		pr_err("Bug in getaffinity handling!\n");
+		ret = -EINVAL;
+		goto end;
+	}
+	/* For each portal node, use the cell-index to determine the UIO device
+	 * name and try opening it. */
 	for_each_compatible_node(dt_node, NULL, "fsl,bman-portal") {
 		size_t lenp;
-		const u32 *cell_index;
-		int cpu_idx;
-		const phandle *cpu_ph = of_get_property(dt_node, "cpu-handle",
+		const u32 *cell_index = of_get_property(dt_node, "cell-index",
 							&lenp);
-		if (!cpu_ph)
-			continue;
-		if (lenp != sizeof(phandle)) {
-			pr_err("Malformed property %s:cpu-handle\n",
-				dt_node->full_name);
-			continue;
-		}
-		cpu_idx = check_cpu_phandle(*cpu_ph);
-		if (cpu_idx != cpu)
-			continue;
-		cell_index = of_get_property(dt_node, "cell-index", &lenp);
 		if (!cell_index || (lenp != sizeof(*cell_index))) {
 			pr_err("Malformed property %s:cell-index\n",
 				dt_node->full_name);
@@ -124,13 +133,9 @@ static int __init fsl_bman_portal_init(int cpu)
 		ret = -ENODEV;
 		goto end;
 	}
-	pcfg->public_cfg.cpu = cpu;
 	pcfg->public_cfg.irq = fd;
 	pcfg->public_cfg.is_shared = 0;
 	bman_depletion_fill(&pcfg->public_cfg.mask);
-
-	if (pcfg->public_cfg.cpu == -1)
-		goto end;
 
 	portal = bman_create_affine_portal(pcfg);
 	if (!portal) {
@@ -200,11 +205,11 @@ static int fsl_bpid_range_init(const struct bman_bpid_ranges *bpids)
 	return 0;
 }
 
-int bman_thread_init(int cpu)
+int bman_thread_init(void)
 {
 	/* Convert from contiguous/virtual cpu numbering to real cpu when
 	 * calling into the code that is dependent on the device naming */
-	return fsl_bman_portal_init(of_phys_cpu(cpu));
+	return fsl_bman_portal_init();
 }
 
 int bman_thread_finish(void)

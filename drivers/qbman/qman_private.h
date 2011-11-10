@@ -120,6 +120,8 @@ struct qm_portal_config {
 	struct list_head list;
 	/* User-visible portal configuration settings */
 	struct qman_portal_config public_cfg;
+	/* Stashing LIODNs for this portal */
+	int liodns[2];
 };
 
 /* Revision info (for errata and feature handling) */

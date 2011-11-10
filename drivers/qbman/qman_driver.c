@@ -53,23 +53,18 @@ static const struct qman_fqid_ranges fqid_allocator = {
 	.ranges = fqid_range
 };
 
-
-/*****************/
-/* Portal driver */
-/*****************/
-
 static __thread int fd = -1;
 static __thread const struct qbman_uio_irq *irq;
 
-static int __init fsl_qman_portal_init(int cpu)
+static int __init fsl_qman_portal_init(void)
 {
+	cpu_set_t cpuset;
 	const struct device_node *dt_node;
 	const u32 *channel, *cell_index;
-	const phandle *ph;
 	struct qm_portal_config *pcfg;
 	struct qman_portal *portal;
 	size_t lenp;
-	int ret = 0;
+	int loop, ret = 0;
 	char name[20]; /* Big enough for "/dev/qman-uio-xx" */
 
 	if (fd >= 0) {
@@ -82,22 +77,32 @@ static int __init fsl_qman_portal_init(int cpu)
 		ret = -ENOMEM;
 		goto end;
 	}
+	ret = pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t),
+				     &cpuset);
+	if (ret) {
+		errno = ret;
+		perror("pthread_getaffinity_np");
+		goto end;
+	}
+	pcfg->public_cfg.cpu = -1;
+	for (loop = 0; loop < CPU_SETSIZE; loop++)
+		if (CPU_ISSET(loop, &cpuset)) {
+			if (pcfg->public_cfg.cpu != -1) {
+				pr_err("Thread is not affine to 1 cpu\n");
+				ret = -EINVAL;
+				goto end;
+			}
+			pcfg->public_cfg.cpu = loop;
+		}
+	if (pcfg->public_cfg.cpu == -1) {
+		pr_err("Bug in getaffinity handling!\n");
+		ret = -EINVAL;
+		goto end;
+	}
 	/* Loop the portal nodes looking for a matching cpu, and for each such
 	 * match, use the cell-index to determine the UIO device name and try
 	 * opening it. */
 	for_each_compatible_node(dt_node, NULL, "fsl,qman-portal") {
-		int cpu_idx;
-		ph = of_get_property(dt_node, "cpu-handle", &lenp);
-		if (!ph)
-			continue;
-		if (lenp != sizeof(phandle)) {
-			pr_err("Malformed property %s:cpu-handle\n",
-				dt_node->full_name);
-			continue;
-		}
-		cpu_idx = check_cpu_phandle(*ph);
-		if (cpu_idx != cpu)
-			continue;
 		cell_index = of_get_property(dt_node, "cell-index", &lenp);
 		if (!cell_index || (lenp != sizeof(*cell_index))) {
 			pr_err("Malformed property %s:cell-index\n",
@@ -122,28 +127,7 @@ static int __init fsl_qman_portal_init(int cpu)
 		goto end;
 	}
 	pcfg->public_cfg.channel = *channel;
-	/* Parse the portal's pool-channel mask */
-	pcfg->public_cfg.pools = 0;
-	ph = of_get_property(dt_node, "fsl,qman-pool-channels", &lenp);
-	if (!ph || (lenp % sizeof(phandle))) {
-		pr_err("Malformed property %s:fsl,qman-pool-channels\n",
-			dt_node->full_name);
-		ret = -EIO;
-		goto end;
-	}
-	for (; lenp > 0; ph++, lenp -= sizeof(phandle)) {
-		size_t tmp_lenp;
-		const struct device_node *pool = of_find_node_by_phandle(*ph);
-		if (!pool)
-			continue;
-		cell_index = of_get_property(pool, "cell-index", &tmp_lenp);
-		if (!cell_index || (tmp_lenp != sizeof(*cell_index))) {
-			pr_err("Malformed property %s:cell-index\n",
-				pool->full_name);
-			continue;
-		}
-		pcfg->public_cfg.pools |= QM_SDQCR_CHANNELS_POOL(*cell_index);
-	}
+	pcfg->public_cfg.pools = QM_SDQCR_CHANNELS_POOL_MASK;
 	/* Make the portal's cache-[enabled|inhibited] regions */
 	pcfg->addr_virt[DPA_PORTAL_CE] = mmap(NULL, 16*1024,
 			PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
@@ -155,7 +139,6 @@ static int __init fsl_qman_portal_init(int cpu)
 		ret = -ENODEV;
 		goto end;
 	}
-	pcfg->public_cfg.cpu = cpu;
 	pcfg->public_cfg.irq = fd;
 	pcfg->public_cfg.is_shared = 0;
 	pcfg->node = NULL;
@@ -221,7 +204,7 @@ end:
 
 static int fsl_fqid_range_init(const struct qman_fqid_ranges *fqids)
 {
-	u32 fqid, range;
+	u32 range;
 	for (range = 0; range < fqids->num_ranges; range++) {
 		qman_release_fqid_range(fqids->ranges[range].start,
 					fqids->ranges[range].num);
@@ -231,11 +214,11 @@ static int fsl_fqid_range_init(const struct qman_fqid_ranges *fqids)
 	return 0;
 }
 
-int qman_thread_init(int cpu)
+int qman_thread_init(void)
 {
 	/* Convert from contiguous/virtual cpu numbering to real cpu when
 	 * calling into the code that is dependent on the device naming */
-	return fsl_qman_portal_init(of_phys_cpu(cpu));
+	return fsl_qman_portal_init();
 }
 
 int qman_thread_finish(void)

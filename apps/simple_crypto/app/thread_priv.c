@@ -55,7 +55,7 @@ static void *thread_wrapper(void *arg)
 		handle_error_en(s, "pthread_setaffinity_np");
 		goto end;
 	}
-	s = qman_thread_init(tdata->cpu);
+	s = qman_thread_init();
 	if (s) {
 		fprintf(stderr, "qman_thread_init(%d) failed, ret=%d\n",
 			tdata->cpu, s);

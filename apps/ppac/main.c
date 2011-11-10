@@ -727,13 +727,13 @@ static void *worker_fn(void *__worker)
 	}
 
 	/* Initialise bman/qman portals */
-	s = bman_thread_init(worker->cpu);
+	s = bman_thread_init();
 	if (s) {
 		fprintf(stderr, "No available Bman portals for cpu %d\n",
 			worker->cpu);
 		goto err;
 	}
-	s = qman_thread_init(worker->cpu);
+	s = qman_thread_init();
 	if (s) {
 		fprintf(stderr, "No available Qman portals for cpu %d\n",
 			worker->cpu);
