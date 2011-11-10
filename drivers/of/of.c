@@ -51,7 +51,6 @@ struct dt_dir {
 	struct list_head subdirs;
 	struct list_head files;
 	struct list_head linear; /* post-processed "flat" list */
-	struct list_head cpus; /* post-processed "cpus" list */
 	struct dt_dir *parent;
 	/* We tag particular property files during the linear pass */
 	struct dt_file *compatible;
@@ -82,10 +81,6 @@ static int alive;
 static struct dt_dir root_dir;
 static const char *base_dir;
 static LIST_HEAD(linear);
-static LIST_HEAD(cpus);
-#define OF_MAX_CPUS 32
-static unsigned int cpus_num;
-static unsigned int cpus_map[OF_MAX_CPUS];
 
 static int my_open_dir(const char *relative_path, struct dirent ***d)
 {
@@ -250,39 +245,11 @@ static void linear_dir(struct dt_dir *d)
 				fprintf(stderr, "Duplicate reg in %s!\n",
 					d->node.node.full_name);
 			d->reg = f;
-		} else if (!strcmp(f->node.node.name, "device_type") &&
-				!strcmp((char *)f->buf, "cpu"))
-			list_add_tail(&d->cpus, &cpus);
+		}
 	}
 	list_for_each_entry(dd, &d->subdirs, node.list) {
 		list_add_tail(&dd->linear, &linear);
 		linear_dir(dd);
-	}
-}
-
-/* scans the "cpus" list, building up the contiguous virtual cpu mapping to the
- * potentially-discontiguous physical cpu numbering in the device-tree. This
- * produces the cpus_map/cpus_num state. */
-void map_cpus(void)
-{
-	unsigned int look4phys = 0;
-	struct dt_dir *next, *it;
-	uint32_t next_val = 0;
-loop:
-	next = NULL;
-	list_for_each_entry(it, &cpus, cpus) {
-		uint32_t *val = (uint32_t *)it->reg->buf;
-		if (*val >= look4phys) {
-			if (next && (*val >= next_val))
-				continue;
-			next = it;
-			next_val = *val;
-		}
-	}
-	if (next) {
-		cpus_map[cpus_num++] = next_val;
-		look4phys = next_val + 1;
-		goto loop;
 	}
 }
 
@@ -301,11 +268,8 @@ int of_init_path(const char *dt_path)
 	ret = process_dir("", &root_dir);
 	if (ret)
 		return ret;
-	/* Now make a flat, linear list of directories, this also forms the
-	 * "cpus" list */
+	/* Now make a flat, linear list of directories */
 	linear_dir(&root_dir);
-	/* Scan the "cpus" list and produce the virt->phys cpu map */
-	map_cpus();
 	alive = 1;
 	return 0;
 }
@@ -330,8 +294,6 @@ void of_finish(void)
 	WARN_ON(!alive, "Double-finish of device-tree driver!");
 	destroy_dir(&root_dir);
 	INIT_LIST_HEAD(&linear);
-	INIT_LIST_HEAD(&cpus);
-	cpus_num = 0;
 	alive = 0;
 }
 
@@ -597,16 +559,4 @@ bool of_device_is_compatible(const struct device_node *dev_node,
 	if (d->compatible && check_compatible(d->compatible, compatible))
 		return true;
 	return false;
-}
-
-unsigned int of_num_cpus(void)
-{
-	return cpus_num;
-}
-
-unsigned int of_phys_cpu(unsigned int virt_cpu)
-{
-	if (virt_cpu < cpus_num)
-		return cpus_map[virt_cpu];
-	return (unsigned int)-1;
 }

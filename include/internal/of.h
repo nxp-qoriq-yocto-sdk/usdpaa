@@ -88,12 +88,4 @@ uint64_t of_translate_address(const struct device_node *dev_node,
 bool of_device_is_compatible(const struct device_node *dev_node,
 				const char *compatible);
 
-/* When parsing the tree, we take the opportunity to parse the available CPUs,
- * and form a mapping from the contiguous virtual cpu numbering (as seen and
- * used by pthreads for example) to real physical cpu numbering, as used the
- * device-tree, kernel code, and the naming of qman and bman portal device
- * naming. */
-unsigned int of_num_cpus(void);
-unsigned int of_phys_cpu(unsigned int virt_cpu);
-
 #endif	/*  __OF_INTERNAL_H */
