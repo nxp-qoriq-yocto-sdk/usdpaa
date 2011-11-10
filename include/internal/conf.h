@@ -79,16 +79,8 @@ extern "C" {
 /* USDPAA has no concept of portal-sharing, so don't build it */
 #undef CONFIG_FSL_DPA_PORTAL_SHARE
 
-/* We need these, though they are "options" due to code-sharing with other
- * driver targets (kernel, etc). */
-#define CONFIG_FSL_BMAN_PORTAL
-#define CONFIG_FSL_QMAN_PORTAL
-
 /* workarounds for errata and missing features in p4080 rev1 */
 #define CONFIG_FSL_QMAN_BUG_AND_FEATURE_REV1
-
-/* don't disable DCA on auto-initialised portals */
-#undef CONFIG_FSL_QMAN_PORTAL_DISABLEAUTO_DCA
 
 /* Interrupt-gating settings */
 #define CONFIG_FSL_QMAN_PIRQ_DQRR_ITHRESH 0
