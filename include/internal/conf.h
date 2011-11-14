@@ -48,7 +48,7 @@ extern "C" {
  * (even though it has nothing to do with the DMA driver), because it means the
  * app code has all the definitions it needs for seeding buffer pools.
  */
-#define DMA_MEM_PATH		"/dev/fsl-usdpaa-shmem"
+#define DMA_MEM_PATH		"/dev/fsl-usdpaa"
 #define DMA_MEM_BP1_BPID	7
 #define DMA_MEM_BP1_SIZE	320
 #define DMA_MEM_BP1_NUM		0 /* 0*320==0 (0MB) */

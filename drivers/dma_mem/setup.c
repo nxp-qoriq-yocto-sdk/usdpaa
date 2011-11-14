@@ -34,7 +34,7 @@
 
 #include <inttypes.h>
 
-/* NB: these definitions need to exactly match those in the kernel "fsl_shmem"
+/* NB: these definitions need to exactly match those in the kernel "fsl_usdpaa"
  * driver. It is all temporary until being replaced by HugeTLB. */
 #include <sys/ioctl.h>
 #define USDPAA_IOCTL_MAGIC 'u'
@@ -47,7 +47,7 @@ struct usdpaa_ioctl_get_region {
 
 /* For an efficient conversion between user-space virtual address map(s) and bus
  * addresses required by hardware for DMA, we use a single contiguous mmap() on
- * the /dev/fsl-shmem device, and extract the corresponding physical base
+ * the /dev/fsl-usdpaa device, and extract the corresponding physical base
  * address. */
 
 static int fd;
