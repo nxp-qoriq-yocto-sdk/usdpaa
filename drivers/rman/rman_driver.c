@@ -43,6 +43,12 @@
 #define MMEDR_CLEAR		0x800000FF
 #define IBCU_IDLE_FQID		0
 
+/* The magic is a workaround for mailbox transaction.
+ * The MMSEPR0 setting assigns AG0 to only execute on SU0
+ * AG1 on SU1, AG2 on SU2, AG3 on SU3.
+ */
+#define MMSEPR0_MAILBOX 0x01020408
+
 /* Inbound Block TypeX Classification Registers */
 struct rman_ibcu_regs {
 	uint32_t  mr;		/* 0xmn00 - Mode Register */
@@ -143,6 +149,7 @@ struct rman_dev {
 	volatile struct rman_global_reg *global_regs;
 	uint64_t regs_size;
 	struct rman_inbound_block *ib;
+	int fix_mbox_flag;
 };
 
 static inline void write_reg(volatile uint32_t *p, int v)
@@ -270,6 +277,16 @@ int rman_enable_ibcu(struct rman_dev *rmdev, const struct ibcu_cfg *cfg)
 			  (cfg->msgsize << 16) | cfg->bpid);
 		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->dor,
 			  cfg->data_offset);
+
+		/* RMan can't handle type 11 (message) packets after long
+		 * time traffic. To fix this, assign an arbitration group to
+		 * only execute on one segmentation unit
+		 */
+		if (!rmdev->fix_mbox_flag) {
+			write_reg(&rmdev->global_regs->mmsepr0,
+				  MMSEPR0_MAILBOX);
+			rmdev->fix_mbox_flag = 1;
+		}
 		break;
 	case RIO_TYPE_DSTR:
 		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->rvr[1],
