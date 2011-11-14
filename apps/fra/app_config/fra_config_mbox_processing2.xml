@@ -348,21 +348,22 @@
 	<distribution name="mbox_to_peer_dtsec4" type="tx">
 		<port number="1"/>
 		<did value="1"/>
-		<queue base="0x7400" count="4" wq="0"/>
+		<queue base="0x7400" count="1" wq="1"/>
 		<transactionref name="mbox-dtsec4"/>
 	</distribution>
 	<distribution name="mbox_to_peer_dtsec3" type="tx">
 		<port number="1"/>
 		<did value="1"/>
-		<queue base="0x7300" count="4" wq="0"/>
+		<queue base="0x7300" count="1" wq="2"/>
 		<transactionref name="mbox-dtsec3"/>
 	</distribution>
 	<distribution name="mbox_to_peer_dtsec2" type="tx">
 		<port number="1"/>
 		<did value="1"/>
-		<queue base="0x7200" count="4" wq="0"/>
+		<queue base="0x7200" count="1" wq="5"/>
 		<transactionref name="mbox-dtsec2"/>
 	</distribution>
+<!--
 	<distribution name="mbox_to_peer_dtsec1" type="tx">
 		<port number="1"/>
 		<did value="1"/>
@@ -375,6 +376,7 @@
 		<queue base="0x7000" count="4" wq="0"/>
 		<transactionref name="mbox-dtsec0"/>
 	</distribution>
+-->
 	<!-- test speed -->
 	<distribution name="dstr_to_peer" type="tx">
 		<port number="1"/>
@@ -507,52 +509,5 @@
 		</dist_order>
 		-->
 
-		<!-- dtsec1 packets processing -->
-		<dist_order>
-			<distributionref name="network_dtsec1"/>
-			<distributionref name="mbox_to_peer_dtsec1"/>
-		</dist_order>
-		<!-- processing 1  dtsec1-rman<->rman-dtsec1 -->
-		<!--
-		<dist_order>
-			<distributionref name="dstr_to_fman0_tx1"/>
-		</dist_order>
-		-->
-		<!-- processing 2  dtsec1-rman<->rman-core-dtsec1 -->
-		<dist_order>
-			<distributionref name="mbox_to_network1"/>
-			<distributionref name="network_dtsec1"/>
-		</dist_order>
-		<!-- processing 3 dtsec1-rman<->rman-core-drop -->
-		<!--
-		<dist_order>
-			<distributionref name="dstr_to_network1"/>
-			<droped/>
-		</dist_order>
-		-->
-
-		<!-- dtsec0 packets processing-->
-		<dist_order>
-			<distributionref name="network_dtsec0"/>
-			<distributionref name="mbox_to_peer_dtsec0"/>
-		</dist_order>
-		<!-- processing 1  dtsec0-rman<->rman-dtsec0 -->
-		<!--
-		<dist_order>
-			<distributionref name="dstr_to_fman0_tx0"/>
-		</dist_order>
-		-->
-		<!-- processing 2  dtsec0-rman<->rman-core-dtsec0 -->
-		<dist_order>
-			<distributionref name="mbox_to_network0"/>
-			<distributionref name="network_dtsec0"/>
-		</dist_order>
-		<!-- processing 3 dtsec4-rman<->rman-core-drop -->
-		<!--
-		<dist_order>
-			<distributionref name="dstr_to_network0"/>
-			<droped/>
-		</dist_order>
-		-->
 	</policy>
 </fra_cfg>
