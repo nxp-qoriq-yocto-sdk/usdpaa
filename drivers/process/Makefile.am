@@ -29,12 +29,6 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-bin_PROGRAMS = hello_reflector
+lib_LIBRARIES = usdpaa_process
 
-hello_reflector_SOURCES := hello_reflector.c
-hello_reflector_LDADD := usdpaa_syscfg usdpaa_qbman usdpaa_fman \
-			  usdpaa_dma_mem usdpaa_of usdpaa_process
-hello_reflector_LDFLAGS := $(LIBXML2_LDFLAGS)
-hello_reflector_CFLAGS := \
-	-DDEF_PCD_PATH="/$(INSTALL_OTHER)/usdpaa_policy_hash_ipv4.xml" \
-	-DDEF_CFG_PATH="/$(INSTALL_OTHER)/usdpaa_config_p4_serdes_0xe.xml"
+usdpaa_process_SOURCES := process.c

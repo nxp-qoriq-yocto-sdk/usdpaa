@@ -37,7 +37,7 @@ AM_CFLAGS := $(LIBEDIT_CFLAGS) -I$(TOP_LEVEL)/apps/fra/include \
 fra_SOURCES := main.c fra.c test_speed.c
 fra_LDADD := fra_cfg_parser rman_interface fra_network_interface usdpaa_syscfg \
 	     usdpaa_qbman usdpaa_fman usdpaa_dma_mem usdpaa_rman usdpaa_srio \
-	     usdpaa_of fra_bpool
+	     usdpaa_of usdpaa_process fra_bpool
 fra_LDFLAGS := $(LIBEDIT_LDFLAGS) $(LIBXML2_LDFLAGS) -T $(TOP_LEVEL)/apps/fra/app/fra.lds
 
 fra_CFLAGS := -DDEF_PCD_PATH="/$(INSTALL_OTHER)/usdpaa_policy_hash_ipv4.xml" \

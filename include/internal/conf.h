@@ -40,6 +40,11 @@ extern "C" {
  * <usdpaa/conf.h> instead.
  */
 
+/* The process device underlies process-wide user/kernel interactions, such as
+ * mapping dma_mem memory and providing accompanying ioctl()s. (This isn't used
+ * for portals, which use one UIO device each.) */
+#define PROCESS_PATH		"/dev/fsl-usdpaa"
+
 /* The contiguous memory map for 'dma_mem' uses the DMA_MEM_*** constants. The
  * first part of the memory map is used to seed buffer pools, as indicated by
  * these constants, and the ad-hoc buffer allocation will be confined to the
@@ -48,7 +53,6 @@ extern "C" {
  * (even though it has nothing to do with the DMA driver), because it means the
  * app code has all the definitions it needs for seeding buffer pools.
  */
-#define DMA_MEM_PATH		"/dev/fsl-usdpaa"
 #define DMA_MEM_BP1_BPID	7
 #define DMA_MEM_BP1_SIZE	320
 #define DMA_MEM_BP1_NUM		0 /* 0*320==0 (0MB) */
