@@ -66,32 +66,24 @@ static size_t bpool_range;
 
 int dma_mem_setup(void)
 {
-	void *trial;
 	int ret;
 	fd = open(DMA_MEM_PATH, O_RDWR);
 	if (fd < 0) {
 		perror("can't open dma_mem device");
 		return -ENODEV;
 	}
-	/* TODO: this needs to be improved but may not be possible until
-	 * hugetlbfs is available. If we let the kernel choose the virt address,
-	 * it will only guarantee page-alignment, yet our TLB1 hack in the
-	 * kernel requires that this mapping be *size*-aligned. With this in
-	 * mind, we'll do a trial-and-error proposing addresses to the kernel
-	 * until we find one that works or give up. The physical base address
-	 * and size of the DMA region is obtained by ioctl. */
 	ret = ioctl(fd, USDPAA_IOCTL_GET_PHYS_BASE, &region);
 	if (ret) {
 		perror("can't query DMA region");
 		goto err;
 	}
-	for (trial = (void *)0x70000000; (unsigned long)trial < 0xc0000000;
-				trial += region.phys_len) {
-		virt = mmap(trial, region.phys_len, PROT_READ | PROT_WRITE,
-				MAP_SHARED | MAP_FIXED, fd, 0);
-		if (virt != MAP_FAILED)
-			break;
-	}
+	/* If we start the virtual address search from 0, we sometimes *will*
+	 * get a map starting at zero, which breaks things because it's
+	 * indistinguishable from NULL. So we start the search at least one page
+	 * higher. (Using 0x10000 rather than 0x1000, just in case bigger pages
+	 * come along!) */
+	virt = mmap(0x10000, region.phys_len, PROT_READ | PROT_WRITE,
+		    MAP_SHARED, fd, 0);
 	if (virt == MAP_FAILED) {
 		perror("can't mmap() dma_mem device");
 		ret = -ENODEV;
