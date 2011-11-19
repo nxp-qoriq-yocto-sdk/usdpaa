@@ -38,4 +38,16 @@
 int process_dma_map(void **virt, uint64_t *phys, uint64_t *len);
 void process_dma_unmap(void);
 
+/* Allocation of resource IDs uses a generic interface. This enum is used to
+ * distinguish between the type of underlying object being manipulated. */
+enum usdpaa_id_type {
+	usdpaa_id_fqid,
+	usdpaa_id_bpid,
+	usdpaa_id_max /* <-- not a valid type, represents the number of types */
+};
+
+int process_alloc(enum usdpaa_id_type id_type, uint32_t *base, uint32_t num,
+		  uint32_t align, int partial);
+void process_release(enum usdpaa_id_type id_type, uint32_t base, uint32_t num);
+
 #endif	/*  __PROCESS_INTERNAL_H */

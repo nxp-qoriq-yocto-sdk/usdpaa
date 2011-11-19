@@ -67,13 +67,6 @@ extern "C" {
 	DMA_MEM_BP2_SIZE * DMA_MEM_BP2_NUM + \
 	DMA_MEM_BP3_SIZE * DMA_MEM_BP3_NUM) /* 13.5MB */
 
-/* Until device-trees (or device-tree replacements) are available, another thing
- * to hard-code is the FQID and BPID range allocation. */
-#define FSL_FQID_RANGE_START	0x200	/* 512 */
-#define FSL_FQID_RANGE_LENGTH	0x200	/* 512 */
-#define FSL_BPID_RANGE_START	56
-#define FSL_BPID_RANGE_LENGTH	8
-
 /* When copying aligned words or shorts, try to avoid memcpy() */
 #define CONFIG_TRY_BETTER_MEMCPY
 

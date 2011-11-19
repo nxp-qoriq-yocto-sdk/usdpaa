@@ -48,20 +48,6 @@ EXPORT_SYMBOL(bman_pool_max);
 static __thread int fd = -1;
 static __thread const struct qbman_uio_irq *irq;
 
-struct bman_bpid_ranges {
-	unsigned int num_ranges;
-	const struct bman_bpid_range {
-		u32 start;
-		u32 num;
-	} *ranges;
-};
-static const struct bman_bpid_range bpid_range[] =
-	{ {FSL_BPID_RANGE_START, FSL_BPID_RANGE_LENGTH} };
-static const struct bman_bpid_ranges bpid_allocator = {
-	.num_ranges = 1,
-	.ranges = bpid_range
-};
-
 static int __init fsl_bman_portal_init(void)
 {
 	cpu_set_t cpuset;
@@ -193,18 +179,6 @@ end:
 	return ret;
 }
 
-static int fsl_bpid_range_init(const struct bman_bpid_ranges *bpids)
-{
-	u32 range;
-	for (range = 0; range < bpids->num_ranges; range++) {
-		bman_release_bpid_range(bpids->ranges[range].start,
-					bpids->ranges[range].num);
-		pr_info("Bman: BPID allocator includes range %d:%d\n",
-			bpids->ranges[range].start, bpids->ranges[range].num);
-	}
-	return 0;
-}
-
 int bman_thread_init(void)
 {
 	/* Convert from contiguous/virtual cpu numbering to real cpu when
@@ -259,11 +233,6 @@ int bman_global_init(void)
 	if (!bman_ip_rev) {
 		pr_err("Unknown bman portal version\n");
 		return -ENODEV;
-	}
-	ret = fsl_bpid_range_init(&bpid_allocator);
-	if (ret) {
-		pr_err("Bman pool range set failed\n");
-		return ret;
 	}
 	done = 1;
 	return 0;

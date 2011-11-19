@@ -41,8 +41,25 @@ struct usdpaa_ioctl_get_region {
 	uint64_t phys_start;
 	uint64_t phys_len;
 };
+struct usdpaa_ioctl_id_alloc {
+	uint32_t base; /* Return value, the start of the allocated range */
+	enum usdpaa_id_type id_type; /* what kind of resource(s) to allocate */
+	uint32_t num; /* how many IDs to allocate (and return value) */
+	uint32_t align; /* must be a power of 2, 0 is treated like 1 */
+	int partial; /* whether to allow less than 'num' */
+};
+struct usdpaa_ioctl_id_release {
+	/* Input; */
+	enum usdpaa_id_type id_type;
+	uint32_t base;
+	uint32_t num;
+};
 #define USDPAA_IOCTL_GET_PHYS_BASE \
 	_IOR(USDPAA_IOCTL_MAGIC, 0x01, struct usdpaa_ioctl_get_region)
+#define USDPAA_IOCTL_ID_ALLOC \
+	_IOWR(USDPAA_IOCTL_MAGIC, 0x02, struct usdpaa_ioctl_id_alloc)
+#define USDPAA_IOCTL_ID_RELEASE \
+	_IOW(USDPAA_IOCTL_MAGIC, 0x03, struct usdpaa_ioctl_id_release)
 
 /* As higher-level drivers will be built on top of this (dma_mem, qbman, ...),
  * it's preferable that the process driver itself not provide any exported API.
@@ -105,4 +122,37 @@ void process_dma_unmap(void)
 	if (ret)
 		perror("munmap(USDPAA)");
 	is_mmapped = 0;
+}
+
+int process_alloc(enum usdpaa_id_type id_type, uint32_t *base, uint32_t num,
+		  uint32_t align, int partial)
+{
+	struct usdpaa_ioctl_id_alloc id = {
+		.id_type = id_type,
+		.num = num,
+		.align = align,
+		.partial = partial
+	};
+	int ret = check_fd();
+	if (ret)
+		return ret;
+	ret = ioctl(fd, USDPAA_IOCTL_ID_ALLOC, &id);
+	if (ret)
+		return ret;
+	for (ret = 0; ret < id.num; ret++)
+		base[ret] = id.base + ret;
+	return id.num;
+}
+
+void process_release(enum usdpaa_id_type id_type, uint32_t base, uint32_t num)
+{
+	struct usdpaa_ioctl_id_release id = {
+		.id_type = id_type,
+		.base = base,
+		.num = num
+	};
+	int ret = check_fd();
+	if (ret)
+		return ret;
+	return ioctl(fd, USDPAA_IOCTL_ID_RELEASE, &id);
 }

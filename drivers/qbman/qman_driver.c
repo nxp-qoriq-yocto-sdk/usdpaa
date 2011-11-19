@@ -38,21 +38,6 @@
 u16 qman_ip_rev;
 EXPORT_SYMBOL(qman_ip_rev);
 
-struct qman_fqid_ranges {
-	unsigned int num_ranges;
-	const struct qman_fqid_range {
-		u32 start;
-		u32 num;
-	} *ranges;
-};
-
-static const struct qman_fqid_range fqid_range[] =
-	{ {FSL_FQID_RANGE_START, FSL_FQID_RANGE_LENGTH} };
-static const struct qman_fqid_ranges fqid_allocator = {
-	.num_ranges = 1,
-	.ranges = fqid_range
-};
-
 static __thread int fd = -1;
 static __thread const struct qbman_uio_irq *irq;
 
@@ -202,18 +187,6 @@ end:
 	return ret;
 }
 
-static int fsl_fqid_range_init(const struct qman_fqid_ranges *fqids)
-{
-	u32 range;
-	for (range = 0; range < fqids->num_ranges; range++) {
-		qman_release_fqid_range(fqids->ranges[range].start,
-					fqids->ranges[range].num);
-		pr_info("Qman: FQID allocator includes range %d:%d\n",
-			fqids->ranges[range].start, fqids->ranges[range].num);
-	}
-	return 0;
-}
-
 int qman_thread_init(void)
 {
 	/* Convert from contiguous/virtual cpu numbering to real cpu when
@@ -278,5 +251,5 @@ int qman_global_init(void)
 	if (ret)
 		return ret;
 #endif
-	return fsl_fqid_range_init(&fqid_allocator);
+	return 0;
 }
