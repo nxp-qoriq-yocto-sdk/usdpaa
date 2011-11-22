@@ -116,8 +116,12 @@ const struct ppac_bpool_static {
 	{ -1, 0, 0 }
 };
 
-/* The SDQCR mask to use (computed from netcfg's pool-channels) */
+/* The SDQCR mask to use (computed from pchannels) */
 static uint32_t sdqcr;
+/* The dynamically allocated pool-channels, and the iterator index that loops
+ * around them binding Rx FQs to them in a round-robin fashion. */
+static uint32_t pchannel_idx;
+static uint32_t pchannels[PPAC_NUM_POOL_CHANNELS];
 
 /* The follow global variables are non-static because they're used from inlined
  * code in ppac.h too. */
@@ -326,12 +330,31 @@ void ppac_fq_tx_init(struct qman_fq *fq, enum qm_channel channel,
 	BUG_ON(err);
 }
 
-static uint32_t pchannel_idx;
+static int init_pool_channels(void)
+{
+	int ret = qman_alloc_pool_range(&pchannels[0], PPAC_NUM_POOL_CHANNELS,
+					1, 0);
+	if (ret != PPAC_NUM_POOL_CHANNELS)
+		return -ENOMEM;
+	for (ret = 0; ret < PPAC_NUM_POOL_CHANNELS; ret++) {
+		sdqcr |= QM_SDQCR_CHANNELS_POOL_CONV(pchannels[ret]);
+		TRACE("Adding pool 0x%x to SDQCR, 0x%08x -> 0x%08x\n",
+		      pchannels[ret],
+		      QM_SDQCR_CHANNELS_POOL_CONV(netcfg->pool_channels[loop]),
+		      sdqcr);
+	}
+	return 0;
+}
+
+static void finish_pool_channels(void)
+{
+	qman_release_pool_range(pchannels[0], PPAC_NUM_POOL_CHANNELS);
+}
 
 enum qm_channel get_rxc(void)
 {
-	enum qm_channel ret = netcfg->pool_channels[pchannel_idx];
-	pchannel_idx = (pchannel_idx + 1) % netcfg->num_pool_channels;
+	enum qm_channel ret = pchannels[pchannel_idx];
+	pchannel_idx = (pchannel_idx + 1) % PPAC_NUM_POOL_CHANNELS;
 	return ret;
 }
 
@@ -476,6 +499,7 @@ static void do_global_finish(void)
 
 static void do_global_init(void)
 {
+	uint32_t cgrids[2];
 	const struct ppac_bpool_static *bp = ppac_bpool_static;
 	dma_addr_t phys_addr = dma_mem_bpool_base();
 	dma_addr_t phys_limit = phys_addr + dma_mem_bpool_range();
@@ -504,7 +528,8 @@ static void do_global_init(void)
 			.mode = QMAN_CGR_MODE_FRAME
 		}
 	};
-	if (netcfg->num_cgrids < 2) {
+	err = qman_alloc_cgrid_range(&cgrids[0], 2, 1, 0);
+	if (err != 2) {
 		fprintf(stderr, "error: insufficient CGRIDs available\n");
 		exit(EXIT_FAILURE);
 	}
@@ -523,7 +548,7 @@ static void do_global_init(void)
 	}
 	qm_cgr_cs_thres_set64(&opts.cgr.cs_thres,
 		numrxfqs * PPAC_CGR_RX_PERFQ_THRESH, 0);
-	cgr_rx.cgrid = netcfg->cgrids[0];
+	cgr_rx.cgrid = cgrids[0];
 	cgr_rx.cb = cgr_rx_cb;
 	err = qman_create_cgr(&cgr_rx, QMAN_CGR_FLAG_USE_INIT, &opts);
 	if (err)
@@ -532,7 +557,7 @@ static void do_global_init(void)
 	/* Set up Tx CGR */
 	qm_cgr_cs_thres_set64(&opts.cgr.cs_thres,
 		numtxfqs * PPAC_CGR_TX_PERFQ_THRESH, 0);
-	cgr_tx.cgrid = netcfg->cgrids[1];
+	cgr_tx.cgrid = cgrids[1];
 	cgr_tx.cb = cgr_tx_cb;
 	err = qman_create_cgr(&cgr_tx, QMAN_CGR_FLAG_USE_INIT, &opts);
 	if (err)
@@ -1363,10 +1388,6 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "error: no network interfaces available\n");
 		return -1;
 	}
-	if (!netcfg->num_pool_channels) {
-		fprintf(stderr, "error: no pool channels available\n");
-		return -1;
-	}
 	/* - initialise DPAA */
 	rcode = qman_global_init();
 	if (rcode)
@@ -1374,17 +1395,11 @@ int main(int argc, char *argv[])
 	rcode = bman_global_init();
 	if (rcode)
 		fprintf(stderr, "error: bman global init, continuing\n");
-	printf("Configuring for %d network interface%s and %d pool channel%s\n",
-		netcfg->num_ethports, netcfg->num_ethports > 1 ? "s" : "",
-		netcfg->num_pool_channels,
-		netcfg->num_pool_channels > 1 ? "s" : "");
-	/* - compute SDQCR */
-	for (loop = 0; loop < netcfg->num_pool_channels; loop++) {
-		sdqcr |= QM_SDQCR_CHANNELS_POOL_CONV(netcfg->pool_channels[loop]);
-		TRACE("Adding 0x%08x to SDQCR -> 0x%08x\n",
-			QM_SDQCR_CHANNELS_POOL_CONV(netcfg->pool_channels[loop]),
-			sdqcr);
-	}
+	rcode = init_pool_channels();
+	if (rcode)
+		fprintf(stderr, "error: no pool channels available\n");
+	printf("Configuring for %d network interface%s\n",
+		netcfg->num_ethports, netcfg->num_ethports > 1 ? "s" : "");
 	/* - map shmem */
 	TRACE("Initialising shmem\n");
 	rcode = dma_mem_setup();
@@ -1469,6 +1484,7 @@ leave:
 	worker = primary;
 	primary = NULL;
 	worker_free(worker);
+	finish_pool_channels();
 	usdpaa_netcfg_release(netcfg);
 	of_finish();
 	return rcode;

@@ -54,10 +54,6 @@ struct fm_eth_port_cfg {
 
 /* This structure contains the configuration information for the USDPAA app. */
 struct usdpaa_netcfg_info {
-	uint8_t num_cgrids;
-	uint32_t *cgrids;
-	uint8_t num_pool_channels;
-	enum qm_channel *pool_channels;
 	uint8_t num_ethports;	/* Number of ports */
 	struct fm_eth_port_cfg port_cfg[0]; /* variable structure array of size
 					num_ethports. */

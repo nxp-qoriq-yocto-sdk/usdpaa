@@ -71,6 +71,7 @@
 #define NET_IF_RX_DATA_STASH 1
 #define NET_IF_RX_CONTEXT_STASH 0
 #define CPU_SPIN_BACKOFF_CYCLES 512
+#define NUM_POOL_CHANNELS 4
 static const char __PCD_PATH[] = __stringify(DEF_PCD_PATH);
 static const char __CFG_PATH[] = __stringify(DEF_CFG_PATH);
 static const char *PCD_PATH = __PCD_PATH;
@@ -129,6 +130,7 @@ struct bpool_static {
 };
 
 static uint32_t sdqcr;
+static uint32_t pchannels[NUM_POOL_CHANNELS];
 static int received_sigint;
 static struct net_if *interfaces;
 static struct usdpaa_netcfg_info *netcfg;
@@ -222,10 +224,6 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Fail: no network interfaces available\n");
 		exit(EXIT_FAILURE);
 	}
-	if (!netcfg->num_pool_channels) {
-		fprintf(stderr, "Fail: no pool channels available\n");
-		return -1;
-	}
 	/* Install ctrl-c handler */
 	if (signal(SIGINT, handle_sigint) == SIG_ERR) {
 		fprintf(stderr, "Fail: %s\n", "signal(SIGINT)");
@@ -249,10 +247,14 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Fail: %s: %d\n", "bman_global_init()", ret);
 		exit(EXIT_FAILURE);
 	}
+	ret = qman_alloc_pool_range(&pchannels[0], NUM_POOL_CHANNELS, 1, 0);
+	if (ret != NUM_POOL_CHANNELS) {
+		fprintf(stderr, "Fail: no pool channels available\n");
+		exit(EXIT_FAILURE);
+	}
 	/* Compute SDQCR */
-	for (loop = 0; loop < netcfg->num_pool_channels; loop++)
-		sdqcr |= QM_SDQCR_CHANNELS_POOL_CONV(
-				netcfg->pool_channels[loop]);
+	for (loop = 0; loop < NUM_POOL_CHANNELS; loop++)
+		sdqcr |= QM_SDQCR_CHANNELS_POOL_CONV(pchannels[loop]);
 	/* Load dma_mem driver */
 	ret = dma_mem_setup();
 	if (ret) {
@@ -325,6 +327,7 @@ int main(int argc, char *argv[])
 				loop++;
 		}
 	}
+	qman_release_pool_range(pchannels[0], NUM_POOL_CHANNELS);
 
 	printf("Finished hello_reflector\n");
 	return 0;
@@ -459,8 +462,8 @@ static int net_if_tx_init(struct qman_fq *fq, const struct fman_if *fif)
 static enum qm_channel get_next_rx_channel(void)
 {
 	static uint32_t pchannel_idx;
-	enum qm_channel ret = netcfg->pool_channels[pchannel_idx];
-	pchannel_idx = (pchannel_idx + 1) % netcfg->num_pool_channels;
+	enum qm_channel ret = pchannels[pchannel_idx];
+	pchannel_idx = (pchannel_idx + 1) % NUM_POOL_CHANNELS;
 	return ret;
 }
 

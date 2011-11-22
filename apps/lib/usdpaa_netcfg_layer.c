@@ -38,15 +38,6 @@
 
 #define MAX_BPOOL_PER_PORT	8
 
-/* FIXME: Hardcoded values should be replaced.
- */
-#define QM_POOL_CHANNELS	{qm_channel_pool4, qm_channel_pool5, \
-				qm_channel_pool6, qm_channel_pool7}
-#define QM_CGRIDS		{10, 11, 12, 13}
-
-static const uint8_t qm_pool_channels[] = QM_POOL_CHANNELS;
-static const uint8_t qm_cgrid[] = QM_CGRIDS;
-
 /* This data structure contaings all configurations information
  * related to usages of DPA devices.
  * */
@@ -57,20 +48,6 @@ void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr)
 	int i;
 
 	printf("..........  USDPAA Configuration  ..........\n\n");
-
-	/* CGRs */
-	printf("Available CGRS: %d\n", cfg_ptr->num_cgrids);
-	printf("	{");
-	for (i = 0; i < cfg_ptr->num_cgrids; i++)
-		printf("%s%d", i ? "," : "", cfg_ptr->cgrids[i]);
-	printf("}\n\n");
-
-	/* Pool channels */
-	printf("Available pool channels: %d\n", cfg_ptr->num_pool_channels);
-	printf("\t{");
-	for (i = 0; i < cfg_ptr->num_pool_channels; i++)
-		printf("%s%d", i ? "," : "", cfg_ptr->pool_channels[i]);
-	printf("}\n\n");
 
 	/* Network interfaces */
 	printf("Network interfaces: %d\n", cfg_ptr->num_ethports);
@@ -112,37 +89,6 @@ void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr)
 				       bpool->addr);
 		}
 	}
-}
-
-static int qm_init_cgr_values(struct usdpaa_netcfg_info *cfgptr)
-{
-	int i;
-
-	cfgptr->num_cgrids = ARRAY_SIZE(qm_cgrid);
-	cfgptr->cgrids	= malloc(sizeof(*(cfgptr->cgrids)) * cfgptr->num_cgrids);
-	if (unlikely(cfgptr->cgrids == NULL))
-		return -ENOMEM;
-
-	for (i = 0; i < cfgptr->num_cgrids; i++)
-		cfgptr->cgrids[i] = qm_cgrid[i];
-
-	return 0;
-}
-
-static int qm_init_pool_channel_values(struct usdpaa_netcfg_info *cfgptr)
-{
-	int i;
-
-	cfgptr->num_pool_channels = ARRAY_SIZE(qm_pool_channels);
-	cfgptr->pool_channels = malloc(sizeof(*cfgptr->pool_channels) *
-						cfgptr->num_pool_channels);
-	if (unlikely(cfgptr->pool_channels == NULL))
-		return -ENOMEM;
-
-	for (i = 0; i < cfgptr->num_pool_channels; i++)
-		cfgptr->pool_channels[i] = qm_pool_channels[i];
-
-	return 0;
 }
 
 struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
@@ -212,9 +158,6 @@ struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
 		goto error;
 	} else if (num_ports != num_cfg_ports)
 		usdpaa_netcfg->num_ethports = num_cfg_ports;
-	/* Fill in other global configuration */
-	qm_init_cgr_values(usdpaa_netcfg);
-	qm_init_pool_channel_values(usdpaa_netcfg);
 
 	return usdpaa_netcfg;
 
@@ -226,7 +169,5 @@ error:
 void usdpaa_netcfg_release(struct usdpaa_netcfg_info *cfg_ptr)
 {
 	fmc_netcfg_parser_exit();
-	free(cfg_ptr->pool_channels);
-	free(cfg_ptr->cgrids);
 	free(cfg_ptr);
 }

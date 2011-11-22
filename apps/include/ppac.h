@@ -96,6 +96,7 @@
 #define PPAC_ORP_AUTO_ADVANCE	1	/* boolean */
 #define PPAC_ORP_ACCEPT_LATE	3	/* 0->no, 3->yes (for 1 & 2->see RM) */
 #define PPAC_MAX_BPID		64	/* size of BPID->object lookup array */
+#define PPAC_NUM_POOL_CHANNELS	4
 
 /**********/
 /* macros */

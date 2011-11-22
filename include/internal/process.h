@@ -43,6 +43,8 @@ void process_dma_unmap(void);
 enum usdpaa_id_type {
 	usdpaa_id_fqid,
 	usdpaa_id_bpid,
+	usdpaa_id_qpool,
+	usdpaa_id_cgrid,
 	usdpaa_id_max /* <-- not a valid type, represents the number of types */
 };
 
