@@ -38,6 +38,7 @@
 #include <sys/ioctl.h>
 #define USDPAA_IOCTL_MAGIC 'u'
 struct usdpaa_ioctl_get_region {
+	void *virt_start;
 	uint64_t phys_start;
 	uint64_t phys_len;
 };
@@ -96,7 +97,6 @@ int process_dma_map(void **virt, uint64_t *phys, uint64_t *len)
 		perror("ioctl(USDPAA_IOCTL_GET_PHYS_BASE)");
 		return ret;
 	}
-	*phys = region.phys_start;
 	*len = region.phys_len;
 	/* If we start the virtual address search from 0, we sometimes *will*
 	 * get a map starting at zero, which breaks things because it's
@@ -109,7 +109,14 @@ int process_dma_map(void **virt, uint64_t *phys, uint64_t *len)
 		perror("mmap(USDPAA)");
 		return -EFAULT;
 	}
+	ret = ioctl(fd, USDPAA_IOCTL_GET_PHYS_BASE, &region);
+	if (ret) {
+		perror("ioctl(USDPAA_IOCTL_GET_PHYS_BASE)");
+		return ret;
+	}
+	*phys = region.phys_start;
 	*virt = mmapped_virt;
+	BUG_ON(*virt != region.virt_start);
 	is_mmapped = 1;
 	return 0;
 }
