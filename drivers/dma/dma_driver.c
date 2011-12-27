@@ -96,8 +96,8 @@ int fsl_dma_uio_init(struct dma_dev **dmadev)
 		for (j = 0; j < ARRAY_SIZE(dma_uio->dma_ctrl[dma_id].ch); j++) {
 			dma_uio->dma_ctrl[dma_id].ch[j].ch_regs =
 				(typeof(dma_uio->dma_ctrl[dma_id].ch[j].ch_regs))
-				 ((uintptr_t *)dma_uio->dma_ctrl[dma_id].ch[0].ch_regs +
-				  DMA_REG_SIZE * j);
+				((uintptr_t)dma_uio->dma_ctrl[dma_id].ch[0].ch_regs +
+				 DMA_REG_SIZE * j);
 		}
 	}
 
