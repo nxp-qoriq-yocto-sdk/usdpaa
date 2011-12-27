@@ -74,8 +74,14 @@ struct srio_pool_org {
 	uint8_t res[SRIO_POOL_SECT_SIZE];
 };
 
+struct srio_pool_org_phys {
+	dma_addr_t write_recv_data;
+	dma_addr_t read_recv_data;
+	dma_addr_t write_data_prep;
+	dma_addr_t res;
+};
 struct srio_port_data {
-	struct srio_pool_org *phys;
+	struct srio_pool_org_phys phys;
 	struct srio_pool_org *virt;
 	struct srio_port_info port_info;
 };
@@ -315,16 +321,14 @@ static int op_implement(struct srio_dev *sriodev, struct dma_dev *dmadev,
 	switch (cmd_param.port[port_id].op_type) {
 	case SRIO_DIR_WRITE:
 		fsl_dma_direct_start(dmadev, dma_id, 0,
-				     (uint64_t)(uintptr_t)
-				     port_data[port_id].phys->write_data_prep,
+				     port_data[port_id].phys.write_data_prep,
 				     port_data[port_id].port_info.range_start,
 				     cmd_param.port[port_id].op_len);
 		break;
 	case SRIO_DIR_READ:
 		fsl_dma_direct_start(dmadev, dma_id, 0,
 				     port_data[port_id].port_info.range_start,
-				     (uint64_t)(uintptr_t)
-				     port_data[port_id].phys->read_recv_data,
+				     port_data[port_id].phys.read_recv_data,
 				     cmd_param.port[port_id].op_len);
 		break;
 	case SRIO_DIR_SET_MEM:
@@ -374,8 +378,7 @@ static int attr_implement(struct srio_dev *sriodev,
 			   port_data[port_id].port_info.range_start,
 			   SRIO_SYS_ADDR, LAWAR_SIZE_2M);
 	fsl_srio_set_ibwin(sriodev, port_id, 1,
-			   (uint64_t)(uintptr_t)
-			   port_data[port_id].phys->write_recv_data,
+			   port_data[port_id].phys.write_recv_data,
 			   SRIO_SYS_ADDR, LAWAR_SIZE_2M);
 	fsl_srio_set_attr(sriodev, port_id, 1,
 			  cmd_param.port[port_id].win_attr);
@@ -402,8 +405,8 @@ static int srio_perf_test(struct srio_dev *sriodev, struct dma_dev *dmadev,
 			fsl_srio_set_obwin(sriodev, i, 1,
 					   port_data[i].port_info.range_start,
 					   SRIO_SYS_ADDR, LAWAR_SIZE_2M);
-			fsl_srio_set_ibwin(sriodev, i, 1, (uint64_t)(uintptr_t)
-					   port_data[i].phys->write_recv_data,
+			fsl_srio_set_ibwin(sriodev, i, 1,
+					   port_data[i].phys.write_recv_data,
 					   SRIO_SYS_ADDR, LAWAR_SIZE_2M);
 		}
 
@@ -427,18 +430,18 @@ static int srio_perf_test(struct srio_dev *sriodev, struct dma_dev *dmadev,
 						  srio_test_win_attrv[i]);
 
 			if (i < ARRAY_SIZE(srio_test_win_attrv) - 2) {
-				src_phys = (uint64_t)(uintptr_t)
-					port_data[0].phys->write_data_prep;
+				src_phys =
+					port_data[0].phys.write_data_prep;
 				dest_phys = port_data[0].port_info.range_start;
 			} else if (i == ARRAY_SIZE(srio_test_win_attrv) - 2) {
 				src_phys = port_data[0].port_info.range_start;
-				dest_phys = (uint64_t)(uintptr_t)
-					port_data[0].phys->read_recv_data;
+				dest_phys =
+					port_data[0].phys.read_recv_data;
 			} else {
-				src_phys = (uint64_t)(uintptr_t)
-					port_data[0].phys;
-				dest_phys = (uint64_t)(uintptr_t)
-					port_data[1].phys;
+				src_phys =
+					port_data[0].phys.write_data_prep;
+				dest_phys =
+					port_data[1].phys.write_data_prep;
 			}
 
 			/* SRIO test data is from 4 bytes to 1M bytes*/
@@ -624,8 +627,16 @@ int main(int argc, char *argv[])
 	}
 
 	for (i = 0; i < port_num; i++) {
-		port_data[i].phys = (typeof(port_data[i].phys))(uintptr_t)
-			(dmapool->dma_phys_base + i * SRIO_POOL_PORT_OFFSET);
+		dma_addr_t port_phys_base =
+			dmapool->dma_phys_base + SRIO_POOL_PORT_OFFSET * i;
+		port_data[i].phys.write_recv_data = port_phys_base;
+		port_data[i].phys.read_recv_data =
+			port_phys_base + SRIO_POOL_SECT_SIZE;
+		port_data[i].phys.write_data_prep =
+			port_phys_base + SRIO_POOL_SECT_SIZE * 2;
+		port_data[i].phys.res =
+			port_phys_base + SRIO_POOL_SECT_SIZE * 3;
+
 		port_data[i].virt = (typeof(port_data[i].virt))
 			(dmapool->dma_virt_base + i * SRIO_POOL_PORT_OFFSET);
 	}
