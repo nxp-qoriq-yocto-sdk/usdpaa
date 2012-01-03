@@ -3,7 +3,7 @@
  \brief This file contains functions for managing the arp table
  */
 /*
- * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2012 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,28 +43,11 @@
 int arp_table_init(struct neigh_table_t *nt);
 
 /**
- \brief Add dynamic arp entries
- \param[in] arp table ARP table pointer
- \param[in] node Link Node whose MAC has to be added in arp table
- \param[out] 0 on success, otherwise -ve value
- */
-int add_arp_entry(struct neigh_table_t *arp_table, struct ppac_interface *dev,
-			struct node_t *node);
-
-/**
  \brief Handler function when arp packet received
  \param[in] notes pointer to Annotations structure
  \param[in] data  pointer to packet data
  \param[out] NULL
  */
 void arp_handler(const struct annotations_t *notes, void *data);
-
-/**
- \brief Function to send arp request packet
- \param[in] dev pointer to interface structure
- \param[in] target_ip ip address of destination
- \param[out] 0 on success, otherwise -ve value
- */
-int arp_send_request(struct ppac_interface *dev, in_addr_t target_ip);
 
 #endif	/* __ARP_H */

@@ -4,7 +4,7 @@
  and defines used for ARP
  */
 /*
- * Copyright (C) 2010-2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2012 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -138,11 +138,6 @@ struct neigh_t {
 	uint8_t solicitations_sent;
 	refcount_t *refcnt;
 	/* struct list_head_t	   *solicit_q; */
-
-	/* Timers - 5B */
-	uint32_t retransmit_timer;
-	uint8_t retransmit_count;
-
 } __attribute__((aligned(L1_CACHE_BYTES)));
 
 /**

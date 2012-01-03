@@ -2,7 +2,7 @@
  \file ip_output.c
  */
 /*
- * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2012 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,46 +32,6 @@
 
 #include "net/neigh.h"
 #include "ip_hooks.h"
-
-#ifdef NOT_USDPAA
-void arp_retransmit_cb(uint32_t timer_id, void *p_data)
-{
-	in_addr_t gw_ip;
-	struct neigh_t *n;
-	struct ppac_interface *dev;
-
-	pr_debug("%s: ARP retransmit timer ID 0x%x expired\n", __func__,
-			timer_id);
-
-	gw_ip = *(typeof(&gw_ip))p_data;
-	n = neigh_lookup(stack.arp_table, gw_ip, sizeof(gw_ip));
-	if (unlikely(NULL == n)) {
-		pr_err("%s: neighbour entry not found for IP 0x%x\n",
-			__func__, gw_ip);
-		return;
-	}
-
-	if (n->retransmit_count < 3) {
-		dev = n->dev;
-		arp_send_request(dev, n->proto_addr[0]);
-		n->retransmit_count++;
-
-	} else {
-		pr_info("%s: MAX no. of %d ARP retransmission attempted\n",
-				__func__, n->retransmit_count);
-		if (0 != stop_timer(timer_id)) {
-			pr_err("%s Stopping ARP retransmit timer failed\n",
-					 __func__, timer_id);
-			return;
-		} else
-			pr_info("%s: ARP retransmit timer 0x%x stopped...\n",
-					__func__, timer_id);
-
-		n->retransmit_count = 0;
-		n->neigh_state = NEIGH_STATE_FAILED;
-	}
-}
-#endif
 
 /*
  * If packet length > next_hop mtu, call ip_fragment
@@ -108,9 +68,6 @@ enum IP_STATUS ip_output_finish(const struct ppam_rx_hash *ctxt,
 	const struct ppam_interface *p;
 	enum IP_STATUS retval;
 	struct ether_header *ll_hdr;
-#ifdef NOT_USDPAA
-	uint32_t timer_id;
-#endif
 #ifdef IPSECFWD_HYBRID_GENERATOR
 	uint32_t temp;
 #endif
@@ -121,42 +78,12 @@ enum IP_STATUS ip_output_finish(const struct ppam_rx_hash *ctxt,
 	ll_cache = neighbor->ll_cache;
 
 	if (unlikely(ll_cache == NULL)) {
-		if (NEIGH_STATE_PENDING == neighbor->neigh_state) {
-			pr_debug("Discarding packet destined for IP 0x%x\n",
-						neighbor->proto_addr[0]);
-			pr_debug("ARP entry state is pending\n");
-			/* Discard successive packet (on the assumption the
-			 * packet will be retransmitted by a higher network
-			 * layer)
-			 */
-			free_buff(&notes->dqrr->fd);
-			return IP_STATUS_DROP;
-		}
-
 		pr_info("Could not found ARP cache entries for IP 0x%x\n",
 				neighbor->proto_addr[0]);
-
-		/* Save first packet and forward it upon ARP reply */
-		neighbor->fd = notes->dqrr->fd;
-
-		/* Create and send ARP request */
-#ifdef NOT_USDPAA
-		arp_send_request(i, neighbor->proto_addr);
-		timer_id = start_timer(ARP_RETRANSMIT_INTERVAL, true, NULL,
-				SWI_PRI_HIGH,
-				arp_retransmit_cb,
-				neighbor->proto_addr);
-
-		if (INV_TIMER_ID == timer_id)
-			pr_err("%s: ARP retransmit timer failed\n", __func__);
-		else {
-			pr_info("%s: ARP retransmit timer 0x%x started...\n",
-				__func__, timer_id);
-			neighbor->retransmit_timer = timer_id;
-		}
-#endif
-		neighbor->neigh_state = NEIGH_STATE_PENDING;
-		neighbor->retransmit_count = 0;
+		pr_info("Discarding packet destined for IP 0x%x\n",
+					neighbor->proto_addr[0]);
+		ppac_drop_frame(&notes->dqrr->fd);
+		return IP_STATUS_DROP;
 	} else {
 		ll_hdr = (void *)ip_hdr - ll_cache->ll_hdr_len;
 		p = &neighbor->dev->ppam_data;
