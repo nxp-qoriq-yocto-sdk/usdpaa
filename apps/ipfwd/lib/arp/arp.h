@@ -48,6 +48,7 @@ int arp_table_init(struct neigh_table_t *nt);
  \param[in] data  pointer to packet data
  \param[out] NULL
  */
-void arp_handler(const struct annotations_t *notes, void *data);
+void arp_handler(const struct ppam_interface *p,
+		 const struct annotations_t *notes, void *data);
 
 #endif	/* __ARP_H */

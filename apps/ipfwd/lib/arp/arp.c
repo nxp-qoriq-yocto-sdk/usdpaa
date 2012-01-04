@@ -1,6 +1,6 @@
 /**
- \file arp.c
- */
+   \file arp.c
+*/
 /*
  * Copyright (C) 2010 - 2012 Freescale Semiconductor, Inc.
  *
@@ -29,52 +29,43 @@
 
 #include <netinet/if_ether.h>
 
-static int arp_handle_request(struct ether_header *eth_hdr,
-		       struct node_t *node)
+static void arp_handle_request(const struct ppam_interface *p,
+			       const struct annotations_t *notes, void *data)
 {
+	struct ether_header *eth;
 	struct ether_arp *arp;
+	const struct ppac_interface *dev;
 
-	arp = (typeof(arp))(eth_hdr + 1);
-	if (memcmp(arp->arp_tpa, &node->ip, arp->arp_pln))
-		return -1;
+	eth = data;
+	arp = (typeof(arp))(eth + 1);
 
-	memcpy(arp->arp_tpa, arp->arp_spa, arp->arp_pln);
-	memcpy(arp->arp_spa, &node->ip, arp->arp_pln);
-	arp->arp_op = ARPOP_REPLY;
-	memcpy(eth_hdr->ether_dhost, eth_hdr->ether_shost, sizeof(eth_hdr->ether_dhost));
-	memcpy(eth_hdr->ether_shost, &node->mac, sizeof(eth_hdr->ether_shost));
-	memcpy(arp->arp_tha, eth_hdr->ether_dhost, arp->arp_hln);
-	memcpy(arp->arp_sha, eth_hdr->ether_shost, arp->arp_hln);
-	return 0;
-}
-
-void arp_handler(const struct annotations_t *notes, void *data)
-{
-	struct ether_arp *arp;
-	struct node_t new_node;
-	struct ppac_interface *dev;
-	const struct ppam_interface *p;
-	in_addr_t arp_spa, arp_tpa;
-
-	arp = data + ETHER_HDR_LEN;
-	memcpy(&arp_tpa, arp->arp_tpa, arp->arp_pln);
-	dev = ipfwd_get_iface_for_ip(arp_tpa);
-	if (unlikely(!dev)) {
+	if (memcmp(&p->addr, arp->arp_tpa, arp->arp_pln) != 0) {
 		ppac_drop_frame(&notes->dqrr->fd);
 		return;
 	}
-	p = &dev->ppam_data;
-	memcpy(&arp_spa, arp->arp_spa, arp->arp_pln);
-	if (arp->arp_op == ARPOP_REQUEST) {
-		pr_info("Got ARP request from IP 0x%x\n", arp_spa);
-		memcpy(&new_node.mac, &dev->port_cfg->fman_if->mac_addr,
-			ETH_ALEN);
-		memcpy(&new_node.ip, arp->arp_tpa, arp->arp_pln);
-		arp_handle_request(data, &new_node);
-		ppac_send_frame(p->tx_fqids[notes->dqrr->fqid %
-				p->num_tx_fqids], &notes->dqrr->fd);
-		pr_info("Sent ARP reply for IP 0x%x\n", arp_tpa);
-	} else
+
+	dev = container_of(p, struct ppac_interface, ppam_data);
+
+	arp->arp_op = ARPOP_REPLY;
+	memcpy(eth->ether_dhost, eth->ether_shost, sizeof(eth->ether_dhost));
+	memcpy(arp->arp_tha, eth->ether_shost, arp->arp_hln);
+	memcpy(eth->ether_shost, &dev->port_cfg->fman_if->mac_addr, sizeof(eth->ether_shost));
+	memcpy(arp->arp_tpa, arp->arp_spa, arp->arp_pln);
+	memcpy(arp->arp_sha, eth->ether_shost, arp->arp_hln);
+	memcpy(arp->arp_spa, &p->addr, arp->arp_pln);
+	ppac_send_frame(p->tx_fqids[notes->dqrr->fqid % p->num_tx_fqids], &notes->dqrr->fd);
+}
+
+void arp_handler(const struct ppam_interface *p,
+		 const struct annotations_t *notes, void *data)
+{
+	const struct ether_arp *arp;
+
+	arp = data + ETHER_HDR_LEN;
+
+	if (arp->arp_op == ARPOP_REQUEST)
+		arp_handle_request(p, notes, data);
+	else
 		ppac_drop_frame(&notes->dqrr->fd);
 }
 

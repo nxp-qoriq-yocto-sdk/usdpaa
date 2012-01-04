@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2012 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -715,7 +715,16 @@ static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
 				      struct ppam_interface *_if,
 				      const struct qm_dqrr_entry *dqrr)
 {
-	ppac_drop_frame(&dqrr->fd);
+	struct annotations_t *notes;
+	struct ether_header *eth_hdr;
+
+	notes = dma_mem_ptov(qm_fd_addr(&dqrr->fd));
+	eth_hdr = (void *)notes + dqrr->fd.offset;
+	if (eth_hdr->ether_type == ETHERTYPE_ARP) {
+		notes->dqrr = dqrr;
+		arp_handler(_if, notes, eth_hdr);
+	} else
+		ppac_drop_frame(&dqrr->fd);
 }
 static int ppam_tx_error_init(struct ppam_tx_error *p,
 			      struct ppam_interface *_if,
@@ -766,7 +775,7 @@ static int ppam_rx_hash_init(struct ppam_rx_hash *p,
 	return 0;
 }
 static void ppam_rx_hash_finish(struct ppam_rx_hash *p,
-			 	struct ppam_interface *_if,
+				struct ppam_interface *_if,
 				unsigned idx)
 {
 }
