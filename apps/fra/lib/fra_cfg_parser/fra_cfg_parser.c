@@ -113,7 +113,7 @@ const char *DIST_TYPE_STR[] = {"rx", "tx", "fwd"};
 const char *FQ_MODE_STR[] = {"direct", "algorithmic"};
 const char *MD_CREATE_MODE_STR[] = {"yes", "no"};
 
-struct fra_policy_cfg *fra_policy_cfg;
+struct fra_cfg *fra_cfg;
 
 LIST_HEAD(_tran_list);
 struct list_head *tran_list = &_tran_list;
@@ -501,17 +501,17 @@ void fra_cfg_parser_exit(void)
 {
 	struct dist_order_cfg  *dist_order_cfg, *temp;
 
-	if (!fra_policy_cfg)
+	if (!fra_cfg)
 		return;
 
 	fra_transactiones_finish();
 
 	list_for_each_entry_safe(dist_order_cfg, temp,
-			&fra_policy_cfg->dist_order_cfg_list, node) {
+			&fra_cfg->dist_order_cfg_list, node) {
 		dist_order_cfg_free(dist_order_cfg);
 	}
-	free(fra_policy_cfg);
-	fra_policy_cfg = NULL;
+	free(fra_cfg);
+	fra_cfg = NULL;
 }
 
 static int parse_dist_order(xmlNodePtr cur,
@@ -658,18 +658,18 @@ int fra_parse_cfgfile(const char *cfg_file)
 		goto _err;
 	}
 
-	fra_policy_cfg = malloc(sizeof(*fra_policy_cfg));
-	if (!fra_policy_cfg) {
-		error(EXIT_SUCCESS, errno, "malloc(fra_policy_cfg memory)");
+	fra_cfg = malloc(sizeof(*fra_cfg));
+	if (!fra_cfg) {
+		error(EXIT_SUCCESS, errno, "malloc(fra_cfg memory)");
 		goto _err;
 	}
-	memset(fra_policy_cfg, 0, sizeof(*fra_policy_cfg));
-	INIT_LIST_HEAD(&fra_policy_cfg->dist_order_cfg_list);
+	memset(fra_cfg, 0, sizeof(*fra_cfg));
+	INIT_LIST_HEAD(&fra_cfg->dist_order_cfg_list);
 
 	cur = cur->xmlChildrenNode;
 	for_all_sibling_nodes(cur) {
 		if (is_node(cur, BAD_CAST RMAN_CFG_NODE)) {
-			parse_rman_cfg(cur, &fra_policy_cfg->rman_cfg);
+			parse_rman_cfg(cur, &fra_cfg->rman_cfg);
 			continue;
 		}
 		if (unlikely(!is_node(cur, BAD_CAST POLICY_NODE)))
@@ -683,7 +683,7 @@ int fra_parse_cfgfile(const char *cfg_file)
 				continue;
 			}
 			err = parse_dist_order(dist_order_node,
-					&fra_policy_cfg->dist_order_cfg_list);
+					&fra_cfg->dist_order_cfg_list);
 			if (err)
 				goto _err;
 			dist_order_node = dist_order_node->next;

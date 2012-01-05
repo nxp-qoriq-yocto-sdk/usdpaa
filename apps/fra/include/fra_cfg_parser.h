@@ -98,7 +98,7 @@ struct dist_order_cfg {
 	struct dist_cfg *dist_cfg;
 };
 
-struct fra_policy_cfg {
+struct fra_cfg {
 	struct list_head dist_order_cfg_list;
 	struct rman_cfg rman_cfg;
 };
@@ -108,7 +108,7 @@ extern const char *FQ_MODE_STR[];
 extern const char *MD_CREATE_MODE_STR[];
 extern const char *RIO_TYPE_TO_STR[];
 
-extern struct fra_policy_cfg *fra_policy_cfg;
+extern struct fra_cfg *fra_cfg;
 
 int fra_parse_cfgfile(const char *cfg_file);
 void fra_cfg_parser_exit(void);

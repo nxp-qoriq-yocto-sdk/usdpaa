@@ -359,10 +359,10 @@ static int fra_cli_test_speed(int argc, char *argv[])
 		test_speed.mode = SEND;
 	}
 
-	if (!fra_policy)
+	if (!fra)
 		return -EINVAL;
 
-	list_for_each_entry(dist_order, &fra_policy->dist_order_list, node) {
+	list_for_each_entry(dist_order, &fra->dist_order_list, node) {
 		dist = dist_order->dist;
 		if (test_speed_dist_tx && test_speed_dist_rx &&
 		    test_speed_dist_cmd_tx && test_speed_dist_cmd_rx)

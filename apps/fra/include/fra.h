@@ -109,12 +109,12 @@ struct dist_order {
 	struct distribution	*dist;
 };
 
-struct fra_policy {
+struct fra {
 	struct list_head	dist_order_list;
-	struct fra_policy_cfg	*cfg;
+	struct fra_cfg		*cfg;
 };
 
-extern struct fra_policy *fra_policy;
+extern struct fra *fra;
 
 void dist_rx_handler(struct dist_rx *rx, const struct qm_fd *fd);
 void dist_tx_status_handler(struct dist_tx *tx, const struct qm_fd *fd);

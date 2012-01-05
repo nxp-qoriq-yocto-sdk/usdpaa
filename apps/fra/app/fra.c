@@ -37,7 +37,7 @@
 #include "fra_cfg_parser.h"
 #include "fra.h"
 
-struct fra_policy *fra_policy;
+struct fra *fra;
 
 #ifdef ENABLE_FRA_DEBUG
 uint64_t fwd_from_count;
@@ -84,7 +84,7 @@ static int fra_cli_status(int argc, char *argv[])
 	if (argc > 2)
 		return -EINVAL;
 
-	if (!fra_policy_cfg) {
+	if (!fra_cfg) {
 		error(EXIT_SUCCESS, 0, "Fra is not been configured");
 		return -EINVAL;
 	}
@@ -96,14 +96,14 @@ static int fra_cli_status(int argc, char *argv[])
 		"\t\tdata streaming:%d mailbox:%d\n"
 		"\tBPID info:\n"
 		"\t\tdata streaming:%d mailbox:%d doorbell:%d sg:%d\n",
-		fra_policy_cfg->rman_cfg.rx_channel_id,
-		MD_CREATE_MODE_STR[fra_policy_cfg->rman_cfg.md_create],
-		fra_policy_cfg->rman_cfg.fq_bits[RIO_TYPE_DSTR],
-		fra_policy_cfg->rman_cfg.fq_bits[RIO_TYPE_MBOX],
-		fra_policy_cfg->rman_cfg.bpid[RIO_TYPE_DSTR],
-		fra_policy_cfg->rman_cfg.bpid[RIO_TYPE_MBOX],
-		fra_policy_cfg->rman_cfg.bpid[RIO_TYPE_DBELL],
-		fra_policy_cfg->rman_cfg.sgbpid);
+		fra_cfg->rman_cfg.rx_channel_id,
+		MD_CREATE_MODE_STR[fra_cfg->rman_cfg.md_create],
+		fra_cfg->rman_cfg.fq_bits[RIO_TYPE_DSTR],
+		fra_cfg->rman_cfg.fq_bits[RIO_TYPE_MBOX],
+		fra_cfg->rman_cfg.bpid[RIO_TYPE_DSTR],
+		fra_cfg->rman_cfg.bpid[RIO_TYPE_MBOX],
+		fra_cfg->rman_cfg.bpid[RIO_TYPE_DBELL],
+		fra_cfg->rman_cfg.sgbpid);
 
 #ifdef ENABLE_FRA_DEBUG
 	fprintf(stderr, "\tfwd_from_network packets:0x%llx\n"
@@ -115,7 +115,7 @@ static int fra_cli_status(int argc, char *argv[])
 		rx_count, fwd_to_count);
 #endif
 
-	list_for_each_entry(dist_order, &fra_policy->dist_order_list, node) {
+	list_for_each_entry(dist_order, &fra->dist_order_list, node) {
 		if (i > 1)
 			fprintf(stderr, "\n");
 		fprintf(stderr, "distribution order-%d:\n", i++);
@@ -338,16 +338,16 @@ void fra_finish(void)
 {
 	struct dist_order  *dist_order, *temp;
 
-	if (!fra_policy)
+	if (!fra)
 		return;
 	list_for_each_entry_safe(dist_order, temp,
-			&fra_policy->dist_order_list, node) {
+			&fra->dist_order_list, node) {
 		dist_order_finish(dist_order);
 	}
 	rman_if_finish();
 	fra_cfg_parser_exit();
-	free(fra_policy);
-	fra_policy = NULL;
+	free(fra);
+	fra = NULL;
 }
 
 static struct distribution *dist_rx_init(struct dist_cfg *cfg)
@@ -646,28 +646,28 @@ int fra_init(void)
 	tx_release_count = 0;
 #endif
 
-	if (!fra_policy_cfg) {
+	if (!fra_cfg) {
 		error(EXIT_SUCCESS, 0, "Fra: is not been configured");
 		return -EINVAL;
 	}
 
-	fra_policy = malloc(sizeof(struct fra_policy));
-	if (!fra_policy) {
-		error(EXIT_SUCCESS, errno, "failed to allocate fra_policy");
+	fra = malloc(sizeof(struct fra));
+	if (!fra) {
+		error(EXIT_SUCCESS, errno, "failed to allocate fra");
 		return -errno;
 	}
-	memset(fra_policy, 0, sizeof(*fra_policy));
-	INIT_LIST_HEAD(&fra_policy->dist_order_list);
-	fra_policy->cfg = fra_policy_cfg;
+	memset(fra, 0, sizeof(*fra));
+	INIT_LIST_HEAD(&fra->dist_order_list);
+	fra->cfg = fra_cfg;
 
-	if (rman_if_init(&fra_policy_cfg->rman_cfg)) {
+	if (rman_if_init(&fra_cfg->rman_cfg)) {
 		error(EXIT_SUCCESS, 0, "Fra: failed to initialize rman if");
 		err = -EINVAL;
 		goto _err;
 	}
 
 	list_for_each_entry(dist_order_cfg,
-		&fra_policy_cfg->dist_order_cfg_list, node) {
+		&fra_cfg->dist_order_cfg_list, node) {
 		dist_order = malloc(sizeof(*dist_order));
 		if (!dist_order) {
 			error(EXIT_SUCCESS, errno,
@@ -719,7 +719,7 @@ int fra_init(void)
 			goto _err;
 
 		list_add_tail(&dist_order->node,
-				&fra_policy->dist_order_list);
+				&fra->dist_order_list);
 	}
 	return 0;
 _err:
