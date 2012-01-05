@@ -35,101 +35,101 @@
 <fra_cfg>
 <!--	xxxxxxxxxxxxxxxxxxxxxRMan hardware configurationxxxxxxxxxxxxxxxxxxxx -->
 	<rman_cfg>
-		<fqbits type="9" value="2"/>
-		<fqbits type="11" value="2"/>
+		<fqbits type="Data-streaming" value="2"/>
+		<fqbits type="Mailbox" value="2"/>
 		<md_create mode="yes"/>
 		<rxchannel value="0x24"/>
-		<bpid type="9" value="11"/>
-		<bpid type="10" value="10"/>
-		<bpid type="11" value="11"/>
+		<bpid type="Data-streaming" value="11"/>
+		<bpid type="Doorbell" value="10"/>
+		<bpid type="Mailbox" value="11"/>
 		<sgbpid value="12"/>
 	</rman_cfg>
 <!--	xxxxxxxxxxxxxxxxxxxxxxxx transaction xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx -->
 <!--	transaction field described all the type transaction settings -->
 	<!-- dbell setting -->
-	<transaction name="dbell-peer" type="10">
+	<transaction name="dbell-peer" type="Doorbell">
 		<flowlvl value="5" mask="1"/>
 	</transaction>
 	<!-- mailbox settings -->
-	<transaction name="mbox-general" type="11">
+	<transaction name="mbox-general" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
 		<mbox value="0" mask="3"/>
 		<ltr value="0" mask="3" />
 		<msglen value="15" mask="1"/>
 	</transaction>
-	<transaction name="mbox-10gec" type="11">
+	<transaction name="mbox-10gec" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
 		<mbox value="1" mask="0"/>
 		<ltr value="0" mask="3" />
 		<msglen value="6" mask="1"/>
 	</transaction>
-	<transaction name="mbox-dtsec4" type="11">
+	<transaction name="mbox-dtsec4" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
 		<mbox value="2" mask="0"/>
 		<ltr value="0" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
-	<transaction name="mbox-dtsec3" type="11">
+	<transaction name="mbox-dtsec3" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
 		<mbox value="2" mask="0"/>
 		<ltr value="1" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
-	<transaction name="mbox-dtsec2" type="11">
+	<transaction name="mbox-dtsec2" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
 		<mbox value="2" mask="0"/>
 		<ltr value="2" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
-	<transaction name="mbox-dtsec1" type="11">
+	<transaction name="mbox-dtsec1" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
 		<mbox value="2" mask="0"/>
 		<ltr value="3" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
-	<transaction name="mbox-dtsec0" type="11">
+	<transaction name="mbox-dtsec0" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
 		<mbox value="3" mask="0"/>
 		<ltr value="0" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 	<!-- data streaming settings -->
-	<transaction name="dstrm-general" type="9">
+	<transaction name="dstrm-general" type="Data-streaming">
 		<flowlvl value="0" mask="2"/>
 		<cos value="0" mask="0xff"/>
 		<streamid value="0" mask="0xffff"/>
 	</transaction>
-	<transaction name="dstr-10gec" type="9">
+	<transaction name="dstr-10gec" type="Data-streaming">
 		<flowlvl value="0" mask="2"/>
 		<cos value="15" mask="0"/>
 		<streamid value="0" mask="0x1f"/>
 	</transaction>
-	<transaction name="dstr-dtsec4" type="9">
+	<transaction name="dstr-dtsec4" type="Data-streaming">
 		<flowlvl value="0" mask="2"/>
 		<cos value="14" mask="0"/>
 		<streamid value="0" mask="0x1f"/>
 	</transaction>
-	<transaction name="dstr-dtsec3" type="9">
+	<transaction name="dstr-dtsec3" type="Data-streaming">
 		<flowlvl value="0" mask="2"/>
 		<cos value="13" mask="0"/>
 		<streamid value="0" mask="0x1f"/>
 	</transaction>
-	<transaction name="dstr-dtsec2" type="9">
+	<transaction name="dstr-dtsec2" type="Data-streaming">
 		<flowlvl value="0" mask="2"/>
 		<cos value="12" mask="0"/>
 		<streamid value="0" mask="0x1f"/>
 	</transaction>
-	<transaction name="dstr-dtsec1" type="9">
+	<transaction name="dstr-dtsec1" type="Data-streaming">
 		<flowlvl value="0" mask="2"/>
 		<cos value="11" mask="0"/>
 		<streamid value="0" mask="0x1f"/>
 	</transaction>
-	<transaction name="dstr-dtsec0" type="9">
+	<transaction name="dstr-dtsec0" type="Data-streaming">
 		<flowlvl value="0" mask="2"/>
 		<cos value="10" mask="0"/>
 		<streamid value="0" mask="0x1f"/>
 	</transaction>
-	<transaction name="dstr-peer" type="9">
+	<transaction name="dstr-peer" type="Data-streaming">
 		<flowlvl value="0" mask="2"/>
 		<cos value="20" mask="0"/>
 		<streamid value="0" mask="0x1f"/>
