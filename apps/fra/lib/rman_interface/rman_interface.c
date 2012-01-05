@@ -35,21 +35,6 @@
 #include "rman_interface.h"
 #include "fra.h"
 
-const char *rio_type_to_str[] = {
-	[RIO_TYPE0] = "Implementation-defined",
-	[RIO_TYPE1] = "reserved",
-	[RIO_TYPE2] = "NREAD",
-	[RIO_TYPE3] = "reserved",
-	[RIO_TYPE4] = "reserved",
-	[RIO_TYPE5] = "NWrite",
-	[RIO_TYPE6] = "SWrite",
-	[RIO_TYPE7] = "reserved",
-	[RIO_TYPE8] = "Maintenance",
-	[RIO_TYPE9] = "Data-streaming",
-	[RIO_TYPE10] = "Doorbell",
-	[RIO_TYPE11] = "Mailbox"
-};
-
 struct rman_if {
 	struct rman_dev *rmdev;
 	struct rman_cfg cfg;

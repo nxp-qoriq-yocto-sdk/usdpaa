@@ -70,8 +70,8 @@ cli_cmd(debug, debug_setting);
 
 static inline void tran_status(struct rio_tran *tran)
 {
-	fprintf(stderr, "\t\trio_tran:%s type:%d\n",
-		tran->name, tran->type);
+	fprintf(stderr, "\t\trio_tran:%s type:%s\n",
+		tran->name, RIO_TYPE_TO_STR[tran->type]);
 }
 
 static int fra_cli_status(int argc, char *argv[])

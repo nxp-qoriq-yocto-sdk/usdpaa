@@ -94,6 +94,21 @@ THIS
 #define POLICY_DISTREF_NODE	("distributionref")
 #define POLICY_DISTREF_NAME	("name")
 
+const char *RIO_TYPE_TO_STR[] = {
+	[RIO_TYPE0] = "Implementation-defined",
+	[RIO_TYPE1] = "reserved",
+	[RIO_TYPE2] = "NREAD",
+	[RIO_TYPE3] = "reserved",
+	[RIO_TYPE4] = "reserved",
+	[RIO_TYPE5] = "NWrite",
+	[RIO_TYPE6] = "SWrite",
+	[RIO_TYPE7] = "reserved",
+	[RIO_TYPE8] = "Maintenance",
+	[RIO_TYPE9] = "Data-streaming",
+	[RIO_TYPE10] = "Doorbell",
+	[RIO_TYPE11] = "Mailbox"
+};
+
 const char *DIST_TYPE_STR[] = {"rx", "tx", "fwd"};
 const char *FQ_MODE_STR[] = {"direct", "algorithmic"};
 const char *MD_CREATE_MODE_STR[] = {"yes", "no"};
@@ -129,6 +144,17 @@ static void *get_attributes(xmlNodePtr node, xmlChar *attr)
 			__FILE__, __LINE__, __func__,
 			node->name, attr);
 	return atr;
+}
+
+static enum RIO_TYPE rio_type_str_to_idx(const char *type)
+{
+	int idx;
+
+	for (idx = 0; idx < ARRAY_SIZE(RIO_TYPE_TO_STR); idx++) {
+		if (!strcmp(type, RIO_TYPE_TO_STR[idx]))
+			return idx;
+	}
+	return RIO_TYPE0;
 }
 
 static void strip_blanks(char *str)
@@ -192,7 +218,7 @@ static int parse_tran(const char *tran_name, struct rio_tran *tran)
 			" type attribute", tran_name);
 		return -ENXIO;
 	}
-	tran->type = strtoul(type, NULL, 0);
+	tran->type = rio_type_str_to_idx(type);
 	switch (tran->type) {
 	case RIO_TYPE_DBELL:
 		for_all_sibling_nodes(tranp) {
@@ -560,7 +586,7 @@ static int parse_rman_cfg(xmlNodePtr cur, struct rman_cfg *cfg)
 			ptr = get_attributes(cfgptr, BAD_CAST RMAN_CFG_TYPE);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			type = strtoul(ptr, NULL, 0);
+			type = rio_type_str_to_idx(ptr);
 			ptr = get_attributes(cfgptr, BAD_CAST RMAN_CFG_VALUE);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
@@ -582,7 +608,7 @@ static int parse_rman_cfg(xmlNodePtr cur, struct rman_cfg *cfg)
 			ptr = get_attributes(cfgptr, BAD_CAST RMAN_CFG_TYPE);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			type = strtoul(ptr, NULL, 0);
+			type = rio_type_str_to_idx(ptr);
 			ptr = get_attributes(cfgptr, BAD_CAST RMAN_CFG_VALUE);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;

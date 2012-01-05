@@ -106,6 +106,7 @@ struct fra_policy_cfg {
 extern const char *DIST_TYPE_STR[];
 extern const char *FQ_MODE_STR[];
 extern const char *MD_CREATE_MODE_STR[];
+extern const char *RIO_TYPE_TO_STR[];
 
 extern struct fra_policy_cfg *fra_policy_cfg;
 
