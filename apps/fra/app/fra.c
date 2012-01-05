@@ -76,6 +76,7 @@ static inline void tran_status(struct rio_tran *tran)
 
 static int fra_cli_status(int argc, char *argv[])
 {
+	const struct fra_cfg *fra_cfg;
 	struct dist_order *dist_order;
 	struct distribution *dist;
 	struct dist_cfg *cfg;
@@ -84,11 +85,12 @@ static int fra_cli_status(int argc, char *argv[])
 	if (argc > 2)
 		return -EINVAL;
 
-	if (!fra_cfg) {
+	if (!fra || !fra->cfg) {
 		error(EXIT_SUCCESS, 0, "Fra is not been configured");
 		return -EINVAL;
 	}
 
+	fra_cfg = fra->cfg;
 	fprintf(stderr, "RMan configuration:\n"
 		"\tRMan uses 0x%x qman channel to receive messages\n"
 		"\tCreate inbound message descriptor: %s\n"
@@ -345,7 +347,6 @@ void fra_finish(void)
 		dist_order_finish(dist_order);
 	}
 	rman_if_finish();
-	fra_cfg_parser_exit();
 	free(fra);
 	fra = NULL;
 }
@@ -630,7 +631,7 @@ static int dist_rx_tx_mapping(struct dist_order *dist_order)
 	return 0;
 }
 
-int fra_init(void)
+int fra_init(const struct fra_cfg *fra_cfg)
 {
 	struct dist_order_cfg  *dist_order_cfg;
 	struct dist_cfg *dist_cfg;

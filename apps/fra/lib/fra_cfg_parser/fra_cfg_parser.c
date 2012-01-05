@@ -113,8 +113,6 @@ const char *DIST_TYPE_STR[] = {"rx", "tx", "fwd"};
 const char *FQ_MODE_STR[] = {"direct", "algorithmic"};
 const char *MD_CREATE_MODE_STR[] = {"yes", "no"};
 
-struct fra_cfg *fra_cfg;
-
 LIST_HEAD(_tran_list);
 struct list_head *tran_list = &_tran_list;
 
@@ -497,7 +495,7 @@ static void dist_order_cfg_free(struct dist_order_cfg *dist_order_cfg)
 	free(dist_order_cfg);
 }
 
-void fra_cfg_parser_exit(void)
+void fra_cfg_release(struct fra_cfg *fra_cfg)
 {
 	struct dist_order_cfg  *dist_order_cfg, *temp;
 
@@ -511,7 +509,6 @@ void fra_cfg_parser_exit(void)
 		dist_order_cfg_free(dist_order_cfg);
 	}
 	free(fra_cfg);
-	fra_cfg = NULL;
 }
 
 static int parse_dist_order(xmlNodePtr cur,
@@ -624,13 +621,15 @@ static int parse_rman_cfg(xmlNodePtr cur, struct rman_cfg *cfg)
 	return 0;
 }
 
-int fra_parse_cfgfile(const char *cfg_file)
+struct fra_cfg *fra_parse_cfgfile(const char *cfg_file)
 {
 	xmlErrorPtr xep;
 	xmlNodePtr dist_order_node;
 	xmlDocPtr doc;
 	xmlNodePtr cur;
-	int err = -EINVAL;
+	struct fra_cfg *fra_cfg = NULL;
+	int err;
+
 	xmlInitParser();
 	LIBXML_TEST_VERSION;
 	xmlSetStructuredErrorFunc(&xep, fra_cfg_parse_error);
@@ -640,7 +639,7 @@ int fra_parse_cfgfile(const char *cfg_file)
 	if (unlikely(doc == NULL)) {
 		error(EXIT_SUCCESS, 0, "%s:%hu:%s() xmlParseFile(%s)",
 			__FILE__, __LINE__, __func__, cfg_file);
-		return -EINVAL;
+		return NULL;
 	}
 
 	fra_cfg_root_node = xmlDocGetRootElement(doc);
@@ -689,9 +688,9 @@ int fra_parse_cfgfile(const char *cfg_file)
 			dist_order_node = dist_order_node->next;
 		}
 	}
-	return 0;
+	return fra_cfg;
 _err:
-	fra_cfg_parser_exit();
+	fra_cfg_release(fra_cfg);
 	xmlFreeDoc(doc);
-	return err;
+	return NULL;
 }

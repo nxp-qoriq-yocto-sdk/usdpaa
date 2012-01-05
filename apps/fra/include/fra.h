@@ -111,7 +111,7 @@ struct dist_order {
 
 struct fra {
 	struct list_head	dist_order_list;
-	struct fra_cfg		*cfg;
+	const struct fra_cfg	*cfg;
 };
 
 extern struct fra *fra;
@@ -120,7 +120,7 @@ void dist_rx_handler(struct dist_rx *rx, const struct qm_fd *fd);
 void dist_tx_status_handler(struct dist_tx *tx, const struct qm_fd *fd);
 void dist_fwd_from_handler(struct ppam_rx_hash *rx, const struct qm_fd *fd);
 
-int fra_init(void);
+int fra_init(const struct fra_cfg *fra_cfg);
 void fra_finish(void);
 
 #endif /* _FRA_H */

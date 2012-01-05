@@ -136,6 +136,7 @@ static uint32_t sdqcr;
 
 /* Configuration */
 struct usdpaa_netcfg_info *netcfg;
+static struct fra_cfg *fra_cfg;
 
 /* We want a trivial mapping from bpid->pool, so just have an array of pointers,
  * most of which are probably NULL. */
@@ -319,7 +320,7 @@ static void do_global_init(void)
 		}
 	}
 
-	err = fra_init();
+	err = fra_init(fra_cfg);
 	if (unlikely(err < 0)) {
 		error(EXIT_SUCCESS, -err, "fra_init()");
 		do_global_finish();
@@ -1115,9 +1116,10 @@ int main(int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	if (fra_parse_cfgfile(fra_cfg_path)) {
+	fra_cfg = fra_parse_cfgfile(fra_cfg_path);
+	if (!fra_cfg) {
 		error(EXIT_SUCCESS, 0,
-		      "error: failed to load fra configuration");
+		      "failed to load fra configuration");
 		return -EINVAL;
 	}
 	/* - initialise DPAA */
@@ -1231,6 +1233,7 @@ leave:
 	primary = NULL;
 	worker_free(worker);
 	usdpaa_netcfg_release(netcfg);
+	fra_cfg_release(fra_cfg);
 	of_finish();
 	return rcode;
 }

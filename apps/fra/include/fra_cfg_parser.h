@@ -42,8 +42,6 @@ THIS
 #include <usdpaa/fsl_rman.h>
 #include <internal/compat.h>
 
-extern const char default_fra_cfg_path[];
-
 #define MAX_NUM_OF_RX_CHAN 4
 
 enum dist_type {
@@ -108,9 +106,7 @@ extern const char *FQ_MODE_STR[];
 extern const char *MD_CREATE_MODE_STR[];
 extern const char *RIO_TYPE_TO_STR[];
 
-extern struct fra_cfg *fra_cfg;
-
-int fra_parse_cfgfile(const char *cfg_file);
-void fra_cfg_parser_exit(void);
+struct fra_cfg *fra_parse_cfgfile(const char *cfg_file);
+void fra_cfg_release(struct fra_cfg *fra_cfg);
 
 #endif /*_FRA_CFG_PARSER_H*/

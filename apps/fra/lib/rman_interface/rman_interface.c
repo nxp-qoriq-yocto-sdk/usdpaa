@@ -541,7 +541,7 @@ int rman_send_msg(struct rman_outb_md *std_md, struct tx_opt *opt,
 	return 0;
 }
 
-int rman_if_init(struct rman_cfg *cfg)
+int rman_if_init(const struct rman_cfg *cfg)
 {
 	int err, port_num, i;
 

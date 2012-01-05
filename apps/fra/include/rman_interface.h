@@ -257,7 +257,7 @@ int rman_send_fd(struct rman_outb_md *std_md, struct tx_opt *opt,
 		 struct qm_fd *fd);
 
 /* Initializes RMan interface according to RMan configuration */
-int rman_if_init(struct rman_cfg *cfg);
+int rman_if_init(const struct rman_cfg *cfg);
 
 /* Releases RMan interface resource */
 void rman_if_finish(void);
