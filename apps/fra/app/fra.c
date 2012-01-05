@@ -51,7 +51,7 @@ int debug_off;
 static int debug_setting(int argc, char *argv[])
 {
 	if (argc != 2) {
-		error(EXIT_SUCCESS, 0,
+		error(0, 0,
 			"debug correct format:\n\tdebug [on/off]");
 		return -EINVAL;
 	}
@@ -86,7 +86,7 @@ static int fra_cli_status(int argc, char *argv[])
 		return -EINVAL;
 
 	if (!fra || !fra->cfg) {
-		error(EXIT_SUCCESS, 0, "Fra is not been configured");
+		error(0, 0, "Fra is not been configured");
 		return -EINVAL;
 	}
 
@@ -184,7 +184,7 @@ dist_tx_handler(struct distribution *dist, struct tx_opt *opt,
 
 	if (rman_send_fd(&dist->tx[0].md, opt, (struct qm_fd *)fd)) {
 		bpool_fd_free(fd);
-		error(EXIT_SUCCESS, 0,
+		error(0, 0,
 			"FRA: dist(%s)failed to send fd", dist->cfg->name);
 	}
 	return HANDLER_DONE;
@@ -241,7 +241,7 @@ void dist_rx_handler(struct dist_rx *rx, const struct qm_fd *fd)
 #endif
 
 	if (fd->format != qm_fd_contig && fd->format != qm_fd_sg) {
-		error(EXIT_SUCCESS, 0,
+		error(0, 0,
 			"Rx(%s) get a wrong frame format(%d)",
 			dist->cfg->name, fd->format);
 		bpool_fd_free(fd);
@@ -249,10 +249,10 @@ void dist_rx_handler(struct dist_rx *rx, const struct qm_fd *fd)
 
 	if (FD_GET_STATUS(fd)) {
 		/*
-		error(EXIT_SUCCESS, 0, "Rx(%s) get a wrong frame stauts(0x%x)",
+		error(0, 0, "Rx(%s) get a wrong frame stauts(0x%x)",
 			dist->cfg->name, fd->status);
 		if (fd->status & 0x1) {
-			error(EXIT_SUCCESS, 0, "bpool buffers are depleted");
+			error(0, 0, "bpool buffers are depleted");
 			return ;
 		}
 		*/
@@ -397,7 +397,7 @@ static struct distribution *dist_rx_init(struct dist_cfg *cfg)
 	if (rman_rxfq_start(rxcfg->fqid, rxcfg->fq_mode,
 			rxcfg->port, rxcfg->port_mask,
 			rxcfg->sid, rxcfg->sid_mask, rxcfg->tran)) {
-		error(EXIT_SUCCESS, 0, "Fra: can not start rxfq");
+		error(0, 0, "Fra: can not start rxfq");
 		dist_finish(dist);
 		return NULL;
 	}
@@ -437,7 +437,7 @@ static struct distribution *dist_tx_init(struct dist_cfg *cfg)
 	tran = txcfg->tran;
 
 	if (rman_stfq_init(&tx->stfq, 0, 0, 0)) {
-		error(EXIT_SUCCESS, 0, "Fra: failed to create rman stfq");
+		error(0, 0, "Fra: failed to create rman stfq");
 		dma_mem_free(dist, dist->sz);
 		return NULL;
 	}
@@ -648,13 +648,13 @@ int fra_init(const struct fra_cfg *fra_cfg)
 #endif
 
 	if (!fra_cfg) {
-		error(EXIT_SUCCESS, 0, "Fra: is not been configured");
+		error(0, 0, "Fra: is not been configured");
 		return -EINVAL;
 	}
 
 	fra = malloc(sizeof(struct fra));
 	if (!fra) {
-		error(EXIT_SUCCESS, errno, "failed to allocate fra");
+		error(0, errno, "failed to allocate fra");
 		return -errno;
 	}
 	memset(fra, 0, sizeof(*fra));
@@ -662,7 +662,7 @@ int fra_init(const struct fra_cfg *fra_cfg)
 	fra->cfg = fra_cfg;
 
 	if (rman_if_init(&fra_cfg->rman_cfg)) {
-		error(EXIT_SUCCESS, 0, "Fra: failed to initialize rman if");
+		error(0, 0, "Fra: failed to initialize rman if");
 		err = -EINVAL;
 		goto _err;
 	}
@@ -671,7 +671,7 @@ int fra_init(const struct fra_cfg *fra_cfg)
 		&fra_cfg->dist_order_cfg_list, node) {
 		dist_order = malloc(sizeof(*dist_order));
 		if (!dist_order) {
-			error(EXIT_SUCCESS, errno,
+			error(0, errno,
 			"failed to allocate dist_order memory");
 			err = -errno;
 			goto _err;
@@ -698,7 +698,7 @@ int fra_init(const struct fra_cfg *fra_cfg)
 				break;
 			}
 			if (!next_dist) {
-				error(EXIT_SUCCESS, 0, "dist(%s) is not been"
+				error(0, 0, "dist(%s) is not been"
 					" initialized", dist_cfg->name);
 				err = 1;
 				break;

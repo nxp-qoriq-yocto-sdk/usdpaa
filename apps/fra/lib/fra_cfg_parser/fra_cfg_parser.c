@@ -123,7 +123,7 @@ xmlNodePtr fra_cfg_root_node;
 
 static void fra_cfg_parse_error(void *ctx, xmlErrorPtr xep)
 {
-	error(EXIT_SUCCESS, 0, "%s:%hu:%s() fra_cfg_parse_error(context(%p),"
+	error(0, 0, "%s:%hu:%s() fra_cfg_parse_error(context(%p),"
 		"error pointer %p", __FILE__, __LINE__, __func__,
 		ctx, xep);
 }
@@ -137,7 +137,7 @@ static void *get_attributes(xmlNodePtr node, xmlChar *attr)
 {
 	char *atr = (char *)xmlGetProp(node, attr);
 	if (unlikely(atr == NULL))
-		error(EXIT_SUCCESS, 0, "%s:%hu:%s() error: "
+		error(0, 0, "%s:%hu:%s() error: "
 			"(Node(%s)->Attribute (%s) not found",
 			__FILE__, __LINE__, __func__,
 			node->name, attr);
@@ -202,7 +202,7 @@ static int parse_tran(const char *tran_name, struct rio_tran *tran)
 			break;
 	}
 	if (!cur) {
-		error(EXIT_SUCCESS, 0, "Transaction %s dose not exist",
+		error(0, 0, "Transaction %s dose not exist",
 			tran_name);
 		return -ENXIO;
 	}
@@ -212,7 +212,7 @@ static int parse_tran(const char *tran_name, struct rio_tran *tran)
 
 	type = (char *)get_attributes(cur, BAD_CAST TRAN_TYPE);
 	if (!type) {
-		error(EXIT_SUCCESS, 0, "Distibution %s should has"
+		error(0, 0, "Distibution %s should has"
 			" type attribute", tran_name);
 		return -ENXIO;
 	}
@@ -257,7 +257,7 @@ static int parse_tran(const char *tran_name, struct rio_tran *tran)
 		}
 		break;
 	default:
-		error(EXIT_SUCCESS, 0, "transaction %s has"
+		error(0, 0, "transaction %s has"
 			" a invalid type %s", tran_name, type);
 		return -ENXIO;
 	}
@@ -410,7 +410,7 @@ static int parse_dist_fwd(xmlNodePtr distp, struct dist_fwd_cfg *fwdcfg)
 {
 	char *ptr;
 	if (!(is_node(distp, BAD_CAST DIST_FWD_PORT_NODE))) {
-		error(EXIT_SUCCESS, 0,
+		error(0, 0,
 			"error: wrong format of fwd distribution");
 		return -EINVAL;
 	}
@@ -449,7 +449,7 @@ static int parse_dist(char *dist_name, struct dist_cfg *dist_cfg)
 			break;
 	}
 	if (!cur) {
-		error(EXIT_SUCCESS, 0, "Distribution(%s) dose not exist",
+		error(0, 0, "Distribution(%s) dose not exist",
 			dist_name);
 		return -ENXIO;
 	}
@@ -459,7 +459,7 @@ static int parse_dist(char *dist_name, struct dist_cfg *dist_cfg)
 
 	type = (char *)get_attributes(cur, BAD_CAST DIST_TYPE);
 	if (!type) {
-		error(EXIT_SUCCESS, 0, "Distribution %s should has"
+		error(0, 0, "Distribution %s should has"
 			" type attribute", dist_name);
 		return -ENXIO;
 	}
@@ -473,7 +473,7 @@ static int parse_dist(char *dist_name, struct dist_cfg *dist_cfg)
 		dist_cfg->type = DIST_TYPE_FWD;
 		err = parse_dist_fwd(distp, &dist_cfg->dist_fwd_cfg);
 	} else
-		error(EXIT_SUCCESS, 0, "Distribution(%s) has a invalid"
+		error(0, 0, "Distribution(%s) has a invalid"
 			" type attribute", dist_name);
 
 	return err;
@@ -540,13 +540,13 @@ static int parse_dist_order(xmlNodePtr cur,
 
 		next_dist_cfg = malloc(sizeof(*next_dist_cfg));
 		if (!next_dist_cfg) {
-			error(EXIT_SUCCESS, 0,
+			error(0, 0,
 				"failed to allocate dist memory");
 			goto _err;
 		}
 		memset(next_dist_cfg, 0, sizeof(*next_dist_cfg));
 		if (parse_dist(name, next_dist_cfg)) {
-			error(EXIT_SUCCESS, 0, "Distribution(%s) has error",
+			error(0, 0, "Distribution(%s) has error",
 				 name);
 			goto _err;
 		}
@@ -637,7 +637,7 @@ struct fra_cfg *fra_parse_cfgfile(const char *cfg_file)
 
 	doc = xmlParseFile(cfg_file);
 	if (unlikely(doc == NULL)) {
-		error(EXIT_SUCCESS, 0, "%s:%hu:%s() xmlParseFile(%s)",
+		error(0, 0, "%s:%hu:%s() xmlParseFile(%s)",
 			__FILE__, __LINE__, __func__, cfg_file);
 		return NULL;
 	}
@@ -645,13 +645,13 @@ struct fra_cfg *fra_parse_cfgfile(const char *cfg_file)
 	fra_cfg_root_node = xmlDocGetRootElement(doc);
 	cur = fra_cfg_root_node;
 	if (unlikely(cur == NULL)) {
-		error(EXIT_SUCCESS, 0, "%s:%hu:%s() xml file(%s) empty",
+		error(0, 0, "%s:%hu:%s() xml file(%s) empty",
 			__FILE__, __LINE__, __func__, cfg_file);
 		goto _err;
 	}
 
 	if (unlikely(!is_node(cur, BAD_CAST FRA_CFG_FILE_ROOT_NODE))) {
-		error(EXIT_SUCCESS, 0, "%s:%hu:%s() xml file(%s) does not"
+		error(0, 0, "%s:%hu:%s() xml file(%s) does not"
 			"have %s node", __FILE__, __LINE__, __func__,
 			cfg_file, FRA_CFG_FILE_ROOT_NODE);
 		goto _err;
@@ -659,7 +659,7 @@ struct fra_cfg *fra_parse_cfgfile(const char *cfg_file)
 
 	fra_cfg = malloc(sizeof(*fra_cfg));
 	if (!fra_cfg) {
-		error(EXIT_SUCCESS, errno, "malloc(fra_cfg memory)");
+		error(0, errno, "malloc(fra_cfg memory)");
 		goto _err;
 	}
 	memset(fra_cfg, 0, sizeof(*fra_cfg));

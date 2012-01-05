@@ -87,7 +87,7 @@ void __attribute__((weak)) ppam_thread_finish(void)
 __thread int ppam_thread_poll_enabled;
 int __attribute__((weak)) ppam_thread_poll(void)
 {
-	error(EXIT_SUCCESS, 0,
+	error(0, 0,
 	      "PPAM requested polling but didn't implement it!");
 	abort();
 	return 0;
@@ -286,7 +286,7 @@ static void do_global_init(void)
 	 * teardown of non-primary threads). */
 	err = ppam_init();
 	if (unlikely(err < 0)) {
-		error(EXIT_SUCCESS, -err,
+		error(0, -err,
 		      "error: PPAM init failed (%d)", err);
 		return;
 	}
@@ -303,7 +303,7 @@ static void do_global_init(void)
 		FRA_DBG("Initialising interface %d", loop);
 		err = ppac_interface_init(loop);
 		if (err) {
-			error(EXIT_SUCCESS, -err,
+			error(0, -err,
 			      "error: interface %d failed", loop);
 			do_global_finish();
 			return;
@@ -314,7 +314,7 @@ static void do_global_init(void)
 		/* Same comment applies as the cast in do_global_finish() */
 		err = ppac_interface_init_rx((struct ppac_interface *)i);
 		if (err) {
-			error(EXIT_SUCCESS, -err, "ppac_interface_init_rx()");
+			error(0, -err, "ppac_interface_init_rx()");
 			do_global_finish();
 			return;
 		}
@@ -322,7 +322,7 @@ static void do_global_init(void)
 
 	err = fra_init(fra_cfg);
 	if (unlikely(err < 0)) {
-		error(EXIT_SUCCESS, -err, "fra_init()");
+		error(0, -err, "fra_init()");
 		do_global_finish();
 		return;
 	}
@@ -357,11 +357,11 @@ static int process_msg(struct worker *worker, struct worker_msg *msg)
 	else if (msg->msg == worker_msg_query_cgr) {
 		int err = qman_query_cgr(&cgr_rx, &msg->query_cgr.res_rx);
 		if (err)
-			error(EXIT_SUCCESS, 0,
+			error(0, 0,
 			      "error: query rx CGR, continuing");
 		err = qman_query_cgr(&cgr_tx, &msg->query_cgr.res_tx);
 		if (err)
-			error(EXIT_SUCCESS, 0,
+			error(0, 0,
 			      "error: query tx CGR, continuing");
 	}
 #endif
@@ -404,7 +404,7 @@ static void drain_4_bytes(int fd, fd_set *fdset)
 		uint32_t junk;
 		ssize_t sjunk = read(fd, &junk, sizeof(junk));
 		if (sjunk != sizeof(junk))
-			error(EXIT_SUCCESS, errno, "UIO irq read error");
+			error(0, errno, "UIO irq read error");
 	}
 }
 #endif
@@ -425,7 +425,7 @@ static void *worker_fn(void *__worker)
 	CPU_SET(worker->cpu, &cpuset);
 	s = pthread_setaffinity_np(worker->id, sizeof(cpu_set_t), &cpuset);
 	if (s != 0) {
-		error(EXIT_SUCCESS, -s, "pthread_setaffinity_np(%d)",
+		error(0, -s, "pthread_setaffinity_np(%d)",
 		      worker->cpu);
 		goto err;
 	}
@@ -433,14 +433,14 @@ static void *worker_fn(void *__worker)
 	/* Initialise bman/qman portals */
 	s = bman_thread_init(worker->cpu, 0);
 	if (s) {
-		error(EXIT_SUCCESS, -s,
+		error(0, -s,
 		      "No available Bman portals for cpu %d",
 		      worker->cpu);
 		goto err;
 	}
 	s = qman_thread_init(worker->cpu, 0);
 	if (s) {
-		error(EXIT_SUCCESS, -s,
+		error(0, -s,
 		      "No available Qman portals for cpu %d",
 		      worker->cpu);
 		bman_thread_finish();
@@ -517,7 +517,7 @@ static void *worker_fn(void *__worker)
 			bman_poll_slow();
 			qman_poll_slow();
 			if (s < 0) {
-				error(EXIT_SUCCESS, 0, "QBMAN select error");
+				error(0, 0, "QBMAN select error");
 				break;
 			}
 			if (!s)
@@ -612,21 +612,21 @@ int msg_do_test_speed(struct worker *worker)
 static void dump_cgr(const struct qm_mcr_querycgr *res)
 {
 	uint64_t val64;
-	error(EXIT_SUCCESS, 0, "      cscn_en: %d", res->cgr.cscn_en);
-	error(EXIT_SUCCESS, 0, "    cscn_targ: 0x%08x", res->cgr.cscn_targ);
-	error(EXIT_SUCCESS, 0, "      cstd_en: %d", res->cgr.cstd_en);
-	error(EXIT_SUCCESS, 0, "	   cs: %d", res->cgr.cs);
+	error(0, 0, "      cscn_en: %d", res->cgr.cscn_en);
+	error(0, 0, "    cscn_targ: 0x%08x", res->cgr.cscn_targ);
+	error(0, 0, "      cstd_en: %d", res->cgr.cstd_en);
+	error(0, 0, "	   cs: %d", res->cgr.cs);
 	val64 = qm_cgr_cs_thres_get64(&res->cgr.cs_thres);
-	error(EXIT_SUCCESS, 0,
+	error(0, 0,
 	      "	   cs_thresh: 0x%02x_%04x_%04x", (uint32_t)(val64 >> 32),
 	      (uint32_t)(val64 >> 16) & 0xffff, (uint32_t)val64 & 0xffff);
-	error(EXIT_SUCCESS, 0, "	 mode: %d", res->cgr.mode);
+	error(0, 0, "	 mode: %d", res->cgr.mode);
 	val64 = qm_mcr_querycgr_i_get64(res);
-	error(EXIT_SUCCESS, 0,
+	error(0, 0,
 	      "	i_bcnt: 0x%02x_%04x_%04x", (uint32_t)(val64 >> 32),
 	      (uint32_t)(val64 >> 16) & 0xffff, (uint32_t)val64 & 0xffff);
 	val64 = qm_mcr_querycgr_a_get64(res);
-	error(EXIT_SUCCESS, 0,
+	error(0, 0,
 	      "	a_bcnt: 0x%02x_%04x_%04x", (uint32_t)(val64 >> 32),
 	      (uint32_t)(val64 >> 16) & 0xffff, (uint32_t)val64 & 0xffff);
 }
@@ -635,10 +635,10 @@ static int msg_query_cgr(struct worker *worker)
 	int ret = msg_post(worker, worker_msg_query_cgr);
 	if (ret)
 		return ret;
-	error(EXIT_SUCCESS, 0,
+	error(0, 0,
 	      "Rx CGR ID: %d, selected fields;", cgr_rx.cgrid);
 	dump_cgr(&worker->msg->query_cgr.res_rx);
-	error(EXIT_SUCCESS, 0,
+	error(0, 0,
 	      "Tx CGR ID: %d, selected fields;", cgr_tx.cgrid);
 	dump_cgr(&worker->msg->query_cgr.res_tx);
 	return 0;
@@ -700,7 +700,7 @@ static struct worker *worker_new(int cpu, int is_primary)
 	if (!msg_list(ret))
 		return ret;
 out:
-	error(EXIT_SUCCESS, 0,
+	error(0, 0,
 	      "error: failed to create worker for cpu %d", cpu);
 	return NULL;
 }
@@ -727,7 +727,7 @@ static void worker_free(struct worker *worker)
 	err = pthread_join(worker->id, NULL);
 	if (err) {
 		/* Leak, but warn */
-		error(EXIT_SUCCESS, 0,
+		error(0, 0,
 		      "Failed to join thread uid:%u (cpu %d)",
 		      worker->uid, worker->cpu);
 		return;
@@ -743,7 +743,7 @@ static int worker_reap(struct worker *worker)
 	if (pthread_tryjoin_np(worker->id, NULL))
 		return -EBUSY;
 	if (worker == primary) {
-		error(EXIT_SUCCESS, 0, "Primary thread died!");
+		error(0, 0, "Primary thread died!");
 		abort();
 	}
 	if (!list_empty(&worker->node))
@@ -802,7 +802,7 @@ static int parse_cpu(const char *str, const char **legit, int legitlen)
 		(*legit)++;
 	}
 out:
-	error(EXIT_SUCCESS, 0, "error: invalid cpu '%s'", str);
+	error(0, 0, "error: invalid cpu '%s'", str);
 	return ret;
 }
 
@@ -908,7 +908,7 @@ static int ppac_cli_help(int argc, char *argv[])
 
 	puts("Available commands:");
 	foreach_cli_table_entry(cli_cmd) {
-		error(EXIT_SUCCESS, 0, "%s ", cli_cmd->cmd);
+		error(0, 0, "%s ", cli_cmd->cmd);
 	}
 	puts("");
 
@@ -1101,35 +1101,35 @@ int main(int argc, char *argv[])
 	 * hard-coded into the netcfg code). */
 	netcfg = usdpaa_netcfg_acquire(pcd_path, cfg_path);
 	if (!netcfg) {
-		error(EXIT_SUCCESS, 0,
+		error(0, 0,
 		      "error: failed to load configuration");
 		return -EINVAL;
 	}
 	if (!netcfg->num_ethports) {
-		error(EXIT_SUCCESS, 0,
+		error(0, 0,
 		      "error: no network interfaces available");
 		return -EINVAL;
 	}
 	if (!netcfg->num_pool_channels) {
-		error(EXIT_SUCCESS, 0,
+		error(0, 0,
 		      "error: no pool channels available");
 		return -EINVAL;
 	}
 
 	fra_cfg = fra_parse_cfgfile(fra_cfg_path);
 	if (!fra_cfg) {
-		error(EXIT_SUCCESS, 0,
+		error(0, 0,
 		      "failed to load fra configuration");
 		return -EINVAL;
 	}
 	/* - initialise DPAA */
 	rcode = qman_global_init(0);
 	if (rcode)
-		error(EXIT_SUCCESS, 0,
+		error(0, 0,
 		      "error: qman global init, continuing");
 	rcode = bman_global_init(0);
 	if (rcode)
-		error(EXIT_SUCCESS, 0,
+		error(0, 0,
 		      "error: bman global init, continuing");
 	fprintf(stderr, "Configuring for %d network interface%s"
 		" and %d pool channel%s\n",
@@ -1148,7 +1148,7 @@ int main(int argc, char *argv[])
 	FRA_DBG("Initialising shmem");
 	rcode = dma_mem_setup();
 	if (rcode)
-		error(EXIT_SUCCESS, 0, "error: shmem init, continuing");
+		error(0, 0, "error: shmem init, continuing");
 
 	/* Create the threads */
 	FRA_DBG("Starting %d threads for cpu-range '%d..%d'",
@@ -1170,7 +1170,7 @@ int main(int argc, char *argv[])
 		/* Reap any dead threads */
 		list_for_each_entry_safe(worker, tmpworker, &workers, node)
 			if (!worker_reap(worker))
-				error(EXIT_SUCCESS, 0,
+				error(0, 0,
 				      "Caught dead thread uid:%u (cpu %d)",
 				      worker->uid, worker->cpu);
 
@@ -1191,7 +1191,7 @@ int main(int argc, char *argv[])
 
 		cli_argv = history_tokenize(cli);
 		if (unlikely(cli_argv == NULL)) {
-			error(EXIT_SUCCESS, 0,
+			error(0, 0,
 			      "Out of memory while parsing: %s", cli);
 			free(cli);
 			continue;
@@ -1203,7 +1203,7 @@ int main(int argc, char *argv[])
 			if (strcmp(cli_argv[0], cli_cmd->cmd) == 0) {
 				rcode = cli_cmd->handle(cli_argc, cli_argv);
 				if (unlikely(rcode < 0))
-					error(EXIT_SUCCESS, 0, "%s: %s",
+					error(0, 0, "%s: %s",
 					      cli_cmd->cmd, strerror(-rcode));
 				add_history(cli);
 				break;

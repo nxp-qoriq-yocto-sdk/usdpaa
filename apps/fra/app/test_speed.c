@@ -157,7 +157,7 @@ static void test_speed_send_cmd(uint16_t data)
 
 	msg = msg_alloc(RIO_TYPE_DBELL);
 	if (!msg) {
-		error(EXIT_SUCCESS, 0, "msg alloc fails");
+		error(0, 0, "msg alloc fails");
 		return;
 	}
 
@@ -219,7 +219,7 @@ test_speed_cmd_rx_handler(struct distribution *dist, struct tx_opt *opt,
 		test_speed.packets_size = data & test_speed_cmd_mask;
 		break;
 	default:
-		error(EXIT_SUCCESS, 0,
+		error(0, 0,
 			"testspeed receive an unkown command 0x%x", data);
 		break;
 	}
@@ -277,7 +277,7 @@ void test_speed_send_msg(void)
 		/*init test dist*/
 		msg = msg_alloc(RIO_TYPE_DSTR);
 		if (!msg) {
-			error(EXIT_SUCCESS, 0, "msg_alloc failed");
+			error(0, 0, "msg_alloc failed");
 			return;
 		}
 		msg->len = test_speed.packets_size;
@@ -384,22 +384,22 @@ static int fra_cli_test_speed(int argc, char *argv[])
 	}
 
 	if (!test_speed_dist_tx) {
-		error(EXIT_SUCCESS, 0, "can not find %s distribution",
+		error(0, 0, "can not find %s distribution",
 			test_speed_dist_tx_name);
 		return -EINVAL;
 	}
 	if (!test_speed_dist_rx) {
-		error(EXIT_SUCCESS, 0, "can not find %s distribution",
+		error(0, 0, "can not find %s distribution",
 			test_speed_dist_rx_name);
 		return -EINVAL;
 	}
 	if (!test_speed_dist_cmd_tx) {
-		error(EXIT_SUCCESS, 0, "can not find %s distribution",
+		error(0, 0, "can not find %s distribution",
 			test_speed_dist_cmd_tx_name);
 		return -EINVAL;
 	}
 	if (!test_speed_dist_cmd_rx) {
-		error(EXIT_SUCCESS, 0, "can not find %s distribution",
+		error(0, 0, "can not find %s distribution",
 			test_speed_dist_cmd_rx_name);
 		return -EINVAL;
 	}
