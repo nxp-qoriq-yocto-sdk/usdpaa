@@ -47,7 +47,8 @@
  * The MMSEPR0 setting assigns AG0 to only execute on SU0
  * AG1 on SU1, AG2 on SU2, AG3 on SU3.
  */
-#define MMSEPR0_MAILBOX 0x01020408
+#define MMSEPR0_MAILBOX 0x010234F8
+#define MMSEPR0_DEFAULT 0x030F3FFF
 
 /* Inbound Block TypeX Classification Registers */
 struct rman_ibcu_regs {
@@ -414,6 +415,8 @@ rman_global_regs_init(const struct device_node *global_regs_node,
 	/* mailbox supports max 4 receive frame queue */
 	write_reg(&rmdev->global_regs->mmt11fqar,
 		  cfg->fq_bits[RIO_TYPE11] << 8);
+	/* Set MMSEPR0 default value to avoid mailbox workaround impact */
+	write_reg(&rmdev->global_regs->mmsepr0, MMSEPR0_DEFAULT);
 
 	return 0;
 }
