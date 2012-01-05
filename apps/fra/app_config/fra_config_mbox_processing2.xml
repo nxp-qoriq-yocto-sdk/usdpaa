@@ -60,7 +60,7 @@
 	<transaction name="mbox-10gec" type="11">
 		<flowlvl value="0" mask="2"/>
 		<mbox value="1" mask="0"/>
-		<ltr value="0" mask="3" />
+		<ltr value="0" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 	<transaction name="mbox-dtsec4" type="11">
