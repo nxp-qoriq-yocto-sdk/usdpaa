@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010 - 2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -541,30 +541,46 @@ const uint32_t *of_get_address(const struct device_node *dev_node, size_t idx,
 }
 
 uint64_t of_translate_address(const struct device_node *dev_node,
-				const u32 *addr)
+			      const uint32_t *addr)
 {
-	uint32_t	 na;
-	uint64_t	 phys_addr, tmp_addr;
-	const uint32_t	*regs_addr;
+	uint32_t na, pna;
+	uint32_t rlen;
+	uint64_t phys_addr, tmp_addr;
+	const struct device_node *parent;
+	const uint32_t *ranges;
 
 	WARN_ON(!alive, "Device-tree driver not initialised");
 	assert(dev_node != NULL);
 
-	phys_addr = *addr;
+	na = of_n_addr_cells(dev_node);
+	phys_addr = of_read_number(addr, na);
+
+	dev_node = of_get_parent(dev_node);
+	if (!dev_node)
+		return 0;
+	else if (node2dir(dev_node) == &root_dir)
+		return phys_addr;
+
 	do {
-		dev_node = of_get_parent(dev_node);
-		if (!dev_node) {
-			phys_addr = 0;
-			break;
-		}
-		regs_addr = of_get_address(dev_node, 0, NULL, NULL);
-		if (!regs_addr)
-			break;
-		na = of_n_addr_cells(dev_node);
-		for (tmp_addr = 0; na > 0; na--, regs_addr++)
-			tmp_addr = (tmp_addr << 32) + *regs_addr;
+		pna = of_n_addr_cells(dev_node);
+		parent = of_get_parent(dev_node);
+		if (!parent)
+			return 0;
+
+		ranges = of_get_property(dev_node, "ranges", &rlen);
+		/* "ranges" property is missing. Translation breaks */
+		if (!ranges)
+			return 0;
+		/* "ranges" property is empty. Do 1:1 translation */
+		else if (rlen == 0)
+			continue;
+		else
+			tmp_addr = of_read_number(ranges + na, pna);
+
+		na = pna;
+		dev_node = parent;
 		phys_addr += tmp_addr;
-	} while (node2dir(dev_node) != &root_dir);
+	} while (node2dir(parent) != &root_dir);
 
 	return phys_addr;
 }
