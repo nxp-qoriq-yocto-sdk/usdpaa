@@ -40,6 +40,8 @@ dist_DATA =						\
 	usdpaa_config_p4_serdes_0x10.xml		\
 	usdpaa_config_p4_serdes_0xe.xml			\
 	usdpaa_policy_hash_ipv4.xml			\
+	usdpaa_policy_hash_ipv4_arp_coarse_classify.xml \
+	usdpaa_custom_coarse_classify_netpdl.xml	\
 	usdpaa_policer.xml
 
 AM_CFLAGS = -I$(TOP_LEVEL)/apps/include
