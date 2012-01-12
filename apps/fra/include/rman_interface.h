@@ -88,7 +88,6 @@ struct rman_outb_md {
 	union {
 		uint8_t retry; /* Retry error threshold */
 		uint8_t hop_count; /* Hop count in RapidIO port-write packet*/
-		uint8_t address; /* Byte aligned address of write transaction */
 	} __packed;
 	/* word1 */
 	uint32_t address;
