@@ -1,4 +1,4 @@
-/* Copyright (c) 2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2011 - 2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,168 +35,163 @@
 #include "dma_driver.h"
 #include <error.h>
 
-/* This function maps DMA registers */
-int fsl_dma_uio_init(struct dma_dev **dmadev)
+/* This function maps DMA registers by channels */
+int fsl_dma_chan_init(struct dma_ch **dma_ch, uint8_t dma_id, uint8_t ch_id)
 {
-	int dma_fd;
-	int i, j;
 	int err = 0;
-	size_t lenp;
-	const uint32_t *cell_index;
-	uint32_t dma_id;
-	struct dma_dev *dma_uio;
+	struct dma_ch *dma_uio;
 	char dma_uio_name[PATH_MAX];
-	const struct device_node *dt_node;
+	const struct device_node *dma_node, *child;
+	const uint32_t *cell_index;
+	const uint32_t *regs_addr;
+	uint64_t phys_addr = 0;
+	uint64_t regs_size;
+	uint32_t offset;
+	size_t lenp;
 
-	dma_uio = malloc(sizeof(*dma_uio));
+	for_each_compatible_node(dma_node, NULL, "fsl,eloplus-dma") {
+		cell_index = (typeof(cell_index))of_get_property(dma_node,
+							"cell-index", &lenp);
+		if (!cell_index) {
+			err = -ENODEV;
+			error(0, err, "%s(): cell-index", __func__);
+			return err;
+		}
+
+		if (*cell_index != dma_id)
+			continue;
+
+		/* Get DMA channel node register physical address */
+		for_each_child_node(dma_node, child) {
+			cell_index = of_get_property(child, "cell-index", NULL);
+			if (!cell_index) {
+				err = -ENODEV;
+				error(0, -err, "%s(): of_get_property()",
+				      __func__);
+				return err;
+			}
+
+			if (*cell_index == ch_id) {
+				regs_addr = of_get_address(child, 0,
+							   &regs_size, NULL);
+				if (!regs_addr) {
+					err = -ENODEV;
+					error(0, -err, "%s(): of_get_address()",
+					      __func__);
+					return err;
+				}
+				phys_addr = of_translate_address(child,
+								 regs_addr);
+				if (!phys_addr) {
+					err = -ENODEV;
+					error(0, -err,
+					      "%s(): of_translate_address()",
+					      __func__);
+					return err;
+				}
+				break;
+			} else
+				continue;
+		}
+
+		break;
+	}
+
+	/* Calculate DMA channel offset in a page */
+	offset =  phys_addr & PAGE_MASK;
+
+	dma_uio = (typeof(dma_uio))malloc(sizeof(struct dma_ch));
 	if (!dma_uio)
 		return -errno;
 
 	memset(dma_uio, 0, sizeof(*dma_uio));
 
-	for_each_compatible_node(dt_node, NULL, "fsl,eloplus-dma") {
-		cell_index = (typeof(cell_index))of_get_property(
-			dt_node, "cell-index", &lenp);
+	/* DMA uio name is dma-uio[0~1]-[0~4] */
+	snprintf(dma_uio_name, PATH_MAX - 1, "/dev/dma-uio%d-%d",
+			dma_id, ch_id);
 
-		if (*cell_index > ARRAY_SIZE(dma_uio->dma_ctrl)) {
-			error(0, ENODEV, "%s(): cell-index", __func__);
-			err = -ENODEV;
-			continue;
-		}
-		dma_uio->dma_num++;
-		dma_id = *cell_index;
-		/* DMA UIO name is dma-uio[0~1]-[0~4] */
-		snprintf(dma_uio_name, PATH_MAX - 1, "/dev/dma-uio%d-0",
-			 dma_id);
-		/* dma-uio0-[0~3] registers map base are the same,
-		 * so just open one device for register map.
-		 * So are dma-uio1-[0~3] registers.
-		 */
-		dma_fd = open(dma_uio_name, O_RDWR);
-		if (dma_fd < 0) {
-			error(0, errno, "%s(): %s", __func__, dma_uio_name);
-			err = -errno;
-			goto err_dma_open;
-		}
-		dma_uio->dma_ctrl[dma_id].dma_fd = dma_fd;
-		dma_uio->dma_ctrl[dma_id].ch[0].ch_regs =
-			mmap(0, DMA_REG_MAP_SIZE, PROT_READ | PROT_WRITE,
-			     MAP_SHARED, dma_fd, 0);
-
-		if (!dma_uio->dma_ctrl[dma_id].ch[0].ch_regs) {
-			error(0, errno, "%s()", __func__);
-			err = -errno;
-			goto err_dma_mmap;
-		}
-
-		dma_uio->dma_ctrl[dma_id].ch[0].ch_regs =
-			(typeof(dma_uio->dma_ctrl[dma_id].ch[0].ch_regs))
-			((uintptr_t)dma_uio->dma_ctrl[dma_id].ch[0].ch_regs +
-			 DMA_BASE_OFFSET);
-		for (j = 0; j < ARRAY_SIZE(dma_uio->dma_ctrl[dma_id].ch); j++) {
-			dma_uio->dma_ctrl[dma_id].ch[j].ch_regs =
-				(typeof(dma_uio->dma_ctrl[dma_id].ch[j].ch_regs))
-				((uintptr_t)dma_uio->dma_ctrl[dma_id].ch[0].ch_regs +
-				 DMA_REG_SIZE * j);
-		}
+	dma_uio->fd = open(dma_uio_name, O_RDWR);
+	if (dma_uio->fd < 0) {
+		error(0, errno, "%s(): %s", __func__, dma_uio_name);
+		err = -errno;
+		goto err_dma_open;
 	}
-
-	if (err < 0)
-		goto err_dma_uio_malloc;
-
-	*dmadev = dma_uio;
+	dma_uio->regs = mmap(0, regs_size, PROT_READ | PROT_WRITE,
+				MAP_SHARED, dma_uio->fd, 0);
+	if (!dma_uio->regs) {
+		error(0, errno, "%s(): dma register", __func__);
+		err = -errno;
+		goto err_dma_mmap;
+	}
+	dma_uio->regs = (typeof(dma_uio->regs))
+			((uint8_t *)dma_uio->regs + offset);
+	*dma_ch = dma_uio;
 
 	return 0;
 
 err_dma_mmap:
-	for (i = 0; i < dma_uio->dma_num; i++)
-		if (dma_uio->dma_ctrl[i].ch[0].ch_regs) {
-			err = munmap(dma_uio->dma_ctrl[i].ch[0].ch_regs,
-				     DMA_REG_SIZE);
-			if (err < 0)
-				error(0, errno, "%s()", __func__);
-		}
+	close(dma_uio->fd);
 err_dma_open:
-	for (i = 0; i < dma_uio->dma_num; i++)
-		if (dma_uio->dma_ctrl[i].dma_fd) {
-			err = close(dma_uio->dma_ctrl[i].dma_fd);
-			if (err < 0)
-				error(0, errno, "%s()", __func__);
-		}
-err_dma_uio_malloc:
 	free(dma_uio);
 
 	return err;
 }
 
-
-/* This function releases DMA related resource */
-int fsl_dma_uio_finish(struct dma_dev *dmadev)
+/* This function releases DMA related resource. */
+int fsl_dma_chan_finish(struct dma_ch *dma_ch)
 {
-	int i;
-
-	if (!dmadev)
+	if (!dma_ch)
 		return -EINVAL;
 
-	for (i = 0; i < dmadev->dma_num; i++) {
-		if (dmadev->dma_ctrl[i].ch[0].ch_regs)
-			munmap(dmadev->dma_ctrl[i].ch[0].ch_regs, DMA_REG_SIZE);
-		if (dmadev->dma_ctrl[i].dma_fd)
-			close(dmadev->dma_ctrl[i].dma_fd);
+	if (dma_ch->regs != NULL) {
+		munmap(dma_ch->regs, PAGE_SIZE);
+		close(dma_ch->fd);
 	}
 
-	free(dmadev);
-
+	free(dma_ch);
 	return 0;
 }
-
 /* This function initializes DMA controller in direct mode */
-int fsl_dma_chan_basic_direct_init(struct dma_dev *dmadev,
-				   uint8_t dma_id, uint8_t chan_id)
+int fsl_dma_chan_basic_direct_init(struct dma_ch *dma_ch)
 {
-	if (!dmadev || dma_id > dmadev->dma_num || chan_id > DMA_CHAN_NUM)
+	if (!dma_ch)
 		return -EINVAL;
 
 	/* Write: Snoop local processor */
-	out_be32(&dmadev->dma_ctrl[dma_id].ch[chan_id].ch_regs->datr,
-		 DMA_DATR_WR_SNOOP);
-	/* Read: Snoop local processor */
-	out_be32(&dmadev->dma_ctrl[dma_id].ch[chan_id].ch_regs->satr,
-		 DMA_SATR_RD_SNOOP);
-	/* Direct mode, single reg write, write dest start DMA */
-	out_be32(&dmadev->dma_ctrl[dma_id].ch[chan_id].ch_regs->mr,
-		 DMA_MR_BWC_DIS | DMA_MR_SRW_EN | DMA_MR_CTM_EN);
+	out_be32(&dma_ch->regs->datr, DMA_DATR_WR_SNOOP);
+	/* Read: Snoop local processor*/
+	out_be32(&dma_ch->regs->satr, DMA_SATR_RD_SNOOP);
+	/* direct mode, single reg write, write dest start dma */
+	out_be32(&dma_ch->regs->mr,
+		DMA_MR_BWC_DIS | DMA_MR_SRW_EN | DMA_MR_CTM_EN);
 
 	return 0;
 }
 
 /* Using this function can set BWC of DMA channel */
-int fsl_dma_chan_bwc(struct dma_dev *dmadev, uint8_t dma_id,
-		     uint8_t chan_id, uint8_t bwc)
+int fsl_dma_chan_bwc(struct dma_ch *dma_ch, uint8_t bwc)
 {
-	if (!dmadev || dma_id > dmadev->dma_num || chan_id > DMA_CHAN_NUM)
+	if (!dma_ch)
 		return -EINVAL;
 
-	out_be32(&dmadev->dma_ctrl[dma_id].ch[chan_id].ch_regs->mr,
-		 (in_be32(&dmadev->dma_ctrl[dma_id].ch[chan_id].ch_regs->mr)
-		  & ~DMA_BWC_MASK) | (bwc << DMA_BWC_OFFSET));
+	out_be32(&dma_ch->regs->mr, (in_be32(&dma_ch->regs->mr) &
+		~DMA_BWC_MASK) | (bwc << DMA_BWC_OFFSET));
 
 	return 0;
 }
 
 /* This function waits for DMA operation completion or error */
-int fsl_dma_wait(struct dma_dev *dmadev, uint8_t dma_id, uint8_t chan_id)
+int fsl_dma_wait(struct dma_ch *dma_ch)
 {
-	if (!dmadev || dma_id > dmadev->dma_num || chan_id > DMA_CHAN_NUM)
+	if (!dma_ch)
 		return -EINVAL;
 
-	while (in_be32(&dmadev->dma_ctrl[dma_id].ch[chan_id].ch_regs->sr)
-	       & DMA_SR_CH_BUSY);
+	while (in_be32(&dma_ch->regs->sr) & DMA_SR_CH_BUSY)
+		;
 
-	if (in_be32(&dmadev->dma_ctrl[dma_id].ch[chan_id].ch_regs->sr) &
-	    DMA_SR_ERR) {
-		error(0, EBUSY, "%s(): DMA transfer", __func__);
-		out_be32(&dmadev->dma_ctrl[dma_id].ch[chan_id].ch_regs->sr, ~0);
+	if (in_be32(&dma_ch->regs->sr) & DMA_SR_ERR) {
+		error(0, EBUSY, "%s(): dma transfer", __func__);
+		out_be32(&dma_ch->regs->sr, ~0);
 		return -EBUSY;
 	}
 
@@ -204,29 +199,28 @@ int fsl_dma_wait(struct dma_dev *dmadev, uint8_t dma_id, uint8_t chan_id)
 }
 
 /* This function starts DMA transmission in direct mode */
-int fsl_dma_direct_start(struct dma_dev *dmadev, uint8_t dma_id,
-			 uint8_t chan_id, dma_addr_t src_phys,
-			 dma_addr_t dest_phys, size_t len)
+int fsl_dma_direct_start(struct dma_ch *dma_ch, dma_addr_t src_phys,
+			dma_addr_t dest_phys, uint32_t len)
 {
-	if (!dmadev || dma_id > dmadev->dma_num || chan_id > DMA_CHAN_NUM)
+	if (!dma_ch)
 		return -EINVAL;
 
 	/* Wait for DMA channel free */
-	fsl_dma_wait(dmadev, dma_id, chan_id);
+	fsl_dma_wait(dma_ch);
 	/* Data len */
-	out_be32(&dmadev->dma_ctrl[dma_id].ch[chan_id].ch_regs->bcr, len);
+	out_be32(&dma_ch->regs->bcr, len);
 	/* Prepare the high 4 bit of the 36 bit DMA address */
-	out_be32(&dmadev->dma_ctrl[dma_id].ch[chan_id].ch_regs->satr,
-		 (in_be32(&dmadev->dma_ctrl[dma_id].ch[chan_id].ch_regs->satr)
-		  & ~0xf) | (uint32_t)(src_phys >> 32));
-	out_be32(&dmadev->dma_ctrl[dma_id].ch[chan_id].ch_regs->datr,
-		 (in_be32(&dmadev->dma_ctrl[dma_id].ch[chan_id].ch_regs->datr)
-		  & ~0xf) | (uint32_t)(dest_phys >> 32));
+	out_be32(&dma_ch->regs->satr,
+		(in_be32(&dma_ch->regs->satr)
+		& ~0xf) | (uint32_t)(src_phys >> 32));
+	out_be32(&dma_ch->regs->datr,
+		(in_be32(&dma_ch->regs->datr) & ~0xf) |
+		(uint32_t)(dest_phys >> 32));
 	/* Set the low 32 bit address */
-	out_be32(&dmadev->dma_ctrl[dma_id].ch[chan_id].ch_regs->sar, src_phys);
+	out_be32(&dma_ch->regs->sar, (uint32_t)src_phys);
 	/* Make sure the early data is set */
 	__sync_synchronize();
-	out_be32(&dmadev->dma_ctrl[dma_id].ch[chan_id].ch_regs->dar, dest_phys);
+	out_be32(&dma_ch->regs->dar, (uint32_t)dest_phys);
 	/* Make sure DMA start */
 	__sync_synchronize();
 

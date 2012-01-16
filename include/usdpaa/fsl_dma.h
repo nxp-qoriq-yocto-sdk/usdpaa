@@ -48,16 +48,13 @@ enum {
 	DMA_BWC_DIS = 0xf
 };
 
-struct dma_dev;
+struct dma_ch;
 
-int fsl_dma_uio_init(struct dma_dev **dmadev);
-int fsl_dma_uio_finish(struct dma_dev *dmadev);
-int fsl_dma_chan_basic_direct_init(struct dma_dev *dmadev,
-				   uint8_t dma_id, uint8_t chan_id);
-int fsl_dma_chan_bwc(struct dma_dev *dmadev, uint8_t dma_id,
-		     uint8_t chan_id, uint8_t bwc);
-int fsl_dma_wait(struct dma_dev *dmadev, uint8_t dma_id, uint8_t chan_id);
-int fsl_dma_direct_start(struct dma_dev *dmadev, uint8_t dma_id,
-			 uint8_t chan_id, dma_addr_t src_phys,
-			 dma_addr_t dest_phys, size_t len);
+int fsl_dma_chan_init(struct dma_ch **dma_ch, uint8_t dma_id, uint8_t ch_id);
+int fsl_dma_chan_finish(struct dma_ch *dma_ch);
+int fsl_dma_chan_basic_direct_init(struct dma_ch *dma_ch);
+int fsl_dma_chan_bwc(struct dma_ch *dma_ch, uint8_t bwc);
+int fsl_dma_wait(struct dma_ch *dma_ch);
+int fsl_dma_direct_start(struct dma_ch *dma_ch, dma_addr_t src_phys,
+			dma_addr_t dest_phys, uint32_t len);
 #endif

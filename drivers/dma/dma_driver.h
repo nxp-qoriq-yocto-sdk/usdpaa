@@ -30,11 +30,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define DMA_REG_MAP_SIZE	0x1000	/* Should match the kernel UIO map size */
-#define DMA_BASE_OFFSET		0x100
-#define DMA_REG_SIZE		0x80
-#define DMA_CTRL_OFFSET		0x1000
-#define LOW_32BIT_MASK		0xffffffff
+#define PAGE_SIZE	0x1000
+#define PAGE_MASK	(PAGE_SIZE - 1)
 #define DMA_DATR_WR_SNOOP	0x50000
 #define DMA_SATR_RD_SNOOP	0x50000
 #define DMA_MR_BWC_DIS		(0xf << 24)
@@ -42,8 +39,6 @@
 #define DMA_MR_CTM_EN		(0x1 << 2)
 #define DMA_SR_CH_BUSY		(0x1 << 2)
 #define DMA_SR_ERR		(0xf << 4)
-#define DMA_CTRL_MAX_NUM	2
-#define DMA_CHAN_NUM		4
 #define DMA_BWC_MASK		(0xf << 24)
 #define DMA_BWC_OFFSET		24
 
@@ -70,15 +65,6 @@ struct dma_ch_regs {
 };
 
 struct dma_ch {
-	struct dma_ch_regs *ch_regs;
-};
-
-struct dma_controller {
-	struct dma_ch ch[DMA_CHAN_NUM];
-	uint32_t dma_fd;
-};
-
-struct dma_dev {
-	struct dma_controller dma_ctrl[DMA_CTRL_MAX_NUM];
-	uint32_t dma_num;
+	struct dma_ch_regs *regs;	/* channel register map */
+	int32_t fd;			/* dma channel uio device fd */
 };
