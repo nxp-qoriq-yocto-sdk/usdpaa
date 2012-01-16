@@ -1,4 +1,4 @@
-/* Copyright (c) 2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2011 - 2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -308,25 +308,22 @@ static int cmd_translate(int32_t cmd_num, char **cmd_in)
 	return err;
 }
 
-static int op_implement(struct srio_dev *sriodev, struct dma_dev *dmadev,
+static int op_implement(struct srio_dev *sriodev, struct dma_ch *dmadev,
 			struct srio_port_data  *port_data)
 {
 	uint8_t port_id = cmd_param.curr_port_id;
 	int i, j, k, err;
 	const char *pri;
-	uint8_t dma_id;
-
-	dma_id = port_id % 2;
 
 	switch (cmd_param.port[port_id].op_type) {
 	case SRIO_DIR_WRITE:
-		fsl_dma_direct_start(dmadev, dma_id, 0,
+		fsl_dma_direct_start(dmadev,
 				     port_data[port_id].phys.write_data_prep,
 				     port_data[port_id].port_info.range_start,
 				     cmd_param.port[port_id].op_len);
 		break;
 	case SRIO_DIR_READ:
-		fsl_dma_direct_start(dmadev, dma_id, 0,
+		fsl_dma_direct_start(dmadev,
 				     port_data[port_id].port_info.range_start,
 				     port_data[port_id].phys.read_recv_data,
 				     cmd_param.port[port_id].op_len);
@@ -360,7 +357,7 @@ static int op_implement(struct srio_dev *sriodev, struct dma_dev *dmadev,
 			}
 	}
 
-	err = fsl_dma_wait(dmadev, dma_id, 0);
+	err = fsl_dma_wait(dmadev);
 	if (err < 0) {
 		fsl_srio_clr_bus_err(sriodev);
 		return err;
@@ -386,7 +383,7 @@ static int attr_implement(struct srio_dev *sriodev,
 	return 0;
 }
 
-static int srio_perf_test(struct srio_dev *sriodev, struct dma_dev *dmadev,
+static int srio_perf_test(struct srio_dev *sriodev, struct dma_ch *dmadev,
 			  struct srio_port_data	 *port_data)
 {
 	int i, j, k, h, err;
@@ -420,7 +417,7 @@ static int srio_perf_test(struct srio_dev *sriodev, struct dma_dev *dmadev,
 			printf("\n----------BWC is Disabled----------\n");
 		}
 
-		fsl_dma_chan_bwc(dmadev, 0, 0, h);
+		fsl_dma_chan_bwc(dmadev, h);
 
 		for (i = 0; i < ARRAY_SIZE(srio_test_win_attrv); i++) {
 			printf("\nSRIO %s Test for %d times\n",
@@ -450,11 +447,11 @@ static int srio_perf_test(struct srio_dev *sriodev, struct dma_dev *dmadev,
 				atb_clock_reset(atb_clock);
 				for (k = 0; k < TEST_MAX_TIMES; k++) {
 					atb_clock_start(atb_clock);
-					fsl_dma_direct_start(dmadev, 0, 0,
+					fsl_dma_direct_start(dmadev,
 							     src_phys, dest_phys,
 							     (1 << j));
 
-					err = fsl_dma_wait(dmadev, 0, 0);
+					err = fsl_dma_wait(dmadev);
 					if (err < 0) {
 						error(0, -err,
 						      "SRIO transmission failed");
@@ -482,7 +479,7 @@ static int srio_perf_test(struct srio_dev *sriodev, struct dma_dev *dmadev,
 	return 0;
 }
 
-static int cmd_implement(struct srio_dev *sriodev, struct dma_dev *dmadev,
+static int cmd_implement(struct srio_dev *sriodev, struct dma_ch *dmadev,
 			 struct srio_port_data	*port_data)
 {
 	switch (cmd_param.curr_cmd) {
@@ -574,7 +571,7 @@ static void cmd_format_print(void)
 int main(int argc, char *argv[])
 {
 	struct srio_dev *sriodev;
-	struct dma_dev *dmadev;
+	struct dma_ch *dmadev;
 	struct dma_pool *dmapool = NULL;
 	int i, err;
 	struct srio_port_data *port_data;
@@ -619,13 +616,6 @@ int main(int argc, char *argv[])
 
 	dma_pool_init(&dmapool);
 
-	err = fsl_dma_uio_init(&dmadev);
-	if (err < 0) {
-		error(0, -err, "%s(): fsl_dma_uio_init()", __func__);
-		goto err_srio_conneced;
-
-	}
-
 	for (i = 0; i < port_num; i++) {
 		dma_addr_t port_phys_base =
 			dmapool->dma_phys_base + SRIO_POOL_PORT_OFFSET * i;
@@ -641,12 +631,17 @@ int main(int argc, char *argv[])
 			(dmapool->dma_virt_base + i * SRIO_POOL_PORT_OFFSET);
 	}
 
-	for (i = 0; i < 2; i++)
-		fsl_dma_chan_basic_direct_init(dmadev, i, 0);
+	err = fsl_dma_chan_init(&dmadev, 0, 0);
+	if (err < 0) {
+		error(0, -err, "%s(): fsl_dma_chan_init()", __func__);
+		goto err_srio_conneced;
+	}
+
+	fsl_dma_chan_basic_direct_init(dmadev);
 
 	cmd_implement(sriodev, dmadev, port_data);
 
-	fsl_dma_uio_finish(dmadev);
+	fsl_dma_chan_finish(dmadev);
 	dma_pool_finish(dmapool);
 	fsl_srio_uio_finish(sriodev);
 
