@@ -2,7 +2,7 @@
  * CAAM Descriptor Construction Library
  * Descriptor Instruction Generator
  */
-/* Copyright (c) 2008-2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2008-2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -511,7 +511,7 @@ uint32_t *cmd_insert_proto_op_ipsec(uint32_t *descwd, uint8_t cipheralg,
 		return 0;
 	}
 
-	return descwd++;
+	return descwd + 1;
 }
 
 /**
@@ -535,7 +535,7 @@ uint32_t *cmd_insert_proto_op_wimax(uint32_t *descwd, uint8_t mode,
 		  (mode ? OP_PCL_WIMAX_OFDMA : OP_PCL_WIMAX_OFDM) |
 		  (dir ? OP_TYPE_DECAP_PROTOCOL : OP_TYPE_ENCAP_PROTOCOL);
 
-	return descwd++;
+	return descwd + 1;
 }
 
 /**
@@ -554,7 +554,7 @@ uint32_t *cmd_insert_proto_op_wifi(uint32_t *descwd, enum protdir dir)
 	*descwd = CMD_OPERATION | OP_PCLID_WIFI | OP_PCL_WIFI |
 		  (dir ? OP_TYPE_DECAP_PROTOCOL : OP_TYPE_ENCAP_PROTOCOL);
 
-	return descwd++;
+	return descwd + 1;
 }
 
 /**
@@ -573,7 +573,7 @@ uint32_t *cmd_insert_proto_op_macsec(uint32_t *descwd, enum protdir dir)
 	*descwd = CMD_OPERATION | OP_PCLID_MACSEC | OP_PCL_MACSEC |
 		  (dir ? OP_TYPE_DECAP_PROTOCOL : OP_TYPE_ENCAP_PROTOCOL);
 
-	return descwd++;
+	return descwd + 1;
 }
 
 /**
@@ -596,7 +596,7 @@ uint32_t *cmd_insert_proto_op_unidir(uint32_t *descwd, uint32_t protid,
 {
 	*descwd = CMD_OPERATION | OP_TYPE_UNI_PROTOCOL | protid | protinfo;
 
-	return descwd++;
+	return descwd + 1;
 }
 
 /**
@@ -983,11 +983,17 @@ uint32_t *cmd_insert_store(uint32_t *descwd, void *data,
 	uint32_t *nextin;
 
 	*descwd = CMD_STORE | class_access | sg_flag | src |
-		  ((offset & LDST_OFFSET_MASK) << LDST_OFFSET_SHIFT) |
+		  ((offset << LDST_OFFSET_SHIFT) & LDST_OFFSET_MASK) |
 		  ((len & LDST_LEN_MASK) << LDST_LEN_SHIFT) |
 		  ((imm & LDST_IMM_MASK) << LDST_IMM_SHIFT);
 
 	descwd++;
+
+	/* SRC = 0x41 and 0x42 don't need pointer, descriptor
+	 * contents are stored in main memory */
+	if ((src == LDST_SRCDST_WORD_JOBDESCBUF) ||
+		(src == LDST_SRCDST_WORD_SHRDESCBUF))
+		return descwd;
 
 	if (imm == ITEM_INLINE) {
 		words = len >> 2;

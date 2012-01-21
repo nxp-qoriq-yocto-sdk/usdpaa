@@ -125,7 +125,7 @@ int32_t cnstr_shdsc_ipsec_encap(uint32_t *descbuf, uint16_t *bufsize,
 					    authdata->algtype,
 					    DIR_ENCAP);
 
-	endidx = descbuf - start + 1;
+	endidx = descbuf - start;
 	cmd_insert_shared_hdr(start, startidx, endidx, CTX_SAVE, SHR_SERIAL);
 	*bufsize = endidx;
 	return 0;
@@ -199,7 +199,7 @@ int32_t cnstr_shdsc_ipsec_decap(uint32_t *descbuf, uint16_t *bufsize,
 					    authdata->algtype,
 					    DIR_DECAP);
 
-	endidx = descbuf - start + 1;
+	endidx = descbuf - start;
 	cmd_insert_shared_hdr(start, startidx, endidx, CTX_SAVE, SHR_SERIAL);
 	*bufsize = endidx;
 	return 0;
@@ -233,7 +233,7 @@ int32_t cnstr_shdsc_wifi_encap(uint32_t *descbuf, uint16_t *bufsize,
 
 	descbuf = cmd_insert_proto_op_wifi(descbuf, DIR_ENCAP);
 
-	endidx = descbuf - start + 1;
+	endidx = descbuf - start;
 	cmd_insert_shared_hdr(start, startidx, endidx, CTX_SAVE, SHR_SERIAL);
 	*bufsize = endidx;
 
@@ -268,7 +268,7 @@ int32_t cnstr_shdsc_wifi_decap(uint32_t *descbuf, uint16_t *bufsize,
 
 	descbuf = cmd_insert_proto_op_wifi(descbuf, DIR_DECAP);
 
-	endidx = descbuf - start + 1;
+	endidx = descbuf - start;
 	cmd_insert_shared_hdr(start, startidx, endidx, CTX_SAVE, SHR_SERIAL);
 	*bufsize = endidx;
 
@@ -319,7 +319,7 @@ int32_t cnstr_shdsc_wimax_encap(uint32_t *descbuf, uint16_t *bufsize,
 	descbuf = cmd_insert_proto_op_wimax(descbuf, mode, DIR_ENCAP);
 
 	/* Now compute shared header */
-	endidx = descbuf - start + 1;
+	endidx = descbuf - start;
 	cmd_insert_shared_hdr(start, startidx, endidx, CTX_SAVE, SHR_SERIAL);
 	*bufsize = endidx;
 
@@ -369,7 +369,7 @@ int32_t cnstr_shdsc_wimax_decap(uint32_t *descbuf, uint16_t *bufsize,
 	descbuf = cmd_insert_proto_op_wimax(descbuf, mode, DIR_DECAP);
 
 	/* Now compute shared header */
-	endidx = descbuf - start + 1;
+	endidx = descbuf - start;
 	cmd_insert_shared_hdr(start, startidx, endidx, CTX_SAVE, SHR_SERIAL);
 	*bufsize = endidx;
 
@@ -416,7 +416,7 @@ int32_t cnstr_shdsc_macsec_encap(uint32_t *descbuf, uint16_t *bufsize,
 
 	descbuf = cmd_insert_proto_op_macsec(descbuf, DIR_ENCAP);
 
-	endidx = descbuf - start + 1;
+	endidx = descbuf - start;
 	cmd_insert_shared_hdr(start, startidx, endidx, CTX_SAVE, SHR_SERIAL);
 	*bufsize = endidx;
 
@@ -462,7 +462,7 @@ int32_t cnstr_shdsc_macsec_decap(uint32_t *descbuf, uint16_t *bufsize,
 
 	descbuf = cmd_insert_proto_op_macsec(descbuf, DIR_DECAP);
 
-	endidx = descbuf - start + 1;
+	endidx = descbuf - start;
 	cmd_insert_shared_hdr(start, startidx, endidx, CTX_SAVE, SHR_SERIAL);
 	*bufsize = endidx;
 

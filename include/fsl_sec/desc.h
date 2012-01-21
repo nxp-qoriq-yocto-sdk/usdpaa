@@ -2,7 +2,7 @@
  * CAAM descriptor composition header
  * Definitions to support CAAM descriptor instruction generation
  */
-/* Copyright (c) 2008-2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2008-2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -234,6 +234,8 @@
 #define LDST_SRCDST_WORD_PKHA_N_SZ      (0x12 << LDST_SRCDST_SHIFT)
 #define LDST_SRCDST_WORD_PKHA_E_SZ      (0x13 << LDST_SRCDST_SHIFT)
 #define LDST_SRCDST_WORD_DESCBUF        (0x40 << LDST_SRCDST_SHIFT)
+#define LDST_SRCDST_WORD_JOBDESCBUF     (0x41 << LDST_SRCDST_SHIFT)
+#define LDST_SRCDST_WORD_SHRDESCBUF     (0x42 << LDST_SRCDST_SHIFT)
 #define LDST_SRCDST_WORD_INFO_FIFO      (0x7a << LDST_SRCDST_SHIFT)
 
 /* Offset in source/destination                        */
