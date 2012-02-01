@@ -29,8 +29,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-lib_LIBRARIES = app_lpm_ip
+lib_LIBRARIES = app_lpm_net
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/lpm-ipfwd/include -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/lpm-ipfwd/lib -I$(TOP_LEVEL)/apps/lib
 
-app_lpm_ip_SOURCES := ip_forward.c ../../../lib/ip/ip_handler.c ip_route.c ../../../lib/ip/ip_local.c ip_output.c ../../../lib/ip/ip_protos.c fib.c hash.c
+app_lpm_net_SOURCES := ../../../lib/net/neigh.c ../../../lib/net/ll_cache.c
