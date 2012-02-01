@@ -1,4 +1,4 @@
-# Copyright (c) 2011 Freescale Semiconductor, Inc.
+# Copyright (c) 2012 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -29,10 +29,11 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback \
-	  hello_reflector ipfwd ipsecfwd sra fra lpm-ipfwd
+bin_PROGRAMS = lpm_ipfwd_app
 
-dist_DATA = SOURCE_THIS
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/lpm-ipfwd/lib -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/lpm-ipfwd/include
 
-# install the SOURCE_THIS file in the 'root' home directory
-SOURCE_THIS_install := root
+lpm_ipfwd_app_SOURCES :=  lpm-ipfwd.c
+lpm_ipfwd_app_LDADD := usdpaa_ppac usdpaa_qbman usdpaa_fman usdpaa_dma_mem usdpaa_of lpm_app_net lpm_app_ethernet lpm_app_ip lpm_app_mm lpm_apps_arp lpm_app_refcount usdpaa_syscfg
+lpm_ipfwd_app_sys_LDADD := rt
+lpm_ipfwd_app_LDFLAGS := $(LIBXML2_LDFLAGS) $(LIBEDIT_LDFLAGS) -T $(TOP_LEVEL)/apps/ppac/ppac.lds

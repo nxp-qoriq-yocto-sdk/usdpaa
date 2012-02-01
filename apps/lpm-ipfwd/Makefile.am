@@ -1,4 +1,4 @@
-# Copyright (c) 2011 Freescale Semiconductor, Inc.
+# Copyright (c) 2012 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -29,10 +29,4 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback \
-	  hello_reflector ipfwd ipsecfwd sra fra lpm-ipfwd
-
-dist_DATA = SOURCE_THIS
-
-# install the SOURCE_THIS file in the 'root' home directory
-SOURCE_THIS_install := root
+SUBDIRS = lib app app_config
