@@ -30,7 +30,6 @@
 #include "net/annotations.h"
 #include "ethernet/eth.h"
 #include "arp/arp.h"
-#include "ip/ip_hooks.h"
 #include "ip/ip_protos.h"
 #include "ip/ip_handler.h"
 #include "ip/ip_appconf.h"
@@ -40,7 +39,6 @@
 /** \brief	Holds all IP-related data structures */
 struct ip_stack_t {
 	struct ip_statistics_t *ip_stats;	/**< IPv4 Statistics */
-	struct ip_hooks_t hooks;		/**< Hooks for intermediate processing */
 	struct ip_protos_t protos;		/**< Protocol Handler */
 	struct neigh_table_t arp_table;		/**< ARP Table */
 	struct rt_t rt;				/**< Routing Table */
@@ -440,12 +438,6 @@ static int initialize_ip_stack(struct ip_stack_t *ip_stack)
 		pr_err("Unable to allocate rc structure for stack\n");
 		return -ENOMEM;
 	}
-
-	_errno = ip_hooks_init(&ip_stack->hooks);
-	if (unlikely(_errno < 0)) {
-		pr_err("Failed in IP Stack hooks initialized\n");
-		return _errno;
-	}
 	_errno = ip_protos_init(&ip_stack->protos);
 	if (unlikely(_errno < 0)) {
 		pr_err("IP Stack L4 Protocols initialized\n");
@@ -680,7 +672,6 @@ static int ppam_rx_error_init(struct ppam_rx_error *p,
 			      struct qm_fqd_stashing *stash_opts)
 {
 	p->stats = stack.ip_stats;
-	p->hooks = &stack.hooks;
 	p->protos = &stack.protos;
 	p->rc = stack.rc;
 
@@ -701,7 +692,6 @@ static int ppam_rx_default_init(struct ppam_rx_default *p,
 				struct qm_fqd_stashing *stash_opts)
 {
 	p->stats = stack.ip_stats;
-	p->hooks = &stack.hooks;
 	p->protos = &stack.protos;
 	p->rc = stack.rc;
 
@@ -764,7 +754,6 @@ static int ppam_rx_hash_init(struct ppam_rx_hash *p,
 			     unsigned idx, struct qm_fqd_stashing *stash_opts)
 {
 	p->stats = stack.ip_stats;
-	p->hooks = &stack.hooks;
 	p->protos = &stack.protos;
 	p->rc = stack.rc;
 

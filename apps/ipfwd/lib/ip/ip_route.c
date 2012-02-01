@@ -36,6 +36,7 @@ enum IP_STATUS ip_route_input(const struct ppam_rx_hash *ctxt,
 			      struct iphdr *ip_hdr, enum state source)
 {
 	enum IP_STATUS retval = IP_STATUS_DROP;
+	notes->dest = NULL;
 
 	switch (source) {
 	case SOURCE_POST_FMAN:

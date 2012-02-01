@@ -26,8 +26,6 @@
  */
 
 #include "ip_local.h"
-
-#include "ip_hooks.h"
 #include "ip_protos.h"
 
 enum IP_STATUS ip_local_deliver(const struct ppam_rx_hash *ctxt,
@@ -40,23 +38,10 @@ enum IP_STATUS ip_local_deliver(const struct ppam_rx_hash *ctxt,
 		ip_defragment(ctxt, notes, ip_hdr);
 		retval = IP_STATUS_STOLEN;
 	} else {
-		/* Call INPUT hooks */
-		retval = exec_hook(ctxt, IP_HOOK_INPUT, notes, ip_hdr, &ip_local_deliver_finish,
-				   SOURCE_POST_FMAN);
+		ip_protos_exec(ctxt, ip_hdr->protocol, notes, ip_hdr);
 	}
 
 	return retval;
-}
-
-enum IP_STATUS ip_local_deliver_finish(const struct ppam_rx_hash *ctxt,
-				       struct annotations_t *notes,
-				       struct iphdr *ip_hdr,
-				       enum state source)
-{
-#ifdef STATS_TBD
-	decorated_notify_inc_32(&ctxt->stats->ip_local_delivery);
-#endif
-	return ip_protos_exec(ctxt, ip_hdr->protocol, notes, ip_hdr);
 }
 
 void ip_defragment(const struct ppam_rx_hash *ctxt,

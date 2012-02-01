@@ -33,4 +33,4 @@ lib_LIBRARIES = app_rc_ip
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/ipfwd/include -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipfwd/lib -I$(TOP_LEVEL)/apps/lib
 
-app_rc_ip_SOURCES := ip_route.c ip_rc.c ip_output.c ip_forward.c ../../../lib/ip/ip_handler.c ../../../lib/ip/ip_local.c ../../../lib/ip/ip_protos.c ../../../lib/ip/ip_hooks.c ../../../lib/ip/ip_accept.c
+app_rc_ip_SOURCES := ip_route.c ip_rc.c ip_output.c ip_forward.c ../../../lib/ip/ip_handler.c ../../../lib/ip/ip_local.c ../../../lib/ip/ip_protos.c

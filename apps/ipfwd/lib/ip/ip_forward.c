@@ -31,7 +31,6 @@
 #include <ppac_interface.h>
 
 #include "common/common.h"
-#include "ip/ip_hooks.h"
 #include "ip_output.h"
 
 enum IP_STATUS ip_forward(const struct ppam_rx_hash *ctxt,
@@ -80,17 +79,5 @@ enum IP_STATUS ip_forward(const struct ppam_rx_hash *ctxt,
 	}
 
 	/* If we have not dropped yet, execute all of the forwarding hooks */
-	return exec_hook(ctxt, IP_HOOK_FORWARD, notes, ip_hdr, &ip_forward_finish,
-			 SOURCE_POST_FMAN);
-}
-
-enum IP_STATUS ip_forward_finish(const struct ppam_rx_hash *ctxt,
-				 struct annotations_t *notes,
-				 struct iphdr *ip_hdr,
-				 enum state source)
-{
-#ifdef STATS_TBD
-	decorated_notify_inc_32(&ctxt->stats->ip_out_forward);
-#endif
 	return ip_send(ctxt, notes, ip_hdr);
 }

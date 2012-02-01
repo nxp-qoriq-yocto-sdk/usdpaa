@@ -26,14 +26,13 @@
  */
 
 #include "ip_handler.h"
-
-#include "ip_accept.h"
+#include "ip/ip_route.h"
 
 void ip_handler(const struct ppam_rx_hash *ctxt, struct annotations_t *notes, void *data)
 {
 #ifdef STATS_TBD
 	decorated_notify_inc_32(&ctxt->stats->ip_in_received);
 #endif
-	notes->dest = NULL;
-	ip_accept_preparsed(ctxt, notes, data +  sizeof(struct ether_header), SOURCE_POST_FMAN);
+	ip_route_input(ctxt, notes, data +  sizeof(struct ether_header),
+			SOURCE_POST_FMAN);
 }

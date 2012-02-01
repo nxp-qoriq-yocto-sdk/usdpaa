@@ -31,7 +31,6 @@
 #include <ppac.h>
 
 #include "net/neigh.h"
-#include "ip/ip_hooks.h"
 
 /*
  * If packet length > next_hop mtu, call ip_fragment
@@ -51,8 +50,7 @@ enum IP_STATUS ip_output(const struct ppam_rx_hash *ctxt,
 			 struct annotations_t *notes,
 			 struct iphdr *ip_hdr)
 {
-	return exec_hook(ctxt, IP_HOOK_POSTROUTING, notes, ip_hdr, &ip_output_finish,
-			 SOURCE_POST_FMAN);
+	return ip_output_finish(ctxt, notes, ip_hdr, SOURCE_POST_FMAN);
 }
 
 /*
