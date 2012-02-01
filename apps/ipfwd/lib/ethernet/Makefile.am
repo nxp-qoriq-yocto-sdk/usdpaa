@@ -1,4 +1,4 @@
-# Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
+# Copyright (c) 2010-2012 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -29,8 +29,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-lib_LIBRARIES = app_ethernet
+lib_LIBRARIES = app_rc_ethernet
 
-AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipfwd/lib -I$(TOP_LEVEL)/apps/ipfwd/include
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/ipfwd/include -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipfwd/lib -I$(TOP_LEVEL)/apps/lib
 
-app_ethernet_SOURCES := eth.c
+app_rc_ethernet_SOURCES := ../../../lib/ethernet/eth.c
