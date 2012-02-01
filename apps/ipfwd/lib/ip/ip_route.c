@@ -28,8 +28,8 @@
 
 #include "ip_route.h"
 
-#include "ip_forward.h"
-#include "ip_local.h"
+#include "ip/ip_forward.h"
+#include "ip/ip_local.h"
 
 enum IP_STATUS ip_route_input(const struct ppam_rx_hash *ctxt,
 			      struct annotations_t *notes,

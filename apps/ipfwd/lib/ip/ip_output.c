@@ -31,7 +31,7 @@
 #include <ppac.h>
 
 #include "net/neigh.h"
-#include "ip_hooks.h"
+#include "ip/ip_hooks.h"
 
 /*
  * If packet length > next_hop mtu, call ip_fragment

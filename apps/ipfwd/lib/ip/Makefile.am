@@ -29,8 +29,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-lib_LIBRARIES = app_ip
+lib_LIBRARIES = app_rc_ip
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/ipfwd/include -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipfwd/lib -I$(TOP_LEVEL)/apps/lib
 
-app_ip_SOURCES := ip_accept.c ip_forward.c ip_handler.c ip_route.c ip_rc.c ip_hooks.c ip_local.c ip_output.c ip_protos.c
+app_rc_ip_SOURCES := ip_route.c ip_rc.c ip_output.c ip_forward.c ../../../lib/ip/ip_handler.c ../../../lib/ip/ip_local.c ../../../lib/ip/ip_protos.c ../../../lib/ip/ip_hooks.c ../../../lib/ip/ip_accept.c

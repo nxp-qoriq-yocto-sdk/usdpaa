@@ -26,12 +26,12 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "ip_forward.h"
+#include "ip/ip_forward.h"
 
 #include <ppac_interface.h>
 
 #include "common/common.h"
-#include "ip_hooks.h"
+#include "ip/ip_hooks.h"
 #include "ip_output.h"
 
 enum IP_STATUS ip_forward(const struct ppam_rx_hash *ctxt,

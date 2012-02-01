@@ -30,7 +30,7 @@
 #include "ip_accept.h"
 
 #include "ip_hooks.h"
-#include "ip_route.h"
+#include "ip/ip_route.h"
 
 enum IP_STATUS ip_accept_preparsed(const struct ppam_rx_hash *ctxt,
 				   struct annotations_t *notes,

@@ -46,7 +46,7 @@ enum IP_STATUS {
 	IP_STATUS_REPEAT = 4,		/**< Repeated packet */
 	IP_STATUS_HOLD = 5
 };
-enum state{
+enum state {
 	SOURCE_POST_ENCAP,
 	SOURCE_POST_DECAP,
 	SOURCE_POST_FMAN,

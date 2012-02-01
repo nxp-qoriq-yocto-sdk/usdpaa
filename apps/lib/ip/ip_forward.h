@@ -71,7 +71,8 @@ static inline uint16_t ip_checksum(struct iphdr *ip_hdr, uint8_t len)
 		of these fail
  \param[in]	ctxt	Context
  \param[in]	notes	Annotaion
- \param[in]	ip_hdr	Pointer to the header of IPPacket that needs to be forwarded
+ \param[in]	ip_hdr	Pointer to the header of IPPacket that needs
+ to be forwarded
  \return	Status
  */
 enum IP_STATUS ip_forward(const struct ppam_rx_hash *ctxt,
