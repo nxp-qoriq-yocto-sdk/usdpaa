@@ -1,10 +1,9 @@
 /**
- \file frame_desc.h
- \brief This file contains data structures and defines related to
- Frame Descriptor
+ \file ll_cache.c
+ \brief Creates Link Layer Cache
  */
 /*
- * Copyright (C) 2010 - 2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010-2011 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,22 +25,17 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef __LIB_NET_FRAME_DESC_H
-#define __LIB_NET_FRAME_DESC_H
+#include "ll_cache.h"
 
-#include <usdpaa/compat.h>
-#include <usdpaa/fsl_qman.h>
-
-#include "ipfwd/fm_types.h"
-
-/**
- \brief Returns the Length of the Buffer in the fd
- \param[in] fd Pointer to fd
- \return Length in bytes
- */
-static inline uint32_t get_single_fd_length(struct qm_fd *fd)
+struct ll_cache_t *ll_cache_create()
 {
-	return fd->length20;
-}
+	int _errno;
+	void *llc;
 
-#endif /* __LIB_NET_FRAME_DESC_H */
+	_errno = posix_memalign(&llc, L1_CACHE_BYTES,
+				sizeof(struct ll_cache_t));
+	if (unlikely(_errno < 0))
+		return NULL;
+
+	return memset(llc, 0, sizeof(*llc));
+}

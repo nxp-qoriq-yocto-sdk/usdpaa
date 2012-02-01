@@ -33,6 +33,7 @@
 #include <ppac.h>
 
 #include "common/refcount.h"
+#include <fsl_fman.h>
 
 #define NEIGH_STATE_UNKNOWN	0x00
 /**< Entry State - Unknown*/
@@ -190,7 +191,8 @@ static inline uint32_t compute_neigh_hash(const void *key, uint32_t key_len)
 
 /** \brief		Initializes the neighbour table
  *  \param[out]	table	Neighbour table
- *  \return		On success, zero. On error, a negative value as per errno.h
+ *  \return		On success, zero. On error, a negative
+ value as per errno.h
  */
 int neigh_table_init(struct neigh_table_t *table);
 

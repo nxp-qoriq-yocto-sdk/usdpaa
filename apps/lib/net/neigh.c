@@ -32,10 +32,9 @@
 #include "rcu_lock.h"
 #endif
 #include "neigh.h"
-#include "rt.h"
 #include "ethernet/eth.h"
-#include "app_common.h"
 #include "bigatomic.h"
+#include "mm/mem_cache.h"
 
 #include <assert.h>
 
@@ -73,7 +72,8 @@ int neigh_table_init(struct neigh_table_t *table)
 	uint32_t entries;
 	int _errno, i;
 
-	_errno = posix_memalign((void **)&table->stats, L1_CACHE_BYTES, sizeof(*table->stats));
+	_errno = posix_memalign((void **)&table->stats,
+				L1_CACHE_BYTES, sizeof(*table->stats));
 	if (unlikely(_errno < 0))
 		return _errno;
 	memset(table->stats, 0, sizeof(*table->stats));
@@ -161,7 +161,8 @@ struct neigh_t *neigh_init(struct neigh_table_t *nt, struct neigh_t *n,
 	return n;
 }
 
-struct neigh_t *neigh_update(struct neigh_t *n, const uint8_t *lladdr, uint8_t state)
+struct neigh_t *neigh_update(struct neigh_t *n,
+			const uint8_t *lladdr, uint8_t state)
 {
 	struct ppac_interface *i;
 	struct ether_header eth_hdr;
@@ -176,8 +177,10 @@ struct neigh_t *neigh_update(struct neigh_t *n, const uint8_t *lladdr, uint8_t s
 			spin_unlock(&n->wlock);
 			return NULL;
 		}
-		memcpy(eth_hdr.ether_dhost, lladdr, sizeof(eth_hdr.ether_dhost));
-		memcpy(eth_hdr.ether_shost, &i->port_cfg->fman_if->mac_addr, sizeof(eth_hdr.ether_shost));
+		memcpy(eth_hdr.ether_dhost, lladdr,
+				sizeof(eth_hdr.ether_dhost));
+		memcpy(eth_hdr.ether_shost, &i->port_cfg->fman_if->mac_addr,
+				sizeof(eth_hdr.ether_shost));
 		i->ppam_data.cache_header(n->ll_cache, &eth_hdr);
 		n->output = n->funcs->reachable_output;
 		n->neigh_state = state;

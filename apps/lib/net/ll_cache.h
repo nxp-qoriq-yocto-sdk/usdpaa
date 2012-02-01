@@ -28,6 +28,7 @@
 #ifndef _LIB_NET_LL_CACHE_H
 #define _LIB_NET_LL_CACHE_H
 
+#include <internal/compat.h>
 #include "common/common.h"
 #include "net/net.h"
 

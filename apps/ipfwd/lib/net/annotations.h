@@ -30,8 +30,7 @@
 
 #include <usdpaa/compat.h>
 #include <usdpaa/fsl_qman.h>
-
-#include "frame_desc.h"
+#include "ipfwd/fm_types.h"
 #include "rt.h"
 
 /**
