@@ -29,11 +29,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-bin_PROGRAMS = lpm_ipfwd_app
+lib_LIBRARIES = lpm_app_ip
 
-AM_CFLAGS := -I$(TOP_LEVEL)/apps/lpm-ipfwd/lib -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/lpm-ipfwd/include
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/lpm-ipfwd/include -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/lpm-ipfwd/lib -I$(TOP_LEVEL)/apps/lib
 
-lpm_ipfwd_app_SOURCES :=  lpm-ipfwd.c
-lpm_ipfwd_app_LDADD := usdpaa_ppac usdpaa_qbman usdpaa_fman usdpaa_dma_mem usdpaa_of app_net app_ethernet app_ip lpm_app_ip app_mm apps_arp app_refcount usdpaa_syscfg
-lpm_ipfwd_app_sys_LDADD := rt
-lpm_ipfwd_app_LDFLAGS := $(LIBXML2_LDFLAGS) $(LIBEDIT_LDFLAGS) -T $(TOP_LEVEL)/apps/ppac/ppac.lds
+lpm_app_ip_SOURCES := fib.c hash.c
