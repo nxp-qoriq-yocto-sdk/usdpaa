@@ -214,7 +214,6 @@ void bman_thread_irq(void)
 int bman_global_init(void)
 {
 	const struct device_node *dt_node;
-	int ret;
 	static int done = 0;
 	if (done)
 		return -EBUSY;
