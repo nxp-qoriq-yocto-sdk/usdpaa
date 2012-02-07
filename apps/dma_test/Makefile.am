@@ -1,5 +1,4 @@
-# Copyright (c) 2011 Freescale Semiconductor, Inc.
-# All rights reserved.
+# Copyright 2012 Freescale Semiconductor, Inc.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -29,10 +28,9 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback \
-	  hello_reflector ipfwd ipsecfwd sra fra lpm-ipfwd dma_test
+bin_PROGRAMS = dma_test
 
-dist_DATA = SOURCE_THIS
-
-# install the SOURCE_THIS file in the 'root' home directory
-SOURCE_THIS_install := root
+dma_test_SOURCES := dma_test.c
+dma_test_LDADD := usdpaa_dma_mem usdpaa_process
+dma_test_CFLAGS := $(LIBEDIT_CFLAGS)
+dma_test_LDFLAGS := $(LIBEDIT_LDFLAGS)
