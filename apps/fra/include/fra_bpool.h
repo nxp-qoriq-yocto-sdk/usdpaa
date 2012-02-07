@@ -105,7 +105,7 @@ static inline void bpool_fd_free(const struct qm_fd *fd)
 	}
 	if (fd->format == qm_fd_sg) {
 		int i, j;
-		sgt = dma_mem_ptov(qm_fd_addr(fd)) + fd->offset;
+		sgt = __dma_mem_ptov(qm_fd_addr(fd)) + fd->offset;
 		i = 0;
 		do {
 			bp = bpool_array[sgt[i].bpid].pool;
@@ -165,8 +165,7 @@ static inline void bpool_buffer_free(const struct bm_buffer *bmb)
 	bm_buffer_free(bp, bmb, 1);
 }
 
-int bpool_init(uint8_t bpid);
-int bpools_init(const struct bpool_config *bpcfg, int count);
+void bpools_init(const struct bpool_config *bpcfg, int count);
 void bpools_finish(void);
 
 #endif	/* _FRA_BPOOL_H_ */

@@ -103,9 +103,12 @@ static void *worker_fn(void *__worker)
 			exit(EXIT_FAILURE);
 		}
 		/* Map the DMA-able memory */
-		err = dma_mem_setup();
-		if (err)
-			fprintf(stderr, "Continuing despite dma_mem failure\n");
+		dma_mem_generic = dma_mem_create(DMA_MAP_FLAG_ALLOC, NULL,
+						 0x400000);
+		if (!dma_mem_generic) {
+			fprintf(stderr, "dma_mem_create() failed\n");
+			exit(EXIT_FAILURE);
+		}
 		/* The main thread is waiting on this */
 		pthread_barrier_wait(&worker->global_init_barrier);
 	}

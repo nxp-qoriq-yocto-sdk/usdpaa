@@ -35,8 +35,8 @@ int32_t ipsec_config_create(void)
 	struct ipsec_tunnel_config_t *config;
 	uint32_t entries;
 
-	config = dma_mem_memalign(L1_CACHE_BYTES,
-			sizeof(struct ipsec_tunnel_config_t));
+	config = __dma_mem_memalign(L1_CACHE_BYTES,
+				    sizeof(struct ipsec_tunnel_config_t));
 	if (config == NULL) {
 		fprintf(stderr, "error: %s: dma_mem_memalign failed\n",
 			__func__);
@@ -209,7 +209,7 @@ int32_t ipsec_tunnel_encap_init(struct ipsec_tunnel_config_entry_t *config,
 	}
 	/* create outer ip, initialize fq - pdb, fq contexts etc. */
 
-	outer_ip_hdr = dma_mem_memalign(L1_CACHE_BYTES, sizeof(struct iphdr));
+	outer_ip_hdr = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(struct iphdr));
 	if (outer_ip_hdr == NULL) {
 		fprintf(stderr, "error: %s: Unable to allocate memory for"
 			" outer ip header\n", __func__);
@@ -233,7 +233,7 @@ int32_t ipsec_tunnel_encap_init(struct ipsec_tunnel_config_entry_t *config,
 			     config->tunnel_dst_ip_addr,
 			     *next_hop_addr, ipsec_stack, tunnel_route, entry,
 			     false, scope);
-	dma_mem_free(outer_ip_hdr, sizeof(struct iphdr));
+	__dma_mem_free(outer_ip_hdr);
 	return 0;
 }
 

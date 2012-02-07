@@ -42,17 +42,17 @@ static inline void ipsec_encap_decap(struct ipsec_context_t *ipsec_ctxt,
 
 	switch (dqrr->fd.format) {
 	case qm_fd_contig:
-		notes = dma_mem_ptov(qm_fd_addr(&dqrr->fd));
+		notes = __dma_mem_ptov(qm_fd_addr(&dqrr->fd));
 		data = (void *)notes + dqrr->fd.offset;
 		break;
 	case qm_fd_compound:
-		sg = dma_mem_ptov(qm_fd_addr(&dqrr->fd));
-		notes = dma_mem_ptov(qm_sg_entry_get64(sg));
+		sg = __dma_mem_ptov(qm_fd_addr(&dqrr->fd));
+		notes = __dma_mem_ptov(qm_sg_entry_get64(sg));
 		data = (void *)notes + sg->offset;
 		break;
 	case qm_fd_sg:
-		sg = dma_mem_ptov(qm_fd_addr(&dqrr->fd) + dqrr->fd.offset);
-		data = dma_mem_ptov(qm_sg_entry_get64(sg) + sg->offset);
+		sg = __dma_mem_ptov(qm_fd_addr(&dqrr->fd) + dqrr->fd.offset);
+		data = __dma_mem_ptov(qm_sg_entry_get64(sg) + sg->offset);
 		break;
 	default:
 		fprintf(stderr, "error: %s: Unsupported format packet came\n",

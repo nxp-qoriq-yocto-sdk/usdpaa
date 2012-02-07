@@ -33,7 +33,13 @@
 #include <usdpaa/dma_mem.h>
 #include <internal/process.h>
 
-/* Hook to allocator.c */
-int dma_mem_alloc_init(void *bar, size_t sz);
-int dma_mem_alloc_reinit(void *newbar, size_t newsz,
-			 void *oldbar, size_t oldsz);
+struct dma_mem {
+	struct __dma_mem_addr addr;
+	size_t sz;
+	uint32_t flags;
+	int has_locking;
+	char name[USDPAA_DMA_NAME_MAX];
+};
+
+/* Hooks for initialisation an allocator */
+void dma_mem_allocator_init(struct dma_mem *mem);

@@ -192,7 +192,7 @@ int ppac_interface_init(unsigned idx)
 			return err;
 	}
 	/* allocate stashable memory for the interface object */
-	i = dma_mem_memalign(L1_CACHE_BYTES, size);
+	i = __dma_mem_memalign(L1_CACHE_BYTES, size);
 	if (!i)
 		return -ENOMEM;
 	memset(i, 0, size);
@@ -206,13 +206,13 @@ int ppac_interface_init(unsigned idx)
 			PPAC_TX_FQS_OFFLINE : PPAC_TX_FQS_1G;
 	i->tx_fqs = malloc(sizeof(*i->tx_fqs) * i->num_tx_fqs);
 	if (!i->tx_fqs) {
-		dma_mem_free(i, size);
+		__dma_mem_free(i);
 		return -ENOMEM;
 	}
 	err = ppam_interface_init(&i->ppam_data, port, i->num_tx_fqs);
 	if (err) {
 		free(i->tx_fqs);
-		dma_mem_free(i, size);
+		__dma_mem_free(i);
 		return err;
 	}
 	memset(i->tx_fqs, 0, sizeof(*i->tx_fqs) * i->num_tx_fqs);
@@ -269,7 +269,7 @@ int ppac_interface_init_rx(struct ppac_interface *i)
 		struct ppac_pcd_range *pcd_range;
 		size_t size = sizeof(struct ppac_pcd_range) +
 				fqr->count * sizeof(struct ppac_rx_hash);
-		pcd_range = dma_mem_memalign(L1_CACHE_BYTES, size);
+		pcd_range = __dma_mem_memalign(L1_CACHE_BYTES, size);
 		if (!pcd_range)
 			return -ENOMEM;
 
@@ -342,7 +342,7 @@ void ppac_interface_finish(struct ppac_interface *i)
 
 	ppam_interface_finish(&i->ppam_data);
 	free(i->tx_fqs);
-	dma_mem_free(i, i->size);
+	__dma_mem_free(i);
 }
 void ppac_interface_finish_rx(struct ppac_interface *i)
 {

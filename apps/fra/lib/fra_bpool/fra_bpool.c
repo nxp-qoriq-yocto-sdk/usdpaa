@@ -48,7 +48,7 @@ static void bp_depletion(struct bman_portal *bm __always_unused,
 }
 #endif
 
-int bpool_init(uint8_t bpid)
+static int bpool_init(uint8_t bpid)
 {
 	struct bman_pool_params params = {
 		.bpid	= bpid,
@@ -74,7 +74,7 @@ int bpool_init(uint8_t bpid)
 }
 
 /* Initialise and see any BPIDs we've been configured to set up */
-static int bpool_node_init(const struct bpool_config *cfg, dma_addr_t phys_addr)
+static void bpool_node_init(const struct bpool_config *cfg)
 {
 	struct bman_pool	*pool;
 	struct bm_buffer	bufs[8];
@@ -89,7 +89,7 @@ static int bpool_node_init(const struct bpool_config *cfg, dma_addr_t phys_addr)
 		error(0, -err,
 		      "BPOOL error: failed to initialize bpool (%d)",
 		      bpid);
-		return err;
+		return;
 	}
 	pool = bpool_array[bpid].pool;
 	bpool_array[bpid].size = cfg->sz;
@@ -115,8 +115,13 @@ static int bpool_node_init(const struct bpool_config *cfg, dma_addr_t phys_addr)
 	for (num_bufs = 0; num_bufs < cfg->num; ) {
 		rel = (cfg->num - num_bufs) > 8 ? 8 : (cfg->num - num_bufs);
 		for (loop = 0; loop < rel; loop++) {
-			bm_buffer_set64(&bufs[loop], phys_addr);
-			phys_addr += cfg->sz;
+			void *ptr = __dma_mem_memalign(cfg->sz, cfg->sz);
+			if (!ptr) {
+				fprintf(stderr, "error: insufficient memory\n");
+				break;
+			}
+			bm_buffer_set64(&bufs[loop],
+					__dma_mem_vtop(ptr));
 		}
 		do {
 			err = bman_release(pool, bufs, rel, 0);
@@ -127,29 +132,14 @@ static int bpool_node_init(const struct bpool_config *cfg, dma_addr_t phys_addr)
 	}
 	error(0, 0, "BPOOL: Release %u bufs to BPID %d",
 	      num_bufs, bpid);
-	return 0;
 }
 
 /* Initialise and see any BPIDs we've been configured to set up */
-int bpools_init(const struct bpool_config *bpcfg, int count)
+void bpools_init(const struct bpool_config *bpcfg, int count)
 {
-	const struct bpool_config	*cfg;
-	int loop = 0;
-	dma_addr_t phys_top_addr;
-	dma_addr_t phys_addr = dma_mem_bpool_base();
-	dma_addr_t phys_limit = phys_addr + dma_mem_bpool_range();
-	while (loop < count) {
-		cfg = bpcfg + loop;
-		phys_top_addr = phys_addr + cfg->sz * cfg->num;
-		if (phys_top_addr > phys_limit)
-			error(EXIT_FAILURE, 0,
-			      "BPOOL error: buffer overflow");
-
-		bpool_node_init(cfg, phys_addr);
-		phys_addr = phys_top_addr;
-		loop++;
-	}
-	return 0;
+	int loop;
+	for (loop = 0; loop < count; loop++)
+		bpool_node_init(&bpcfg[loop]);
 }
 
 void bpools_finish(void)

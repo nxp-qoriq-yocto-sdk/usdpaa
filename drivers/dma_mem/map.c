@@ -41,7 +41,7 @@ dma_addr_t dma_map_single(void *dev __always_unused, void *cpu_addr,
 			size_t size __maybe_unused,
 			enum dma_data_direction direction __always_unused)
 {
-	return dma_mem_vtop(cpu_addr);
+	return dma_mem_vtop(dma_mem_findv(cpu_addr), cpu_addr);
 }
 
 int dma_mapping_error(void *dev __always_unused,

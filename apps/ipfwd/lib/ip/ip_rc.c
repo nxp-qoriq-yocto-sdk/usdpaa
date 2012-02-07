@@ -250,14 +250,14 @@ struct rc_t *rc_init(uint32_t expire_jiffies, uint32_t proto_len)
 	/* Allocate memory for route cache from dma_mem region.
 	This region is permanently mapped and so won't suffer TLB
 	faults unlike conventional memory allocations */
-	rc = dma_mem_memalign(L1_CACHE_BYTES, sizeof(struct rc_t));
+	rc = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(struct rc_t));
 	if (rc == NULL) {
 		pr_err("%s : Route Cache Creation Failed", __func__);
 		return NULL;
 	}
 	rc->stats =
-		dma_mem_memalign(L1_CACHE_BYTES,
-				sizeof(struct rc_statistics_t));
+		__dma_mem_memalign(L1_CACHE_BYTES,
+				   sizeof(struct rc_statistics_t));
 	if (rc->stats == NULL) {
 		pr_err("%s : Unable to allocate Route Cache Stats\n",
 							__func__);
@@ -269,13 +269,13 @@ struct rc_t *rc_init(uint32_t expire_jiffies, uint32_t proto_len)
 	if (unlikely(rc->free_entries == NULL)) {
 		pr_err("%s : Unable to create Free Route Cache"
 				"Entries\n", __func__);
-		dma_mem_free(rc->stats, sizeof(struct rc_statistics_t));
+		__dma_mem_free(rc->stats);
 		return NULL;
 	}
 
 	entries = mem_cache_refill(rc->free_entries, RC_ENTRY_POOL_SIZE);
 	if (unlikely(entries != RC_ENTRY_POOL_SIZE)) {
-		dma_mem_free(rc->stats, sizeof(struct rc_statistics_t));
+		__dma_mem_free(rc->stats);
 		/** \todo mem_cache_destory(rc->free_entries); */
 		return NULL;
 	}
@@ -307,9 +307,9 @@ void rc_delete(struct rc_t *rc)
 	if (rc->free_entries == NULL)
 		return NULL;
 #endif
-	dma_mem_free(rc->stats, sizeof(struct rc_statistics_t));
+	__dma_mem_free(rc->stats);
 
-	dma_mem_free(rc, sizeof(struct rc_t));
+	__dma_mem_free(rc);
 
 	return;
 }

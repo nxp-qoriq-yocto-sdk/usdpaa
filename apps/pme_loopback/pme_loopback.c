@@ -317,7 +317,8 @@ static int do_prep_scan(struct worker *worker, struct worker_msg *msg)
 	worker->pattern_width = msg->prep_scan_msg.pattern_width;
 	worker->low_inflight = msg->prep_scan_msg.low_inflight;
 	worker->high_inflight = msg->prep_scan_msg.high_inflight;
-	worker->scan_data = dma_mem_memalign(L1_CACHE_BYTES, worker->scan_size);
+	worker->scan_data = __dma_mem_memalign(L1_CACHE_BYTES,
+					       worker->scan_size);
 	worker->use_comp_frame = msg->prep_scan_msg.use_comp_frame;
 
 	if (!worker->scan_data) {
@@ -354,8 +355,8 @@ static int do_prep_scan(struct worker *worker, struct worker_msg *msg)
 		printf("\n");
 	}
 
-	worker->sg_table = dma_mem_memalign(L1_CACHE_BYTES,
-					sizeof(struct qm_sg_entry)*2);
+	worker->sg_table = __dma_mem_memalign(L1_CACHE_BYTES,
+					      sizeof(struct qm_sg_entry) * 2);
 	/* Initialize each scan_data */
 	memset(&worker->fd_in, 0, sizeof(worker->fd_in));
 	memset(worker->sg_table, 0, sizeof(struct qm_sg_entry)*2);
@@ -394,7 +395,8 @@ static int do_prep_scan_2(struct worker *worker, struct worker_msg *msg)
 	worker->scan_size = msg->prep_scan_2_msg.scan_size;
 	worker->low_inflight = msg->prep_scan_2_msg.low_inflight;
 	worker->high_inflight = msg->prep_scan_2_msg.high_inflight;
-	worker->scan_data = dma_mem_memalign(L1_CACHE_BYTES, worker->scan_size);
+	worker->scan_data = __dma_mem_memalign(L1_CACHE_BYTES,
+					       worker->scan_size);
 	worker->use_comp_frame = msg->prep_scan_2_msg.use_comp_frame;
 
 	if (!worker->scan_data) {
@@ -413,8 +415,8 @@ static int do_prep_scan_2(struct worker *worker, struct worker_msg *msg)
 		printf("%c", ((char *)worker->scan_data)[z]);
 	printf("\n");
 
-	worker->sg_table = dma_mem_memalign(L1_CACHE_BYTES,
-					sizeof(struct qm_sg_entry)*2);
+	worker->sg_table = __dma_mem_memalign(L1_CACHE_BYTES,
+					      sizeof(struct qm_sg_entry) * 2);
 	/* Initialize each scan_data */
 	memset(&worker->fd_in, 0, sizeof(worker->fd_in));
 	memset(worker->sg_table, 0, sizeof(struct qm_sg_entry)*2);
@@ -462,13 +464,11 @@ static void do_stop_scan(struct worker *worker)
 static int do_free_mem(struct worker *worker)
 {
 	if (worker->sg_table) {
-		dma_mem_free(worker->sg_table,
-			sizeof(struct qm_sg_entry)*2);
+		__dma_mem_free(worker->sg_table);
 		worker->sg_table = NULL;
 	}
 	if (worker->scan_data) {
-		dma_mem_free(worker->scan_data,
-			worker->scan_size);
+		__dma_mem_free(worker->scan_data);
 		worker->scan_data = NULL;
 	}
 #ifndef USE_MALLOC
@@ -1401,9 +1401,9 @@ int main(int argc, char *argv[])
 	if (rcode)
 		fprintf(stderr, "error: bman global init, continuing\n");
 	/* - map shmem */
-	TRACE("Initialising shmem\n");
-	rcode = dma_mem_setup();
-	if (rcode)
+	TRACE("Initialising dma_mem\n");
+	dma_mem_generic = dma_mem_create(DMA_MAP_FLAG_ALLOC, NULL, 0x1000000);
+	if (!dma_mem_generic)
 		fprintf(stderr, "error: shmem init, continuing\n");
 
 	/* Create the threads */

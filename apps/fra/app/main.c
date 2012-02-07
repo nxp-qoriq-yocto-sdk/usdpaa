@@ -93,6 +93,8 @@ int __attribute__((weak)) ppam_thread_poll(void)
 	return 0;
 }
 
+#define FRA_NUM_POOL_CHANNELS	4
+#define DMA_MEM_SIZE		0x4000000 /* 64MB */
 #define DMA_MEM_BP4_BPID	10
 #define DMA_MEM_BP4_SIZE	80
 #define DMA_MEM_BP4_NUM		0x100 /* 0x100*80==20480 (20KB) */
@@ -130,6 +132,10 @@ const struct bpool_config  bpool_config[] = {
 
 /* The SDQCR mask to use (computed from netcfg's pool-channels) */
 static uint32_t sdqcr;
+/* The dynamically allocated pool-channels, and the iterator index that loops
+ * around them binding Rx FQs to them in a round-robin fashion. */
+static uint32_t pchannel_idx;
+static uint32_t pchannels[PPAC_NUM_POOL_CHANNELS];
 
 /* The follow global variables are non-static because they're used from inlined
  * code in ppac.h too. */
@@ -179,17 +185,36 @@ struct qman_cgr cgr_rx;
 struct qman_cgr cgr_tx;
 #endif
 
-static uint32_t pchannel_idx;
-
 int lazy_init_bpool(uint8_t bpid, uint8_t depletion_notify)
 {
 	return 0;
 }
 
+static int init_pool_channels(void)
+{
+	int ret = qman_alloc_pool_range(&pchannels[0], FRA_NUM_POOL_CHANNELS,
+					1, 0);
+	if (ret != FRA_NUM_POOL_CHANNELS)
+		return -ENOMEM;
+	for (ret = 0; ret < FRA_NUM_POOL_CHANNELS; ret++) {
+		sdqcr |= QM_SDQCR_CHANNELS_POOL_CONV(pchannels[ret]);
+		TRACE("Adding pool 0x%x to SDQCR, 0x%08x -> 0x%08x\n",
+		      pchannels[ret],
+		      QM_SDQCR_CHANNELS_POOL_CONV(pchannels[ret]),
+		      sdqcr);
+	}
+	return 0;
+}
+
+static void finish_pool_channels(void)
+{
+	qman_release_pool_range(pchannels[0], FRA_NUM_POOL_CHANNELS);
+}
+
 enum qm_channel get_rxc(void)
 {
-	enum qm_channel ret = netcfg->pool_channels[pchannel_idx];
-	pchannel_idx = (pchannel_idx + 1) % netcfg->num_pool_channels;
+	enum qm_channel ret = pchannels[pchannel_idx];
+	pchannel_idx = (pchannel_idx + 1) % FRA_NUM_POOL_CHANNELS;
 	return ret;
 }
 
@@ -272,8 +297,6 @@ static void do_global_init(void)
 #ifdef PPAC_CGR
 	ppac_cgr_init(netcfg);
 #endif
-	dma_mem_bpool_set_range(DMA_MEM_BPOOL_SIZE);
-	bpools_init(bpool_config, ARRAY_SIZE(bpool_config));
 	for (loop = 0; loop < PPAC_MAX_BPID; loop++)
 		pool[loop] = bpid_to_bpool(loop);
 	/* Here, we give the PPAM it's opportunity to perform "global"
@@ -1110,11 +1133,6 @@ int main(int argc, char *argv[])
 		      "error: no network interfaces available");
 		return -EINVAL;
 	}
-	if (!netcfg->num_pool_channels) {
-		error(0, 0,
-		      "error: no pool channels available");
-		return -EINVAL;
-	}
 
 	fra_cfg = fra_parse_cfgfile(fra_cfg_path);
 	if (!fra_cfg) {
@@ -1131,24 +1149,17 @@ int main(int argc, char *argv[])
 	if (rcode)
 		error(0, 0,
 		      "error: bman global init, continuing");
-	fprintf(stderr, "Configuring for %d network interface%s"
-		" and %d pool channel%s\n",
-		netcfg->num_ethports, netcfg->num_ethports > 1 ? "s" : "",
-		netcfg->num_pool_channels,
-		netcfg->num_pool_channels > 1 ? "s" : "");
-	/* - compute SDQCR */
-	for (loop = 0; loop < netcfg->num_pool_channels; loop++) {
-		sdqcr |=
-			QM_SDQCR_CHANNELS_POOL_CONV(netcfg->pool_channels[loop]);
-		FRA_DBG("Adding 0x%08x to SDQCR -> 0x%08x",
-			QM_SDQCR_CHANNELS_POOL_CONV(netcfg->pool_channels[loop]),
-			sdqcr);
-	}
-	/* - map shmem */
-	FRA_DBG("Initialising shmem");
-	rcode = dma_mem_setup();
+	rcode = init_pool_channels();
 	if (rcode)
-		error(0, 0, "error: shmem init, continuing");
+		fprintf(stderr, "error: no pool channels available\n");
+	fprintf(stderr, "Configuring for %d network interface%s\n",
+		netcfg->num_ethports, netcfg->num_ethports > 1 ? "s" : "");
+	/* - map DMA mem */
+	FRA_DBG("Initialising DMA mem");
+	dma_mem_generic = dma_mem_create(DMA_MAP_FLAG_ALLOC, NULL,
+					 DMA_MEM_SIZE);
+	if (!dma_mem_generic)
+		fprintf(stderr, "error: DMA init, continuing");
 
 	/* Create the threads */
 	FRA_DBG("Starting %d threads for cpu-range '%d..%d'",
@@ -1232,6 +1243,7 @@ leave:
 	worker = primary;
 	primary = NULL;
 	worker_free(worker);
+	finish_pool_channels();
 	usdpaa_netcfg_release(netcfg);
 	fra_cfg_release(fra_cfg);
 	of_finish();

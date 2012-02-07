@@ -72,6 +72,7 @@
 #define NET_IF_RX_CONTEXT_STASH 0
 #define CPU_SPIN_BACKOFF_CYCLES 512
 #define NUM_POOL_CHANNELS 4
+#define DMA_MAP_SIZE 0x1000000
 static const char __PCD_PATH[] = __stringify(DEF_PCD_PATH);
 static const char __CFG_PATH[] = __stringify(DEF_CFG_PATH);
 static const char *PCD_PATH = __PCD_PATH;
@@ -136,7 +137,7 @@ static struct net_if *interfaces;
 static struct usdpaa_netcfg_info *netcfg;
 static struct bman_pool *pool[64];
 __thread struct qman_fq local_fq;
-const struct bpool_static bpool_static[] = {
+static const struct bpool_static bpool_static[] = {
 	{ DMA_MEM_BP1_BPID, DMA_MEM_BP1_NUM, DMA_MEM_BP1_SIZE},
 	{ DMA_MEM_BP2_BPID, DMA_MEM_BP2_NUM, DMA_MEM_BP2_SIZE},
 	{ DMA_MEM_BP3_BPID, DMA_MEM_BP3_NUM, DMA_MEM_BP3_SIZE},
@@ -256,9 +257,10 @@ int main(int argc, char *argv[])
 	for (loop = 0; loop < NUM_POOL_CHANNELS; loop++)
 		sdqcr |= QM_SDQCR_CHANNELS_POOL_CONV(pchannels[loop]);
 	/* Load dma_mem driver */
-	ret = dma_mem_setup();
-	if (ret) {
-		fprintf(stderr, "Fail: %s: %d\n", "dma_mem_setup()", ret);
+	dma_mem_generic = dma_mem_create(DMA_MAP_FLAG_ALLOC, NULL,
+					 DMA_MAP_SIZE);
+	if (!dma_mem_generic) {
+		fprintf(stderr, "Fail: %s:\n", "dma_mem_create()");
 		exit(EXIT_FAILURE);
 	}
 	/* Start up the threads */
@@ -398,7 +400,7 @@ static enum qman_cb_dqrr_result cb_rx(struct qman_portal *qm __always_unused,
 	struct net_if_rx *rx = container_of(fq, struct net_if_rx, fq);
 
 	BUG_ON(fd->format != qm_fd_contig);
-	prot_eth = dma_mem_ptov(qm_fd_addr(fd)) + fd->offset;
+	prot_eth = __dma_mem_ptov(qm_fd_addr(fd)) + fd->offset;
 	/* Broadcasts and non-IP packets are not reflected. */
 	if (likely(!(prot_eth->ether_dhost[0] & 0x01) &&
 			(prot_eth->ether_type == ETHERTYPE_IP))) {
@@ -582,10 +584,12 @@ static int net_if_init(struct net_if *interface,
 		if (!newrange)
 			return -ENOMEM;
 		newrange->rx_count = fq_range->count;
-		newrange->rx = calloc(newrange->rx_count,
-				      sizeof(newrange->rx[0]));
+		newrange->rx = __dma_mem_memalign(MAX_CACHELINE,
+				newrange->rx_count * sizeof(newrange->rx[0]));
 		if (!newrange->rx)
 			return -ENOMEM;
+		memset(newrange->rx, 0,
+		       newrange->rx_count * sizeof(newrange->rx[0]));
 		/* Initialise each Rx FQ within the range */
 		for (tmp = 0; tmp < fq_range->count; tmp++, loop++) {
 			ret = net_if_rx_init(interface, newrange, tmp, loop,
@@ -675,8 +679,6 @@ static void net_if_finish(struct net_if *interface,
 static int do_global_init(void)
 {
 	const struct bpool_static *bp = bpool_static;
-	dma_addr_t phys_addr = dma_mem_bpool_base();
-	dma_addr_t phys_limit = phys_addr + dma_mem_bpool_range();
 	unsigned int loop;
 
 	/* Drain (if necessary) then seed buffer pools */
@@ -705,12 +707,14 @@ static int do_global_init(void)
 			unsigned int rel = (bp->num - num_bufs) > 8 ? 8 :
 						(bp->num - num_bufs);
 			for (loop = 0; loop < rel; loop++) {
-				bm_buffer_set64(&bufs[loop], phys_addr);
-				phys_addr += bp->size;
-			}
-			if (phys_addr > phys_limit) {
-				fprintf(stderr, "Fail: buffer overflow\n");
-				return -EINVAL;
+				void *ptr = __dma_mem_memalign(64, bp->size);
+				if (!ptr) {
+					fprintf(stderr,
+						"error: no buffer space\n");
+					abort();
+				}
+				bm_buffer_set64(&bufs[loop],
+						__dma_mem_vtop(ptr));
 			}
 			do {
 				ret = bman_release(pool[bp->bpid],

@@ -358,8 +358,7 @@ static int create_compound_fd(void)
 		total_size = sizeof(struct sg_entry_priv_t) + output_buf_size
 			+ input_buf_capacity;
 
-		sg_priv_and_data = (struct sg_entry_priv_t *)dma_mem_memalign
-			(L1_CACHE_BYTES, total_size);
+		sg_priv_and_data = __dma_mem_memalign(L1_CACHE_BYTES, total_size);
 
 		if (unlikely(!sg_priv_and_data)) {
 			fprintf(stderr, "error: Unable to allocate memory"
@@ -377,18 +376,18 @@ static int create_compound_fd(void)
 		sg = (struct qm_sg_entry *)sg_priv_and_data;
 
 		/* output buffer */
-		qm_sg_entry_set64(sg, dma_mem_vtop(out_buf));
+		qm_sg_entry_set64(sg, __dma_mem_vtop(out_buf));
 		sg->length = output_buf_size;
 
 		/* input buffer */
 		sg++;
-		qm_sg_entry_set64(sg, dma_mem_vtop(in_buf));
+		qm_sg_entry_set64(sg, __dma_mem_vtop(in_buf));
 		sg->length = input_buf_length;
 		sg->final = 1;
 		sg--;
 
 		/* Frame Descriptor */
-		qm_fd_addr_set64(&fd[ind], dma_mem_vtop(sg));
+		qm_fd_addr_set64(&fd[ind], __dma_mem_vtop(sg));
 		fd[ind]._format1 = qm_fd_compound;
 		fd[ind].length29 = 2 * sizeof(struct qm_sg_entry);
 
@@ -403,7 +402,7 @@ static void *setup_preheader(uint32_t shared_desc_len, uint32_t pool_id,
 {
 	struct preheader_s *prehdr = NULL;
 
-	prehdr = dma_mem_memalign(L1_CACHE_BYTES, sizeof(struct preheader_s));
+	prehdr = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(struct preheader_s));
 	memset(prehdr, 0, sizeof(struct preheader_s));
 
 	if (unlikely(!prehdr)) {
@@ -438,8 +437,8 @@ static void *setup_init_descriptor(bool mode)
 	uint16_t shared_desc_len;
 	int i, ret, length;
 
-	prehdr_desc = dma_mem_memalign(L1_CACHE_BYTES,
-				sizeof(struct sec_descriptor_t));
+	prehdr_desc = __dma_mem_memalign(L1_CACHE_BYTES,
+					 sizeof(struct sec_descriptor_t));
 	if (unlikely(!prehdr_desc)) {
 		fprintf(stderr, "error: %s: dma_mem_memalign failed for"
 			" preheader\n", __func__);
@@ -600,8 +599,7 @@ struct qman_fq *create_sec_frame_queue(uint32_t fq_id,
 	struct qman_fq *fq;
 	uint32_t flags;
 
-	fq = (struct qman_fq *)dma_mem_memalign(L1_CACHE_BYTES,
-			sizeof(struct qman_fq));
+	fq = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(struct qman_fq));
 	if (unlikely(NULL == fq)) {
 		fprintf(stderr, "error: dma_mem_memalign failed in create_fqs"
 			" for FQ ID:%u\n", fq_id);
@@ -677,7 +675,7 @@ static int init_sec_frame_queues(enum SEC_MODE mode)
 				" descriptor failure!\n", __func__);
 			return -1;
 		}
-		addr = dma_mem_vtop(ctxt_a);
+		addr = __dma_mem_vtop(ctxt_a);
 
 		fq_from_sec = frame_q_base + 2*i;;
 		fq_to_sec = fq_from_sec + 1;
@@ -766,8 +764,8 @@ void free_fd(void)
 
 	for (ind = 0; ind < crypto_info.buf_num; ind++) {
 		addr = qm_fd_addr_get64(&fd[ind]);
-		buf = dma_mem_ptov(addr);
-		dma_mem_free(buf, total_size);
+		buf = __dma_mem_ptov(addr);
+		__dma_mem_free(buf);
 	}
 }
 
@@ -851,11 +849,11 @@ static void set_enc_buf(void)
 
 	for (ind = 0; ind < crypto_info.buf_num; ind++) {
 		addr = qm_fd_addr_get64(&fd[ind]);
-		sgentry = dma_mem_ptov(addr);
+		sgentry = __dma_mem_ptov(addr);
 
 		sgentry++;
 		addr = qm_sg_entry_get64(sgentry);
-		in_buf = dma_mem_ptov(addr);
+		in_buf = __dma_mem_ptov(addr);
 
 		/* In case of SNOW_F8_F9 algorithm, a Job Descriptor must be
 		 * inlined at the head of the input buffer. Set the encrypt
@@ -911,7 +909,7 @@ static void set_dec_buf(void)
 
 	for (ind = 0; ind < crypto_info.buf_num; ind++) {
 		addr = qm_fd_addr_get64(&fd[ind]);
-		sg_out = dma_mem_ptov(addr);
+		sg_out = __dma_mem_ptov(addr);
 		sg_in = sg_out + 1;
 
 		addr = qm_sg_addr(sg_out);
@@ -948,12 +946,12 @@ static void set_dec_auth_buf(void)
 
 	for (ind = 0; ind < crypto_info.buf_num; ind++) {
 		addr = qm_fd_addr_get64(&fd[ind]);
-		sg_out = dma_mem_ptov(addr);
+		sg_out = __dma_mem_ptov(addr);
 
 		sg_in = sg_out + 1;
 
 		addr = qm_sg_entry_get64(sg_in);
-		in_buf = dma_mem_ptov(addr);
+		in_buf = __dma_mem_ptov(addr);
 		memset(in_buf, 0, input_buf_capacity);
 
 		/* Convert the descriptor to an array of uint8_t items */
@@ -1113,7 +1111,7 @@ void print_frame_desc(struct qm_fd *frame_desc)
 			struct qm_sg_entry *sgentry;
 
 			addr = qm_fd_addr_get64(frame_desc);
-			sgentry = dma_mem_ptov(addr);
+			sgentry = __dma_mem_ptov(addr);
 
 			fprintf(stdout, "error: - compound FD S/G list at 0x%"
 				PRIx64"\n", addr);
@@ -1132,7 +1130,7 @@ void print_frame_desc(struct qm_fd *frame_desc)
 			fprintf(stdout, "error:       - offset %d\n",
 				sgentry->offset);
 
-			v = dma_mem_ptov(addr);
+			v = __dma_mem_ptov(addr);
 			for (i = 0; i < sgentry->length; i++)
 				fprintf(stdout, "error: 0x%x\n", *v++);
 
@@ -1152,7 +1150,7 @@ void print_frame_desc(struct qm_fd *frame_desc)
 			fprintf(stdout, "error:       - offset %d\n",
 				sgentry->offset);
 
-			v = dma_mem_ptov(addr);
+			v = __dma_mem_ptov(addr);
 			for (i = 0; i < sgentry->length; i++)
 				fprintf(stdout, "error: 0x%x\n", *v++);
 		}
@@ -1173,10 +1171,10 @@ static int test_enc_match(void)
 
 	for (ind = 0; ind < crypto_info.buf_num; ind++) {
 		addr = qm_fd_addr_get64(&fd[ind]);
-		sgentry = dma_mem_ptov(addr);
+		sgentry = __dma_mem_ptov(addr);
 
 		addr = qm_sg_entry_get64(sgentry);
-		enc_buf = dma_mem_ptov(addr);
+		enc_buf = __dma_mem_ptov(addr);
 
 		if (test_vector_match((uint32_t *) enc_buf,
 			authnct ? (uint32_t *)
@@ -1222,10 +1220,10 @@ static int test_dec_match(void)
 
 	for (ind = 0; ind < crypto_info.buf_num; ind++) {
 		addr = qm_fd_addr_get64(&fd[ind]);
-		sgentry = dma_mem_ptov(addr);
+		sgentry = __dma_mem_ptov(addr);
 
 		addr = qm_sg_entry_get64(sgentry);
-		dec_buf = dma_mem_ptov(addr);
+		dec_buf = __dma_mem_ptov(addr);
 		if (CIPHER == crypto_info.mode) {
 			if (test_vector_match((uint32_t *) dec_buf, (uint32_t *)
 						ref_test_vector.plaintext,
@@ -1342,7 +1340,7 @@ enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 		dec_pkts_from_sec);
 
 	addr = qm_fd_addr_get64(&(dqrr->fd));
-	sgentry_priv = dma_mem_ptov(addr);
+	sgentry_priv = __dma_mem_ptov(addr);
 	fd[sgentry_priv->index].status = dqrr->fd.status;
 
 	return qman_cb_dqrr_consume;
@@ -1916,10 +1914,12 @@ int main(int argc, char *argv[])
 		exit(0);
 	}
 
-	/* map shmem */
-	err = dma_mem_setup();
-	if (err)
-		error(err, err, "error: Shared memory initialization failed");
+	/* map DMA memory */
+	dma_mem_generic = dma_mem_create(DMA_MAP_FLAG_ALLOC, NULL, 0x1000000);
+	if (!dma_mem_generic) {
+		pr_err("DMA memory initialization failed\n");
+		exit(EXIT_FAILURE);
+	}
 
 	/* Initialize barrier for all the threads! */
 	err = pthread_barrier_init(&app_barrier, NULL, ncpus);

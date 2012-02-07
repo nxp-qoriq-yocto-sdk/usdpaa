@@ -86,10 +86,10 @@ int cnstr_seq_jobdesc(uint32_t *jobdesc, uint16_t *jobdescsz,
 
 	/* Insert sharedesc */
 	if (sizeof(dma_addr_t) == sizeof(u32)) {
-		*next++ = dma_mem_vtop(shrdesc);
+		*next++ = __dma_mem_vtop(shrdesc);
 	} else {
-		*next++ = upper_32_bits(dma_mem_vtop(shrdesc));
-		*next++ = lower_32_bits(dma_mem_vtop(shrdesc));
+		*next++ = upper_32_bits(__dma_mem_vtop(shrdesc));
+		*next++ = lower_32_bits(__dma_mem_vtop(shrdesc));
 	}
 
 	/* Sequence pointers */

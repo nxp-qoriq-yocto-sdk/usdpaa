@@ -93,11 +93,6 @@ enum srio_io_op {
 	SRIO_DIR_PRI_MEM,
 };
 
-struct dma_pool {
-	dma_addr_t dma_phys_base;
-	void *dma_virt_base;
-};
-
 static const uint32_t srio_test_win_attrv[] = {3 << 12, 4 << 12, 5 << 12, 4 << 16, 0};
 static const char * const srio_test_win_attrc[] = {"SWRITE", "NWRITE",
 						   "NWRITE_R", "NREAD", "DMA"};
@@ -496,50 +491,6 @@ static int cmd_implement(struct srio_dev *sriodev, struct dma_ch *dmadev,
 	return 0;
 }
 
-/* Init DMA pool */
-static int dma_usmem_init(struct dma_pool *pool)
-{
-	int err;
-
-	err = dma_mem_setup();
-	if (err < 0) {
-		error(0, -err, "%s(): dma_mem_setup()", __func__);
-		return err;
-	}
-	pool->dma_phys_base = dma_mem_bpool_base();
-	pool->dma_virt_base = dma_mem_ptov(pool->dma_phys_base);
-
-	return 0;
-}
-
-static int dma_pool_init(struct dma_pool **pool)
-{
-	struct dma_pool *dma_pool;
-	int err;
-
-	dma_pool = malloc(sizeof(*dma_pool));
-	if (!dma_pool) {
-		error(0, errno, "%s(): DMA pool", __func__);
-		return -errno;
-	}
-	memset(dma_pool, 0, sizeof(*dma_pool));
-	*pool = dma_pool;
-
-	err = dma_usmem_init(dma_pool);
-	if (err < 0) {
-		error(0, -err, "%s(): DMA pool", __func__);
-		free(dma_pool);
-		return err;
-	}
-
-	return 0;
-}
-
-static void dma_pool_finish(struct dma_pool *pool)
-{
-	free(pool);
-}
-
 static void cmd_format_print(void)
 {
 	printf("-----------------SRIO APP CMD FORMAT-----------------\n");
@@ -572,7 +523,6 @@ int main(int argc, char *argv[])
 {
 	struct srio_dev *sriodev;
 	struct dma_ch *dmadev;
-	struct dma_pool *dmapool = NULL;
 	int i, err;
 	struct srio_port_data *port_data;
 
@@ -611,14 +561,24 @@ int main(int argc, char *argv[])
 	err = fsl_srio_port_connected(sriodev);
 	if (err <= 0) {
 		error(0, -err, "%s(): fsl_srio_port_connected", __func__);
-		goto err_srio_conneced;
+		goto err_srio_connected;
 	}
 
-	dma_pool_init(&dmapool);
+	dma_mem_generic = dma_mem_create(DMA_MAP_FLAG_ALLOC, NULL, 0x1000000);
+	if (!dma_mem_generic) {
+		fprintf(stderr, "%s(): dma_mem_create()", __func__);
+		goto err_srio_connected;
+	}
 
 	for (i = 0; i < port_num; i++) {
-		dma_addr_t port_phys_base =
-			dmapool->dma_phys_base + SRIO_POOL_PORT_OFFSET * i;
+		dma_addr_t port_phys_base;
+		port_data[i].virt = __dma_mem_memalign(64,
+						       SRIO_POOL_PORT_OFFSET);
+		if (!port_data[i].virt) {
+			fprintf(stderr, "%s(): dma_mem_memalign()", __func__);
+			goto err_srio_connected;
+		}
+		port_phys_base = __dma_mem_vtop(port_data[i].virt);
 		port_data[i].phys.write_recv_data = port_phys_base;
 		port_data[i].phys.read_recv_data =
 			port_phys_base + SRIO_POOL_SECT_SIZE;
@@ -626,15 +586,12 @@ int main(int argc, char *argv[])
 			port_phys_base + SRIO_POOL_SECT_SIZE * 2;
 		port_data[i].phys.res =
 			port_phys_base + SRIO_POOL_SECT_SIZE * 3;
-
-		port_data[i].virt = (typeof(port_data[i].virt))
-			(dmapool->dma_virt_base + i * SRIO_POOL_PORT_OFFSET);
 	}
 
 	err = fsl_dma_chan_init(&dmadev, 0, 0);
 	if (err < 0) {
 		error(0, -err, "%s(): fsl_dma_chan_init()", __func__);
-		goto err_srio_conneced;
+		goto err_srio_connected;
 	}
 
 	fsl_dma_chan_basic_direct_init(dmadev);
@@ -642,13 +599,12 @@ int main(int argc, char *argv[])
 	cmd_implement(sriodev, dmadev, port_data);
 
 	fsl_dma_chan_finish(dmadev);
-	dma_pool_finish(dmapool);
 	fsl_srio_uio_finish(sriodev);
 
 	of_finish();
 	return EXIT_SUCCESS;
 
-err_srio_conneced:
+err_srio_connected:
 	free(port_data);
 err_cmd_trans:
 	free(cmd_param.port);

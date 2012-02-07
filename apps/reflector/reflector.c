@@ -161,8 +161,7 @@ static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
 	if (!p->am_offline_port) {
 		/* Only forward to Offline port if it's turned on */
 		if (fwd_offline && (p->regular.offline_fqid)) {
-			uint32_t *annotations = dma_mem_ptov(qm_fd_addr(fd));
-
+			uint32_t *annotations = __dma_mem_ptov(qm_fd_addr(fd));
 			*annotations = _if->tx_fqids[0];
 			BUG_ON(!*annotations);
 			ppac_send_frame(p->regular.offline_fqid, fd);
@@ -253,7 +252,7 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 	uint32_t tx_fqid;
 
 	BUG_ON(fd->format != qm_fd_contig);
-	annotations = dma_mem_ptov(qm_fd_addr(fd));
+	annotations = __dma_mem_ptov(qm_fd_addr(fd));
 	TRACE("Rx: 2fwd	 fqid=%d\n", dqrr->fqid);
 	TRACE("	     phys=0x%"PRIx64", virt=%p, offset=%d, len=%d, bpid=%d\n",
 		qm_fd_addr(fd), addr, fd->offset, fd->length20, fd->bpid);

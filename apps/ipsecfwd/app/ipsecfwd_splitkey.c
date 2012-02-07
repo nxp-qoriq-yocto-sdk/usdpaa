@@ -52,7 +52,7 @@ void *create_split_key_sec_descriptor(void)
 {
 	struct ipsec_encap_descriptor_t *preheader_initdesc;
 
-	preheader_initdesc = dma_mem_memalign(L1_CACHE_BYTES,
+	preheader_initdesc = __dma_mem_memalign(L1_CACHE_BYTES,
 			sizeof(struct ipsec_encap_descriptor_t));
 	if (preheader_initdesc == NULL) {
 		fprintf(stderr, "error: %s: No More Buffers left for"
@@ -81,7 +81,7 @@ int32_t init_split_key_fqs(void)
 	void *ctxt_a;
 
 	flags = QMAN_FQ_FLAG_NO_ENQUEUE | QMAN_FQ_FLAG_LOCKED;
-	fq = dma_mem_memalign(L1_CACHE_BYTES, sizeof(struct qman_fq));
+	fq = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(struct qman_fq));
 	if (unlikely(NULL == fq)) {
 		fprintf(stderr, "error: %s: malloc failed in create_fqs"
 			" for FQ ID: %u\n", __func__, KEY_SPLIT_FQ_FROM_SEC);
@@ -115,7 +115,7 @@ int32_t init_split_key_fqs(void)
 
 	flags = QMAN_FQ_FLAG_LOCKED | QMAN_FQ_FLAG_TO_DCPORTAL;
 
-	fq = dma_mem_memalign(L1_CACHE_BYTES, sizeof(struct qman_fq));
+	fq = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(struct qman_fq));
 	if (unlikely(NULL == fq)) {
 		fprintf(stderr, "error: %s: malloc failed in create_fqs"
 			" for FQ ID\n", __func__);
@@ -141,7 +141,7 @@ int32_t init_split_key_fqs(void)
 	flags = QMAN_INITFQ_FLAG_SCHED;
 	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_CONTEXTA |
 	    QM_INITFQ_WE_CONTEXTB;
-	qm_fqd_context_a_set64(&opts.fqd, dma_mem_vtop(ctxt_a));
+	qm_fqd_context_a_set64(&opts.fqd, __dma_mem_vtop(ctxt_a));
 	opts.fqd.context_b = KEY_SPLIT_FQ_FROM_SEC;
 	opts.fqd.dest.channel = qm_channel_caam;
 	opts.fqd.dest.wq = 0;
@@ -161,7 +161,7 @@ int generate_splitkey(void)
 	struct qm_fd fd;
 	uint16_t bufsize;
 
-	job_desc = dma_mem_memalign(L1_CACHE_BYTES, 256);
+	job_desc = __dma_mem_memalign(L1_CACHE_BYTES, 256);
 	if (job_desc == NULL) {
 		fprintf(stderr, "error: %s: No More Buffers left for"
 			" Job Desc\n", __func__);
@@ -169,7 +169,7 @@ int generate_splitkey(void)
 	}
 	memset(job_desc, 0, 256);
 
-	g_split_key = dma_mem_memalign(L1_CACHE_BYTES, 60);
+	g_split_key = __dma_mem_memalign(L1_CACHE_BYTES, 60);
 	if (g_split_key == NULL) {
 		fprintf(stderr, "error: %s: No More Buffers left for"
 			" split key\n", __func__);
@@ -178,7 +178,7 @@ int generate_splitkey(void)
 	}
 	memset(g_split_key, 0, 60);
 
-	alg_key = dma_mem_memalign(L1_CACHE_BYTES, 60);
+	alg_key = __dma_mem_memalign(L1_CACHE_BYTES, 60);
 	if (alg_key == NULL) {
 		fprintf(stderr, "error: %s: No More Buffers left for"
 			" Auth Algo key\n", __func__);
@@ -202,7 +202,7 @@ int generate_splitkey(void)
 
 	pr_debug("ipsec_tunnel_create: after cnstr_jobdesc_mdsplitkey\n");
 
-	sg = dma_mem_memalign(L1_CACHE_BYTES, 2*sizeof(struct qm_sg_entry));
+	sg = __dma_mem_memalign(L1_CACHE_BYTES, 2 * sizeof(struct qm_sg_entry));
 	if (sg == NULL) {
 		fprintf(stderr, "error: %s: No More Buffers left for Auth"
 			" Algo key\n", __func__);
@@ -213,7 +213,7 @@ int generate_splitkey(void)
 	}
 
 	memset(sg, 0, 2*sizeof(struct qm_sg_entry));
-	qm_sg_entry_set64(sg, dma_mem_vtop(g_split_key));
+	qm_sg_entry_set64(sg, __dma_mem_vtop(g_split_key));
 	sg->length = 60;
 
 	/* Create Job Desc */
@@ -221,12 +221,12 @@ int generate_splitkey(void)
 
 	/* input buffer */
 	sg++;
-	qm_sg_entry_set64(sg, dma_mem_vtop(job_desc));
+	qm_sg_entry_set64(sg, __dma_mem_vtop(job_desc));
 	sg->length = bufsize * 4;
 	sg->final = 1;
 	sg--;
 
-	qm_fd_addr_set64(&fd, dma_mem_vtop(sg));
+	qm_fd_addr_set64(&fd, __dma_mem_vtop(sg));
 	fd.bpid = 0;
 	fd._format1 = qm_fd_compound;
 	fd.cong_weight = 0;
@@ -251,9 +251,9 @@ loop:
 	while (g_key_split_flag == 0)
 		qman_poll();
 
-	dma_mem_free(alg_key, 20);
-	dma_mem_free(job_desc, 256);
-	dma_mem_free(sg, 2*sizeof(struct qm_sg_entry));
+	__dma_mem_free(alg_key);
+	__dma_mem_free(job_desc);
+	__dma_mem_free(sg);
 
 	return 0;
 }

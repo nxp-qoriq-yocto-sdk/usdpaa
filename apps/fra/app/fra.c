@@ -304,16 +304,16 @@ static void dist_finish(struct distribution *dist)
 		for (i = 0; i < cfg->dist_rx_cfg.fq_count; i++)
 			rman_fq_free(&dist->rx_hash[i].fq);
 		rman_rxfq_finish(cfg->dist_rx_cfg.fqid);
-		dma_mem_free(dist, dist->sz);
+		__dma_mem_free(dist);
 		break;
 	case DIST_TYPE_TX:
 		rman_fq_free(&dist->tx[0].stfq);
 		for (i = 0; i < cfg->dist_tx_cfg.fq_count; i++)
 			rman_fq_free(&dist->tx[0].fq[i]);
-		dma_mem_free(dist, dist->sz);
+		__dma_mem_free(dist);
 		break;
 	case DIST_TYPE_FWD:
-		dma_mem_free(dist, dist->sz);
+		__dma_mem_free(dist);
 		break;
 	}
 }
@@ -378,7 +378,7 @@ static struct distribution *dist_rx_init(struct dist_cfg *cfg)
 	sz = sizeof(*dist) + rxcfg->fq_count * sizeof(struct dist_rx);
 
 	/* allocate stashable memory for the interface object */
-	dist = dma_mem_memalign(L1_CACHE_BYTES, sz);
+	dist = __dma_mem_memalign(L1_CACHE_BYTES, sz);
 	if (!dist)
 		return NULL;
 	memset(dist, 0, sz);
@@ -425,7 +425,7 @@ static struct distribution *dist_tx_init(struct dist_cfg *cfg)
 
 	sz = sizeof(*dist) + 1 * sizeof(struct dist_tx);
 
-	dist = dma_mem_memalign(L1_CACHE_BYTES, sz);
+	dist = __dma_mem_memalign(L1_CACHE_BYTES, sz);
 	if (!dist)
 		return NULL;
 	memset(dist, 0, sz);
@@ -438,14 +438,14 @@ static struct distribution *dist_tx_init(struct dist_cfg *cfg)
 
 	if (rman_stfq_init(&tx->stfq, 0, 0, 0)) {
 		error(0, 0, "Fra: failed to create rman stfq");
-		dma_mem_free(dist, dist->sz);
+		__dma_mem_free(dist);
 		return NULL;
 	}
 
 	tx->fq = malloc(txcfg->fq_count * sizeof(struct qman_fq));
 	if (!tx->fq) {
 		rman_fq_free(&tx->stfq);
-		dma_mem_free(dist, dist->sz);
+		__dma_mem_free(dist);
 		return NULL;
 	}
 	memset(tx->fq, 0, txcfg->fq_count * sizeof(struct qman_fq));
@@ -503,7 +503,7 @@ static struct distribution *dist_fwd_init(struct dist_cfg *cfg)
 
 	sz = sizeof(*dist) + 1 * sizeof(struct dist_fwd);
 
-	dist = dma_mem_memalign(L1_CACHE_BYTES, sz);
+	dist = __dma_mem_memalign(L1_CACHE_BYTES, sz);
 	if (!dist)
 		return NULL;
 	memset(dist, 0, sz);
@@ -523,7 +523,7 @@ static struct distribution *dist_fwd_init(struct dist_cfg *cfg)
 			break;
 	}
 	if (i == &ifs) { /* not find valid ppac_if */
-		dma_mem_free(dist, dist->sz);
+		__dma_mem_free(dist);
 		return NULL;
 	}
 

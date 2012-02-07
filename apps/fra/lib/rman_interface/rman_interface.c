@@ -113,7 +113,7 @@ struct msg_buf *msg_alloc(enum RIO_TYPE type)
 		FRA_DBG("RMan:failed to acquire bpool buffer");
 		return NULL;
 	}
-	msg = dma_mem_ptov(bm_buf_addr(&bmb));
+	msg = __dma_mem_ptov(bm_buf_addr(&bmb));
 	msg_set_bmb(msg, &bmb);
 	FRA_DBG("RMan: get a bman buffer bpid(%d) phy-addr(%llx),"
 		"vitraddr(%p)", bmb.bpid, bm_buf_addr(&msg->bmb), msg);
@@ -132,13 +132,13 @@ struct msg_buf *fd_to_msg(struct qm_fd *fd)
 	case qm_fd_contig:
 		if (fd->offset < RM_DATA_OFFSET)
 			return NULL;
-		msg = dma_mem_ptov(qm_fd_addr(fd));
+		msg = __dma_mem_ptov(qm_fd_addr(fd));
 		msg->data = (uint8_t *)msg + fd->offset;
 		msg->len = fd->length20;
 		msg_set_fd(msg, fd);
 		break;
 	case qm_fd_sg:
-		sgt = (dma_mem_ptov(qm_fd_addr(fd)) + fd->offset);
+		sgt = __dma_mem_ptov(qm_fd_addr(fd)) + fd->offset;
 		FRA_DBG("RMan: get a sg msg bpid(%d), e(%d)  f(%d)",
 			sgt->bpid, sgt->extension, sgt->final);
 		if (sgt->final != 1 || sgt->offset < RM_DATA_OFFSET) {
@@ -146,7 +146,7 @@ struct msg_buf *fd_to_msg(struct qm_fd *fd)
 			      "Unsupported fd sg.final(%d)", sgt->final);
 			return NULL;
 		}
-		msg = dma_mem_ptov(qm_sg_addr(sgt));
+		msg = __dma_mem_ptov(qm_sg_addr(sgt));
 		msg->data = (uint8_t *)msg + sgt->offset;
 		msg->len = fd->length20;
 		msg_set_fd(msg, fd);
@@ -437,13 +437,13 @@ int rman_send_fd(struct rman_outb_md *std_md, struct tx_opt *opt,
 	if (fd->format == qm_fd_contig) {
 		if (fd->offset < RM_DATA_OFFSET)
 			return -EINVAL;
-		md = dma_mem_ptov(qm_fd_addr(fd));
+		md = __dma_mem_ptov(qm_fd_addr(fd));
 	} else if (fd->format == qm_fd_sg) {
 		const struct qm_sg_entry *sgt;
-		sgt = dma_mem_ptov(qm_fd_addr(fd)) + fd->offset;
+		sgt = __dma_mem_ptov(qm_fd_addr(fd)) + fd->offset;
 		if (sgt->offset < RM_DATA_OFFSET)
 			return -EINVAL;
-		md = dma_mem_ptov(qm_sg_addr(sgt));
+		md = __dma_mem_ptov(qm_sg_addr(sgt));
 	} else
 		return -EINVAL;
 

@@ -54,8 +54,8 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 	unsigned char *buff_start = NULL;
 	int ret;
 
-	preheader_initdesc = dma_mem_memalign(L1_CACHE_BYTES,
-			sizeof(struct ipsec_encap_descriptor_t));
+	preheader_initdesc = __dma_mem_memalign(L1_CACHE_BYTES,
+				sizeof(struct ipsec_encap_descriptor_t));
 	if (preheader_initdesc == NULL) {
 		fprintf(stderr, "error: %s: No More Buffers left\n", __func__);
 		return NULL;
@@ -147,8 +147,8 @@ void
 
 	int ret;
 
-	preheader_initdesc = dma_mem_memalign(L1_CACHE_BYTES,
-			sizeof(struct ipsec_encap_descriptor_t));
+	preheader_initdesc = __dma_mem_memalign(L1_CACHE_BYTES,
+				sizeof(struct ipsec_encap_descriptor_t));
 	if (preheader_initdesc == NULL) {
 		fprintf(stderr, "error: %s: No More Buffers left\n", __func__);
 		return NULL;

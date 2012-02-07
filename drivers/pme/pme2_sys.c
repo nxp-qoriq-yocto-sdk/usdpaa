@@ -42,17 +42,18 @@
 /***********************/
 struct pme_hw_residue *pme_hw_residue_new(void)
 {
-	return dma_mem_memalign(PME_RESIDUE_ALIGN, PME_RESIDUE_SIZE);
+	return __dma_mem_memalign(PME_RESIDUE_ALIGN, PME_RESIDUE_SIZE);
 }
 
 void pme_hw_residue_free(struct pme_hw_residue *p)
 {
-	dma_mem_free(p, PME_RESIDUE_SIZE);
+	__dma_mem_free(p);
 }
 
 struct pme_hw_flow *pme_hw_flow_new(void)
 {
-	struct pme_flow *flow = dma_mem_memalign(PME_FLOW_ALIGN, PME_FLOW_SIZE);
+	struct pme_flow *flow = __dma_mem_memalign(PME_FLOW_ALIGN,
+						   PME_FLOW_SIZE);
 	if (flow)
 		memset(flow, 0, PME_FLOW_SIZE);
 	return (struct pme_hw_flow *)flow;
@@ -60,7 +61,7 @@ struct pme_hw_flow *pme_hw_flow_new(void)
 
 void pme_hw_flow_free(struct pme_hw_flow *p)
 {
-	dma_mem_free(p, PME_FLOW_SIZE);
+	__dma_mem_free(p);
 }
 
 dma_addr_t pme_map(void *ptr)

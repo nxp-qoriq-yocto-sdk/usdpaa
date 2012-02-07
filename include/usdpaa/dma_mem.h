@@ -55,46 +55,104 @@ int dma_mapping_error(void *dev __always_unused,
 
 /* The following definitions and interfaces are USDPAA-specific */
 
-/* For an efficient conversion between user-space virtual address map(s) and bus
- * addresses required by hardware for DMA, we use a single contiguous mmap() on
- * the /dev/mem device, a pre-arranged physical base address (and
- * similarly reserved from regular linux use by a "mem=<...>" kernel boot
- * parameter). See conf.h for the hard-coded constants that are used. */
+struct dma_mem;
 
-/* initialise ad-hoc DMA allocation memory.
- *    -> returns non-zero on failure.
- */
-int dma_mem_setup(void);
+/* With the _SHARED flag, <name> can and should be non-NULL, and will name the
+ * mapped region so that it may be mapped multiple times (usually from distinct
+ * processes). Without _SHARED, <name> should be NULL and a private region will
+ * be created (_NEW and _LAZY are not required). */
+#define DMA_MAP_FLAG_SHARED 0x01
+/* With the _ALLOC flag, an allocator will be implemented for the mapped region
+ * allowing dma_mem_memalign() and related APIs to be used. Without _ALLOC, the
+ * user owns the entire region and must manage its use via dma_mem_raw(). Note
+ * that if _ALLOC and _SHARED are both set, kernel-assisted locking will be used
+ * to synchronise (de)allocations across multiple processes, however this will
+ * not protect against leaks when processes exit without deallocating buffers
+ * from regions that are shared with other processes. */
+#define DMA_MAP_FLAG_ALLOC    0x08
+/* This flag only makes sense when _SHARED is set. If this _NEW flag is not set,
+ * then the named region must already exist. */
+#define DMA_MAP_FLAG_NEW      0x02
+/* This flag only makes sense when _SHARED and _NEW are set. If this flag is not
+ * set, then the named region must not already exist. Conversely, if this flag
+ * is set then if the region already exists, it will be mapped anyway as if the
+ * _NEW flag hadn't been specified. Ie. multiple processes could use this flag
+ * to "lazy-initialise" the memory region. */
+#define DMA_MAP_FLAG_LAZY     0x04
+/* This flag only makes sense when _SHARED is set and _ALLOC is not set. */
+#define DMA_MAP_FLAG_READONLY 0x10
+/* See the above flags for semantics. Note that 'map_name' must be shorter than
+ * 16 characters in length if it is non-NULL. */
+struct dma_mem *dma_mem_create(uint32_t flags, const char *map_name,
+			       size_t len);
 
-/* Ad-hoc DMA allocation (not optimised for speed...). NB, the size must be
- * provided to 'free'. */
-void *dma_mem_memalign(size_t boundary, size_t size);
-void dma_mem_free(void *ptr, size_t size);
+/* Return the params for a given map */
+void dma_mem_params(struct dma_mem *map, uint32_t *flags, const char **map_name,
+		    size_t *len);
 
-/* Internal base-address delta, this is exported only to allow the ptov/vtop
- * functions (below) to be implemented as inlines. */
-extern dma_addr_t __dma_virt2phys;
+/* This global variable is used by any drivers or application code that need
+ * generic memory for DMA. Eg. accelerators use this for allocating DMA-able
+ * contexts. The driver defines this variable and it defaults to NULL, so it
+ * must be set non-NULL by the application in order to use such drivers. */
+extern struct dma_mem *dma_mem_generic;
 
-/* Conversion between user-virtual ("v") and physical ("p") address. NB, the
- * double-casts avoid the "cast to pointer from integer of different size" and
- * "cast from pointer to integer of different size" warnings. */
-static inline void *dma_mem_ptov(dma_addr_t p)
+/* For maps created without _ALLOC, this returns the base address (and if len is
+ * non-NULL, also the length) of the mapped memory region. */
+void *dma_mem_raw(struct dma_mem *map, size_t *len);
+
+/* For maps created with _ALLOC, memory blocks are (de)allocated. */
+void *dma_mem_memalign(struct dma_mem *map, size_t boundary, size_t size);
+void dma_mem_free(struct dma_mem *map, void *ptr);
+
+/* Find the map of a given user-virtual ("v") or physical ("p") address. */
+struct dma_mem *dma_mem_findv(void *v);
+struct dma_mem *dma_mem_findp(dma_addr_t p);
+
+/* Conversion between user-virtual ("v") and physical ("p") address. Note, the
+ * __dma_mem_addr structure and cast is respected by the implementation only to
+ * allow these ptov/vtop routines to be implemented as inlines (they are
+ * performance critical to many scenarios). No other assumptions about the size
+ * or layout of the dma_map structure should be assumed. */
+struct __dma_mem_addr {
+	dma_addr_t phys;
+	void *virt;
+};
+static inline void *dma_mem_ptov(struct dma_mem *map, dma_addr_t p)
 {
-	return (void *)(unsigned long)(p - __dma_virt2phys);
+	struct __dma_mem_addr *a = (struct __dma_mem_addr *)map;
+	return (void *)((unsigned long)(p - a->phys) + (unsigned long)a->virt);
 }
-static inline dma_addr_t dma_mem_vtop(void *v)
+static inline dma_addr_t dma_mem_vtop(struct dma_mem *map, void *v)
 {
-	return (dma_addr_t)(unsigned long)v + __dma_virt2phys;
+	struct __dma_mem_addr *a = (struct __dma_mem_addr *)map;
+	return a->phys + ((unsigned long)v - (unsigned long)a->virt);
 }
 
-/* The physical address range used for seeding Bman pools */
-dma_addr_t dma_mem_bpool_base(void);
-size_t dma_mem_bpool_range(void);
+/* Legacy replacements for the old routines that don't take 'map'. These all
+ * assume memory is within the 'dma_mem_generic' map. NB, if you want ptov/vtop
+ * routines that work for *any* map, then write your own wrapper that calls
+ * dma_mem_findp()/dma_mem_findv() to determine the map. These wrappers don't do
+ * that because doing so would necessarily be slower whereas vtop/ptov routines
+ * are expected to be used in speed-critical code. When converting addresses, it
+ * is wise to know in advance within which map they reside. */
+static inline void *__dma_mem_ptov(dma_addr_t p)
+{
+	return dma_mem_ptov(dma_mem_generic, p);
+}
+static inline dma_addr_t __dma_mem_vtop(void *v)
+{
+	return dma_mem_vtop(dma_mem_generic, v);
+}
+static inline void *__dma_mem_memalign(size_t boundary, size_t size)
+{
+	return dma_mem_memalign(dma_mem_generic, boundary, size);
+}
+static inline void __dma_mem_free(void *ptr)
+{
+	return dma_mem_free(dma_mem_generic, ptr);
+}
 
-/* This API allows the application to change the size of the dma_mem reservation
- * for use by buffer pools. It will only succeed if no ad-hoc allocations from
- * dma_mem_memalign() are outstanding. The application is responsible for seeding
- * buffer pools so it should ensure it does not conflict with this setting. */
-int dma_mem_bpool_set_range(size_t sz);
+/* Debugging support - dump DMA map details to stdout */
+void dma_mem_print(struct dma_mem *map);
 
 #endif	/* __DMA_MEM_H */

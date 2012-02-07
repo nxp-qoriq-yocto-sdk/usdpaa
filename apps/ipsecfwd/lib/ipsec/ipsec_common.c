@@ -58,7 +58,7 @@ void ipsec_create_compound_fd(struct qm_fd *fd, const struct qm_fd *old_fd,
 	else
 		size = ip_hdr->tot_len;
 
-	sg = dma_mem_ptov(qm_fd_addr(old_fd));
+	sg = __dma_mem_ptov(qm_fd_addr(old_fd));
 	memset(sg, 0, 2*sizeof(struct qm_sg_entry));
 
 	/* output buffer */
@@ -86,7 +86,7 @@ void ipsec_create_compound_fd(struct qm_fd *fd, const struct qm_fd *old_fd,
 		sg->extension = 0;
 	} else if (qm_fd_sg == old_fd->format) {
 		sg->offset = old_fd->offset;
-		next_sg = dma_mem_ptov(qm_sg_addr(sg) + sg->offset);
+		next_sg = __dma_mem_ptov(qm_sg_addr(sg) + sg->offset);
 		next_sg->length -= ETHER_HDR_LEN;
 		next_sg->offset += ETHER_HDR_LEN;
 		sg->extension = 1;
@@ -94,7 +94,7 @@ void ipsec_create_compound_fd(struct qm_fd *fd, const struct qm_fd *old_fd,
 	sg->bpid = old_fd->bpid;
 	sg->final = 1;
 	sg--;
-	qm_fd_addr_set64(fd, dma_mem_vtop(sg));
+	qm_fd_addr_set64(fd, __dma_mem_vtop(sg));
 	fd->_format1 = qm_fd_compound;
 	fd->cong_weight = 0;
 	fd->cmd = 0;
@@ -106,7 +106,7 @@ void ipsec_create_simple_fd(struct qm_fd *simple_fd,
 	struct qm_sg_entry *sg;
 	struct annotations_t *new_notes;
 
-	sg = dma_mem_ptov(qm_fd_addr(compound_fd));
+	sg = __dma_mem_ptov(qm_fd_addr(compound_fd));
 	simple_fd->addr = sg->addr;
 	if (0 == sg->extension)
 		simple_fd->format = qm_fd_contig;
@@ -125,7 +125,7 @@ void ipsec_create_simple_fd(struct qm_fd *simple_fd,
 	    ("Offset Post CAAM is %x sg->addr_lo is %x, bpid = %x",
 	     sg->offset, sg->addr_lo, simple_fd->bpid);
 
-	new_notes = dma_mem_ptov(qm_fd_addr(simple_fd));
+	new_notes = __dma_mem_ptov(qm_fd_addr(simple_fd));
 }
 
 void ipsec_build_outer_ip_hdr(struct iphdr *ip_hdr,

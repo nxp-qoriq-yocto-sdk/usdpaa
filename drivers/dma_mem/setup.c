@@ -32,60 +32,150 @@
 
 #include "private.h"
 
-/* For an efficient conversion between user-space virtual address map(s) and bus
- * addresses required by hardware for DMA, we use a single contiguous mmap() on
- * the /dev/fsl-usdpaa device, and extract the corresponding physical base
- * address. */
+/* Store all maps in a static array and only lock it when adding. This works
+ * because a process can only add maps, not remove them. When searching, we
+ * won't lock but we must be sure to test that maps[x] is non-NULL even if x is
+ * less than num_maps, because there is no synchronisation guarantee that
+ * maps[x] has been set non-NULL before the num_maps increment is visible. */
+#define MAX_DMA_MAPS 64
+static struct dma_mem *maps[MAX_DMA_MAPS];
+static unsigned int num_maps;
+static pthread_mutex_t maps_lock = PTHREAD_MUTEX_INITIALIZER;
 
-/* This global is exported for use in ptov/vtop inlines. It is the delta between
- * virtual and physical addresses, pre-cast to dma_addr_t. */
-dma_addr_t __dma_virt2phys;
-/* The mapped virtual address */
-static void *virt;
-/* The length of the DMA region */
-static uint64_t len;
+/* The "default" map, which apps can set if they wish to use the legacy-style
+ * __dma_mem_*() APIs. */
+struct dma_mem *dma_mem_generic;
 
-/* This is the physical address range reserved for bpool usage */
-static dma_addr_t bpool_base;
-static size_t bpool_range;
-
-int dma_mem_setup(void)
+struct dma_mem *dma_mem_create(uint32_t flags, const char *map_name,
+			       size_t len)
 {
-	uint64_t phys;
-	int ret = process_dma_map(&virt, &phys, &len);
-	if (ret)
-		return ret;
-	/* Present "carve up" is to use the first DMA_MEM_BPOOL bytes of dma_mem
-	 * for buffer pools and the rest of dma_mem for ad-hoc allocations. */
-	ret = dma_mem_alloc_init(virt + DMA_MEM_BPOOL, len - DMA_MEM_BPOOL);
-	if (ret) {
-		process_dma_unmap();
-		return ret;
+	struct usdpaa_ioctl_dma_map params;
+	struct dma_mem *map;
+	int ret;
+
+	/* If we exceed the number of maps, there's a chance our process will
+	 * leak mappings (process exit will fix that just fine, but trying to
+	 * keep the process running will not). So this is just an unlocked check
+	 * before we start, and there's a locked check later on when we actually
+	 * update the array (and leak the mapping if the array is full at that
+	 * point). Of course, none of this is an issue if you don't try to do
+	 * too many mapping initialisations from distinct threads
+	 * simultaneously. */
+	if (num_maps >= MAX_DMA_MAPS) {
+		fprintf(stderr, "Too many DMA maps!\n");
+		return NULL;
 	}
-	__dma_virt2phys = phys - (dma_addr_t)(unsigned long)virt;
-	bpool_base = phys;
-	bpool_range = DMA_MEM_BPOOL;
-	printf("FSL dma_mem device mapped (phys=0x%"PRIx64",virt=%p,sz=0x%"PRIx64")\n",
-		phys, virt, len);
-	return 0;
+	if ((flags & DMA_MAP_FLAG_SHARED) && (!map_name || !strlen(map_name) ||
+			(strlen(map_name) >= USDPAA_DMA_NAME_MAX))) {
+		fprintf(stderr, "Bad DMA mapping name '%s'\n", map_name);
+		return NULL;
+	}
+	if (!(flags & DMA_MAP_FLAG_SHARED) && map_name) {
+		fprintf(stderr, "Private DMA maps should be name-less\n");
+		return NULL;
+	}
+	/* Implement the checks mentioned in the documentation of the flags */
+	if (((flags & DMA_MAP_FLAG_NEW) && !(flags & DMA_MAP_FLAG_SHARED)) ||
+		((flags & DMA_MAP_FLAG_LAZY) &&
+			((flags & (DMA_MAP_FLAG_SHARED | DMA_MAP_FLAG_NEW)) !=
+			(DMA_MAP_FLAG_SHARED | DMA_MAP_FLAG_NEW))) ||
+		((flags & DMA_MAP_FLAG_READONLY) &&
+			((flags & (DMA_MAP_FLAG_SHARED | DMA_MAP_FLAG_ALLOC)) !=
+			DMA_MAP_FLAG_SHARED))) {
+		fprintf(stderr, "Invalid set of DMA map flags 0x%08x\n", flags);
+		return NULL;
+	}
+	map = malloc(sizeof(*map));
+	if (!map)
+		return NULL;
+	params.len = len;
+	/* Flag translation is possible because USDPAA_DMA_FLAG_* (ioctl
+	 * definitions) are matched to DMA_MAP_FLAG_* (dma_mem API) */
+	params.flags = flags;
+	if (flags & DMA_MAP_FLAG_SHARED) {
+		strncpy(params.name, map_name, USDPAA_DMA_NAME_MAX);
+		/* Use locking iff it's a shared mapping with an allocator */
+		params.has_locking = (flags & DMA_MAP_FLAG_ALLOC) ? 1 : 0;
+	} else {
+		params.name[0]= '\0';
+		params.has_locking = 0;
+	}
+	ret = process_dma_map(&params, flags & DMA_MAP_FLAG_READONLY,
+			      &map->addr.virt);
+	if (ret) {
+		free(map);
+		return NULL;
+	}
+	map->addr.phys = params.pa_offset;
+	map->sz = params.len;
+	map->flags = flags;
+	map->has_locking = params.has_locking;
+	strncpy(map->name, params.name, USDPAA_DMA_NAME_MAX);
+	if (params.did_create && (flags & DMA_MAP_FLAG_ALLOC))
+		dma_mem_allocator_init(map);
+
+	pthread_mutex_lock(&maps_lock);
+	if (num_maps < MAX_DMA_MAPS)
+		maps[num_maps++] = map;
+	else {
+		fprintf(stderr, "Too many DMA maps, caught in a race!\n");
+		free(map);
+		map = NULL;
+	}
+	pthread_mutex_unlock(&maps_lock);
+	return map;
 }
 
-dma_addr_t dma_mem_bpool_base(void)
+void dma_mem_params(struct dma_mem *map, uint32_t *flags, const char **map_name,
+		    size_t *len)
 {
-	return bpool_base;
+	if (flags)
+		*flags = map->flags;
+	if (map_name)
+		*map_name = map->name;
+	if (len)
+		*len = map->sz;
 }
 
-size_t dma_mem_bpool_range(void)
+void *dma_mem_raw(struct dma_mem *map, size_t *len)
 {
-	return bpool_range;
+	if (map->flags & DMA_MAP_FLAG_ALLOC)
+		return NULL;
+	if (len)
+		*len = map->sz;
+	return map->addr.virt;
 }
 
-int dma_mem_bpool_set_range(size_t sz)
+struct dma_mem *dma_mem_findv(void *v)
 {
-	int ret = dma_mem_alloc_reinit(virt + sz, len - sz,
-				       virt + bpool_range,
-				       len - bpool_range);
-	if (!ret)
-		bpool_range = sz;
-	return ret;
+	struct dma_mem *map;
+	unsigned int idx;
+
+	pthread_mutex_lock(&maps_lock);
+	for (map = maps[0], idx = 0; (idx < MAX_DMA_MAPS) && map;
+				     map = maps[idx++]) {
+		if ((v >= map->addr.virt) && (v < (map->addr.virt + map->sz)))
+			goto found;
+	}
+	map = NULL;
+found:
+	pthread_mutex_unlock(&maps_lock);
+	return map;
+}
+
+struct dma_mem *dma_mem_findp(dma_addr_t p)
+{
+	struct dma_mem *map;
+	unsigned int idx;
+
+	pthread_mutex_lock(&maps_lock);
+	for (map = maps[0], idx = 0; (idx < MAX_DMA_MAPS) && map;
+				     map = maps[idx++]) {
+		if ((p >= map->addr.phys) && (p < (map->addr.phys + map->sz)))
+			goto found;
+	}
+	map = NULL;
+found:
+	pthread_mutex_unlock(&maps_lock);
+	return map;
 }

@@ -118,8 +118,7 @@ int fib_init(void)
 {
 	pr_info("IPv4 FIB table init now... ");
 
-	fib_table =
-	    dma_mem_memalign(L1_CACHE_BYTES,
+	fib_table = __dma_mem_memalign(L1_CACHE_BYTES,
 			sizeof(*fib_table) * FIB_TABLE_SIZE);
 	if (unlikely(!fib_table)) {
 		pr_err("fib_init error: No memory.");
@@ -129,50 +128,49 @@ int fib_init(void)
 
 	fibidx_size =
 	    (FIB_TABLE_SIZE - FIBTBL_1STLVL_SIZE) / FIBTBL_OTHLVL_SIZE / 32;
-	fib_index = dma_mem_memalign(L1_CACHE_BYTES,
+	fib_index = __dma_mem_memalign(L1_CACHE_BYTES,
 			sizeof(uint32_t) * fibidx_size);
 	if (unlikely(!fib_index)) {
 		pr_err("fib_init error: No memory.");
-		free(fib_table);
+		__dma_mem_free(fib_table);
 		fib_table = NULL;
 		return -ENOMEM;
 	}
 	memset((char *)fib_index, 0xff, sizeof(uint32_t) * fibidx_size);
 
-	nh_pool = dma_mem_memalign(L1_CACHE_BYTES,
+	nh_pool = __dma_mem_memalign(L1_CACHE_BYTES,
 			sizeof(*nh_pool) * FIB_NHPOOL_SIZE);
 	if (unlikely(!nh_pool)) {
 		pr_err("fib_init error: No memory.");
-		free(fib_index);
-		free(fib_table);
+		__dma_mem_free(fib_index);
+		__dma_mem_free(fib_table);
 		fib_table = NULL;
 		return -ENOMEM;
 	}
 	memset((char *)nh_pool, 0, sizeof(*nh_pool) * FIB_NHPOOL_SIZE);
 
 	nhidx_size = FIB_NHPOOL_SIZE / 32;
-	nh_index = dma_mem_memalign(L1_CACHE_BYTES,
+	nh_index = __dma_mem_memalign(L1_CACHE_BYTES,
 			sizeof(uint32_t) * nhidx_size);
 	if (unlikely(!nh_index)) {
 		pr_err("fib_init error: No memory.");
-		free(nh_pool);
-		free(fib_index);
-		free(fib_table);
+		__dma_mem_free(nh_pool);
+		__dma_mem_free(fib_index);
+		__dma_mem_free(fib_table);
 		nh_pool = NULL;
 		fib_table = NULL;
 		return -ENOMEM;
 	}
 	memset((char *)nh_index, 0xff, sizeof(uint32_t) * nhidx_size);
 
-	fib_datatbl =
-	    dma_mem_memalign(L1_CACHE_BYTES,
-				sizeof(*fib_datatbl) * FIB_DPOOL_SIZE);
+	fib_datatbl = __dma_mem_memalign(L1_CACHE_BYTES,
+			sizeof(*fib_datatbl) * FIB_DPOOL_SIZE);
 	if (unlikely(!fib_datatbl)) {
 		pr_err("fib_init error: No memory.");
-		free(nh_index);
-		free(nh_pool);
-		free(fib_index);
-		free(fib_table);
+		__dma_mem_free(nh_index);
+		__dma_mem_free(nh_pool);
+		__dma_mem_free(fib_index);
+		__dma_mem_free(fib_table);
 		nh_pool = NULL;
 		fib_table = NULL;
 		return -ENOMEM;
@@ -180,15 +178,15 @@ int fib_init(void)
 	memset((char *)fib_datatbl, 0, sizeof(*fib_datatbl) * FIB_DPOOL_SIZE);
 
 	dataidx_size = FIB_DPOOL_SIZE / 32;
-	data_index = dma_mem_memalign(L1_CACHE_BYTES,
-				sizeof(uint32_t) * dataidx_size);
+	data_index = __dma_mem_memalign(L1_CACHE_BYTES,
+			sizeof(uint32_t) * dataidx_size);
 	if (unlikely(!data_index)) {
 		pr_err("fib_init error: No memory.");
-		free(fib_datatbl);
-		free(nh_index);
-		free(nh_pool);
-		free(fib_index);
-		free(fib_table);
+		__dma_mem_free(fib_datatbl);
+		__dma_mem_free(nh_index);
+		__dma_mem_free(nh_pool);
+		__dma_mem_free(fib_index);
+		__dma_mem_free(fib_table);
 		nh_pool = NULL;
 		fib_table = NULL;
 		fib_datatbl = NULL;

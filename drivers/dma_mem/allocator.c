@@ -32,183 +32,220 @@
 
 #include "private.h"
 
+/* OK, this will be ugly as all allocators are, but ugliness will be minimised
+ * at the expense of (a) optimisation and (b) fragmentation. W.r.t. (a)
+ * (de)allocation is not expected to be a performance-critical operation, and in
+ * particular requires a kernel ioctl() to lock and unlock each time. W.r.t. (b)
+ * there is not expected to be a wide array of memory allocation sizes and
+ * alignments within each memory region (often a memory region will used
+ * entirely for a single buffer geometry). Here's a brief attempt to explain how
+ * we'll implement this.
+ *
+ * The book-keeping for the region will be hard-aligned to the right of the
+ * memory region. Buffers will be, as much as possible, hard-aligned to the left
+ * of the memory region. The final word of the book-keeping area (and thus the
+ * entire region) will be <numbufs>, indicating how many allocations have been
+ * made, and from this the boundary can be calculated. Prior to <numbufs> is an
+ * array of that many "bufinfo" structures representing all allocated buffers in
+ * reverse address order. Allocations (insertions) and deallocations (deletes)
+ * are therefore linear and may each involve a memmove() in order to keep the
+ * array packed.  Allocation always involves looking for the first satisfactory
+ * "gap" in the allocation space and returning that. As such, a burst of
+ * allocations will typically be of increasing addresses, which is why the
+ * "bufinfo" array is in reverse-order, as this would minimise memmove()s as the
+ * array expands downwards.
+ *
+ * All allocations and deallocations occur with the entire region locked (if
+ * locking for the region is enabled). Within that, a process-local pthread
+ * mutext is locked also. (Ie. we assert the multi-thread lock within the
+ * multi-process lock.)
+ */
+
+struct bufinfo {
+	uint32_t offset;
+	uint32_t len;
+};
+
+static pthread_mutex_t alloc_lock = PTHREAD_MUTEX_INITIALIZER;
+
+/* Return a pointer to <numbufs> */
+static inline uint32_t *get_numbufs(struct dma_mem *map)
+{
+	uint32_t *p = map->addr.virt + map->sz;
+	return &p[-1];
+}
+
+/* Return a pointer to the <idx>th item of the <bufinfo> array */
+static inline struct bufinfo *get_bufinfo(struct dma_mem *map, int idx)
+{
+	struct bufinfo *b = (struct bufinfo *)get_numbufs(map);
+	return b - (idx + 1);
+}
+
 #undef ALLOC_DEBUG
 #ifdef DEBUG_DMA_ALLOC
 #define ALLOC_DEBUG
 #endif
 
-/* Global state for the allocator */
-static DEFINE_SPINLOCK(alloc_lock);
-static LIST_HEAD(alloc_list);
-
-/* The allocator is a (possibly-empty) list of these nodes */
-struct alloc_node {
-	struct list_head list;
-	/* What we're dealing with here are virtual addresses/pointers. However
-	 * the use of 'void*' is annoying when it comes to expressions, so we
-	 * use 'unsigned long' instead, which is always the same width. */
-	unsigned long base;
-	unsigned long sz;
-};
-
 #ifdef ALLOC_DEBUG
-#define DPRINT		pr_info
-static void DUMP(void)
-{
-	int off = 0;
-	char buf[256];
-	struct alloc_node *p;
-	if (list_empty(&alloc_list))
-		off = snprintf(buf, 255, "<empty>");
-	else list_for_each_entry(p, &alloc_list, list) {
-		if (off < 255)
-			off += snprintf(buf + off, 255-off, "{%lx,%lx}",
-				p->base, p->sz);
-	}
-	buf[off] = '\0';
-	pr_info("%s\n", buf);
-}
+#define DPRINT		printf
+#define DUMP(x)		dma_mem_print(x)
 #else
 #define DPRINT(x...)	do { ; } while(0)
-#define DUMP()		do { ; } while(0)
+#define DUMP(x)		do { ; } while(0)
 #endif
 
-void *dma_mem_memalign(size_t align, size_t size)
+void dma_mem_allocator_init(struct dma_mem *map)
 {
-	struct alloc_node *i = NULL;
-	unsigned long base, num = 0;
-	struct alloc_node *margin_left, *margin_right;
-	void *result = NULL;
+	*get_numbufs(map) = 0;
+	DPRINT("%s\n", __func__);
+	DUMP(map);
+}
 
-	DPRINT("dma_mem_memalign(align=%d,size=%d)\n", align, size);
-	DUMP();
-	/* If 'align' is 0, it should behave as though it was 1 */
+/* These internal local_*() functions don't need to worry about locking */
+
+static void *local_memalign(struct dma_mem *map, size_t align, size_t size)
+{
+	uint32_t *p_numbufs = get_numbufs(map), numbufs = *p_numbufs;
+	/* Initialise 'buf' to the last bufinfo */
+	struct bufinfo *buf = get_bufinfo(map, numbufs - 1);
+	uint32_t lastend, boundary;
+	unsigned int idx;
+
+	/* Check that the bufinfo array can be expanded */
+	boundary = numbufs ? (buf->offset + buf->len) : 0;
+	buf--;
+	if (((unsigned long)buf - (unsigned long)map->addr.virt) < boundary)
+		return NULL;
+	/* Treat align==0 the same as align==1 */
 	if (!align)
 		align = 1;
-	margin_left = malloc(sizeof(*margin_left));
-	if (!margin_left)
-		goto err;
-	margin_right = malloc(sizeof(*margin_right));
-	if (!margin_right) {
-		free(margin_left);
-		goto err;
+	if (align & (align - 1))
+		return NULL;
+	/* Iterate bufinfos, looking for a good gap */
+	for (lastend = 0, idx = 0, buf = get_bufinfo(map, 0); idx < numbufs;
+			lastend = buf->offset + buf->len, buf--, idx++) {
+		/* Is there space between 'lastend' and 'buf'? To find out,
+		 * round 'lastend' up to the required alignment */
+		lastend = (lastend + align - 1) & ~(uint32_t)(align - 1);
+		if ((lastend + size) <= buf->offset)
+			break;
 	}
-	spin_lock_irq(&alloc_lock);
-	list_for_each_entry(i, &alloc_list, list) {
-		base = (i->base + align - 1) / align;
-		base *= align;
-		if ((base - i->base) >= i->sz)
-			/* alignment is impossible, regardless of size */
-			continue;
-		num = i->sz - (base - i->base);
-		if (num >= size) {
-			/* this one will do nicely */
-			num = size;
-			goto done;
-		}
+	if (idx == numbufs) {
+		/* No insertion point, so we could only go on the tail. */
+		lastend = (lastend + align - 1) & ~(uint32_t)(align - 1);
+		if (((unsigned long)buf - (unsigned long)map->addr.virt) <
+				(lastend + size))
+			/* Nope, the allocation space would overlap the bufinfo
+			 * array. */
+			return NULL;
 	}
-	i = NULL;
-done:
-	if (i) {
-		if (base != i->base) {
-			margin_left->base = i->base;
-			margin_left->sz = base - i->base;
-			list_add_tail(&margin_left->list, &i->list);
-		} else
-			free(margin_left);
-		if ((base + num) < (i->base + i->sz)) {
-			margin_right->base = base + num;
-			margin_right->sz = (i->base + i->sz) -
-						(base + num);
-			list_add(&margin_right->list, &i->list);
-		} else
-			free(margin_right);
-		list_del(&i->list);
-		free(i);
-		result = (void *)base;
-	}
-	spin_unlock_irq(&alloc_lock);
-err:
-	DPRINT("returning %p\n", result);
-	DUMP();
-	return result;
+	/* 'buf' and 'idx' now point to the insertion location in the bufinfo
+	 * array - either within existing entries, or on the tail. */
+	if (idx < numbufs)
+		/* need to shift some bufinfo's for the insertion */
+		memmove(get_bufinfo(map, numbufs),
+			get_bufinfo(map, numbufs - 1),
+			(numbufs - idx) * sizeof(*buf));
+	buf->offset = lastend;
+	buf->len = size;
+	(*p_numbufs)++;
+	return map->addr.virt + buf->offset;
 }
 
-static int _dma_mem_free(void *ptr, size_t size)
+static void local_free(struct dma_mem *map, void *ptr)
 {
-	struct alloc_node *i, *node = malloc(sizeof(*node));
-	if (!node)
-		return -ENOMEM;
-	DPRINT("dma_mem_free(ptr=%p,sz=%d)\n", ptr, size);
-	DUMP();
+	uint32_t *p_numbufs = get_numbufs(map), numbufs = *p_numbufs;
+	uint32_t offset = (unsigned long)ptr - (unsigned long)map->addr.virt;
+	struct bufinfo *buf;
+	unsigned int idx;
+	for (idx = 0, buf = get_bufinfo(map, 0); idx < numbufs; buf--, idx++) {
+		if (buf->offset == offset) {
+			numbufs = --(*p_numbufs);
+			if (idx < numbufs)
+				memmove(get_bufinfo(map, numbufs - 1),
+					get_bufinfo(map, numbufs),
+					(numbufs - idx) * sizeof(*buf));
+			return;
+		}
+		if (buf->offset > offset)
+			break;
+	}
+	fprintf(stderr, "DMA free, bad pointer!\n");
+	return;
+}
 
-	spin_lock_irq(&alloc_lock);
-	node->base = (unsigned long)ptr;
-	node->sz = size;
-	list_for_each_entry(i, &alloc_list, list) {
-		DPRINT("  comparing with (ptr=%lx,sz=%ld)\n",
-			i->base, i->sz);
-		if (i->base >= node->base) {
-			DPRINT("  yes, we'll prepend to that\n");
-			list_add_tail(&node->list, &i->list);
-			goto done;
-		} else
-			DPRINT("  no, keep looking\n");
-	}
-	DPRINT("  we're to the right of everything\n");
-	list_add_tail(&node->list, &alloc_list);
-done:
-	DUMP();
-	/* Merge to the left if they match */
-	i = list_entry(node->list.prev, struct alloc_node, list);
-	if (node->list.prev != &alloc_list) {
-		BUG_ON((i->base + i->sz) > node->base);
-		if ((i->base + i->sz) == node->base) {
-			DPRINT("  merging to the left with (ptr=%lx,sz=%ld)\n",
-				i->base, i->sz);
-			node->base = i->base;
-			node->sz += i->sz;
-			list_del(&i->list);
-			free(i);
+static inline int map_lock(struct dma_mem *map)
+{
+	if (map->has_locking) {
+		int ret = process_dma_lock(map->addr.virt);
+		if (ret) {
+			perror("Failed to lock DMA region");
+			return -ENODEV;
 		}
 	}
-	/* Merge to the right */
-	i = list_entry(node->list.next, struct alloc_node, list);
-	if (node->list.next != &alloc_list) {
-		BUG_ON((node->base + node->sz) > i->base);
-		if ((node->base + node->sz) == i->base) {
-			DPRINT("  merging to the right with (ptr=%lx,sz=%ld)\n",
-				i->base, i->sz);
-			node->sz += i->sz;
-			list_del(&i->list);
-			free(i);
-		}
-	}
-	DPRINT("  done\n");
-	spin_unlock_irq(&alloc_lock);
-	DUMP();
+	pthread_mutex_lock(&alloc_lock);
 	return 0;
 }
-void dma_mem_free(void *ptr, size_t size)
+static inline int map_unlock(struct dma_mem *map)
 {
-	__maybe_unused int ret = _dma_mem_free(ptr, size);
-	BUG_ON(ret);
+	pthread_mutex_unlock(&alloc_lock);
+	if (map->has_locking) {
+		int ret = process_dma_unlock(map->addr.virt);
+		if (ret) {
+			perror("Failed to unlock DMA region");
+			return -ENODEV;
+		}
+	}
+	return 0;
 }
 
-int dma_mem_alloc_init(void *bar, size_t sz)
+/* The exported functions provide locking wrappers around internal code */
+
+void *dma_mem_memalign(struct dma_mem *map, size_t align, size_t size)
 {
-	return _dma_mem_free(bar, sz);
+	void *ptr;
+	int ret;
+	if (!(map->flags & DMA_MAP_FLAG_ALLOC)) {
+		fprintf(stderr, "DMA map not initialised for allocation\n");
+		return NULL;
+	}
+	ret = map_lock(map);
+	if (ret)
+		return NULL;
+	ptr = local_memalign(map, align, size);
+	DPRINT("dma_mem_align(%p,0x%x,0x%x) returning %p\n",
+	       map, align, size, ptr);
+	DUMP(map);
+	map_unlock(map);
+	return ptr;
 }
 
-int dma_mem_alloc_reinit(void *newbar, size_t newsz,
-			 void *oldbar, size_t oldsz)
+void dma_mem_free(struct dma_mem *map, void *ptr)
 {
-	void *chunk = dma_mem_memalign(1, oldsz);
-	DPRINT("dma_mem_alloc_reinit(new: %p:%x, old: %p:%x, chunk=%p\n",
-	       newbar, newsz, oldbar, oldsz, chunk);
-	DUMP();
-	if (!chunk)
-		return -EBUSY;
-	BUG_ON((chunk != oldbar) && !list_empty(&alloc_list));
-	return _dma_mem_free(newbar, newsz);
+	map_lock(map);
+	local_free(map, ptr);
+	DPRINT("dma_mem_free(%p,%p)\n", map, ptr);
+	DUMP(map);
+	map_unlock(map);
+}
+
+void dma_mem_print(struct dma_mem *map)
+{
+	uint32_t *p_numbufs, numbufs;
+	struct bufinfo *buf;
+	unsigned int idx;
+
+	map_lock(map);
+
+	p_numbufs = get_numbufs(map);
+	numbufs = *p_numbufs;
+	buf = get_bufinfo(map, numbufs - 1);
+	printf("Map %p: v=%p,p=%llx,sz=0x%x,bufs=0x%x\n", map, map->addr.virt,
+	       map->addr.phys, map->sz, numbufs);
+	for (idx = 0, buf = get_bufinfo(map, idx); idx < numbufs; buf--, idx++)
+		printf("  [0x%x-0x%x] len=0x%x, bufinfo=%p\n",
+		       buf->offset, buf->offset + buf->len, buf->len, buf);
+
+	map_unlock(map);
 }

@@ -340,7 +340,7 @@ static int init_pool_channels(void)
 		sdqcr |= QM_SDQCR_CHANNELS_POOL_CONV(pchannels[ret]);
 		TRACE("Adding pool 0x%x to SDQCR, 0x%08x -> 0x%08x\n",
 		      pchannels[ret],
-		      QM_SDQCR_CHANNELS_POOL_CONV(netcfg->pool_channels[loop]),
+		      QM_SDQCR_CHANNELS_POOL_CONV(pchannels[ret]),
 		      sdqcr);
 	}
 	return 0;
@@ -499,10 +499,10 @@ static void do_global_finish(void)
 
 static void do_global_init(void)
 {
+#ifdef PPAC_CGR
 	uint32_t cgrids[2];
+#endif
 	const struct ppac_bpool_static *bp = ppac_bpool_static;
-	dma_addr_t phys_addr = dma_mem_bpool_base();
-	dma_addr_t phys_limit = phys_addr + dma_mem_bpool_range();
 	struct list_head *i;
 	unsigned int loop;
 	int err;
@@ -594,12 +594,14 @@ static void do_global_init(void)
 			unsigned int rel = (bp->num - num_bufs) > 8 ? 8 :
 						(bp->num - num_bufs);
 			for (loop = 0; loop < rel; loop++) {
-				bm_buffer_set64(&bufs[loop], phys_addr);
-				phys_addr += bp->size;
-			}
-			if (phys_addr > phys_limit) {
-				fprintf(stderr, "error: buffer overflow\n");
-				abort();
+				void *ptr = __dma_mem_memalign(64, bp->size);
+				if (!ptr) {
+					fprintf(stderr,
+						"error: no buffer space\n");
+					abort();
+				}
+				bm_buffer_set64(&bufs[loop],
+						__dma_mem_vtop(ptr));
 			}
 			do {
 				err = bman_release(pool[bpid], bufs, rel, 0);
@@ -1400,11 +1402,12 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "error: no pool channels available\n");
 	printf("Configuring for %d network interface%s\n",
 		netcfg->num_ethports, netcfg->num_ethports > 1 ? "s" : "");
-	/* - map shmem */
-	TRACE("Initialising shmem\n");
-	rcode = dma_mem_setup();
-	if (rcode)
-		fprintf(stderr, "error: shmem init, continuing\n");
+	/* - map DMA mem */
+	TRACE("Initialising DMA mem\n");
+	dma_mem_generic = dma_mem_create(DMA_MAP_FLAG_ALLOC, NULL,
+					 PPAC_DMA_MAP_SIZE);
+	if (!dma_mem_generic)
+		fprintf(stderr, "error: dma_mem init, continuing\n");
 
 	/* Create the threads */
 	TRACE("Starting %d threads for cpu-range '%d..%d'\n",

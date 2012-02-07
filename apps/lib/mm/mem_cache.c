@@ -58,16 +58,16 @@ struct mem_cache_t *mem_cache_init(void)
 	This region is permanently mapped and so won't suffer TLB faults
 	unlike conventional memory allocations */
 	mem_space = sizeof(struct mem_cache_t) * (MAX_MEM_CACHES);
-	cache_mem = dma_mem_memalign(L1_CACHE_BYTES, mem_space);
+	cache_mem = __dma_mem_memalign(L1_CACHE_BYTES, mem_space);
 	if (unlikely(!cache_mem))
 		return NULL;
 
 	memset(cache_mem, 0, mem_space);
 
 	ptr_array_space = sizeof(uintptr_t) * MAX_MEM_CACHES;
-	ptr_array_mem = dma_mem_memalign(L1_CACHE_BYTES, ptr_array_space);
+	ptr_array_mem = __dma_mem_memalign(L1_CACHE_BYTES, ptr_array_space);
 	if (ptr_array_mem == NULL) {
-		dma_mem_free(cache_mem, mem_space);
+		__dma_mem_free(cache_mem);
 		return NULL;
 	}
 
@@ -94,7 +94,7 @@ struct mem_cache_t *mem_cache_create(size_t objsize, uint32_t capacity)
 	if (cachep == NULL)
 		return NULL;
 
-	parray_mem = dma_mem_memalign(L1_CACHE_BYTES,
+	parray_mem = __dma_mem_memalign(L1_CACHE_BYTES,
 					sizeof(void *) * capacity);
 	if (parray_mem == NULL) {
 		mem_cache_free(cache_cache, cachep);
@@ -195,7 +195,7 @@ drop:
 
 static void *__mem_cache_slab_alloc(uint32_t size)
 {
-	return dma_mem_memalign(L1_CACHE_BYTES, size);
+	return __dma_mem_memalign(L1_CACHE_BYTES, size);
 }
 
 static uint32_t __mem_cache_refill(struct mem_cache_t *cachep,

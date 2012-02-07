@@ -608,7 +608,7 @@ static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
 	struct annotations_t *notes;
 	struct ether_header *eth_hdr;
 
-	notes = dma_mem_ptov(qm_fd_addr(&dqrr->fd));
+	notes = __dma_mem_ptov(qm_fd_addr(&dqrr->fd));
 	eth_hdr = (void *)notes + dqrr->fd.offset;
 	if (eth_hdr->ether_type == ETHERTYPE_ARP) {
 		notes->dqrr = dqrr;
@@ -675,7 +675,7 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 	void *data;
 	switch (dqrr->fd.format) {
 	case qm_fd_contig:
-		notes = dma_mem_ptov(qm_fd_addr(&dqrr->fd));
+		notes = __dma_mem_ptov(qm_fd_addr(&dqrr->fd));
 		data = (void *)notes + dqrr->fd.offset;
 		break;
 	default:
