@@ -38,7 +38,8 @@
 
 /** \brief		Initializes the ARP table
  *  \param[out] nt	ARP table
- *  \return		On success, zero. On error, a negative value as per errno.h
+ *  \return		On success, zero. On error, a negative value
+ as per errno.h
  */
 int arp_table_init(struct neigh_table_t *nt);
 

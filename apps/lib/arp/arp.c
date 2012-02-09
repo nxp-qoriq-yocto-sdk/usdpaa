@@ -49,11 +49,13 @@ static void arp_handle_request(const struct ppam_interface *p,
 	arp->arp_op = ARPOP_REPLY;
 	memcpy(eth->ether_dhost, eth->ether_shost, sizeof(eth->ether_dhost));
 	memcpy(arp->arp_tha, eth->ether_shost, arp->arp_hln);
-	memcpy(eth->ether_shost, &dev->port_cfg->fman_if->mac_addr, sizeof(eth->ether_shost));
+	memcpy(eth->ether_shost, &dev->port_cfg->fman_if->mac_addr,
+			sizeof(eth->ether_shost));
 	memcpy(arp->arp_tpa, arp->arp_spa, arp->arp_pln);
 	memcpy(arp->arp_sha, eth->ether_shost, arp->arp_hln);
 	memcpy(arp->arp_spa, &p->addr, arp->arp_pln);
-	ppac_send_frame(p->tx_fqids[notes->dqrr->fqid % p->num_tx_fqids], &notes->dqrr->fd);
+	ppac_send_frame(p->tx_fqids[notes->dqrr->fqid % p->num_tx_fqids],
+				&notes->dqrr->fd);
 }
 
 void arp_handler(const struct ppam_interface *p,
@@ -69,22 +71,24 @@ void arp_handler(const struct ppam_interface *p,
 		ppac_drop_frame(&notes->dqrr->fd);
 }
 
-static void arp_solicit(struct neigh_t *n, const void *annotations, void *ll_payload)
+static void arp_solicit(struct neigh_t *n,
+		const void *annotations, void *ll_payload)
 {
 	const struct annotations_t *notes = annotations;
 #ifdef STATS_TBD
 	decorated_notify_inc_64(&n->nt->stats->solicit_errors);
 #endif
-	free_buff(&notes->dqrr->fd);
+	ppac_drop_frame(&notes->dqrr->fd);
 }
 
-static void arp_error_handler(struct neigh_t *n, const void *annotations, void *ll_payload)
+static void arp_error_handler(struct neigh_t *n,
+		const void *annotations, void *ll_payload)
 {
 	const struct annotations_t *notes = annotations;
 #ifdef STATS_TBD
 	decorated_notify_inc_64(&n->nt->stats->protocol_errors);
 #endif
-	free_buff(&notes->dqrr->fd);
+	ppac_drop_frame(&notes->dqrr->fd);
 }
 
 static void arp_constructor(struct neigh_t *n)
