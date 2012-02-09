@@ -31,7 +31,7 @@
 #define LIB_NET_RT_H
 
 #include "mm/mem_cache.h"
-#include "statistics.h"
+#include "ipfwd/statistics.h"
 #include "app_common.h"
 
 #include <internal/compat.h>

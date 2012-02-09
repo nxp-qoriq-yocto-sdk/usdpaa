@@ -32,7 +32,7 @@
 #include <usdpaa/compat.h>
 #include <usdpaa/fsl_qman.h>
 
-#include "fm_types.h"
+#include "ipfwd/fm_types.h"
 
 /**
  \brief Returns the Length of the Buffer in the fd

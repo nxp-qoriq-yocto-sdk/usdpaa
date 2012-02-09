@@ -30,7 +30,7 @@
 
 #include "ip/ip.h"
 #include <fsl_fman.h>
-#include "statistics.h"
+#include "ipfwd/statistics.h"
 #include "app_common.h"
 
 #include <internal/compat.h>	/* L1_CACHE_BYTES */

@@ -32,7 +32,7 @@
 
 #include <internal/compat.h>
 
-#include "statistics.h"
+#include "ipfwd/statistics.h"
 #include "bigatomic.h"
 
 typedef stat32_t refcount_t;
