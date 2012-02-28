@@ -112,7 +112,7 @@ static int fman_if_init(const struct device_node *dpa_node, int is_offline)
 
 	/* Allocate an object for this network interface */
 	__if = malloc(sizeof(*__if));
-	my_err(!__if, -ENOMEM, "malloc(%d)\n", sizeof(*__if));
+	my_err(!__if, -ENOMEM, "malloc(%zu)\n", sizeof(*__if));
 	INIT_LIST_HEAD(&__if->__if.bpool_list);
 	strncpy(__if->node_path, dpa_node->full_name, PATH_MAX - 1);
 	__if->node_path[PATH_MAX - 1] = '\0';
@@ -233,7 +233,7 @@ static int fman_if_init(const struct device_node *dpa_node, int is_offline)
 		const char *pname;
 		/* Allocate an object for the pool */
 		bpool = malloc(sizeof(*bpool));
-		my_err(!bpool, -ENOMEM, "malloc(%d)\n", sizeof(*bpool));
+		my_err(!bpool, -ENOMEM, "malloc(%zu)\n", sizeof(*bpool));
 		/* Find the pool node */
 		pool_node = of_find_node_by_phandle(*pools_phandle);
 		my_err(!pool_node, -ENXIO, "%s: bad fsl,bman-buffer-pools\n",
