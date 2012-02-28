@@ -543,11 +543,11 @@ const uint32_t *of_get_address(const struct device_node *dev_node, size_t idx,
 uint64_t of_translate_address(const struct device_node *dev_node,
 			      const uint32_t *addr)
 {
-	uint32_t na, pna;
-	uint32_t rlen;
 	uint64_t phys_addr, tmp_addr;
 	const struct device_node *parent;
 	const uint32_t *ranges;
+	size_t rlen;
+	uint32_t na, pna;
 
 	WARN_ON(!alive, "Device-tree driver not initialised");
 	assert(dev_node != NULL);
@@ -573,7 +573,7 @@ uint64_t of_translate_address(const struct device_node *dev_node,
 			return 0;
 		/* "ranges" property is empty. Do 1:1 translation */
 		else if (rlen == 0)
-			continue;
+			break;
 		else
 			tmp_addr = of_read_number(ranges + na, pna);
 
