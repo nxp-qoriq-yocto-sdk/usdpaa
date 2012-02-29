@@ -605,7 +605,16 @@ static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
 				      struct ppam_interface *_if,
 				      const struct qm_dqrr_entry *dqrr)
 {
-	ppac_drop_frame(&dqrr->fd);
+	struct annotations_t *notes;
+	struct ether_header *eth_hdr;
+
+	notes = dma_mem_ptov(qm_fd_addr(&dqrr->fd));
+	eth_hdr = (void *)notes + dqrr->fd.offset;
+	if (eth_hdr->ether_type == ETHERTYPE_ARP) {
+		notes->dqrr = dqrr;
+		arp_handler(_if, notes, eth_hdr);
+	} else
+		ppac_drop_frame(&dqrr->fd);
 }
 static int ppam_tx_error_init(struct ppam_tx_error *p,
 			      struct ppam_interface *_if,
