@@ -42,4 +42,4 @@ lpm_ipfwd_config -G -s 192.168.29.2 -m 02:00:c0:a8:a0:02 -r true
 net_pair_routes 160 1 524288 24 24
 net_pair_routes 168 2 524288 24 29
 
-echo IPFwd Route Creation complete
+echo LPM-IPFwd Route Creation complete
