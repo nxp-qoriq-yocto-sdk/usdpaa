@@ -245,7 +245,8 @@ int ppac_interface_init(unsigned idx)
 }
 int ppac_interface_init_rx(struct ppac_interface *i)
 {
-	int err, loop;
+	__maybe_unused int err;
+	int loop;
 	struct qm_fqd_stashing stash_opts;
 	const struct fman_if *fif = i->port_cfg->fman_if;
 	struct fmc_netcfg_fqrange *fqr;
