@@ -257,6 +257,7 @@ static inline void cpumask_clear_cpu(int cpu, cpumask_t *mask)
 #define DEFINE_PER_CPU(t,x)	__thread t per_cpu__##x
 #define per_cpu(x,c)		per_cpu__##x
 #define get_cpu_var(x)		per_cpu__##x
+#define __get_cpu_var(x)	per_cpu__##x
 #define put_cpu_var(x)		do { ; } while(0)
 #define __PERCPU		__thread
 /* to be used as an upper-limit only */

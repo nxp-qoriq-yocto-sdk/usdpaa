@@ -1,4 +1,4 @@
-/* Copyright 2008-2011 Freescale Semiconductor, Inc.
+/* Copyright 2008-2012 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -108,6 +108,11 @@ static inline void put_affine_portal(void)
 {
 	put_cpu_var(bman_affine_portal);
 }
+static inline struct bman_portal *get_poll_portal(void)
+{
+	return &__get_cpu_var(bman_affine_portal);
+}
+#define put_poll_portal() do { ; } while (0)
 
 /* GOTCHA: this object type refers to a pool, it isn't *the* pool. There may be
  * more than one such object per Bman buffer pool, eg. if different users of the
@@ -192,6 +197,7 @@ struct bman_portal *bman_create_affine_portal(
 	struct bm_portal *__p = &portal->p;
 	const struct bman_depletion *pools = &config->public_cfg.mask;
 	int ret;
+	u8 bpid = 0;
 
 	/* prep the low-level portal struct with the mapped addresses from the
 	 * config, everything that follows depends on it and "config" is more
@@ -210,21 +216,16 @@ struct bman_portal *bman_create_affine_portal(
 		pr_err("Bman ISR initialisation failed\n");
 		goto fail_isr;
 	}
-	if (!pools)
-		portal->pools = NULL;
-	else {
-		u8 bpid = 0;
-		portal->pools = kmalloc(2 * sizeof(*pools), GFP_KERNEL);
-		if (!portal->pools)
-			goto fail_pools;
-		portal->pools[0] = *pools;
-		bman_depletion_init(portal->pools + 1);
-		while (bpid < bman_pool_max) {
-			/* Default to all BPIDs disabled, we enable as required
-			 * at run-time. */
-			bm_isr_bscn_mask(__p, bpid, 0);
-			bpid++;
-		}
+	portal->pools = kmalloc(2 * sizeof(*pools), GFP_KERNEL);
+	if (!portal->pools)
+		goto fail_pools;
+	portal->pools[0] = *pools;
+	bman_depletion_init(portal->pools + 1);
+	while (bpid < bman_pool_max) {
+		/* Default to all BPIDs disabled, we enable as required at
+		 * run-time. */
+		bm_isr_bscn_mask(__p, bpid, 0);
+		bpid++;
 	}
 	portal->slowpoll = 0;
 #ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
@@ -498,7 +499,7 @@ EXPORT_SYMBOL(bman_affine_cpus);
 
 u32 bman_poll_slow(void)
 {
-	struct bman_portal *p = get_raw_affine_portal();
+	struct bman_portal *p = get_poll_portal();
 	u32 ret;
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
 	if (unlikely(p->sharing_redirect))
@@ -510,7 +511,7 @@ u32 bman_poll_slow(void)
 		ret = __poll_portal_slow(p, is);
 		bm_isr_status_clear(&p->p, ret);
 	}
-	put_affine_portal();
+	put_poll_portal();
 	return ret;
 }
 EXPORT_SYMBOL(bman_poll_slow);
@@ -518,7 +519,7 @@ EXPORT_SYMBOL(bman_poll_slow);
 /* Legacy wrapper */
 void bman_poll(void)
 {
-	struct bman_portal *p = get_raw_affine_portal();
+	struct bman_portal *p = get_poll_portal();
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
 	if (unlikely(p->sharing_redirect))
 		goto done;
@@ -534,7 +535,7 @@ void bman_poll(void)
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
 done:
 #endif
-	put_affine_portal();
+	put_poll_portal();
 }
 EXPORT_SYMBOL(bman_poll);
 
