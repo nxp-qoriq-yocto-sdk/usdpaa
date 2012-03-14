@@ -38,7 +38,7 @@
 enum IP_STATUS ip_send(const struct ppam_rx_hash *ctxt,
 		       struct annotations_t *notes, struct iphdr *ip_hdr)
 {
-	BUG_ON(notes->dest == NULL);
+	BUG_ON(notes->neighbor == NULL);
 
 	return ip_output(ctxt, notes, ip_hdr);
 }
