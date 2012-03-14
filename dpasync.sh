@@ -43,9 +43,9 @@ QBMAN="qman_high.c qman_low.h qman_private.h qman_utility.c bman_high.c bman_low
 #PME2="pme2_high.c pme2_low.c pme2_private.h"
 
 # Location of files in linux
-LIN_INCL=$TOPDIR/linux-2.6/include/linux
-LIN_QBMAN=$TOPDIR/linux-2.6/drivers/staging/fsl_qbman
-#LIN_PME2=$TOPDIR/linux-2.6/drivers/staging/fsl_pme2
+LIN_INCL=$TOPDIR/linux/include/linux
+LIN_QBMAN=$TOPDIR/linux/drivers/staging/fsl_qbman
+#LIN_PME2=$TOPDIR/linux/drivers/staging/fsl_pme2
 
 # Location of files in usd
 LWE_INCL=$TOPDIR/usdpaa/include/usdpaa
@@ -153,7 +153,7 @@ process () {
 		echo "Bad: source file $SS doesn't exist"
 		exit 1
 	elif [ ! -f $D ]; then
-		if [ $IS_DIFF = "yes" ]; then
+		if [ $IS_DIFF = "yes" -o $IS_STAT = "yes" ]; then
 			echo "New: $SS"
 		elif [ $IS_DIFF = "yes" ]; then
 			echo "New: $SS" >&2
