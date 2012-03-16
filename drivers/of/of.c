@@ -535,7 +535,7 @@ uint64_t of_translate_address(const struct device_node *dev_node,
 			return 0;
 		/* "ranges" property is empty. Do 1:1 translation */
 		else if (rlen == 0)
-			break;
+			continue;
 		else
 			tmp_addr = of_read_number(ranges + na, pna);
 
