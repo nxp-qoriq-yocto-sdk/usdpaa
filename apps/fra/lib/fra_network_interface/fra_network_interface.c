@@ -41,7 +41,7 @@ void ppac_fq_nonpcd_init(struct qman_fq *fq, uint32_t fqid,
 			 qman_cb_dqrr cb)
 {
 	struct qm_mcc_initfq opts;
-	int ret;
+	__maybe_unused int ret;
 
 	fq->cb.dqrr = cb;
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_NO_ENQUEUE, fq);
@@ -63,7 +63,7 @@ void ppac_fq_pcd_init(struct qman_fq *fq, uint32_t fqid,
 		      int prefer_in_cache)
 {
 	struct qm_mcc_initfq opts;
-	int ret;
+	__maybe_unused int ret;
 	fq->cb.dqrr = cb_dqrr_rx_hash;
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_NO_ENQUEUE, fq);
 	BUG_ON(ret);
@@ -125,7 +125,7 @@ void ppac_fq_tx_init(struct qman_fq *fq, enum qm_channel channel,
 		     uint32_t tx_confirm_fqid __maybe_unused)
 {
 	struct qm_mcc_initfq opts;
-	int err;
+	__maybe_unused int err;
 	/* These FQ objects need to be able to handle DQRR callbacks, when
 	 * cleaning up. */
 	fq->cb.dqrr = cb_tx_drain;
