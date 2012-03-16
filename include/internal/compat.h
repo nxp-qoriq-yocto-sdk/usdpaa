@@ -181,6 +181,8 @@ static inline void out_be32(volatile void *__p, u32 val)
 	*p = val;
 }
 #define hwsync __sync_synchronize
+#define dcbt_ro(p) __builtin_prefetch(p, 0)
+#define dcbt_rw(p) __builtin_prefetch(p, 1)
 #define lwsync() \
 	do { \
 		asm volatile ("lwsync" : : : "memory"); \
@@ -189,8 +191,6 @@ static inline void out_be32(volatile void *__p, u32 val)
 	do { \
 		asm volatile ("dcbf 0,%0" : : "r" (p)); \
 	} while(0)
-#define dcbt_ro(p) __builtin_prefetch(p, 0)
-#define dcbt_rw(p) __builtin_prefetch(p, 1)
 #define dcbi(p) dcbf(p)
 #ifdef CONFIG_PPC_E500MC
 #define dcbzl(p) \
