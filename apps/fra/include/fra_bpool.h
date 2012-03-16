@@ -121,8 +121,7 @@ static inline void bpool_fd_free(const struct qm_fd *fd)
 					      "Not support multiple"
 					      "s/g frame format");
 				}
-				bmb[j].hi = sgt[i].addr_hi;
-				bmb[j].lo = sgt[i].addr_lo;
+				bm_buffer_set64(&bmb[j], qm_sg_addr(&sgt[i]));
 				j++; i++;
 			} while (j < ARRAY_SIZE(bmb) &&
 				 !sgt[i-1].final &&
