@@ -162,6 +162,7 @@ int main(int argc, char *argv[])
 {
 	struct worker *workers;
 	char *endptr;
+	size_t sz = DMA_MAP_SIZE;
 	/* Determine number of cores (==number of threads) */
 	long ncpus = sysconf(_SC_NPROCESSORS_ONLN);
 	/* Load the device-tree driver */
@@ -197,6 +198,22 @@ int main(int argc, char *argv[])
 				exit(EXIT_FAILURE);
 			}
 			CFG_PATH = *argv;
+		} else if (!strcmp(*argv, "-s")) {
+			unsigned long val;
+			if (!ARGINC()) {
+				fprintf(stderr, "Missing argument to -s\n");
+				exit(EXIT_FAILURE);
+			}
+			val = strtoul(*argv, &endptr, 0);
+			if ((val == ULONG_MAX) || (*endptr != '\0') || !val) {
+				fprintf(stderr, "Invalid argument to -s (%s)\n",
+					*argv);
+				exit(EXIT_FAILURE);
+			}
+			sz = (size_t)val;
+		} else {
+			fprintf(stderr, "Unknown argument '%s'\n", *argv);
+			exit(EXIT_FAILURE);
 		}
 	}
 
@@ -257,12 +274,12 @@ int main(int argc, char *argv[])
 	for (loop = 0; loop < NUM_POOL_CHANNELS; loop++)
 		sdqcr |= QM_SDQCR_CHANNELS_POOL_CONV(pchannels[loop]);
 	/* Load dma_mem driver */
-	dma_mem_generic = dma_mem_create(DMA_MAP_FLAG_ALLOC, NULL,
-					 DMA_MAP_SIZE);
+	dma_mem_generic = dma_mem_create(DMA_MAP_FLAG_ALLOC, NULL, sz);
 	if (!dma_mem_generic) {
 		fprintf(stderr, "Fail: %s:\n", "dma_mem_create()");
 		exit(EXIT_FAILURE);
 	}
+	printf("DMA region created of size %zu (0x%zx)\n", sz, sz);
 	/* Start up the threads */
 	for (loop = 0; loop < ncpus; loop++) {
 		struct worker *worker = &workers[loop];
