@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -603,11 +603,7 @@ static void do_global_init(void)
 				bm_buffer_set64(&bufs[loop],
 						__dma_mem_vtop(ptr));
 			}
-			do {
-				err = bman_release(pool[bpid], bufs, rel, 0);
-			} while (err == -EBUSY);
-			if (err)
-				fprintf(stderr, "error: release failure\n");
+			bm_free_buf(pool[bpid], bufs, rel);
 			num_bufs += rel;
 		}
 		printf("Release %u bufs to BPID %d\n", num_bufs, bpid);

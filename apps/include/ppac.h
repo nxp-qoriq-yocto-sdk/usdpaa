@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010 - 2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -65,8 +65,8 @@
 #undef PPAC_TX_FORCESFDR	/* Priority allocation of SFDRs to egress */
 #define PPAC_DEPLETION		/* Trace depletion entry/exit */
 #undef PPAC_CGR			/* Track rx and tx fill-levels via CGR */
-#undef PPAC_CSTD 		/* CGR tail-drop */
-#undef PPAC_CSCN 		/* Log CGR state-change notifications */
+#undef PPAC_CSTD		/* CGR tail-drop */
+#undef PPAC_CSCN		/* Log CGR state-change notifications */
 #define PPAC_IDLE_IRQ		/* Block in interrupt-mode when idle */
 #undef PPAC_TX_CONFIRM		/* Use Tx confirmation for all transmits */
 
@@ -251,11 +251,18 @@ extern __thread u32 local_seqnum;
  * ppac_send_frame().
  */
 
+static inline void
+bm_free_buf(struct bman_pool *bp, const struct bm_buffer *buf, int count)
+{
+	while (bman_release(bp, buf, count, 0))
+		cpu_spin(PPAC_BACKOFF_CYCLES);
+}
+
 static inline void ppac_drop_frame(const struct qm_fd *fd)
 {
 	struct bm_buffer buf;
-	int ret;
 #ifdef PPAC_ORDER_RESTORATION
+	int ret;
 	/* The "ORP object" passed to qman_enqueue_orp() is only used to extract
 	 * the ORPID, so declare a temporary object to provide that. */
 	struct qman_fq tmp_orp = {
@@ -267,12 +274,7 @@ static inline void ppac_drop_frame(const struct qm_fd *fd)
 	BUG_ON(fd->format != qm_fd_contig);
 	BUG_ON(fd->bpid >= PPAC_MAX_BPID);
 	bm_buffer_set64(&buf, qm_fd_addr(fd));
-retry:
-	ret = bman_release(pool[fd->bpid], &buf, 1, 0);
-	if (ret) {
-		cpu_spin(PPAC_BACKOFF_CYCLES);
-		goto retry;
-	}
+	bm_free_buf(pool[fd->bpid], &buf, 1);
 	TRACE("drop: bpid %d <-- 0x%llx\n", fd->bpid, qm_fd_addr(fd));
 #ifdef PPAC_ORDER_RESTORATION
 	/* Perform a "HOLE" enqueue so that the ORP doesn't wait for the
