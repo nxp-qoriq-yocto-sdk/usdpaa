@@ -123,13 +123,6 @@ struct net_if {
 	struct list_head rx_list; /* list of "struct net_if_rx_fqrange" */
 };
 
-/* Seed buffer pools according to the configuration symbols */
-struct bpool_static {
-	int bpid;
-	unsigned int num;
-	unsigned int size;
-};
-
 static uint32_t sdqcr;
 static uint32_t pchannels[NUM_POOL_CHANNELS];
 static int received_sigint;
@@ -137,12 +130,7 @@ static struct net_if *interfaces;
 static struct usdpaa_netcfg_info *netcfg;
 static struct bman_pool *pool[64];
 __thread struct qman_fq local_fq;
-static const struct bpool_static bpool_static[] = {
-	{ DMA_MEM_BP1_BPID, DMA_MEM_BP1_NUM, DMA_MEM_BP1_SIZE},
-	{ DMA_MEM_BP2_BPID, DMA_MEM_BP2_NUM, DMA_MEM_BP2_SIZE},
-	{ DMA_MEM_BP3_BPID, DMA_MEM_BP3_NUM, DMA_MEM_BP3_SIZE},
-	{ -1, 0, 0 }
-};
+static unsigned int bpool_cnt[3] = { 0, 0, 1728 };
 
 static void handle_sigint(int s)
 {
@@ -211,6 +199,28 @@ int main(int argc, char *argv[])
 				exit(EXIT_FAILURE);
 			}
 			sz = (size_t)val;
+		} else if (!strcmp(*argv, "-b")) {
+			unsigned long val;
+			if (!ARGINC()) {
+				fprintf(stderr, "Missing argument to -b\n");
+				exit(EXIT_FAILURE);
+			}
+			val = strtoul(*argv, &endptr, 0);
+			if ((val == ULONG_MAX) || (*endptr != ':'))
+				goto b_err;
+			bpool_cnt[0] = val;
+			val = strtoul(endptr + 1, &endptr, 0);
+			if ((val == ULONG_MAX) || (*endptr != ':'))
+				goto b_err;
+			bpool_cnt[1] = val;
+			val = strtoul(endptr + 1, &endptr, 0);
+			if ((val == ULONG_MAX) || (*endptr != '\0'))
+				goto b_err;
+			bpool_cnt[2] = val;
+			continue;
+b_err:
+			fprintf(stderr, "Invalid argument to -b (%s)\n", *argv);
+			exit(EXIT_FAILURE);
 		} else {
 			fprintf(stderr, "Unknown argument '%s'\n", *argv);
 			exit(EXIT_FAILURE);
@@ -437,22 +447,6 @@ static enum qman_cb_dqrr_result cb_rx(struct qman_portal *qm __always_unused,
 	return qman_cb_dqrr_consume;
 }
 
-/* We have a 64-element array of buffer pool objects so that operations based on
- * BPID (like dropping a packet) have an efficient lookup. This function sets up
- * objects for required BPIDs as they are discovered in the configuration. */
-static int lazy_init_bpool(u8 bpid)
-{
-	if (!pool[bpid]) {
-		struct bman_pool_params params = {
-			.bpid = bpid
-		};
-		pool[bpid] = bman_new_pool(&params);
-		if (!pool[bpid])
-			return -ENOMEM;
-	}
-	return 0;
-}
-
 /* Initialise a Tx FQ */
 static int net_if_tx_init(struct qman_fq *fq, const struct fman_if *fif)
 {
@@ -548,19 +542,11 @@ static int net_if_rx_init(struct net_if *interface,
 static int net_if_init(struct net_if *interface,
 		       const struct fm_eth_port_cfg *cfg)
 {
-	const struct fman_if_bpool *bp;
 	const struct fman_if *fif = cfg->fman_if;
 	struct fm_eth_port_fqrange *fq_range;
 	int ret, loop;
 
 	interface->cfg = cfg;
-
-	/* Handle any pools used by this interface */
-	fman_if_for_each_bpool(bp, fif) {
-		ret = lazy_init_bpool(bp->bpid);
-		if (ret)
-			return ret;
-	}
 
 	/* Initialise Tx FQs */
 	interface->tx_fqs = calloc(NET_IF_NUM_TX, sizeof(interface->tx_fqs[0]));
@@ -689,73 +675,85 @@ static void net_if_finish(struct net_if *interface,
 		teardown_fq(&interface->tx_fqs[loop]);
 }
 
+static void init_bpid(int bpid, uint64_t count, uint64_t sz)
+{
+	struct bm_buffer bufs[8];
+	unsigned int num_bufs = 0;
+	int ret;
+
+	if (pool[bpid])
+		/* Already initialised */
+		return;
+	/* Drain (if necessary) then seed buffer pools */
+	if (!pool[bpid]) {
+		struct bman_pool_params params = {
+			.bpid = bpid
+		};
+		pool[bpid] = bman_new_pool(&params);
+		if (!pool[bpid]) {
+			fprintf(stderr, "error: bman_new_pool() failed\n");
+			abort();
+		}
+	}
+	/* Drain the pool of anything already in it. */
+	do {
+		/* Acquire is all-or-nothing, so we drain in 8s, then in 1s for
+		 * the remainder. */
+		if (ret != 1)
+			ret = bman_acquire(pool[bpid], bufs, 8, 0);
+		if (ret < 8)
+			ret = bman_acquire(pool[bpid], bufs, 1, 0);
+		if (ret > 0)
+			num_bufs += ret;
+	} while (ret > 0);
+	if (num_bufs)
+		fprintf(stderr, "Warn: drained %u bufs from BPID %d\n",
+			num_bufs, bpid);
+	/* Fill the pool */
+	for (num_bufs = 0; num_bufs < count; ) {
+		unsigned int loop, rel = (count - num_bufs) > 8 ? 8 :
+					(count - num_bufs);
+		for (loop = 0; loop < rel; loop++) {
+			void *ptr = __dma_mem_memalign(64, sz);
+			if (!ptr) {
+				fprintf(stderr, "error: no buffer space\n");
+				abort();
+			}
+			bm_buffer_set64(&bufs[loop], __dma_mem_vtop(ptr));
+		}
+		do {
+			ret = bman_release(pool[bpid], bufs, rel, 0);
+		} while (ret == -EBUSY);
+		if (ret)
+			fprintf(stderr, "Fail: %s\n", "bman_release()");
+		num_bufs += rel;
+	}
+	printf("Released %u bufs to BPID %d\n", num_bufs, bpid);
+}
+
 /* Do all global-initialisation that is dependent on a portal-enabled USDPAA
  * thread. The first worker thread will call this. Driver initialisation happens
  * in main() prior to any worker threads being created so this stuff can assume
  * the drivers are already initialised. */
 static int do_global_init(void)
 {
-	const struct bpool_static *bp = bpool_static;
 	unsigned int loop;
-
-	/* Drain (if necessary) then seed buffer pools */
-	while (bp->bpid != -1) {
-		struct bm_buffer bufs[8];
-		unsigned int num_bufs = 0;
-		int ret = lazy_init_bpool(bp->bpid);
-		if (ret)
-			return ret;
-		/* Drain the pool of anything already in it. */
-		do {
-			/* Acquire is all-or-nothing, so we drain in 8s, then in
-			 * 1s for the remainder. */
-			if (ret != 1)
-				ret = bman_acquire(pool[bp->bpid], bufs, 8, 0);
-			if (ret < 8)
-				ret = bman_acquire(pool[bp->bpid], bufs, 1, 0);
-			if (ret > 0)
-				num_bufs += ret;
-		} while (ret > 0);
-		if (num_bufs)
-			fprintf(stderr, "Warn: drained %u bufs from BPID %d\n",
-				num_bufs, bp->bpid);
-		/* Fill the pool */
-		for (num_bufs = 0; num_bufs < bp->num; ) {
-			unsigned int rel = (bp->num - num_bufs) > 8 ? 8 :
-						(bp->num - num_bufs);
-			for (loop = 0; loop < rel; loop++) {
-				void *ptr = __dma_mem_memalign(64, bp->size);
-				if (!ptr) {
-					fprintf(stderr,
-						"error: no buffer space\n");
-					abort();
-				}
-				bm_buffer_set64(&bufs[loop],
-						__dma_mem_vtop(ptr));
-			}
-			do {
-				ret = bman_release(pool[bp->bpid],
-						   bufs, rel, 0);
-			} while (ret == -EBUSY);
-			if (ret)
-				fprintf(stderr, "Fail: %s\n", "bman_release()");
-			num_bufs += rel;
-		}
-		printf("Released %u bufs to BPID %d\n", num_bufs, bp->bpid);
-		bp++;
-	}
 
 	/* Create and initialise the network interfaces */
 	interfaces = calloc(netcfg->num_ethports, sizeof(*interfaces));
 	if (!interfaces)
 		return -ENOMEM;
 	for (loop = 0; loop < netcfg->num_ethports; loop++) {
-		int ret = net_if_init(&interfaces[loop],
-				      &netcfg->port_cfg[loop]);
+		struct fman_if_bpool *bp;
+		struct fm_eth_port_cfg *pcfg = &netcfg->port_cfg[loop];
+		int bp_idx = 0, ret = net_if_init(&interfaces[loop], pcfg);
 		if (ret) {
 			fprintf(stderr, "Fail: net_if_init(%d)\n", loop);
 			return ret;
 		}
+		/* initialise the associated pools */
+		list_for_each_entry(bp, &pcfg->fman_if->bpool_list, node)
+			init_bpid(bp->bpid, bpool_cnt[bp_idx++], bp->size);
 	}
 	return 0;
 }
