@@ -34,6 +34,7 @@
 
 #include <unistd.h>
 #include <readline.h>  /* libedit */
+#include <error.h>
 
 #include <internal/compat.h>
 
@@ -50,6 +51,10 @@ int __attribute__((weak)) ppam_init(void)
 	int ret = printf("%s starting\n", program_invocation_short_name);
 	if (ret < 0)
 		return ret;
+	return 0;
+}
+int __attribute__((weak)) ppam_post_tx_init(void)
+{
 	return 0;
 }
 void __attribute__((weak)) ppam_finish(void)
@@ -629,6 +634,13 @@ static void do_global_init(void)
 			return;
 		}
 	}
+	err = ppam_post_tx_init();
+	if (unlikely(err < 0)) {
+		error(0, -err, "PPAM post tx init failed (%d)\n", err);
+		do_global_finish();
+		return;
+	}
+
 	list_for_each(i, &ifs) {
 		TRACE("Initialising interface Tx %p\n", i);
 		/* Same comment applies as the cast in do_global_finish() */

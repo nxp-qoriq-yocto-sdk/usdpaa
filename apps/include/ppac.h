@@ -231,6 +231,7 @@ int ppac_prepare_bpid(u8 bpid, unsigned int count, uint64_t sz,
  * (PPAC implements weakly-linked versions of these that do nothing, and they
  * are used if PPAM does not implements its own). */
 int ppam_init(void);
+int ppam_post_tx_init(void);
 void ppam_finish(void);
 int ppam_thread_init(void);
 void ppam_thread_finish(void);
