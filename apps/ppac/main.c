@@ -1142,6 +1142,7 @@ struct ppac_arguments
 	const char *fm_pcd;
 	int first, last;
 	int noninteractive;
+	size_t dma_sz;
 	struct ppam_arguments *ppam_args;
 };
 
@@ -1162,6 +1163,7 @@ static const struct argp_option argp_opts[] = {
 	{"fm-config",	'c',	"FILE",	0,		"FMC configuration XML file"},
 	{"fm-pcd",	'p',	"FILE",	0,		"FMC PCD XML file"},
 	{"non-interactive", 'n', 0,	0,		"Ignore stdin"},
+	{"dma-mem",	'd',	"SIZE",	0,		"Size of DMA region to allocate"},
 	{"cpu-range",	 0,	0,	OPTION_DOC,	"'index' or 'first'..'last'"},
 	{}
 };
@@ -1170,6 +1172,8 @@ static error_t ppac_parse(int key, char *arg, struct argp_state *state)
 {
 	int _errno;
 	struct ppac_arguments *args;
+	char *endptr;
+	unsigned long val;
 
 	args = (typeof(args))state->input;
 	switch (key) {
@@ -1181,6 +1185,12 @@ static error_t ppac_parse(int key, char *arg, struct argp_state *state)
 		break;
 	case 'n':
 		args->noninteractive = 1;
+		break;
+	case 'd':
+		val = strtoul(arg, &endptr, 0);
+		if ((val == ULONG_MAX) || (*endptr != '\0') || !val)
+			argp_usage(state);
+		args->dma_sz = (size_t)val;
 		break;
 	case ARGP_KEY_ARGS:
 		if (state->argc - state->next != 1)
@@ -1347,7 +1357,7 @@ int main(int argc, char *argv[])
 		ppac_args.first = 1;
 		ppac_args.last = 1;
 	}
-
+	ppac_args.dma_sz = PPAC_DMA_MAP_SIZE;
 	ppac_args.noninteractive = 0;
 	ppac_args.ppam_args = &ppam_args;
 
@@ -1401,9 +1411,10 @@ int main(int argc, char *argv[])
 	/* - map DMA mem */
 	TRACE("Initialising DMA mem\n");
 	dma_mem_generic = dma_mem_create(DMA_MAP_FLAG_ALLOC, NULL,
-					 PPAC_DMA_MAP_SIZE);
+					 ppac_args.dma_sz);
 	if (!dma_mem_generic)
 		fprintf(stderr, "error: dma_mem init, continuing\n");
+	printf("Allocated DMA region size 0x%zx\n", ppac_args.dma_sz);
 
 	/* Create the threads */
 	TRACE("Starting %d threads for cpu-range '%d..%d'\n",
