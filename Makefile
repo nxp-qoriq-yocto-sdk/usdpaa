@@ -256,12 +256,8 @@ clean:
 
 distclean:
 	$(Q)echo "---- distclean ----"
-	$(Q)$(RM) -r $(BIN_DIR)
-	$(Q)$(RM) -r $(LIB_DIR)
-	$(Q)$(RM) -r $(TOP_LEVEL)/test_install
-	$(Q)find -name $(OBJ_DIR) | xargs $(RM) -r
-	$(Q)find -name \*.o | xargs $(RM)
-	$(Q)find -name \*.d | xargs $(RM)
+	$(Q)$(RM) $(CLEANOBJS)
+	git clean -fxd
 
 .PHONY: all build install uninstall debug clean distclean
 
