@@ -44,6 +44,13 @@ static const struct qm_fqd_stashing default_stash_opts = {
 	.context_cl = PPAC_STASH_CONTEXT_CL
 };
 
+/* Give ppac/main.c access to the interface's configuration (because it doesn't
+ * have acccess to the ppac_interface type due to its dependence on ppam). */
+const struct fm_eth_port_cfg *ppac_interface_pcfg(struct ppac_interface *i)
+{
+	return i->port_cfg;
+}
+
 /*******************/
 /* Packet handling */
 /*******************/
@@ -177,20 +184,12 @@ void cb_ern(struct qman_portal *qm __always_unused,
 int ppac_interface_init(unsigned idx)
 {
 	struct ppac_interface *i;
-	const struct fman_if_bpool *bp;
 	int err, loop;
 	struct qm_fqd_stashing stash_opts;
 	const struct fm_eth_port_cfg *port = &netcfg->port_cfg[idx];
 	const struct fman_if *fif = port->fman_if;
 	size_t size = sizeof(struct ppac_interface);
 
-	/* Make sure we are able to handle drops by initialising pool objects
-	 * for all buffer pools used by the network interface. */
-	fman_if_for_each_bpool(bp, fif) {
-		err = lazy_init_bpool(bp->bpid, 0);
-		if (err)
-			return err;
-	}
 	/* allocate stashable memory for the interface object */
 	i = __dma_mem_memalign(L1_CACHE_BYTES, size);
 	if (!i)

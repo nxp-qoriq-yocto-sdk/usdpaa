@@ -104,18 +104,8 @@ const char ppam_cfg_path[] __attribute__((weak)) = __stringify(DEF_CFG_PATH);
 /* Global data */
 /***************/
 
-/* Seed buffer pools according to the configuration symbols */
-const struct ppac_bpool_static {
-	int bpid;
-	unsigned int num;
-	unsigned int size;
-} ppac_bpool_static[] = {
-	{ DMA_MEM_BP1_BPID, DMA_MEM_BP1_NUM, DMA_MEM_BP1_SIZE},
-	{ DMA_MEM_BP2_BPID, DMA_MEM_BP2_NUM, DMA_MEM_BP2_SIZE},
-	{ DMA_MEM_BP3_BPID, DMA_MEM_BP3_NUM, DMA_MEM_BP3_SIZE},
-	{ -1, 0, 0 }
-};
-
+/* The triplet of buffer counts indicating how many to seed to pools */
+static unsigned int bpool_cnt[3];
 /* The SDQCR mask to use (computed from pchannels) */
 static uint32_t sdqcr;
 /* The dynamically allocated pool-channels, and the iterator index that loops
@@ -376,20 +366,20 @@ static void bp_depletion(struct bman_portal *bm __always_unused,
 }
 #endif
 
-/* This is also called by ppac_interface_init(), hence it shouldn't be static
- * Depletion notification can be enabled with depletion_notify set to 1.
- * depletion_notify value of 0 means no depletion notification required
- */
-int lazy_init_bpool(u8 bpid, u8 depletion_notify)
+static int init_bpid(u8 bpid, unsigned int count, uint64_t sz)
 {
 	struct bman_pool_params params = {
 		.bpid	= bpid,
 #ifdef PPAC_DEPLETION
-		.flags	=  depletion_notify ? BMAN_POOL_FLAG_DEPLETION : 0,
+		.flags	= count ? BMAN_POOL_FLAG_DEPLETION : 0,
 		.cb	= bp_depletion,
 		.cb_ctx	= &pool[bpid]
 #endif
 	};
+	struct bm_buffer bufs[8];
+	unsigned int num_bufs = 0;
+	int ret;
+
 	BUG_ON(bpid >= PPAC_MAX_BPID);
 	if (pool[bpid])
 		/* this BPID is already handled */
@@ -399,6 +389,40 @@ int lazy_init_bpool(u8 bpid, u8 depletion_notify)
 		fprintf(stderr, "error: bman_new_pool(%d) failed\n", bpid);
 		return -ENOMEM;
 	}
+	/* Drain the pool of anything already in it. */
+	do {
+		/* Acquire is all-or-nothing, so we drain in 8s, then in 1s for
+		 * the remainder. */
+		if (ret != 1)
+			ret = bman_acquire(pool[bpid], bufs, 8, 0);
+		if (ret < 8)
+			ret = bman_acquire(pool[bpid], bufs, 1, 0);
+		if (ret > 0)
+			num_bufs += ret;
+	} while (ret > 0);
+	if (num_bufs)
+		fprintf(stderr, "Warn: drained %u bufs from BPID %d\n",
+			num_bufs, bpid);
+	/* Fill the pool */
+	for (num_bufs = 0; num_bufs < count; ) {
+		unsigned int loop, rel = (count - num_bufs) > 8 ? 8 :
+					(count - num_bufs);
+		for (loop = 0; loop < rel; loop++) {
+			void *ptr = __dma_mem_memalign(64, sz);
+			if (!ptr) {
+				fprintf(stderr, "error: no buffer space\n");
+				abort();
+			}
+			bm_buffer_set64(&bufs[loop], __dma_mem_vtop(ptr));
+		}
+		do {
+			ret = bman_release(pool[bpid], bufs, rel, 0);
+		} while (ret == -EBUSY);
+		if (ret)
+			fprintf(stderr, "Fail: %s\n", "bman_release()");
+		num_bufs += rel;
+	}
+	printf("Released %u bufs to BPID %d\n", num_bufs, bpid);
 	return 0;
 }
 
@@ -502,7 +526,6 @@ static void do_global_init(void)
 #ifdef PPAC_CGR
 	uint32_t cgrids[2];
 #endif
-	const struct ppac_bpool_static *bp = ppac_bpool_static;
 	struct list_head *i;
 	unsigned int loop;
 	int err;
@@ -563,52 +586,6 @@ static void do_global_init(void)
 	if (err)
 		fprintf(stderr, "error: tx CGR init, continuing\n");
 #endif
-	/* Initialise and see any BPIDs we've been configured to set up */
-	while (bp->bpid != -1) {
-		struct bm_buffer bufs[8];
-		u8 depletion_notify = bp->num ? 1 : 0;
-		unsigned int num_bufs = 0;
-		u8 bpid = bp->bpid;
-		err = lazy_init_bpool(bpid, depletion_notify);
-		if (err) {
-			fprintf(stderr, "error: bpool (%d) init failure\n",
-				bpid);
-			break;
-		}
-		/* Drain the pool of anything already in it. */
-		do {
-			/* Acquire is all-or-nothing, so we drain in 8s, then in
-			 * 1s for the remainder. */
-			if (err != 1)
-				err = bman_acquire(pool[bpid], bufs, 8, 0);
-			if (err < 8)
-				err = bman_acquire(pool[bpid], bufs, 1, 0);
-			if (err > 0)
-				num_bufs += err;
-		} while (err > 0);
-		if (num_bufs)
-			fprintf(stderr, "warn: drained %u bufs from BPID %d\n",
-				num_bufs, bpid);
-		/* Fill the pool */
-		for (num_bufs = 0; num_bufs < bp->num; ) {
-			unsigned int rel = (bp->num - num_bufs) > 8 ? 8 :
-						(bp->num - num_bufs);
-			for (loop = 0; loop < rel; loop++) {
-				void *ptr = __dma_mem_memalign(64, bp->size);
-				if (!ptr) {
-					fprintf(stderr,
-						"error: no buffer space\n");
-					abort();
-				}
-				bm_buffer_set64(&bufs[loop],
-						__dma_mem_vtop(ptr));
-			}
-			bm_free_buf(pool[bpid], bufs, rel);
-			num_bufs += rel;
-		}
-		printf("Release %u bufs to BPID %d\n", num_bufs, bpid);
-		bp++;
-	}
 	/* Here, we give the PPAM it's opportunity to perform "global"
 	 * initialisation, before individual interfaces come up (which each
 	 * provide their own, more fine-grained, init hooks). We do it here
@@ -622,15 +599,13 @@ static void do_global_init(void)
 		fprintf(stderr, "error: PPAM init failed (%d)\n", err);
 		return;
 	}
-	/* Initialise interface objects (internally, this takes care of
-	 * initialising buffer pool objects for any BPIDs used by the Fman Rx
-	 * ports). We initialise the interface objects and their Tx FQs in one
-	 * loop (so each interface generates hooks to PPAM for both phases
-	 * before we move on to the next interface). We do a second loop for
-	 * setting up Rx FQs, meaning that PPAM hooks have already seen all
-	 * interfaces and Tx FQs before being forced to determine how to handle
-	 * Rx FQs ... (ie. "know all the destinations before knowing how you'll
-	 * handle any of the sources") */
+	/* Initialise interface objects. We initialise the interface objects and
+	 * their Tx FQs in one loop (so each interface generates hooks to PPAM
+	 * for both phases before we move on to the next interface). We do a
+	 * second loop for setting up Rx FQs, meaning that PPAM hooks have
+	 * already seen all interfaces and Tx FQs before being forced to
+	 * determine how to handle Rx FQs ... (ie. "know all the destinations
+	 * before knowing how you'll handle any of the sources") */
 	for (loop = 0; loop < netcfg->num_ethports; loop++) {
 		TRACE("Initialising interface %d\n", loop);
 		err = ppac_interface_init(loop);
@@ -648,6 +623,29 @@ static void do_global_init(void)
 			fprintf(stderr, "error: interface %d failed\n", loop);
 			do_global_finish();
 			return;
+		}
+	}
+	/* Initialise buffer pools as required by the interfaces */
+	list_for_each(i, &ifs) {
+		struct fman_if_bpool *bp;
+		struct ppac_interface *_if = (struct ppac_interface *)i;
+		const struct fm_eth_port_cfg *pcfg = ppac_interface_pcfg(_if);
+		int bp_idx = 0;
+		TRACE("Initialising interface buffer pools %p\n", i);
+		list_for_each_entry(bp, &pcfg->fman_if->bpool_list, node) {
+			if (bp_idx > 2) {
+				fprintf(stderr, "warning: more than 3 pools "
+					"for interface %d\n", loop);
+				break;
+			}
+			err = init_bpid(bp->bpid, bpool_cnt[bp_idx++],
+					bp->size);
+			if (err) {
+				fprintf(stderr, "error: bpid %d failed\n",
+					bp->bpid);
+				do_global_finish();
+				return;
+			}
 		}
 	}
 }
@@ -1143,6 +1141,7 @@ struct ppac_arguments
 	int first, last;
 	int noninteractive;
 	size_t dma_sz;
+	unsigned int bpool_cnt[3];
 	struct ppam_arguments *ppam_args;
 };
 
@@ -1164,6 +1163,7 @@ static const struct argp_option argp_opts[] = {
 	{"fm-pcd",	'p',	"FILE",	0,		"FMC PCD XML file"},
 	{"non-interactive", 'n', 0,	0,		"Ignore stdin"},
 	{"dma-mem",	'd',	"SIZE",	0,		"Size of DMA region to allocate"},
+	{"buffers",	'b',	"x:y:z", 0,		"Number of buffers to allocate"},
 	{"cpu-range",	 0,	0,	OPTION_DOC,	"'index' or 'first'..'last'"},
 	{}
 };
@@ -1191,6 +1191,20 @@ static error_t ppac_parse(int key, char *arg, struct argp_state *state)
 		if ((val == ULONG_MAX) || (*endptr != '\0') || !val)
 			argp_usage(state);
 		args->dma_sz = (size_t)val;
+		break;
+	case 'b':
+		val = strtoul(arg, &endptr, 0);
+		if ((val == ULONG_MAX) || (*endptr != ':'))
+			argp_usage(state);
+		args->bpool_cnt[0] = val;
+		val = strtoul(endptr + 1, &endptr, 0);
+		if ((val == ULONG_MAX) || (*endptr != ':'))
+			argp_usage(state);
+		args->bpool_cnt[1] = val;
+		val = strtoul(endptr + 1, &endptr, 0);
+		if ((val == ULONG_MAX) || (*endptr != '\0'))
+			argp_usage(state);
+		args->bpool_cnt[2] = val;
 		break;
 	case ARGP_KEY_ARGS:
 		if (state->argc - state->next != 1)
@@ -1358,12 +1372,18 @@ int main(int argc, char *argv[])
 		ppac_args.last = 1;
 	}
 	ppac_args.dma_sz = PPAC_DMA_MAP_SIZE;
+	ppac_args.bpool_cnt[0] = PPAC_BPOOL_CNT0;
+	ppac_args.bpool_cnt[1] = PPAC_BPOOL_CNT1;
+	ppac_args.bpool_cnt[2] = PPAC_BPOOL_CNT2;
 	ppac_args.noninteractive = 0;
 	ppac_args.ppam_args = &ppam_args;
 
 	rcode = argp_parse(&ppac_argp, argc, argv, 0, NULL, &ppac_args);
 	if (unlikely(rcode != 0))
 		return -rcode;
+	bpool_cnt[0] = ppac_args.bpool_cnt[0];
+	bpool_cnt[1] = ppac_args.bpool_cnt[1];
+	bpool_cnt[2] = ppac_args.bpool_cnt[2];
 
 	/* Do global init that doesn't require portal access; */
 	/* - load the config (includes discovery and mapping of MAC devices) */

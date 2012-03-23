@@ -98,6 +98,9 @@
 #define PPAC_MAX_BPID		64	/* size of BPID->object lookup array */
 #define PPAC_NUM_POOL_CHANNELS	4
 #define PPAC_DMA_MAP_SIZE	0x1000000 /* 16MB */
+#define PPAC_BPOOL_CNT0		0
+#define PPAC_BPOOL_CNT1		0
+#define PPAC_BPOOL_CNT2		1728
 
 /**********/
 /* macros */
@@ -150,6 +153,10 @@ struct cli_table_entry
 
 /* Each Fman interface has one of these */
 struct ppac_interface;
+
+/* Give ppac/main.c access to the interface's configuration (because it doesn't
+ * have acccess to the ppac_interface type due to its dependence on ppam). */
+const struct fm_eth_port_cfg *ppac_interface_pcfg(struct ppac_interface *i);
 
 /************************************/
 /* Items to be implemented by PPAMs */
