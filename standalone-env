@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Copyright (c) 2011 - 2012 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
@@ -39,14 +41,37 @@
 # staging area managed by ltib, assuming that this usdpaa tree
 # is a sibling of the ltib tree (again, adjust as required).
 
-export ARCH=powerpc64
+declare -l board=p4080ds
+declare -i OLD_OPTIND=$OPTIND
+while getopts "m:" flags
+do
+
+	case $flags in
+		m)
+			case $OPTARG in
+				p1023ds | p3041ds | p4080ds | p5020ds)
+					board=$OPTARG
+					;;
+				*)
+					board=p4080ds
+					echo Unknown board $OPTARG. Defaulting to $board
+					;;
+			esac
+			;;
+		?) echo Defaulting to $board;;
+	esac
+done
+OPTIND=$OLD_OPTIND
+
+export ARCH=powerpc
 export CROSS_COMPILE=powerpc-linux-gnu-
 export PATH=/opt/freescale/usr/local/gcc-4.5.55-eglibc-2.11.55/powerpc-linux-gnu/bin:$PATH
-export PKG_CONFIG_SYSROOT_DIR=$PWD/../ltib/rootfs
+export PKG_CONFIG_SYSROOT_DIR=$PWD/../build_${board}_release/tmp/sysroots/$board
 export PKG_CONFIG_LIBDIR=$PKG_CONFIG_SYSROOT_DIR/usr/lib/pkgconfig
 export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1
 export LIBXML2_CFLAGS=$(pkg-config --cflags libxml-2.0)
 export LIBXML2_LDFLAGS=$(pkg-config --libs --static libxml-2.0)
 export LIBEDIT_CFLAGS=$(pkg-config --cflags libedit)
 export LIBEDIT_LDFLAGS=$(pkg-config --libs --static libedit)
-unset PKG_CONFIG_SYSROOT_DIR PKG_CONFIG_LIBDIR PKG_CONFIG_ALLOW_SYSTEM_LIBS
+export EXTRA_LDFLAGS="-L $(${CROSS_COMPILE}gcc -print-sysroot)/usr/lib"
+unset -v OLD_OPTIND board PKG_CONFIG_SYSROOT_DIR PKG_CONFIG_LIBDIR PKG_CONFIG_ALLOW_SYSTEM_LIBS
