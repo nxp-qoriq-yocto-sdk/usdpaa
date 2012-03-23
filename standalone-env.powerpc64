@@ -65,7 +65,7 @@ OPTIND=$OLD_OPTIND
 
 export ARCH=powerpc64
 export CROSS_COMPILE=powerpc-linux-gnu-
-export PATH=/opt/freescale/usr/local/gcc-4.5.55-eglibc-2.11.55/powerpc-linux-gnu/bin:$PATH
+export PATH=/opt/freescale/usr/local/gcc-4.5.38-eglibc-2.11.38/powerpc-linux-gnu/bin:$PATH
 export PKG_CONFIG_SYSROOT_DIR=$PWD/../build_${board}_release/tmp/sysroots/$board
 export PKG_CONFIG_LIBDIR=$PKG_CONFIG_SYSROOT_DIR/usr/lib/pkgconfig
 export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1
