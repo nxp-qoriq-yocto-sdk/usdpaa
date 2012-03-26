@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2011 - 2012 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,7 +35,6 @@
 #include "ip/ip_rc.h"
 #include "ip/ip_hooks.h"
 #include "ethernet/eth.h"
-#include "net/net_dev.h"
 #include "ip/ip_output.h"
 #include "ip/ip_accept.h"
 #include "ipsec/ipsec_init.h"
