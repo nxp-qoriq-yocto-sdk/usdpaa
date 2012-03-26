@@ -62,7 +62,7 @@ void ipsec_create_compound_fd(struct qm_fd *fd, const struct qm_fd *old_fd,
 	memset(sg, 0, 2*sizeof(struct qm_sg_entry));
 
 	/* output buffer */
-	qm_fd_addr_set64(sg, qm_fd_addr(old_fd));
+	qm_sg_entry_set64(sg, qm_fd_addr_get64(old_fd));
 	sg->length = size;
 	if (DECRYPT == mode) {
 		if (qm_fd_contig == old_fd->format) {
@@ -79,7 +79,7 @@ void ipsec_create_compound_fd(struct qm_fd *fd, const struct qm_fd *old_fd,
 
 	/* input buffer */
 	sg++;
-	qm_fd_addr_set64(sg, qm_fd_addr(old_fd));
+	qm_sg_entry_set64(sg, qm_fd_addr_get64(old_fd));
 	sg->length = ip_hdr->tot_len;
 	if (qm_fd_contig == old_fd->format) {
 		sg->offset = old_fd->offset + ETHER_HDR_LEN;
