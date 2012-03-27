@@ -365,7 +365,7 @@ void populate_route_cache(uint32_t src_ip,
 			return;
 	}
 
-	entry = rc_create_entry(&(ipsec_stack->ip_stack.rc));
+	entry = rc_create_entry(ipsec_stack->ip_stack.rc);
 	if (NULL == entry) {
 		fprintf(stderr, "error: %s: No free RC entry available\n",
 			__func__);
@@ -390,9 +390,9 @@ void populate_route_cache(uint32_t src_ip,
 	refcount_acquire(dest->refcnt);
 	entry->dest = dest;
 	entry->tos = 0;
-	if (rc_add_update_entry(&(ipsec_stack->ip_stack.rc), entry) == false) {
+	if (rc_add_update_entry(ipsec_stack->ip_stack.rc, entry) == false) {
 		fprintf(stdout, "info: %s: Route cache entry updated\n",
 			__func__);
-		rc_free_entry(&(ipsec_stack->ip_stack.rc), entry);
+		rc_free_entry(ipsec_stack->ip_stack.rc, entry);
 	}
 }

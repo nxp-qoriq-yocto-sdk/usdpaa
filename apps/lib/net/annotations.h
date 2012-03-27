@@ -1,10 +1,9 @@
 /**
- \file ip_output.h
- \brief This file captures the post-routing functionality and the
- transmission of the IP packet
+ \file annotations.h
+ \brief This file contains annotation structure added to each ingress frame
  */
 /*
- * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2012 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,43 +25,32 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef __ANNOTATIONS_H
+#define __ANNOTATIONS_H
 
-#ifndef __IP_OUTPUT_H
-#define __IP_OUTPUT_H
-
-#include "ppam_if.h"
-
-#include "net/annotations.h"
-
-/**
- \brief			Sends IP Packet to respective netdev. If packet length > next_hop mtu, call
-			ip_fragment
- \param[in] ctxt	Context
- \param[in] notes	Annotations
- \param[in] ip_hdr	Pointer to the IP Header
- */
-enum IP_STATUS ip_send(const struct ppam_rx_hash *ctxt,
-		       struct annotations_t *notes, struct iphdr *ip_hdr);
+#include <usdpaa/compat.h>
+#include <usdpaa/fsl_qman.h>
+#include "ipfwd/fm_types.h"
+#include "net/neigh.h"
+#include "net/rt.h"
 
 /**
- \brief		Call intervening POSTROUTING hooks for each frame
- \param[in]	ctxt	Context
- \param[in]	notes	Annotations
- \param[in]	ip_hdr	Pointer to the IP Header
- */
-enum IP_STATUS ip_output(const struct ppam_rx_hash *ctxt,
-			 struct annotations_t *notes,
-			 struct iphdr *ip_hdr);
+ \brief Prepended Data to the Frame
+ \details The structure is the Prepended Data to the Frame which is used by FMAN
+*/
+struct annotations_t {
+	const struct qm_dqrr_entry *dqrr;
+	union {
+		struct rt_dest_t *dest;
+		struct neigh_t *neighbor;
+	};
+	/**< Pointer to the info related to Next Hop*/
+#ifndef __powerpc64__
+	uint8_t reserved[8];
+#endif
+	struct output_parse_result_t parse;	/**< Pointer to Parsed result*/
+	uint64_t timestamp;			/**< TimeStamp */
+	uint64_t hash_result;			/**< Hash Result */
+} __packed;
 
-/**
- \brief		Find the correct neighbor for this frame, using ARP tables
- \param[in]	ctxt	Context
- \param[in]	notes	Annotations
- \param[in]	ip_hdr	Pointer to the IP Header
- */
-enum IP_STATUS ip_output_finish(const struct ppam_rx_hash *ctxt,
-				struct annotations_t *notes,
-				struct iphdr *ip_hdr,
-				enum state source);
-
-#endif	/* __IP_OUTPUT_H */
+#endif	/* __ANNOTATIONS_H */

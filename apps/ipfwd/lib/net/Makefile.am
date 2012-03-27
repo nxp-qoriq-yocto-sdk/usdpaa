@@ -1,4 +1,4 @@
-# Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
+# Copyright (c) 2010 - 2012 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -33,4 +33,4 @@ lib_LIBRARIES = app_rc_net
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipfwd/lib -I$(TOP_LEVEL)/apps/ipfwd/include -I$(TOP_LEVEL)/apps/lib
 
-app_rc_net_SOURCES := rt.c ../../../lib/net/neigh.c ../../../lib/net/ll_cache.c
+app_rc_net_SOURCES := ../../../lib/net/rt.c ../../../lib/net/neigh.c ../../../lib/net/ll_cache.c

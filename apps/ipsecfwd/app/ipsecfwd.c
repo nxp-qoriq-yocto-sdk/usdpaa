@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2011 - 2012 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -150,7 +150,7 @@ static int ipfwd_add_route(const struct app_ctrl_op_info *route_info)
 	dest->dev = dest->neighbor->dev;
 	dest->scope = ROUTE_SCOPE_GLOBAL;
 
-	entry = rc_create_entry(&ipsec_stack.ip_stack.rc);
+	entry = rc_create_entry(ipsec_stack.ip_stack.rc);
 	if (entry == NULL) {
 		pr_err("Could not allocate route cache entry\n");
 		rt_dest_free(&ipsec_stack.ip_stack.rt, dest);
@@ -170,9 +170,9 @@ static int ipfwd_add_route(const struct app_ctrl_op_info *route_info)
 
 	entry->dest = dest;
 
-	if (rc_add_update_entry(&ipsec_stack.ip_stack.rc, entry) == false) {
+	if (rc_add_update_entry(ipsec_stack.ip_stack.rc, entry) == false) {
 		pr_err("Route cache entry updated\n");
-		rc_free_entry(&ipsec_stack.ip_stack.rc, entry);
+		rc_free_entry(ipsec_stack.ip_stack.rc, entry);
 	}
 
 	pr_debug("ipfwd_add_route: Exit\n");
@@ -189,7 +189,7 @@ static int ipfwd_del_route(const struct app_ctrl_op_info *route_info)
 	struct rt_dest_t *dest;
 	pr_debug("ipfwd_del_route: Enter\n");
 
-	dest = rc_lookup(&ipsec_stack.ip_stack.rc,
+	dest = rc_lookup(ipsec_stack.ip_stack.rc,
 			 route_info->ip_info.src_ipaddr,
 			 route_info->ip_info.dst_ipaddr);
 	if (dest == NULL) {
@@ -199,7 +199,7 @@ static int ipfwd_del_route(const struct app_ctrl_op_info *route_info)
 
 	refcount_release(dest->neighbor->refcnt);
 
-	if (rc_remove_entry(&ipsec_stack.ip_stack.rc,
+	if (rc_remove_entry(ipsec_stack.ip_stack.rc,
 			    route_info->ip_info.src_ipaddr,
 			    route_info->ip_info.dst_ipaddr) == false) {
 		pr_err("Could not delete route cache entry\n");
@@ -435,11 +435,10 @@ static int initialize_ip_stack(struct ip_stack_t *ip_stack)
 		pr_err("Failed in Route table initialized\n");
 		return _errno;
 	}
-	_errno = rc_init(&ip_stack->rc, IP_RC_EXPIRE_JIFFIES,
-			sizeof(in_addr_t));
-	if (unlikely(_errno < 0)) {
-		pr_err("Failed in Route cache initialized\n");
-		return _errno;
+	ip_stack->rc = rc_init(IP_RC_EXPIRE_JIFFIES, sizeof(in_addr_t));
+	if (unlikely(ip_stack->rc == NULL)) {
+		pr_err("Unable to allocate rc structure for stack\n");
+		return -ENOMEM;
 	}
 	_errno = ip_hooks_init(&ip_stack->hooks);
 	if (unlikely(_errno < 0)) {
@@ -742,7 +741,7 @@ static int ppam_rx_error_init(struct ppam_rx_error *p,
 	p->stats = ipsec_stack.ip_stack.ip_stats;
 	p->hooks = &ipsec_stack.ip_stack.hooks;
 	p->protos = &ipsec_stack.ip_stack.protos;
-	p->rc = &ipsec_stack.ip_stack.rc;
+	p->rc = ipsec_stack.ip_stack.rc;
 
 	return 0;
 }
@@ -763,7 +762,7 @@ static int ppam_rx_default_init(struct ppam_rx_default *p,
 	p->stats = ipsec_stack.ip_stack.ip_stats;
 	p->hooks = &ipsec_stack.ip_stack.hooks;
 	p->protos = &ipsec_stack.ip_stack.protos;
-	p->rc = &ipsec_stack.ip_stack.rc;
+	p->rc = ipsec_stack.ip_stack.rc;
 
 	return 0;
 }
@@ -830,7 +829,7 @@ static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_interface *_if,
 	p->stats = ipsec_stack.ip_stack.ip_stats;
 	p->hooks = &ipsec_stack.ip_stack.hooks;
 	p->protos = &ipsec_stack.ip_stack.protos;
-	p->rc = &ipsec_stack.ip_stack.rc;
+	p->rc = ipsec_stack.ip_stack.rc;
 	p->itt = &ipsec_stack.itt;
 
 	/* Override defaults, enable 1 CL of annotation stashing */
@@ -841,7 +840,7 @@ static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_interface *_if,
 	return 0;
 }
 static void ppam_rx_hash_finish(struct ppam_rx_hash *p,
-			 	struct ppam_interface *_if,
+				struct ppam_interface *_if,
 			 unsigned idx)
 {
 }

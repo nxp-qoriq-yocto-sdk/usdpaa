@@ -31,6 +31,6 @@
 
 lib_LIBRARIES = app_lpm_ip
 
-AM_CFLAGS := -I$(TOP_LEVEL)/apps/lpm-ipfwd/include -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/lpm-ipfwd/lib -I$(TOP_LEVEL)/apps/lib
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/lpm-ipfwd/include -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/lpm-ipfwd/lib -I$(TOP_LEVEL)/apps/lib -I$(TOP_LEVEL)/apps/lib/ip
 
-app_lpm_ip_SOURCES := ip_forward.c ../../../lib/ip/ip_handler.c ip_route.c ../../../lib/ip/ip_local.c ip_output.c ../../../lib/ip/ip_protos.c fib.c hash.c
+app_lpm_ip_SOURCES := ../../../lib/ip/ip_forward.c ../../../lib/ip/ip_handler.c ip_route.c ../../../lib/ip/ip_local.c ip_output.c ../../../lib/ip/ip_protos.c fib.c hash.c

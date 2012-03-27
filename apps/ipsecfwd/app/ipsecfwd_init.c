@@ -3,7 +3,7 @@
  \brief IPSec Forwarding Application Init
  */
 /*
- * Copyright (C) 2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2011 - 2012 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,7 +43,7 @@ void init_ppam_ctxt(struct ppam_rx_hash *ppam_ctxt)
 	ppam_ctxt->stats = ipsec_stack.ip_stack.ip_stats;
 	ppam_ctxt->hooks = &ipsec_stack.ip_stack.hooks;
 	ppam_ctxt->protos = &ipsec_stack.ip_stack.protos;
-	ppam_ctxt->rc = &ipsec_stack.ip_stack.rc;
+	ppam_ctxt->rc = ipsec_stack.ip_stack.rc;
 	ppam_ctxt->itt = &ipsec_stack.itt;
 }
 

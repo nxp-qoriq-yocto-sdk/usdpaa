@@ -30,21 +30,25 @@
 
 #include "ip/ip.h"
 #include <fsl_fman.h>
-#include "statistics.h"
+#include "ipfwd/statistics.h"
+#include "app_common.h"
 
 #include <internal/compat.h>	/* L1_CACHE_BYTES */
-
-#define RC_BUCKETS					1024
+#ifdef ONE_MILLION_ROUTE_SUPPORT
+#define RC_BUCKETS					(1024*1024)
 /**< Number of Route cache Buckets */
+#define MAX_RC_ENTRIES					(1024*1024)
+/**< Number of Route cache entries*/
+#else
+#define RC_BUCKETS					(1024)
+/**< Number of Route cache Buckets */
+#define MAX_RC_ENTRIES					(1024)
+/**< Number of Route cache entries*/
+#endif /* endif 1M support */
 #define RC_HASH_MASK					(RC_BUCKETS - 1)
 /**< Hash Mask for Route Cache */
-#define RC_INVALID_HASH					RC_BUCKETS
-/**< Invalid Mask for Route Cache  */
-#define MAX_RC_ENTRIES					1024
-/**< Number of Route cache entries*/
 #define RC_ENTRY_POOL_SIZE				(RC_BUCKETS << 1)
 /**< Size of Route cache entry Pool */
-
 /**
 \brief Route Cache Stats
 \details This object specifies the Route Cache related Statistics
@@ -90,7 +94,7 @@ struct rc_entry_t {
 	/**< Pointer to the egress interface structure */
 	uint8_t tos;
 	/**< Type of service */
-} __attribute__((aligned(L1_CACHE_BYTES)));
+};
 
 /**
 \brief Route Cache Bucket
@@ -168,12 +172,11 @@ static inline uint32_t compute_rc_hash(in_addr_t saddr,
 
 /** \brief			Initializes a route cache
  *  \param[out] rc		Route cache
- *  \param[in]	expire_jiffies	Number of "jiffies" for which a particular
- *				route cache entry is valid after its last
- *				access
+ *  \param[in]	expire_jiffies	Number of "jiffies" for which a particular route cache entry is
+ *				valid after its last access
  *  \param[in]	proto_len	Length of the IP address
  */
-int rc_init(struct rc_t *rc, uint32_t expire_jiffies, uint32_t proto_len);
+struct rc_t *rc_init(uint32_t expire_jiffies, uint32_t proto_len);
 
 /**
  \brief Allocates a Route Entry to be added to the Route Cache

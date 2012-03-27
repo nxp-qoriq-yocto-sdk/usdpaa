@@ -2,7 +2,7 @@
  \file ipsecfwd_stack.h
  */
 /*
- * Copyright (C) 2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2011 - 2012 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,8 +25,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __IPSECFWD_STACK_H__
-#define __IPSECFWD_STACK_H__
+#ifndef __IPSECFWD_STACK_H
+#define __IPSECFWD_STACK_H
 
 #include "ip/ip_hooks.h"
 #include "arp/arp.h"
@@ -45,7 +45,7 @@ struct ip_stack_t {
 	/**< Routing Table */
 	struct rt_t rt;
 	/**< Route Cache */
-	struct rc_t rc;
+	struct rc_t *rc;
 };
 
 /**
@@ -61,4 +61,4 @@ struct ipsec_stack_t {
 	struct ipsec_tunnel_table_t itt;
 };
 
-#endif /* __IPSECFWD_STACK_H__ */
+#endif	/* __IPSECFWD_STACK_H */
