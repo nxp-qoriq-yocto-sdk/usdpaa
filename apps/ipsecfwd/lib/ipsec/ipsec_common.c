@@ -28,7 +28,6 @@
 #include "app_common.h"
 #include "ipsec/ipsec_sec.h"
 #include "ipsec/ipsec_decap.h"
-#include "net/frame_desc.h"
 #include "mm/mem_cache.h"
 #include "ip/ip_accept.h"
 #include "ip/ip_protos.h"

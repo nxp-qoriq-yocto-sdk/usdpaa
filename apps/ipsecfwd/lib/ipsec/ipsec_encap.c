@@ -26,7 +26,6 @@
 #include <stdbool.h>
 #include "app_common.h"
 #include "ipsec_sec.h"
-#include "net/frame_desc.h"
 #include "mm/mem_cache.h"
 #include "ip/ip_rc.h"
 #include "ip/ip_protos.h"

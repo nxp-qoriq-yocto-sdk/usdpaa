@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2011 - 2012 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,6 @@
 #include <fsl_sec/desc.h>
 #include <fsl_sec/dcl.h>
 #include "ipsec_sec.h"
-#include "net/frame_desc.h"
 #include "app_common.h"
 
 /**
