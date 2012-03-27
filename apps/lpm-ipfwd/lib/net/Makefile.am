@@ -31,6 +31,6 @@
 
 lib_LIBRARIES = app_lpm_net
 
-AM_CFLAGS := -I$(TOP_LEVEL)/apps/lpm-ipfwd/include -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/lpm-ipfwd/lib -I$(TOP_LEVEL)/apps/lib
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/lpm-ipfwd/include -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/lib
 
 app_lpm_net_SOURCES := ../../../lib/net/neigh.c ../../../lib/net/ll_cache.c

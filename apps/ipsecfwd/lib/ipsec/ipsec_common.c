@@ -126,14 +126,14 @@ void ipsec_create_simple_fd(struct qm_fd *simple_fd,
 void ipsec_build_outer_ip_hdr(struct iphdr *ip_hdr,
 			      uint32_t *saddr, uint32_t *daddr)
 {
-	ip_hdr->version = IP_HEADER_VERSION_4;
-	ip_hdr->ihl = IP_HEADER_LENGTH_NO_OPTIONS_WORDS;
-	ip_hdr->tos = IP_HEADER_DEFAULT_TOS;
-	ip_hdr->tot_len = IP_HEADER_LENGTH_NO_OPTIONS;
+	ip_hdr->version = IPVERSION;
+	ip_hdr->ihl = sizeof(*ip_hdr) / sizeof(uint32_t);
+	ip_hdr->tos = 0;
+	ip_hdr->tot_len = sizeof(*ip_hdr);
 	ip_hdr->id = 0;
 	ip_hdr->frag_off = 0;
-	ip_hdr->ttl = IP_HEADER_DEFAULT_TTL;
-	ip_hdr->protocol = IP_HEADER_PROTOCOL_ESP;
+	ip_hdr->ttl = IPDEFTTL;
+	ip_hdr->protocol = IPPROTO_ESP;
 	/* we do not know what the length is going to be for
 	   encapsulated packet. so for now initialize the
 	   checksum field. compute checksum after we get the

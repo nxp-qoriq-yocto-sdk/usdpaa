@@ -1,4 +1,4 @@
-# Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
+# Copyright (c) 2010 - 2012 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -31,6 +31,6 @@
 
 lib_LIBRARIES = app_ipsecfwd_net
 
-AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipsecfwd/lib -I$(TOP_LEVEL)/apps/ipsecfwd/include
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipsecfwd/lib -I$(TOP_LEVEL)/apps/ipsecfwd/include -I$(TOP_LEVEL)/apps/lib -I$(TOP_LEVEL)/apps/lib/net
 
-app_ipsecfwd_net_SOURCES := neigh.c ll_cache.c rt.c
+app_ipsecfwd_net_SOURCES :=  ../../../lib/net/neigh.c ../../../lib/net/ll_cache.c rt.c

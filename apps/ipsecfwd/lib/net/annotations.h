@@ -31,7 +31,7 @@
 #include <usdpaa/compat.h>
 #include <usdpaa/fsl_qman.h>
 
-#include "fm_types.h"
+#include "ipfwd/fm_types.h"
 #include "rt.h"
 
 /**

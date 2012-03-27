@@ -1,9 +1,10 @@
+
 /**
  \file ip_route.c
  \brief Route lookup is done for forwarding decision.
  */
 /*
- * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2012 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,7 +46,7 @@ enum IP_STATUS ip_route_input(const struct ppam_rx_hash *ctxt,
 	case SOURCE_POST_FMAN:
 	{
 		struct rc_entry_t *entry;
-		if ((ip_hdr->protocol == IP_PROTO_ESP)) {
+		if ((ip_hdr->protocol == IPPROTO_ESP)) {
 			/* Pkt may be for decryption */
 			retval = ipsec_decap_send(ctxt, notes, ip_hdr);
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
+# Copyright (c) 2010 - 2012 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -31,6 +31,6 @@
 
 lib_LIBRARIES = apps_ipsecfwd_arp
 
-AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipsecfwd/include -I$(TOP_LEVEL)/apps/ipsecfwd/lib -I$(TOP_LEVEL)/apps/lib -I$(TOP_LEVEL)/apps/ipsecfwd/app
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipsecfwd/include -I$(TOP_LEVEL)/apps/ipsecfwd/lib -I$(TOP_LEVEL)/apps/lib -I$(TOP_LEVEL)/apps/lib/arp
 
 apps_ipsecfwd_arp_SOURCES := arp.c

@@ -1,4 +1,4 @@
-# Copyright (c) 2011 Freescale Semiconductor, Inc.
+# Copyright (c) 2011 - 2012 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -31,7 +31,7 @@
 
 bin_PROGRAMS = ipsecfwd_app
 
-AM_CFLAGS := -I$(TOP_LEVEL)/apps/ipsecfwd/lib -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipsecfwd/include
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/ipsecfwd/lib -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipsecfwd/include -I$(TOP_LEVEL)/apps/lib
 
 ipsecfwd_app_SOURCES := ipsecfwd.c ipsecfwd_init.c ipsecfwd_handler.c ipsecfwd_splitkey.c
 ipsecfwd_app_LDADD := usdpaa_ppac usdpaa_qbman usdpaa_fman usdpaa_dma_mem usdpaa_of usdpaa_process app_ipsecfwd_ipsec app_ipsecfwd_net app_ipsecfwd_ethernet app_ipsecfwd_ip app_ipsecfwd_mm apps_ipsecfwd_arp app_ipsecfwd_refcount usdpaa_syscfg usdpaa_sec

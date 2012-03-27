@@ -139,6 +139,9 @@ struct neigh_t {
 	uint8_t solicitations_sent;
 	refcount_t *refcnt;
 	/* struct list_head_t	   *solicit_q; */
+	/* Timers - 5B */
+	uint32_t retransmit_timer;
+	uint8_t retransmit_count;
 } __attribute__((aligned(L1_CACHE_BYTES)));
 
 /**

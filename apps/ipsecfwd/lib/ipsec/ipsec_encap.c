@@ -122,7 +122,7 @@ void ipsec_encap_init(struct ipsec_tunnel_t *entry,
 {
 	void *ctxtA;
 	ctxtA = create_encapsulation_sec_descriptor(entry, ip_hdr,
-			IP_PROTO_TCP, ealg, aalg);
+			IPPROTO_TCP, ealg, aalg);
 	if (NULL == ctxtA) {
 		fprintf(stderr, "error: %s: Error creating descriptor\n",
 			__func__);

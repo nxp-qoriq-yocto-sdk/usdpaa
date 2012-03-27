@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2011 - 2012 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -389,7 +389,7 @@ void populate_route_cache(uint32_t src_ip,
 
 	refcount_acquire(dest->refcnt);
 	entry->dest = dest;
-	entry->tos = IP_HEADER_DEFAULT_TOS;
+	entry->tos = 0;
 	if (rc_add_update_entry(&(ipsec_stack->ip_stack.rc), entry) == false) {
 		fprintf(stdout, "info: %s: Route cache entry updated\n",
 			__func__);
