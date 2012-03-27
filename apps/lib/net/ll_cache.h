@@ -3,7 +3,7 @@
  \brief This file contains Cache related data structures
  */
 /*
- * Copyright (C) 2010 - 2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2012 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,11 +25,11 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _LIB_NET_LL_CACHE_H
-#define _LIB_NET_LL_CACHE_H
+
+#ifndef __LL_CACHE_H
+#define __LL_CACHE_H
 
 #include <internal/compat.h>
-#include "common/common.h"
 #include "net/net.h"
 
 /**
@@ -46,4 +46,4 @@ struct ll_cache_t {
  */
 struct ll_cache_t *ll_cache_create(void);
 
-#endif	/* _LIB_NET_LL_CACHE_H */
+#endif	/* __LL_CACHE_H */

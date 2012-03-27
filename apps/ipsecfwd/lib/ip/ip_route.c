@@ -139,7 +139,7 @@ enum IP_STATUS ip_route_input_slow(const struct ppam_rx_hash *ctxt,
 #ifdef STATS_TBD
 	decorated_notify_inc_64(&ctxt->stats->ip_route_input_slow);
 #endif
-	free_buff(&notes->dqrr->fd);
+	ppac_drop_frame(&notes->dqrr->fd);
 	return IP_STATUS_DROP;
 }
 
@@ -168,6 +168,6 @@ enum IP_STATUS ip_route_finish(const struct ppam_rx_hash *ctxt,
 	case ROUTE_SCOPE_ENCAP:
 		return ipsec_encap_send(ctxt, notes, ip_hdr);
 	}
-	free_buff(&notes->dqrr->fd);
+	ppac_drop_frame(&notes->dqrr->fd);
 	return IP_STATUS_DROP;
 }

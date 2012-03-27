@@ -2,7 +2,7 @@
  \file ip_local.c
  */
 /*
- * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2012 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -67,5 +67,5 @@ void ip_defragment(const struct ppam_rx_hash *ctxt,
 	decorated_notify_inc_32(&ctxt->stats->ip_local_frag_reassem_started);
 #endif
 	/* For now, do not reassemble fragments - discard them */
-	free_buff(&notes->dqrr->fd);
+	ppac_drop_frame(&notes->dqrr->fd);
 }

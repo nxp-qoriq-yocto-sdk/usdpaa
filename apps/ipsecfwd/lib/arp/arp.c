@@ -2,7 +2,7 @@
  \file arp.c
  */
 /*
- * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2012 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -117,7 +117,7 @@ void arp_handler(const struct annotations_t *notes, void *data)
 
 	if (is_iface_ip(arp_tpa)) {
 		pr_info("%s: Target IP is not for own interface\n", __func__);
-		free_buff(&notes->dqrr->fd);
+		ppac_drop_frame(&notes->dqrr->fd);
 		spin_unlock(&arp_lock);
 		return;
 	}
@@ -127,7 +127,7 @@ void arp_handler(const struct annotations_t *notes, void *data)
 		memcpy(&new_node.ip, arp->arp_spa, arp->arp_pln);
 		if (0 > add_arp_entry(stack.arp_table, NULL, &new_node)) {
 			pr_err("%s: failed to add ARP entry\n", __func__);
-			free_buff(&notes->dqrr->fd);
+			ppac_drop_frame(&notes->dqrr->fd);
 			spin_unlock(&arp_lock);
 			return;
 		}
@@ -145,7 +145,7 @@ void arp_handler(const struct annotations_t *notes, void *data)
 		dev->xmit(dev, &notes->dqrr->fd, NULL);
 		pr_info("Sent ARP reply for IP 0x%x\n", arp_tpa);
 	} else {
-		free_buff(&notes->dqrr->fd);
+		ppac_drop_frame(&notes->dqrr->fd);
 	}
 }
 
@@ -188,7 +188,7 @@ int arp_send_request(struct ppac_interface *dev, in_addr_t target_ip)
 
 	target_iface_node = ipfwd_get_iface_for_ip(target_ip);
 	if (!target_iface_node) {
-		free_buff(&fd);
+		ppac_drop_frame(&fd);
 		return -ENODEV;
 	}
 
@@ -211,7 +211,7 @@ static void arp_solicit(struct neigh_t *n, const void *annotations,
 #ifdef STATS_TBD
 	decorated_notify_inc_64(&n->nt->stats->solicit_errors);
 #endif
-	free_buff(&notes->dqrr->fd);
+	ppac_drop_frame(&notes->dqrr->fd);
 }
 
 static void arp_error_handler(struct neigh_t *n, const void *annotations,
@@ -221,7 +221,7 @@ static void arp_error_handler(struct neigh_t *n, const void *annotations,
 #ifdef STATS_TBD
 	decorated_notify_inc_64(&n->nt->stats->protocol_errors);
 #endif
-	free_buff(&notes->dqrr->fd);
+	ppac_drop_frame(&notes->dqrr->fd);
 }
 
 static void arp_constructor(struct neigh_t *n)

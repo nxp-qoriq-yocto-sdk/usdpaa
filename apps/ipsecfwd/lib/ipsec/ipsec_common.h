@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2011 - 2012 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -160,6 +160,6 @@ void ipsec_build_outer_ip_hdr(struct iphdr *ip_hdr,
 /*
  * Frame gets freed to bman pool
  */
-void free_buffer(void *virt_addr, uint8_t bpid);
+void ppac_drop_frameer(void *virt_addr, uint8_t bpid);
 
 #endif /* ifndef LIB_IPSEC_IPSEC_COMMON_H */

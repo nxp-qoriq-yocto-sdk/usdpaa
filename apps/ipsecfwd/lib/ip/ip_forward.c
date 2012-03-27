@@ -3,7 +3,7 @@
  \brief Implements forwarding function if routelookup is successful
  */
 /*
- * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2012 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,7 +30,6 @@
 
 #include <ppac_interface.h>
 
-#include "common/common.h"
 #include "ip_hooks.h"
 #include "ip_output.h"
 
@@ -51,7 +50,7 @@ enum IP_STATUS ip_forward(const struct ppam_rx_hash *ctxt,
 #ifdef STATS_TBD
 		decorated_notify_inc_64(&ctxt->stats->ip_ttl_time_exceeded);
 #endif
-		free_buff(&notes->dqrr->fd);
+		ppac_drop_frame(&notes->dqrr->fd);
 		return IP_STATUS_DROP;
 	}
 
@@ -68,7 +67,7 @@ enum IP_STATUS ip_forward(const struct ppam_rx_hash *ctxt,
 		decorated_notify_inc_64(
 			&ctxt->stats->ip_xmit_icmp_unreach_need_frag);
 #endif
-		free_buff(&notes->dqrr->fd);
+		ppac_drop_frame(&notes->dqrr->fd);
 		return IP_STATUS_DROP;
 	}
 

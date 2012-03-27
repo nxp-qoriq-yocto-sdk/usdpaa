@@ -2,7 +2,7 @@
  \file ip_output.c
  */
 /*
- * Copyright (C) 2010,2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010 - 2012 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -129,7 +129,7 @@ enum IP_STATUS ip_output_finish(const struct ppam_rx_hash *ctxt,
 			 * packet will be retransmitted by a higher network
 			 * layer)
 			 */
-			free_buff(&notes->dqrr->fd);
+			ppac_drop_frame(&notes->dqrr->fd);
 			return IP_STATUS_DROP;
 		}
 
