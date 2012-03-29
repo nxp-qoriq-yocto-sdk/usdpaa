@@ -1,4 +1,4 @@
-# Copyright (c) 2011 Freescale Semiconductor, Inc.
+# Copyright (c) 2011 - 2012 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -35,7 +35,10 @@ dist_DATA = ipsecfwd_enc_20G.sh ipsecfwd_enc_22G.sh ipsecfwd_dec_20G.sh ipsecfwd
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/ipsecfwd/lib -I$(TOP_LEVEL)/apps/ipsecfwd/include
 
 ipsecfwd_config_SOURCES := ipc_send.c
-ipsecfwd_config_sys_LDADD := rt usdpaa_of
+
+ipsecfwd_config_LDADD := usdpaa_of
+
+ipsecfwd_config_sys_LDADD := rt
 
 ipsecfwd_enc_20G.sh_install = $(INSTALL_BIN)
 ipsecfwd_enc_20G.sh_install_flags = $(INSTALL_BIN_FLAGS)
