@@ -33,53 +33,93 @@
 #ifndef _FRA_CFG_PARSER_H
 #define _FRA_CFG_PARSER_H
 
-#include <usdpaa/compat.h>
-#include <usdpaa/fsl_qman.h>
+#include <fra_common.h>
 #include <usdpaa/fsl_rman.h>
 #include <internal/compat.h>
 
+#define MAX_LENGTH_OF_NAME 32
+
 enum dist_type {
-	DIST_TYPE_RX,
-	DIST_TYPE_TX,
-	DIST_TYPE_FWD
+	DIST_TYPE_UNKNOWN,
+	DIST_TYPE_RMAN_RX,
+	DIST_TYPE_RMAN_TX,
+	DIST_TYPE_FMAN_RX,
+	DIST_TYPE_FMAN_TX,
+	DIST_TYPE_FMAN_TO_RMAN,
+	DIST_TYPE_RMAN_TO_FMAN
 };
 
-struct dist_rx_cfg {
-	uint8_t port;
+struct dist_rman_rx_cfg {
+	uint8_t rio_port;
 	uint8_t port_mask;
 	uint16_t sid;
 	uint16_t sid_mask;
-	int fqid;
+	uint32_t fqid;
 	enum RMAN_FQ_MODE fq_mode;
-	int fq_count;
 	uint8_t wq;
 	struct rio_tran	*tran;
 };
 
-struct dist_tx_cfg {
-	uint8_t port;
-	uint8_t fq_count;
+struct dist_rman_tx_cfg {
+	uint8_t rio_port;
+	uint8_t fqs_num;
 	uint8_t wq;
 	uint16_t did;
-	int fqid;
+	uint32_t fqid;
 	struct rio_tran	*tran;
 };
 
-struct dist_fwd_cfg {
-	uint8_t	fman_num;	/* 0 => FMAN0, 1 => FMAN1 and so on */
-	uint8_t	port_type;	/* 1 => "1G" or 10 => "10G" ,so on*/
-	uint8_t port_num;	/* 0 onwards */
+struct fra_fman_port_cfg {
+	struct list_head node;
+	char port_name[MAX_LENGTH_OF_NAME];
+	uint8_t fman_num; /* 0 => FMAN0, 1 => FMAN1 and so on */
+	uint8_t port_type;
+	uint8_t port_num; /* 0 onwards */
+};
+
+struct dist_fman_rx_cfg {
+	char fman_port_name[MAX_LENGTH_OF_NAME];
+	uint8_t wq;
+};
+
+struct dist_fman_tx_cfg {
+	char fman_port_name[MAX_LENGTH_OF_NAME];
+	uint32_t fqs_num;
+	uint8_t wq;
+};
+
+struct dist_fman_to_rman_cfg {
+	char fman_port_name[MAX_LENGTH_OF_NAME];
+	uint8_t rio_port;
+	uint8_t wq;
+	uint16_t did;
+	struct rio_tran	*tran;
+};
+
+struct dist_rman_to_fman_cfg {
+	char fman_port_name[MAX_LENGTH_OF_NAME];
+	uint8_t rio_port;
+	uint8_t port_mask;
+	uint16_t sid;
+	uint16_t sid_mask;
+	uint32_t fqid;
+	enum RMAN_FQ_MODE fq_mode;
+	uint8_t wq;
+	struct rio_tran	*tran;
 };
 
 struct dist_cfg {
 	struct dist_cfg *next;
-	char name[32];
-	uint8_t type;
-	uint8_t number;
+	char name[MAX_LENGTH_OF_NAME];
+	enum dist_type type;
+	uint8_t sequence_number;
 	union {
-		struct dist_rx_cfg dist_rx_cfg;
-		struct dist_tx_cfg dist_tx_cfg;
-		struct dist_fwd_cfg dist_fwd_cfg;
+		struct dist_rman_rx_cfg dist_rman_rx_cfg;
+		struct dist_rman_tx_cfg dist_rman_tx_cfg;
+		struct dist_fman_rx_cfg dist_fman_rx_cfg;
+		struct dist_fman_tx_cfg dist_fman_tx_cfg;
+		struct dist_fman_to_rman_cfg dist_fman_to_rman_cfg;
+		struct dist_rman_to_fman_cfg dist_rman_to_fman_cfg;
 	};
 };
 
@@ -90,6 +130,7 @@ struct dist_order_cfg {
 
 struct fra_cfg {
 	struct list_head dist_order_cfg_list;
+	struct list_head fman_port_cfg_list;
 	struct rman_cfg rman_cfg;
 };
 
