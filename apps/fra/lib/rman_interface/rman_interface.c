@@ -1,4 +1,4 @@
-/* Copyright (c) 2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2011-2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,9 +31,15 @@
  */
 
 #include <usdpaa/compat.h>
-#include <usdpaa/fsl_srio.h>
-#include "rman_interface.h"
-#include "fra.h"
+#include <fra_fq_interface.h>
+#include <rman_interface.h>
+
+/* This struct holds the default stashing opts for Rx FQ configuration. */
+static const struct qm_fqd_stashing default_stash_opts = {
+	.annotation_cl = FRA_STASH_ANNOTATION_CL,
+	.data_cl = FRA_STASH_DATA_CL,
+	.context_cl = FRA_STASH_CONTEXT_CL
+};
 
 struct rman_if {
 	struct rman_dev *rmdev;
@@ -43,52 +49,49 @@ struct rman_if {
 	enum qm_channel tx_channel_id[RMAN_MAX_NUM_OF_CHANNELS];
 	uint32_t msg_size[RIO_TYPE_NUM];
 	int sg_size;
+	struct list_head rman_rx_list;
+	struct list_head rman_tx_list;
+};
+
+struct rman_rx_hash {
+	struct qman_fq fq;
+	struct hash_opt opt;
+	void *pvt;
+	hash_handler handler;
+} ____cacheline_aligned;
+
+struct rman_rx {
+	struct list_head node;
+	struct ibcu_cfg cfg;
+	int fqs_num;
+	struct rman_rx_hash *hash;
+};
+
+struct rman_tx_hash {
+	struct rman_outb_md md;
+	struct qman_fq fq;
+} ____cacheline_aligned;
+
+struct rman_tx_status {
+	struct qman_fq fq;
+	void *pvt;
+	nonhash_handler handler;
+} ____cacheline_aligned;
+
+struct rman_tx {
+	struct list_head node;
+	struct rio_tran *tran;
+	struct rman_tx_status *status;
+	int fqs_num;
+	struct rman_tx_hash *hash;
 };
 
 static struct rman_if *rmif;
 
-int rman_get_port_status(int port_number)
-{
-	if (!rmif)
-		return 0;
-	return rmif->port_status & (1 << (port_number - 1));
-}
-
-int fqid_to_ibcu(int fqid)
-{
-	return rman_get_ibcu(rmif->rmdev, fqid);
-}
-
-int rman_get_rxfq_count(enum RMAN_FQ_MODE fq_mode, const struct rio_tran *tran)
-{
-	int fq_count, bit_mask;
-
-	if (!rmif || !tran)
-		return 0;
-
-	bit_mask = (1 << rmif->cfg.fq_bits[tran->type]) - 1;
-	if (fq_mode == ALGORITHMIC) {
-		switch (tran->type) {
-		case RIO_TYPE_MBOX:
-			fq_count = (tran->mbox.ltr_mask & bit_mask) + 1;
-			break;
-		case RIO_TYPE_DSTR:
-			fq_count = (tran->dstr.streamid_mask & bit_mask) + 1;
-			break;
-		default:
-			fq_count = 1;
-			break;
-		}
-	} else
-		fq_count = 1;
-
-	return fq_count;
-}
-
-static inline void msg_set_fd(struct msg_buf *msg, struct qm_fd *fd)
+static inline void msg_set_fd(struct msg_buf *msg, const struct qm_fd *fd)
 {
 	msg->flag = USING_FD;
-	msg->fd = fd;
+	msg->fd = (struct qm_fd *)fd;
 }
 
 static inline void msg_set_bmb(struct msg_buf *msg, const struct bm_buffer *bmb)
@@ -123,7 +126,7 @@ struct msg_buf *msg_alloc(enum RIO_TYPE type)
 	return msg;
 }
 
-struct msg_buf *fd_to_msg(struct qm_fd *fd)
+struct msg_buf *fd_to_msg(const struct qm_fd *fd)
 {
 	struct msg_buf		*msg;
 	struct qm_sg_entry	*sgt;
@@ -133,13 +136,15 @@ struct msg_buf *fd_to_msg(struct qm_fd *fd)
 		if (fd->offset < RM_DATA_OFFSET)
 			return NULL;
 		msg = __dma_mem_ptov(qm_fd_addr(fd));
+		if (!msg)
+			return NULL;
 		msg->data = (uint8_t *)msg + fd->offset;
 		msg->len = fd->length20;
 		msg_set_fd(msg, fd);
 		break;
 	case qm_fd_sg:
 		sgt = __dma_mem_ptov(qm_fd_addr(fd)) + fd->offset;
-		FRA_DBG("RMan: get a sg msg bpid(%d), e(%d)  f(%d)",
+		FRA_DBG("This message is sg format bpid(%d), e(%d)  f(%d)",
 			sgt->bpid, sgt->extension, sgt->final);
 		if (sgt->final != 1 || sgt->offset < RM_DATA_OFFSET) {
 			error(0, 0,
@@ -147,6 +152,8 @@ struct msg_buf *fd_to_msg(struct qm_fd *fd)
 			return NULL;
 		}
 		msg = __dma_mem_ptov(qm_sg_addr(sgt));
+		if (!msg)
+			return NULL;
 		msg->data = (uint8_t *)msg + sgt->offset;
 		msg->len = fd->length20;
 		msg_set_fd(msg, fd);
@@ -179,366 +186,477 @@ static inline int msg_to_fd(struct qm_fd *fd, const struct msg_buf *msg)
 	return 0;
 }
 
-/************************* FQ handler ***************************/
-static enum qman_cb_dqrr_result
-rman_status_dqrr(struct qman_portal *portal,
-		 struct qman_fq *fq,
-		 const struct qm_dqrr_entry *dq)
+int rman_get_port_status(int port_number)
 {
-	struct dist_tx *tx;
+	if (!rmif)
+		return 0;
+	return rmif->port_status & (1 << port_number);
+}
 
-	FRA_DBG("rman_rx_dqrr receive a msg frame fqid(0x%x) type(%d) "
-		"msg format(%d) bpid(%d) len(%d) offset(%d) "
-		"addr(0x%llx) status(0x%x)",
-		fq->fqid, FD_GET_FTYPE(&dq->fd), dq->fd.format,
-		dq->fd.bpid, dq->fd.length20, dq->fd.offset,
-		qm_fd_addr_get64(&dq->fd), dq->fd.status);
+int rman_rx_get_fqs_num(struct rman_rx *rman_rx)
+{
+	if (!rman_rx)
+		return 0;
+	return rman_rx->fqs_num;
+}
 
-	tx = container_of(fq, struct dist_tx, stfq);
-	dist_tx_status_handler(tx, &dq->fd);
-	return qman_cb_dqrr_consume;
+int rman_rx_get_ibcu(struct rman_rx *rman_rx)
+{
+	if (!rman_rx)
+		return -EINVAL;
+	return rman_rx->cfg.ibcu;
+}
+
+struct hash_opt *rman_rx_get_opt(struct rman_rx *rx, int idx)
+{
+	if (!rx || idx >= rx->fqs_num)
+		return NULL;
+	return &rx->hash[idx].opt;
+}
+
+int opt_bindto_rman_tx(struct hash_opt *opt, struct rman_tx *tx, int idx)
+{
+	struct rman_tx_hash *hash;
+	if (!opt || !tx)
+		return -EINVAL;
+
+	hash = &tx->hash[idx % tx->fqs_num];
+	opt->tx_pvt = &hash->md;
+	opt->tx_fqid = qman_fq_fqid(&hash->fq);
+
+	return 0;
+}
+
+static int rman_get_rxfqs_num(enum RMAN_FQ_MODE fq_mode,
+			      const struct rio_tran *tran)
+{
+	int fqs_num, bit_mask;
+
+	if (!rmif || !tran)
+		return 0;
+
+	bit_mask = (1 << rmif->cfg.fq_bits[tran->type]) - 1;
+	if (fq_mode == ALGORITHMIC) {
+		switch (tran->type) {
+		case RIO_TYPE_MBOX:
+			fqs_num = (tran->mbox.ltr_mask & bit_mask) + 1;
+			break;
+		case RIO_TYPE_DSTR:
+			fqs_num = (tran->dstr.streamid_mask & bit_mask) + 1;
+			break;
+		default:
+			fqs_num = 1;
+			break;
+		}
+	} else
+		fqs_num = 1;
+
+	return fqs_num;
+}
+
+static int rman_get_rxfqid_offset(enum RMAN_FQ_MODE fq_mode,
+				  const struct rio_tran *tran, int i)
+{
+	int offset, bit_mask;
+
+	if (!rmif || !tran)
+		return 0;
+
+	bit_mask = (1 << rmif->cfg.fq_bits[tran->type]) - 1;
+	if (fq_mode == ALGORITHMIC) {
+		switch (tran->type) {
+		case RIO_TYPE_MBOX:
+			offset = (tran->mbox.ltr + i)
+				 & tran->mbox.ltr_mask
+				 & bit_mask ;
+			break;
+		case RIO_TYPE_DSTR:
+			offset = (tran->dstr.streamid + i) &
+				 tran->dstr.streamid_mask &
+				 bit_mask;
+			break;
+		default:
+			offset = 0;
+			break;
+		}
+	} else
+		offset = 0;
+	return offset;
 }
 
 static enum qman_cb_dqrr_result
 rman_rx_dqrr(struct qman_portal *portal, struct qman_fq *fq,
-	     const struct qm_dqrr_entry *dq)
+	     const struct qm_dqrr_entry *dqrr)
 {
-	struct dist_rx *rx;
+	struct rman_rx_hash *hash = container_of(fq, struct rman_rx_hash, fq);
 
-	FRA_DBG("rman_rx_dqrr receive a msg frame fqid(0x%x) type(%d) "
-		"msg format(%d) bpid(%d) len(%d) offset(%d) "
-		"addr(0x%llx) status(0x%x)",
-		fq->fqid, FD_GET_FTYPE(&dq->fd), dq->fd.format,
-		dq->fd.bpid, dq->fd.length20, dq->fd.offset,
-		qm_fd_addr_get64(&dq->fd), dq->fd.status);
+	FRA_DBG("%s receives a msg frame fqid(0x%x) msg format(%d)"
+		"bpid(%d) addr(0x%llx) len(%d) offset(%d) "
+		" status(0x%x)",
+		__func__, fq->fqid, dqrr->fd.format,
+		dqrr->fd.bpid, qm_fd_addr_get64(&dqrr->fd),
+		dqrr->fd.length20, dqrr->fd.offset,
+		dqrr->fd.status);
 
-	rx = container_of(fq, struct dist_rx, fq);
-	dist_rx_handler(rx,  &dq->fd);
-	return qman_cb_dqrr_consume;
+	PRE_DQRR();
+	if (likely(hash->handler))
+		hash->handler(hash->pvt, &hash->opt, &dqrr->fd);
+	else
+		fra_drop_frame(&dqrr->fd);
+	return POST_DQRR();
 }
 
-int rman_rxfq_init(struct qman_fq *fq, int fqid, uint8_t wq,
-		   enum qm_channel channel)
+static enum qman_cb_dqrr_result
+rman_tx_status_dqrr(struct qman_portal *portal,
+		    struct qman_fq *fq,
+		    const struct qm_dqrr_entry *dqrr)
 {
-	struct qm_mcc_initfq initfq;
-	int err;
+	struct rman_tx_status *status;
+	status = container_of(fq, struct rman_tx_status, fq);
 
-	fq->cb.dqrr = rman_rx_dqrr;
-	err = qman_create_fq(fqid, QMAN_FQ_FLAG_NO_ENQUEUE, fq);
-	if (err) {
-		error(0, -err, "cqman_create_fq(%u)", fqid);
-		return err;
-	}
+	FRA_DBG("%s receives a status frame from fqid(%d) status(0x%08x)",
+		__func__, fq->fqid, dqrr->fd.status);
 
-	initfq.fqd.dest.channel = channel;
-	initfq.fqd.dest.wq = wq;
-	initfq.we_mask = QM_INITFQ_WE_DESTWQ |
-		QM_INITFQ_WE_FQCTRL |
-		QM_INITFQ_WE_CONTEXTA;
-	initfq.fqd.fq_ctrl = QM_FQCTRL_AVOIDBLOCK |
-		QM_FQCTRL_PREFERINCACHE |
-		QM_FQCTRL_CTXASTASHING;
-	initfq.fqd.context_a.stashing.data_cl = 1;
-	initfq.fqd.context_a.stashing.context_cl = 0;
-
-	err = qman_init_fq(fq, QMAN_INITFQ_FLAG_SCHED, &initfq);
-	if (err < 0) {
-		error(0, -err, "qman_init_fq(%u)",
-		      qman_fq_fqid(fq));
-		qman_destroy_fq(fq, 0);
-		return err;
-	}
-	FRA_DBG("Create a rx fq(0x%x) channel(0x%x) wq(0x%x)",
-		qman_fq_fqid(fq), channel, wq);
-	return 0;
+	PRE_DQRR();
+	if (status->handler)
+		status->handler(status->pvt, &dqrr->fd);
+	else
+		fra_drop_frame(&dqrr->fd);
+	return POST_DQRR();
 }
 
-int rman_rxfq_start(int fqid, int fq_mode, uint8_t port, uint8_t port_mask,
-		    uint16_t sid, uint16_t sid_mask, struct rio_tran *tran)
+void rman_rx_disable(struct rman_rx *rx)
 {
-	struct ibcu_cfg cfg;
-	int ibcu, err;
+	if (!rx)
+		return;
 
-	if (!fqid)
-		return -EINVAL;
+	/* Disable inbound block classification unit */
+	rman_disable_ibcu(rmif->rmdev, rx->cfg.ibcu);
+}
+
+void rman_rx_finish(struct rman_rx *rx)
+{
+	int i;
+
+	if (!rx)
+		return;
+
+	/* Disable inbound block classification unit */
+	rman_release_ibcu(rmif->rmdev, rx->cfg.ibcu);
+
+	if (rx->hash) {
+		for (i = 0; i < rx->fqs_num; i++)
+			fra_teardown_fq(&rx->hash[i].fq);
+		__dma_mem_free(rx->hash);
+	}
+
+	if (rx->node.next && rx->node.prev)
+		list_del(&rx->node);
+
+	free(rx);
+}
+
+struct rman_rx *
+rman_rx_init(int hash_init, uint32_t fqid, int fq_mode, uint8_t wq,
+	     enum qm_channel channel, struct rio_tran *tran,
+	     void *pvt, hash_handler handler)
+{
+	int ibcu, i;
+	struct rman_rx *rx;
+	struct rman_rx_hash *hash;
+	size_t size;
+
+	if (!rmif || !fqid || !tran)
+		return NULL;
 
 	ibcu = rman_request_ibcu(rmif->rmdev, fqid);
 	if (ibcu < 0) {
 		error(0, -ibcu,
-		      "RMan: fqid(0x%x) failed to request ibcu resource",
-		      fqid);
-		return -EINVAL;
+			"fqid(0x%x) failed to request ibcu resource", fqid);
+		return NULL;
 	}
-	FRA_DBG("Bind FQID 0x%x to IBCU %d", fqid, ibcu);
 
-	memset(&cfg, 0, sizeof(cfg));
-	cfg.tran = tran;
-	cfg.ibcu = ibcu;
-	cfg.port = port;
-	cfg.port_mask = port_mask;
-	cfg.sid = sid;
-	cfg.sid_mask = sid_mask;
-	cfg.did = 0;
-	cfg.did_mask = 0xffff;
-	cfg.fqid = fqid;
-	cfg.fq_mode = fq_mode;
-	cfg.bpid = rmif->cfg.bpid[cfg.tran->type];
-	cfg.sgbpid = rmif->cfg.sgbpid;
-	cfg.msgsize = rmif->msg_size[cfg.tran->type];
-	cfg.sgsize = rmif->sg_size;
-	cfg.data_offset = RM_DATA_OFFSET;
-	err = rman_enable_ibcu(rmif->rmdev, &cfg);
+	rx = malloc(sizeof(*rx));
+	if (!rx)
+		return NULL;
+	memset(rx, 0, sizeof(*rx));
+
+	rx->cfg.ibcu = ibcu;
+	rx->cfg.tran = tran;
+	rx->cfg.fqid = fqid;
+	rx->cfg.fq_mode = fq_mode;
+	rx->fqs_num = rman_get_rxfqs_num(fq_mode, tran);
+	if (rx->fqs_num <= 0)
+		goto _err;
+
+	if (!hash_init) {
+		list_add(&rx->node, &rmif->rman_rx_list);
+		return rx;
+	}
+	size = rx->fqs_num * sizeof(*hash);
+
+	rx->hash = __dma_mem_memalign(L1_CACHE_BYTES, size);
+	if (!rx->hash) {
+		error(0, 0, "failed to allocate dma mem\n");
+		goto _err;
+	}
+	memset(rx->hash, 0, size);
+
+	for (i = 0; i < rx->fqs_num; i++) {
+		hash = &rx->hash[i];
+		hash->opt.rx_fqid = fqid +
+			rman_get_rxfqid_offset(fq_mode, tran, i);
+		fra_fq_pcd_init(&hash->fq, hash->opt.rx_fqid,
+				wq, channel, &default_stash_opts,
+				rman_rx_dqrr);
+		hash->pvt = pvt;
+		hash->handler = handler;
+	}
+
+	list_add(&rx->node, &rmif->rman_rx_list);
+	return rx;
+_err:
+	rman_rx_finish(rx);
+	return NULL;
+}
+
+int rman_rx_listen(struct rman_rx *rx, uint8_t port, uint8_t port_mask,
+		   uint16_t sid, uint16_t sid_mask)
+{
+	int err;
+	struct ibcu_cfg *cfg;
+
+	if (!rx)
+		return -EINVAL;
+
+	cfg = &rx->cfg;
+
+	FRA_DBG("Bind FQID 0x%x to IBCU %d", cfg->fqid, cfg->ibcu);
+
+	cfg->port = port;
+	cfg->port_mask = port_mask;
+	cfg->sid = sid;
+	cfg->sid_mask = sid_mask;
+	cfg->did = 0;
+	cfg->did_mask = 0xffff;
+	cfg->bpid = rmif->cfg.bpid[cfg->tran->type];
+	cfg->sgbpid = rmif->cfg.sgbpid;
+	cfg->msgsize = rmif->msg_size[cfg->tran->type];
+	cfg->sgsize = rmif->sg_size;
+	cfg->data_offset = RM_DATA_OFFSET;
+	err = rman_config_ibcu(rmif->rmdev, cfg);
 	return err;
 }
 
-int rman_rxfq_finish(int fqid)
+void rman_rx_enable(struct rman_rx *rx)
 {
-	int ibcu;
-	ibcu =	rman_get_ibcu(rmif->rmdev, fqid);
-	if (ibcu < 0)
-		return ibcu;
-	rman_release_ibcu(rmif->rmdev, ibcu);
-	return 0;
+	if (!rx)
+		return;
+
+	/* Enable inbound block classification unit */
+	rman_enable_ibcu(rmif->rmdev, rx->cfg.ibcu);
 }
 
-int rman_stfq_init(struct qman_fq *fq, int fqid, uint8_t wq,
-		   enum qm_channel channel)
+static int rman_tx_status_init(struct rman_tx *tx)
 {
-	struct qm_mcc_initfq initfq;
-	uint32_t flags;
-	int err;
-
-	if (!rmif)
+	if (tx->status)
 		return -EINVAL;
 
-	fq->cb.dqrr = rman_status_dqrr;
-
-	flags = QMAN_FQ_FLAG_NO_ENQUEUE;
-	if (!fqid)
-		flags |= QMAN_FQ_FLAG_DYNAMIC_FQID;
-
-	err = qman_create_fq(fqid, flags, fq);
-	if (err) {
-		error(0, -err, "qman_create_fq(0x%x)", fqid);
-		return err;
+	tx->status = __dma_mem_memalign(L1_CACHE_BYTES,
+				      sizeof(struct rman_tx_status));
+	if (!tx->status) {
+		error(0, 0, "failed to allocate dma mem\n");
+		return -ENOMEM;
 	}
+	memset(tx->status, 0, sizeof(struct rman_tx_status));
 
-	if (!channel)
-		initfq.fqd.dest.channel = rmif->cfg.rx_channel_id;
-	else
-		initfq.fqd.dest.channel = channel;
-
-	initfq.fqd.dest.wq = wq;
-	initfq.we_mask = QM_INITFQ_WE_DESTWQ |
-		QM_INITFQ_WE_FQCTRL |
-		QM_INITFQ_WE_CONTEXTA;
-	initfq.fqd.fq_ctrl = QM_FQCTRL_AVOIDBLOCK |
-		QM_FQCTRL_PREFERINCACHE |
-		QM_FQCTRL_CTXASTASHING;
-	initfq.fqd.context_a.stashing.data_cl = 1;
-	initfq.fqd.context_a.stashing.context_cl = 0;
-
-	err = qman_init_fq(fq, QMAN_INITFQ_FLAG_SCHED, &initfq);
-	if (err < 0) {
-		error(0, -err, "qman_init_fq(0x%x)",
-		      qman_fq_fqid(fq));
-		qman_destroy_fq(fq, 0);
-		return err;
-	}
-
-	FRA_DBG("Create a stfq(0x%x) channel(0x%x) wq(0x%x)",
-		qman_fq_fqid(fq), initfq.fqd.dest.channel, wq);
+	fra_fq_nonpcd_init(&tx->status->fq, 0,
+			   FRA_NONHASH_WQ, FRA_NONHASH_CHANNEL,
+			   &default_stash_opts, rman_tx_status_dqrr);
 	return 0;
 }
 
-int rman_txfq_init(struct qman_fq *fq, int fqid, uint8_t wq, uint8_t rmchan)
+struct rman_tx *
+rman_tx_init(uint8_t port, int fqid, int fqs_num, uint8_t wq,
+	     struct rio_tran *tran)
 {
-	struct qm_mcc_initfq initfq;
-	uint32_t flags;
-	int err;
+	struct rman_tx *tx;
+	struct rman_tx_hash *hash;
+	struct rman_outb_md *md;
+	int i;
+	size_t size;
 
-	flags = QMAN_FQ_FLAG_TO_DCPORTAL | QMAN_FQ_FLAG_LOCKED;
-	if (!fqid)
-		flags |= QMAN_FQ_FLAG_DYNAMIC_FQID;
+	if (!rmif || !tran || port >= RMAN_MAX_NUM_OF_CHANNELS)
+		return NULL;
 
-	err = qman_create_fq(fqid, flags, fq);
-	if (err) {
-		error(0, -err, "qman_create_fq(0x%x)", fqid);
-		return err;
+	tx = malloc(sizeof(*tx));
+	if (!tx)
+		return NULL;
+	memset(tx, 0, sizeof(*tx));
+
+	if (rman_tx_status_init(tx))
+		goto _err;
+
+	tx->tran = tran;
+	tx->fqs_num = fqs_num;
+	size = tx->fqs_num * sizeof(struct rman_tx_hash);
+	tx->hash = __dma_mem_memalign(L1_CACHE_BYTES, size);
+	if (!tx->hash) {
+		error(0, 0, "failed to allocate dma mem\n");
+		goto _err;
 	}
+	memset(tx->hash, 0, size);
 
-	initfq.fqd.dest.channel = rmif->tx_channel_id[rmchan-1];
-	initfq.fqd.dest.wq = wq;
-	initfq.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
-		QM_INITFQ_WE_CONTEXTB | QM_INITFQ_WE_CONTEXTA;
-	initfq.fqd.fq_ctrl = QM_FQCTRL_PREFERINCACHE;
-	initfq.fqd.context_b = 0;
-	qm_fqd_context_a_set64(&initfq.fqd, 0);
-
-	err = qman_init_fq(fq, QMAN_INITFQ_FLAG_SCHED, &initfq);
-	if (err) {
-		error(0, -err, "qman_init_fq(0x%x)",
-		      qman_fq_fqid(fq));
-		qman_destroy_fq(fq, 0);
-		return err;
-	}
-	FRA_DBG("Create a txfq(0x%x) channel(0x%x) wq(0x%x)",
-		fqid, rmif->tx_channel_id[rmchan-1], wq);
-	return 0;
-}
-
-void rman_fq_free(struct qman_fq *fq)
-{
-	uint32_t flags;
-	int s = qman_retire_fq(fq, &flags);
-	if (s == 1) {
-		/* Retire is non-blocking, poll for completion */
-		enum qman_fq_state state;
-		do {
-			qman_poll();
-			qman_fq_state(fq, &state, &flags);
-		} while (state != qman_fq_state_retired);
-		if (flags & QMAN_FQ_STATE_NE) {
-			/* FQ isn't empty, drain it */
-			s = qman_volatile_dequeue(fq, 0,
-						  QM_VDQCR_NUMFRAMES_TILLEMPTY);
-			if (s) {
-				error(0, -s, "Fail: %s: %d",
-				      "qman_volatile_dequeue()", s);
-				return;
-			}
-			/* Poll for completion */
-			do {
-				qman_poll();
-				qman_fq_state(fq, &state, &flags);
-			} while (flags & QMAN_FQ_STATE_VDQCR);
+	for (i = 0; i < tx->fqs_num; i++) {
+		hash = &tx->hash[i];
+		md = &hash->md;
+		md->ftype = tran->type;
+		md->br = 1;
+		md->cs = 0;
+		md->es = 0;
+		md->status_fqid = qman_fq_fqid(&tx->status->fq);
+		md->did = 0;
+		md->count = 0;
+		md->flowlvl = tran->flowlvl;
+		md->tint = port;
+		switch (tran->type) {
+		case RIO_TYPE_MBOX:
+			md->retry = 255;
+			md->dest = (tran->mbox.ltr +
+				    (i & tran->mbox.ltr_mask))
+				    << 6 | tran->mbox.mbox;
+			break;
+		case RIO_TYPE_DSTR:
+			md->dest = tran->dstr.streamid +
+				   (i & tran->dstr.streamid_mask);
+			md->other_attr = tran->dstr.cos;
+			break;
+		case RIO_TYPE_DBELL:
+			break;
+		default:
+			error(0, 0, "Not support SRIO type %d", tran->type);
+			goto _err;
 		}
+
+		fra_fq_tx_init(&hash->fq , fqid ? fqid + i : 0,
+				wq, rmif->tx_channel_id[port],
+				__dma_mem_vtop(md), 0);
 	}
-	s = qman_oos_fq(fq);
-	if (s)
-		error(0, -s, "Fail: %s: %d", "qman_oos_fq()", s);
-	else
-		qman_destroy_fq(fq, 0);
+
+	list_add(&tx->node, &rmif->rman_tx_list);
+	return tx;
+_err:
+	rman_tx_finish(tx);
+	return NULL;
 }
 
-static inline void rman_send_frame(uint32_t fqid, const struct qm_fd *fd)
+int rman_tx_status_listen(struct rman_tx *tx, int error_flag,
+			  int complete_flag, void *pvt,
+			  nonhash_handler handler)
 {
-	local_fq.fqid = fqid;
-
-	while (qman_enqueue(&local_fq, fd, 0))
-		cpu_spin(CPU_SPIN_BACKOFF_CYCLES);
-}
-
-int rman_send_fd(struct rman_outb_md *std_md, struct tx_opt *opt,
-		 struct qm_fd *fd)
-{
+	int i;
 	struct rman_outb_md *md;
 
-	if (fd->format == qm_fd_contig) {
-		if (fd->offset < RM_DATA_OFFSET)
-			return -EINVAL;
-		md = __dma_mem_ptov(qm_fd_addr(fd));
-	} else if (fd->format == qm_fd_sg) {
-		const struct qm_sg_entry *sgt;
-		sgt = __dma_mem_ptov(qm_fd_addr(fd)) + fd->offset;
-		if (sgt->offset < RM_DATA_OFFSET)
-			return -EINVAL;
-		md = __dma_mem_ptov(qm_sg_addr(sgt));
-	} else
+	if (!tx || !tx->status)
 		return -EINVAL;
 
-	memcpy(md, std_md, sizeof(*std_md));
-	md->count = fd->length20;
-	FD_SET_TYPE(fd, std_md->ftype);
+	tx->status->pvt = pvt;
+	tx->status->handler = handler;
 
-#ifdef SUPPORT_MULTIE_SESSION
-	switch (std_md->ftype) {
-	case RIO_TYPE_MBOX:
-		md->dest += opt->session << 6;
-		break;
-	case RIO_TYPE_DSTR:
-		md->dest += opt->session;
-		break;
-	default:
-		break;
+	for (i = 0; i < tx->fqs_num; i++) {
+		md = &tx->hash[i].md;
+		if (complete_flag)
+			md->cs = 1;
+		if (error_flag)
+			md->es = 1;
 	}
-#endif
-
-#ifdef ENABLE_FRA_DEBUG
-	switch (std_md->ftype) {
-	case RIO_TYPE_MBOX:
-		FRA_DBG("send to device(%d) a msg using mailbox"
-			" mbox(%d) ltr(%d) fq(0x%x)",
-			md->did, md->dest & 3, (md->dest >> 6) & 3,
-			opt->txfqid);
-		break;
-	case RIO_TYPE_DSTR:
-		FRA_DBG("send to device(%d) a msg using data-streaming"
-			" cos(0x%x) streamid(0x%x) fq(0x%x)",
-			md->did, md->other_attr, md->dest, opt->txfqid);
-		break;
-	default:
-		FRA_DBG("send to device(%d) a msg using %s"
-			" dest(0x%x) oter_attr(0x%x) fq(0x%x)",
-			md->did, rio_type_to_str[std_md->ftype],
-			md->dest, md->other_attr, opt->txfqid);
-		break;
-	}
-#endif
-	rman_send_frame(opt->txfqid, fd);
 	return 0;
 }
 
-int rman_send_msg(struct rman_outb_md *std_md, struct tx_opt *opt,
-		  struct msg_buf *msg)
+int rman_tx_connect(struct rman_tx *tx, int did)
+{
+	int i;
+
+	if (!tx)
+		return -EINVAL;
+
+	for (i = 0; i < tx->fqs_num; i++)
+		tx->hash[i].md.did = did;
+	return 0;
+}
+
+void rman_tx_finish(struct rman_tx *tx)
+{
+	int i;
+
+	if (!tx)
+		return;
+
+	if (tx->status) {
+		fra_teardown_fq(&tx->status->fq);
+		__dma_mem_free(tx->status);
+	}
+
+	if (tx->hash) {
+		for (i = 0; i < tx->fqs_num; i++)
+			fra_teardown_fq(&tx->hash[i].fq);
+		__dma_mem_free(tx->hash);
+	}
+
+	if (tx->node.next && tx->node.prev)
+		list_del(&tx->node);
+
+	free(tx);
+}
+
+int rman_send_frame(struct hash_opt *opt, const struct qm_fd *fd)
+{
+#ifdef ENABLE_FRA_DEBUG
+	struct rman_outb_md *stdmd = opt->tx_pvt;
+	switch (stdmd->ftype) {
+	case RIO_TYPE_MBOX:
+		FRA_DBG("sends to device(%d) a msg using mailbox"
+			" mbox(%d) ltr(%d) fq(0x%x)",
+			stdmd->did, stdmd->dest & 3, (stdmd->dest >> 6) & 3,
+			opt->tx_fqid);
+			break;
+	case RIO_TYPE_DSTR:
+		FRA_DBG("sends to device(%d) a msg using"
+			" data-streaming"
+			" cos(0x%x) streamid(0x%x) fq(0x%x)",
+			stdmd->did, stdmd->other_attr, stdmd->dest,
+			opt->tx_fqid);
+		break;
+	default:
+		FRA_DBG("sends to device(%d) a msg using %d"
+			" dest(0x%x) oter_attr(0x%x) fq(0x%x)",
+			stdmd->did, stdmd->ftype,
+			stdmd->dest, stdmd->other_attr, opt->tx_fqid);
+		break;
+	}
+#endif
+
+	fra_send_frame(opt->tx_fqid, fd);
+	return 0;
+}
+
+int rman_send_msg(struct rman_tx *tx, int hash_idx, struct msg_buf *msg)
 {
 	struct qm_fd fd;
+	struct rman_tx_hash *hash;
+	struct hash_opt opt;
+
+	if (!tx || !msg)
+		return -EINVAL;
 
 	if (msg_to_fd(&fd, msg))
 		return -EINVAL;
 
-	memcpy(&msg->omd, std_md, sizeof(*std_md));
-	msg->omd.count = msg->len;
-	FD_SET_TYPE(&fd, std_md->ftype);
+	hash = &tx->hash[hash_idx % tx->fqs_num];
+	opt.tx_pvt = &hash->md;
+	opt.tx_fqid = qman_fq_fqid(&hash->fq);
 
-#ifdef SUPPORT_MULTIE_SESSION
-	switch (std_md->ftype) {
-	case RIO_TYPE_MBOX:
-		msg->omd.dest += opt->session << 6;
-		break;
-	case RIO_TYPE_DSTR:
-		msg->omd.dest += opt->session;
-		break;
-	default:
-		break;
-	}
-#endif
-
-#ifdef ENABLE_FRA_DEBUG
-	switch (std_md->ftype) {
-	case RIO_TYPE_MBOX:
-		FRA_DBG("send to device(%d) a msg using mailbox"
-			" mbox(%d) ltr(%d) fq(0x%x)",
-			msg->omd.did, msg->omd.dest & 3,
-			(msg->omd.dest >> 6) & 3, opt->txfqid);
-		break;
-	case RIO_TYPE_DSTR:
-		FRA_DBG("send to device(%d) a msg using data-streaming"
-			" cos(0x%x) streamid(0x%x) fq(0x%x)",
-			msg->omd.did, msg->omd.other_attr,
-			msg->omd.dest, opt->txfqid);
-		break;
-	default:
-		FRA_DBG("send to device(%d) a msg using %s"
-			" dest(0x%x) oter_attr(0x%x) fq(0x%x)",
-			msg->omd.did, rio_type_to_str[msg->omd.ftype],
-			msg->omd.dest, msg->omd.other_attr, opt->txfqid);
-		break;
-	}
-#endif
-
-	rman_send_frame(opt->txfqid, &fd);
-	return 0;
+	return rman_send_frame(&opt, &fd);
 }
 
 int rman_if_init(const struct rman_cfg *cfg)
@@ -591,6 +709,8 @@ int rman_if_init(const struct rman_cfg *cfg)
 	for (i = 0; i < RMAN_MAX_NUM_OF_CHANNELS; i++)
 		rmif->tx_channel_id[i] = rman_get_channel_id(rmif->rmdev, i);
 
+	INIT_LIST_HEAD(&rmif->rman_rx_list);
+	INIT_LIST_HEAD(&rmif->rman_tx_list);
 	return 0;
 _err:
 	rman_if_finish();
@@ -599,8 +719,19 @@ _err:
 
 void rman_if_finish(void)
 {
+	struct rman_rx *rx, *rx_tmp;
+	struct rman_tx *tx, *tx_tmp;
+
 	if (!rmif)
 		return;
+
+	list_for_each_entry_safe(rx, rx_tmp,
+			&rmif->rman_rx_list, node)
+		rman_rx_finish(rx);
+
+	list_for_each_entry_safe(tx, tx_tmp,
+			&rmif->rman_tx_list, node)
+		rman_tx_finish(tx);
 
 	if (rmif->sriodev)
 		fsl_srio_uio_finish(rmif->sriodev);

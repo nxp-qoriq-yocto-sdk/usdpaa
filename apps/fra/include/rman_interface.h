@@ -1,4 +1,4 @@
-/* Copyright (c) 2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2011-2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,14 +33,13 @@
 #ifndef _RMAN_IF_H
 #define _RMAN_IF_H
 
-#include <usdpaa/fsl_bman.h>
-#include <usdpaa/fsl_qman.h>
+#include <fra_common.h>
 #include <usdpaa/fsl_rman.h>
-#include "fra_bpool.h"
+#include <usdpaa/fsl_srio.h>
+#include <fra_bpool.h>
 
-struct tx_opt;
-
-#define SUPPORT_MULTIE_SESSION
+struct rman_rx;
+struct rman_tx;
 
 #define RM_FD_SIZE		0x20
 #define RM_DATA_OFFSET		0x40
@@ -133,7 +132,7 @@ struct msg_buf {
 
 uint32_t msg_max_size(enum RIO_TYPE type);
 struct msg_buf *msg_alloc(enum RIO_TYPE type);
-struct msg_buf *fd_to_msg(struct qm_fd *fd);
+struct msg_buf *fd_to_msg(const struct qm_fd *fd);
 
 static inline void  msg_free(struct msg_buf *msg)
 {
@@ -204,7 +203,7 @@ static inline int dstr_get_size(const struct msg_buf *msg)
 	return msg->imd.count & 0xffffff;
 }
 
-/**
+/*
  * This function returns the status of SRIO port.
  * If the port has been connected returns 1,
  * otherwise returns 0.
@@ -213,48 +212,73 @@ int rman_get_port_status(int port_number);
 
 /* If create frame queue directly this function returns 1,
  * Otherwise, this function  returns the number of receive frame queue
- * calculated according to transaction configuration
+ * calculated according to transaction configuration and algorithmic rule
  */
-int rman_get_rxfq_count(enum RMAN_FQ_MODE fq_mode, const struct rio_tran *tran);
+int rman_rx_get_fqs_num(struct rman_rx *rx);
 
-/* This function searches the ibcu which is binded to the specified fqid.
- * and returns this ibcu index. If does not find, returns -EINVAL.
+/* This function returns this ibcu index which this rx socket binded to */
+int rman_rx_get_ibcu(struct rman_rx *rx);
+
+/*
+ * Structure hash_opt is used to describe which frame queue the received frame
+ * will be enqueued to. Each RMan rx socket may include one or some rx frame
+ * queues, each rx frame queue has a hash opt attribute.
  */
-int fqid_to_ibcu(int fqid);
+struct hash_opt *rman_rx_get_opt(struct rman_rx *rx, int idx);
 
-/* Initializes the receiving frame queue */
-int rman_rxfq_init(struct qman_fq *fq, int fqid, uint8_t wq,
-		   enum qm_channel channel);
-/* Binds the specified fqid to a ibcu resource, and enables the ibcu filter
- * starts the receiving frame queue.
+/* bind the hash opt to a rman tx */
+int opt_bindto_rman_tx(struct hash_opt *opt, struct rman_tx *tx, int idx);
+
+/*
+ * This function requests the RMan hardware resource-classification unit
+ * and then create the rx frame queues.
+ * Returns the pointer of rman_rx on success or %NULL on failure.
  */
-int rman_rxfq_start(int fqid, int fq_mode, uint8_t port, uint8_t port_mask,
-		    uint16_t sid, uint16_t sid_mask, struct rio_tran *tran);
-/* Disables the ibcu filter corresponding to the specified fqid
- * closes the receiving frame queue.
+struct rman_rx *
+rman_rx_init(int hash_init, uint32_t fqid, int fq_mode, uint8_t wq,
+	     enum qm_channel channel, struct rio_tran *tran,
+	     void *pvt, hash_handler handler);
+
+/* Configures classification unit to receive the specific rapidio messages. */
+int rman_rx_listen(struct rman_rx *rx, uint8_t port, uint8_t port_mask,
+		   uint16_t sid, uint16_t sid_mask);
+
+/* Enables rman_rx to receive packets */
+void rman_rx_enable(struct rman_rx *rx);
+
+/* Stop rman_rx receiving messages, but do not release any resource*/
+void rman_rx_disable(struct rman_rx *rx);
+
+/* Stops classification unit receiveing,  and release rman_rx all resource */
+void rman_rx_finish(struct rman_rx *rx);
+
+/*
+ * Creates tx frame queue and tx status frame queue
+ * Returns the pointer of rman_tx on success or %NULL on failure.
  */
-int rman_rxfq_finish(int fqid);
+struct rman_tx *
+rman_tx_init(uint8_t port, int fqid, int fqs_num, uint8_t wq,
+	     struct rio_tran *tran);
 
-/* Initializes the transmission status frame queue */
-int rman_stfq_init(struct qman_fq *fq, int fqid, uint8_t wq,
-		   enum qm_channel channel);
+/* Sets rman_tx to receive the completed or/and error status frame */
+int rman_tx_status_listen(struct rman_tx *tx, int error_flag,
+			  int complete_flag, void *pvt,
+			  nonhash_handler handler);
 
-/* Initializes the transmission frame queue */
-int rman_txfq_init(struct qman_fq *fq, int fqid, uint8_t wq, uint8_t rmchan);
+/* Connects rman_tx socket to the destination device */
+int rman_tx_connect(struct rman_tx *tx, int did);
 
-/* Releases the frame queue */
-void rman_fq_free(struct qman_fq *fq);
+/* Returns pointer of the RMan tx frame queue. */
+struct qman_fq *rman_tx_get_fq(struct rman_tx *tx, int idx);
 
-/* Sends the message stored in msg, using the std_md RMan frame descriptor,
- * via the frame queue specified by opt.
- */
-int rman_send_msg(struct rman_outb_md *std_md, struct tx_opt *opt,
-		  struct msg_buf *msg);
-/* Sends the message described by fd, using the std_md RMan frame descriptor,
- * via the frame queue specified by opt.
- */
-int rman_send_fd(struct rman_outb_md *std_md, struct tx_opt *opt,
-		 struct qm_fd *fd);
+/* Releases RMan tx and tx status frame queues */
+void rman_tx_finish(struct rman_tx *tx);
+
+/* Sends the message described by fd, via the frame queue specified by opt. */
+int rman_send_frame(struct hash_opt *opt, const struct qm_fd *fd);
+
+/* Sends the message stored in msg via the frame queue specified by opt. */
+int rman_send_msg(struct rman_tx *tx, int hash_idx, struct msg_buf *msg);
 
 /* Initializes RMan interface according to RMan configuration */
 int rman_if_init(const struct rman_cfg *cfg);
