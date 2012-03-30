@@ -34,6 +34,8 @@
 #define _FRA_CFG_H
 
 /* Application options */
+#undef ENABLE_FRA_DEBUG
+
 #undef FRA_HOLDACTIVE		/* Process each FQ on one portal at a time */
 #undef FRA_ORDER_PRESERVATION	/* HOLDACTIVE + enqueue-DCAs */
 #undef FRA_ORDER_RESTORATION	/* Use ORP */
