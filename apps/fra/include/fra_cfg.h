@@ -35,6 +35,7 @@
 
 /* Application options */
 #undef ENABLE_FRA_DEBUG
+#undef FRA_CORE_COPY_MD /* core copy the rman descriptor */
 
 #undef FRA_HOLDACTIVE		/* Process each FQ on one portal at a time */
 #undef FRA_ORDER_PRESERVATION	/* HOLDACTIVE + enqueue-DCAs */

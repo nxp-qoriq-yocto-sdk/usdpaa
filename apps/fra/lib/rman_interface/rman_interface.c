@@ -485,6 +485,7 @@ rman_tx_init(uint8_t port, int fqid, int fqs_num, uint8_t wq,
 	struct rman_outb_md *md;
 	int i;
 	size_t size;
+	uint64_t cont_a;
 
 	if (!rmif || !tran || port >= RMAN_MAX_NUM_OF_CHANNELS)
 		return NULL;
@@ -538,9 +539,14 @@ rman_tx_init(uint8_t port, int fqid, int fqs_num, uint8_t wq,
 			goto _err;
 		}
 
+#ifdef FRA_CORE_COPY_MD
+		cont_a = 0;
+#else
+		cont_a = __dma_mem_vtop(md);
+#endif
 		fra_fq_tx_init(&hash->fq , fqid ? fqid + i : 0,
 				wq, rmif->tx_channel_id[port],
-				__dma_mem_vtop(md), 0);
+				cont_a, 0);
 	}
 
 	list_add(&tx->node, &rmif->rman_tx_list);
@@ -613,6 +619,29 @@ int rman_send_frame(struct hash_opt *opt, const struct qm_fd *fd)
 {
 #ifdef ENABLE_FRA_DEBUG
 	struct rman_outb_md *stdmd = opt->tx_pvt;
+#endif
+
+#ifdef FRA_CORE_COPY_MD
+	struct rman_outb_md *md;
+	if (fd->format == qm_fd_contig) {
+		if (fd->offset < RM_DATA_OFFSET)
+			return -EINVAL;
+		md = __dma_mem_ptov(qm_fd_addr(fd));
+	} else if (fd->format == qm_fd_sg) {
+		const struct qm_sg_entry *sgt;
+		sgt = __dma_mem_ptov(qm_fd_addr(fd)) + fd->offset;
+		if (sgt->offset < RM_DATA_OFFSET)
+			return -EINVAL;
+		md = __dma_mem_ptov(qm_sg_addr(sgt));
+	} else
+		return -EINVAL;
+
+	memcpy(md, opt->tx_pvt, sizeof(*md));
+	md->count = fd->length20;
+	FD_SET_TYPE((struct qm_fd *)fd, md->ftype);
+#endif
+
+#ifdef ENABLE_FRA_DEBUG
 	switch (stdmd->ftype) {
 	case RIO_TYPE_MBOX:
 		FRA_DBG("sends to device(%d) a msg using mailbox"

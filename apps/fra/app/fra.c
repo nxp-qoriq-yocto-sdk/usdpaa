@@ -533,6 +533,12 @@ static struct distribution *dist_fman_to_rman_init(struct dist_cfg *cfg)
 	struct fm_eth_port_fqrange *fqr;
 	struct rman_tx_list *rman_tx_list;
 
+#ifdef FRA_CORE_COPY_MD
+	error(0, 0, "FRA_CORE_COPY_MD mode requires core involvement."
+		"So it does not support fman_to_rman distribution");
+	return NULL;
+#endif
+
 	if (!cfg || cfg->type != DIST_TYPE_FMAN_TO_RMAN)
 		return NULL;
 
