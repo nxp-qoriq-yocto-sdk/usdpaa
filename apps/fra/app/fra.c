@@ -178,6 +178,19 @@ static inline void dist_order_handler(struct distribution *dist,
 		fra_drop_frame(fd);
 }
 
+#ifdef FRA_TX_CONFIRM
+static void dist_tx_confirm_cb(void *pvt, const struct qm_fd *fd)
+{
+#ifdef ENABLE_FRA_DEBUG
+	struct distribution *dist = pvt;
+
+	FRA_DBG("DIST(%s) receives a transmit confirm message",
+		dist->cfg->name);
+#endif
+	fra_drop_frame(fd);
+}
+#endif
+
 static void dist_rman_rx_cb(void *pvt, struct hash_opt *opt,
 			    const struct qm_fd *fd)
 {
@@ -409,6 +422,9 @@ static struct distribution *dist_rman_tx_init(struct dist_cfg *cfg)
 		return NULL;
 	}
 
+#ifdef FRA_TX_CONFIRM
+	rman_tx_status_listen(dist->rman_tx, 0, 1, dist, dist_tx_confirm_cb);
+#endif
 	rman_tx_connect(dist->rman_tx, txcfg->did);
 	dist->handler = dist_rman_tx_handler;
 	return dist;
@@ -458,6 +474,10 @@ static struct distribution *dist_rman_to_fman_init(struct dist_cfg *cfg)
 	fman_tx_init(fman_port, r2fcfg->fqid,
 		     rman_rx_get_fqs_num(dist->rman_to_fman->rman_rx),
 		     r2fcfg->wq);
+
+#ifdef FRA_TX_CONFIRM
+	fman_tx_confirm_listen(dist->fman_tx, dist, dist_tx_confirm_cb);
+#endif
 
 	rman_rx_listen(dist->rman_to_fman->rman_rx, r2fcfg->rio_port,
 		       r2fcfg->port_mask, r2fcfg->sid, r2fcfg->sid_mask);
@@ -522,6 +542,9 @@ static struct distribution *dist_fman_tx_init(struct dist_cfg *cfg)
 	dist->cfg = cfg;
 	dist->fman_tx = port;
 	dist->handler = dist_fman_tx_handler;
+#ifdef FRA_TX_CONFIRM
+	fman_tx_confirm_listen(dist->fman_tx, dist, dist_tx_confirm_cb);
+#endif
 	return dist;
 }
 
@@ -579,6 +602,11 @@ static struct distribution *dist_fman_to_rman_init(struct dist_cfg *cfg)
 
 		if (!rman_tx_list->rman_tx)
 			goto _err;
+
+#ifdef FRA_TX_CONFIRM
+		rman_tx_status_listen(dist->rman_tx, 0, 1, dist,
+				      dist_tx_confirm_cb);
+#endif
 
 		rman_tx_connect(rman_tx_list->rman_tx, f2rcfg->did);
 		list_add_tail(&rman_tx_list->node,
