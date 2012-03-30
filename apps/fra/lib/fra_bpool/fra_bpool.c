@@ -31,6 +31,7 @@
  */
 
 #include "fra_bpool.h"
+#include <usdpaa/conf.h>
 
 struct bpool_node bpool_array[POOL_MAX];
 
@@ -92,10 +93,8 @@ static void bpool_node_init(const struct bpool_config *cfg)
 		return;
 	}
 	pool = bpool_array[bpid].pool;
-	bpool_array[bpid].size = cfg->sz;
-	bpool_array[bpid].num = cfg->num;
-	BPDBG("bpool_node_init	size=%d	 num %d", bpool_array[bpid].size,
-	      bpool_array[bpid].num);
+	bpool_array[bpid].cfg = *cfg;
+	BPDBG("init bpool: the size is %d number is %d", cfg->sz, cfg->num);
 
 	/* Drain the pool of anything already in it. */
 	do {
@@ -115,7 +114,7 @@ static void bpool_node_init(const struct bpool_config *cfg)
 	for (num_bufs = 0; num_bufs < cfg->num; ) {
 		rel = (cfg->num - num_bufs) > 8 ? 8 : (cfg->num - num_bufs);
 		for (loop = 0; loop < rel; loop++) {
-			void *ptr = __dma_mem_memalign(cfg->sz, cfg->sz);
+			void *ptr = __dma_mem_memalign(L1_CACHE_BYTES, cfg->sz);
 			if (!ptr) {
 				fprintf(stderr, "error: insufficient memory\n");
 				break;

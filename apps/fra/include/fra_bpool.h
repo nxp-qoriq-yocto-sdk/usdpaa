@@ -1,4 +1,4 @@
-/* Copyright (c) 2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2011-2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -58,9 +58,7 @@ struct bpool_config {
 
 struct bpool_node {
 	struct bman_pool	*pool;
-	uint8_t			bpid;
-	uint32_t		num;
-	uint32_t		size;
+	struct bpool_config	cfg;
 };
 
 extern struct bpool_node bpool_array[POOL_MAX];
@@ -72,7 +70,7 @@ static inline struct bman_pool *bpid_to_bpool(uint8_t bpid)
 
 static inline uint32_t bpool_get_size(uint8_t bpid)
 {
-	return bpool_array[bpid].size;
+	return bpool_array[bpid].cfg.sz;
 }
 
 static inline void
