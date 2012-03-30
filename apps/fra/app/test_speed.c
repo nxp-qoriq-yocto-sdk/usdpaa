@@ -1,4 +1,4 @@
-/* Copyright (c) 2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2011-2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,16 +30,13 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <ppac.h>
+#include <fra_common.h>
 #include <sys/time.h>
-#include "fra.h"
-#include "fra_cfg_parser.h"
-#include "rman_interface.h"
-#include "test_speed.h"
-
-struct test_speed test_speed;
-uint64_t send_time[TEST_MAX_PACKTETS_NUM];
-uint64_t receive_time[TEST_MAX_PACKTETS_NUM];
+#include <fra_cfg_parser.h>
+#include <rman_interface.h>
+#include <fra_fq_interface.h>
+#include <test_speed.h>
+#include <fra.h>
 
 #define test_speed_dist_tx_name		"dstr_to_peer"
 #define test_speed_dist_rx_name		"dstr_from_peer"
@@ -77,6 +74,10 @@ enum test_speed_cmd {
 
 #define MHZ	1000000
 static float	cpu_clock;
+
+struct test_speed test_speed;
+uint64_t send_time[TEST_MAX_PACKTETS_NUM];
+uint64_t receive_time[TEST_MAX_PACKTETS_NUM];
 
 static int get_clockinfo(void)
 {
@@ -149,7 +150,6 @@ void test_speed_info(void)
 static void test_speed_send_cmd(uint16_t data)
 {
 	struct msg_buf *msg;
-	struct tx_opt opt;
 
 	msg = msg_alloc(RIO_TYPE_DBELL);
 	if (!msg) {
@@ -159,14 +159,12 @@ static void test_speed_send_cmd(uint16_t data)
 
 	dbell_set_data(msg, data);
 	FRA_DBG("testspeed: send command:0x%x", data);
-	opt.session = 0;
-	opt.txfqid = test_speed_dist_cmd_tx->cfg->dist_tx_cfg.fqid;
-	rman_send_msg(&test_speed_dist_cmd_tx->tx[0].md, &opt, msg);
+	rman_send_msg(test_speed_dist_cmd_tx->rman_tx, 0, msg);
 }
 
 enum handler_status
-test_speed_cmd_rx_handler(struct distribution *dist, struct tx_opt *opt,
-		const struct qm_fd *fd)
+test_speed_cmd_rx_handler(struct distribution *dist, struct hash_opt *opt,
+			  const struct qm_fd *fd)
 {
 	struct msg_buf *msg;
 	uint16_t data;
@@ -174,7 +172,7 @@ test_speed_cmd_rx_handler(struct distribution *dist, struct tx_opt *opt,
 	uint64_t max, min;
 	msg = fd_to_msg((struct qm_fd *)fd);
 	if (!msg)
-		bpool_fd_free(fd);
+		fra_drop_frame(fd);
 
 	data = dbell_get_data(msg);
 	FRA_DBG("test_speed_cmd_rx_handler get data 0x%x cmd %d", data,
@@ -223,20 +221,20 @@ test_speed_cmd_rx_handler(struct distribution *dist, struct tx_opt *opt,
 }
 
 enum handler_status
-test_speed_rx_handler(struct distribution *dist, struct tx_opt *opt,
-		const struct qm_fd *fd)
+test_speed_rx_handler(struct distribution *dist, struct hash_opt *opt,
+		      const struct qm_fd *fd)
 {
 	struct msg_buf *msg;
 	int i;
 	msg = fd_to_msg((struct qm_fd *)fd);
 	if (!msg) {
-		bpool_fd_free(fd);
+		fra_drop_frame(fd);
 		return HANDLER_DONE;
 	}
 
 	i = *(int *)msg->data;
 	if (i < 0 || i >= test_speed.packets_num) {
-		bpool_fd_free(fd);
+		fra_drop_frame(fd);
 		return HANDLER_DONE;
 	}
 
@@ -250,7 +248,6 @@ void test_speed_send_msg(void)
 {
 	int i;
 	struct msg_buf *msg;
-	struct tx_opt opt;
 
 	if (test_speed.end_flag) {
 		test_speed_send_cmd(RESTART << test_speed_cmd_offset);
@@ -279,12 +276,7 @@ void test_speed_send_msg(void)
 		msg->len = test_speed.packets_size;
 		*(int *)msg->data = i;
 		send_time[i] = mfatb();
-
-		opt.session = i % test_speed_dist_tx->tx[0].session_count;
-		opt.txfqid = test_speed_dist_tx->cfg->dist_tx_cfg.fqid +
-			     i % test_speed_dist_tx->cfg->dist_tx_cfg.fq_count;
-
-		rman_send_msg(&test_speed_dist_tx->tx[0].md, &opt, msg);
+		rman_send_msg(test_speed_dist_tx->rman_tx, i, msg);
 	}
 }
 
