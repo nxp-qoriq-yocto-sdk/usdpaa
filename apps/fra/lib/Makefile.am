@@ -29,4 +29,4 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = utils fra_bpool fra_fq_interface rman_interface fra_network_interface fra_cfg_parser
+SUBDIRS = utils fra_bpool fra_fq_interface rman_interface fra_fman_port fra_cfg_parser
