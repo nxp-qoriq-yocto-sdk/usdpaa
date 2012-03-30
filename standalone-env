@@ -32,14 +32,14 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # Bash-style exports, to be sourced from within the "usdpaa" tree
-# when developing and building locally (rather than via ltib).
+# when developing and building locally (rather than via Poky).
 #
 # Note, it hard-codes a toolchain path to that currently installed
-# by ltib (so adjust as required).
+# by Poky (so adjust as required).
 #
 # Note also, it hard-codes include and lib paths to the rootfs
-# staging area managed by ltib, assuming that this usdpaa tree
-# is a sibling of the ltib tree (again, adjust as required).
+# staging area managed by Poky, assuming that this usdpaa tree
+# is a sibling of the Poky tree (again, adjust as required).
 
 declare -l board=p4080ds
 declare -i OLD_OPTIND=$OPTIND
