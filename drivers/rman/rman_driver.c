@@ -1,4 +1,4 @@
-/* Copyright (c) 2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2011-2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,6 +42,10 @@
 #define MMIER_ENABLE_ALL	0x800000FF
 #define MMEDR_CLEAR		0x800000FF
 #define IBCU_IDLE_FQID		0
+#define RMAN_RESET_VALUE	1
+#define RMAN_IBCU_ENABLE_MASK	0x80000000
+#define RMAN_MMSR_IMUB_SHIFT	31
+#define RMAN_MMSR_OMUB_SHIFT	30
 
 /* The magic is a workaround for mailbox transaction.
  * The MMSEPR0 setting assigns AG0 to only execute on SU0
@@ -153,6 +157,8 @@ struct rman_dev {
 	int fix_mbox_flag;
 };
 
+static struct rman_dev *__rmdev;
+
 static inline void write_reg(volatile uint32_t *p, int v)
 {
 	*(volatile uint32_t *)(p) = v;
@@ -167,6 +173,47 @@ static inline uint32_t read_reg(const volatile uint32_t *p)
 	return ret;
 }
 
+int rman_global_fd(void)
+{
+	return __rmdev->uiofd;
+}
+
+void rman_interrupt_enable(void)
+{
+	write_reg(&__rmdev->global_regs->mmier, MMIER_ENABLE_ALL);
+}
+
+int rman_interrupt_status(void)
+{
+	return read_reg(&__rmdev->global_regs->mmedr);
+}
+
+void rman_interrupt_clear(void)
+{
+	write_reg(&__rmdev->global_regs->mmedr, MMEDR_CLEAR);
+}
+
+int rman_rx_busy(void)
+{
+	int status;
+
+	status = read_reg(&__rmdev->global_regs->mmsr);
+	return (status >> RMAN_MMSR_IMUB_SHIFT) & 0x01;
+}
+
+int rman_tx_busy(void)
+{
+	int status;
+
+	status = read_reg(&__rmdev->global_regs->mmsr);
+	return (status >> RMAN_MMSR_OMUB_SHIFT) & 0x01;
+}
+
+void rman_reset(void)
+{
+	write_reg(&__rmdev->global_regs->mmmr, RMAN_RESET_VALUE);
+}
+
 int rman_get_channel_id(const struct rman_dev *rmdev, int idx)
 {
 	if (!rmdev || idx > RMAN_MAX_NUM_OF_CHANNELS)
@@ -176,13 +223,46 @@ int rman_get_channel_id(const struct rman_dev *rmdev, int idx)
 }
 
 /************************* ibcu handler ***************************/
+void rman_enable_ibcu(struct rman_dev *rmdev, int idx)
+{
+	int ib_index, cu_index, mr;
+
+	if (idx >= rmdev->ib_num)
+		return;
+
+	ib_index = idx / RMAN_CU_NUM_PER_IB;
+	cu_index = idx % RMAN_CU_NUM_PER_IB;
+
+	mr = read_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->mr);
+	mr |= RMAN_IBCU_ENABLE_MASK;
+	write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->mr, mr);
+}
+
+void rman_disable_ibcu(struct rman_dev *rmdev, int idx)
+{
+	int ib_index, cu_index, mr;
+
+	ib_index = idx / RMAN_CU_NUM_PER_IB;
+	cu_index = idx % RMAN_CU_NUM_PER_IB;
+
+	if (idx >= rmdev->ib_num)
+		return;
+
+	mr = read_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->mr);
+	mr &= ~RMAN_IBCU_ENABLE_MASK;
+	write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->mr, mr);
+}
+
 void rman_release_ibcu(struct rman_dev *rmdev, int idx)
 {
 	int ib_index, cu_index;
 
+	if (idx >= rmdev->ib_num)
+		return;
+
 	ib_index = idx / RMAN_CU_NUM_PER_IB;
 	cu_index = idx % RMAN_CU_NUM_PER_IB;
-	write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->mr, 0);
+	rman_disable_ibcu(rmdev, idx);
 	rmdev->ib[ib_index].cu[cu_index].fqid = IBCU_IDLE_FQID;
 }
 
@@ -194,7 +274,7 @@ int rman_request_ibcu(struct rman_dev *rmdev, int fqid)
 		return -EINVAL;
 
 	ibcu_index = rman_get_ibcu(rmdev, fqid);
-	if (ibcu_index > 0)
+	if (ibcu_index >= 0)
 		return ibcu_index;
 
 	for (ib_index = 0; ib_index < rmdev->ib_num; ib_index++) {
@@ -231,7 +311,7 @@ int rman_get_ibcu(const struct rman_dev *rmdev, int fqid)
 	return -EINVAL;
 }
 
-int rman_enable_ibcu(struct rman_dev *rmdev, const struct ibcu_cfg *cfg)
+int rman_config_ibcu(struct rman_dev *rmdev, const struct ibcu_cfg *cfg)
 {
 	int ib_index, cu_index;
 
@@ -311,7 +391,7 @@ int rman_enable_ibcu(struct rman_dev *rmdev, const struct ibcu_cfg *cfg)
 		return -EINVAL;
 	}
 	write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->mr,
-		  0x80000000 | cfg->fq_mode << 28 | (cfg->tran->type << 24));
+		  cfg->fq_mode << 28 | (cfg->tran->type << 24));
 	return 0;
 }
 
@@ -403,9 +483,6 @@ rman_global_regs_init(const struct device_node *global_regs_node,
 
 	/* Set inbound message descriptor write status */
 	write_reg(&rmdev->global_regs->mmmr, cfg->md_create << 31);
-	/* Enable Error Interrupt */
-	write_reg(&rmdev->global_regs->mmedr, MMEDR_CLEAR);
-	write_reg(&rmdev->global_regs->mmier, MMIER_ENABLE_ALL);
 	/* initialize the frame queue assembly register */
 	/* data streaming supports max 32 receive frame queue */
 	write_reg(&rmdev->global_regs->mmt9fqar,
@@ -486,6 +563,7 @@ struct rman_dev *rman_dev_init(const struct rman_cfg *cfg)
 				goto _err;
 	}
 
+	__rmdev = rmdev;
 	return rmdev;
 _err:
 	rman_dev_finish(rmdev);

@@ -37,6 +37,24 @@
 
 #define RMAN_MAX_NUM_OF_CHANNELS 2
 
+/* Rman interrupt error mask */
+/* Outbound transaction error */
+#define RMAN_OTE_ERROR_MASK	0x01
+/* Inbound transaction error */
+#define RMAN_ITE_ERROR_MASK	0x02
+/* Outbound frame queue enqueue rejection */
+#define RMAN_OFER_ERROR_MASK	0x04
+/* Inbound frame queue enqueue rejection */
+#define RMAN_IFER_ERROR_MASK	0x08
+/* Buffer allocation error */
+#define RMAN_BAE_ERROR_MASK	0x10
+/* Type9 interrupt coalescing drop threshold exceed */
+#define RMAN_T9IC_ERROR_MASK	0x20
+/* Type8 interrypt coalescing drop threshold exceed */
+#define RMAN_T8IC_ERROR_MASK	0x40
+/* Message format error */
+#define RMAN_MFE_ERROR_MASK	0x80
+
 enum RIO_TYPE {
 	RIO_TYPE0 = 0,
 	RIO_TYPE1,
@@ -121,6 +139,33 @@ struct rman_cfg {
 struct rman_dev;
 
 /**
+ * rman_global_fd - get the file descriptor refers to global register
+ *
+ * This function returns the file descriptor refers to global register,
+ * application can read or detect SIGIO signal from this fd to
+ * get interrupt events .
+ */
+int rman_global_fd(void);
+
+/* Enable rman interrupt */
+void rman_interrupt_enable(void);
+
+/* Get rman interrupt status */
+int rman_interrupt_status(void);
+
+/* Clear rman interrupt status */
+void rman_interrupt_clear(void);
+
+/* Return inbound message manager busy status */
+int rman_rx_busy(void);
+
+/* Return outbound message manager busy status*/
+int rman_tx_busy(void);
+
+/* Reset rman device */
+void rman_reset(void);
+
+/**
  * rman_get_channel_id - get the default transmission channel id
  * @rmdev: RMan device info
  * @index: RMan channel index
@@ -129,16 +174,33 @@ struct rman_dev;
  * This function returns the corresponding QMan channel id.
  */
 int rman_get_channel_id(const struct rman_dev *rmdev, int index);
-/************************* ibcu handler ***************************/
+
+/**
+ * rman_enable_ibcu - enable the ibcu resource
+ * @rmdev: RMan device info
+ * @idx: rman inbound classification unit index
+ *
+ * Enable the corresponding ibcu resource
+ */
+void rman_enable_ibcu(struct rman_dev *rmdev, int idx);
+
+/**
+ * rman_enable_ibcu - enable the ibcu resource
+ * @rmdev: RMan device info
+ * @idx: rman inbound classification unit index
+ *
+ * Disable the corresponding ibcu resource
+ */
+void rman_disable_ibcu(struct rman_dev *rmdev, int idx);
+
 /**
  * rman_release_ibcu - release the ibcu resource
  * @rmdev: RMan device info
- * @fqid: Frame queue id
+ * @idx: rman inbound classification unit index
  *
- * Each running IBCU has been specified an unique fqid, This function will
- * disable the corresponding ibcu resource
+ * This function will disable the specified ibcu and release the resource.
  */
-void rman_release_ibcu(struct rman_dev *rmdev, int fqid);
+void rman_release_ibcu(struct rman_dev *rmdev, int idx);
 /**
  * rman_request_ibcu - request the ibcu resource
  * @rmdev: RMan device info
@@ -159,16 +221,15 @@ int rman_request_ibcu(struct rman_dev *rmdev, int fqid);
  */
 int rman_get_ibcu(const struct rman_dev *rmdev, int fqid);
 /**
- * rman_enable_ibcu - enable the ibcu
+ * rman_config_ibcu - configure the ibcu resource
  * @rmdev: RMan device info
  * @cfg: ibcu configuration
  *
- * This function enable the ibcu according ibcu configuration.
+ * This function configure the ibcu according to ibcu configuration.
  * Returns %0 on success or %-EINVAL on failure.
  */
-int rman_enable_ibcu(struct rman_dev *rmdev, const struct ibcu_cfg *cfg);
+int rman_config_ibcu(struct rman_dev *rmdev, const struct ibcu_cfg *cfg);
 
-/************************* init function ***************************/
 /**
  * rman_dev_init - initialize the RMan device
  * @cfg: RMan device configuration
