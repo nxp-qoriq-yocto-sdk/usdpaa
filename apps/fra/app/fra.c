@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,43 +30,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <ppac.h>
-#include "fra_network_interface.h"
-#include <ppac_interface.h>
-#include "rman_interface.h"
-#include "fra_cfg_parser.h"
-#include "fra.h"
+#include <fra.h>
+#include <fra_fq_interface.h>
 
 struct fra *fra;
-
-#ifdef ENABLE_FRA_DEBUG
-uint64_t fwd_from_count;
-uint64_t fwd_to_count;
-uint64_t tx_count;
-uint64_t rx_count;
-uint64_t tx_release_count;
-
-int debug_off;
-
-static int debug_setting(int argc, char *argv[])
-{
-	if (argc != 2) {
-		error(0, 0,
-			"debug correct format:\n\tdebug [on/off]");
-		return -EINVAL;
-	}
-
-	if (!strcmp(argv[1], "on"))
-		debug_off = 0;
-	else if (!strcmp(argv[1], "off"))
-		debug_off = 1;
-	else
-		return -EINVAL;
-
-	return 0;
-}
-cli_cmd(debug, debug_setting);
-#endif
 
 static inline void tran_status(struct rio_tran *tran)
 {
@@ -74,12 +41,86 @@ static inline void tran_status(struct rio_tran *tran)
 		tran->name, RIO_TYPE_TO_STR[tran->type]);
 }
 
+static void dist_info(struct distribution *dist)
+{
+	struct dist_cfg *cfg;
+
+	if (!dist || !dist->cfg) {
+		fprintf(stderr, "a invalid type\n");
+		return;
+	}
+	cfg = dist->cfg;
+	fprintf(stderr, "\tdistribution-%d-%s: %s\n",
+		cfg->sequence_number,
+		DIST_TYPE_STR[cfg->type],
+		cfg->name);
+
+	switch (cfg->type) {
+	case DIST_TYPE_RMAN_RX:
+		fprintf(stderr, "\t\trio port:%d sid:%d "
+			"mask:%d queue mode:%s\n",
+			cfg->dist_rman_rx_cfg.rio_port,
+			cfg->dist_rman_rx_cfg.sid,
+			cfg->dist_rman_rx_cfg.sid_mask,
+			FQ_MODE_STR[cfg->dist_rman_rx_cfg.fq_mode]);
+		tran_status(cfg->dist_rman_rx_cfg.tran);
+		fprintf(stderr, "\t\tbase FQID:0x%x count:%d "
+			"configured to IBCU %d\n",
+			cfg->dist_rman_rx_cfg.fqid,
+			rman_rx_get_fqs_num(dist->rman_rx),
+			rman_rx_get_ibcu(dist->rman_rx));
+		break;
+	case DIST_TYPE_RMAN_TX:
+		fprintf(stderr, "\t\tport:%d did:%d\n"
+			"\t\tFQID:0x%x count:%d\n",
+			cfg->dist_rman_tx_cfg.rio_port,
+			cfg->dist_rman_tx_cfg.did,
+			cfg->dist_rman_tx_cfg.fqid,
+			cfg->dist_rman_tx_cfg.fqs_num);
+		tran_status(cfg->dist_rman_tx_cfg.tran);
+		break;
+	case DIST_TYPE_FMAN_RX:
+		fprintf(stderr, "\t\tfman port:%s\n",
+			cfg->dist_fman_rx_cfg.fman_port_name);
+		break;
+	case DIST_TYPE_FMAN_TX:
+		fprintf(stderr, "\t\tfman port:%s "
+			"fqs num:%d\n",
+			cfg->dist_fman_tx_cfg.fman_port_name,
+			cfg->dist_fman_tx_cfg.fqs_num);
+		break;
+	case DIST_TYPE_RMAN_TO_FMAN:
+		fprintf(stderr, "\t\trio port:%d - %s\n"
+			"\t\tsid:%d mask:%d queue mode:%s\n",
+			cfg->dist_rman_to_fman_cfg.rio_port,
+			cfg->dist_rman_to_fman_cfg.fman_port_name,
+			cfg->dist_rman_to_fman_cfg.sid,
+			cfg->dist_rman_to_fman_cfg.sid_mask,
+			FQ_MODE_STR[cfg->dist_rman_to_fman_cfg.fq_mode]);
+		tran_status(cfg->dist_rman_to_fman_cfg.tran);
+		fprintf(stderr, "\t\tbase FQID:0x%x count:%d "
+			"configured to IBCU %d\n",
+			cfg->dist_rman_to_fman_cfg.fqid,
+			rman_rx_get_fqs_num(dist->rman_to_fman->rman_rx),
+			rman_rx_get_ibcu(dist->rman_to_fman->rman_rx));
+		break;
+	case DIST_TYPE_FMAN_TO_RMAN:
+		fprintf(stderr, "\t\tFMan:%s - rio port %d\n"
+			"\t\tdid:%d\n",
+			cfg->dist_fman_to_rman_cfg.fman_port_name,
+			cfg->dist_fman_to_rman_cfg.rio_port,
+			cfg->dist_fman_to_rman_cfg.did);
+		tran_status(cfg->dist_fman_to_rman_cfg.tran);
+		break;
+	default:
+		fprintf(stderr, "an invalid type\n");
+	}
+}
 static int fra_cli_status(int argc, char *argv[])
 {
 	const struct fra_cfg *fra_cfg;
 	struct dist_order *dist_order;
 	struct distribution *dist;
-	struct dist_cfg *cfg;
 	int i = 1;
 
 	if (argc > 2)
@@ -92,13 +133,11 @@ static int fra_cli_status(int argc, char *argv[])
 
 	fra_cfg = fra->cfg;
 	fprintf(stderr, "RMan configuration:\n"
-		"\tRMan uses 0x%x qman channel to receive messages\n"
 		"\tCreate inbound message descriptor: %s\n"
 		"\tThe algorithmic frame queue bits info:\n"
 		"\t\tdata streaming:%d mailbox:%d\n"
 		"\tBPID info:\n"
 		"\t\tdata streaming:%d mailbox:%d doorbell:%d sg:%d\n",
-		fra_cfg->rman_cfg.rx_channel_id,
 		MD_CREATE_MODE_STR[fra_cfg->rman_cfg.md_create],
 		fra_cfg->rman_cfg.fq_bits[RIO_TYPE_DSTR],
 		fra_cfg->rman_cfg.fq_bits[RIO_TYPE_MBOX],
@@ -107,16 +146,6 @@ static int fra_cli_status(int argc, char *argv[])
 		fra_cfg->rman_cfg.bpid[RIO_TYPE_DBELL],
 		fra_cfg->rman_cfg.sgbpid);
 
-#ifdef ENABLE_FRA_DEBUG
-	fprintf(stderr, "\tfwd_from_network packets:0x%llx\n"
-		"\ttx packets:0x%llx\n"
-		"\ttx_release packets:0x%llx\n"
-		"\trx packets:0x%llx\n"
-		"\tfwd_to_network packtes:0x%llx\n",
-		fwd_from_count, tx_count, tx_release_count,
-		rx_count, fwd_to_count);
-#endif
-
 	list_for_each_entry(dist_order, &fra->dist_order_list, node) {
 		if (i > 1)
 			fprintf(stderr, "\n");
@@ -124,47 +153,7 @@ static int fra_cli_status(int argc, char *argv[])
 
 		dist = dist_order->dist;
 		while (dist) {
-			cfg = dist->cfg;
-			fprintf(stderr, "\tdistribution-%d-%s: %s\n",
-				cfg->number, DIST_TYPE_STR[cfg->type],
-				cfg->name);
-			switch (cfg->type) {
-			case DIST_TYPE_RX:
-				fprintf(stderr, "\t\tport:%d sid:%d"
-					" mask:%d queue:0x%x mode:%s\n",
-					cfg->dist_rx_cfg.port,
-					cfg->dist_rx_cfg.sid,
-					cfg->dist_rx_cfg.sid_mask,
-					cfg->dist_rx_cfg.fqid,
-				FQ_MODE_STR[cfg->dist_rx_cfg.fq_mode]);
-				tran_status(cfg->dist_rx_cfg.tran);
-				fprintf(stderr, "\t\tbase FQID:0x%x count:%d"
-					" configured to IBCU %d\n",
-					cfg->dist_rx_cfg.fqid,
-					cfg->dist_rx_cfg.fq_count,
-					fqid_to_ibcu(cfg->dist_rx_cfg.fqid));
-				break;
-			case DIST_TYPE_TX:
-				fprintf(stderr, "\t\tport:%d did:%d"
-					" session:%d\n "
-					"\t\tFQID:0x%x count:%d\n",
-					cfg->dist_tx_cfg.port,
-					cfg->dist_tx_cfg.did,
-					dist->tx[0].session_count,
-					cfg->dist_tx_cfg.fqid,
-					cfg->dist_tx_cfg.fq_count);
-				tran_status(cfg->dist_tx_cfg.tran);
-				break;
-			case DIST_TYPE_FWD:
-				fprintf(stderr,
-					"\t\tport:%d fm:%d type:%dg\n",
-					cfg->dist_fwd_cfg.port_num,
-					cfg->dist_fwd_cfg.fman_num,
-					cfg->dist_fwd_cfg.port_type);
-				break;
-			default:
-				fprintf(stderr, "a invalid type\n");
-			}
+			dist_info(dist);
 			dist = dist->next;
 		}
 	}
@@ -173,39 +162,8 @@ static int fra_cli_status(int argc, char *argv[])
 
 cli_cmd(status, fra_cli_status);
 
-static enum handler_status
-dist_tx_handler(struct distribution *dist, struct tx_opt *opt,
-		const struct qm_fd *fd)
-{
-#ifdef ENABLE_FRA_DEBUG
-	FRA_DBG("Fra TX(%s) will transmit a msg", dist->cfg->name);
-	tx_count++;
-#endif
-
-	if (rman_send_fd(&dist->tx[0].md, opt, (struct qm_fd *)fd)) {
-		bpool_fd_free(fd);
-		error(0, 0,
-			"FRA: dist(%s)failed to send fd", dist->cfg->name);
-	}
-	return HANDLER_DONE;
-}
-
-static enum handler_status
-dist_fwd_to_handler(struct distribution *dist, struct tx_opt *opt,
-		const struct qm_fd *fd)
-{
-#ifdef ENABLE_FRA_DEBUG
-	FRA_DBG("Fra: FWD to dist %s using FQID 0x%x",
-		dist->cfg->name, opt->txfqid);
-	fwd_to_count++;
-#endif
-
-	ppac_send_frame(opt->txfqid, fd);
-	return HANDLER_DONE;
-}
-
 static inline void dist_order_handler(struct distribution *dist,
-				      struct tx_opt *opt,
+				      struct hash_opt *opt,
 				      const struct qm_fd *fd)
 {
 	enum handler_status status = HANDLER_CONTINUE;
@@ -217,105 +175,132 @@ static inline void dist_order_handler(struct distribution *dist,
 	}
 
 	if (status != HANDLER_DONE)
-		bpool_fd_free(fd);
+		fra_drop_frame(fd);
 }
 
-void dist_rx_handler(struct dist_rx *rx, const struct qm_fd *fd)
+static void dist_rman_rx_cb(void *pvt, struct hash_opt *opt,
+			    const struct qm_fd *fd)
 {
-	struct distribution *dist = rx->dist;
-
 #ifdef ENABLE_FRA_DEBUG
 	struct msg_buf *msg;
-	rx_count++;
-	if (FD_GET_STATUS(fd)) {
-		FRA_DBG("Rx(%s) get a wrong frame stauts(0x%x)",
-			dist->cfg->name, fd->status);
-		bpool_fd_free(fd);
-		return;
-	}
-	msg = fd_to_msg((struct qm_fd *)fd);
-	if (msg)
-		FRA_DBG("Fra: RX type(%d) length(%d) sid(%d) did(%d)",
-			msg_get_type(msg), msg_get_len(msg), msg_get_sid(msg),
-			msg_get_did(msg));
-#endif
+	struct distribution *dist = pvt;
 
-	if (fd->format != qm_fd_contig && fd->format != qm_fd_sg) {
-		error(0, 0,
-			"Rx(%s) get a wrong frame format(%d)",
-			dist->cfg->name, fd->format);
-		bpool_fd_free(fd);
-	}
-
-	if (FD_GET_STATUS(fd)) {
-		/*
-		error(0, 0, "Rx(%s) get a wrong frame stauts(0x%x)",
-			dist->cfg->name, fd->status);
-		if (fd->status & 0x1) {
-			error(0, 0, "bpool buffers are depleted");
-			return ;
+	FRA_DBG("DIST(%s) receives a msg frome fqid(0x%x)",
+		dist->cfg->name, opt->rx_fqid);
+	msg = fd_to_msg(fd);
+	if (msg && fra->cfg->rman_cfg.md_create) {
+		FRA_DBG("This msg is sent by device(%d) using %s",
+			msg_get_sid(msg),
+			RIO_TYPE_TO_STR[msg_get_type(msg)]);
+		switch (msg_get_type(msg)) {
+		case RIO_TYPE_MBOX:
+			FRA_DBG("type attr: mbox(%d) ltr(%d)",
+				mbox_get_mbox(msg), mbox_get_ltr(msg));
+			break;
+		case RIO_TYPE_DSTR:
+			FRA_DBG("type attr: cos(%d) streamid(%d)",
+				dstr_get_cos(msg), dstr_get_streamid(msg));
+			break;
+		default:
+			break;
 		}
-		*/
-		bpool_fd_free(fd);
+	}
+#endif
+
+	if (FD_GET_STATUS(fd)) {
+		FRA_DBG("This msg has an error status 0x%x",
+			FD_GET_STATUS(fd));
+		fra_drop_frame(fd);
 		return;
 	}
 
-	dist_order_handler(dist, &rx->opt, fd);
-	return;
+	dist_order_handler(pvt, opt, fd);
 }
 
-void dist_tx_status_handler(struct dist_tx *tx, const struct qm_fd *fd)
+static enum handler_status
+dist_rman_tx_handler(struct distribution *dist, struct hash_opt *opt,
+		     const struct qm_fd *fd)
 {
-#ifdef ENABLE_FRA_DEBUG
-	struct distribution *dist = tx->dist;
-	FRA_DBG("Fra Tx(%s) get tx status(0x%x)", dist->cfg->name,
-		fd->status);
-	tx_release_count++;
-#endif
-
-	bpool_fd_free(fd);
+	FRA_DBG("Dist(%s) will transmit this msg", dist->cfg->name);
+	if (rman_send_frame(opt, fd))
+		return HANDLER_ERROR;
+	return HANDLER_DONE;
 }
 
-void dist_fwd_from_handler(struct ppam_rx_hash *rx, const struct qm_fd *fd)
+static void dist_fman_rx_cb(void *pvt, struct hash_opt *opt,
+			    const struct qm_fd *fd)
 {
-	struct distribution *dist = rx->dist;
-
 #ifdef ENABLE_FRA_DEBUG
-	FRA_DBG("Fra: FWD from network dist %s", dist->cfg->name);
-	fwd_from_count++;
-#endif
+	struct distribution *dist = pvt;
 
-	dist_order_handler(dist, &rx->opt, fd);
-	return;
+	FRA_DBG("DIST(%s) receives a msg from fqid(0x%x)",
+		dist->cfg->name, opt->rx_fqid);
+#endif
+	dist_order_handler(pvt, opt, fd);
+}
+
+static enum handler_status
+dist_fman_tx_handler(struct distribution *dist, struct hash_opt *opt,
+		     const struct qm_fd *fd)
+{
+	FRA_DBG("Dist(%s) will transmit this msg", dist->cfg->name);
+	if (fman_send_frame(opt, fd))
+		return HANDLER_ERROR;
+	return HANDLER_DONE;
 }
 
 static void dist_finish(struct distribution *dist)
 {
 	struct dist_cfg *cfg;
-	int i;
+	struct rman_tx_list *list, *temp;
 
 	if (!dist)
 		return;
 
 	cfg = dist->cfg;
-	FRA_DBG("Fra: release dist %s", dist->cfg->name);
+	FRA_DBG("release dist %s", dist->cfg->name);
 	switch (cfg->type) {
-	case DIST_TYPE_RX:
-		for (i = 0; i < cfg->dist_rx_cfg.fq_count; i++)
-			rman_fq_free(&dist->rx_hash[i].fq);
-		rman_rxfq_finish(cfg->dist_rx_cfg.fqid);
-		__dma_mem_free(dist);
+	case DIST_TYPE_RMAN_RX:
+		rman_rx_finish(dist->rman_rx);
+		dist->rman_rx = NULL;
 		break;
-	case DIST_TYPE_TX:
-		rman_fq_free(&dist->tx[0].stfq);
-		for (i = 0; i < cfg->dist_tx_cfg.fq_count; i++)
-			rman_fq_free(&dist->tx[0].fq[i]);
-		__dma_mem_free(dist);
+	case DIST_TYPE_RMAN_TX:
+		rman_tx_finish(dist->rman_tx);
+		dist->rman_tx = NULL;
 		break;
-	case DIST_TYPE_FWD:
-		__dma_mem_free(dist);
+	case DIST_TYPE_FMAN_RX:
+		fman_port_finish_rx(dist->fman_tx);
+		dist->fman_rx = NULL;
+		break;
+	case DIST_TYPE_FMAN_TX:
+		fman_port_finish_tx(dist->fman_tx);
+		dist->fman_tx = NULL;
+		break;
+	case DIST_TYPE_RMAN_TO_FMAN:
+		if (dist->rman_to_fman)
+			break;
+		rman_rx_finish(dist->rman_to_fman->rman_rx);
+		fman_port_finish_tx(dist->rman_to_fman->fman_port);
+		free(dist->rman_to_fman);
+		dist->rman_to_fman = NULL;
+		break;
+	case DIST_TYPE_FMAN_TO_RMAN:
+		if (!dist->fman_to_rman)
+			break;
+		fman_port_finish_rx(dist->fman_to_rman->fman_port);
+		list_for_each_entry_safe(list, temp,
+			&dist->fman_to_rman->f2r_tx_list, node) {
+			list_del(&list->node);
+			rman_tx_finish(list->rman_tx);
+			free(list);
+		}
+		free(dist->fman_to_rman);
+		dist->fman_to_rman = NULL;
+		break;
+	default:
 		break;
 	}
+	__dma_mem_free(dist);
 }
 
 static void dist_order_finish(struct dist_order *dist_order)
@@ -336,325 +321,470 @@ static void dist_order_finish(struct dist_order *dist_order)
 	free(dist_order);
 }
 
-void fra_finish(void)
+static void dist_order_list_finish(void)
 {
-	struct dist_order  *dist_order, *temp;
+	struct dist_order *dist_order, *temp;
 
 	if (!fra)
 		return;
 	list_for_each_entry_safe(dist_order, temp,
-			&fra->dist_order_list, node) {
+			&fra->dist_order_list, node)
 		dist_order_finish(dist_order);
-	}
+}
+
+void fra_finish(void)
+{
+	dist_order_list_finish();
 	rman_if_finish();
+	fman_ports_finish();
 	free(fra);
 	fra = NULL;
 }
 
-static struct distribution *dist_rx_init(struct dist_cfg *cfg)
+static struct distribution *dist_rman_rx_init(struct dist_cfg *cfg)
 {
-	struct dist_rx_cfg *rxcfg;
+	struct dist_rman_rx_cfg *rxcfg;
 	struct distribution *dist;
-	struct dist_rx *rx;
-	int i;
-	size_t sz;
 
-	if (!cfg || cfg->type != DIST_TYPE_RX)
+	if (!cfg || cfg->type != DIST_TYPE_RMAN_RX)
 		return NULL;
 
-	rxcfg = &cfg->dist_rx_cfg;
+	rxcfg = &cfg->dist_rman_rx_cfg;
 
-	if (!rman_get_port_status(rxcfg->port)) {
+	if (!rman_get_port_status(rxcfg->rio_port)) {
 		error(0, 0, "SRIO port%d is not connected",
-		      rxcfg->port);
+		      rxcfg->rio_port);
 		return NULL;
 	}
 
-	rxcfg->fq_count = rman_get_rxfq_count(rxcfg->fq_mode, rxcfg->tran);
-
-	if (rxcfg->fq_count < 0)
-		return NULL;
-
-	sz = sizeof(*dist) + rxcfg->fq_count * sizeof(struct dist_rx);
-
-	/* allocate stashable memory for the interface object */
-	dist = __dma_mem_memalign(L1_CACHE_BYTES, sz);
+	/* Allocate stashable memory for the interface object */
+	dist = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(*dist));
 	if (!dist)
 		return NULL;
-	memset(dist, 0, sz);
+	memset(dist, 0, sizeof(*dist));
 
 	dist->cfg = cfg;
-	dist->sz = sz;
-
-	for (i = 0; i < rxcfg->fq_count; i++) {
-		rx = &dist->rx_hash[i];
-		rman_rxfq_init(&rx->fq, rxcfg->fqid + i,
-				rxcfg->wq,
-				rxcfg->channel[i%rxcfg->chan_count]);
-		rx->dist = dist;
-	}
-
-	if (rman_rxfq_start(rxcfg->fqid, rxcfg->fq_mode,
-			rxcfg->port, rxcfg->port_mask,
-			rxcfg->sid, rxcfg->sid_mask, rxcfg->tran)) {
-		error(0, 0, "Fra: can not start rxfq");
-		dist_finish(dist);
+	dist->rman_rx = rman_rx_init(1, rxcfg->fqid, rxcfg->fq_mode,
+				     rxcfg->wq, 0, rxcfg->tran, dist,
+				     dist_rman_rx_cb);
+	if (!dist->rman_rx) {
+		__dma_mem_free(dist);
 		return NULL;
 	}
+
+	rman_rx_listen(dist->rman_rx, rxcfg->rio_port, rxcfg->port_mask,
+		       rxcfg->sid, rxcfg->sid_mask);
+
+	return dist;
+}
+
+static struct distribution *dist_rman_tx_init(struct dist_cfg *cfg)
+{
+	struct dist_rman_tx_cfg *txcfg;
+	struct distribution *dist;
+
+	if (!cfg || cfg->type != DIST_TYPE_RMAN_TX)
+		return NULL;
+
+	txcfg = &cfg->dist_rman_tx_cfg;
+
+	if (!rman_get_port_status(txcfg->rio_port)) {
+		error(0, 0, "SRIO port%d is not connected",
+		      txcfg->rio_port);
+		return NULL;
+	}
+
+	dist = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(*dist));
+	if (!dist)
+		return NULL;
+	memset(dist, 0, sizeof(*dist));
+
+	dist->cfg = cfg;
+
+	dist->rman_tx = rman_tx_init(txcfg->rio_port, txcfg->fqid,
+				     txcfg->fqs_num, txcfg->wq,
+				     txcfg->tran);
+	if (!dist->rman_tx) {
+		__dma_mem_free(dist);
+		return NULL;
+	}
+
+	rman_tx_connect(dist->rman_tx, txcfg->did);
+	dist->handler = dist_rman_tx_handler;
+	return dist;
+}
+
+static struct distribution *dist_rman_to_fman_init(struct dist_cfg *cfg)
+{
+	struct dist_rman_to_fman_cfg *r2fcfg;
+	struct fra_fman_port *fman_port;
+	struct distribution *dist;
+
+	if (!cfg || cfg->type != DIST_TYPE_RMAN_TO_FMAN)
+		return NULL;
+
+	r2fcfg = &cfg->dist_rman_to_fman_cfg;
+
+	if (!rman_get_port_status(r2fcfg->rio_port)) {
+		error(0, 0, "SRIO port%d is not connected",
+		      r2fcfg->rio_port);
+		return NULL;
+	}
+
+	fman_port = get_fra_fman_port(r2fcfg->fman_port_name);
+	if (!fman_port) {
+		FRA_DBG("can not find fman port %s", r2fcfg->fman_port_name);
+		return NULL;
+	}
+	/* allocate stashable memory for the interface object */
+	dist = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(*dist));
+	if (!dist)
+		return NULL;
+	memset(dist, 0, sizeof(*dist));
+
+	dist->cfg = cfg;
+	dist->rman_to_fman = malloc(sizeof(struct rman_to_fman));
+	if (!dist->rman_to_fman)
+		goto _err;
+	memset(dist->rman_to_fman, 0, sizeof(struct rman_to_fman));
+
+	dist->rman_to_fman->fman_port = fman_port;
+	dist->rman_to_fman->rman_rx =
+		rman_rx_init(0, r2fcfg->fqid, r2fcfg->fq_mode,
+			     0, 0, r2fcfg->tran, NULL, NULL);
+	if (!dist->rman_to_fman->rman_rx)
+		goto _err;
+
+	fman_tx_init(fman_port, r2fcfg->fqid,
+		     rman_rx_get_fqs_num(dist->rman_to_fman->rman_rx),
+		     r2fcfg->wq);
+
+	rman_rx_listen(dist->rman_to_fman->rman_rx, r2fcfg->rio_port,
+		       r2fcfg->port_mask, r2fcfg->sid, r2fcfg->sid_mask);
 	dist->handler = NULL;
 	return dist;
+_err:
+	dist_finish(dist);
+	return NULL;
 }
 
-static struct distribution *dist_tx_init(struct dist_cfg *cfg)
+static struct distribution *dist_fman_rx_init(struct dist_cfg *cfg)
 {
-	struct dist_tx_cfg *txcfg;
 	struct distribution *dist;
-	struct dist_tx *tx;
-	struct rman_outb_md *md;
-	struct rio_tran *tran;
-	size_t sz;
-	int i;
+	struct dist_fman_rx_cfg *rxcfg;
+	struct fra_fman_port *port;
 
-	txcfg = &cfg->dist_tx_cfg;
-
-	if (!rman_get_port_status(txcfg->port)) {
-		error(0, 0, "SRIO port%d is not connected",
-		      txcfg->port);
+	if (!cfg || cfg->type != DIST_TYPE_FMAN_RX)
 		return NULL;
-	}
 
-	sz = sizeof(*dist) + 1 * sizeof(struct dist_tx);
+	rxcfg = &cfg->dist_fman_rx_cfg;
+	port = get_fra_fman_port(rxcfg->fman_port_name);
+	if (!port)
+		return NULL;
 
-	dist = __dma_mem_memalign(L1_CACHE_BYTES, sz);
+	if (fman_rx_init(port, 1, rxcfg->wq, FRA_DYNAMIC_CHANNEL))
+		return NULL;
+
+	dist = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(*dist));
 	if (!dist)
 		return NULL;
-	memset(dist, 0, sz);
+	memset(dist, 0, sizeof(*dist));
 
-	dist->sz = sz;
 	dist->cfg = cfg;
-	tx = &dist->tx[0];
-	tx->dist = dist;
-	tran = txcfg->tran;
+	dist->fman_rx = port;
 
-	if (rman_stfq_init(&tx->stfq, 0, 0, 0)) {
-		error(0, 0, "Fra: failed to create rman stfq");
-		__dma_mem_free(dist);
-		return NULL;
-	}
-
-	tx->fq = malloc(txcfg->fq_count * sizeof(struct qman_fq));
-	if (!tx->fq) {
-		rman_fq_free(&tx->stfq);
-		__dma_mem_free(dist);
-		return NULL;
-	}
-	memset(tx->fq, 0, txcfg->fq_count * sizeof(struct qman_fq));
-
-	for (i = 0; i < txcfg->fq_count; i++)
-		rman_txfq_init(&tx->fq[i], txcfg->fqid + i,
-			txcfg->wq, txcfg->port);
-
-	md = &tx->md;
-	md->ftype = tran->type;
-#ifdef ENABLE_FRA_DEBUG
-	md->br = 0;
-	md->cs = 1;
-#else
-	md->br = 1;
-	md->cs = 0;
-#endif
-	md->es = 1;
-	md->status_fqid = qman_fq_fqid(&tx->stfq);
-	md->did = txcfg->did;
-	md->count = 0;
-	md->flowlvl = tran->flowlvl;
-	md->tint = txcfg->port - 1;
-	switch (tran->type) {
-	case RIO_TYPE_MBOX:
-		md->retry = 255;
-		tx->session_count = tran->mbox.ltr_mask + 1;
-		md->dest = tran->mbox.ltr << 6 | tran->mbox.mbox;
-		break;
-	case RIO_TYPE_DSTR:
-		tx->session_count = tran->dstr.streamid_mask + 1;
-		md->dest = tran->dstr.streamid ;
-		md->other_attr = tran->dstr.cos;
-		break;
-	default:
-		tx->session_count = 1;
-	}
-
-	dist->handler = dist_tx_handler;
+	fman_rx_hash_listen(port, dist, dist_fman_rx_cb);
 	return dist;
 }
 
-static struct distribution *dist_fwd_init(struct dist_cfg *cfg)
+static struct distribution *dist_fman_tx_init(struct dist_cfg *cfg)
 {
 	struct distribution *dist;
-	struct dist_fwd *fwd;
-	struct dist_fwd_cfg *fwdcfg;
-	struct ppac_interface *ppac_if;
-	struct list_head *i = NULL;
-	const struct fman_if *fif;
-	size_t sz;
+	struct dist_fman_tx_cfg *txcfg;
+	struct fra_fman_port *port;
 
-	if (!cfg || cfg->type != DIST_TYPE_FWD)
+	if (!cfg || cfg->type != DIST_TYPE_FMAN_TX)
 		return NULL;
 
-	sz = sizeof(*dist) + 1 * sizeof(struct dist_fwd);
+	txcfg = &cfg->dist_fman_tx_cfg;
+	port = get_fra_fman_port(txcfg->fman_port_name);
+	if (!port)
+		return NULL;
 
-	dist = __dma_mem_memalign(L1_CACHE_BYTES, sz);
+	if (fman_tx_init(port, 0, txcfg->fqs_num,  txcfg->wq))
+		return NULL;
+
+	dist = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(*dist));
 	if (!dist)
 		return NULL;
-	memset(dist, 0, sz);
+	memset(dist, 0, sizeof(*dist));
 
-	dist->sz = sz;
 	dist->cfg = cfg;
-	fwd = &dist->fwd[0];
-	fwdcfg = &cfg->dist_fwd_cfg;
-	/* Tear down interfaces */
-	list_for_each(i, &ifs) {
-		ppac_if = (struct ppac_interface *)i;
-		fif = ppac_if->port_cfg->fman_if;
-		if (fif->fman_idx == fwdcfg->fman_num &&
-		    (fif->mac_type == fman_mac_1g ? 1 : 10) ==
-		     fwdcfg->port_type &&
-		    fif->mac_idx == fwdcfg->port_num)
-			break;
-	}
-	if (i == &ifs) { /* not find valid ppac_if */
-		__dma_mem_free(dist);
+	dist->fman_tx = port;
+	dist->handler = dist_fman_tx_handler;
+	return dist;
+}
+
+static struct distribution *dist_fman_to_rman_init(struct dist_cfg *cfg)
+{
+	struct distribution *dist;
+	struct dist_fman_to_rman_cfg *f2rcfg;
+	struct fra_fman_port *port;
+	struct fm_eth_port_fqrange *fqr;
+	struct rman_tx_list *rman_tx_list;
+
+	if (!cfg || cfg->type != DIST_TYPE_FMAN_TO_RMAN)
+		return NULL;
+
+	f2rcfg = &cfg->dist_fman_to_rman_cfg;
+	port = get_fra_fman_port(f2rcfg->fman_port_name);
+	if (!port) {
+		FRA_DBG("can not find fman port %s", f2rcfg->fman_port_name);
 		return NULL;
 	}
 
-	fwd->ppac_if = (struct ppac_interface *)i;
-	if (cfg->number > 1) /* fwd to */
-		dist->handler = dist_fwd_to_handler;
-	else
-		dist->handler = NULL;
+	if (fman_rx_init(port, 0, 0, 0))
+		return NULL;
+
+	dist = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(*dist));
+	if (!dist)
+		return NULL;
+	memset(dist, 0, sizeof(*dist));
+
+	dist->cfg = cfg;
+	dist->fman_to_rman = malloc(sizeof(struct fman_to_rman));
+	if (!dist->fman_to_rman)
+		goto _err;
+	memset(dist->fman_to_rman, 0, sizeof(struct fman_to_rman));
+	dist->fman_to_rman->fman_port = port;
+
+	INIT_LIST_HEAD(&dist->fman_to_rman->f2r_tx_list);
+
+	list_for_each_entry(fqr, port->port_cfg->list, list) {
+		uint32_t fqid = fqr->start;
+		rman_tx_list = malloc(sizeof(struct rman_tx_list));
+		if (!rman_tx_list)
+			goto _err;
+		memset(rman_tx_list, 0, sizeof(struct rman_tx_list));
+
+		rman_tx_list->rman_tx = rman_tx_init(f2rcfg->rio_port, fqid,
+						     fqr->count, f2rcfg->wq,
+						     f2rcfg->tran);
+
+		if (!rman_tx_list->rman_tx)
+			goto _err;
+
+		rman_tx_connect(rman_tx_list->rman_tx, f2rcfg->did);
+		list_add_tail(&rman_tx_list->node,
+			      &dist->fman_to_rman->f2r_tx_list);
+	}
 	return dist;
+_err:
+	dist_finish(dist);
+	return NULL;
+
 }
 
 static int dist_rx_tx_mapping(struct dist_order *dist_order)
 {
-	struct distribution *first;
-	struct distribution *second;
-	struct dist_rx_cfg *rxcfg;
-	struct dist_tx_cfg *txcfg;
-	struct ppac_interface *ppac_if;
-	struct ppam_interface *_if;
+	struct distribution *first, *second;
+	struct hash_opt *opt;
+	struct fra_fman_port *port;
 	int i;
 
 	if (!dist_order || !dist_order->dist || !dist_order->dist->next)
 		return 0;
 
+
 	first = dist_order->dist;
 	second = first->next;
 
-	FRA_DBG("mapping %s--%s", first->cfg->name, second->cfg->name);
-	if (first->cfg->type == DIST_TYPE_RX) {
-		rxcfg = &first->cfg->dist_rx_cfg;
-		if (second->cfg->type == DIST_TYPE_TX) {
-			txcfg = &second->cfg->dist_tx_cfg;
-			for (i = 0; i < rxcfg->fq_count; i++) {
-				first->rx_hash[i].opt.session =
-					i % second->tx[0].session_count;
-				first->rx_hash[i].opt.txfqid =
-					txcfg->fqid + i % txcfg->fq_count;
-				FRA_DBG("Mapping RX FQID-0x%x --> "
-					"session-%d TX FQID-0x%x",
-					qman_fq_fqid(&first->rx_hash[i].fq),
-					first->rx_hash[i].opt.session,
-					first->rx_hash[i].opt.txfqid);
+	FRA_DBG("Mapping %s--%s", first->cfg->name, second->cfg->name);
+	if (first->cfg->type == DIST_TYPE_RMAN_RX) {
+		int fqs_num = rman_rx_get_fqs_num(first->rman_rx);
+		if (second->cfg->type == DIST_TYPE_RMAN_TX) {
+			for (i = 0; i < fqs_num; i++) {
+				opt = rman_rx_get_opt(first->rman_rx, i);
+				opt_bindto_rman_tx(opt, second->rman_tx, i);
+				FRA_DBG("\tRX FQID-0x%x --> TX FQID-0x%x",
+					opt->rx_fqid, opt->tx_fqid);
 			}
-		} else if (second->cfg->type == DIST_TYPE_FWD) {
-			_if = &second->fwd[0].ppac_if->ppam_data;
-			for (i = 0; i < rxcfg->fq_count; i++) {
-				first->rx_hash[i].opt.session = 0 ;
-				first->rx_hash[i].opt.txfqid =
-					 _if->tx_fqids[i % _if->num_tx_fqids];
-				FRA_DBG("Mapping RX FQID-0x%x --> "
-					"session-%d Fwd FQID-0x%x",
-					qman_fq_fqid(&first->rx_hash[i].fq),
-					first->rx_hash[i].opt.session,
-					first->rx_hash[i].opt.txfqid);
+		} else if (second->cfg->type == DIST_TYPE_FMAN_TX) {
+			for (i = 0; i < fqs_num; i++) {
+				opt = rman_rx_get_opt(first->rman_rx, i);
+				opt_bindto_fman_tx(opt, second->fman_tx, i);
+				FRA_DBG("\tRX FQID-0x%x --> TX FQID-0x%x",
+					opt->rx_fqid, opt->tx_fqid);
 			}
 		} else
 			return -EINVAL;
-	} else if (first->cfg->type == DIST_TYPE_FWD) {
-		ppac_if = first->fwd[0].ppac_if;
-		if (second->cfg->type == DIST_TYPE_TX) {
-			struct ppac_pcd_range *pcd_range;
-			struct ppac_rx_hash *rx;
-			txcfg = &second->cfg->dist_tx_cfg;
-			list_for_each_entry(pcd_range, &ppac_if->list, list) {
-				if (!pcd_range)
-					break;
-				for (i = 0; i < pcd_range->count ; i++) {
-					rx =  &pcd_range->rx_hash[i];
-					rx->s.dist = first;
-					rx->s.opt.session = i %
-						second->tx[0].session_count;
-					rx->s.opt.txfqid = txcfg->fqid +
-						i % txcfg->fq_count;
-					FRA_DBG("Mapping Fwd FQID-0x%x --> "
-						"session-%d TX FQID-0x%x",
-						qman_fq_fqid(&rx->fq),
-						rx->s.opt.session,
-						rx->s.opt.txfqid);
-				}
+	} else if (first->cfg->type == DIST_TYPE_FMAN_RX) {
+		struct fman_pcd_range *pcd_range;
+		port = first->fman_rx;
+		list_for_each_entry(pcd_range, &port->list, list) {
+			for (i = 0; i < pcd_range->count ; i++) {
+				opt = fman_pcd_range_get_opt(pcd_range, i);
+				if (second->cfg->type == DIST_TYPE_RMAN_TX)
+					opt_bindto_rman_tx(opt,
+						second->rman_tx,
+						i);
+				else if (second->cfg->type ==
+							DIST_TYPE_FMAN_TX)
+					opt_bindto_fman_tx(opt,
+						second->fman_tx,
+						i);
+				else
+					continue;
+				FRA_DBG("\tRX FQID-0x%x --> TX FQID-0x%x",
+					opt->rx_fqid, opt->tx_fqid);
 			}
-		} else if (second->cfg->type == DIST_TYPE_FWD) {
-			struct ppac_pcd_range *pcd_range;
-			struct ppac_rx_hash *rx;
-			_if = &second->fwd[0].ppac_if->ppam_data;
-			list_for_each_entry(pcd_range, &ppac_if->list, list) {
-				if (!pcd_range)
-					break;
-				for (i = 0; i < pcd_range->count ; i++) {
-					rx =  &pcd_range->rx_hash[i];
-					rx->s.dist = first;
-					rx->s.opt.session = 0;
-					rx->s.opt.txfqid = _if->tx_fqids[i %
-						_if->num_tx_fqids];
-					FRA_DBG("Mapping Fwd FQID-0x%x --> "
-						"session-%d TX FQID-0x%x",
-						qman_fq_fqid(&rx->fq),
-						rx->s.opt.session,
-						rx->s.opt.txfqid);
-				}
-			}
-		} else
-			return -EINVAL;
+		}
 	} else
 		return -EINVAL;
 	return 0;
 }
 
-int fra_init(const struct fra_cfg *fra_cfg)
+void dist_order_start(struct dist_order *dist_order)
 {
-	struct dist_order_cfg  *dist_order_cfg;
+	struct distribution *dist;
+	struct dist_cfg *cfg;
+
+	if (!dist_order)
+		return;
+
+	dist = dist_order->dist;
+	while (dist) {
+		cfg = dist->cfg;
+		fprintf(stderr, "Start dist(%s)\n", cfg->name);
+		switch (cfg->type) {
+		case DIST_TYPE_RMAN_RX:
+			rman_rx_enable(dist->rman_rx);
+		break;
+		case DIST_TYPE_FMAN_RX:
+			fman_port_enable_rx(dist->fman_tx);
+		break;
+		case DIST_TYPE_RMAN_TO_FMAN:
+			if (!dist->rman_to_fman)
+				break;
+			rman_rx_enable(dist->rman_to_fman->rman_rx);
+		break;
+		case DIST_TYPE_FMAN_TO_RMAN:
+			if (!dist->fman_to_rman)
+				break;
+			fman_port_enable_rx(dist->fman_to_rman->fman_port);
+			break;
+		default:
+			break;
+		}
+		dist = dist->next;
+	}
+}
+
+struct dist_order *dist_order_init(struct dist_order_cfg  *dist_order_cfg)
+{
+
+	struct dist_order *dist_order;
 	struct dist_cfg *dist_cfg;
-	struct dist_order  *dist_order;
 	struct distribution *dist, *next_dist;
 	int err;
 
-#ifdef ENABLE_FRA_DEBUG
-	tx_count = 0;
-	rx_count = 0;
-	fwd_to_count = 0;
-	fwd_from_count = 0;
-	tx_release_count = 0;
-#endif
+	if (!dist_order_cfg || !dist_order_cfg->dist_cfg)
+		return NULL;
 
-	if (!fra_cfg) {
-		error(0, 0, "Fra: is not been configured");
+	dist_order = malloc(sizeof(*dist_order));
+	if (!dist_order) {
+		error(0, errno, "failed to allocate dist_order memory");
+		return NULL;
+	}
+	memset(dist_order, 0, sizeof(*dist_order));
+	dist_cfg = dist_order_cfg->dist_cfg;
+	dist = dist_order->dist;
+	err = 0;
+	while (dist_cfg && !err) {
+		FRA_DBG("\nTo initialize distribution(%s)", dist_cfg->name);
+		switch (dist_cfg->type) {
+		case DIST_TYPE_RMAN_RX:
+			next_dist = dist_rman_rx_init(dist_cfg);
+			break;
+		case DIST_TYPE_RMAN_TX:
+			next_dist = dist_rman_tx_init(dist_cfg);
+			break;
+		case DIST_TYPE_FMAN_RX:
+			next_dist = dist_fman_rx_init(dist_cfg);
+			break;
+		case DIST_TYPE_FMAN_TX:
+			next_dist = dist_fman_tx_init(dist_cfg);
+			break;
+		case DIST_TYPE_FMAN_TO_RMAN:
+			next_dist = dist_fman_to_rman_init(dist_cfg);
+			break;
+		case DIST_TYPE_RMAN_TO_FMAN:
+			next_dist = dist_rman_to_fman_init(dist_cfg);
+			break;
+		default:
+			next_dist = NULL;
+			break;
+		}
+		if (!next_dist) {
+			FRA_DBG("dist(%s) is not been initialized",
+				dist_cfg->name);
+			err = 1;
+			break;
+		}
+		if (!dist)
+			dist_order->dist = next_dist;
+		else
+			dist->next = next_dist;
+		dist = next_dist;
+		dist_cfg = dist_cfg->next;
+	}
+	if (err || !dist_order->dist)
+		goto _err;
+
+	err = dist_rx_tx_mapping(dist_order);
+	if (err)
+		goto _err;
+
+	dist_order_start(dist_order);
+	return dist_order;
+
+_err:
+	dist_order_finish(dist_order);
+	return NULL;
+}
+
+int dist_order_list_init(void)
+{
+	struct dist_order_cfg  *dist_order_cfg;
+	struct dist_order  *dist_order;
+
+	if (!fra || !fra->cfg)
+		return -EINVAL;
+
+	INIT_LIST_HEAD(&fra->dist_order_list);
+	list_for_each_entry(dist_order_cfg,
+		&fra->cfg->dist_order_cfg_list, node) {
+		dist_order = dist_order_init(dist_order_cfg);
+		if (dist_order)
+			list_add_tail(&dist_order->node,
+				&fra->dist_order_list);
+	}
+	return 0;
+}
+int fra_init(const struct usdpaa_netcfg_info *netcfg,
+	     const struct fra_cfg *fra_cfg)
+{
+	struct fra_fman_port_cfg *fra_fman_port_cfg;
+	int err;
+
+	if (!netcfg || !fra_cfg) {
+		error(0, 0, "is not been configured");
 		return -EINVAL;
 	}
 
 	fra = malloc(sizeof(struct fra));
 	if (!fra) {
-		error(0, errno, "failed to allocate fra");
+		error(0, errno, "failed to allocate fra memory");
 		return -errno;
 	}
 	memset(fra, 0, sizeof(*fra));
@@ -662,66 +792,23 @@ int fra_init(const struct fra_cfg *fra_cfg)
 	fra->cfg = fra_cfg;
 
 	if (rman_if_init(&fra_cfg->rman_cfg)) {
-		error(0, 0, "Fra: failed to initialize rman if");
+		error(0, 0, "failed to initialize rman if");
 		err = -EINVAL;
 		goto _err;
 	}
 
-	list_for_each_entry(dist_order_cfg,
-		&fra_cfg->dist_order_cfg_list, node) {
-		dist_order = malloc(sizeof(*dist_order));
-		if (!dist_order) {
-			error(0, errno,
-			"failed to allocate dist_order memory");
-			err = -errno;
-			goto _err;
+	list_for_each_entry(fra_fman_port_cfg,
+		&fra_cfg->fman_port_cfg_list, node) {
+		if (fman_port_init(fra_fman_port_cfg, netcfg)) {
+			error(0, 0, "can not find fman port %s",
+				fra_fman_port_cfg->port_name);
 		}
-		memset(dist_order, 0, sizeof(*dist_order));
-		dist_cfg = dist_order_cfg->dist_cfg;
-		dist = dist_order->dist;
-		err = 0;
-		while (dist_cfg && !err) {
-			FRA_DBG("Fra: initialize distribution(%s)",
-				dist_cfg->name);
-			next_dist = NULL;
-			switch (dist_cfg->type) {
-			case DIST_TYPE_RX:
-				next_dist = dist_rx_init(dist_cfg);
-				break;
-			case DIST_TYPE_TX:
-				next_dist = dist_tx_init(dist_cfg);
-				break;
-			case DIST_TYPE_FWD:
-				next_dist = dist_fwd_init(dist_cfg);
-				break;
-			default:
-				break;
-			}
-			if (!next_dist) {
-				error(0, 0, "dist(%s) is not been"
-					" initialized", dist_cfg->name);
-				err = 1;
-				break;
-			}
-			if (!dist)
-				dist_order->dist = next_dist;
-			else
-				dist->next = next_dist;
-			dist = next_dist;
-			dist_cfg = dist_cfg->next;
-		}
-		if (err || !dist_order->dist) {
-			dist_order_finish(dist_order);
-			continue;
-		}
-
-		err = dist_rx_tx_mapping(dist_order);
-		if (err)
-			goto _err;
-
-		list_add_tail(&dist_order->node,
-				&fra->dist_order_list);
 	}
+
+	err = dist_order_list_init();
+	if (err)
+		goto _err;
+
 	return 0;
 _err:
 	fra_finish();
