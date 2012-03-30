@@ -33,24 +33,29 @@
 -->
 
 <fra_cfg>
-<!--	xxxxxxxxxxxxxxxxxxxxxRMan hardware configurationxxxxxxxxxxxxxxxxxxxx -->
+<!--	xxxxxxxxxxxxxxxxxxxx RMan hardware configuration xxxxxxxxxxxxxxxxxxx -->
 	<rman_cfg>
 		<fqbits type="Data-streaming" value="2"/>
 		<fqbits type="Mailbox" value="2"/>
 		<md_create mode="yes"/>
-		<rxchannel value="0x24"/>
 		<bpid type="Data-streaming" value="11"/>
 		<bpid type="Doorbell" value="10"/>
 		<bpid type="Mailbox" value="11"/>
 		<sgbpid value="12"/>
 	</rman_cfg>
+
+<!--	xxxxxxxxxxxxxxxxxxxxx FMan port configuration xxxxxxxxxxxxxxxxxxxxxx -->
+	<network_cfg>
+		<port name="10gec" type="10G" fm="fm0" number="0"/>
+		<port name="dtsec0" type="1G" fm="fm0" number="0"/>
+		<port name="dtsec1" type="1G" fm="fm0" number="1"/>
+		<port name="dtsec2" type="1G" fm="fm0" number="2"/>
+		<port name="dtsec3" type="1G" fm="fm0" number="3"/>
+		<port name="dtsec4" type="1G" fm="fm0" number="4"/>
+	</network_cfg>
+
 <!--	xxxxxxxxxxxxxxxxxxxxxxxx transaction xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx -->
 <!--	transaction field described all the type transaction settings -->
-	<!-- dbell setting -->
-	<transaction name="dbell-peer" type="Doorbell">
-		<flowlvl value="5" mask="1"/>
-	</transaction>
-	<!-- mailbox settings -->
 	<transaction name="mbox-general" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
 		<mbox value="0" mask="3"/>
@@ -93,328 +98,143 @@
 		<ltr value="0" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
-	<!-- data streaming settings -->
-	<transaction name="dstrm-general" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="0" mask="0xff"/>
-		<streamid value="0" mask="0xffff"/>
-	</transaction>
-	<transaction name="dstr-10gec" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="15" mask="0"/>
-		<streamid value="0" mask="0x1f"/>
-	</transaction>
-	<transaction name="dstr-dtsec4" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="14" mask="0"/>
-		<streamid value="0" mask="0x1f"/>
-	</transaction>
-	<transaction name="dstr-dtsec3" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="13" mask="0"/>
-		<streamid value="0" mask="0x1f"/>
-	</transaction>
-	<transaction name="dstr-dtsec2" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="12" mask="0"/>
-		<streamid value="0" mask="0x1f"/>
-	</transaction>
-	<transaction name="dstr-dtsec1" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="11" mask="0"/>
-		<streamid value="0" mask="0x1f"/>
-	</transaction>
-	<transaction name="dstr-dtsec0" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="10" mask="0"/>
-		<streamid value="0" mask="0x1f"/>
-	</transaction>
-	<transaction name="dstr-peer" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="20" mask="0"/>
-		<streamid value="0" mask="0x1f"/>
-	</transaction>
 
-<!--	xxxxxxxxxxxxxxxxxxxxxxxx RX distribution xxxxxxxxxxxxxxxxxxxxxxxxxx -->
-<!--	Each rx section corresponds to a ibcu(inbound block classification unit)
-	register group -->
-	<!-- data streaming rx do processing 1 -->
-	<distribution name="dstr_to_fman0_tx5" type="rx">
-		<port number="1" mask="1"/>
+<!--	xxxxxxxxxxxxxxxxxxxx RMan to FMan distribution xxxxxxxxxxxxxxxxxxxx -->
+	<distribution name="rman_to_fman0_10gec" type="RMAN_TO_FMAN">
+		<rio_port number="0" mask="1"/>
 		<sid value="0" mask="0xff"/>
-		<queue base="0x1500" mode="algorithmic" wq="0" channel="0x40"/>
-		<transactionref name="dstr-10gec"/>
+		<queue base="0x1500" mode="algorithmic" wq="0"/>
+		<transactionref name="mbox-10gec"/>
+		<fman_port name="10gec"/>
 	</distribution>
-	<distribution name="dstr_to_fman0_tx4" type="rx">
-		<port number="1" mask="1"/>
+	<distribution name="rman_to_fman0_dtsec4" type="RMAN_TO_FMAN">
+		<rio_port number="0" mask="1"/>
 		<sid value="0" mask="0xff"/>
-		<queue base="0x1400" mode="algorithmic" wq="0" channel="0x45"/>
-		<transactionref name="dstr-dtsec4"/>
+		<queue base="0x1400" mode="algorithmic" wq="0"/>
+		<transactionref name="mbox-dtsec4"/>
+		<fman_port name="dtsec4"/>
 	</distribution>
-	<distribution name="dstr_to_fman0_tx3" type="rx">
-		<port number="1" mask="1"/>
+	<distribution name="rman_to_fman0_dtsec3" type="RMAN_TO_FMAN">
+		<rio_port number="0" mask="1"/>
 		<sid value="0" mask="0xff"/>
-		<queue base="0x1300" mode="algorithmic" wq="0" channel="0x44"/>
-		<transactionref name="dstr-dtsec3"/>
+		<queue base="0x1300" mode="algorithmic" wq="0"/>
+		<transactionref name="mbox-dtsec3"/>
+		<fman_port name="dtsec3"/>
 	</distribution>
-	<distribution name="dstr_to_fman0_tx2" type="rx">
-		<port number="1" mask="1"/>
+	<distribution name="rman_to_fman0_dtsec2" type="RMAN_TO_FMAN">
+		<rio_port number="0" mask="1"/>
 		<sid value="0" mask="0xff"/>
-		<queue base="0x1200" mode="algorithmic" wq="0" channel="0x43"/>
-		<transactionref name="dstr-dtsec2"/>
+		<queue base="0x1200" mode="algorithmic" wq="0"/>
+		<transactionref name="mbox-dtsec2"/>
+		<fman_port name="dtsec2"/>
 	</distribution>
-	<distribution name="dstr_to_fman0_tx1" type="rx">
-		<port number="1" mask="1"/>
+	<distribution name="rman_to_fman0_dtsec1" type="RMAN_TO_FMAN">
+		<rio_port number="0" mask="1"/>
 		<sid value="0" mask="0xff"/>
-		<queue base="0x1100" mode="algorithmic" wq="0" channel="0x42"/>
-		<transactionref name="dstr-dtsec1"/>
+		<queue base="0x1100" mode="algorithmic" wq="0"/>
+		<transactionref name="mbox-dtsec1"/>
+		<fman_port name="dtsec1"/>
 	</distribution>
-	<distribution name="dstr_to_fman0_tx0" type="rx">
-		<port number="1" mask="1"/>
+	<distribution name="rman_to_fman0_dtsec0" type="RMAN_TO_FMAN">
+		<rio_port number="0" mask="1"/>
 		<sid value="0" mask="0xff"/>
-		<queue base="0x1000" mode="algorithmic" wq="0" channel="0x41"/>
-		<transactionref name="dstr-dtsec0"/>
+		<queue base="0x1000" mode="algorithmic" wq="0"/>
+		<transactionref name="mbox-dtsec0"/>
+		<fman_port name="dtsec0"/>
 	</distribution>
-	<!-- data streaming rx do processing 2 -->
-	<distribution name="dstr_to_network0" type="rx">
-		<port number="1" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x2000" mode="algorithmic" wq="0" channel="0x24 0x25 0x26 0x27"/>
-		<transactionref name="dstr-dtsec0"/>
-	</distribution>
-	<distribution name="dstr_to_network1" type="rx">
-		<port number="1" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x2100" mode="algorithmic" wq="0" channel="0x24 0x25 0x26 0x27"/>
-		<transactionref name="dstr-dtsec1"/>
-	</distribution>
-	<distribution name="dstr_to_network2" type="rx">
-		<port number="1" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x2200" mode="algorithmic" wq="0" channel="0x24 0x25 0x26 0x27"/>
-		<transactionref name="dstr-dtsec2"/>
-	</distribution>
-	<distribution name="dstr_to_network3" type="rx">
-		<port number="1" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x2300" mode="algorithmic" wq="0" channel="0x24 0x25 0x26 0x27"/>
-		<transactionref name="dstr-dtsec3"/>
-	</distribution>
-	<distribution name="dstr_to_network4" type="rx">
-		<port number="1" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x2400" mode="algorithmic" wq="0" channel="0x24 0x25 0x26 0x27"/>
-		<transactionref name="dstr-dtsec4"/>
-	</distribution>
-	<distribution name="dstr_to_network5" type="rx">
-		<port number="1" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x2500" mode="algorithmic" wq="0" channel="0x24 0x25 0x26 0x27"/>
-		<transactionref name="dstr-10gec"/>
-	</distribution>
-	<!-- mailbox rx do processing 1 -->
-	<distribution name="mbox_to_fman0_tx5" type="rx">
-		<port number="1" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x3500" mode="algorithmic" wq="0" channel="0x40"/>
+
+<!--	xxxxxxxxxxxxxxxxxxxFMan to RMan distribution xxxxxxxxxxxxxxxxxxxxx -->
+	<distribution name="fman_to_rman_10gec" type="FMAN_TO_RMAN">
+		<fman_port name="10gec"/>
+		<queue wq="0"/>
+		<rio_port number="0"/>
+		<did value="1"/>
 		<transactionref name="mbox-10gec"/>
 	</distribution>
-	<distribution name="mbox_to_fman0_tx4" type="rx">
-		<port number="1" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x3400" mode="algorithmic" wq="0" channel="0x45"/>
+	<distribution name="fman_to_rman_dtsec4" type="FMAN_TO_RMAN">
+		<fman_port name="dtsec4"/>
+		<queue wq="1"/>
+		<rio_port number="0"/>
+		<did value="1"/>
 		<transactionref name="mbox-dtsec4"/>
 	</distribution>
-	<distribution name="mbox_to_fman0_tx3" type="rx">
-		<port number="1" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x3300" mode="algorithmic" wq="0" channel="0x44"/>
+	<distribution name="fman_to_rman_dtsec3" type="FMAN_TO_RMAN">
+		<fman_port name="dtsec3"/>
+		<queue wq="2"/>
+		<rio_port number="0"/>
+		<did value="1"/>
 		<transactionref name="mbox-dtsec3"/>
 	</distribution>
-	<distribution name="mbox_to_fman0_tx2" type="rx">
-		<port number="1" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x3200" mode="algorithmic" wq="0" channel="0x43"/>
+	<distribution name="fman_to_rman_dtsec2" type="FMAN_TO_RMAN">
+		<fman_port name="dtsec2"/>
+		<queue wq="6"/>
+		<rio_port number="0"/>
+		<did value="1"/>
 		<transactionref name="mbox-dtsec2"/>
 	</distribution>
-	<distribution name="mbox_to_fman0_tx1" type="rx">
-		<port number="1" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x3100" mode="algorithmic" wq="0" channel="0x42"/>
+	<distribution name="fman_to_rman_dtsec1" type="FMAN_TO_RMAN">
+		<fman_port name="dtsec1"/>
+		<queue wq="6"/>
+		<rio_port number="0"/>
+		<did value="1"/>
 		<transactionref name="mbox-dtsec1"/>
 	</distribution>
-	<distribution name="mbox_to_fman0_tx0" type="rx">
-		<port number="1" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x3000" mode="algorithmic" wq="0" channel="0x41"/>
+	<distribution name="fman_to_rman_dtsec0" type="FMAN_TO_RMAN">
+		<fman_port name="dtsec0"/>
+		<queue wq="7"/>
+		<rio_port number="0"/>
+		<did value="1"/>
 		<transactionref name="mbox-dtsec0"/>
-	</distribution>
-	<!-- test speed -->
-	<distribution name="dstr_from_peer" type="rx">
-		<port number="1" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x4000" mode="algorithmic" wq="0" channel="0x24 0x25 0x26 0x27"/>
-		<transactionref name="dstr-peer"/>
-	</distribution>
-	<distribution name="dbell_from_peer" type="rx">
-		<port number="1" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x4100" mode="direct" wq="0" channel="0x24"/>
-		<transactionref name="dbell-peer"/>
-	</distribution>
-
-<!--	xxxxxxxxxxxxxxxxxxxxxxxx TX distribution xxxxxxxxxxxxxxxxxxxxxxxxxx -->
-	<!-- data streaming -->
-	<distribution name="dstr_to_peer_10gec" type="tx">
-		<port number="1"/>
-		<did value="1"/>
-		<queue base="0x6500" count="4" wq="0"/>
-		<transactionref name="dstr-10gec"/>
-	</distribution>
-	<distribution name="dstr_to_peer_dtsec4" type="tx">
-		<port number="1"/>
-		<did value="1"/>
-		<queue base="0x6400" count="4" wq="0"/>
-		<transactionref name="dstr-dtsec4"/>
-	</distribution>
-	<distribution name="dstr_to_peer_dtsec3" type="tx">
-		<port number="1"/>
-		<did value="1"/>
-		<queue base="0x6300" count="4" wq="0"/>
-		<transactionref name="dstr-dtsec3"/>
-	</distribution>
-	<distribution name="dstr_to_peer_dtsec2" type="tx">
-		<port number="1"/>
-		<did value="1"/>
-		<queue base="0x6200" count="4" wq="0"/>
-		<transactionref name="dstr-dtsec2"/>
-	</distribution>
-	<distribution name="dstr_to_peer_dtsec1" type="tx">
-		<port number="1"/>
-		<did value="1"/>
-		<queue base="0x6100" count="4" wq="0"/>
-		<transactionref name="dstr-dtsec1"/>
-	</distribution>
-	<distribution name="dstr_to_peer_dtsec0" type="tx">
-		<port number="1"/>
-		<did value="1"/>
-		<queue base="0x6000" count="4" wq="0"/>
-		<transactionref name="dstr-dtsec0"/>
-	</distribution>
-	<!-- mailbox -->
-	<distribution name="mbox_to_peer_10gec" type="tx">
-		<port number="1"/>
-		<did value="1"/>
-		<queue base="0x7500" count="4" wq="0"/>
-		<transactionref name="mbox-10gec"/>
-	</distribution>
-	<distribution name="mbox_to_peer_dtsec4" type="tx">
-		<port number="1"/>
-		<did value="1"/>
-		<queue base="0x7400" count="1" wq="1"/>
-		<transactionref name="mbox-dtsec4"/>
-	</distribution>
-	<distribution name="mbox_to_peer_dtsec3" type="tx">
-		<port number="1"/>
-		<did value="1"/>
-		<queue base="0x7300" count="1" wq="2"/>
-		<transactionref name="mbox-dtsec3"/>
-	</distribution>
-	<distribution name="mbox_to_peer_dtsec2" type="tx">
-		<port number="1"/>
-		<did value="1"/>
-		<queue base="0x7200" count="1" wq="5"/>
-		<transactionref name="mbox-dtsec2"/>
-	</distribution>
-<!--
-	<distribution name="mbox_to_peer_dtsec1" type="tx">
-		<port number="1"/>
-		<did value="1"/>
-		<queue base="0x7100" count="4" wq="0"/>
-		<transactionref name="mbox-dtsec1"/>
-	</distribution>
-	<distribution name="mbox_to_peer_dtsec0" type="tx">
-		<port number="1"/>
-		<did value="1"/>
-		<queue base="0x7000" count="4" wq="0"/>
-		<transactionref name="mbox-dtsec0"/>
-	</distribution>
--->
-	<!-- test speed -->
-	<distribution name="dstr_to_peer" type="tx">
-		<port number="1"/>
-		<did value="1"/>
-		<queue base="0x4200" count="4" wq="0"/>
-		<transactionref name="dstr-peer"/>
-	</distribution>
-	<distribution name="dbell_to_peer" type="tx">
-		<port number="1"/>
-		<did value="1"/>
-		<queue base="0x4300" count="1" wq="0"/>
-		<transactionref name="dbell-peer"/>
-	</distribution>
-
-<!--	xxxxxxxxxxxxxxxxxxxxxxxx FWD distribution xxxxxxxxxxxxxxxxxxxx -->
-	<distribution name="network_dtsec0" type="fwd">
-		<port type="1G" fm="fm0" number="0" />
-	</distribution>
-	<distribution name="network_dtsec1" type="fwd">
-		<port type="1G" fm="fm0" number="1" />
-	</distribution>
-	<distribution name="network_dtsec2" type="fwd">
-		<port type="1G" fm="fm0" number="2" />
-	</distribution>
-	<distribution name="network_dtsec3" type="fwd">
-		<port type="1G" fm="fm0" number="3" />
-	</distribution>
-	<distribution name="network_dtsec4" type="fwd">
-		<port type="1G" fm="fm0" number="4" />
-	</distribution>
-	<distribution name="network_10gec" type="fwd">
-		<port type="10G" fm="fm0" number="0"/>
 	</distribution>
 
 <!--	xxxxxxxxxxxxxxxxxxxxxxxxxx Policy xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx -->
 	<policy name="network-srio-network">
 		<!-- 10gec packets processing -->
 		<dist_order>
-			<distributionref name="network_10gec"/>
-			<distributionref name="mbox_to_peer_10gec"/>
+			<distributionref name="rman_to_fman0_10gec"/>
 		</dist_order>
-		<!-- processing 1  10gec-rman<->rman-10gec -->
 		<dist_order>
-			<distributionref name="mbox_to_fman0_tx5"/>
+			<distributionref name="fman_to_rman_10gec"/>
 		</dist_order>
 
 		<!-- dtsec4 packets processing -->
 		<dist_order>
-			<distributionref name="network_dtsec4"/>
-			<distributionref name="mbox_to_peer_dtsec4"/>
+			<distributionref name="rman_to_fman0_dtsec4"/>
 		</dist_order>
-		<!-- processing 1  dtsec4-rman<->rman-dtsec4 -->
 		<dist_order>
-			<distributionref name="mbox_to_fman0_tx4"/>
+			<distributionref name="fman_to_rman_dtsec4"/>
 		</dist_order>
 
 		<!-- dtsec3 packets processing -->
 		<dist_order>
-			<distributionref name="network_dtsec3"/>
-			<distributionref name="mbox_to_peer_dtsec3"/>
+			<distributionref name="rman_to_fman0_dtsec3"/>
 		</dist_order>
-		<!-- processing 1  dtsec3-rman<->rman-dtsec3 -->
 		<dist_order>
-			<distributionref name="mbox_to_fman0_tx3"/>
+			<distributionref name="fman_to_rman_dtsec3"/>
 		</dist_order>
 
 		<!-- dtsec2 packets processing -->
 		<dist_order>
-			<distributionref name="network_dtsec2"/>
-			<distributionref name="mbox_to_peer_dtsec2"/>
+			<distributionref name="rman_to_fman0_dtsec2"/>
 		</dist_order>
-		<!-- processing 1  dtsec2-rman<->rman-dtsec2 -->
 		<dist_order>
-			<distributionref name="mbox_to_fman0_tx2"/>
+			<distributionref name="fman_to_rman_dtsec2"/>
 		</dist_order>
 
+		<!-- dtsec1 packets processing -->
+		<dist_order>
+			<distributionref name="rman_to_fman0_dtsec1"/>
+		</dist_order>
+		<dist_order>
+			<distributionref name="fman_to_rman_dtsec1"/>
+		</dist_order>
+
+		<!-- dtsec0 packets processing -->
+		<dist_order>
+			<distributionref name="rman_to_fman0_dtsec0"/>
+		</dist_order>
+		<dist_order>
+			<distributionref name="fman_to_rman_dtsec0"/>
+		</dist_order>
 	</policy>
 </fra_cfg>
