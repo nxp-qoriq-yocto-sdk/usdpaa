@@ -1,4 +1,4 @@
-/* Copyright (c) 2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2011-2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,7 +44,6 @@
 #define RMAN_FQ_BITS_NODE	("fqbits")
 #define MD_CREATE_NODE		("md_create")
 #define MD_CREATE_MODE		("mode")
-#define RX_CHANNEL_NODE		("rxchannel")
 #define BPID_NODE		("bpid")
 #define SG_BPID_NODE		("sgbpid")
 
@@ -76,7 +75,6 @@
 #define DIST_FQ_MODE		("mode")
 #define DIST_FQ_COUNT		("count")
 #define DIST_FQ_WQ		("wq")
-#define DIST_FQ_CHAN		("channel")
 #define DIST_TRANREF_NODE	("transactionref")
 #define DIST_TRANREF_NAME	("name")
 #define DIST_FWD_PORT_NODE	("port")
@@ -292,8 +290,7 @@ void fra_transactiones_finish(void)
 static int parse_dist_rx(xmlNodePtr distp, struct dist_rx_cfg *rxcfg)
 {
 	char *ptr;
-	int i;
-	char channel[MAX_NUM_OF_RX_CHAN][10];
+
 	for_all_sibling_nodes(distp) {
 		if ((is_node(distp, BAD_CAST DIST_PORT_NODE))) {
 			ptr = get_attributes(distp,
@@ -333,16 +330,6 @@ static int parse_dist_rx(xmlNodePtr distp, struct dist_rx_cfg *rxcfg)
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
 			rxcfg->wq = strtoul(ptr, NULL, 0);
-			ptr = get_attributes(distp,
-				BAD_CAST DIST_FQ_CHAN);
-			if (unlikely(ptr == NULL))
-				return -EINVAL;
-			rxcfg->chan_count = sscanf(ptr, "%s %s %s %s",
-				channel[0], channel[1],
-				channel[2], channel[3]);
-			for (i = 0; i < rxcfg->chan_count; i++)
-				rxcfg->channel[i] =
-					strtoul(channel[i], NULL, 0);
 		} else if ((is_node(distp, BAD_CAST DIST_TRANREF_NODE))) {
 			ptr = get_attributes(distp,
 				BAD_CAST DIST_TRANREF_NAME);
@@ -352,7 +339,7 @@ static int parse_dist_rx(xmlNodePtr distp, struct dist_rx_cfg *rxcfg)
 			rxcfg->tran = search_tran(ptr);
 		}
 	}
-	if (rxcfg->port == 0 || !rxcfg->tran || rxcfg->chan_count < 1)
+	if (rxcfg->port == 0 || !rxcfg->tran)
 		return -EINVAL;
 	return 0;
 }
@@ -592,11 +579,6 @@ static int parse_rman_cfg(xmlNodePtr cur, struct rman_cfg *cfg)
 				cfg->md_create = 0;
 			else
 				cfg->md_create = 1;
-		} else if ((is_node(cfgptr, BAD_CAST RX_CHANNEL_NODE))) {
-			ptr = get_attributes(cfgptr, BAD_CAST RMAN_CFG_VALUE);
-			if (unlikely(ptr == NULL))
-				return -EINVAL;
-			cfg->rx_channel_id = strtoul(ptr, NULL, 0);
 		} else if ((is_node(cfgptr, BAD_CAST BPID_NODE))) {
 			ptr = get_attributes(cfgptr, BAD_CAST RMAN_CFG_TYPE);
 			if (unlikely(ptr == NULL))

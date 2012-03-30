@@ -1,4 +1,4 @@
-/* Copyright (c) 2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2011-2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,8 +38,6 @@
 #include <usdpaa/fsl_rman.h>
 #include <internal/compat.h>
 
-#define MAX_NUM_OF_RX_CHAN 4
-
 enum dist_type {
 	DIST_TYPE_RX,
 	DIST_TYPE_TX,
@@ -55,8 +53,6 @@ struct dist_rx_cfg {
 	enum RMAN_FQ_MODE fq_mode;
 	int fq_count;
 	uint8_t wq;
-	uint8_t chan_count;
-	enum qm_channel channel[MAX_NUM_OF_RX_CHAN];
 	struct rio_tran	*tran;
 };
 

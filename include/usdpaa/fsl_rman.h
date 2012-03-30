@@ -1,4 +1,4 @@
-/* Copyright (c) 2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2011-2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -114,7 +114,6 @@ struct ibcu_cfg {
 struct rman_cfg {
 	uint8_t fq_bits[RIO_TYPE_NUM];
 	uint8_t bpid[RIO_TYPE_NUM];
-	uint8_t rx_channel_id;
 	uint8_t md_create;
 	uint8_t sgbpid;
 };
