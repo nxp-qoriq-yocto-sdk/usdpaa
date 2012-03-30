@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,97 +30,15 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <ppac.h>
+#include <fra_common.h>
+#include <usdpaa/fsl_usd.h>
+#include <usdpaa/of.h>
+#include <fra_fq_interface.h>
+#include <fra_cfg_parser.h>
+#include <fra.h>
+#include <test_speed.h>
 #include <readline.h>  /* libedit */
-
-#include "fra_network_interface.h"
-#include "fra.h"
-#include "fra_cfg_parser.h"
-#include "test_speed.h"
-
-/*
- * PPAM global startup/teardown
- *
- * These hooks are not performance-sensitive and so are declared as real
- * functions, called from the PPAC library code (ie. not from the inline
- * packet-handling support).
- */
-int __attribute__((weak)) ppam_init(void)
-{
-	return 0;
-}
-void __attribute__((weak)) ppam_finish(void)
-{
-	fprintf(stderr, "%s stopping\n",
-		program_invocation_short_name);
-}
-
-/*
- * PPAM thread startup/teardown
- *
- * Same idea, but these are invoked as each thread is set up (after portals are
- * initialised but prior to the appication-loop starting) or torn down (prior to
- * portals being torn down).
- */
-int __attribute__((weak)) ppam_thread_init(void)
-{
-	return 0;
-}
-void __attribute__((weak)) ppam_thread_finish(void)
-{
-}
-
-/*
- * PPAM thread polling hook
- *
- * The idea here is that a PPAM can implement an override for this function if
- * it wishes to perform processing from within the core application-loop running
- * in each thread. In this case, the application-loop invokes ppam_thread_poll()
- * whenever the 'ppam_thread_poll_enabled' thread-local boolean variable is set
- * non-zero. This boolean is zero by default, so can be enabled/disabled as
- * required by PPAM itself (during initialisation, packet-processing, and/or
- * from within ppam_thread_poll() itself). For this reason, it is illegal for
- * the weakly-linked default to ever execute - it implies the PPAM has activated
- * the polling hook without implementing it. If the hook returns non-zero, the
- * thread will cleanup and terminate.
- */
-__thread int ppam_thread_poll_enabled;
-int __attribute__((weak)) ppam_thread_poll(void)
-{
-	error(0, 0,
-	      "PPAM requested polling but didn't implement it!");
-	abort();
-	return 0;
-}
-
-#define FRA_NUM_POOL_CHANNELS	4
-#define DMA_MEM_SIZE		0x4000000 /* 64MB */
-#define DMA_MEM_BP4_BPID	10
-#define DMA_MEM_BP4_SIZE	80
-#define DMA_MEM_BP4_NUM		0x100 /* 0x100*80==20480 (20KB) */
-#define DMA_MEM_BP5_BPID	11
-#define DMA_MEM_BP5_SIZE	1600
-#define DMA_MEM_BP5_NUM		0x2000 /* 0x2000*1600==13107200 (12.5M) */
-#define DMA_MEM_BP6_BPID	12
-#define DMA_MEM_BP6_SIZE	64
-#define DMA_MEM_BP6_NUM		0x2000 /* 0x2000*64==524288 (0.5MB) */
-#define DMA_MEM_BPOOL_SIZE						\
-	(DMA_MEM_BP3_SIZE * DMA_MEM_BP3_NUM +				\
-	 DMA_MEM_BP4_SIZE * DMA_MEM_BP4_NUM +				\
-	 DMA_MEM_BP5_SIZE * DMA_MEM_BP5_NUM +				\
-	 DMA_MEM_BP6_SIZE * DMA_MEM_BP6_NUM) /* 27787264 (26.5MB) */
-
-/*
- * PPAM-overridable paths to FMan configuration files.
- */
-const char ppam_pcd_path[] __attribute__((weak)) = __stringify(DEF_PCD_PATH);
-const char ppam_cfg_path[] __attribute__((weak)) = __stringify(DEF_CFG_PATH);
-const char default_fra_cfg_path[] __attribute__((weak)) =
-	__stringify(DEF_FRA_CFG_PATH);
-
-/***************/
-/* Global data */
-/***************/
+#include <argp.h>
 
 /* Seed buffer pools according to the configuration symbols */
 const struct bpool_config  bpool_config[] = {
@@ -130,93 +48,15 @@ const struct bpool_config  bpool_config[] = {
 	{ DMA_MEM_BP6_BPID, DMA_MEM_BP6_NUM, DMA_MEM_BP6_SIZE}
 };
 
-/* The SDQCR mask to use (computed from netcfg's pool-channels) */
-static uint32_t sdqcr;
-/* The dynamically allocated pool-channels, and the iterator index that loops
- * around them binding Rx FQs to them in a round-robin fashion. */
-static uint32_t pchannel_idx;
-static uint32_t pchannels[PPAC_NUM_POOL_CHANNELS];
-
-/* The follow global variables are non-static because they're used from inlined
- * code in ppac.h too. */
+/* FRA-overridable paths to FMan configuration files. */
+const char fman_pcd_path[] __attribute__((weak)) = __stringify(DEF_PCD_PATH);
+const char fman_cfg_path[] __attribute__((weak)) = __stringify(DEF_CFG_PATH);
+const char default_fra_cfg_path[] __attribute__((weak)) =
+	__stringify(DEF_FRA_CFG_PATH);
 
 /* Configuration */
-struct usdpaa_netcfg_info *netcfg;
+static struct usdpaa_netcfg_info *netcfg;
 static struct fra_cfg *fra_cfg;
-
-/* We want a trivial mapping from bpid->pool, so just have an array of pointers,
- * most of which are probably NULL. */
-struct bman_pool *pool[PPAC_MAX_BPID];
-
-/* The interfaces in this list are allocated from dma_mem (stashing==DMA) */
-LIST_HEAD(ifs);
-
-/* The forwarding logic uses a per-cpu FQ object for handling enqueues (and
- * ERNs), irrespective of the destination FQID. In this way, cache-locality is
- * more assured, and any ERNs that do occur will show up on the same CPUs they
- * were enqueued from. This works because ERN messages contain the FQID of the
- * original enqueue operation, so in principle any demux that's required by the
- * ERN callback can be based on that. Ie. the FQID set within "local_fq" is from
- * whatever the last executed enqueue was, the ERN handler can ignore it. */
-__thread struct qman_fq local_fq;
-
-/* These are backdoors from PPAC to itself in order to support order
- * preservation/restoration. Packet-handling goes from a PPAC handler to a PPAM
- * handler which in turn calls PPAC APIs to perform the required packet
- * operations. Call stack is PPAC->PPAM->PPAC, with the possibility for inlining
- * to collapse it all down. The backdoors allow the packet operations to know
- * what was known back up in the PPAC handler but not passed down through the
- * call stack, like what DQRR entry was being processed (to encode enqueue-DCAs,
- * determine ORP sequeuence numbers, etc), what ORPID should be used (if any)
- * when dropping or forwarding the current frame, etc. */
-#if defined(PPAC_ORDER_PRESERVATION) ||		\
-	defined(PPAC_ORDER_RESTORATION)
-__thread const struct qm_dqrr_entry *local_dqrr;
-#endif
-#ifdef PPAC_ORDER_RESTORATION
-__thread uint32_t local_orp_id;
-__thread uint32_t local_seqnum;
-#endif
-
-#ifdef PPAC_CGR
-/* A congestion group to hold Rx FQs (uses netcfg::cgrids[0]) */
-struct qman_cgr cgr_rx;
-/* Tx FQs go into a separate CGR (uses netcfg::cgrids[1]) */
-struct qman_cgr cgr_tx;
-#endif
-
-int lazy_init_bpool(uint8_t bpid, uint8_t depletion_notify)
-{
-	return 0;
-}
-
-static int init_pool_channels(void)
-{
-	int ret = qman_alloc_pool_range(&pchannels[0], FRA_NUM_POOL_CHANNELS,
-					1, 0);
-	if (ret != FRA_NUM_POOL_CHANNELS)
-		return -ENOMEM;
-	for (ret = 0; ret < FRA_NUM_POOL_CHANNELS; ret++) {
-		sdqcr |= QM_SDQCR_CHANNELS_POOL_CONV(pchannels[ret]);
-		TRACE("Adding pool 0x%x to SDQCR, 0x%08x -> 0x%08x\n",
-		      pchannels[ret],
-		      QM_SDQCR_CHANNELS_POOL_CONV(pchannels[ret]),
-		      sdqcr);
-	}
-	return 0;
-}
-
-static void finish_pool_channels(void)
-{
-	qman_release_pool_range(pchannels[0], FRA_NUM_POOL_CHANNELS);
-}
-
-enum qm_channel get_rxc(void)
-{
-	enum qm_channel ret = pchannels[pchannel_idx];
-	pchannel_idx = (pchannel_idx + 1) % FRA_NUM_POOL_CHANNELS;
-	return ret;
-}
 
 /******************/
 /* Worker threads */
@@ -234,11 +74,11 @@ struct worker_msg {
 		worker_msg_do_global_init,
 		worker_msg_do_global_finish,
 		worker_msg_do_test_speed,
-#ifdef PPAC_CGR
+#ifdef FRA_CGR
 		worker_msg_query_cgr
 #endif
 	} msg;
-#ifdef PPAC_CGR
+#ifdef FRA_CGR
 	union {
 		struct {
 			struct qm_mcr_querycgr res_rx;
@@ -264,86 +104,16 @@ static uint32_t next_worker_uid;
 
 static void do_global_finish(void)
 {
-	struct list_head *i, *tmpi;
-	/* During init, we initialise all interfaces and their Tx FQs in a first
-	 * phase, then we initialise their Rx FQs in a second phase. This means
-	 * PPAM handlers know about all frame destinations before initialising
-	 * their handling of frame sources. This cleanup logic uses a similar
-	 * split, in the reverse order. */
-	list_for_each(i, &ifs)
-		/* NB: we cast rather than use list_for_each_entry_safe()
-		 * because this code can not include ppac_interface.h to know
-		 * about "struct ppac_interface" internals - doing so requires
-		 * that the PPAM structs be known too, which is impossible in
-		 * this PPAM-agnostic code. */
-		ppac_interface_finish_rx((struct ppac_interface *)i);
-	list_for_each_safe(i, tmpi, &ifs)
-		/* This loop uses "_safe()" because the list entries delete
-		 * themselves. */
-		ppac_interface_finish((struct ppac_interface *)i);
-
-	bpools_finish();
-	ppam_finish();
 	fra_finish();
+	bpools_finish();
 }
-
 
 static void do_global_init(void)
 {
-	struct list_head *i;
-	uint32_t loop;
 	int err;
 
-#ifdef PPAC_CGR
-	ppac_cgr_init(netcfg);
-#endif
-	for (loop = 0; loop < PPAC_MAX_BPID; loop++)
-		pool[loop] = bpid_to_bpool(loop);
-	/* Here, we give the PPAM it's opportunity to perform "global"
-	 * initialisation, before individual interfaces come up (which each
-	 * provide their own, more fine-grained, init hooks). We do it here
-	 * because the portals are available, pools and CGRs have all been
-	 * created, etc. Ie. PPAC global init has essentially finished, and the
-	 * remaining step (interface setup) could very well be removed from
-	 * global init anyway, and made a run-time consideration (like setup and
-	 * teardown of non-primary threads). */
-	err = ppam_init();
-	if (unlikely(err < 0)) {
-		error(0, -err,
-		      "error: PPAM init failed (%d)", err);
-		return;
-	}
-	/* Initialise interface objects (internally, this takes care of
-	 * initialising buffer pool objects for any BPIDs used by the Fman Rx
-	 * ports). We initialise the interface objects and their Tx FQs in one
-	 * loop (so each interface generates hooks to PPAM for both phases
-	 * before we move on to the next interface). We do a second loop for
-	 * setting up Rx FQs, meaning that PPAM hooks have already seen all
-	 * interfaces and Tx FQs before being forced to determine how to handle
-	 * Rx FQs ... (ie. "know all the destinations before knowing how you'll
-	 * handle any of the sources") */
-	for (loop = 0; loop < netcfg->num_ethports; loop++) {
-		FRA_DBG("Initialising interface %d", loop);
-		err = ppac_interface_init(loop);
-		if (err) {
-			error(0, -err,
-			      "error: interface %d failed", loop);
-			do_global_finish();
-			return;
-		}
-	}
-	list_for_each(i, &ifs) {
-		FRA_DBG("Initialising interface Tx %p", i);
-		/* Same comment applies as the cast in do_global_finish() */
-		err = ppac_interface_init_rx((struct ppac_interface *)i);
-		if (err) {
-			error(0, -err, "ppac_interface_init_rx()");
-			do_global_finish();
-			return;
-		}
-	}
-
-	err = fra_init(fra_cfg);
+	bpools_init(bpool_config, ARRAY_SIZE(bpool_config));
+	err = fra_init(netcfg, fra_cfg);
 	if (unlikely(err < 0)) {
 		error(0, -err, "fra_init()");
 		do_global_finish();
@@ -375,7 +145,7 @@ static int process_msg(struct worker *worker, struct worker_msg *msg)
 	/* Do test speed */
 	else if (msg->msg == worker_msg_do_test_speed)
 		test_speed_send_msg();
-#ifdef PPAC_CGR
+#ifdef FRA_CGR
 	/* Query the CGR state */
 	else if (msg->msg == worker_msg_query_cgr) {
 		int err = qman_query_cgr(&cgr_rx, &msg->query_cgr.res_rx);
@@ -420,7 +190,7 @@ static inline int check_msg(struct worker *worker)
 #define WORKER_SLOWPOLL_IDLE 400
 #define WORKER_FASTPOLL_DQRR 16
 #define WORKER_FASTPOLL_DOIRQ 2000
-#ifdef PPAC_IDLE_IRQ
+#ifdef FRA_IDLE_IRQ
 static void drain_4_bytes(int fd, fd_set *fdset)
 {
 	if (FD_ISSET(fd, fdset)) {
@@ -437,7 +207,7 @@ static void *worker_fn(void *__worker)
 	cpu_set_t cpuset;
 	int s, fd_qman, fd_bman, nfds;
 	int calm_down = 16, slowpoll = 0;
-#ifdef PPAC_IDLE_IRQ
+#ifdef FRA_IDLE_IRQ
 	int irq_mode = 0, fastpoll = 0;
 #endif
 
@@ -476,41 +246,20 @@ static void *worker_fn(void *__worker)
 	else
 		nfds = fd_bman + 1;
 
-	/* Initialise the enqueue-only FQ object for this cpu/thread. Note, the
-	 * fqid argument ("1") is superfluous, the point is to mark the object
-	 * as ready for enqueuing and handling ERNs, but unfit for any FQD
-	 * modifications. The forwarding logic will substitute in the required
-	 * FQID. */
-	local_fq.cb.ern = cb_ern;
-	s = qman_create_fq(1, QMAN_FQ_FLAG_NO_MODIFY, &local_fq);
-	BUG_ON(s);
-
-	/* Set the qman portal's SDQCR mask */
-	qman_static_dequeue_add(sdqcr);
+	local_fq_init();
 
 	/* Global init is triggered by having the message preset to
-	 * "do_global_init" before the thread even runs. This means we can catch
-	 * it here before entering the loop (which in turn means we can call
-	 * ppam_thread_init() after global init but prior to the app loop). */
+	 * "do_global_init" before the thread even runs. Thi */
 	if (worker->msg->msg == worker_msg_do_global_init) {
 		s = process_msg(worker, worker->msg);
 		if (s <= 0)
 			goto global_init_fail;
 	}
 
-	/* Do any PPAM-specific thread initialisation */
-	s = ppam_thread_init();
-	BUG_ON(s);
-
 	/* Run! */
 	FRA_DBG("Starting poll loop on cpu %d", worker->cpu);
 	while (check_msg(worker)) {
-		if (ppam_thread_poll_enabled) {
-			s = ppam_thread_poll();
-			if (s)
-				break;
-		}
-#ifdef PPAC_IDLE_IRQ
+#ifdef FRA_IDLE_IRQ
 		/* IRQ mode */
 		if (irq_mode) {
 			/* Go into (and back out of) IRQ mode for each select,
@@ -558,13 +307,13 @@ static void *worker_fn(void *__worker)
 		if (!(slowpoll--)) {
 			if (qman_poll_slow() || bman_poll_slow()) {
 				slowpoll = WORKER_SLOWPOLL_BUSY;
-#ifdef PPAC_IDLE_IRQ
+#ifdef FRA_IDLE_IRQ
 				fastpoll = 0;
 #endif
 			} else
 				slowpoll = WORKER_SLOWPOLL_IDLE;
 		}
-#ifdef PPAC_IDLE_IRQ
+#ifdef FRA_IDLE_IRQ
 		if (qman_poll_dqrr(WORKER_FASTPOLL_DQRR))
 			fastpoll = 0;
 		else
@@ -575,9 +324,6 @@ static void *worker_fn(void *__worker)
 		qman_poll_dqrr(WORKER_FASTPOLL_DQRR);
 #endif
 	}
-
-	/* Do any PPAM-specific thread cleanup */
-	ppam_thread_finish();
 
 global_init_fail:
 	qman_static_dequeue_del(~(uint32_t)0);
@@ -631,43 +377,6 @@ int msg_do_test_speed(struct worker *worker)
 	return msg_post(worker, worker_msg_do_test_speed);
 }
 
-#ifdef PPAC_CGR
-static void dump_cgr(const struct qm_mcr_querycgr *res)
-{
-	uint64_t val64;
-	error(0, 0, "      cscn_en: %d", res->cgr.cscn_en);
-	error(0, 0, "    cscn_targ: 0x%08x", res->cgr.cscn_targ);
-	error(0, 0, "      cstd_en: %d", res->cgr.cstd_en);
-	error(0, 0, "	   cs: %d", res->cgr.cs);
-	val64 = qm_cgr_cs_thres_get64(&res->cgr.cs_thres);
-	error(0, 0,
-	      "	   cs_thresh: 0x%02x_%04x_%04x", (uint32_t)(val64 >> 32),
-	      (uint32_t)(val64 >> 16) & 0xffff, (uint32_t)val64 & 0xffff);
-	error(0, 0, "	 mode: %d", res->cgr.mode);
-	val64 = qm_mcr_querycgr_i_get64(res);
-	error(0, 0,
-	      "	i_bcnt: 0x%02x_%04x_%04x", (uint32_t)(val64 >> 32),
-	      (uint32_t)(val64 >> 16) & 0xffff, (uint32_t)val64 & 0xffff);
-	val64 = qm_mcr_querycgr_a_get64(res);
-	error(0, 0,
-	      "	a_bcnt: 0x%02x_%04x_%04x", (uint32_t)(val64 >> 32),
-	      (uint32_t)(val64 >> 16) & 0xffff, (uint32_t)val64 & 0xffff);
-}
-static int msg_query_cgr(struct worker *worker)
-{
-	int ret = msg_post(worker, worker_msg_query_cgr);
-	if (ret)
-		return ret;
-	error(0, 0,
-	      "Rx CGR ID: %d, selected fields;", cgr_rx.cgrid);
-	dump_cgr(&worker->msg->query_cgr.res_rx);
-	error(0, 0,
-	      "Tx CGR ID: %d, selected fields;", cgr_tx.cgrid);
-	dump_cgr(&worker->msg->query_cgr.res_tx);
-	return 0;
-}
-#endif
-
 /**********************/
 /* worker thread mgmt */
 /**********************/
@@ -706,8 +415,7 @@ static struct worker *worker_new(int cpu, int is_primary)
 	/* If is_primary, global init is processed on thread startup, so we poll
 	 * for the message queue to be idle before proceeding. Note, the reason
 	 * for doing this is to ensure global-init happens before the regular
-	 * message processing loop, which is turn to allow the
-	 * ppam_thread_init() hook to be placed between the two. */
+	 * message processing loop. */
 	while (ret->msg->msg != worker_msg_none) {
 		if (!pthread_tryjoin_np(ret->id, NULL)) {
 			/* The worker is already gone */
@@ -787,7 +495,7 @@ static struct worker *worker_find(int cpu, int can_be_primary)
 	return NULL;
 }
 
-#ifdef PPAC_CGR
+#ifdef FRA_CGR
 /* This function is, so far, only used by CGR-specific code. */
 static struct worker *worker_first(void)
 {
@@ -851,11 +559,7 @@ static int parse_cpus(const char *str, int *start, int *end)
 	return 0;
 }
 
-/****************/
-/* ARGP support */
-/****************/
-
-struct ppac_arguments {
+struct fra_arguments {
 	const char *fm_cfg;
 	const char *fm_pcd;
 	const char *fra_cfg;
@@ -866,8 +570,8 @@ struct ppac_arguments {
 const char *argp_program_version = PACKAGE_VERSION;
 const char *argp_program_bug_address = "<usdpa-devel@gforge.freescale.net>";
 
-static const char argp_doc[] = "\nUSDPAA PPAC-based application";
-static const char _ppac_args[] = "[cpu-range]";
+static const char argp_doc[] = "\nUSDPAA fra-based application";
+static const char _fra_args[] = "[cpu-range]";
 
 static const struct argp_option argp_opts[] = {
 	{"fm-config", 'c', "FILE", 0, "FMC configuration XML file"},
@@ -878,10 +582,10 @@ static const struct argp_option argp_opts[] = {
 	{}
 };
 
-static error_t ppac_parse(int key, char *arg, struct argp_state *state)
+static error_t fra_parse(int key, char *arg, struct argp_state *state)
 {
 	int _errno;
-	struct ppac_arguments *args;
+	struct fra_arguments *args;
 
 	args = (typeof(args))state->input;
 	switch (key) {
@@ -911,10 +615,10 @@ static error_t ppac_parse(int key, char *arg, struct argp_state *state)
 	return 0;
 }
 
-static const struct argp ppac_argp = {argp_opts, ppac_parse, _ppac_args,
+static const struct argp fra_argp = {argp_opts, fra_parse, _fra_args,
 				      argp_doc, NULL};
 
-static struct ppac_arguments ppac_args;
+static struct fra_arguments fra_args;
 
 /***************/
 /* CLI support */
@@ -925,7 +629,7 @@ extern const struct cli_table_entry cli_table_start[], cli_table_end[];
 #define foreach_cli_table_entry(cli_cmd)				\
 	for (cli_cmd = cli_table_start; cli_cmd < cli_table_end; cli_cmd++)
 
-static int ppac_cli_help(int argc, char *argv[])
+static int fra_cli_help(int argc, char *argv[])
 {
 	const struct cli_table_entry *cli_cmd;
 
@@ -938,7 +642,7 @@ static int ppac_cli_help(int argc, char *argv[])
 	return argc != 1 ? -EINVAL : 0;
 }
 
-static int ppac_cli_add(int argc, char *argv[])
+static int fra_cli_add(int argc, char *argv[])
 {
 	struct worker *worker;
 	int first, last, loop;
@@ -956,22 +660,7 @@ static int ppac_cli_add(int argc, char *argv[])
 	return 0;
 }
 
-#ifdef PPAC_CGR
-static int ppac_cli_cgr(int argc, char *argv[])
-{
-	struct worker *worker;
-
-	if (argc != 1)
-		return -EINVAL;
-
-	worker = worker_first();
-	msg_query_cgr(worker);
-
-	return 0;
-}
-#endif
-
-static int ppac_cli_list(int argc, char *argv[])
+static int fra_cli_list(int argc, char *argv[])
 {
 	struct worker *worker;
 
@@ -982,26 +671,7 @@ static int ppac_cli_list(int argc, char *argv[])
 	return 0;
 }
 
-static int ppac_cli_macs(int argc, char *argv[])
-{
-	struct list_head *i;
-
-	if (argc != 2)
-		return -EINVAL;
-
-	if (strcmp(argv[1], "off") == 0)
-		list_for_each(i, &ifs)
-			ppac_interface_disable_rx((struct ppac_interface *)i);
-	else if (strcmp(argv[1], "on") == 0) {
-		list_for_each(i, &ifs)
-			ppac_interface_enable_rx((struct ppac_interface *)i);
-	} else
-		return -EINVAL;
-
-	return 0;
-}
-
-static int ppac_cli_rm(int argc, char *argv[])
+static int fra_cli_rm(int argc, char *argv[])
 {
 	struct worker *worker;
 	int first, last, loop;
@@ -1052,22 +722,48 @@ void test_speed_to_send(void)
 	test_speed_info();
 }
 
-cli_cmd(help, ppac_cli_help);
-cli_cmd(add, ppac_cli_add);
-#ifdef PPAC_CGR
-cli_cmd(cgr, ppac_cli_cgr);
-#endif
-cli_cmd(list, ppac_cli_list);
-cli_cmd(macs, ppac_cli_macs);
-cli_cmd(rm, ppac_cli_rm);
+#ifdef FRA_CGR
+static int msg_query_cgr(struct worker *worker)
+{
+	int ret = msg_post(worker, worker_msg_query_cgr);
+	if (ret)
+		return ret;
+	error(0, 0,
+	      "Rx CGR ID: %d, selected fields;", cgr_rx.cgrid);
+	dump_cgr(&worker->msg->query_cgr.res_rx);
+	error(0, 0,
+	      "Tx CGR ID: %d, selected fields;", cgr_tx.cgrid);
+	dump_cgr(&worker->msg->query_cgr.res_tx);
+	return 0;
+}
 
-const char ppam_prompt[] = "fra> ";
+static int fra_cli_cgr(int argc, char *argv[])
+{
+	struct worker *worker;
+
+	if (argc != 1)
+		return -EINVAL;
+
+	worker = worker_first();
+	msg_query_cgr(worker);
+
+	return 0;
+}
+
+cli_cmd(cgr, fra_cli_cgr);
+#endif
+cli_cmd(help, fra_cli_help);
+cli_cmd(add, fra_cli_add);
+cli_cmd(list, fra_cli_list);
+cli_cmd(rm, fra_cli_rm);
+
+const char fra_prompt[] = "fra> ";
 
 int main(int argc, char *argv[])
 {
 	struct worker *worker, *tmpworker;
-	const char *pcd_path = ppam_pcd_path;
-	const char *cfg_path = ppam_cfg_path;
+	const char *pcd_path = fman_pcd_path;
+	const char *cfg_path = fman_cfg_path;
 	const char *fra_cfg_path = default_fra_cfg_path;
 	const char *envp;
 	int loop;
@@ -1083,35 +779,35 @@ int main(int argc, char *argv[])
 
 	ncpus = (unsigned long)sysconf(_SC_NPROCESSORS_ONLN);
 	if (ncpus > 1) {
-		ppac_args.first = 1;
-		ppac_args.last = 1;
+		fra_args.first = 1;
+		fra_args.last = 1;
 	}
 
-	ppac_args.noninteractive = 0;
+	fra_args.noninteractive = 0;
 
-	rcode = argp_parse(&ppac_argp, argc, argv, 0, NULL, &ppac_args);
+	rcode = argp_parse(&fra_argp, argc, argv, 0, NULL, &fra_args);
 	if (unlikely(rcode != 0))
 		return -rcode;
 
 	/* Do global init that doesn't require portal access; */
 	/* - load the config (includes discovery and mapping of MAC devices) */
 	FRA_DBG("Loading configuration");
-	if (ppac_args.fm_pcd != NULL)
-		pcd_path = ppac_args.fm_pcd;
+	if (fra_args.fm_pcd != NULL)
+		pcd_path = fra_args.fm_pcd;
 	else {
 		envp = getenv("DEF_PCD_PATH");
 		if (envp != NULL)
 			pcd_path = envp;
 	}
-	if (ppac_args.fm_cfg != NULL)
-		cfg_path = ppac_args.fm_cfg;
+	if (fra_args.fm_cfg != NULL)
+		cfg_path = fra_args.fm_cfg;
 	else {
 		envp = getenv("DEF_CFG_PATH");
 		if (envp != NULL)
 			cfg_path = envp;
 	}
-	if (ppac_args.fra_cfg != NULL)
-		fra_cfg_path = ppac_args.fra_cfg;
+	if (fra_args.fra_cfg != NULL)
+		fra_cfg_path = fra_args.fra_cfg;
 	else {
 		envp = getenv("DEF_FRA_CFG_PATH");
 		if (envp != NULL)
@@ -1125,12 +821,12 @@ int main(int argc, char *argv[])
 	netcfg = usdpaa_netcfg_acquire(pcd_path, cfg_path);
 	if (!netcfg) {
 		error(0, 0,
-		      "error: failed to load configuration");
+		      "failed to load configuration");
 		return -EINVAL;
 	}
 	if (!netcfg->num_ethports) {
 		error(0, 0,
-		      "error: no network interfaces available");
+		      "no network interfaces available");
 		return -EINVAL;
 	}
 
@@ -1144,28 +840,30 @@ int main(int argc, char *argv[])
 	rcode = qman_global_init();
 	if (rcode)
 		error(0, 0,
-		      "error: qman global init, continuing");
+		      "qman global init, continuing");
 	rcode = bman_global_init();
 	if (rcode)
 		error(0, 0,
-		      "error: bman global init, continuing");
+		      "bman global init, continuing");
 	rcode = init_pool_channels();
 	if (rcode)
-		fprintf(stderr, "error: no pool channels available\n");
-	fprintf(stderr, "Configuring for %d network interface%s\n",
+		error(0, 0,
+			"no pool channels available\n");
+	printf("Configuring for %d network interface%s\n",
 		netcfg->num_ethports, netcfg->num_ethports > 1 ? "s" : "");
+
 	/* - map DMA mem */
 	FRA_DBG("Initialising DMA mem");
 	dma_mem_generic = dma_mem_create(DMA_MAP_FLAG_ALLOC, NULL,
-					 DMA_MEM_SIZE);
+						 FRA_DMA_MAP_SIZE);
 	if (!dma_mem_generic)
-		fprintf(stderr, "error: DMA init, continuing");
+		fprintf(stderr, "error: dma_mem init, continuing\n");
 
 	/* Create the threads */
 	FRA_DBG("Starting %d threads for cpu-range '%d..%d'",
-		ppac_args.last - ppac_args.first + 1,
-		ppac_args.first, ppac_args.last);
-	for (loop = ppac_args.first; loop <= ppac_args.last; loop++) {
+		fra_args.last - fra_args.first + 1,
+		fra_args.first, fra_args.last);
+	for (loop = fra_args.first; loop <= fra_args.last; loop++) {
 		worker = worker_new(loop, !primary);
 		if (!worker) {
 			rcode = -EINVAL;
@@ -1187,12 +885,12 @@ int main(int argc, char *argv[])
 
 		/* If non-interactive, have the CLI thread twiddle its thumbs
 		 * between (infrequent) checks for dead threads. */
-		if (ppac_args.noninteractive) {
+		if (fra_args.noninteractive) {
 			sleep(1);
 			continue;
 		}
 		/* Get CLI input */
-		cli = readline(ppam_prompt);
+		cli = readline(fra_prompt);
 		if (unlikely((cli == NULL) || strncmp(cli, "q", 1) == 0))
 			break;
 		if (cli[0] == 0) {
