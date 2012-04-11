@@ -96,6 +96,7 @@ enum IP_STATUS ip_route_finish(const struct ppam_rx_hash *ctxt,
 	switch (dest->scope) {
 	case ROUTE_SCOPE_GLOBAL:
 		if (likely(dest->dev)) {
+			notes->neighbor = notes->dest->neighbor;
 			return ip_forward(ctxt, notes, ip_hdr);
 		} else {
 #ifdef STATS_TBD

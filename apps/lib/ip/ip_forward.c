@@ -38,7 +38,7 @@ enum IP_STATUS ip_forward(const struct ppam_rx_hash *ctxt,
 {
 	struct ppac_interface *dev;
 
-	dev = notes->dest->dev;
+	dev = notes->neighbor->dev;
 	if (likely(ip_hdr->ttl > 1)) {
 		ip_hdr->ttl -= 1;
 		ip_hdr->check += 0x100;
