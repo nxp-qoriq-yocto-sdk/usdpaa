@@ -511,6 +511,7 @@ static void do_global_finish(void)
 		/* This loop uses "_safe()" because the list entries delete
 		 * themselves. */
 		ppac_interface_finish((struct ppac_interface *)i);
+	ppam_finish();
 	/* Tear down buffer pools */
 	for (loop = 0; loop < ARRAY_SIZE(pool); loop++) {
 		if (pool[loop]) {
@@ -518,7 +519,6 @@ static void do_global_finish(void)
 			pool[loop] = NULL;
 		}
 	}
-	ppam_finish();
 }
 
 static void do_global_init(void)
