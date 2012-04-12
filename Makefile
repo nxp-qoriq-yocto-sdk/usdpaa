@@ -86,6 +86,7 @@ INSTALL_BIN_FLAGS ?= --mode=755
 INSTALL_SBIN_FLAGS ?= --mode=700
 INSTALL_LIB_FLAGS ?= --mode=644
 INSTALL_OTHER_FLAGS ?= --mode=644
+MAKE_TOUCHFILE := .Makefile.touch
 
 #----=[ Control verbosity ]=----
 ifndef V
@@ -169,7 +170,7 @@ endef
 
 define process_obj
 $(eval CLEANOBJS += $($(1)_pref)$(3).o $($(1)_pref)$(3).d)
-$($(1)_pref)$(3).o:$($(1)_dir)/$(2) $(4)/Makefile.am
+$($(1)_pref)$(3).o:$($(1)_dir)/$(2) $(4)/$(MAKE_TOUCHFILE)
 	$$(Q)mkdir -p $$(dir $$@)
 	$$(Q)echo " [CC] $$(shell printf '%- 16s (%s:%s)' $(2) $($(1)_type) $(1))"
 	$$(Q)touch  $$(patsubst %.o,%.d,$$@)
@@ -211,8 +212,9 @@ define process_dir
   $(foreach x,$(dist_DATA),$(eval $(call pre_process_target,$(x),$(1),\
 	$(AM_CFLAGS),$(x),$(INSTALL_OTHER),,$(INSTALL_OTHER_FLAGS))))
   $(eval ALLDIRS += $(1))
-  $(foreach s,$(SUBDIRS),$(eval $(call process_dir,$(1)/$(s),$(1)/Makefile.am)))
-$(1)/Makefile.am:$(2)
+  $(foreach s,$(SUBDIRS),$(eval $(call process_dir,$(1)/$(s),$(1)/$(MAKE_TOUCHFILE))))
+  $(eval CLEANOBJS += $(1)/$(MAKE_TOUCHFILE))
+$(1)/$(MAKE_TOUCHFILE):$(2) $(1)/Makefile.am
 	$$(Q)touch $$@
 endef
 
