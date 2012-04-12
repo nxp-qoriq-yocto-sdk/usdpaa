@@ -679,7 +679,7 @@ static void init_bpid(int bpid, uint64_t count, uint64_t sz)
 {
 	struct bm_buffer bufs[8];
 	unsigned int num_bufs = 0;
-	int ret;
+	int ret = 0;
 
 	if (pool[bpid])
 		/* Already initialised */
