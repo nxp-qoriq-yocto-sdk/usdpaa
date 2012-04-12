@@ -378,7 +378,7 @@ static int init_bpid(u8 bpid, unsigned int count, uint64_t sz)
 	};
 	struct bm_buffer bufs[8];
 	unsigned int num_bufs = 0;
-	int ret;
+	int ret = 0;
 
 	BUG_ON(bpid >= PPAC_MAX_BPID);
 	if (pool[bpid])
