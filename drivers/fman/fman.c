@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -88,28 +88,37 @@ cleanup:
 		goto err; \
 	}
 
-static int fman_if_init(const struct device_node *dpa_node, int is_offline)
+static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 {
-	const char *rprop = is_offline ? "fsl,qman-frame-queues-oh" :
-					 "fsl,qman-frame-queues-rx";
-	const char *mprop = is_offline ? "fsl,fman-oh-port" :
-					 "fsl,fman-mac";
+	const char *rprop, *mprop;
 	uint64_t phys_addr;
 	struct __fman_if *__if;
 	struct fman_if_bpool *bpool;
 	const phandle *mac_phandle, *ports_phandle, *pools_phandle;
 	const phandle *tx_channel_id, *mac_addr, *cell_idx;
 	const phandle *rx_phandle, *tx_phandle;
-	const struct device_node *mac_node, *tx_node, *pool_node, *fman_node;
+	const struct device_node *mac_node = NULL, *tx_node, *pool_node,
+			*fman_node;
 	const uint32_t *regs_addr;
 	const char *mname, *fname;
 	const char *dname = dpa_node->full_name;
+	int is_offline = 0, is_shared = 0;
 	size_t lenp;
 	int _errno;
 
 	if (of_device_is_available(dpa_node) == false)
 		return 0;
+	if (of_device_is_compatible(dpa_node, "fsl,dpa-oh"))
+		is_offline = 1;
+	else if (of_device_is_compatible(dpa_node, "fsl,dpa-ethernet")) {
+		if (!is_macless)
+			is_shared = 1;
+	}
 
+	rprop = is_offline ? "fsl,qman-frame-queues-oh" :
+					 "fsl,qman-frame-queues-rx";
+	mprop = is_offline ? "fsl,fman-oh-port" :
+					 "fsl,fman-mac";
 	/* Allocate an object for this network interface */
 	__if = malloc(sizeof(*__if));
 	my_err(!__if, -ENOMEM, "malloc(%zu)\n", sizeof(*__if));
@@ -117,16 +126,19 @@ static int fman_if_init(const struct device_node *dpa_node, int is_offline)
 	strncpy(__if->node_path, dpa_node->full_name, PATH_MAX - 1);
 	__if->node_path[PATH_MAX - 1] = '\0';
 
-	/* Obtain the MAC node used by this interface */
-	mac_phandle = of_get_property(dpa_node, mprop, &lenp);
-	my_err(!mac_phandle, -EINVAL, "%s: no %s\n", dname, mprop);
-	assert(lenp == sizeof(phandle));
-	mac_node = of_find_node_by_phandle(*mac_phandle);
-	my_err(!mac_node, -ENXIO, "%s: bad 'fsl,fman-mac\n", dname);
-	mname = mac_node->full_name;
+	/* Obtain the MAC node used by this interface except macless */
+	if (!is_macless) {
+		mac_phandle = of_get_property(dpa_node, mprop, &lenp);
+		my_err(!mac_phandle, -EINVAL, "%s: no %s\n", dname, mprop);
+		assert(lenp == sizeof(phandle));
+		mac_node = of_find_node_by_phandle(*mac_phandle);
+		my_err(!mac_node, -ENXIO, "%s: bad 'fsl,fman-mac\n", dname);
+		mname = mac_node->full_name;
+	} else
+		mname = "mac-less-node";
 
 	/* Map the CCSR regs for the MAC node */
-	if (!is_offline) {
+	if (!(is_macless | is_offline)) {
 		regs_addr = of_get_address(mac_node, 0, &__if->regs_size, NULL);
 		my_err(!regs_addr, -EINVAL, "of_get_address(%s)\n", mname);
 		phys_addr = of_translate_address(mac_node, regs_addr);
@@ -140,17 +152,22 @@ static int fman_if_init(const struct device_node *dpa_node, int is_offline)
 	}
 
 	/* Get the index of the Fman this i/f belongs to */
-	fman_node = of_get_parent(mac_node);
-	my_err(!fman_node, -ENXIO, "of_get_parent(%s)\n", mname);
-	fname = fman_node->full_name;
-	cell_idx = of_get_property(fman_node, "cell-index", &lenp);
-	my_err(!cell_idx, -ENXIO, "%s: no cell-index)\n", fname);
-	assert(lenp == sizeof(*cell_idx));
-	__if->__if.fman_idx = *cell_idx;
+	if (!is_macless) {
+		fman_node = of_get_parent(mac_node);
+		my_err(!fman_node, -ENXIO, "of_get_parent(%s)\n", mname);
+		fname = fman_node->full_name;
+		cell_idx = of_get_property(fman_node, "cell-index", &lenp);
+		my_err(!cell_idx, -ENXIO, "%s: no cell-index)\n", fname);
+		assert(lenp == sizeof(*cell_idx));
+		__if->__if.fman_idx = *cell_idx;
+	} else
+		fname = "mac-less-node";
 
-	/* Is the MAC node 1G or 10G? */
+	/* Is the MAC node 1G, 10G, offline or MAC-less? */
 	if (is_offline)
 		__if->__if.mac_type = fman_offline;
+	else if (is_macless)
+		__if->__if.mac_type = fman_mac_less;
 	else if (of_device_is_compatible(mac_node, "fsl,fman-1g-mac"))
 		__if->__if.mac_type = fman_mac_1g;
 	else if (of_device_is_compatible(mac_node, "fsl,fman-10g-mac"))
@@ -158,14 +175,32 @@ static int fman_if_init(const struct device_node *dpa_node, int is_offline)
 	else
 		my_err(1, -EINVAL, "%s: unknown MAC type\n", mname);
 
-	/* Extract the index of the MAC */
-	cell_idx = of_get_property(mac_node, "cell-index", &lenp);
-	my_err(!cell_idx, -ENXIO, "%s: no cell-index\n", mname);
-	assert(lenp == sizeof(*cell_idx));
-	__if->__if.mac_idx = *cell_idx;
+	if (is_shared)
+		__if->__if.shared_mac_info.is_shared_mac = 1;
 
-	if (!is_offline) {
-		/* Extract the MAC address */
+	/* Extract the index of the MAC */
+	if (!is_macless) {
+		cell_idx = of_get_property(mac_node, "cell-index", &lenp);
+		my_err(!cell_idx, -ENXIO, "%s: no cell-index\n", mname);
+		assert(lenp == sizeof(*cell_idx));
+		__if->__if.mac_idx = *cell_idx;
+	}
+
+	if (is_macless) {
+		/* Extract the MAC address for MAC-less */
+		mac_addr = of_get_property(dpa_node, "local-mac-address",
+					&lenp);
+		my_err(!mac_addr, -EINVAL, "%s: no local-mac-address\n",
+			mname);
+		memcpy(&__if->__if.macless_info.peer_mac, mac_addr, ETH_ALEN);
+	} else if (is_offline) {
+		/* Extract the channel ID (from mac) */
+		tx_channel_id = of_get_property(mac_node, "fsl,qman-channel-id",
+						&lenp);
+		my_err(!tx_channel_id, -EINVAL, "%s: no fsl-qman-channel-id\n",
+			mac_node->full_name);
+	} else {
+		/* Extract the MAC address for private and shared interfaces */
 		mac_addr = of_get_property(mac_node, "local-mac-address",
 					&lenp);
 		my_err(!mac_addr, -EINVAL, "%s: no local-mac-address\n",
@@ -186,24 +221,28 @@ static int fman_if_init(const struct device_node *dpa_node, int is_offline)
 						&lenp);
 		my_err(!tx_channel_id, -EINVAL, "%s: no fsl-qman-channel-id\n",
 			tx_node->full_name);
-	} else {
-		/* Extract the channel ID (from mac) */
-		tx_channel_id = of_get_property(mac_node, "fsl,qman-channel-id",
-						&lenp);
-		my_err(!tx_channel_id, -EINVAL, "%s: no fsl-qman-channel-id\n",
-			mac_node->full_name);
 	}
-	assert(lenp == sizeof(*tx_channel_id));
-	__if->__if.tx_channel_id = *tx_channel_id;
+	/* No channel ID for MAC-less */
+	if (!is_macless) {
+		assert(lenp == sizeof(*tx_channel_id));
+		__if->__if.tx_channel_id = *tx_channel_id;
+	}
 
 	/* Extract the Rx FQIDs. (Note, the device representation is silly,
 	 * there are "counts" that must always be 1.) */
 	rx_phandle = of_get_property(dpa_node, rprop, &lenp);
 	my_err(!rx_phandle, -EINVAL, "%s: no fsl,qman-frame-queues-rx\n",
 		dname);
-	assert(lenp == (4 * sizeof(phandle)));
-	assert((rx_phandle[1] == 1) && (rx_phandle[3] == 1));
-	__if->__if.fqid_rx_err = rx_phandle[0];
+	if (is_macless) {
+		/* For MAC-less, there are only 8 default RX Frame queues */
+		assert(lenp == (2 * sizeof(phandle)));
+		__if->__if.macless_info.rx_start = rx_phandle[0];
+		__if->__if.macless_info.rx_count = rx_phandle[1];
+	} else {
+		assert(lenp == (4 * sizeof(phandle)));
+		assert((rx_phandle[1] == 1) && (rx_phandle[3] == 1));
+		__if->__if.fqid_rx_err = rx_phandle[0];
+	}
 
 	/* No special Tx FQs for offline interfaces, nor hard-coded pools */
 	if (is_offline)
@@ -214,10 +253,24 @@ static int fman_if_init(const struct device_node *dpa_node, int is_offline)
 			"fsl,qman-frame-queues-tx", &lenp);
 	my_err(!tx_phandle, -EINVAL, "%s: no fsl,qman-frame-queues-tx\n",
 		dname);
-	assert(lenp == (4 * sizeof(phandle)));
-	assert((tx_phandle[1] == 1) && (tx_phandle[3] == 1));
-	__if->__if.fqid_tx_err = tx_phandle[0];
-	__if->__if.fqid_tx_confirm = tx_phandle[2];
+	if (is_macless) {
+		/* For MAC-less, there are only 8 default TX Frame queues */
+		assert(lenp == (2 * sizeof(phandle)));
+		assert((tx_phandle[1] == 8));
+		__if->__if.macless_info.tx_start = tx_phandle[0];
+		__if->__if.macless_info.tx_count = tx_phandle[1];
+	} else if (is_shared) {
+		assert(lenp == (6 * sizeof(phandle)));
+		assert((tx_phandle[1] == 1) && (tx_phandle[3] == 1));
+		__if->__if.fqid_tx_err = tx_phandle[0];
+		__if->__if.fqid_tx_confirm = tx_phandle[2];
+
+	} else {
+		assert(lenp == (4 * sizeof(phandle)));
+		assert((tx_phandle[1] == 1) && (tx_phandle[3] == 1));
+		__if->__if.fqid_tx_err = tx_phandle[0];
+		__if->__if.fqid_tx_confirm = tx_phandle[2];
+	}
 
 	/* Obtain the buffer pool nodes used by this interface */
 	pools_phandle = of_get_property(dpa_node, "fsl,bman-buffer-pools",
@@ -275,9 +328,13 @@ static int fman_if_init(const struct device_node *dpa_node, int is_offline)
 
 ok:
 	/* Parsing of the network interface is complete, add it to the list. */
-	printf("Found %s, Tx Channel = %x, FMAN = %x, Port ID = %x\n",
-		dname, __if->__if.tx_channel_id, __if->__if.fman_idx,
-		__if->__if.mac_idx);
+	if (is_macless)
+		printf("Found %s, MAC-LESS node\n", dname);
+	else {
+		printf("Found %s, Tx Channel = %x, FMAN = %x, Port ID = %x\n",
+			dname, __if->__if.tx_channel_id, __if->__if.fman_idx,
+			__if->__if.mac_idx);
+	}
 	list_add_tail(&__if->__if.node, &__ifs);
 	return 0;
 err:
@@ -289,6 +346,9 @@ int fman_init(void)
 {
 	const struct device_node *dpa_node;
 	int _errno;
+	size_t lenp;
+	const phandle *phandle_prop, *mac_phandle;
+	const char *mprop = "fsl,fman-mac";
 
 	/* If multiple dependencies try to initialise the Fman driver, don't
 	 * panic. */
@@ -305,12 +365,34 @@ int fman_init(void)
 	 * initialisation of regular ports can "choose" an offline port to
 	 * association with. */
 	for_each_compatible_node(dpa_node, NULL, "fsl,dpa-oh") {
-		_errno = fman_if_init(dpa_node, 1);
+		_errno = fman_if_init(dpa_node, 0);
 		my_err(_errno, _errno, "if_init(%s)\n", dpa_node->full_name);
 	}
 	for_each_compatible_node(dpa_node, NULL, "fsl,dpa-ethernet-init") {
 		_errno = fman_if_init(dpa_node, 0);
 		my_err(_errno, _errno, "if_init(%s)\n", dpa_node->full_name);
+	}
+	for_each_compatible_node(dpa_node, NULL, "fsl,dpa-ethernet") {
+		/* check if buffer-pool property is present. If yes, these are
+		   shared ports */
+		phandle_prop = of_get_property(dpa_node,
+					"fsl,bman-buffer-pools", &lenp);
+		if (phandle_prop) {
+			/* check if "fsl,fman-mac" property is there. If yes,
+			 * it is a shared MAC interface */
+			mac_phandle = of_get_property(dpa_node, mprop,
+					&lenp);
+			if (mac_phandle) {
+				_errno = fman_if_init(dpa_node, 0);
+				my_err(_errno, _errno, "if_init(%s)\n",
+						dpa_node->full_name);
+			} else {
+				/* it is a MAC-less interface */
+				_errno = fman_if_init(dpa_node, 1);
+				my_err(_errno, _errno, "if_init(%s)\n",
+						 dpa_node->full_name);
+			}
+		}
 	}
 	return 0;
 err:
@@ -327,8 +409,9 @@ void fman_finish(void)
 	list_for_each_entry_safe(__if, tmpif, &__ifs, __if.node) {
 		int _errno;
 
-		/* No need to enable Offline port */
-		if (__if->__if.mac_type == fman_offline)
+		/* No need to disable Offline port or MAC less */
+		if ((__if->__if.mac_type == fman_offline) ||
+			(__if->__if.mac_type == fman_mac_less))
 			continue;
 
 		/* disable Rx and Tx */

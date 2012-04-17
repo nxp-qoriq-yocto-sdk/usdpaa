@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,7 +40,25 @@
 enum fman_mac_type {
 	fman_offline = 0,
 	fman_mac_1g,
-	fman_mac_10g
+	fman_mac_10g,
+	fman_mac_less
+};
+
+/* information for macless comes from device tree */
+struct macless_port_cfg {
+	char *macless_name;
+	uint32_t rx_start;
+	uint32_t rx_count;
+	uint32_t tx_start;
+	uint32_t tx_count;
+	struct ether_addr src_mac;
+	struct ether_addr peer_mac;
+};
+
+struct shared_mac_cfg {
+	/* is this interface a shared interface or not */
+	int is_shared_mac;
+	char *shared_mac_name;
 };
 
 /* This struct exports parameters about an Fman network interface, determined
@@ -62,6 +80,10 @@ struct fman_if {
 	uint32_t fqid_rx_err;
 	uint32_t fqid_tx_err;
 	uint32_t fqid_tx_confirm;
+	/* The MAC-less port info */
+	struct macless_port_cfg macless_info;
+	/* The shared MAC info */
+	struct shared_mac_cfg shared_mac_info;
 	/* The base node for a per-"if" list of "struct fman_if_bpool" items */
 	struct list_head bpool_list;
 	/* The node for linking this interface into "fman_if_list" */
