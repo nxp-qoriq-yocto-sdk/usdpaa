@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,6 +31,7 @@
  */
 
 #include "fmc_netcfg_parser.h"
+#include <error.h>
 
 #define CFG_FILE_ROOT_NODE		("cfgdata")
 #define CFG_NETCONFIG_NODE		("config")
@@ -52,6 +53,13 @@
 #define NPCD_DIST_FQ_NODE		("queue")
 #define NPCD_DIST_FQ_NA_count		("count")
 #define NPCD_DIST_FQ_NA_base		("base")
+#define NPCD_CLASS_NODE_action		("action")
+#define NPCD_CLASS_NA_type		("type")
+#define NPCD_CLASS_NA_node		("classification")
+#define NPCD_CLASS_NA_name		("name")
+#define NPCD_CLASS_NA_entry		("entry")
+#define NPCD_CLASS_NA_data		("data")
+#define NPCD_CLASS_NA_dist		("usdpaa_dist")
 
 #define for_all_sibling_nodes(node)	\
 	for (; unlikely(node != NULL); node = node->next)
@@ -127,6 +135,75 @@ static char *distribution_ref(xmlNodePtr nd)
 	return (char *)get_attributes(nd, BAD_CAST NPCD_POLICY_DISTREF_NA_name);
 }
 
+static xmlNodePtr find_distribution(char *class_name)
+{
+	uint8_t len;
+	char *name;
+	xmlNodePtr distp;
+	xmlNodePtr cur;
+
+	distp = netpcd_root_node->xmlChildrenNode;
+	for_all_sibling_nodes(distp) {
+		if (unlikely(!is_node(distp, BAD_CAST NPCD_DIST_NODE)))
+			continue;
+		len = strlen(class_name);
+		name = (char *)get_attributes(distp,
+					BAD_CAST NPCD_DIST_NA_name);
+		if (unlikely(!name) || unlikely(strncmp(name, class_name, len)))
+			continue;
+		cur = distp->xmlChildrenNode;
+		for_all_sibling_nodes(cur) {
+			if (unlikely(!is_node(cur,
+					BAD_CAST NPCD_DIST_FQ_NODE)))
+				continue;
+			return cur;
+		}
+	}
+	return NULL;
+}
+
+static char *parse_classification(char *class_name)
+{
+	uint8_t len;
+	char *name;
+	xmlNodePtr distp;
+	xmlNodePtr cur;
+	xmlNodePtr next;
+
+	cur = netpcd_root_node->xmlChildrenNode;
+	for_all_sibling_nodes(cur) {
+		if (unlikely(!is_node(cur, BAD_CAST NPCD_CLASS_NA_node)))
+			continue;
+
+		len = strnlen(class_name, 100);
+		name = (char *)get_attributes(cur, BAD_CAST NPCD_CLASS_NA_name);
+		if (unlikely(!name) || unlikely(strncmp(name, class_name, len)))
+			continue;
+
+		distp = cur->xmlChildrenNode;
+		for_all_sibling_nodes(distp) {
+			if (unlikely(!is_node(distp,
+						BAD_CAST NPCD_CLASS_NA_entry)))
+				continue;
+			next = distp->xmlChildrenNode;
+			for_all_sibling_nodes(next) {
+				if (unlikely(!is_node(next,
+					    BAD_CAST NPCD_CLASS_NODE_action)))
+					continue;
+
+				name = (char *)get_attributes(next,
+						BAD_CAST NPCD_CLASS_NA_name);
+				len = strnlen(NPCD_CLASS_NA_dist, 100);
+				if (unlikely(!name) || unlikely(strncmp(name,
+						NPCD_CLASS_NA_dist, len)))
+					continue;
+				return name;
+			}
+		}
+	}
+	return NULL;
+}
+
 static int pcdinfo(char *dist_name, struct fm_eth_port_fqrange *fqr)
 {
 	uint8_t len;
@@ -135,6 +212,8 @@ static int pcdinfo(char *dist_name, struct fm_eth_port_fqrange *fqr)
 	char *ptr;
 	xmlNodePtr distp;
 	xmlNodePtr cur;
+	xmlNodePtr cur2;
+	char *class_name;
 
 	cur = netpcd_root_node->xmlChildrenNode;
 	for_all_sibling_nodes(cur) {
@@ -177,8 +256,62 @@ static int pcdinfo(char *dist_name, struct fm_eth_port_fqrange *fqr)
 			}
 
 			fqr->start = strtoul(ptr, NULL, 0);
-			_errno = 0;
-			break;
+			/* Get FQ information from coarse classification for
+			   this node */
+			if ((fqr->start == 1) && (fqr->count == 1)) {
+				for_all_sibling_nodes(distp) {
+					if (unlikely(!is_node(distp,
+					   BAD_CAST NPCD_CLASS_NODE_action)))
+						continue;
+					name = (char *)get_attributes(distp,
+						BAD_CAST NPCD_CLASS_NA_name);
+					class_name = parse_classification(name);
+					if (unlikely(class_name == NULL)) {
+						error(0, EINVAL,
+						"%s(): parse classification",
+						 __func__);
+						return -EINVAL;
+					}
+
+					cur2 = find_distribution(class_name);
+					if (unlikely(cur2 == NULL)) {
+						error(0, EINVAL,
+						"%s(): find distribution",
+						 __func__);
+						return -EINVAL;
+					}
+					/* Extract the number of FQs */
+					ptr = get_attributes(cur2,
+						BAD_CAST NPCD_DIST_FQ_NA_count);
+					if (unlikely(ptr == NULL)) {
+						error(0, EINVAL,
+						"%s(): get attributes FQ count",
+						 __func__);
+						return -EINVAL;
+					}
+
+					fqr->count = strtoul(ptr, NULL, 0);
+
+					/* Extract the starting number of FQs */
+					ptr = get_attributes(cur2,
+						BAD_CAST NPCD_DIST_FQ_NA_base);
+					if (unlikely(ptr == NULL)) {
+						error(0, EINVAL,
+						"%s(): get attributes FQ start",
+						 __func__);
+						return -EINVAL;
+					}
+
+					fqr->start = strtoul(ptr, NULL, 0);
+
+					_errno = 0;
+					break;
+				}
+				break;
+			} else {
+				_errno = 0;
+				break;
+			}
 		}
 		break;
 	}
