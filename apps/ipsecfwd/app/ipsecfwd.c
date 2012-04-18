@@ -757,6 +757,7 @@ static inline void ppam_rx_error_cb(struct ppam_rx_error *p,
 }
 static int ppam_rx_default_init(struct ppam_rx_default *p,
 				struct ppam_interface *_if,
+				unsigned idx,
 				struct qm_fqd_stashing *stash_opts)
 {
 	p->stats = ipsec_stack.ip_stack.ip_stats;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010,2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010,2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,6 +35,8 @@
 
 #include <ppac.h>
 #include <ppac_interface.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
 
 /* This struct holds the default stashing opts for Rx FQ configuration. PPAM
  * hooks can override (copies of) it before the configuration occurs. */
@@ -44,6 +46,9 @@ static const struct qm_fqd_stashing default_stash_opts = {
 	.context_cl = PPAC_STASH_CONTEXT_CL
 };
 
+/* fd to open a socket for making ioctl request to disable/enable shared
+ *  interfaces */
+static int skfd = -1;
 /* Give ppac/main.c access to the interface's configuration (because it doesn't
  * have acccess to the ppac_interface type due to its dependence on ppam). */
 const struct fm_eth_port_cfg *ppac_interface_pcfg(struct ppac_interface *i)
@@ -188,8 +193,16 @@ int ppac_interface_init(unsigned idx)
 	struct qm_fqd_stashing stash_opts;
 	const struct fm_eth_port_cfg *port = &netcfg->port_cfg[idx];
 	const struct fman_if *fif = port->fman_if;
-	size_t size = sizeof(struct ppac_interface);
+	size_t size;
 
+	if (fif->mac_type == fman_mac_less) {
+		size = sizeof(struct ppac_interface) +
+			(fif->macless_info.tx_count *
+			sizeof(struct ppac_rx_default));
+	} else {
+		size = sizeof(struct ppac_interface) +
+			sizeof(struct ppac_rx_default);
+	}
 	/* allocate stashable memory for the interface object */
 	i = __dma_mem_memalign(L1_CACHE_BYTES, size);
 	if (!i)
@@ -199,14 +212,18 @@ int ppac_interface_init(unsigned idx)
 	i->size = size;
 	i->port_cfg = port;
 	/* allocate and initialise Tx FQs for this interface */
-	i->num_tx_fqs = (fif->mac_type == fman_mac_10g) ?
+	i->num_tx_fqs = (fif->mac_type == fman_mac_less) ?
+			fif->macless_info.rx_count :
+			(fif->mac_type == fman_mac_10g) ?
 			PPAC_TX_FQS_10G :
 			(fif->mac_type == fman_offline) ?
 			PPAC_TX_FQS_OFFLINE : PPAC_TX_FQS_1G;
-	i->tx_fqs = malloc(sizeof(*i->tx_fqs) * i->num_tx_fqs);
-	if (!i->tx_fqs) {
-		__dma_mem_free(i);
-		return -ENOMEM;
+	if (fif->mac_type != fman_mac_less) {
+		i->tx_fqs = malloc(sizeof(*i->tx_fqs) * i->num_tx_fqs);
+		if (!i->tx_fqs) {
+			__dma_mem_free(i);
+			return -ENOMEM;
+		}
 	}
 	err = ppam_interface_init(&i->ppam_data, port, i->num_tx_fqs);
 	if (err) {
@@ -214,6 +231,17 @@ int ppac_interface_init(unsigned idx)
 		__dma_mem_free(i);
 		return err;
 	}
+
+	if (fif->mac_type == fman_mac_less) {
+		uint32_t fqid = fif->macless_info.rx_start;
+		for (loop = 0; loop < i->num_tx_fqs; loop++) {
+			TRACE("TX FQID %d, count %d\n", fqid, i->num_tx_fqs);
+			ppam_interface_tx_fqid(&i->ppam_data, loop, fqid++);
+		}
+		list_add_tail(&i->node, &ifs);
+		return 0;
+	}
+
 	memset(i->tx_fqs, 0, sizeof(*i->tx_fqs) * i->num_tx_fqs);
 	for (loop = 0; loop < i->num_tx_fqs; loop++) {
 		struct qman_fq *fq = &i->tx_fqs[loop];
@@ -221,10 +249,15 @@ int ppac_interface_init(unsigned idx)
 		TRACE("I/F %d, using Tx FQID %d\n", idx, fq->fqid);
 		ppam_interface_tx_fqid(&i->ppam_data, loop, fq->fqid);
 	}
+	/* Offline ports don't have Tx Error or Tx Confirm FQs */
+	if (fif->mac_type == fman_offline) {
+		list_add_tail(&i->node, &ifs);
+		return 0;
+	}
 	/* Note: we should handle errors and unwind */
 	stash_opts = default_stash_opts;
-	/* Offline ports don't have Tx Error or Tx Confirm FQs */
-	if (fif->mac_type != fman_offline) {
+	/* For shared MAC, Tx Error and Tx Confirm FQs are created by linux */
+	if (fif->shared_mac_info.is_shared_mac != 1) {
 		stash_opts = default_stash_opts;
 		err = ppam_tx_error_init(&i->tx_error.s, &i->ppam_data, &stash_opts);
 		BUG_ON(err);
@@ -242,6 +275,7 @@ int ppac_interface_init(unsigned idx)
 
 	return 0;
 }
+
 int ppac_interface_init_rx(struct ppac_interface *i)
 {
 	__maybe_unused int err;
@@ -252,17 +286,63 @@ int ppac_interface_init_rx(struct ppac_interface *i)
 
 	/* Note: we should handle errors and unwind */
 	stash_opts = default_stash_opts;
-	err = ppam_rx_error_init(&i->rx_error.s, &i->ppam_data, &stash_opts);
-	BUG_ON(err);
-	ppac_fq_nonpcd_init(&i->rx_error.fq, fif->fqid_rx_err, get_rxc(),
-			    &stash_opts, cb_dqrr_rx_error);
-	stash_opts = default_stash_opts;
-	err = ppam_rx_default_init(&i->rx_default.s, &i->ppam_data,
-				   &stash_opts);
-	BUG_ON(err);
-	ppac_fq_nonpcd_init(&i->rx_default.fq, i->port_cfg->rx_def, get_rxc(),
-			    &stash_opts, cb_dqrr_rx_default);
-
+	if (fif->mac_type == fman_mac_less) {
+		uint32_t fqid = fif->macless_info.tx_start;
+		for (loop = 0; loop < fif->macless_info.tx_count; loop++) {
+			err = ppam_rx_default_init(&i->rx_default[loop].s,
+				&i->ppam_data, loop, &stash_opts);
+			if (err) {
+				error(0, err, "%s", __func__);
+				return err;
+			}
+			ppac_fq_nonpcd_init(&i->rx_default[loop].fq,
+				fqid++, get_rxc(), &stash_opts,
+				cb_dqrr_rx_default);
+		}
+		ppac_interface_enable_shared_rx(i);
+		return 0;
+	}
+	if (fif->shared_mac_info.is_shared_mac == 1) {
+		struct qm_mcr_queryfq_np np;
+		struct qman_fq fq;
+		fq.fqid = i->port_cfg->rx_def;
+		err = qman_query_fq_np(&fq, &np);
+		if (err) {
+			error(0, err, "%s(): shared MAC query FQ", __func__);
+			return err;
+		}
+		/* For shared MAC, initialize default FQ only if state is OOS */
+		if (np.state == qman_fq_state_oos) {
+			err = ppam_rx_default_init(&i->rx_default[0].s,
+				&i->ppam_data, 0, &stash_opts);
+			if (err) {
+				error(0, err, "%s", __func__);
+				return err;
+			}
+			ppac_fq_nonpcd_init(&i->rx_default[0].fq,
+				i->port_cfg->rx_def, get_rxc(), &stash_opts,
+				cb_dqrr_rx_default);
+		}
+	} else {
+		err = ppam_rx_error_init(&i->rx_error.s, &i->ppam_data,
+						&stash_opts);
+		if (err) {
+			error(0, err, "%s", __func__);
+			return err;
+		}
+		ppac_fq_nonpcd_init(&i->rx_error.fq, fif->fqid_rx_err,
+				    get_rxc(), &stash_opts, cb_dqrr_rx_error);
+		stash_opts = default_stash_opts;
+		err = ppam_rx_default_init(&i->rx_default[0].s, &i->ppam_data,
+					   0, &stash_opts);
+		if (err) {
+			error(0, err, "%s", __func__);
+			return err;
+		}
+		ppac_fq_nonpcd_init(&i->rx_default[0].fq, i->port_cfg->rx_def,
+					get_rxc(), &stash_opts,
+					cb_dqrr_rx_default);
+	}
 	list_for_each_entry(fqr, i->port_cfg->list, list) {
 		uint32_t fqid = fqr->start;
 		struct ppac_pcd_range *pcd_range;
@@ -298,10 +378,11 @@ int ppac_interface_init_rx(struct ppac_interface *i)
 	}
 
 	ppac_interface_enable_rx(i);
+	if (fif->shared_mac_info.is_shared_mac == 1)
+		ppac_interface_enable_shared_rx(i);
 
 	return 0;
 }
-
 void ppac_interface_enable_rx(const struct ppac_interface *i)
 {
 	fman_if_enable_rx(i->port_cfg->fman_if);
@@ -318,12 +399,86 @@ void ppac_interface_disable_rx(const struct ppac_interface *i)
 	      i->port_cfg->fman_if->mac_idx);
 }
 
+void ppac_interface_enable_shared_rx(const struct ppac_interface *i)
+{
+	struct ifreq ifreq;
+	int flags;
+	const struct fman_if *fif = i->port_cfg->fman_if;
+
+	/* Open a basic socket */
+	skfd = socket(AF_PACKET, SOCK_RAW, 0);
+	if (skfd < 0) {
+		error(0, skfd, "%s", __func__);
+		return;
+	}
+
+	if (fif->mac_type == fman_mac_less) {
+		strncpy(ifreq.ifr_name, fif->macless_info.macless_name,
+				sizeof(ifreq.ifr_name));
+	} else
+		strncpy(ifreq.ifr_name, fif->shared_mac_info.shared_mac_name,
+				sizeof(ifreq.ifr_name));
+	if (ioctl(skfd, SIOCGIFFLAGS, &ifreq) == -1) {
+		error(0, -1, "%s(): SIOCGIFFLAGS", __func__);
+		return;
+	}
+
+	flags = ifreq.ifr_flags;
+	flags |= IFF_UP;
+	ifreq.ifr_flags = flags;
+	if (ioctl(skfd, SIOCSIFFLAGS, &ifreq) == -1) {
+		error(0, -1, "%s(): SIOCSIFFLAGS", __func__);
+		return;
+	}
+}
+
+void ppac_interface_disable_shared_rx(const struct ppac_interface *i)
+{
+	struct ifreq ifreq;
+	int flags;
+	const struct fman_if *fif = i->port_cfg->fman_if;
+
+	if (skfd < 0) {
+		/* Open a basic socket */
+		skfd = socket(AF_PACKET, SOCK_RAW, 0);
+		if (skfd < 0) {
+			error(0, skfd, "%s", __func__);
+			return;
+		}
+	}
+
+	if (fif->mac_type == fman_mac_less) {
+		strncpy(ifreq.ifr_name, fif->macless_info.macless_name,
+				sizeof(ifreq.ifr_name));
+	} else
+		strncpy(ifreq.ifr_name, fif->shared_mac_info.shared_mac_name,
+				sizeof(ifreq.ifr_name));
+	if (ioctl(skfd, SIOCGIFFLAGS, &ifreq) == -1) {
+		error(0, -1, "%s(): SIOCGIFFLAGS", __func__);
+		return;
+	}
+
+	flags = ifreq.ifr_flags;
+	flags |= ~IFF_UP;
+	ifreq.ifr_flags = flags;
+	if (ioctl(skfd, SIOCSIFFLAGS, &ifreq) == -1) {
+		error(0, -1, "%s(): SIOCSIFFLAGS", __func__);
+		return;
+	}
+}
+
 void ppac_interface_finish(struct ppac_interface *i)
 {
 	int loop;
 
 	/* Cleanup in the opposite order of ppac_interface_init() */
 	list_del(&i->node);
+
+	if (ppac_interface_type(i) == fman_mac_less) {
+		ppam_interface_finish(&i->ppam_data);
+		__dma_mem_free(i);
+		return;
+	}
 
 	/* Offline ports don't have Tx Error or Confirm FQs */
 	if (ppac_interface_type(i) != fman_offline) {
@@ -347,11 +502,23 @@ void ppac_interface_finish_rx(struct ppac_interface *i)
 {
 	int loop;
 	struct ppac_pcd_range *pcd_range;
+	const struct fman_if *fif = i->port_cfg->fman_if;
 
+	if (fif->mac_type == fman_mac_less) {
+		ppac_interface_disable_shared_rx(i);
+		for (loop = 0; loop < fif->macless_info.tx_count; loop++) {
+			ppam_rx_default_finish(&i->rx_default[loop].s,
+				&i->ppam_data);
+			teardown_fq(&i->rx_default[loop].fq);
+		}
+		return;
+	}
 	/* Cleanup in the opposite order of ppac_interface_init_rx() */
+	if (fif->shared_mac_info.is_shared_mac == 1)
+		ppac_interface_disable_shared_rx(i);
 	ppac_interface_disable_rx(i);
-	ppam_rx_default_finish(&i->rx_default.s, &i->ppam_data);
-	teardown_fq(&i->rx_default.fq);
+	ppam_rx_default_finish(&i->rx_default[0].s, &i->ppam_data);
+	teardown_fq(&i->rx_default[0].fq);
 	ppam_rx_error_finish(&i->rx_error.s, &i->ppam_data);
 	teardown_fq(&i->rx_error.fq);
 	list_for_each_entry(pcd_range, &i->list, list) {

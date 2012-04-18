@@ -58,7 +58,7 @@ struct ppac_interface {
 	struct ppac_rx_default {
 		struct qman_fq fq;
 		struct ppam_rx_default s;
-	} rx_default;
+	} ____cacheline_aligned rx_default[0];
 	struct ppac_tx_error {
 		struct qman_fq fq;
 		struct ppam_tx_error s;
