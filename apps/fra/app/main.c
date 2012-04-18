@@ -562,6 +562,7 @@ static int parse_cpus(const char *str, int *start, int *end)
 struct fra_arguments {
 	const char *fm_cfg;
 	const char *fm_pcd;
+	const char *fm_interfaces;
 	const char *fra_cfg;
 	int first, last;
 	int noninteractive;
@@ -576,6 +577,7 @@ static const char _fra_args[] = "[cpu-range]";
 static const struct argp_option argp_opts[] = {
 	{"fm-config", 'c', "FILE", 0, "FMC configuration XML file"},
 	{"fm-pcd", 'p', "FILE", 0, "FMC PCD XML file"},
+	{"fm-interfaces", 'i', "interface names", 0, "FMAN interfaces"},
 	{"fra-config", 'f', "FILE", 0, "FRA configuration XML file"},
 	{"non-interactive", 'n', 0, 0, "Ignore stdin"},
 	{"cpu-range", 0, 0, OPTION_DOC, "'index' or 'first'..'last'"},
@@ -594,6 +596,9 @@ static error_t fra_parse(int key, char *arg, struct argp_state *state)
 		break;
 	case 'p':
 		args->fm_pcd = arg;
+		break;
+	case 'i':
+		args->fm_interfaces = arg;
 		break;
 	case 'f':
 		args->fra_cfg = arg;
@@ -770,6 +775,7 @@ int main(int argc, char *argv[])
 	int rcode, cli_argc;
 	char *cli, **cli_argv;
 	const struct cli_table_entry *cli_cmd;
+	const char *fm_interfaces;
 
 	rcode = of_init();
 	if (rcode) {
@@ -813,12 +819,18 @@ int main(int argc, char *argv[])
 		if (envp != NULL)
 			fra_cfg_path = envp;
 	}
+	if (fra_args.fm_interfaces != NULL) {
+		fm_interfaces = fra_args.fm_interfaces;
+	} else {
+		error(0, -1, "%s():no n/w interface in command-line", __func__);
+		return -1;
+	}
 	/* Parse FMC policy and configuration files for the network
 	 * configuration. This also "extracts" other settings into 'netcfg' that
 	 * are not necessarily from the XML files, such as the pool channels
 	 * that the application is allowed to use (these are currently
 	 * hard-coded into the netcfg code). */
-	netcfg = usdpaa_netcfg_acquire(pcd_path, cfg_path, NULL);
+	netcfg = usdpaa_netcfg_acquire(pcd_path, cfg_path, fm_interfaces);
 	if (!netcfg) {
 		error(0, 0,
 		      "failed to load configuration");

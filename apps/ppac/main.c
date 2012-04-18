@@ -1138,6 +1138,7 @@ struct ppac_arguments
 {
 	const char *fm_cfg;
 	const char *fm_pcd;
+	const char *fm_interfaces;
 	int first, last;
 	int noninteractive;
 	size_t dma_sz;
@@ -1161,6 +1162,7 @@ static const char _ppac_args[] = "[cpu-range]";
 static const struct argp_option argp_opts[] = {
 	{"fm-config",	'c',	"FILE",	0,		"FMC configuration XML file"},
 	{"fm-pcd",	'p',	"FILE",	0,		"FMC PCD XML file"},
+	{"fm-interfaces",	'i',	"FILE",	0,	"FMAN interfaces"},
 	{"non-interactive", 'n', 0,	0,		"Ignore stdin"},
 	{"dma-mem",	'd',	"SIZE",	0,		"Size of DMA region to allocate"},
 	{"buffers",	'b',	"x:y:z", 0,		"Number of buffers to allocate"},
@@ -1182,6 +1184,9 @@ static error_t ppac_parse(int key, char *arg, struct argp_state *state)
 		break;
 	case 'p':
 		args->fm_pcd = arg;
+		break;
+	case 'i':
+		args->fm_interfaces = arg;
 		break;
 	case 'n':
 		args->noninteractive = 1;
@@ -1359,6 +1364,7 @@ int main(int argc, char *argv[])
 	int rcode, cli_argc;
 	char *cli, **cli_argv;
 	const struct cli_table_entry *cli_cmd;
+	const char *fm_interfaces;
 
 	rcode = of_init();
 	if (rcode) {
@@ -1402,12 +1408,18 @@ int main(int argc, char *argv[])
 		if (envp != NULL)
 			cfg_path = envp;
 	}
+	if (ppac_args.fm_interfaces != NULL) {
+		fm_interfaces = ppac_args.fm_interfaces;
+	} else {
+		error(0, -1, "%s():no n/w interface in command-line", __func__);
+		return -1;
+	}
 	/* Parse FMC policy and configuration files for the network
 	 * configuration. This also "extracts" other settings into 'netcfg' that
 	 * are not necessarily from the XML files, such as the pool channels
 	 * that the application is allowed to use (these are currently
 	 * hard-coded into the netcfg code). */
-	netcfg = usdpaa_netcfg_acquire(pcd_path, cfg_path, NULL);
+	netcfg = usdpaa_netcfg_acquire(pcd_path, cfg_path, fm_interfaces);
 	if (!netcfg) {
 		fprintf(stderr, "error: failed to load configuration\n");
 		return -1;
