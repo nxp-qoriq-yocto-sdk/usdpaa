@@ -534,6 +534,8 @@ static error_t parse_intf_conf_opt(int key, char *arg, struct argp_state *state)
 	struct app_ctrl_op_info *route_info = state->input;
 	struct in_addr in_addr;
 	int val;
+	const char *name;
+	const char *str = "mac interface";
 	switch (key) {
 
 	case 'a':
@@ -551,6 +553,13 @@ static error_t parse_intf_conf_opt(int key, char *arg, struct argp_state *state)
 			return -ERANGE;
 		}
 		route_info->ip_info.intf_conf.ifnum = val;
+		strcpy(route_info->ip_info.intf_conf.ifname, str);
+		g_mndtr_param |= IPC_CTRL_PARAM_BMASK_IFNUM;
+		break;
+
+	case 'n':
+		name = arg;
+		strcpy(route_info->ip_info.intf_conf.ifname, name);
 		g_mndtr_param |= IPC_CTRL_PARAM_BMASK_IFNAME;
 		break;
 

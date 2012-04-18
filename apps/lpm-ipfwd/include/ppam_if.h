@@ -37,6 +37,7 @@ struct ppam_interface {
 	size_t header_len;
 	in_addr_t addr, mask;
 	int ifnum;
+	char *ifname;
 
 	size_t num_tx_fqids;
 	uint32_t *tx_fqids;
@@ -57,6 +58,8 @@ struct ppam_rx_error {
 struct ppam_rx_default {
 	struct ip_statistics_t *stats;
 	struct ip_protos_t *protos;
+	uint32_t tx_fqid;
+	int is_macless;
 };
 
 struct ppam_tx_error { };

@@ -36,11 +36,13 @@
 struct app_ctrl_intf_conf {
 	in_addr_t ip_addr;			/**< IP Address */
 	int ifnum;				/**< Interface number */
-#define IPC_CTRL_PARAM_BMASK_IFNAME		(1 << 0)
-#define IPC_CTRL_PARAM_BMASK_IPADDR		(1 << 1)
-#define IPC_CTRL_PARAM_MAX_INTF_BIT_NO			2
+	char ifname[10];			/**< MACless Interface name */
+#define IPC_CTRL_PARAM_BMASK_IFNUM		(1 << 0)
+#define IPC_CTRL_PARAM_BMASK_IFNAME		(1 << 1)
+#define IPC_CTRL_PARAM_BMASK_IPADDR		(1 << 2)
+#define IPC_CTRL_PARAM_MAX_INTF_BIT_NO			3
 
-#define IPC_CTRL_INTF_CONF_MDTR_PARAM_MAP (IPC_CTRL_PARAM_BMASK_IFNAME)
+#define IPC_CTRL_INTF_CONF_MDTR_PARAM_MAP (IPC_CTRL_PARAM_BMASK_IPADDR)
 
 	uint32_t bitmask;
 };

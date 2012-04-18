@@ -39,6 +39,7 @@
 #include "mm/mem_cache.h"
 
 #include <mqueue.h>
+#include <netinet/if_ether.h>
 
 /** \brief	Holds all IP-related data structures */
 struct ip_stack_t {
@@ -246,13 +247,19 @@ static int ipfwd_show_intf(const struct app_ctrl_op_info *route_info)
 	for (loop = 0; loop < netcfg->num_ethports; loop++) {
 		port = &netcfg->port_cfg[loop];
 		fif = port->fman_if;
-		iface = (fif->mac_type == fman_mac_1g ? 0 : 5) + fif->mac_idx;
-		i = fif->fman_idx * 6 + iface;
-		pr_info("Interface number: %d\n"
-			"PortID=%d:%d is FMan interface node\n"
-			"with MAC Address\n"ETH_MAC_PRINTF_FMT"\n",
-			i, fif->fman_idx, iface,
-			ETH_MAC_PRINTF_ARGS(&fif->mac_addr));
+		if (fif->mac_type == fman_mac_less) {
+			printf("MACLESS Interface:\n name : %s\n",
+				fif->macless_info.macless_name);
+		} else {
+			iface = (fif->mac_type == fman_mac_1g ? 0 : 5)
+				+ fif->mac_idx;
+			i = fif->fman_idx * 6 + iface;
+			printf("FMAN Interface number: %d\n, "
+				"PortID=%d:%d is FMan interface node "
+				"with MAC Address "ETH_MAC_PRINTF_FMT"\n",
+				i, fif->fman_idx, iface,
+				ETH_MAC_PRINTF_ARGS(&fif->mac_addr));
+		}
 	}
 	return 0;
 }
@@ -266,16 +273,36 @@ static int ipfwd_conf_intf(const struct app_ctrl_op_info *route_info)
 {
 	struct ppac_interface *i;
 	struct ppam_interface *p;
+	const struct fman_if *fif;
 	uint16_t addr_hi;
 	int _errno = 1, node, ifnum;
+	const char *str = "mac interface";
+	const char *ifname;
+	int is_macless = 0;
 
 	pr_debug("%s: Enter\n", __func__);
 
 	addr_hi = ETHERNET_ADDR_MAGIC;
+	ifname = route_info->ip_info.intf_conf.ifname;
 	ifnum = route_info->ip_info.intf_conf.ifnum;
+	if (strncmp(str, ifname, strlen(ifname)) != 0)
+		is_macless = 1;
 	list_for_each_entry(i, &ifs, node) {
 		p = &i->ppam_data;
-		if (p->ifnum == ifnum) {
+		fif = i->port_cfg->fman_if;
+		if (is_macless) {
+			if (fif->mac_type != fman_mac_less)
+				continue;
+			if (strcmp(ifname, p->ifname) != 0)
+				continue;
+			p->addr = route_info->ip_info.intf_conf.ip_addr;
+			pr_info("IPADDR assigned = 0x%x to MACLESS intf %s\n",
+				p->addr, fif->macless_info.macless_name);
+			_errno = 0;
+			break;
+		} else {
+			if (p->ifnum != ifnum)
+				continue;
 			p->addr = route_info->ip_info.intf_conf.ip_addr;
 			pr_info("IPADDR assigned = 0x%x to interface num %d\n",
 				p->addr, p->ifnum);
@@ -290,11 +317,18 @@ static int ipfwd_conf_intf(const struct app_ctrl_op_info *route_info)
 					sizeof(p->local_nodes[node].ip));
 			}
 			_errno = 0;
+			break;
 		}
 	}
-	if (_errno)
-		pr_info("Interface number %d is not an enabled interface\n",
+	if (_errno) {
+		if (is_macless) {
+			pr_info("MACLESS Interface %s is not an enabled interface\n",
+				 route_info->ip_info.intf_conf.ifname);
+		} else {
+			pr_info("Interface number %d is not an enabled interface\n",
 			 ifnum);
+		}
+	}
 
 	pr_debug("%s: Exit\n", __func__);
 	return _errno;
@@ -545,6 +579,16 @@ static int ppam_interface_init(struct ppam_interface *p,
 	const struct fman_if *fif;
 
 	fif = cfg->fman_if;
+
+	if (fif->mac_type == fman_mac_less) {
+		p->num_tx_fqids = num_tx_fqs;
+		p->ifname = fif->macless_info.macless_name;
+		p->tx_fqids = malloc(p->num_tx_fqids * sizeof(*p->tx_fqids));
+		if (unlikely(p->tx_fqids == 0))
+			return -ENOMEM;
+		return 0;
+	}
+
 	iface = (fif->mac_type == fman_mac_1g ? 0 : 5) + fif->mac_idx;
 	p->ifnum = fif->fman_idx * 6 + iface;
 	p->mtu = ETHERMTU;
@@ -593,8 +637,16 @@ static int ppam_rx_default_init(struct ppam_rx_default *p,
 				unsigned idx,
 				struct qm_fqd_stashing *stash_opts)
 {
+	struct ppac_interface *c_if = container_of(_if, struct ppac_interface,
+						   ppam_data);
+	const struct fman_if *fif = c_if->port_cfg->fman_if;
 	p->stats = stack.ip_stats;
 	p->protos = &stack.protos;
+	p->tx_fqid = _if->tx_fqids[idx % _if->num_tx_fqids];
+	if (fif->mac_type == fman_mac_less)
+		p->is_macless = 1;
+
+	TRACE("Mapping Rx FQ %p:%d --> Tx FQID %d\n", p, idx, p->tx_fqid);
 
 	return 0;
 }
@@ -602,20 +654,62 @@ static void ppam_rx_default_finish(struct ppam_rx_default *p,
 				   struct ppam_interface *_if)
 {
 }
+/* Swap 6-byte MAC headers */
+static inline void ether_header_swap(struct ether_header *prot_eth)
+{
+	register u32 a, b, c;
+	u32 *overlay = (u32 *)prot_eth;
+	a = overlay[0];
+	b = overlay[1];
+	c = overlay[2];
+	overlay[0] = (b << 16) | (c >> 16);
+	overlay[1] = (c << 16) | (a >> 16);
+	overlay[2] = (a << 16) | (b >> 16);
+}
+
 static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
 				      struct ppam_interface *_if,
 				      const struct qm_dqrr_entry *dqrr)
 {
 	struct annotations_t *notes;
 	struct ether_header *eth_hdr;
+	const struct qm_fd *fd = &dqrr->fd;
 
-	notes = __dma_mem_ptov(qm_fd_addr(&dqrr->fd));
+	BUG_ON(fd->format != qm_fd_contig);
+	notes = __dma_mem_ptov(qm_fd_addr(fd));
 	eth_hdr = (void *)notes + dqrr->fd.offset;
-	if (eth_hdr->ether_type == ETHERTYPE_ARP) {
+	switch (eth_hdr->ether_type) {
+	case ETHERTYPE_IP:
+		TRACE("	       -> it's ETHERTYPE_IP!\n");
+		{
+		/* Send ping reply only for MAC-less else drop the frame */
+		if (p->is_macless == 1) {
+			struct iphdr *iphdr = (typeof(iphdr))(eth_hdr + 1);
+			__be32 tmp;
+			/* switch ipv4 src/dst addresses */
+			tmp = iphdr->daddr;
+			iphdr->daddr = iphdr->saddr;
+			iphdr->saddr = tmp;
+			/* switch ethernet src/dest MAC addresses */
+			ether_header_swap(eth_hdr);
+			ppac_send_frame(p->tx_fqid, fd);
+		} else
+			break;
+		}
+		return;
+	case ETHERTYPE_ARP:
+		TRACE("	       -> it's ETHERTYPE_ARP!\n");
+		{
 		notes->dqrr = dqrr;
 		arp_handler(_if, notes, eth_hdr);
-	} else
-		ppac_drop_frame(&dqrr->fd);
+		}
+		return;
+	default:
+		TRACE("	       -> it's UNKNOWN (!!) type 0x%04x\n",
+			eth_hdr->ether_type);
+		TRACE("		  -> dropping unknown packet\n");
+	}
+	ppac_drop_frame(fd);
 }
 static int ppam_tx_error_init(struct ppam_tx_error *p,
 			      struct ppam_interface *_if,
