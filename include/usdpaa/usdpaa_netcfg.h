@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,7 +34,6 @@
 #define USDPAA_NETCFG_H
 
 #include <usdpaa/fman.h>
-
 /* Represents a contiguous range of FQIDs (to be linked into a per-port list) */
 struct fm_eth_port_fqrange {
 	struct list_head list;
@@ -52,6 +51,7 @@ struct fm_eth_port_cfg {
 	struct fman_if *fman_if;
 };
 
+
 /* This structure contains the configuration information for the USDPAA app. */
 struct usdpaa_netcfg_info {
 	uint8_t num_ethports;	/* Number of ports */
@@ -64,7 +64,8 @@ struct usdpaa_netcfg_info {
  * Returns the configuration information in newly allocated memory.
  */
 struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
-					const char *cfg_file);
+					const char *cfg_file,
+					const char *fm_interfaces);
 
 /* cfg_ptr: configuration information pointer.
  * Frees the resources allocated by the configuration layer.

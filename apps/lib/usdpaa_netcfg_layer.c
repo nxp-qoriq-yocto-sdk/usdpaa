@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2010-2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,8 +35,30 @@
 
 #include <inttypes.h>
 #include <internal/of.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <error.h>
 
 #define MAX_BPOOL_PER_PORT	8
+
+struct interface_info {
+	char *name;
+	struct ether_addr mac_addr;
+	struct ether_addr peer_mac;
+	int mac_present;
+	int fman_enabled_mac_interface;
+};
+
+struct netcfg_interface {
+	uint8_t numof_netcfg_interface;
+	uint8_t numof_fman_enabled_macless;
+	struct interface_info interface_info[0/*numof_netcfg_interface*/];
+};
+
+/* Structure contains information about all the interfaces given by user
+ * on command line.
+ * */
+struct netcfg_interface *netcfg_interface;
 
 /* This data structure contaings all configurations information
  * related to usages of DPA devices.
@@ -57,31 +79,46 @@ void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr)
 		struct fman_if *__if = p_cfg->fman_if;
 		struct fm_eth_port_fqrange *fqr;
 
-		printf("\n+ Fman %d, MAC %d (%s);\n",
-			__if->fman_idx, __if->mac_idx,
-			(__if->mac_type == fman_mac_1g) ? "1G" :
-			(__if->mac_type == fman_offline) ? "OFFLINE" : "10G");
+		if (__if->mac_type == fman_mac_less)
+			printf("\n+ MAC-less name: %s\n",
+				__if->macless_info.macless_name);
+		else
+			printf("\n+ Fman %d, MAC %d (%s);\n",
+				 __if->fman_idx, __if->mac_idx,
+				(__if->mac_type == fman_mac_1g) ? "1G" :
+				(__if->mac_type == fman_offline) ? "OFFLINE" :
+				"10G");
 		if (__if->mac_type != fman_offline) {
 			printf("\tmac_addr: " ETH_MAC_PRINTF_FMT "\n",
 				ETH_MAC_PRINTF_ARGS(&__if->mac_addr));
 		}
 
-		printf("\ttx_channel_id: 0x%02x\n", __if->tx_channel_id);
-
-		if (list_empty(p_cfg->list)) {
-			printf("PCD List not found\n");
-		} else {
-			printf("\tfqid_rx_hash: \n");
-			list_for_each_entry(fqr, p_cfg->list, list) {
-				printf("\t\t(PCD: start 0x%x, count %d)\n",
-					fqr->start, fqr->count);
+		if (__if->mac_type != fman_mac_less) {
+			printf("\ttx_channel_id: 0x%02x\n",
+					__if->tx_channel_id);
+			if (list_empty(p_cfg->list)) {
+				printf("PCD List not found\n");
+			} else {
+				printf("\tfqid_rx_hash:\n");
+				list_for_each_entry(fqr, p_cfg->list, list) {
+				   printf("\t\t(PCD: start 0x%x, count %d)\n",
+						fqr->start, fqr->count);
+				}
 			}
-		}
-		printf("\tfqid_rx_def: 0x%x\n", p_cfg->rx_def);
-		printf("\tfqid_rx_err: 0x%x\n", __if->fqid_rx_err);
+			printf("\tfqid_rx_def: 0x%x\n", p_cfg->rx_def);
+			printf("\tfqid_rx_err: 0x%x\n", __if->fqid_rx_err);
+		} else
+			printf("\tfqid_rx_def start: 0x%x, count: %d\n",
+				__if->macless_info.tx_start,
+				 __if->macless_info.tx_count);
+
 		if (__if->mac_type != fman_offline) {
-			printf("\tfqid_tx_err: 0x%x\n", __if->fqid_tx_err);
-			printf("\tfqid_tx_confirm: 0x%x\n", __if->fqid_tx_confirm);
+			if (__if->mac_type != fman_mac_less) {
+				printf("\tfqid_tx_err: 0x%x\n",
+						__if->fqid_tx_err);
+				printf("\tfqid_tx_confirm: 0x%x\n",
+						__if->fqid_tx_confirm);
+			}
 			fman_if_for_each_bpool(bpool, __if)
 				printf("\tbuffer pool: (bpid=%d, count=%"PRId64
 				       "size=%"PRId64", addr=0x%"PRIx64")\n",
@@ -91,16 +128,244 @@ void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr)
 	}
 }
 
+static inline int get_num_netcfg_interfaces(char *str)
+{
+	char *pch;
+	uint8_t count = 0;
+
+	if (str == NULL)
+		return -EINVAL;
+	pch = strtok(str, ",");
+	while (pch != NULL) {
+		count++;
+		pch = strtok(NULL, ",");
+	}
+	return count;
+}
+
+static inline int str2mac(const char *macaddr, struct ether_addr *mac)
+{
+	if (sscanf(macaddr, "[%02hhx-%02hhx-%02hhx-%02hhx-%02hhx-%02hhx]",
+		&mac->ether_addr_octet[0], &mac->ether_addr_octet[1],
+		&mac->ether_addr_octet[2], &mac->ether_addr_octet[3],
+		&mac->ether_addr_octet[4], &mac->ether_addr_octet[5]) != 6) {
+		error(0, EINVAL, "%s", __func__);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+/* Read mac address of MAC-less interface using ioctl */
+static inline int get_mac_addr(const char *vname, struct ether_addr *src_mac)
+{
+	struct ifreq ifr;
+	int skfd;
+	int ret = -1;
+
+	/* Open a basic socket */
+	skfd = socket(AF_PACKET, SOCK_RAW, 0);
+	if (skfd < 0) {
+		error(0, -skfd, "%s", __func__);
+		goto out;
+	}
+	strncpy(ifr.ifr_name, vname, sizeof(ifr.ifr_name));
+	/*retrieve corresponding MAC*/
+	if (ioctl(skfd, SIOCGIFHWADDR, &ifr) == -1) {
+		error(0, 0, "%s(): SIOCGIFINDEX", __func__);
+		goto out;
+	}
+	memcpy(src_mac, &ifr.ifr_hwaddr.sa_data, sizeof(*src_mac));
+	ret = 0;
+out:
+	if (skfd >= 0)
+		close(skfd);
+	return ret;
+}
+
+static inline enum fman_mac_type get_mac_type(const char *str)
+{
+	enum fman_mac_type p_type;
+	/* Expected interface name format "fm1-gb1" or "fm1-10g" or "fm1-of1" */
+	p_type = (strncmp(str+4, "10", 2) == 0) ? fman_mac_10g :
+		 (strncmp(str+4, "of", 2) == 0) ? fman_offline : fman_mac_1g;
+	return p_type;
+}
+
+static void check_fman_enabled_interfaces(void)
+{
+	struct fman_if *__if;
+	int idx, i, val;
+	char str[10];
+	uint8_t num, num1;
+	struct interface_info *cli_info;
+
+	/* Fill in configuration info for all command-line ports */
+	idx = 0;
+	list_for_each_entry(__if, fman_if_list, node) {
+		struct fm_eth_port_cfg *cfg = &usdpaa_netcfg->port_cfg[idx];
+		/* Hook in the fman driver interface */
+		cfg->fman_if = __if;
+
+		for (i = 0; i < netcfg_interface->numof_netcfg_interface; i++) {
+			cli_info = &(netcfg_interface->interface_info[i]);
+			if (cli_info->mac_present) {
+				/* compare if command line macless interface
+				 * matches the one in fman list */
+			   if (memcmp(&__if->macless_info.peer_mac,
+				&cli_info->peer_mac, ETHER_ADDR_LEN) == 0) {
+				memcpy(&__if->macless_info.src_mac,
+					&cli_info->mac_addr, ETHER_ADDR_LEN);
+				memcpy(&__if->mac_addr,
+					&cli_info->mac_addr, ETHER_ADDR_LEN);
+				__if->macless_info.macless_name =
+					cli_info->name;
+				netcfg_interface->numof_fman_enabled_macless++;
+				idx++;
+				break;
+			   } else
+				continue;
+			}
+			strncpy(str, cli_info->name, sizeof(str) - 1);
+			str[sizeof(str) - 1] = '\0';
+			num = str[2] - '0';
+			num1 = str[6] - '0';
+			val = get_mac_type(str);
+			if (val == fman_mac_10g) {
+				if ((num - 1) != __if->fman_idx ||
+				    val != __if->mac_type)
+					continue;
+			} else {
+				if ((num - 1) != __if->fman_idx ||
+					num1 != __if->mac_idx ||
+					val != __if->mac_type)
+					continue;
+			}
+			if (__if->shared_mac_info.is_shared_mac)
+				__if->shared_mac_info.shared_mac_name =
+							cli_info->name;
+			cli_info->fman_enabled_mac_interface = 1;
+			idx++;
+			break;
+		}
+	}
+}
+
+static int parse_cmd_line_args(const char *str)
+{
+	uint8_t	numof_netcfg_interface = 0;
+	struct interface_info *cli_info;
+	char endptr[100];
+	uint32_t i = 0;
+	char *pch;
+	uint16_t sz;
+	int ret = 1;
+
+	if (str == NULL)
+		return 0;
+	strncpy(endptr, str, sizeof(endptr) - 1);
+	/* in case sizeof str is greater than sizeof endptr */
+	endptr[sizeof(endptr) - 1] = '\0';
+	numof_netcfg_interface = get_num_netcfg_interfaces(endptr);
+	if (numof_netcfg_interface < 0) {
+		error(0, errno, "%s", __func__);
+		return -EINVAL;
+	} else if (numof_netcfg_interface == 0)
+		return 0;
+	sz = sizeof(struct netcfg_interface) +
+		sizeof(struct interface_info) * numof_netcfg_interface;
+
+	netcfg_interface = malloc(sz);
+	if (!netcfg_interface) {
+		error(0, errno, "%s", __func__);
+		return -ENOMEM;
+	}
+	memset(netcfg_interface, 0, sz);
+	netcfg_interface->numof_netcfg_interface = numof_netcfg_interface;
+	pch = strtok((char *)str, ",:");
+	while (pch != NULL) {
+		if (strncmp(pch, "[", 1) != 0) {
+			cli_info = &(netcfg_interface->interface_info[i]);
+			cli_info->name = pch;
+			i++;
+		} else {
+			cli_info = &(netcfg_interface->interface_info[i-1]);
+			cli_info->mac_present = 1;
+			ret = get_mac_addr(cli_info->name, &cli_info->peer_mac);
+			if (ret != 0)
+				goto out;
+			ret = str2mac(pch, &cli_info->mac_addr);
+			if (ret != 0) {
+				error(0, errno, "%s(): Failed to parse mac: %s",
+					__func__, pch);
+				goto out;
+			}
+		}
+		pch = strtok(NULL, ",:");
+	}
+	ret = numof_netcfg_interface;
+	return ret;
+out:
+	free(netcfg_interface);
+	return ret;
+}
+
+/* Check if FMC extracted configuration matches the one
+ * given by user on command line */
+static inline int netcfg_interface_match(uint8_t fman,
+				   enum fman_mac_type p_type, uint8_t p_num)
+{
+	char str[10];
+	uint8_t num, num1;
+	struct interface_info *cli_info;
+	int i, val;
+
+	for (i = 0; i < netcfg_interface->numof_netcfg_interface;
+		i++) {
+		cli_info = &netcfg_interface->interface_info[i];
+		if (cli_info->fman_enabled_mac_interface == 1) {
+			strcpy(str, cli_info->name);
+			num = str[2] - '0';
+			num1 = str[6] - '0';
+			val = get_mac_type(str);
+			if (val == fman_mac_10g) {
+				if ((num - 1) != fman ||
+				    val != p_type)
+					continue;
+			} else {
+				if ((num - 1) != fman ||
+					num1 != p_num ||
+					val != p_type)
+					continue;
+			}
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
-					const char *cfg_file)
+					const char *cfg_file,
+					const char *fm_interfaces)
 {
 	struct fman_if *__if;
 	int _errno, idx;
 	uint8_t num_ports = 0;
 	uint8_t num_cfg_ports = 0;
 	size_t size;
+	uint8_t use_all_interfaces = 0;
 
-	/* Extract dpa configuration from fman driver and FMC configuration */
+	/* Extract dpa configuration from fman driver and FMC configuration
+	   for command-line interfaces */
+
+	/* parse command line interfaces */
+	_errno = parse_cmd_line_args(fm_interfaces);
+	if (_errno == 0)
+		use_all_interfaces = 1;
+	else if (unlikely(_errno < 0)) {
+		error(0, -_errno, "%s", __func__);
+		return NULL;
+	}
 
 	/* Initialise the XML parser */
 	_errno = fmc_netcfg_parser_init(pcd_file, cfg_file);
@@ -134,23 +399,34 @@ struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
 
 	usdpaa_netcfg->num_ethports = num_ports;
 
-	/* Fill in configuration info for all ports */
+	/* mark FMAN enabled interfaces out of all command-line interfaces */
+	if (use_all_interfaces == 0)
+		check_fman_enabled_interfaces();
+	/* Fill in configuration info for all FMAN enabled command-line ports */
 	idx = 0;
 	list_for_each_entry(__if, fman_if_list, node) {
 		struct fmc_netcfg_fqs xmlcfg;
 		struct fm_eth_port_cfg *cfg = &usdpaa_netcfg->port_cfg[idx];
 		/* Hook in the fman driver interface */
 		cfg->fman_if = __if;
-
-		/* Extract FMC configuration */
+		/* Extract FMC configuration only for
+		   command-line interfaces */
 		_errno = fmc_netcfg_get_info(__if->fman_idx,
 			__if->mac_type, __if->mac_idx, &xmlcfg);
 		if (_errno == 0) {
-			cfg->list = xmlcfg.list;
-			cfg->rx_def = xmlcfg.rxdef;
-			num_cfg_ports++;
-			idx++;
+			if (use_all_interfaces || netcfg_interface_match(
+			   __if->fman_idx, __if->mac_type, __if->mac_idx)) {
+				cfg->list = xmlcfg.list;
+				cfg->rx_def = xmlcfg.rxdef;
+				num_cfg_ports++;
+				idx++;
+			}
 		}
+	}
+	if (!use_all_interfaces) {
+		if (netcfg_interface->numof_fman_enabled_macless)
+			num_cfg_ports +=
+				netcfg_interface->numof_fman_enabled_macless;
 	}
 	if (!num_cfg_ports) {
 		fprintf(stderr, "%s:%hu:%s(): fmc_netcfg_get_info()\n",

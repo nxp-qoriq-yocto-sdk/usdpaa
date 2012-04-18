@@ -1407,7 +1407,7 @@ int main(int argc, char *argv[])
 	 * are not necessarily from the XML files, such as the pool channels
 	 * that the application is allowed to use (these are currently
 	 * hard-coded into the netcfg code). */
-	netcfg = usdpaa_netcfg_acquire(pcd_path, cfg_path);
+	netcfg = usdpaa_netcfg_acquire(pcd_path, cfg_path, NULL);
 	if (!netcfg) {
 		fprintf(stderr, "error: failed to load configuration\n");
 		return -1;

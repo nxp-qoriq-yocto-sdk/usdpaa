@@ -242,7 +242,7 @@ b_err:
 	 * are not necessarily from the XML files, such as the pool channels
 	 * that the application is allowed to use (these are currently
 	 * hard-coded into the netcfg code). */
-	netcfg = usdpaa_netcfg_acquire(PCD_PATH, CFG_PATH);
+	netcfg = usdpaa_netcfg_acquire(PCD_PATH, CFG_PATH, NULL);
 	if (!netcfg) {
 		fprintf(stderr, "Fail: usdpaa_netcfg_acquire(%s,%s)\n",
 			PCD_PATH, CFG_PATH);
