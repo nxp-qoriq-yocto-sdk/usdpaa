@@ -476,7 +476,8 @@ static struct distribution *dist_rman_to_fman_init(struct dist_cfg *cfg)
 		     r2fcfg->wq);
 
 #ifdef FRA_TX_CONFIRM
-	fman_tx_confirm_listen(dist->fman_tx, dist, dist_tx_confirm_cb);
+	fman_tx_confirm_listen(dist->rman_to_fman->fman_port,
+			       dist, dist_tx_confirm_cb);
 #endif
 
 	rman_rx_listen(dist->rman_to_fman->rman_rx, r2fcfg->rio_port,
@@ -604,7 +605,7 @@ static struct distribution *dist_fman_to_rman_init(struct dist_cfg *cfg)
 			goto _err;
 
 #ifdef FRA_TX_CONFIRM
-		rman_tx_status_listen(dist->rman_tx, 0, 1, dist,
+		rman_tx_status_listen(rman_tx_list->rman_tx, 0, 1, dist,
 				      dist_tx_confirm_cb);
 #endif
 
