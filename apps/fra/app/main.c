@@ -205,10 +205,16 @@ static void *worker_fn(void *__worker)
 {
 	struct worker *worker = __worker;
 	cpu_set_t cpuset;
-	int s, fd_qman, fd_bman, nfds;
+	int s;
 	int calm_down = 16, slowpoll = 0;
 #ifdef FRA_IDLE_IRQ
+	int fd_qman, fd_bman, nfds;
 	int irq_mode = 0, fastpoll = 0;
+	fd_set readset;
+	struct timeval tv = {
+		.tv_sec = WORKER_SELECT_TIMEOUT_us / 1000000,
+		.tv_usec = WORKER_SELECT_TIMEOUT_us % 1000000
+	};
 #endif
 
 	FRA_DBG("This is the thread on cpu %d", worker->cpu);
@@ -239,12 +245,15 @@ static void *worker_fn(void *__worker)
 		bman_thread_finish();
 		goto err;
 	}
+
+#ifdef FRA_IDLE_IRQ
 	fd_qman = qman_thread_fd();
 	fd_bman = bman_thread_fd();
 	if (fd_qman > fd_bman)
 		nfds = fd_qman + 1;
 	else
 		nfds = fd_bman + 1;
+#endif
 
 	local_fq_init();
 
@@ -265,11 +274,6 @@ static void *worker_fn(void *__worker)
 			/* Go into (and back out of) IRQ mode for each select,
 			 * it simplifies exit-path considerations and other
 			 * potential nastiness. */
-			fd_set readset;
-			struct timeval tv = {
-				.tv_sec = WORKER_SELECT_TIMEOUT_us / 1000000,
-				.tv_usec = WORKER_SELECT_TIMEOUT_us % 1000000
-			};
 			FD_ZERO(&readset);
 			FD_SET(fd_qman, &readset);
 			FD_SET(fd_bman, &readset);
