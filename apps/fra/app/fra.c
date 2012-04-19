@@ -290,7 +290,7 @@ static void dist_finish(struct distribution *dist)
 		dist->fman_tx = NULL;
 		break;
 	case DIST_TYPE_RMAN_TO_FMAN:
-		if (dist->rman_to_fman)
+		if (!dist->rman_to_fman)
 			break;
 		rman_rx_finish(dist->rman_to_fman->rman_rx);
 		fman_port_finish_tx(dist->rman_to_fman->fman_port);
