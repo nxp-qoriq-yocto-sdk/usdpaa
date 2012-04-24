@@ -77,7 +77,7 @@ CFLAGS		+= -I$(TOP_LEVEL)/include $(addprefix -I,$($(ARCH)_SPEC_INC_PATH))
 CFLAGS		+= -DPACKAGE_VERSION=\"$(shell git describe --always --dirty 2>/dev/null || echo n/a)\"
 CFLAGS		+= $(addprefix -D,$($(ARCH)_SPEC_DEFINE) $(EXTRA_DEFINE))
 CFLAGS		+= $($(ARCH)_SPEC_CFLAGS) $(EXTRA_CFLAGS)
-LDFLAGS		:= -pthread
+LDFLAGS		:= -pthread -lm
 LDFLAGS		+= $(addprefix -L,$(LIB_DIR)) $(addprefix -L,$($(ARCH)_SPEC_LIB_PATH))
 LDFLAGS		+= $($(ARCH)_SPEC_LDFLAGS) $(EXTRA_LDFLAGS)
 ARFLAGS		:= rcs

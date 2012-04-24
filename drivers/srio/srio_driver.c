@@ -1,4 +1,4 @@
-/* Copyright (c) 2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2011 - 2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,7 @@
 #include <internal/of.h>
 #include <usdpaa/of.h>
 #include <error.h>
+#include <math.h>
 #include "srio_driver.h"
 
 static int __fsl_srio_get_port_num(struct srio_dev *srio_dev,
@@ -243,17 +244,17 @@ int fsl_srio_connection(struct srio_dev *sriodev, uint8_t port_id)
 	if (in_be32(&rio_regs->lp_serial.port[port_id].escsr) & 1) {
 		fprintf(stderr, "Port is not ready. "
 			"Try to restart connection...\n");
-		if (ccsr & RIO_CCSR_PT) {
+		if (ccsr & SRIO_CCSR_PT) {
 			/* Disable ports */
 			out_be32(&rio_regs->lp_serial.port[port_id].ccsr, 0);
 			/* Set 1x lane */
 			out_be32(&rio_regs->lp_serial.port[port_id].ccsr,
 				in_be32(&rio_regs->lp_serial.port[port_id].ccsr)
-				| RIO_CCSR_PW0_1X);
+				| SRIO_CCSR_PW0_1X);
 			/* Enable ports */
 			out_be32(&rio_regs->lp_serial.port[port_id].ccsr,
 				in_be32(&rio_regs->lp_serial.port[port_id].ccsr)
-				| RIO_CCSR_OPE_IPE_EN);
+				| SRIO_CCSR_OPE_IPE_EN);
 		}
 		msleep(100);
 		if (in_be32(&rio_regs->lp_serial.port[port_id].escsr) & 1) {
@@ -264,8 +265,6 @@ int fsl_srio_connection(struct srio_dev *sriodev, uint8_t port_id)
 	}
 
 	port->enable = 1;
-	/* Accept all port package */
-	out_be32(&rio_regs->impl.port[port_id].accr, RIO_ISR_AACR_AA);
 
 	return 0;
 }
@@ -321,8 +320,8 @@ int fsl_srio_get_port_info(struct srio_dev *sriodev, uint8_t port_id,
 }
 
 /* This function sets the outbound window protocol type attributes */
-int fsl_srio_set_attr(struct srio_dev *sriodev, uint8_t port_id,
-		      uint8_t win_id, uint32_t win_attr)
+int fsl_srio_set_obwin_attr(struct srio_dev *sriodev, uint8_t port_id,
+		      uint8_t win_id, uint32_t rd_attr, uint32_t wr_attr)
 {
 	struct rio_atmu *atmu;
 
@@ -333,7 +332,9 @@ int fsl_srio_set_attr(struct srio_dev *sriodev, uint8_t port_id,
 
 	out_be32(&atmu->port[port_id].outbw[win_id].rowar,
 		 (in_be32(&atmu->port[port_id].outbw[win_id].rowar)
-		  & ~RIO_ROWAR_WR_MASK) | win_attr);
+		  & ~SRIO_ROWAR_WR_MASK) |
+		  (rd_attr << SRIO_ROWAR_RDTYP_SHIFT) |
+		  (wr_attr << SRIO_ROWAR_WRTYP_SHIFT));
 
 	return 0;
 }
@@ -350,12 +351,13 @@ int fsl_srio_set_obwin(struct srio_dev *sriodev, uint8_t port_id,
 
 	atmu = &sriodev->rio_regs->atmu;
 	out_be32(&atmu->port[port_id].outbw[win_id].rowbar,
-		 ob_win_phys >> 12);
+		 ob_win_phys >> SRIO_ADDR_SHIFT);
 	out_be32(&atmu->port[port_id].outbw[win_id].rowtar,
-		 ob_win_sys >> 12);
+		 ob_win_sys >> SRIO_ADDR_SHIFT);
 	out_be32(&atmu->port[port_id].outbw[win_id].rowtear, 0);
 	out_be32(&atmu->port[port_id].outbw[win_id].rowar,
-		 ROWAR_EN_WIN | win_size);
+		(in_be32(&atmu->port[port_id].outbw[win_id].rowar) &
+		~SRIO_ROWBAR_SIZE_MASK) | SRIO_ROWAR_EN_WIN | win_size);
 
 	return 0;
 }
@@ -372,11 +374,240 @@ int fsl_srio_set_ibwin(struct srio_dev *sriodev, uint8_t port_id,
 
 	atmu = &sriodev->rio_regs->atmu;
 
-	out_be32(&atmu->port[port_id].inbw[win_id].riwbar, ib_win_sys >> 12);
-	out_be32(&atmu->port[port_id].inbw[win_id].riwtar, ib_win_phys >> 12);
-	out_be32(&atmu->port[port_id].inbw[win_id].riwar, RIWAR_MEM | win_size);
+	out_be32(&atmu->port[port_id].inbw[win_id].riwbar,
+		 ib_win_sys >> SRIO_ADDR_SHIFT);
+	out_be32(&atmu->port[port_id].inbw[win_id].riwtar,
+		 ib_win_phys >> SRIO_ADDR_SHIFT);
+	out_be32(&atmu->port[port_id].inbw[win_id].riwar,
+		 SRIO_RIWAR_MEM | win_size);
 
 	return 0;
+}
+
+/* This function makes srio to accept all packages with any id */
+int fsl_srio_enable_accept_all(struct srio_dev *sriodev, uint8_t port_id)
+{
+
+	if (!sriodev)
+		return -EINVAL;
+
+	/* Accept all port package */
+	out_be32(&sriodev->rio_regs->impl.port[port_id].accr, SRIO_ISR_AACR_AA);
+
+	return 0;
+}
+
+/* This function disables the fearture of accepting all packages.
+ * This function should be used before setting device id and target id.
+ */
+int fsl_srio_disable_accept_all(struct srio_dev *sriodev, uint8_t port_id)
+{
+	if (!sriodev)
+		return -EINVAL;
+
+	/* Disable accepting all port package */
+	out_be32(&sriodev->rio_regs->impl.port[port_id].accr, 0);
+
+	return 0;
+}
+
+/* This function sets srio port unique device id */
+int fsl_srio_set_deviceid(struct srio_dev *sriodev, uint8_t port_id,
+			  uint32_t dev_id)
+{
+	if (!sriodev)
+		return -EINVAL;
+
+	out_be32(&sriodev->rio_regs->impl.port[port_id].adidcsr,
+		SRIO_ADIDCSR_ADE_EN | (dev_id << SRIO_ADIDCSR_ADID_SHIFT));
+
+	return 0;
+}
+
+/* This function sets srio port outbound window target id for transmission */
+int fsl_srio_set_targetid(struct srio_dev *sriodev, uint8_t port_id,
+			  uint8_t win_id, uint32_t target_id)
+{
+	struct rio_atmu *atmu;
+
+	if (!sriodev)
+		return -EINVAL;
+
+	atmu = &sriodev->rio_regs->atmu;
+
+	out_be32(&atmu->port[port_id].outbw[win_id].rowtar,
+		(in_be32(&atmu->port[port_id].outbw[win_id].rowtar) &
+		~SRIO_ROWTAR_TREXAD_MASK) |
+		(target_id << SRIO_ROWTAR_TREXAD_SHIFT));
+
+	return 0;
+}
+
+/* This function sets the number of segments divided from a srio port window.
+ * The parameter - seg_num. seg_num can be 1/2/4
+ */
+int fsl_srio_set_seg_num(struct srio_dev *sriodev, uint8_t port_id,
+			 uint8_t win_id, uint8_t seg_num)
+{
+	struct rio_atmu *atmu;
+	uint32_t nseg = 0;
+
+	if (!sriodev || (win_id > SRIO_IB_WIN_NUM) ||
+	    (seg_num > SRIO_MAX_SEG_NUM))
+		return -EINVAL;
+
+	atmu = &sriodev->rio_regs->atmu;
+
+	if (seg_num)
+		nseg = (uint32_t)log2(seg_num);
+	else
+		nseg = 0;
+
+	if (nseg < 0)
+		return nseg;
+
+	out_be32(&atmu->port[port_id].outbw[win_id].rowar,
+		(in_be32(&atmu->port[port_id].outbw[win_id].rowar) &
+		~SRIO_ROWAR_NSEG_MASK) | (nseg << SRIO_ROWAR_NSGE_SHIFT));
+
+	return 0;
+}
+
+/* Get the segment number of a window */
+int fsl_srio_get_seg_num(struct srio_dev *sriodev, uint8_t port_id,
+			 uint8_t win_id)
+{
+	struct rio_atmu *atmu;
+	uint32_t seg_num;
+
+	if (!sriodev || (win_id > SRIO_IB_WIN_NUM))
+		return -EINVAL;
+
+	atmu = &sriodev->rio_regs->atmu;
+	seg_num = in_be32(&atmu->port[port_id].outbw[win_id].rowar) &
+			SRIO_ROWAR_NSEG_MASK;
+	seg_num = seg_num >> SRIO_ROWAR_NSGE_SHIFT;
+	if (seg_num)
+		seg_num = 1 << seg_num;
+	else
+		seg_num = 0;
+
+	return seg_num;
+
+}
+
+/* This function sets the attribute of segments */
+int fsl_srio_set_seg_attr(struct srio_dev *sriodev, uint8_t port_id,
+			  uint8_t win_id, uint8_t seg_id,
+			  uint32_t rd_attr, uint32_t wr_attr)
+{
+	struct rio_atmu *atmu;
+	uint8_t seg_num;
+
+	if (!sriodev || win_id > SRIO_OB_WIN_NUM)
+		return -EINVAL;
+
+	atmu = &sriodev->rio_regs->atmu;
+	seg_num = 0x1 << ((in_be32(&atmu->port[port_id].outbw[win_id].rowar) &
+		SRIO_ROWAR_NSEG_MASK) >> SRIO_ROWAR_NSGE_SHIFT);
+
+	if (seg_id >= seg_num)
+		return -EINVAL;
+
+	if (seg_id == 0)
+		out_be32(&atmu->port[port_id].outbw[win_id].rowar,
+			 (in_be32(&atmu->port[port_id].outbw[win_id].rowar) &
+			 ~SRIO_ROWAR_WR_MASK) |
+			 (rd_attr << SRIO_ROWAR_RDTYP_SHIFT) |
+			 (wr_attr << SRIO_ROWAR_WRTYP_SHIFT));
+	else
+		out_be32(&atmu->port[port_id].outbw[win_id].rowsr[seg_id - 1],
+		(in_be32(&atmu->port[port_id].outbw[win_id].rowsr[seg_id - 1]) &
+			 ~SRIO_ROWSR_WR_MASK) |
+			 (rd_attr << SRIO_ROWSR_RDTYP_SHIFT) |
+			 (wr_attr << SRIO_ROWSR_WRTYP_SHIFT));
+
+	return 0;
+}
+
+/* This function sets the base device id of segment */
+int fsl_srio_set_seg_sgtgtdid(struct srio_dev *sriodev, uint8_t port_id,
+			      uint8_t win_id, uint8_t seg_id, uint8_t tdid)
+{
+	struct rio_atmu *atmu;
+	uint8_t sseg_num;
+
+	if (!sriodev || (win_id > SRIO_IB_WIN_NUM) ||
+	    (seg_id >= SRIO_MAX_SEG_NUM))
+		return -EINVAL;
+
+	atmu = &sriodev->rio_regs->atmu;
+
+	sseg_num = 0x1 << ((in_be32(&atmu->port[port_id].outbw[win_id].rowar) &
+		SRIO_ROWAR_NSSEG_MASK) >> SRIO_ROWAR_NSSEG_SHIFT);
+
+	if (tdid & (sseg_num - 1))
+		return -EINVAL;
+
+	if (seg_id == 0)
+		fsl_srio_set_targetid(sriodev, port_id, win_id, tdid);
+	else
+		out_be32(&atmu->port[port_id].outbw[win_id].rowsr[seg_id - 1],
+	       (in_be32(&atmu->port[port_id].outbw[win_id].rowsr[seg_id - 1]) &
+			 ~SRIO_ROWSR_TDID_MASK) | tdid);
+
+	return 0;
+}
+
+/* This function sets the number of sub segments divided from a segment.
+    The paremeter - subseg_num can be 1/2/4/8 */
+int fsl_srio_set_subseg_num(struct srio_dev *sriodev, uint8_t port_id,
+			    uint8_t win_id, uint8_t subseg_num)
+{
+	struct rio_atmu *atmu;
+	uint32_t nsseg = 0;
+
+	if (!sriodev || (win_id > SRIO_IB_WIN_NUM) ||
+		(subseg_num > SRIO_MAX_SUBSEG_NUM))
+		return -EINVAL;
+
+	atmu = &sriodev->rio_regs->atmu;
+
+	if (subseg_num)
+		nsseg = (uint32_t)log2(subseg_num);
+	else
+		nsseg = 0;
+
+	if (nsseg < 0)
+		return -EINVAL;
+
+	out_be32(&atmu->port[port_id].outbw[win_id].rowar,
+		 (in_be32(&atmu->port[port_id].outbw[win_id].rowar) &
+		 ~SRIO_ROWAR_NSSEG_MASK) | (nsseg << SRIO_ROWAR_NSSEG_SHIFT));
+
+	return 0;
+}
+
+/* Get sub segment number of a window */
+int fsl_srio_get_subseg_num(struct srio_dev *sriodev, uint8_t port_id,
+			    uint8_t win_id)
+{
+	struct rio_atmu *atmu;
+	uint32_t nsseg = 0;
+
+	if (!sriodev || (win_id > SRIO_IB_WIN_NUM))
+		return -EINVAL;
+
+	atmu = &sriodev->rio_regs->atmu;
+	nsseg = in_be32(&atmu->port[port_id].outbw[win_id].rowar) &
+			 SRIO_ROWAR_NSSEG_MASK;
+	nsseg = nsseg >> SRIO_ROWAR_NSSEG_SHIFT;
+	if (nsseg)
+		nsseg = 1 << nsseg;
+	else
+		nsseg = 0;
+
+	return nsseg;
 }
 
 /* This function clears the srio error */

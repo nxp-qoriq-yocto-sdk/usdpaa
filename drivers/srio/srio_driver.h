@@ -1,4 +1,4 @@
-/* Copyright (c) 2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2011 - 2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,26 +33,32 @@
 #define SRIO_PORT_MAX_NUM	2	/* SRIO port max number */
 #define SRIO_OB_WIN_NUM		9	/* SRIO outbound window number */
 #define SRIO_IB_WIN_NUM		5	/* SRIO inbound window number */
-
-#define RIO_ISR_AACR_AA		0x1	/* Accept All ID */
-#define RIO_ROWAR_WR_MASK	(0xff << 12)
-#define ROWAR_MEM_FLUSH		(0x1 << 12)
-#define ROWAR_MEM_SWRITE	(0x3 << 12)
-#define ROWAR_MEM_NWRITE	(0x4 << 12)
-#define ROWAR_MEM_NWRITE_R	(0x5 << 12)
-#define ROWAR_MEM_MAINTW	(0x7 << 12)
-#define ROWAR_MEM_IO_READ_HOME	(0x2 << 16)
-#define ROWAR_MEM_NREAD		(0x4 << 16)
-#define ROWAR_MEM_MAINTR	(0x7 << 16)
-#define ROWAR_MEM_ATOMIC_INC	(0xc << 16)
-#define ROWAR_MEM_ATOMIC_DEC	(0xd << 16)
-#define ROWAR_MEM_ATOMIC_SET	(0xe << 16)
-#define ROWAR_MEM_ATOMIC_CLR	(0xf << 16)
-#define ROWAR_EN_WIN		(0x1 << 31)
-#define RIWAR_MEM		0x80f55000
-#define RIO_CCSR_PT		0x1
-#define RIO_CCSR_PW0_1X		0x20000000
-#define RIO_CCSR_OPE_IPE_EN	0x00600000
+#define SRIO_MAX_SEG_NUM	4
+#define SRIO_MAX_SUBSEG_NUM	8
+#define SRIO_ADDR_SHIFT		12
+#define SRIO_ISR_AACR_AA	0x1	/* Accept All ID */
+#define SRIO_RIWAR_MEM		0x80f55000
+#define SRIO_CCSR_PT		0x1
+#define SRIO_CCSR_PW0_1X	0x02000000
+#define SRIO_CCSR_OPE_IPE_EN	0x00600000
+#define SRIO_ROWAR_WR_MASK	(0xff << 12)
+#define SRIO_ROWAR_EN_WIN	(0x1 << 31)
+#define SRIO_ROWAR_NSGE_SHIFT	22
+#define SRIO_ROWAR_NSEG_MASK	(0x3 << 22)
+#define SRIO_ROWAR_NSSEG_MASK	(0x3 << 20)
+#define SRIO_ROWAR_NSSEG_SHIFT	20
+#define SRIO_ROWAR_RDTYP_SHIFT	16
+#define SRIO_ROWAR_WRTYP_SHIFT	12
+#define SRIO_ADIDCSR_ADID_SHIFT	16
+#define SRIO_ADIDCSR_ADID_MASK	(0xff << 16)
+#define SRIO_ADIDCSR_ADE_EN	(0x1 << 31)
+#define SRIO_ROWTAR_TREXAD_SHIFT	22
+#define SRIO_ROWTAR_TREXAD_MASK	(0x3ff << 20)
+#define SRIO_ROWBAR_SIZE_MASK	0x3f
+#define SRIO_ROWSR_WRTYP_SHIFT	16
+#define SRIO_ROWSR_RDTYP_SHIFT	20
+#define SRIO_ROWSR_TDID_MASK	0xff
+#define SRIO_ROWSR_WR_MASK	(0xff << 16)
 
 /* Architectural regsiters */
 struct rio_arch {

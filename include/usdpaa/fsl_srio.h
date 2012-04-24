@@ -1,4 +1,4 @@
-/* Copyright (c) 2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2011 - 2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,6 +35,18 @@
 
 #define	SRIO_OB_WIN_NUM		9	/* SRIO outbound window number */
 #define	SRIO_IB_WIN_NUM		5	/* SRIO inbound window number */
+#define SRIO_ATTR_FLUSH		0x1
+#define SRIO_ATTR_SWRITE	0x3
+#define SRIO_ATTR_NWRITE	0x4
+#define SRIO_ATTR_NWRITE_R	0x5
+#define SRIO_ATTR_MAINTW	0x7
+#define SRIO_ATTR_IO_READ_HOME	0x2
+#define SRIO_ATTR_NREAD		0x4
+#define SRIO_ATTR_MAINTR	0x7
+#define SRIO_ATTR_ATOMIC_INC	0xc
+#define SRIO_ATTR_ATOMIC_DEC	0xd
+#define SRIO_ATTR_ATOMIC_SET	0xe
+#define SRIO_ATTR_ATOMIC_CLR	0xf
 
 enum srio_lawbar_size {
 	LAWAR_SIZE_BASE = 0xa,
@@ -70,8 +82,8 @@ struct srio_dev;
 int fsl_srio_uio_init(struct srio_dev **srio);
 int fsl_srio_uio_finish(struct srio_dev *sriodev);
 int fsl_srio_connection(struct srio_dev *sriodev, uint8_t port_id);
-int fsl_srio_set_attr(struct srio_dev *sriodev,
-		      uint8_t port_id, int32_t win_id, uint32_t win_attr);
+int fsl_srio_set_obwin_attr(struct srio_dev *sriodev, uint8_t port_id,
+		      uint8_t win_id, uint32_t rd_attr, uint32_t wr_attr);
 int fsl_srio_set_obwin(struct srio_dev *sriodev, uint8_t port_id,
 		       uint8_t win_id, uint64_t ob_win_phys,
 		       uint64_t ob_win_sys, size_t win_size);
@@ -83,4 +95,23 @@ int fsl_srio_port_connected(struct srio_dev *sriodev);
 int fsl_srio_get_port_num(struct srio_dev *sriodev);
 int fsl_srio_get_port_info(struct srio_dev *sriodev, uint8_t port_id,
 			   struct srio_port_info *port);
+int fsl_srio_enable_accept_all(struct srio_dev *sriodev, uint8_t port_id);
+int fsl_srio_disable_accept_all(struct srio_dev *sriodev, uint8_t port_id);
+int fsl_srio_set_deviceid(struct srio_dev *sriodev, uint8_t port_id,
+			  uint32_t dev_id);
+int fsl_srio_set_targetid(struct srio_dev *sriodev, uint8_t port_id,
+			  uint8_t win_id, uint32_t target_id);
+int fsl_srio_set_seg_num(struct srio_dev *sriodev, uint8_t port_id,
+			 uint8_t win_id, uint8_t seg_num);
+int fsl_srio_get_seg_num(struct srio_dev *sriodev, uint8_t port_id,
+			 uint8_t win_id);
+int fsl_srio_set_seg_attr(struct srio_dev *sriodev, uint8_t port_id,
+			 uint8_t win_id, uint8_t seg_id,
+			 uint32_t rd_attr, uint32_t wr_attr);
+int fsl_srio_set_seg_sgtgtdid(struct srio_dev *sriodev, uint8_t port_id,
+			      uint8_t win_id, uint8_t seg_id, uint8_t tdid);
+int fsl_srio_set_subseg_num(struct srio_dev *sriodev, uint8_t port_id,
+			    uint8_t win_id, uint8_t subseg_num);
+int fsl_srio_get_subseg_num(struct srio_dev *sriodev, uint8_t port_id,
+			    uint8_t win_id);
 #endif
