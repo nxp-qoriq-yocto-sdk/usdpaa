@@ -43,6 +43,14 @@
  */
 #undef FRA_MBOX_MULTICAST
 
+/*
+ * This macro allows fra to create every transmit frame queue using a
+ * different virtual DID, this will break the order dependencies between
+ * frame queues; the outbound segmentation units can interleaves segments.
+ * Fra will achieve a higher transmit rate, get better performance.
+ */
+#define FRA_VIRTUAL_MULTI_DID
+
 #undef FRA_HOLDACTIVE		/* Process each FQ on one portal at a time */
 #undef FRA_ORDER_PRESERVATION	/* HOLDACTIVE + enqueue-DCAs */
 #undef FRA_ORDER_RESTORATION	/* Use ORP */

@@ -608,8 +608,13 @@ int rman_tx_connect(struct rman_tx *tx, int did)
 	if (!tx)
 		return -EINVAL;
 
-	for (i = 0; i < tx->fqs_num; i++)
+	for (i = 0; i < tx->fqs_num; i++) {
+#ifdef FRA_VIRTUAL_MULTI_DID
+		tx->hash[i].md.did = did + i;
+#else
 		tx->hash[i].md.did = did;
+#endif
+	}
 	return 0;
 }
 
