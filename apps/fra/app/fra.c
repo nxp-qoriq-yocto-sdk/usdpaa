@@ -425,6 +425,11 @@ static struct distribution *dist_rman_tx_init(struct dist_cfg *cfg)
 #ifdef FRA_TX_CONFIRM
 	rman_tx_status_listen(dist->rman_tx, 0, 1, dist, dist_tx_confirm_cb);
 #endif
+#ifdef FRA_MBOX_MULTICAST
+	rman_tx_enable_multicast(dist->rman_tx,
+				 txcfg->did >> RM_MBOX_MG_SHIFT,
+				 txcfg->did & RM_MBOX_ML_MASK);
+#endif
 	rman_tx_connect(dist->rman_tx, txcfg->did);
 	dist->handler = dist_rman_tx_handler;
 	return dist;
@@ -607,6 +612,11 @@ static struct distribution *dist_fman_to_rman_init(struct dist_cfg *cfg)
 #ifdef FRA_TX_CONFIRM
 		rman_tx_status_listen(rman_tx_list->rman_tx, 0, 1, dist,
 				      dist_tx_confirm_cb);
+#endif
+#ifdef FRA_MBOX_MULTICAST
+		rman_tx_enable_multicast(rman_tx_list->rman_tx,
+					 f2rcfg->did >> RM_MBOX_MG_SHIFT,
+					 f2rcfg->did & RM_MBOX_ML_MASK);
 #endif
 
 		rman_tx_connect(rman_tx_list->rman_tx, f2rcfg->did);

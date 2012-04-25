@@ -48,6 +48,9 @@ struct rman_tx;
 #define FD_GET_FTYPE(fd)	((((fd)->status) >> FD_TYPE_OFFSET) & 0xf)
 #define FD_GET_STATUS(fd)	(((fd)->status) & 0x07ffffff)
 
+#define RM_MBOX_MG_SHIFT 5
+#define RM_MBOX_ML_MASK 0x1f
+
 struct rman_inb_md {
 	/* word0 */
 	uint8_t ftype:4; /* rio type */
@@ -97,7 +100,8 @@ struct rman_outb_md {
 	uint16_t did;
 	uint16_t dest;
 	/* word4 */
-	uint8_t __reserved2:3;
+	uint8_t mm:1; /* Multicast mode */
+	uint8_t __reserved2:2;
 	uint8_t flowlvl:3;
 	uint8_t __reserved3:2;
 	uint8_t tint:4;
@@ -259,6 +263,14 @@ void rman_rx_finish(struct rman_rx *rx);
 struct rman_tx *
 rman_tx_init(uint8_t port, int fqid, int fqs_num, uint8_t wq,
 	     struct rio_tran *tran);
+
+/*
+ * Enable tx socket multicast mode
+ * There is only mailbox transaction supports multicast mode.
+ * Messages are limited to one segment and 256 bytes or less
+ * when this mode is enabled
+ */
+int rman_tx_enable_multicast(struct rman_tx *tx, int mg, int ml);
 
 /* Sets rman_tx to receive the completed or/and error status frame */
 int rman_tx_status_listen(struct rman_tx *tx, int error_flag,

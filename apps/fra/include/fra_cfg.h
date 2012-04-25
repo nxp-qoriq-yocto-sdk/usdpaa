@@ -37,6 +37,12 @@
 #undef ENABLE_FRA_DEBUG
 #undef FRA_CORE_COPY_MD /* core copy the rman descriptor */
 
+/*
+ * This macro is to enable Mailbox multicast mode
+ * Note: Messages are limited to one segment and 256 bytes or less
+ */
+#undef FRA_MBOX_MULTICAST
+
 #undef FRA_HOLDACTIVE		/* Process each FQ on one portal at a time */
 #undef FRA_ORDER_PRESERVATION	/* HOLDACTIVE + enqueue-DCAs */
 #undef FRA_ORDER_RESTORATION	/* Use ORP */

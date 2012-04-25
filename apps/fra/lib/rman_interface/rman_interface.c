@@ -556,6 +556,28 @@ _err:
 	return NULL;
 }
 
+int rman_tx_enable_multicast(struct rman_tx *tx, int mg, int ml)
+{
+	int i;
+	struct rman_outb_md *md;
+
+	if (!tx || !tx->tran)
+		return -EINVAL;
+
+	if (tx->tran->type != RIO_TYPE_MBOX) {
+		error(0, 0, "Multicast only support Mailbox transaction");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < tx->fqs_num; i++) {
+		md = &tx->hash[i].md;
+		md->mm = 1;
+		md->message_group = mg;
+		md->message_list = ml;
+	}
+	return 0;
+}
+
 int rman_tx_status_listen(struct rman_tx *tx, int error_flag,
 			  int complete_flag, void *pvt,
 			  nonhash_handler handler)
