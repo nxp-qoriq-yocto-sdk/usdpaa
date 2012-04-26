@@ -77,4 +77,9 @@ void usdpaa_netcfg_release(struct usdpaa_netcfg_info *cfg_ptr);
  */
 void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr);
 
+/* fif: FMAN interface
+ * flag_up: flag to make this interface enable/disable
+ */
+void usdpaa_netcfg_enable_disable_shared_rx(const struct fman_if *fif,
+					int flag_up);
 #endif

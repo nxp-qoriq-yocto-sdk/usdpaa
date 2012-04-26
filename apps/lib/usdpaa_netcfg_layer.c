@@ -64,6 +64,9 @@ struct netcfg_interface *netcfg_interface;
  * related to usages of DPA devices.
  * */
 struct usdpaa_netcfg_info *usdpaa_netcfg;
+/* fd to open a socket for making ioctl request to disable/enable shared
+ *  interfaces */
+static int skfd = -1;
 
 void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr)
 {
@@ -159,26 +162,19 @@ static inline int str2mac(const char *macaddr, struct ether_addr *mac)
 static inline int get_mac_addr(const char *vname, struct ether_addr *src_mac)
 {
 	struct ifreq ifr;
-	int skfd;
 	int ret = -1;
 
-	/* Open a basic socket */
-	skfd = socket(AF_PACKET, SOCK_RAW, 0);
-	if (skfd < 0) {
-		error(0, -skfd, "%s", __func__);
-		goto out;
-	}
+	assert(skfd != -1);
+
 	strncpy(ifr.ifr_name, vname, sizeof(ifr.ifr_name));
 	/*retrieve corresponding MAC*/
 	if (ioctl(skfd, SIOCGIFHWADDR, &ifr) == -1) {
-		error(0, 0, "%s(): SIOCGIFINDEX", __func__);
-		goto out;
+		error(0, errno, "%s(): SIOCGIFINDEX", __func__);
+		return ret;
 	}
 	memcpy(src_mac, &ifr.ifr_hwaddr.sa_data, sizeof(*src_mac));
 	ret = 0;
-out:
-	if (skfd >= 0)
-		close(skfd);
+
 	return ret;
 }
 
@@ -189,6 +185,38 @@ static inline enum fman_mac_type get_mac_type(const char *str)
 	p_type = (strncmp(str+4, "10", 2) == 0) ? fman_mac_10g :
 		 (strncmp(str+4, "of", 2) == 0) ? fman_offline : fman_mac_1g;
 	return p_type;
+}
+
+/* This function disables/enables shared interface using ioctl */
+void usdpaa_netcfg_enable_disable_shared_rx(const struct fman_if *fif,
+						int flag_up)
+{
+	struct ifreq ifreq;
+	int flags;
+
+	assert(skfd != -1);
+
+	if (fif->mac_type == fman_mac_less) {
+		strncpy(ifreq.ifr_name, fif->macless_info.macless_name,
+				sizeof(ifreq.ifr_name));
+	} else
+		strncpy(ifreq.ifr_name, fif->shared_mac_info.shared_mac_name,
+				sizeof(ifreq.ifr_name));
+	if (ioctl(skfd, SIOCGIFFLAGS, &ifreq) == -1) {
+		error(0, errno, "%s(): SIOCGIFFLAGS", __func__);
+		return;
+	}
+
+	flags = ifreq.ifr_flags;
+	if (flag_up == 1)
+		flags |= IFF_UP;
+	else
+		flags &= ~IFF_UP;
+	ifreq.ifr_flags = flags;
+	if (ioctl(skfd, SIOCSIFFLAGS, &ifreq) == -1) {
+		error(0, errno, "%s(): SIOCSIFFLAGS", __func__);
+		return;
+	}
 }
 
 static void check_fman_enabled_interfaces(void)
@@ -358,6 +386,16 @@ struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
 	/* Extract dpa configuration from fman driver and FMC configuration
 	   for command-line interfaces */
 
+	if (skfd == -1) {
+		/* Open a basic socket to enable/disable shared
+		 * interfaces */
+		skfd = socket(AF_PACKET, SOCK_RAW, 0);
+		if (unlikely(skfd < 0)) {
+			error(0, errno, "%s(): open(SOCK_RAW)", __func__);
+			return skfd;
+		}
+	}
+
 	/* parse command line interfaces */
 	_errno = parse_cmd_line_args(fm_interfaces);
 	if (_errno == 0)
@@ -446,4 +484,9 @@ void usdpaa_netcfg_release(struct usdpaa_netcfg_info *cfg_ptr)
 {
 	fmc_netcfg_parser_exit();
 	free(cfg_ptr);
+	/* Close socket for shared interfaces */
+	if (skfd >= 0) {
+		close(skfd);
+		skfd = -1;
+	}
 }

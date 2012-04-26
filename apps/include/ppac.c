@@ -35,8 +35,6 @@
 
 #include <ppac.h>
 #include <ppac_interface.h>
-#include <net/if.h>
-#include <sys/ioctl.h>
 
 /* This struct holds the default stashing opts for Rx FQ configuration. PPAM
  * hooks can override (copies of) it before the configuration occurs. */
@@ -46,9 +44,6 @@ static const struct qm_fqd_stashing default_stash_opts = {
 	.context_cl = PPAC_STASH_CONTEXT_CL
 };
 
-/* fd to open a socket for making ioctl request to disable/enable shared
- *  interfaces */
-static int skfd = -1;
 /* Give ppac/main.c access to the interface's configuration (because it doesn't
  * have acccess to the ppac_interface type due to its dependence on ppam). */
 const struct fm_eth_port_cfg *ppac_interface_pcfg(struct ppac_interface *i)
@@ -401,70 +396,32 @@ void ppac_interface_disable_rx(const struct ppac_interface *i)
 
 void ppac_interface_enable_shared_rx(const struct ppac_interface *i)
 {
-	struct ifreq ifreq;
-	int flags;
+	bool if_up = true;
 	const struct fman_if *fif = i->port_cfg->fman_if;
 
-	/* Open a basic socket */
-	skfd = socket(AF_PACKET, SOCK_RAW, 0);
-	if (skfd < 0) {
-		error(0, skfd, "%s", __func__);
-		return;
-	}
-
-	if (fif->mac_type == fman_mac_less) {
-		strncpy(ifreq.ifr_name, fif->macless_info.macless_name,
-				sizeof(ifreq.ifr_name));
-	} else
-		strncpy(ifreq.ifr_name, fif->shared_mac_info.shared_mac_name,
-				sizeof(ifreq.ifr_name));
-	if (ioctl(skfd, SIOCGIFFLAGS, &ifreq) == -1) {
-		error(0, -1, "%s(): SIOCGIFFLAGS", __func__);
-		return;
-	}
-
-	flags = ifreq.ifr_flags;
-	flags |= IFF_UP;
-	ifreq.ifr_flags = flags;
-	if (ioctl(skfd, SIOCSIFFLAGS, &ifreq) == -1) {
-		error(0, -1, "%s(): SIOCSIFFLAGS", __func__);
-		return;
-	}
+	usdpaa_netcfg_enable_disable_shared_rx(i->port_cfg->fman_if,
+						if_up);
+	if (fif->mac_type == fman_mac_less)
+		TRACE("Interface name %s:, enabled RX\n",
+			fif->macless_info.macless_name);
+	else
+		TRACE("Interface name %s:, enabled RX\n",
+			fif->shared_mac_info.shared_mac_name);
 }
 
 void ppac_interface_disable_shared_rx(const struct ppac_interface *i)
 {
-	struct ifreq ifreq;
-	int flags;
+	bool if_down = false;
 	const struct fman_if *fif = i->port_cfg->fman_if;
 
-	if (skfd < 0) {
-		/* Open a basic socket */
-		skfd = socket(AF_PACKET, SOCK_RAW, 0);
-		if (skfd < 0) {
-			error(0, skfd, "%s", __func__);
-			return;
-		}
-	}
-
-	if (fif->mac_type == fman_mac_less) {
-		strncpy(ifreq.ifr_name, fif->macless_info.macless_name,
-				sizeof(ifreq.ifr_name));
-	} else
-		strncpy(ifreq.ifr_name, fif->shared_mac_info.shared_mac_name,
-				sizeof(ifreq.ifr_name));
-	if (ioctl(skfd, SIOCGIFFLAGS, &ifreq) == -1) {
-		error(0, -1, "%s(): SIOCGIFFLAGS", __func__);
-		return;
-	}
-
-	flags = ifreq.ifr_flags;
-	flags |= ~IFF_UP;
-	ifreq.ifr_flags = flags;
-	if (ioctl(skfd, SIOCSIFFLAGS, &ifreq) == -1) {
-		error(0, -1, "%s(): SIOCSIFFLAGS", __func__);
-		return;
-	}
+	usdpaa_netcfg_enable_disable_shared_rx(i->port_cfg->fman_if,
+						if_down);
+	if (fif->mac_type == fman_mac_less)
+		TRACE("Interface name %s:, disabled RX\n",
+			fif->macless_info.macless_name);
+	else
+		TRACE("Interface name %s:, disabled RX\n",
+			fif->shared_mac_info.shared_mac_name);
 }
 
 void ppac_interface_finish(struct ppac_interface *i)

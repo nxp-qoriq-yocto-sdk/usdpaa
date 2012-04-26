@@ -47,6 +47,7 @@
 
 #include <argp.h>
 #include <error.h>
+#include <stdbool.h>
 
 /* If defined, be lippy about everything */
 #undef PPAC_TRACE
