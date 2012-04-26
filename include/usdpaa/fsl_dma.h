@@ -49,6 +49,25 @@ enum {
 };
 
 struct dma_ch;
+struct dma_link_dsc;
+
+struct dma_link_setup_data {
+	uint64_t src_addr;
+	uint64_t dst_addr;
+	uint32_t byte_count;
+	uint32_t src_stride_size;
+	uint32_t src_stride_dist;
+	uint32_t dst_stride_size;
+	uint32_t dst_stride_dist;
+	uint8_t src_snoop_en;
+	uint8_t dst_snoop_en;
+	uint8_t src_stride_en;
+	uint8_t dst_stride_en;
+	uint8_t dst_nlwr;
+	uint8_t seg_interrupt_en;
+	uint8_t link_interrupt_en;
+	uint8_t err_interrupt_en;
+};
 
 int fsl_dma_chan_init(struct dma_ch **dma_ch, uint8_t dma_id, uint8_t ch_id);
 int fsl_dma_chan_finish(struct dma_ch *dma_ch);
@@ -57,4 +76,10 @@ int fsl_dma_chan_bwc(struct dma_ch *dma_ch, uint8_t bwc);
 int fsl_dma_wait(struct dma_ch *dma_ch);
 int fsl_dma_direct_start(struct dma_ch *dma_ch, dma_addr_t src_phys,
 			dma_addr_t dest_phys, uint32_t len);
+int fsl_dma_chain_link_build(struct dma_link_setup_data *link_data,
+			struct dma_link_dsc *link_dsc, uint64_t link_dsc_phys,
+			uint32_t link_count);
+int fsl_dma_chain_basic_start(struct dma_ch *dma_ch,
+			struct dma_link_setup_data *link_data,
+			uint64_t link_dsc_phys);
 #endif

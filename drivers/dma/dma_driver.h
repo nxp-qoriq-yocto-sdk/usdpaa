@@ -37,10 +37,30 @@
 #define DMA_MR_BWC_DIS		(0xf << 24)
 #define DMA_MR_SRW_EN		(0x1 << 10)
 #define DMA_MR_CTM_EN		(0x1 << 2)
+#define DMA_MR_XFE_EN		(0x1 << 5)
+#define DMA_MR_CDSM_EN	(0x1 << 4)
+#define DMA_MR_CTM_EN		(0x1 << 2)
+#define DMA_MR_EOSIE_EN	(0x1 << 9)
+#define DMA_MR_EOLNIE_EN	(0x1 << 8)
+#define DMA_MR_EIE_EN	(0x1 << 6)
 #define DMA_SR_CH_BUSY		(0x1 << 2)
 #define DMA_SR_ERR		(0xf << 4)
 #define DMA_BWC_MASK		(0xf << 24)
 #define DMA_BWC_OFFSET		24
+#define DMA_32BIT_MASK	0xffffffff
+#define DMA_SATR_SSME_EN	(0x1 << 24)
+#define DMA_SATR_SREADTTYPE_SNOOP_EN	(0x5 << 16)
+#define DMA_SATR_SREADTTYPE_SNOOP_DIS	(0x4 << 16)
+#define DMA_DATR_DSME_EN	(0x1 << 24)
+#define DMA_DATR_DWRITETTYPE_SNOOP_EN	(0x5 << 16)
+#define DMA_DATR_DWRITETTYPE_SNOOP_DIS	(0 << 16)
+#define DMA_DATR_NLWR_DIS	(0x1 << 30)
+#define DMA_NLNDAR_NANDA_MASK	(~0x1f)
+#define DMA_NLNDAR_EOLND_EN	0x1
+#define DMA_32BYTE_ALIGN_MASK	(32 - 1)
+#define DMA_CLNDAR_CLNDA_MASK	(0xffffffe0)
+#define DMA_SSR_SSS_SHIFT	12
+#define DMA_DSR_DSS_SHIFT	12
 
 struct dma_ch_regs {
 	uint32_t	mr;
@@ -67,4 +87,35 @@ struct dma_ch_regs {
 struct dma_ch {
 	struct dma_ch_regs *regs;	/* channel register map */
 	int32_t fd;			/* dma channel uio device fd */
+};
+
+/* dma link description structure */
+struct dma_link_dsc {
+	uint32_t src_attr;
+	uint32_t src_addr;
+	uint32_t dst_attr;
+	uint32_t dst_addr;
+	uint32_t nld_eaddr;
+	uint32_t nld_addr;
+	uint32_t byte_count;
+	uint32_t rev;
+};
+
+/* dma link data input */
+struct dma_link_setup_data {
+	uint64_t src_addr;
+	uint64_t dst_addr;
+	uint32_t byte_count;
+	uint32_t src_stride_size;
+	uint32_t src_stride_dist;
+	uint32_t dst_stride_size;
+	uint32_t dst_stride_dist;
+	uint8_t src_snoop_en;
+	uint8_t dst_snoop_en;
+	uint8_t src_stride_en;
+	uint8_t dst_stride_en;
+	uint8_t dst_nlwr;
+	uint8_t seg_interrupt_en;
+	uint8_t link_interrupt_en;
+	uint8_t err_interrupt_en;
 };

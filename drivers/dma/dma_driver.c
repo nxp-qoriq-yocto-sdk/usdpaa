@@ -226,3 +226,103 @@ int fsl_dma_direct_start(struct dma_ch *dma_ch, dma_addr_t src_phys,
 
 	return 0;
 }
+
+/* dma_link_dsc should be link head of the list */
+int fsl_dma_chain_link_build(struct dma_link_setup_data *link_data,
+			struct dma_link_dsc *link_dsc, uint64_t link_dsc_phys,
+			uint32_t link_count)
+{
+	int i;
+
+	if ((!link_data) || (!link_dsc))
+		return -EINVAL;
+
+	/* link descriptor should be 32 byte aligned*/
+	if ((uint32_t)link_dsc & DMA_32BYTE_ALIGN_MASK)
+		return -EINVAL;
+
+	memset(link_dsc, 0, sizeof(*link_dsc) * link_count);
+
+	for (i = 0; i < link_count; i++) {
+		if (link_data[i].src_stride_en)
+			link_dsc[i].src_attr |= DMA_SATR_SSME_EN;
+
+		if (link_data[i].src_snoop_en)
+			link_dsc[i].src_attr |= DMA_SATR_SREADTTYPE_SNOOP_EN;
+		else
+			link_dsc[i].src_attr |= DMA_SATR_SREADTTYPE_SNOOP_DIS;
+
+		link_dsc[i].src_attr |= link_data[i].src_addr >> 32;
+		link_dsc[i].src_addr = (uint32_t)link_data[i].src_addr;
+
+		if (link_data[i].dst_stride_en)
+			link_dsc[i].dst_attr |= DMA_DATR_DSME_EN;
+
+		if (link_data[i].dst_snoop_en)
+			link_dsc[i].dst_attr |= DMA_DATR_DWRITETTYPE_SNOOP_EN;
+		else
+			link_dsc[i].dst_attr |= DMA_DATR_DWRITETTYPE_SNOOP_EN;
+
+		if (link_data[i].dst_nlwr)
+			link_dsc[i].dst_attr |= DMA_DATR_NLWR_DIS;
+
+		link_dsc[i].dst_attr |= link_data[i].dst_addr >> 32;
+		link_dsc[i].dst_addr = (uint32_t)link_data[i].dst_addr;
+		link_dsc[i].byte_count = link_data[i].byte_count;
+
+		if (i < link_count - 1) {
+			link_dsc[i].nld_eaddr =
+			(link_dsc_phys + sizeof(*link_dsc) * (i + 1)) >> 32;
+			link_dsc[i].nld_addr |=
+			(uint32_t)(link_dsc_phys + sizeof(*link_dsc) * (i + 1));
+		} else {
+			link_dsc[i].nld_eaddr = 0;
+			link_dsc[i].nld_addr |= DMA_NLNDAR_EOLND_EN;
+		}
+	}
+
+	return 0;
+}
+
+int fsl_dma_chain_basic_start(struct dma_ch *dma_ch,
+				struct dma_link_setup_data *link_data,
+				uint64_t link_dsc_phys)
+{
+	uint32_t reg = 0;
+
+	if (!dma_ch || !link_data)
+		return -EINVAL;
+
+	/* Wait for DMA channel free */
+	fsl_dma_wait(dma_ch);
+
+	out_be32(&dma_ch->regs->sr, 0);
+	/* MR register:
+	 * [XFE] = 0		Disable extend chain mode
+	 * [CDSM] = 1	Writing link descriptor start dma
+	 * [CTM] = 0		Configure dma to chain mode
+	 */
+	reg = ~DMA_MR_XFE_EN & DMA_MR_CDSM_EN & ~DMA_MR_CTM_EN;
+	if (link_data->seg_interrupt_en)
+		reg |= DMA_MR_EOSIE_EN;
+	if (link_data->link_interrupt_en)
+		reg |= DMA_MR_EOLNIE_EN;
+	if (link_data->err_interrupt_en)
+		reg |= DMA_MR_EIE_EN;
+	out_be32(&dma_ch->regs->mr, reg);
+
+	reg = link_data->src_stride_dist |
+		(link_data->src_stride_size << DMA_SSR_SSS_SHIFT);
+	out_be32(&dma_ch->regs->ssr, reg);
+
+	reg = link_data->dst_stride_dist |
+		(link_data->dst_stride_size << DMA_DSR_DSS_SHIFT);
+	out_be32(&dma_ch->regs->ssr, reg);
+
+	/* Start dma chain mode */
+	out_be32(&dma_ch->regs->eclndar, link_dsc_phys >> 32);
+	__sync_synchronize();
+	out_be32(&dma_ch->regs->clndar, link_dsc_phys & DMA_CLNDAR_CLNDA_MASK);
+
+	return 0;
+}
