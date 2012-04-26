@@ -31,7 +31,7 @@
 
 bin_PROGRAMS = sra
 
-AM_CFLAGS := -I$(TOP_LEVEL)/apps/include
-
+AM_CFLAGS := $(LIBEDIT_CFLAGS) -I$(TOP_LEVEL)/apps/include
 sra_SOURCES := sra.c
 sra_LDADD := usdpaa_srio usdpaa_dma usdpaa_dma_mem usdpaa_of usdpaa_process
+sra_LDFLAGS := $(LIBEDIT_LDFLAGS)

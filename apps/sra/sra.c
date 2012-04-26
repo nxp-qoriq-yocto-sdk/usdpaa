@@ -37,6 +37,7 @@
 #include <usdpaa/fsl_srio.h>
 #include <error.h>
 #include <atb_clock.h>
+#include <readline.h>
 
 #define SRIO_SYS_ADDR		0x10000000	/* used for srio system addr */
 #define SRIO_WIN_SIZE		0x200000
@@ -51,7 +52,8 @@
 #define TEST_MAX_TIMES		50
 #define ATTR_CMD_NUM		7
 #define OP_CMD_NUM		8
-
+#define TEST_CMD_NUM		3
+#define DMA_TEST_CHAIN_NUM 6
 struct srio_pool_org {
 	uint8_t write_recv_data[SRIO_POOL_SECT_SIZE]; /* space mapped to
 							 other port win */
@@ -95,6 +97,12 @@ enum srio_attr_level2_cmd {
 	WIN_ATTR,
 	SEG_ATTR,
 };
+
+enum test_cmd {
+	TEST_SRIO = 0,
+	TEST_DMA_CHAIN,
+};
+
 static const uint32_t srio_test_win_attrv[] = {3, 4, 5, 4, 0};
 static const char * const srio_test_win_attrc[] = {"SWRITE", "NWRITE",
 						   "NWRITE_R", "NREAD", "DMA"};
@@ -107,6 +115,7 @@ static const char * const attr_param[4][8] = { {"port1", "port2"},
 			"atomic_dec", "atomic_set", "atomic_clr"} };
 static const char * const op_param[][4] = { {"port1", "port2"},
 					    {"w", "r", "s", "p"} };
+static const char * const test_param[][2] = {{"srio", "dma_chain"} };
 static const char * const sector_name[] = {"map space", "read data space",
 					   "write preparing space", "reserved"};
 
@@ -301,6 +310,27 @@ static int op_param_trans(int32_t cmd_num, char **cmd_in)
 	return 0;
 }
 
+static int test_param_trans(int32_t cmd_num, char **cmd_in)
+
+{
+	int32_t i;
+
+	if (cmd_num != TEST_CMD_NUM)
+		return -EINVAL;
+
+	for (i = 0; i < ARRAY_SIZE(test_param[0]) && test_param[0][i]; i++)
+		if (!strcmp(cmd_in[2], test_param[0][i]))
+			break;
+
+	if (i == ARRAY_SIZE(test_param[0]) || !test_param[0][i])
+		return -EINVAL;
+
+	cmd_param.test_type = i;
+
+	return 0;
+}
+
+
 static int cmd_translate(int32_t cmd_num, char **cmd_in)
 {
 	int i, err = 0;
@@ -325,6 +355,7 @@ static int cmd_translate(int32_t cmd_num, char **cmd_in)
 		err = op_param_trans(cmd_num, cmd_in);
 		break;
 	case SRIO_TEST:
+		err = test_param_trans(cmd_num, cmd_in);
 		break;
 	}
 
@@ -487,10 +518,7 @@ static int attr_implement(struct srio_dev *sriodev,
 		break;
 	}
 
-	if (err)
-		return err;
-
-	return 0;
+	return err;
 }
 
 static int srio_perf_test(struct srio_dev *sriodev, struct dma_ch *dmadev,
@@ -594,6 +622,54 @@ static int srio_perf_test(struct srio_dev *sriodev, struct dma_ch *dmadev,
 	return 0;
 }
 
+static int dma_chain_mode_test(struct dma_ch *dmadev,
+				struct srio_port_data  *port_data)
+{
+	struct dma_link_setup_data *link_data;
+	struct dma_link_dsc *link_dsc;
+	int i;
+
+	link_data = (struct dma_link_setup_data *)
+		malloc(sizeof(*link_data) * DMA_TEST_CHAIN_NUM);
+	link_dsc = (struct dma_link_dsc *)port_data[1].virt->res;
+
+	for (i = 0; i < DMA_TEST_CHAIN_NUM; i++) {
+		link_data[i].byte_count = 256;
+		link_data[i].src_addr = port_data[0].phys.write_recv_data +
+					(i + 1) * SRIO_POOL_SECT_SIZE;
+		link_data[i].dst_addr = port_data[0].phys.write_recv_data +
+					i * SRIO_POOL_SECT_SIZE;
+		link_data[i].dst_snoop_en = 1;
+		link_data[i].src_snoop_en = 1;
+		link_data[i].dst_nlwr = 0;
+		link_data[i].dst_stride_en = 0;
+		link_data[i].src_stride_en = 0;
+		link_data[i].dst_stride_dist = 0;
+		link_data[i].src_stride_dist = 0;
+		link_data[i].dst_stride_size = 0;
+		link_data[i].src_stride_size = 0;
+		link_data[i].err_interrupt_en = 0;
+		link_data[i].seg_interrupt_en = 0;
+		link_data[i].link_interrupt_en = 0;
+	}
+	fsl_dma_chain_link_build(link_data, link_dsc,
+				port_data[1].phys.res, DMA_TEST_CHAIN_NUM);
+	fsl_dma_chain_basic_start(dmadev, link_data, port_data[1].phys.res);
+
+	return 0;
+}
+
+static int test_implement(struct srio_dev *sriodev, struct dma_ch *dmadev,
+			struct srio_port_data  *port_data)
+{
+	if (cmd_param.test_type == TEST_SRIO)
+		srio_perf_test(sriodev, dmadev, port_data);
+	else if (cmd_param.test_type == TEST_DMA_CHAIN)
+		dma_chain_mode_test(dmadev, port_data);
+
+	return 0;
+}
+
 static int cmd_implement(struct srio_dev *sriodev, struct dma_ch *dmadev,
 			 struct srio_port_data	*port_data)
 {
@@ -607,7 +683,7 @@ static int cmd_implement(struct srio_dev *sriodev, struct dma_ch *dmadev,
 		err = op_implement(sriodev, dmadev, port_data);
 		break;
 	case SRIO_TEST:
-		err = srio_perf_test(sriodev, dmadev, port_data);
+		err = test_implement(sriodev, dmadev, port_data);
 	}
 
 	return 0;
@@ -694,9 +770,14 @@ static void cmd_format_print(void)
 	printf("\t                data_len should be 1/2/4 for ");
 	printf("ATOMIC operation\n");
 	printf("\nDo SRIO test and print performance result\n");
-	printf("sra -test\n");
+	printf("sra -test [case_name]\n");
+	printf("\t[case_name]: should be dma_chain/srio\n");
 	printf("-----------------------------------------------------\n");
 }
+
+const char sra_prompt[] = "sra> ";
+/* dma link data input */
+
 
 int main(int argc, char *argv[])
 {
@@ -705,6 +786,8 @@ int main(int argc, char *argv[])
 	struct dma_pool *dmapool = NULL;
 	int i, err;
 	struct srio_port_data *port_data;
+	int cli_argc;
+	char *cli, **cli_argv;
 
 	of_init();
 	err = fsl_srio_uio_init(&sriodev);
@@ -720,12 +803,6 @@ int main(int argc, char *argv[])
 		goto err_cmd_malloc;
 	}
 	memset(cmd_param.port, 0, sizeof(struct cmd_port_param));
-
-	err = cmd_translate(argc, argv);
-	if (err < 0) {
-		cmd_format_print();
-		goto err_cmd_trans;
-	}
 
 	port_data = malloc(sizeof(struct srio_port_data) * port_num);
 	if (!port_data) {
@@ -767,12 +844,42 @@ int main(int argc, char *argv[])
 		goto err_srio_connected;
 	}
 
-	fsl_dma_chan_basic_direct_init(dmadev);
+	/* Run the CLI loop */
+	while (1) {
+		/* Get CLI input */
+		cli = readline(sra_prompt);
+		if (unlikely((cli == NULL) || strncmp(cli, "q", 1) == 0))
+			break;
+		if (cli[0] == 0) {
+			free(cli);
+			continue;
+		}
 
-	err = cmd_implement(sriodev, dmadev, port_data);
-	if (err < 0) {
-		error(0, -err, "%s(): cmd_implement()\n", __func__);
-		goto err_srio_connected;
+		cli_argv = history_tokenize(cli);
+		if (unlikely(cli_argv == NULL)) {
+			error(EXIT_SUCCESS, 0,
+			      "Out of memory while parsing: %s", cli);
+			free(cli);
+			continue;
+		}
+		for (cli_argc = 0; cli_argv[cli_argc] != NULL; cli_argc++)
+			;
+
+		add_history(cli);
+		err = cmd_translate(cli_argc, cli_argv);
+		if (err < 0)
+			cmd_format_print();
+
+		for (cli_argc = 0; cli_argv[cli_argc] != NULL; cli_argc++)
+			free(cli_argv[cli_argc]);
+		free(cli_argv);
+		free(cli);
+
+		if (err < 0)
+			continue;
+		fsl_dma_chan_basic_direct_init(dmadev);
+
+		cmd_implement(sriodev, dmadev, port_data);
 	}
 
 	free(port_data);
@@ -786,7 +893,6 @@ int main(int argc, char *argv[])
 
 err_srio_connected:
 	free(port_data);
-err_cmd_trans:
 	free(cmd_param.port);
 err_cmd_malloc:
 	fsl_srio_uio_finish(sriodev);
