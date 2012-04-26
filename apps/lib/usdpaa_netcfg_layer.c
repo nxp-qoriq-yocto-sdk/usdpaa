@@ -413,7 +413,7 @@ struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
 		skfd = socket(AF_PACKET, SOCK_RAW, 0);
 		if (unlikely(skfd < 0)) {
 			error(0, errno, "%s(): open(SOCK_RAW)", __func__);
-			return skfd;
+			return NULL;
 		}
 	}
 
