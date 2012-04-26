@@ -68,6 +68,28 @@ struct usdpaa_netcfg_info *usdpaa_netcfg;
  *  interfaces */
 static int skfd = -1;
 
+const char *fm_interfaces;
+
+static const struct argp_option argp_opts[] = {
+	{"fm-interfaces",	'i',	"FILE",	0,	"FMAN interfaces"},
+	{}
+};
+
+static error_t netcfg_parser(int key, char *arg, struct argp_state *state)
+{
+	switch (key) {
+	case 'i':
+		fm_interfaces = arg;
+		break;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+	return 0;
+}
+
+const struct argp netcfg_argp = {argp_opts, netcfg_parser, 0, 0};
+
+
 void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr)
 {
 	int i;
@@ -373,8 +395,7 @@ static inline int netcfg_interface_match(uint8_t fman,
 }
 
 struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
-					const char *cfg_file,
-					const char *fm_interfaces)
+					const char *cfg_file)
 {
 	struct fman_if *__if;
 	int _errno, idx;

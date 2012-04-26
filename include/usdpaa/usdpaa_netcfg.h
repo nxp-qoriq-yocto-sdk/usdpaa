@@ -34,6 +34,7 @@
 #define USDPAA_NETCFG_H
 
 #include <usdpaa/fman.h>
+#include <argp.h>
 /* Represents a contiguous range of FQIDs (to be linked into a per-port list) */
 struct fm_eth_port_fqrange {
 	struct list_head list;
@@ -64,8 +65,7 @@ struct usdpaa_netcfg_info {
  * Returns the configuration information in newly allocated memory.
  */
 struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
-					const char *cfg_file,
-					const char *fm_interfaces);
+					const char *cfg_file);
 
 /* cfg_ptr: configuration information pointer.
  * Frees the resources allocated by the configuration layer.
@@ -82,4 +82,5 @@ void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr);
  */
 void usdpaa_netcfg_enable_disable_shared_rx(const struct fman_if *fif,
 					int flag_up);
+extern const struct argp netcfg_argp;
 #endif

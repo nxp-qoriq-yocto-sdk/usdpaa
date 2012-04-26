@@ -155,7 +155,6 @@ int main(int argc, char *argv[])
 	long ncpus = sysconf(_SC_NPROCESSORS_ONLN);
 	/* Load the device-tree driver */
 	int loop, tmpret, teardown, ret = of_init();
-	const char *fm_interfaces = NULL;
 
 	while (ARGINC() > 0) {
 		if (!strcmp(*argv, "-n")) {
@@ -200,12 +199,6 @@ int main(int argc, char *argv[])
 				exit(EXIT_FAILURE);
 			}
 			sz = (size_t)val;
-		} else if (!strcmp(*argv, "-i")) {
-			if (!ARGINC()) {
-				fprintf(stderr, "Missing argument to -i\n");
-				exit(EXIT_FAILURE);
-			}
-			fm_interfaces = *argv;
 		} else if (!strcmp(*argv, "-b")) {
 			unsigned long val;
 			if (!ARGINC()) {
@@ -249,7 +242,7 @@ b_err:
 	 * are not necessarily from the XML files, such as the pool channels
 	 * that the application is allowed to use (these are currently
 	 * hard-coded into the netcfg code). */
-	netcfg = usdpaa_netcfg_acquire(PCD_PATH, CFG_PATH, fm_interfaces);
+	netcfg = usdpaa_netcfg_acquire(PCD_PATH, CFG_PATH);
 	if (!netcfg) {
 		fprintf(stderr, "Fail: usdpaa_netcfg_acquire(%s,%s)\n",
 			PCD_PATH, CFG_PATH);
