@@ -45,7 +45,7 @@ struct rman_if {
 	struct rman_dev *rmdev;
 	struct rman_cfg cfg;
 	struct srio_dev *sriodev;
-	int port_status;
+	int port_connected;
 	enum qm_channel tx_channel_id[RMAN_MAX_NUM_OF_CHANNELS];
 	uint32_t msg_size[RIO_TYPE_NUM];
 	int sg_size;
@@ -184,13 +184,6 @@ static inline int msg_to_fd(struct qm_fd *fd, const struct msg_buf *msg)
 	qm_fd_addr_set64(fd, bm_buffer_get64(&msg->bmb));
 	fd->offset = (void *)msg->data - (void *)msg;
 	return 0;
-}
-
-int rman_get_port_status(int port_number)
-{
-	if (!rmif)
-		return 0;
-	return rmif->port_status & (1 << port_number);
 }
 
 int rman_rx_get_fqs_num(struct rman_rx *rman_rx)
@@ -715,9 +708,31 @@ int rman_send_msg(struct rman_tx *tx, int hash_idx, struct msg_buf *msg)
 	return rman_send_frame(&opt, &fd);
 }
 
+int rman_if_port_connet(uint8_t port)
+{
+	int port_num;
+
+	if (!rmif || !rmif->sriodev)
+		return -EINVAL;
+
+	if (rmif->port_connected & (1 << port))
+		return 0;
+
+	port_num = fsl_srio_get_port_num(rmif->sriodev);
+	if (port >= port_num)
+		return -EINVAL;
+
+	if (fsl_srio_connection(rmif->sriodev, port))
+		return -EINVAL;
+
+	rmif->port_connected |= 1 << port;
+
+	return 0;
+}
+
 int rman_if_init(const struct rman_cfg *cfg)
 {
-	int err, port_num, i;
+	int err, i;
 
 	if (!cfg)
 		return -EINVAL;
@@ -735,20 +750,6 @@ int rman_if_init(const struct rman_cfg *cfg)
 	if (err < 0) {
 		error(0, -err, "srio_uio_init()");
 		return err;
-	}
-
-	port_num = fsl_srio_get_port_num(rmif->sriodev);
-	for (i = 0; i < port_num; i++)
-		fsl_srio_connection(rmif->sriodev, i);
-
-	rmif->port_status = fsl_srio_port_connected(rmif->sriodev);
-	if (rmif->port_status < 0)
-		err = rmif->port_status;
-	else if (!rmif->port_status)
-		err = -ENODEV;
-	if (err < 0) {
-		error(0, -err, "%s(): fsl_srio_port_connected()", __func__);
-		goto _err;
 	}
 
 	rmif->rmdev = rman_dev_init(cfg);

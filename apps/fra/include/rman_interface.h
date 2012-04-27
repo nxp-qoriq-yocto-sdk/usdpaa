@@ -207,13 +207,6 @@ static inline int dstr_get_size(const struct msg_buf *msg)
 	return msg->imd.count & 0xffffff;
 }
 
-/*
- * This function returns the status of SRIO port.
- * If the port has been connected returns 1,
- * otherwise returns 0.
- */
-int rman_get_port_status(int port_number);
-
 /* If create frame queue directly this function returns 1,
  * Otherwise, this function  returns the number of receive frame queue
  * calculated according to transaction configuration and algorithmic rule
@@ -291,6 +284,13 @@ int rman_send_frame(struct hash_opt *opt, const struct qm_fd *fd);
 
 /* Sends the message stored in msg via the frame queue specified by opt. */
 int rman_send_msg(struct rman_tx *tx, int hash_idx, struct msg_buf *msg);
+
+/*
+ * This function performs checking SRIO port connection.
+ * If the port has been connected returns 0,
+ * otherwise returns an error number.
+ */
+int rman_if_port_connet(uint8_t port_number);
 
 /* Initializes RMan interface according to RMan configuration */
 int rman_if_init(const struct rman_cfg *cfg);

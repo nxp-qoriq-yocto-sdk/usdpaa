@@ -364,7 +364,7 @@ static struct distribution *dist_rman_rx_init(struct dist_cfg *cfg)
 
 	rxcfg = &cfg->dist_rman_rx_cfg;
 
-	if (!rman_get_port_status(rxcfg->rio_port)) {
+	if (rman_if_port_connet(rxcfg->rio_port)) {
 		error(0, 0, "SRIO port%d is not connected",
 		      rxcfg->rio_port);
 		return NULL;
@@ -401,7 +401,7 @@ static struct distribution *dist_rman_tx_init(struct dist_cfg *cfg)
 
 	txcfg = &cfg->dist_rman_tx_cfg;
 
-	if (!rman_get_port_status(txcfg->rio_port)) {
+	if (rman_if_port_connet(txcfg->rio_port)) {
 		error(0, 0, "SRIO port%d is not connected",
 		      txcfg->rio_port);
 		return NULL;
@@ -446,7 +446,7 @@ static struct distribution *dist_rman_to_fman_init(struct dist_cfg *cfg)
 
 	r2fcfg = &cfg->dist_rman_to_fman_cfg;
 
-	if (!rman_get_port_status(r2fcfg->rio_port)) {
+	if (rman_if_port_connet(r2fcfg->rio_port)) {
 		error(0, 0, "SRIO port%d is not connected",
 		      r2fcfg->rio_port);
 		return NULL;
@@ -575,6 +575,12 @@ static struct distribution *dist_fman_to_rman_init(struct dist_cfg *cfg)
 	port = get_fra_fman_port(f2rcfg->fman_port_name);
 	if (!port) {
 		FRA_DBG("can not find fman port %s", f2rcfg->fman_port_name);
+		return NULL;
+	}
+
+	if (rman_if_port_connet(f2rcfg->rio_port)) {
+		error(0, 0, "SRIO port%d is not connected",
+		      f2rcfg->rio_port);
 		return NULL;
 	}
 
