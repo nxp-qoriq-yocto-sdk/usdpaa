@@ -623,3 +623,79 @@ int fsl_srio_clr_bus_err(struct srio_dev *sriodev)
 
 	return 0;
 }
+
+void fsl_srio_set_tmmode(struct srio_dev *sriodev, uint8_t mode)
+{
+	/* currently only support 0/1 mode, 2-f mode is reserved */
+	if (mode > 1)
+		return;
+	out_be32(&sriodev->rio_regs->arch.dsllcsr,
+		 in_be32(&sriodev->rio_regs->arch.dsllcsr) |
+		 (mode << SRIO_DSLLCSR_TM_OFFSET));
+}
+
+void fsl_srio_port_disable(struct srio_dev *sriodev, uint8_t port_id)
+{
+	out_be32(&sriodev->rio_regs->lp_serial.port[port_id].ccsr,
+		in_be32(&sriodev->rio_regs->lp_serial.port[port_id].ccsr) |
+		1 << SRIO_CCSR_PD_OFFSET);
+}
+
+void fsl_srio_port_enable(struct srio_dev *sriodev, uint8_t port_id)
+{
+	out_be32(&sriodev->rio_regs->lp_serial.port[port_id].ccsr,
+		in_be32(&sriodev->rio_regs->lp_serial.port[port_id].ccsr) &
+		~(1 << SRIO_CCSR_PD_OFFSET));
+}
+
+void fsl_srio_drop_enable(struct srio_dev *sriodev, uint8_t port_id)
+{
+	out_be32(&sriodev->rio_regs->lp_serial.port[port_id].ccsr,
+		 in_be32(&sriodev->rio_regs->lp_serial.port[port_id].ccsr) |
+		 1 << SRIO_CCSR_DPE_OFFSET);
+}
+
+void fsl_srio_drop_disable(struct srio_dev *sriodev, uint8_t port_id)
+{
+	out_be32(&sriodev->rio_regs->lp_serial.port[port_id].ccsr,
+		 in_be32(&sriodev->rio_regs->lp_serial.port[port_id].ccsr) &
+		 ~(1 << SRIO_CCSR_DPE_OFFSET));
+}
+
+void fsl_srio_drain_enable(struct srio_dev *sriodev, uint8_t port_id)
+{
+	out_be32(&sriodev->rio_regs->impl.port[port_id].pcr,
+		 in_be32(&sriodev->rio_regs->impl.port[port_id].pcr) |
+		 1 << SRIO_PCR_OBDEN_OFFSET);
+}
+
+void fsl_srio_drain_disable(struct srio_dev *sriodev, uint8_t port_id)
+{
+	out_be32(&sriodev->rio_regs->impl.port[port_id].pcr,
+		 in_be32(&sriodev->rio_regs->impl.port[port_id].pcr) &
+		 ~(1 << SRIO_PCR_OBDEN_OFFSET));
+}
+
+void fsl_srio_set_packet_timeout(struct srio_dev *sriodev,
+				 uint8_t port_id, uint32_t value)
+{
+	out_be32(&sriodev->rio_regs->impl.port[port_id].lopttlcr,
+		 value << SRIO_LIVE_TIME_SHIFT);
+}
+
+void fsl_srio_set_link_timeout(struct srio_dev *sriodev, uint32_t value)
+{
+	out_be32(&sriodev->rio_regs->lp_serial.pltoccsr,
+		 value << SRIO_LIVE_TIME_SHIFT);
+}
+
+int fsl_srio_port_width(struct srio_dev *sriodev, uint8_t port_id)
+{
+	return (in_be32(&sriodev->rio_regs->lp_serial.port[port_id].ccsr) >>
+		SRIO_CCSR_IPW_OFFSET) & SRIO_CCSR_IPW_MASK;
+}
+
+int fsl_srio_fd(struct srio_dev *sriodev)
+{
+	return sriodev->reg_fd;
+}

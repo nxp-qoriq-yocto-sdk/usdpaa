@@ -114,4 +114,67 @@ int fsl_srio_set_subseg_num(struct srio_dev *sriodev, uint8_t port_id,
 			    uint8_t win_id, uint8_t subseg_num);
 int fsl_srio_get_subseg_num(struct srio_dev *sriodev, uint8_t port_id,
 			    uint8_t win_id);
+
+/*
+ * Set traffic management mode
+ * 0 means traffic management disabled
+ * 1 means basic traffic management mode
+ * 2-0xF is reserved
+ */
+void fsl_srio_set_tmmode(struct srio_dev *sriodev, uint8_t mode);
+
+/* Disable output buffer drain */
+void fsl_srio_drain_disable(struct srio_dev *sriodev, uint8_t port_id);
+
+/*
+ * Enable output buffer drain.
+ * When set, the output drains packets from the outbound buffer and does not
+ * send them out.
+ */
+void fsl_srio_drain_enable(struct srio_dev *sriodev, uint8_t port_id);
+
+/* Disable port - port is unable to receive/transmit */
+void fsl_srio_port_disable(struct srio_dev *sriodev, uint8_t port_id);
+
+/* Enable port - port can receive/transmit */
+void fsl_srio_port_enable(struct srio_dev *sriodev, uint8_t port_id);
+
+/*
+ * Drop packet disable.
+ * This bit is used with the Stop on Port Failed -encountered Enable bit to
+ * force certain behavior when the Error Rate Failed Threshold has been met
+ * or exceeded.
+ */
+void fsl_srio_drop_disable(struct srio_dev *sriodev, uint8_t port_id);
+
+/*
+ * Drop packet enable.
+ * This bit is used with the Stop on Port Failed -encountered Enable bit to
+ * force certain behavior when the Error Rate Failed Threshold has been met
+ * or exceeded.
+ */
+void fsl_srio_drop_enable(struct srio_dev *sriodev, uint8_t port_id);
+
+/*
+ * Set packet live time out value
+ * The packet time-to-live counter prevents the local processor from being
+ * stalled when packets cannot be successfully transmitted.
+ * The value of this register should always be larger than the link time.
+ */
+void fsl_srio_set_packet_timeout(struct srio_dev *sriodev,
+				 uint8_t port_id, uint32_t value);
+
+/*
+ * Set port link time out
+ * Timeout value is a nanosecond. All zeros disables the link timeout timer.
+ * This value is loaded each time the link time-out timer starts.
+ */
+void fsl_srio_set_link_timeout(struct srio_dev *sriodev, uint32_t value);
+
+/* Return width of the ports after initialized */
+int fsl_srio_port_width(struct srio_dev *sriodev, uint8_t port_id);
+
+/* Return file descriptor of the SRIO device */
+int fsl_srio_fd(struct srio_dev *sriodev);
+
 #endif
