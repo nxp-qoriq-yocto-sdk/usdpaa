@@ -730,6 +730,32 @@ int rman_if_port_connet(uint8_t port)
 	return 0;
 }
 
+void rman_if_ports_stop(void)
+{
+	int i, port_num;
+
+	port_num = fsl_srio_get_port_num(rmif->sriodev);
+	for (i = 0; i < port_num; i++) {
+		if (rmif->port_connected & (1 << i)) {
+			fsl_srio_drain_enable(rmif->sriodev, i);
+			fsl_srio_port_disable(rmif->sriodev, i);
+		}
+	}
+}
+
+void rman_if_ports_start(void)
+{
+	int i, port_num;
+
+	port_num = fsl_srio_get_port_num(rmif->sriodev);
+	for (i = 0; i < port_num; i++) {
+		if (rmif->port_connected & (1 << i)) {
+			fsl_srio_port_enable(rmif->sriodev, i);
+			fsl_srio_drain_disable(rmif->sriodev, i);
+		}
+	}
+}
+
 void rman_if_status(void)
 {
 	int socket_counts, fq_counts;
@@ -784,6 +810,22 @@ void rman_if_status(void)
 		socket_counts, fq_counts);
 }
 
+void rman_if_reconfig(const struct rman_cfg *cfg)
+{
+	int i;
+
+	if (!rmif || !cfg)
+		return;
+
+	rmif->cfg = *cfg;
+
+	for (i = RIO_TYPE0; i < RIO_TYPE_NUM; i++)
+		rmif->msg_size[i] = bpool_get_size(rmif->cfg.bpid[i]);
+	rmif->sg_size = bpool_get_size(rmif->cfg.sgbpid);
+
+	rman_dev_config(rmif->rmdev, cfg);
+}
+
 int rman_if_init(const struct rman_cfg *cfg)
 {
 	int err, i;
@@ -798,24 +840,19 @@ int rman_if_init(const struct rman_cfg *cfg)
 	}
 	memset(rmif, 0, sizeof(*rmif));
 
-	rmif->cfg = *cfg;
-
 	err = fsl_srio_uio_init(&rmif->sriodev);
 	if (err < 0) {
 		error(0, -err, "srio_uio_init()");
 		return err;
 	}
 
-	rmif->rmdev = rman_dev_init(cfg);
+	rmif->rmdev = rman_dev_init();
 	if (!rmif->rmdev) {
 		error(0, ENODEV, "rman_dev_init()");
 		err = -EINVAL;
 		goto _err;
 	}
-
-	for (i = RIO_TYPE0; i < RIO_TYPE_NUM; i++)
-		rmif->msg_size[i] = bpool_get_size(rmif->cfg.bpid[i]);
-	rmif->sg_size = bpool_get_size(rmif->cfg.sgbpid);
+	rman_if_reconfig(cfg);
 
 	for (i = 0; i < RMAN_MAX_NUM_OF_CHANNELS; i++)
 		rmif->tx_channel_id[i] = rman_get_channel_id(rmif->rmdev, i);

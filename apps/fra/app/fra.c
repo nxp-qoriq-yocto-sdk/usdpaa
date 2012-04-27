@@ -867,3 +867,38 @@ _err:
 	fra_finish();
 	return err;
 }
+
+static void fra_rman_reset(void)
+{
+	/* Disbale fman and rman rx and remove all fqs */
+	dist_order_list_finish();
+
+	/* Wait until RMan inbound message manager idle */
+	while (rman_rx_busy())
+		;
+
+	/* Stop SRIO ports */
+	rman_if_ports_stop();
+
+	/* Wait until RMan outbound message manager idle */
+	while (rman_tx_busy())
+		;
+
+	/* Reset RMan */
+	rman_reset();
+
+	/* Start SRIO ports */
+	rman_if_ports_start();
+
+	/* Reconfigure RMan */
+	rman_if_reconfig(&fra->cfg->rman_cfg);
+
+	/* Initialize all the fqs and enable FMan and RMan rx */
+	dist_order_list_init();
+}
+
+void fra_reset(void)
+{
+	fra_rman_reset();
+	rman_interrupt_enable();
+}

@@ -91,6 +91,8 @@ extern struct fra *fra;
 int fra_init(const struct usdpaa_netcfg_info *netcfg,
 	     const struct fra_cfg *fra_cfg);
 
+void fra_reset(void);
+
 void fra_finish(void);
 
 #endif /* _FRA_H */

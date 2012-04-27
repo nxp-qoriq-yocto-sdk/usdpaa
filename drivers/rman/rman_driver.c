@@ -46,6 +46,9 @@
 #define RMAN_IBCU_ENABLE_MASK	0x80000000
 #define RMAN_MMSR_IMUB_SHIFT	31
 #define RMAN_MMSR_OMUB_SHIFT	30
+#define RMAN_MMMR_MDD_SHIFT	31
+#define RMAN_FQAR_STID_SHIFT	7
+#define RMAN_FQAR_LTR_SHIFT	8
 
 /* The magic is a workaround for mailbox transaction.
  * The MMSEPR0 setting assigns AG0 to only execute on SU0
@@ -461,12 +464,42 @@ static int rman_ib_init(const struct device_node *ib_node,
 	return 0;
 }
 
+int rman_dev_config(struct rman_dev *rmdev, const struct rman_cfg *cfg)
+{
+	if (!rmdev || !cfg)
+		return -EINVAL;
+
+	/* Set inbound message descriptor write status */
+	if (cfg->md_create)
+		write_reg(&rmdev->global_regs->mmmr,
+			  read_reg(&rmdev->global_regs->mmmr) |
+			  cfg->md_create << RMAN_MMMR_MDD_SHIFT);
+	else
+		write_reg(&rmdev->global_regs->mmmr,
+			  read_reg(&rmdev->global_regs->mmmr) &
+			  ~(cfg->md_create << RMAN_MMMR_MDD_SHIFT));
+
+	/* Initialize the frame queue assembly register */
+	/* Data streaming supports max 32 inbound frame queues */
+	write_reg(&rmdev->global_regs->mmt9fqar,
+		  cfg->fq_bits[RIO_TYPE9] << RMAN_FQAR_STID_SHIFT);
+	/* Doorbell supports max 1 inbound frame queues */
+	write_reg(&rmdev->global_regs->mmt10fqar, 0);
+	/* Mailbox supports max 4 inbound frame queues */
+	write_reg(&rmdev->global_regs->mmt11fqar,
+		  cfg->fq_bits[RIO_TYPE11] << RMAN_FQAR_LTR_SHIFT);
+
+	/* Set MMSEPR0 default value to avoid mailbox workaround impact */
+	write_reg(&rmdev->global_regs->mmsepr0, MMSEPR0_DEFAULT);
+
+	return 0;
+}
 
 static int
-rman_global_regs_init(const struct device_node *global_regs_node,
-		      struct rman_dev *rmdev, const struct rman_cfg *cfg)
+rman_global_node_init(const struct device_node *global_regs_node,
+		      struct rman_dev *rmdev)
 {
-	if (!global_regs_node || !rmdev || !cfg || rmdev->uiofd < 0)
+	if (!global_regs_node || !rmdev || rmdev->uiofd < 0)
 		return -EINVAL;
 
 	if (!of_get_address(global_regs_node, 0, &rmdev->regs_size, NULL))
@@ -481,24 +514,10 @@ rman_global_regs_init(const struct device_node *global_regs_node,
 		return -errno;
 	}
 
-	/* Set inbound message descriptor write status */
-	write_reg(&rmdev->global_regs->mmmr, cfg->md_create << 31);
-	/* initialize the frame queue assembly register */
-	/* data streaming supports max 32 receive frame queue */
-	write_reg(&rmdev->global_regs->mmt9fqar,
-		  cfg->fq_bits[RIO_TYPE9] << 7);
-	/* doorbell supports max 1 receive frame queue */
-	write_reg(&rmdev->global_regs->mmt10fqar, 0);
-	/* mailbox supports max 4 receive frame queue */
-	write_reg(&rmdev->global_regs->mmt11fqar,
-		  cfg->fq_bits[RIO_TYPE11] << 8);
-	/* Set MMSEPR0 default value to avoid mailbox workaround impact */
-	write_reg(&rmdev->global_regs->mmsepr0, MMSEPR0_DEFAULT);
-
 	return 0;
 }
 
-struct rman_dev *rman_dev_init(const struct rman_cfg *cfg)
+struct rman_dev *rman_dev_init(void)
 {
 	struct rman_dev *rmdev;
 	int uiofd = -1, channel_num, i;
@@ -540,7 +559,7 @@ struct rman_dev *rman_dev_init(const struct rman_cfg *cfg)
 	/* Setup global regs */
 	for_each_child_node(rman_node, child) {
 		if (of_device_is_compatible(child, "fsl,rman-global-cfg"))
-			if (rman_global_regs_init(child, rmdev, cfg))
+			if (rman_global_node_init(child, rmdev))
 				goto _err;
 	}
 
