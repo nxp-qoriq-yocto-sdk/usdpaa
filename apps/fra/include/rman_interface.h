@@ -285,6 +285,9 @@ int rman_send_frame(struct hash_opt *opt, const struct qm_fd *fd);
 /* Sends the message stored in msg via the frame queue specified by opt. */
 int rman_send_msg(struct rman_tx *tx, int hash_idx, struct msg_buf *msg);
 
+/* Return pointer to SRIO device */
+struct srio_dev *rman_if_get_sriodev(void);
+
 /*
  * This function performs checking SRIO port connection.
  * If the port has been connected returns 0,

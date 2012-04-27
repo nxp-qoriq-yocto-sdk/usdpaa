@@ -824,6 +824,84 @@ int dist_order_list_init(void)
 	}
 	return 0;
 }
+
+static void rman_interrupt_handler(void)
+{
+	int status;
+
+	status = rman_interrupt_status();
+	if (!status)
+		return;
+
+	if (status & RMAN_OTE_ERROR_MASK) {
+		error(0, 0, "gets rman outbound transaction error");
+		msg_do_reset();
+		return;
+	}
+	if (status & RMAN_ITE_ERROR_MASK) {
+		error(0, 0, "gets rman inbound transaction error");
+		msg_do_reset();
+		return;
+	}
+	if (status & RMAN_OFER_ERROR_MASK)
+		error(0, 0, "Outbound frame queue enqueue rejection error");
+	if (status & RMAN_IFER_ERROR_MASK)
+		error(0, 0, "Inbound frame queue enqueue rejection error");
+	if (status & RMAN_BAE_ERROR_MASK)
+		error(0, 0, "RMan buffer allocation error");
+	if (status & RMAN_T9IC_ERROR_MASK)
+		error(0, 0, "Type9 interrupt coalescing drop threshold exceed");
+	if (status & RMAN_T8IC_ERROR_MASK)
+		error(0, 0, "Type8 interrupt coalescing drop threshold exceed");
+	if (status & RMAN_MFE_ERROR_MASK)
+		error(0, 0, "RMan message format error");
+
+	rman_interrupt_clear();
+	rman_interrupt_enable();
+}
+
+static void *interrupt_handler(void *data)
+{
+	int s, rman_fd, nfds;
+	fd_set readset;
+	uint32_t junk;
+
+	rman_fd = rman_global_fd();
+	nfds = rman_fd + 1;
+
+	rman_interrupt_clear();
+	rman_interrupt_enable();
+
+	while (1) {
+		FD_ZERO(&readset);
+		FD_SET(rman_fd, &readset);
+		s = select(nfds, &readset, NULL, NULL, NULL);
+		if (s < 0) {
+			error(0, 0, "RMan&SRIO select error");
+			break;
+		}
+		if (s) {
+			if (FD_ISSET(rman_fd, &readset)) {
+				read(rman_fd, &junk, sizeof(junk));
+				rman_interrupt_handler();
+			}
+		}
+	}
+
+	pthread_exit(NULL);
+}
+
+void fra_interrupt_handler_start(void)
+{
+	int ret;
+	pthread_t interrupt_handler_id;
+
+	ret = pthread_create(&interrupt_handler_id, NULL,
+			     interrupt_handler, NULL);
+	if (ret)
+		error(0, errno, "Create interrupt handler thread error");
+}
+
 int fra_init(const struct usdpaa_netcfg_info *netcfg,
 	     const struct fra_cfg *fra_cfg)
 {
@@ -861,6 +939,8 @@ int fra_init(const struct usdpaa_netcfg_info *netcfg,
 	err = dist_order_list_init();
 	if (err)
 		goto _err;
+
+	fra_interrupt_handler_start();
 
 	return 0;
 _err:

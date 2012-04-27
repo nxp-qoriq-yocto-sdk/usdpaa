@@ -708,6 +708,13 @@ int rman_send_msg(struct rman_tx *tx, int hash_idx, struct msg_buf *msg)
 	return rman_send_frame(&opt, &fd);
 }
 
+struct srio_dev *rman_if_get_sriodev(void)
+{
+	if (!rmif)
+		return NULL;
+	return rmif->sriodev;
+}
+
 int rman_if_port_connet(uint8_t port)
 {
 	int port_num;

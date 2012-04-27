@@ -74,6 +74,7 @@ struct worker_msg {
 		worker_msg_do_global_init,
 		worker_msg_do_global_finish,
 		worker_msg_do_test_speed,
+		worker_msg_do_reset,
 #ifdef FRA_CGR
 		worker_msg_query_cgr
 #endif
@@ -145,6 +146,11 @@ static int process_msg(struct worker *worker, struct worker_msg *msg)
 	/* Do test speed */
 	else if (msg->msg == worker_msg_do_test_speed)
 		test_speed_send_msg();
+
+	/* Do global reset */
+	else if (msg->msg == worker_msg_do_reset)
+		fra_reset();
+
 #ifdef FRA_CGR
 	/* Query the CGR state */
 	else if (msg->msg == worker_msg_query_cgr) {
@@ -392,6 +398,14 @@ static unsigned long ncpus;
  * last one to exit. (The buffer pools objects are initialised against its
  * portal.) */
 static struct worker *primary;
+
+int msg_do_reset(void)
+{
+	if (!primary)
+		return -EINVAL;
+
+	return msg_post(primary, worker_msg_do_reset);
+}
 
 static struct worker *worker_new(int cpu, int is_primary)
 {

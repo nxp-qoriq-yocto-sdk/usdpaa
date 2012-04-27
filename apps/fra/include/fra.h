@@ -93,6 +93,8 @@ int fra_init(const struct usdpaa_netcfg_info *netcfg,
 
 void fra_reset(void);
 
+int msg_do_reset(void);
+
 void fra_finish(void);
 
 #endif /* _FRA_H */
