@@ -228,6 +228,13 @@ int bman_global_init(void)
 	} else if (of_device_is_compatible(dt_node, "fsl,bman-portal-2.0")) {
 		bman_ip_rev = BMAN_REV20;
 		bman_pool_max = 8;
+	} else if (of_device_is_compatible(dt_node, "fsl,bman-portal-2.1-0") ||
+		of_device_is_compatible(dt_node, "fsl,bman-portal-2.1-1")) {
+		bman_ip_rev = BMAN_REV21;
+		bman_pool_max = 64;
+	} else if (of_device_is_compatible(dt_node, "fsl,bman-portal-2.1-2")) {
+		bman_ip_rev = BMAN_REV21;
+		bman_pool_max = 32;
 	}
 	if (!bman_ip_rev) {
 		pr_err("Unknown bman portal version\n");

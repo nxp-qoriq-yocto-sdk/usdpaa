@@ -242,6 +242,8 @@ int qman_global_init(void)
 		qman_ip_rev = QMAN_REV12;
 	else if (of_device_is_compatible(dt_node, "fsl,qman-portal-2.0"))
 		qman_ip_rev = QMAN_REV20;
+	else if (of_device_is_compatible(dt_node, "fsl,qman-portal-3.0"))
+		qman_ip_rev = QMAN_REV30;
 	if (!qman_ip_rev) {
 		pr_err("Unknown qman portal version\n");
 		return -ENODEV;
