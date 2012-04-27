@@ -259,7 +259,7 @@ clean:
 distclean:
 	$(Q)echo "---- distclean ----"
 	$(Q)$(RM) $(CLEANOBJS)
-	git clean -fxd
+	-git clean -fxd
 
 .PHONY: all build install uninstall debug clean distclean
 

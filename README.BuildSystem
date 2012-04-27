@@ -490,11 +490,13 @@ definitions.
 	==== distclean ====
 
 This target first removes everything that is removed by the "clean" rule. Then,
-it runs "git clean -fxd" which will, if the usdpaa tree is in fact a git
+it runs "-git clean -fxd" which will, if the usdpaa tree is in fact a git
 checkout, remove any files and/or directories in the tree that are not
 version-controlled, essentially returning the tree to the state of a clean
 checkout (though it will not revert any local modifications to
-version-controlled files).
+version-controlled files). If the tree is not a git checkout, the leading "-"
+character will ignore the failure of the command, such that "make distclean"
+appears to "succeed" despite only doing the same thing as "make clean".
 
 --------------------------------------------
 Section: Include auto-generated dependencies
