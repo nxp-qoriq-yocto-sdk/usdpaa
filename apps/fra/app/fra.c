@@ -146,6 +146,8 @@ static int fra_cli_status(int argc, char *argv[])
 		fra_cfg->rman_cfg.bpid[RIO_TYPE_DBELL],
 		fra_cfg->rman_cfg.sgbpid);
 
+	rman_if_status();
+
 	list_for_each_entry(dist_order, &fra->dist_order_list, node) {
 		if (i > 1)
 			fprintf(stderr, "\n");

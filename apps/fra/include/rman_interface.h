@@ -292,6 +292,12 @@ int rman_send_msg(struct rman_tx *tx, int hash_idx, struct msg_buf *msg);
  */
 int rman_if_port_connet(uint8_t port_number);
 
+/*
+ * Output RMan interface information about SRIO port width and
+ * the numbers of sockets and frame queues
+ */
+void rman_if_status(void);
+
 /* Initializes RMan interface according to RMan configuration */
 int rman_if_init(const struct rman_cfg *cfg);
 

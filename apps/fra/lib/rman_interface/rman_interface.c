@@ -730,6 +730,60 @@ int rman_if_port_connet(uint8_t port)
 	return 0;
 }
 
+void rman_if_status(void)
+{
+	int socket_counts, fq_counts;
+	struct rman_rx *rx;
+	struct rman_tx *tx;
+	int i, port_num, port_width;
+
+	if (!rmif) {
+		fprintf(stderr, "RMan interface has not been initialized\n");
+		return;
+	}
+
+	port_num = fsl_srio_get_port_num(rmif->sriodev);
+	for (i = 0; i < port_num; i++) {
+		if (rmif->port_connected & (1 << i)) {
+			fprintf(stderr, "\tUse SRIO port %d: ", i);
+			port_width = fsl_srio_port_width(rmif->sriodev, i);
+			switch (port_width) {
+			case 0:
+				fprintf(stderr, "using lane 0\n");
+				break;
+			case 1:
+				fprintf(stderr, "using lane 2\n");
+				break;
+			case 2:
+				fprintf(stderr, "using lane 0-3\n");
+				break;
+			case 3:
+				fprintf(stderr, "using lane 0-1\n");
+				break;
+			default:
+				fprintf(stderr, "cannot get valid width\n");
+			}
+
+		}
+	}
+
+	socket_counts = fq_counts = 0;
+	list_for_each_entry(rx, &rmif->rman_rx_list, node) {
+		socket_counts++;
+		fq_counts += rx->fqs_num;
+	}
+	fprintf(stderr, "\tCreate %d RX sockets and %d frame queues\n",
+		socket_counts, fq_counts);
+
+	socket_counts = fq_counts = 0;
+	list_for_each_entry(tx, &rmif->rman_tx_list, node) {
+		socket_counts++;
+		fq_counts += tx->fqs_num;
+	}
+	fprintf(stderr, "\tCreate %d TX sockets and %d frame queues\n",
+		socket_counts, fq_counts);
+}
+
 int rman_if_init(const struct rman_cfg *cfg)
 {
 	int err, i;
