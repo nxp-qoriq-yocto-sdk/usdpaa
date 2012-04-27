@@ -109,15 +109,16 @@ by searching for them in the rest of the text;
   * INSTALL_SBIN_FLAGS
   * INSTALL_LIB_FLAGS
   * INSTALL_OTHER_FLAGS
+  * MAKE_TOUCHFILE
 
 ----------------------------------
 Section: Arch specific definitions
 ----------------------------------
 
 In order to build, the ARCH environment variable must be defined. This section
-enforces this, and currently only supports an ARCH value of "powerpc". A default
-CROSS_COMPILE prefix is set if not already defined in the caller's environment,
-and there are various ARCH-specific settings;
+enforces this, and currently only supports ARCH values of "powerpc" and
+"powerpc64". A default CROSS_COMPILE prefix is set if not already defined in the
+caller's environment, and there are various ARCH-specific settings;
 
   * $(ARCH)_SPEC_DEFINE
       Any elements in this setting are automatically prefixed with "-D" before
@@ -260,15 +261,29 @@ Makefile as the second parameter. For this initial call, the parent is in fact
 the top-level "Makefile" that contains all the build-system logic. Recursively
 though, as SUBDIRS trigger inclusion of "Makefile.am"s in sub-directories, the
 parent parameter for each of those calls to "process_dir" will be the
-"Makefile.am" that delcared the SUBDIR. This allows a dependency chain to be
+"Makefile.am" that declared the SUBDIR. This allows a dependency chain to be
 built from lower-level "Makefile.am" files on higher-level ones, and from there,
 up to the top-level "Makefile.am" and finally to the build rules themselves in
-"Makefile". (So a modification to "Makefile" triggers all "Makefile.am" files to
+"Makefile". So a modification to "Makefile" triggers all "Makefile.am" files to
 be considered out of date, whereas a modification to any "Makefile.am" triggers
-only sub-directory "Makefile.am" files to be considered out of date.)
+only sub-directory "Makefile.am" files to be considered out of date. Note that
+for each "Makefile.am" file the build system produces a corresponding touchfile
+called ".Makefile.touch" (as defined by the MAKE_TOUCHFILE variable). This
+touchfile is dependent on its corresponding "Makefile.am" as well as the
+touchfiles of all the higher-level "Makefile.am"s, and every object built by the
+current Makefile.am is made dependent on the touchfile also. In this way, an
+update to any "Makefile.am" (or the top-level "Makefile" build-process itself)
+causes the corresponding touchfile to be updated, as well as all touchfiles
+below it, with the nett effect of rebuilding all targets within that
+(sub-)directory tree. Use of touchfiles avoids the need to touch the
+"Makefile.am" files directly, which can otherwise produce unpleasant
+side-effects with version-control (a touched file looks "modified" even if its
+content is unchanged - whereas using a touchfile that is ignored by version
+control has no such problem).
 
-The above step also generates a list of all installable objects, which the
-following line uses to generate install rules for each such object;
+The above step also generates TO_INSTALL, a list of all installable objects,
+which the following line then uses to generate install rules for each such
+object;
 
 $(foreach x,$(TO_INSTALL),$(eval $(call process_install,$(x))))
 
@@ -282,7 +297,8 @@ This function is called for each directory. It loads the directory's
   * calls "pre_process_target" for each installable file defined in dist_DATA
   * adds the directory to the global list of directories ALLDIRS
   * calls "process_dir" for each sub-directory defined in SUBDIRS
-  * declares a dependency for the Makefile.am file on the parent makefile.
+  * declares a dependency for ".Makefile.touch" on "Makefile.am" as well as on
+    the parent.
 
 Note, the fact that "process_dir" calls itself for SUBDIRS entries is how the
 tree is parsed recursively. The routine takes care to ensure that local
@@ -291,10 +307,11 @@ parameters are emptied on entry, so they don't get inherited during recursion
 as it recurses, and uses these when processing entries, so "Makefile.am" files
 do not need to be aware of where they are in the overall directory structure.
 
-The dependencies between the Makefiles is what ensures that if a Makefile is
-modified, all Makefiles included by it are "touch"ed. As each compilable object
-is declared dependent on the Makefile that defined it, this means that touching
-a Makefile triggers recompilation of all objects beneath it.
+The dependencies between the touchfiles corresponding to each "Makefile.am" is
+what ensures that if a Makefile is modified, all Makefiles included by it are
+considered out of date. As each compilable object is declared to be dependent on
+the touchfile for the Makefile that defined it, this means that updating a
+Makefile triggers recompilation of all objects beneath it.
 
 	==== process_bin ====
 
@@ -337,10 +354,10 @@ describing the target it is being compiled for (an executable or a library);
   * $(3) = the C source file name minus the ".c" suffix
 
 It instantiates a rule that makes the compiled output file dependent on the C
-source file as well as the Makefile that defined it, with a rule that defines
-how to compile it (and implicitly update a dependency file from the
-pre-compilation, which makes it furthermore dependent on any headers it
-includes).
+source file as well as the touchfile for the Makefile that defined it, with a
+rule that defines how to compile it. The compile rule implicitly updates a
+dependency file from the pre-compilation stage, which in turn makes the compiled
+output dependent on any headers it includes.
 
 	==== pre_process_target ====
 
@@ -462,21 +479,22 @@ This target removes;
   * all executable targets,
   * all library targets,
   * all compiled objects used to produce executables and libraries.
+  * all dynamically-generated dependency files.
+  * all touchfiles corresponding to Makefiles.
 
-It does not remove anything else, which includes directories created for
-generated files, dependency files, etc.
+It does not remove anything else, such as directories created for generated
+files, dependency files, etc, nor does it remove generated files that aren't (or
+are no longer) generated by the current build rules and "Makefile.am"
+definitions.
 
 	==== distclean ====
 
-This target removes;
-
-  * BIN_DIR, and therefore all executable targets as well,
-  * LIB_DIR, and therefore all library targets as well,
-  * $(TOP_LEVEL)/test_install, in case it was created by calling "make install"
-    without a caller-override for DESTDIR,
-  * All "obj_$(ARCH)" (ie. "obj_powerpc") directories in the source-tree that
-    have been created during compilation,
-  * All other compiler outputs, including dependency files (*.o and *.d).
+This target first removes everything that is removed by the "clean" rule. Then,
+it runs "git clean -fxd" which will, if the usdpaa tree is in fact a git
+checkout, remove any files and/or directories in the tree that are not
+version-controlled, essentially returning the tree to the state of a clean
+checkout (though it will not revert any local modifications to
+version-controlled files).
 
 --------------------------------------------
 Section: Include auto-generated dependencies
