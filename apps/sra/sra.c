@@ -96,6 +96,7 @@ enum srio_attr_level2_cmd {
 	ACCEPT_ALL,
 	WIN_ATTR,
 	SEG_ATTR,
+	IRQ,
 };
 
 enum test_cmd {
@@ -107,9 +108,10 @@ static const uint32_t srio_test_win_attrv[] = {3, 4, 5, 4, 0};
 static const char * const srio_test_win_attrc[] = {"SWRITE", "NWRITE",
 						   "NWRITE_R", "NREAD", "DMA"};
 static const char * const cmd_name[] = {"-attr", "-op", "-test"};
-static const char * const attr_param[4][8] = { {"port1", "port2"},
+static const char * const attr_param[4][9] = { {"port1", "port2"},
 			{"device_id", "target_id", "seg_num", "subseg_num",
-			"subseg_tdid", "accept_all", "win_attr", "seg_attr" },
+			"subseg_tdid", "accept_all", "win_attr", "seg_attr",
+			"irq"},
 			{"flush", "swrite", "nwrite", "nwrite_r", "maintw"},
 			{"io_read_home", "nread", "maintr", "atomic_inc",
 			"atomic_dec", "atomic_set", "atomic_clr"} };
@@ -166,6 +168,45 @@ enum srio_read_type {
 
 static struct cmd_param_type cmd_param;
 static int port_num;
+
+/* Handle SRIO error interrupt */
+static void *interrupt_handler(void *data)
+{
+	int s, srio_fd, nfds;
+	fd_set readset;
+	uint32_t junk;
+	struct srio_dev *sriodev = data;
+
+	srio_fd = fsl_srio_fd(sriodev);
+	nfds = srio_fd + 1;
+
+	while (1) {
+		FD_ZERO(&readset);
+		FD_SET(srio_fd, &readset);
+		s = select(nfds, &readset, NULL, NULL, NULL);
+		if (s < 0) {
+			error(0, 0, "RMan&SRIO select error");
+			break;
+		}
+		if (s) {
+			read(srio_fd, &junk, sizeof(junk));
+			fsl_srio_irq_handler(sriodev);
+		}
+	}
+
+	pthread_exit(NULL);
+}
+
+void fsl_srio_err_handle_enable(struct srio_dev *sriodev)
+{
+	int ret;
+	pthread_t interrupt_handler_id;
+
+	ret = pthread_create(&interrupt_handler_id, NULL,
+			     interrupt_handler, sriodev);
+	if (ret)
+		error(0, errno, "Create interrupt handler thread error");
+}
 
 static int par_to_srio_attr(uint8_t wr_attr_id, uint8_t rd_attr_id,
 			    uint8_t *wr_attr, uint8_t *rd_attr)
@@ -249,6 +290,7 @@ static int attr_param_trans(int32_t cmd_num, char **cmd_in)
 			case SEG_NUM:
 			case SUBSEG_NUM:
 			case ACCEPT_ALL:
+			case IRQ:
 				j = ARRAY_SIZE(attr_param);
 				break;
 			case SUBSEG_TDID:
@@ -492,6 +534,12 @@ static int attr_implement(struct srio_dev *sriodev,
 			err = fsl_srio_enable_accept_all(sriodev, port_id);
 		else
 			err = fsl_srio_disable_accept_all(sriodev, port_id);
+		break;
+	case IRQ:
+		if (cmd_param.port[port_id].attr_cmd4 == 1)
+			err = fsl_srio_irq_enable(sriodev);
+		else if (cmd_param.port[port_id].attr_cmd4 == 0)
+			err = fsl_srio_irq_disable(sriodev);
 		break;
 	case WIN_ATTR:
 		fsl_srio_set_obwin(sriodev, port_id, 1,
@@ -753,10 +801,13 @@ static void cmd_format_print(void)
 	printf("sra -attr port1/2 subseg_num [num]\n");
 	printf("sra -attr port1/2 subseg_tdid [seg_id] [tdid]\n");
 	printf("sra -attr port1/2 accept_all [id]\n");
+	printf("sra -attr port1/2 irq [id]\n");
 	printf("sra -attr port1/2 win_attr [id] [write_attr] [read_attr]\n");
 	printf("sra -attr port1/2 seg_attr [id] [write_attr] [read_attr]\n");
 	printf("\nNotes:\n");
 	printf("\t[id] for command accept_all: 0 - disable; 1 - enable\n");
+	printf("\t[id] for irq: 0 - disable; 1 - enable\n");
+	printf("\t");
 	printf("\t[write_attr]	: swrite/nwrite/nwrite_r\n");
 	printf("\t[read_attr]	: nread/atomic_inc/atomic_dec"
 	       "/atomic_set/atomic_clr\n");
@@ -843,6 +894,8 @@ int main(int argc, char *argv[])
 		error(0, -err, "%s(): fsl_dma_chan_init()", __func__);
 		goto err_srio_connected;
 	}
+
+	fsl_srio_err_handle_enable(sriodev);
 
 	/* Run the CLI loop */
 	while (1) {
