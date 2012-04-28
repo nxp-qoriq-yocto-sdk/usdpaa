@@ -66,6 +66,11 @@
 #define SRIO_ROWSR_RDTYP_SHIFT	20
 #define SRIO_ROWSR_TDID_MASK	0xff
 #define SRIO_ROWSR_WR_MASK	(0xff << 16)
+#define SRIO_REG_8BIT_MASK	0xff
+#define SRIO_SLEICR_EIC_OFFSET	27
+#define SRIO_ERTCSR_ERDTT_OFFSET	16
+#define SRIO_ERTCSR_ERFTT_OFFSET	24
+#define SRIO_CCSR_SPF_DPE_OFFSET	2
 
 /* Architectural regsiters */
 struct rio_arch {

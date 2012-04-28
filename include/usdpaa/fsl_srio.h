@@ -177,4 +177,43 @@ int fsl_srio_port_width(struct srio_dev *sriodev, uint8_t port_id);
 /* Return file descriptor of the SRIO device */
 int fsl_srio_fd(struct srio_dev *sriodev);
 
+/* Enable SRIO interrupt */
+int fsl_srio_irq_enable(struct srio_dev *sriodev);
+
+/* Disable SRIO interrupt */
+int fsl_srio_irq_disable(struct srio_dev *sriodev);
+
+/*
+ * Process SRIO error interrupt
+ * Currently, this function only prints the error information, then clears the
+ * error interrupt.
+ */
+void fsl_srio_irq_handler(struct srio_dev *sriodev);
+
+/*
+ * This function sets the threshold value for reporting
+ * an error condition due to a degrading link
+ */
+int fsl_srio_set_err_rate_degraded_threshold(struct srio_dev *sriodev,
+					uint8_t port_id, uint8_t threshold);
+
+/*
+ * This function sets the threshold value for reporting
+ * an error condition due to a possibly broken link.
+ */
+int fsl_srio_set_err_rate_failed_threshold(struct srio_dev *sriodev,
+					uint8_t port_id, uint8_t threshold);
+
+/*
+ * This function provides the threshold value for the number of
+ * consecutive logical retries
+ * op: operation when this error occurs.
+ *	0 - Port keeps transmitting;
+ *	1 - Drop packet enable;
+ *	2 - Stop on port failed-encountered enable;
+ *	3 - Drop packet and stop on port failed-encountered enable.
+ */
+int fsl_srio_set_phy_retry_threshold(struct srio_dev *sriodev, uint8_t port_id,
+				uint8_t threshold, uint8_t op);
+
 #endif

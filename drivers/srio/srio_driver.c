@@ -699,3 +699,124 @@ int fsl_srio_fd(struct srio_dev *sriodev)
 {
 	return sriodev->reg_fd;
 }
+
+int fsl_srio_irq_enable(struct srio_dev *sriodev)
+{
+	struct rio_regs *rio_regs;
+	int i;
+
+	if (!sriodev)
+		return -EINVAL;
+
+	rio_regs = sriodev->rio_regs;
+	out_be32(&rio_regs->logical_err.ltleecsr, ~0x0);
+
+	for (i = 0; i < sriodev->port_num; i++)
+		out_be32(&rio_regs->phys_err.port[i].erecsr, ~0x0);
+
+	return 0;
+}
+
+int fsl_srio_irq_disable(struct srio_dev *sriodev)
+{
+	struct rio_regs *rio_regs;
+	int i;
+
+	if (!sriodev)
+		return -EINVAL;
+
+	rio_regs = sriodev->rio_regs;
+	out_be32(&rio_regs->logical_err.ltleecsr, 0x0);
+
+	for (i = 0; i < sriodev->port_num; i++)
+		out_be32(&rio_regs->phys_err.port[i].erecsr, 0x0);
+
+	return 0;
+}
+
+void fsl_srio_irq_handler(struct srio_dev *sriodev)
+{
+	int i;
+	uint32_t port_bits;
+	uint32_t reg_ltledcsr, reg_epwisr;
+	struct rio_regs *rio_regs;
+
+	rio_regs = sriodev->rio_regs;
+	reg_ltledcsr = in_be32(&rio_regs->logical_err.ltledcsr);
+	reg_epwisr = in_be32(&rio_regs->impl.com.epwisr);
+
+	if (!(reg_ltledcsr || reg_epwisr))
+		return;
+
+	if (reg_ltledcsr) {
+		printf("SRIO interrupt info LTLEDCSR: 0x%x\n", reg_ltledcsr);
+		out_be32(&rio_regs->logical_err.ltledcsr, 0x0);
+	}
+
+	port_bits = reg_epwisr >> 28;
+
+	for (i = 0; i < sriodev->port_num; i++) {
+		if (port_bits & (0x8 >> i)) {
+			printf("SRIO Port%d interrupt info\t IECSR: 0x%x,"
+			       "ESCSR: 0x%x, EDCSR: 0x%x\n",
+			       i + 1,
+			       in_be32(&rio_regs->impl.port[i].iecsr),
+			       in_be32(&rio_regs->lp_serial.port[i].escsr),
+			       in_be32(&rio_regs->phys_err.port[i].edcsr));
+
+			out_be32(&rio_regs->impl.port[i].iecsr,
+				0x80000000);
+			out_be32(&rio_regs->lp_serial.port[i].escsr,
+				~0x0);
+			out_be32(&rio_regs->phys_err.port[i].edcsr,
+				0x0);
+		} else
+			continue;
+	}
+
+	fsl_srio_irq_enable(sriodev);
+}
+
+int fsl_srio_set_err_rate_degraded_threshold(struct srio_dev *sriodev,
+					uint8_t port_id, uint8_t threshold)
+{
+	if (!sriodev)
+		return -EINVAL;
+
+	out_be32(&sriodev->rio_regs->phys_err.port[port_id].ertcsr,
+		(in_be32(&sriodev->rio_regs->phys_err.port[port_id].ertcsr) &
+		~(SRIO_REG_8BIT_MASK << SRIO_ERTCSR_ERDTT_OFFSET)) |
+		(threshold << SRIO_ERTCSR_ERDTT_OFFSET));
+
+	return 0;
+}
+
+int fsl_srio_set_err_rate_failed_threshold(struct srio_dev *sriodev,
+					uint8_t port_id, uint8_t threshold)
+{
+	if (!sriodev)
+		return -EINVAL;
+
+	out_be32(&sriodev->rio_regs->phys_err.port[port_id].ertcsr,
+		(in_be32(&sriodev->rio_regs->phys_err.port[port_id].ertcsr) &
+		~(SRIO_REG_8BIT_MASK << SRIO_ERTCSR_ERFTT_OFFSET)) |
+		(threshold << SRIO_ERTCSR_ERFTT_OFFSET));
+
+	return 0;
+}
+
+int fsl_srio_set_phy_retry_threshold(struct srio_dev *sriodev, uint8_t port_id,
+				uint8_t threshold, uint8_t op)
+{
+	if (!sriodev)
+		return -EINVAL;
+
+	out_be32(&sriodev->rio_regs->impl.com.pretcr,
+		(in_be32(&sriodev->rio_regs->impl.com.pretcr) &
+		~SRIO_REG_8BIT_MASK) | threshold);
+
+	out_be32(&sriodev->rio_regs->lp_serial.port[port_id].ccsr,
+		op << SRIO_CCSR_SPF_DPE_OFFSET);
+
+	return 0;
+}
