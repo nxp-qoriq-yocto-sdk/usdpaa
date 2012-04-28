@@ -862,19 +862,27 @@ static void rman_interrupt_handler(void)
 
 static void *interrupt_handler(void *data)
 {
-	int s, rman_fd, nfds;
+	int s, rman_fd, srio_fd, nfds;
 	fd_set readset;
 	uint32_t junk;
 
 	rman_fd = rman_global_fd();
-	nfds = rman_fd + 1;
+	srio_fd = fsl_srio_fd(rman_if_get_sriodev());
+
+	if (rman_fd > srio_fd)
+		nfds = rman_fd + 1;
+	else
+		nfds = srio_fd + 1;
 
 	rman_interrupt_clear();
 	rman_interrupt_enable();
+	fsl_srio_clr_bus_err(rman_if_get_sriodev());
+	fsl_srio_irq_enable(rman_if_get_sriodev());
 
 	while (1) {
 		FD_ZERO(&readset);
 		FD_SET(rman_fd, &readset);
+		FD_SET(srio_fd, &readset);
 		s = select(nfds, &readset, NULL, NULL, NULL);
 		if (s < 0) {
 			error(0, 0, "RMan&SRIO select error");
@@ -884,6 +892,10 @@ static void *interrupt_handler(void *data)
 			if (FD_ISSET(rman_fd, &readset)) {
 				read(rman_fd, &junk, sizeof(junk));
 				rman_interrupt_handler();
+			}
+			if (FD_ISSET(srio_fd, &readset)) {
+				read(srio_fd, &junk, sizeof(junk));
+				fsl_srio_irq_handler(rman_if_get_sriodev());
 			}
 		}
 	}
