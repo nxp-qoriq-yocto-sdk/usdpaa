@@ -41,7 +41,7 @@ int32_t g_tunnel_id;
 struct ipsec_tunnel_config_t *g_ipsec_tunnel_config;
 
 struct ipsec_stack_t ipsec_stack;
-static mqd_t mq_fd_rcv, mq_fd_snd;
+static mqd_t mq_fd_rcv = -1, mq_fd_snd = -1;
 static struct sigevent notification;
 
 int is_iface_ip(in_addr_t addr)
@@ -605,6 +605,7 @@ static int create_mq(void)
 {
 	struct mq_attr attr_snd, attr_rcv;
 	int _err = 0, ret;
+	char name[10];
 
 	pr_debug("Create mq: Enter\n");
 	memset(&attr_snd, 0, sizeof(attr_snd));
@@ -612,7 +613,9 @@ static int create_mq(void)
 	/* Create message queue to send the response */
 	attr_snd.mq_maxmsg = 10;
 	attr_snd.mq_msgsize = 8192;
-	mq_fd_snd = mq_open("/mq_snd", O_CREAT | O_WRONLY,
+	sprintf(name, "/mq_snd_%d", getpid());
+	printf("Message queue to send: %s\n", name);
+	mq_fd_snd = mq_open(name, O_CREAT | O_WRONLY,
 				(S_IRWXU | S_IRWXG | S_IRWXO), &attr_snd);
 	if (mq_fd_snd == -1) {
 		pr_err("%s: %dError opening SND MQ\n",
@@ -626,7 +629,9 @@ static int create_mq(void)
 	/* Create message queue to read the message */
 	attr_rcv.mq_maxmsg = 10;
 	attr_rcv.mq_msgsize = 8192;
-	mq_fd_rcv = mq_open("/mq_rcv", O_CREAT | O_RDONLY,
+	sprintf(name, "/mq_rcv_%d", getpid());
+	printf("Message queue to receive: %s\n", name);
+	mq_fd_rcv = mq_open(name, O_CREAT | O_RDONLY,
 			(S_IRWXU | S_IRWXG | S_IRWXO), &attr_rcv);
 	if (mq_fd_rcv == -1) {
 		pr_err("%s: %dError opening RCV MQ\n",
@@ -700,6 +705,30 @@ int ppam_init(void)
 	}
 
 	return 0;
+}
+
+void ppam_finish(void)
+{
+	char name[10];
+
+	TRACE("closing snd and rcv message queues\n");
+
+	if (mq_fd_snd >= 0) {
+		if (mq_close(mq_fd_snd) == -1)
+			error(0, errno, "%s():mq_close send", __func__);
+		mq_fd_snd = -1;
+		sprintf(name, "/mq_snd_%d", getpid());
+		if (mq_unlink(name) == -1)
+			error(0, errno, "%s():mq_unlink send", __func__);
+	}
+	if (mq_fd_rcv >= 0) {
+		if (mq_close(mq_fd_rcv) == -1)
+			error(0, errno, "%s():mq_close rcv", __func__);
+		mq_fd_rcv = -1;
+		sprintf(name, "/mq_rcv_%d", getpid());
+		if (mq_unlink(name) == -1)
+			error(0, errno, "%s():mq_unlink rcv", __func__);
+	}
 }
 
 static int ppam_interface_init(struct ppam_interface *p,

@@ -76,9 +76,11 @@ static struct argp_option options[] = {
 	{"arpdel", 'H', "TYPE", 0, "deleting a arp entry", 0},
 	{"intfconf", 'F', "TYPE", 0, "change intf config", 0},
 	{"showintf", 'E', "TYPE", 0, "show interfaces", 0},
+	{"PID", 'P', "TYPE", 0, "pid to hook with (Mandatory param)", 0},
 	{}
 };
 
+int receive_from_mq(mqd_t mqdes);
 /*
    The ARGP structure itself.
 */
@@ -329,6 +331,47 @@ void ipc_show_intf_command(int argc, char **argv, char *type)
 	return;
 }
 
+void mq_handler(union sigval sval)
+{
+	pr_debug("mq_handler called %d\n", sval.sival_int);
+
+	receive_from_mq(mq_fd_rd);
+	mq_notify(mq_fd_rd, &notification);
+}
+
+/* opens message queue to talk to the application */
+static int create_mq(int pid)
+{
+	int tmp;
+	char name[10];
+
+	sprintf(name, "/mq_rcv_%d", pid);
+	/* Opens message queue to write */
+	mq_fd_wr = mq_open(name,  O_WRONLY);
+	if (mq_fd_wr == -1) {
+		pr_err("SND mq err in opening the msgque errno\n");
+		return -1;
+	}
+
+	sprintf(name, "/mq_snd_%d", pid);
+	/* Opens message queue to read */
+	mq_fd_rd = mq_open(name, O_RDONLY);
+	if (mq_fd_rd == -1) {
+		pr_err("RX mq err in opening the msgque errno\n");
+		return -1;
+	}
+
+	notification.sigev_notify = SIGEV_THREAD;
+	notification.sigev_notify_function = mq_handler;
+	notification.sigev_value.sival_ptr = &mq_fd_rd;
+	notification.sigev_notify_attributes = NULL;
+	tmp = mq_notify(mq_fd_rd, &notification);
+	if (tmp)
+		pr_err("%sError in mq_notify call\n",
+				 __FILE__);
+	return 0;
+}
+
 /**
  \brief Defines actions for parsing the ipfwd command options - add/ delete;
 	it is called for each option parsed
@@ -342,6 +385,7 @@ void ipc_show_intf_command(int argc, char **argv, char *type)
  */
 static error_t parse_opt(int key, char *arg, struct argp_state *state)
 {
+	int ret;
 	struct app_ctrl_op_info *sa_info = state->input;
 
 	switch (key) {
@@ -391,6 +435,12 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 			__FILE__, __LINE__);
 		break;
 
+	case 'P':
+		sa_info->pid = atoi(arg);
+		ret = create_mq(atoi(arg));
+		if (ret == -1)
+			argp_usage(state);
+		return 0;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -654,14 +704,6 @@ int receive_from_mq(mqd_t mqdes)
 	return 0;
 }
 
-void mq_handler(union sigval sval)
-{
-	pr_debug("mq_handler called %d\n", sval.sival_int);
-
-	receive_from_mq(mq_fd_rd);
-	mq_notify(mq_fd_rd, &notification);
-}
-
 /**
  \brief The main function. The only function call needed to process
  all command-line options and arguments nicely is argp_parse.
@@ -671,32 +713,9 @@ void mq_handler(union sigval sval)
 int main(int argc, char **argv)
 {
 	struct app_ctrl_op_info sa_info;
-	int ret, tmp;
+	int ret;
 
 	response_flag = 0;
-	/* Opens message queue to write */
-	mq_fd_wr = mq_open("/mq_rcv",  O_WRONLY);
-	if (mq_fd_wr == -1) {
-		pr_err("SND mq err in opening the msgque errno\n");
-		return -1;
-	}
-
-	/* Opens message queue to read */
-	mq_fd_rd = mq_open("/mq_snd", O_RDONLY);
-	if (mq_fd_rd == -1) {
-		pr_err("RX mq err in opening the msgque errno\n");
-		return -1;
-	}
-
-	notification.sigev_notify = SIGEV_THREAD;
-	notification.sigev_notify_function = mq_handler;
-	notification.sigev_value.sival_ptr = &mq_fd_rd;
-	notification.sigev_notify_attributes = NULL;
-	tmp = mq_notify(mq_fd_rd, &notification);
-	if (tmp)
-		pr_err("%sError in mq_notify call\n",
-				 __FILE__);
-
 	memset(&sa_info, 0, sizeof(struct app_ctrl_op_info));
 
 	if (argc == 1) {
@@ -706,7 +725,14 @@ int main(int argc, char **argv)
 	}
 
 	/* Where the magic happens */
-	argp_parse(&argp, argc, argv, 0, 0, &sa_info);
+	argp_parse(&argp, argc, argv, 0, NULL, &sa_info);
+
+	if (sa_info.pid == 0) {
+		pr_info("Either Mandatory Parameter missing : -P\n");
+		pr_info("or -P :Not given as foremost option with the cmd\n");
+		pr_info("Try `lpm_ipfwd_config --help' for more information\n");
+		return 0;
+	}
 
 	switch (sa_info.msg_type) {
 	case IPC_CTRL_CMD_TYPE_ROUTE_ADD:
@@ -714,7 +740,7 @@ int main(int argc, char **argv)
 			pr_debug
 			    ("\nFILE:%s:LINE%d:TYPE PROVIDED FOR ADD OPT:%d",
 			     __FILE__, __LINE__, sa_info.msg_type);
-			ipc_add_del_command(argc - 1, &argv[1],
+			ipc_add_del_command(argc - 3, &argv[3],
 					    sa_info.msg_type);
 		}
 		break;
@@ -724,7 +750,7 @@ int main(int argc, char **argv)
 			pr_debug
 			    ("\nFILE:%s:LINE%d:TYPE PROVIDED FOR DELETE OPT:%d",
 			     __FILE__, __LINE__, sa_info.msg_type);
-			ipc_add_del_command(argc - 1, &argv[1],
+			ipc_add_del_command(argc - 3, &argv[3],
 					    sa_info.msg_type);
 		}
 		break;
@@ -734,7 +760,7 @@ int main(int argc, char **argv)
 			pr_debug
 			    ("\nFILE:%s:LINE%d:TYPE PROVIDED FOR ADD OPT: %d",
 			     __FILE__, __LINE__, sa_info.msg_type);
-			ipc_arp_add_del_command(argc - 1, &argv[1],
+			ipc_arp_add_del_command(argc - 3, &argv[3],
 						sa_info.msg_type);
 		}
 		break;
@@ -744,7 +770,7 @@ int main(int argc, char **argv)
 			pr_debug
 			    ("\nFILE:%s:LINE %d:TYPE PROVIDED FOR DEL OPT:%d",
 			     __FILE__, __LINE__, sa_info.msg_type);
-			ipc_arp_add_del_command(argc - 1, &argv[1],
+			ipc_arp_add_del_command(argc - 3, &argv[3],
 						sa_info.msg_type);
 		}
 		break;
@@ -755,7 +781,7 @@ int main(int argc, char **argv)
 			    ("\nFILE: %s : LINE %d : IN MAIN : THE TYPE"
 				"PROVIDED FOR INTF CONF OPTION IS : %d",
 				__FILE__, __LINE__, sa_info.msg_type);
-			ipc_ip_intf_chng_command(argc - 1, &argv[1],
+			ipc_ip_intf_chng_command(argc - 3, &argv[3],
 					 (char *)(uintptr_t)sa_info.msg_type);
 		}
 		break;
@@ -766,7 +792,7 @@ int main(int argc, char **argv)
 			    ("\nFILE: %s : LINE %d : IN MAIN : THE TYPE"
 				"PROVIDED FOR SHOW INTF OPTION IS : %d",
 				__FILE__, __LINE__, sa_info.msg_type);
-			ipc_show_intf_command(argc - 1, &argv[1],
+			ipc_show_intf_command(argc - 3, &argv[3],
 				      (char *)(uintptr_t)sa_info.msg_type);
 		}
 		break;

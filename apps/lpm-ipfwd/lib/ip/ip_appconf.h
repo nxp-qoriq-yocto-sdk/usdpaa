@@ -85,6 +85,7 @@ struct app_ctrl_op_info {
 	unsigned int result;
 	/**<Result - Successful, Failure>*/
 
+	uint32_t pid;
 	struct app_ctrl_ip_info ip_info;
 	/**< IPfwd Info structure */
 };

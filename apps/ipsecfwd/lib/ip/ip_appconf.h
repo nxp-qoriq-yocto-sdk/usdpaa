@@ -149,6 +149,7 @@ struct app_ctrl_op_info {
 #define IPC_CTRL_RSLT_FAILURE		0
 	unsigned int result;
 	/**<Result - Successful, Failure>*/
+	uint32_t pid;
 	union {
 		struct app_ctrl_ipsec_info ipsec_info;
 	/**< IPsec Info structure */
