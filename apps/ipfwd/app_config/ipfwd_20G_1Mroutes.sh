@@ -26,20 +26,27 @@
 # $1, $2	- Subnets as in 192.168.$1.* and 192.168.$2.*
 # $3		- Number of sources
 # $4		- Number of destinations
+pid=$1
+if [ "$pid" == "" ]
+	then
+		echo "Give PID to hook up with"
+		exit 1
+fi
+
 net_pair_routes()
 {
 	for net in $1
 	do
-		ipfwd_config -B -s 192.168.$net.2 -c $3 \
+		ipfwd_config -P $pid -B -s 192.168.$net.2 -c $3 \
 		-d 192.168.$2.2 -n $4 -g \
 		192.168.$2.2
 	done
 }
-ipfwd_config -F -a 192.168.24.1 -i 5
-ipfwd_config -F -a 192.168.29.1 -i 11
+ipfwd_config -P $pid -F -a 192.168.24.1 -i 5
+ipfwd_config -P $pid -F -a 192.168.29.1 -i 11
 
-ipfwd_config -G -s 192.168.24.2 -m 02:00:c0:a8:3c:02 -r true
-ipfwd_config -G -s 192.168.29.2 -m 02:00:c0:a8:a0:02 -r true
+ipfwd_config -P $pid -G -s 192.168.24.2 -m 02:00:c0:a8:3c:02 -r true
+ipfwd_config -P $pid -G -s 192.168.29.2 -m 02:00:c0:a8:a0:02 -r true
 
 			       # 1048456 total routes
 

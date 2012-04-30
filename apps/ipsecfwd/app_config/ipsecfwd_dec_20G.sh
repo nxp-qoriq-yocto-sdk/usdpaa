@@ -22,21 +22,28 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-ipsecfwd_config -F -a 192.168.60.1 -i 5
-ipsecfwd_config -F -a 192.168.130.1 -i 8
-ipsecfwd_config -F -a 192.168.140.1 -i 9
-ipsecfwd_config -F -a 192.168.160.1 -i 11
+pid=$1
+if [ "$pid" == "" ]
+	then
+		echo "Give PID to hook up with"
+		exit 1
+fi
+
+ipsecfwd_config -P $pid -F -a 192.168.60.1 -i 5
+ipsecfwd_config -P $pid -F -a 192.168.130.1 -i 8
+ipsecfwd_config -P $pid -F -a 192.168.140.1 -i 9
+ipsecfwd_config -P $pid -F -a 192.168.160.1 -i 11
 
 net_pair_routes()
 {
 	for dst in $(seq 2 $(expr $4 + 1))
 	do
-		ipsecfwd_config -G -s 192.168.$1.$dst -m 02:00:c0:a8:3c:02 -r true
+		ipsecfwd_config -P $pid -G -s 192.168.$1.$dst -m 02:00:c0:a8:3c:02 -r true
 	done
 
 	for dst in $(seq 2 $(expr $4 + 1))
 	do
-		ipsecfwd_config -G -s 192.168.$2.$dst -m 02:00:c0:a8:a0:02 -r true
+		ipsecfwd_config -P $pid -G -s 192.168.$2.$dst -m 02:00:c0:a8:a0:02 -r true
 	done
 
 	i=$5
@@ -46,7 +53,7 @@ net_pair_routes()
 		do
 			for dst in $(seq 2 $(expr $4 + 1))
 			do
-				ipsecfwd_config -A -s 192.168.$net.$src			\
+				ipsecfwd_config -P $pid -A -s 192.168.$net.$src		\
 						-d 192.168.$(expr $1 + $2 - $net).$dst	\
 						-g 192.168.$net.2			\
 						-G 192.168.$net.1 			\

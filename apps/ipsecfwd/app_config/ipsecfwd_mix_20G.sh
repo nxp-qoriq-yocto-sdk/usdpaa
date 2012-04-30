@@ -25,8 +25,15 @@
 # Script for board_left-board_right ipsec connction of 10G ports
 # Note: check the mac addresses of the board and create ARP entry accordingly
 
-ipsecfwd_config -F -a 192.168.60.1 -i 5
-ipsecfwd_config -F -a 192.168.160.1 -i 11
+pid=$1
+if [ "$pid" == "" ]
+	then
+		echo "Give PID to hook up with"
+		exit 1
+fi
+
+ipsecfwd_config -P $pid -F -a 192.168.60.1 -i 5
+ipsecfwd_config -P $pid -F -a 192.168.160.1 -i 11
 
 if [ "$1" == "left" ]
 then
@@ -34,8 +41,8 @@ then
     while [ "$i" -le 24 ]
     do
 #set the mac address of the right board here for creating ARP entry
-        ipsecfwd_config -G -s 192.168.60.$i -m 00:e0:0c:00:e2:09 -r true
-        ipsecfwd_config -G -s 192.168.160.$i -m 00:e0:0c:00:e2:04 -r true
+        ipsecfwd_config -P $pid -G -s 192.168.60.$i -m 00:e0:0c:00:e2:09 -r true
+        ipsecfwd_config -P $pid -G -s 192.168.160.$i -m 00:e0:0c:00:e2:04 -r true
         i=`expr $i + 1`
     done
     f=out
@@ -48,8 +55,8 @@ then
     while [ "$i" -le 24 ]
     do
 #set the mac address of the left board here for creating ARP entry
-        ipsecfwd_config -G -s 192.168.60.$i -m 00:e0:0c:00:8a:09 -r true
-        ipsecfwd_config -G -s 192.168.160.$i -m 00:e0:0c:00:8a:04 -r true
+        ipsecfwd_config -P $pid -G -s 192.168.60.$i -m 00:e0:0c:00:8a:09 -r true
+        ipsecfwd_config -P $pid -G -s 192.168.160.$i -m 00:e0:0c:00:8a:04 -r true
         i=`expr $i + 1`
     done
     f=in
@@ -68,9 +75,9 @@ do
     j=2
     while [ "$j" -le 24 ]
     do
-        ipsecfwd_config -A -s  192.168.60.$i -d  192.168.160.$j -g 192.168.60.2 -G 192.168.160.2 -i $w -r $f
+        ipsecfwd_config -P $pid -A -s  192.168.60.$i -d  192.168.160.$j -g 192.168.60.2 -G 192.168.160.2 -i $w -r $f
         w=`expr $w + 1`
-        ipsecfwd_config -A -s  192.168.160.$i -d  192.168.60.$j -g 192.168.160.2 -G 192.168.60.2 -i $w -r $s
+        ipsecfwd_config -P $pid -A -s  192.168.160.$i -d  192.168.60.$j -g 192.168.160.2 -G 192.168.60.2 -i $w -r $s
         w=`expr $w + 1`
 
         j=`expr $j + 1`

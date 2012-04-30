@@ -25,12 +25,19 @@
 # $1, $2	- Subnets as in 192.168.$1.* and 192.168.$2.*
 # $3		- Number of sources
 # $4		- Number of destinations
+pid=$1
+if [ "$pid" == "" ]
+	then
+		echo "Give PID to hook up with"
+		exit 1
+fi
+
 net_pair_routes()
 {
 net=0
 	while [ "$net" -le $5 ]
 	do
-		lpm_ipfwd_config -B -c $2 -d $1.$net.24.2 -n $3 -g \
+		lpm_ipfwd_config -P $pid -B -c $2 -d $1.$net.24.2 -n $3 -g \
 		192.168.$4.2
 		net=`expr $net + 1`
 	done
@@ -38,15 +45,15 @@ net=0
 
 case $(basename $0 .sh) in
 	lpm_ipfwd_22G)
-		lpm_ipfwd_config -F -a 192.168.60.1 -i 5
-		lpm_ipfwd_config -F -a 192.168.130.1 -i 8
-		lpm_ipfwd_config -F -a 192.168.140.1 -i 9
-		lpm_ipfwd_config -F -a 192.168.160.1 -i 11
+		lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 5
+		lpm_ipfwd_config -P $pid -F -a 192.168.130.1 -i 8
+		lpm_ipfwd_config -P $pid -F -a 192.168.140.1 -i 9
+		lpm_ipfwd_config -P $pid -F -a 192.168.160.1 -i 11
 
-		lpm_ipfwd_config -G -s 192.168.60.2 -m 02:00:c0:a8:3c:02 -r true
-		lpm_ipfwd_config -G -s 192.168.130.2 -m 02:00:c0:a8:82:02 -r true
-		lpm_ipfwd_config -G -s 192.168.140.2 -m 02:00:c0:a8:8c:02 -r true
-		lpm_ipfwd_config -G -s 192.168.160.2 -m 02:00:c0:a8:a0:02 -r true
+		lpm_ipfwd_config -P $pid -G -s 192.168.60.2 -m 02:00:c0:a8:3c:02 -r true
+		lpm_ipfwd_config -P $pid -G -s 192.168.130.2 -m 02:00:c0:a8:82:02 -r true
+		lpm_ipfwd_config -P $pid -G -s 192.168.140.2 -m 02:00:c0:a8:8c:02 -r true
+		lpm_ipfwd_config -P $pid -G -s 192.168.160.2 -m 02:00:c0:a8:a0:02 -r true
 
 						# 1024
 		net_pair_routes 190 1 16 60 255	# 256
@@ -55,11 +62,11 @@ case $(basename $0 .sh) in
 		net_pair_routes 193 1 16 160 255 # 256
 		;;
 	lpm_ipfwd_20G)
-		lpm_ipfwd_config -F -a 192.168.60.1 -i 5
-		lpm_ipfwd_config -F -a 192.168.160.1 -i 11
+		lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 5
+		lpm_ipfwd_config -P $pid -F -a 192.168.160.1 -i 11
 
-		lpm_ipfwd_config -G -s 192.168.60.2 -m 02:00:c0:a8:3c:02 -r true
-		lpm_ipfwd_config -G -s 192.168.160.2 -m 02:00:c0:a8:a0:02 -r true
+		lpm_ipfwd_config -P $pid -G -s 192.168.60.2 -m 02:00:c0:a8:3c:02 -r true
+		lpm_ipfwd_config -P $pid -G -s 192.168.160.2 -m 02:00:c0:a8:a0:02 -r true
 
 						# 1024
 		net_pair_routes 190 1 16 60 255	# 256
@@ -68,19 +75,19 @@ case $(basename $0 .sh) in
 		net_pair_routes 193 1 16 160 255 # 256
 		;;
 	lpm_ipfwd_15G)
-		lpm_ipfwd_config -F -a 192.168.10.1 -i 0
-		lpm_ipfwd_config -F -a 192.168.20.1 -i 1
-		lpm_ipfwd_config -F -a 192.168.30.1 -i 2
-		lpm_ipfwd_config -F -a 192.168.40.1 -i 3
-		lpm_ipfwd_config -F -a 192.168.50.1 -i 4
-		lpm_ipfwd_config -F -a 192.168.60.1 -i 5
+		lpm_ipfwd_config -P $pid -F -a 192.168.10.1 -i 0
+		lpm_ipfwd_config -P $pid -F -a 192.168.20.1 -i 1
+		lpm_ipfwd_config -P $pid -F -a 192.168.30.1 -i 2
+		lpm_ipfwd_config -P $pid -F -a 192.168.40.1 -i 3
+		lpm_ipfwd_config -P $pid -F -a 192.168.50.1 -i 4
+		lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 5
 
-		lpm_ipfwd_config -G -s 192.168.10.2 -m 02:00:c0:a8:0a:02 -r true
-		lpm_ipfwd_config -G -s 192.168.20.2 -m 02:00:c0:a8:14:02 -r true
-		lpm_ipfwd_config -G -s 192.168.30.2 -m 02:00:c0:a8:1e:02 -r true
-		lpm_ipfwd_config -G -s 192.168.40.2 -m 02:00:c0:a8:28:02 -r true
-		lpm_ipfwd_config -G -s 192.168.50.2 -m 02:00:c0:a8:32:02 -r true
-		lpm_ipfwd_config -G -s 192.168.60.2 -m 02:00:c0:a8:3c:02 -r true
+		lpm_ipfwd_config -P $pid -G -s 192.168.10.2 -m 02:00:c0:a8:0a:02 -r true
+		lpm_ipfwd_config -P $pid -G -s 192.168.20.2 -m 02:00:c0:a8:14:02 -r true
+		lpm_ipfwd_config -P $pid -G -s 192.168.30.2 -m 02:00:c0:a8:1e:02 -r true
+		lpm_ipfwd_config -P $pid -G -s 192.168.40.2 -m 02:00:c0:a8:28:02 -r true
+		lpm_ipfwd_config -P $pid -G -s 192.168.50.2 -m 02:00:c0:a8:32:02 -r true
+		lpm_ipfwd_config -P $pid -G -s 192.168.60.2 -m 02:00:c0:a8:3c:02 -r true
 
 						# 1000
 		net_pair_routes 190 1 16 10 99	# 100

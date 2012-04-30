@@ -22,12 +22,19 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-ipsecfwd_config -F -a 192.168.10.1 -i 0
-ipsecfwd_config -F -a 192.168.20.1 -i 1
-ipsecfwd_config -F -a 192.168.30.1 -i 2
-ipsecfwd_config -F -a 192.168.40.1 -i 3
-ipsecfwd_config -F -a 192.168.50.1 -i 4
-ipsecfwd_config -F -a 192.168.60.1 -i 5
+pid=$1
+if [ "$pid" == "" ]
+	then
+		echo "Give PID to hook up with"
+		exit 1
+fi
+
+ipsecfwd_config -P $pid -F -a 192.168.10.1 -i 0
+ipsecfwd_config -P $pid -F -a 192.168.20.1 -i 1
+ipsecfwd_config -P $pid -F -a 192.168.30.1 -i 2
+ipsecfwd_config -P $pid -F -a 192.168.40.1 -i 3
+ipsecfwd_config -P $pid -F -a 192.168.50.1 -i 4
+ipsecfwd_config -P $pid -F -a 192.168.60.1 -i 5
 
 if [ "$1" == "left" ]
 then
@@ -35,12 +42,12 @@ then
     while [ "$i" -le 11 ]
     do
 #set the mac address of the right board here for creating ARP entry
-	ipsecfwd_config -G -s 192.168.10.$i -m 00:e0:0c:00:cb:00 -r true
-	ipsecfwd_config -G -s 192.168.20.$i -m 00:e0:0c:00:cb:01 -r true
-	ipsecfwd_config -G -s 192.168.30.$i -m 00:e0:0c:00:cb:02 -r true
-	ipsecfwd_config -G -s 192.168.40.$i -m 00:e0:0c:00:cb:03 -r true
-	ipsecfwd_config -G -s 192.168.50.$i -m 00:e0:0c:00:cb:04 -r true
-	ipsecfwd_config -G -s 192.168.60.$i -m 00:e0:0c:00:cb:05 -r true
+	ipsecfwd_config -P $pid -G -s 192.168.10.$i -m 00:e0:0c:00:cb:00 -r true
+	ipsecfwd_config -P $pid -G -s 192.168.20.$i -m 00:e0:0c:00:cb:01 -r true
+	ipsecfwd_config -P $pid -G -s 192.168.30.$i -m 00:e0:0c:00:cb:02 -r true
+	ipsecfwd_config -P $pid -G -s 192.168.40.$i -m 00:e0:0c:00:cb:03 -r true
+	ipsecfwd_config -P $pid -G -s 192.168.50.$i -m 00:e0:0c:00:cb:04 -r true
+	ipsecfwd_config -P $pid -G -s 192.168.60.$i -m 00:e0:0c:00:cb:05 -r true
         i=`expr $i + 1`
     done
 fi
@@ -51,12 +58,12 @@ then
     while [ "$i" -le 11 ]
     do
 #set the mac address of the left board here for creating ARP entry
-	ipsecfwd_config -G -s 192.168.10.$i -m 00:e0:0c:00:e5:00 -r true
-	ipsecfwd_config -G -s 192.168.20.$i -m 00:e0:0c:00:e5:01 -r true
-	ipsecfwd_config -G -s 192.168.30.$i -m 00:e0:0c:00:e5:02 -r true
-	ipsecfwd_config -G -s 192.168.40.$i -m 00:e0:0c:00:e5:03 -r true
-	ipsecfwd_config -G -s 192.168.50.$i -m 00:e0:0c:00:e5:04 -r true
-	ipsecfwd_config -G -s 192.168.60.$i -m 00:e0:0c:00:e5:05 -r true
+	ipsecfwd_config -P $pid -G -s 192.168.10.$i -m 00:e0:0c:00:e5:00 -r true
+	ipsecfwd_config -P $pid -G -s 192.168.20.$i -m 00:e0:0c:00:e5:01 -r true
+	ipsecfwd_config -P $pid -G -s 192.168.30.$i -m 00:e0:0c:00:e5:02 -r true
+	ipsecfwd_config -P $pid -G -s 192.168.40.$i -m 00:e0:0c:00:e5:03 -r true
+	ipsecfwd_config -P $pid -G -s 192.168.50.$i -m 00:e0:0c:00:e5:04 -r true
+	ipsecfwd_config -P $pid -G -s 192.168.60.$i -m 00:e0:0c:00:e5:05 -r true
         i=`expr $i + 1`
     done
 fi
@@ -70,48 +77,48 @@ do
     do
 	if [ "$1" == "left" ]
 	then
-            ipsecfwd_config -A -s  192.168.60.$i -d  192.168.10.$j -g 192.168.60.2 -G 192.168.10.2 -D 192.168.10.2 -i $w -r out
+            ipsecfwd_config -P $pid -A -s  192.168.60.$i -d  192.168.10.$j -g 192.168.60.2 -G 192.168.10.2 -D 192.168.10.2 -i $w -r out
 	    w=`expr $w + 1`
-            ipsecfwd_config -A -s  192.168.60.$i -d  192.168.20.$j -g 192.168.60.2 -G 192.168.20.2 -D 192.168.20.2 -i $w -r out
+            ipsecfwd_config -P $pid -A -s  192.168.60.$i -d  192.168.20.$j -g 192.168.60.2 -G 192.168.20.2 -D 192.168.20.2 -i $w -r out
 	    w=`expr $w + 1`
-            ipsecfwd_config -A -s  192.168.60.$i -d  192.168.30.$j -g 192.168.60.2 -G 192.168.30.2 -D 192.168.30.2 -i $w -r out
+            ipsecfwd_config -P $pid -A -s  192.168.60.$i -d  192.168.30.$j -g 192.168.60.2 -G 192.168.30.2 -D 192.168.30.2 -i $w -r out
 	    w=`expr $w + 1`
-            ipsecfwd_config -A -s  192.168.60.$i -d  192.168.40.$j -g 192.168.60.2 -G 192.168.40.2 -D 192.168.40.2 -i $w -r out
+            ipsecfwd_config -P $pid -A -s  192.168.60.$i -d  192.168.40.$j -g 192.168.60.2 -G 192.168.40.2 -D 192.168.40.2 -i $w -r out
 	    w=`expr $w + 1`
-            ipsecfwd_config -A -s  192.168.60.$i -d  192.168.50.$j -g 192.168.60.2 -G 192.168.50.2 -D 192.168.50.2 -i $w -r out
+            ipsecfwd_config -P $pid -A -s  192.168.60.$i -d  192.168.50.$j -g 192.168.60.2 -G 192.168.50.2 -D 192.168.50.2 -i $w -r out
 	    w=`expr $w + 1`
-            ipsecfwd_config -A -s  192.168.10.$i -d  192.168.60.$j -g 192.168.60.2 -G 192.168.10.2 -D 192.168.60.2 -i $w -r in
+            ipsecfwd_config -P $pid -A -s  192.168.10.$i -d  192.168.60.$j -g 192.168.60.2 -G 192.168.10.2 -D 192.168.60.2 -i $w -r in
 	    w=`expr $w + 1`
-            ipsecfwd_config -A -s  192.168.20.$i -d  192.168.60.$j -g 192.168.60.2 -G 192.168.20.2 -D 192.168.60.2 -i $w -r in
+            ipsecfwd_config -P $pid -A -s  192.168.20.$i -d  192.168.60.$j -g 192.168.60.2 -G 192.168.20.2 -D 192.168.60.2 -i $w -r in
 	    w=`expr $w + 1`
-            ipsecfwd_config -A -s  192.168.30.$i -d  192.168.60.$j -g 192.168.60.2 -G 192.168.30.2 -D 192.168.60.2 -i $w -r in
+            ipsecfwd_config -P $pid -A -s  192.168.30.$i -d  192.168.60.$j -g 192.168.60.2 -G 192.168.30.2 -D 192.168.60.2 -i $w -r in
 	    w=`expr $w + 1`
-            ipsecfwd_config -A -s  192.168.40.$i -d  192.168.60.$j -g 192.168.60.2 -G 192.168.40.2 -D 192.168.60.2 -i $w -r in
+            ipsecfwd_config -P $pid -A -s  192.168.40.$i -d  192.168.60.$j -g 192.168.60.2 -G 192.168.40.2 -D 192.168.60.2 -i $w -r in
 	    w=`expr $w + 1`
-            ipsecfwd_config -A -s  192.168.50.$i -d  192.168.60.$j -g 192.168.60.2 -G 192.168.50.2 -D 192.168.60.2 -i $w -r in
+            ipsecfwd_config -P $pid -A -s  192.168.50.$i -d  192.168.60.$j -g 192.168.60.2 -G 192.168.50.2 -D 192.168.60.2 -i $w -r in
 	    w=`expr $w + 1`
 	fi
 	if [ "$1" == "right" ]
 	then
-            ipsecfwd_config -A -s  192.168.60.$i -d  192.168.10.$j -g 192.168.60.2 -G 192.168.10.2 -D 192.168.60.2 -i $w -r in
+            ipsecfwd_config -P $pid -A -s  192.168.60.$i -d  192.168.10.$j -g 192.168.60.2 -G 192.168.10.2 -D 192.168.60.2 -i $w -r in
 	    w=`expr $w + 1`
-            ipsecfwd_config -A -s  192.168.60.$i -d  192.168.20.$j -g 192.168.60.2 -G 192.168.20.2 -D 192.168.60.2 -i $w -r in
+            ipsecfwd_config -P $pid -A -s  192.168.60.$i -d  192.168.20.$j -g 192.168.60.2 -G 192.168.20.2 -D 192.168.60.2 -i $w -r in
 	    w=`expr $w + 1`
-            ipsecfwd_config -A -s  192.168.60.$i -d  192.168.30.$j -g 192.168.60.2 -G 192.168.30.2 -D 192.168.60.2 -i $w -r in
+            ipsecfwd_config -P $pid -A -s  192.168.60.$i -d  192.168.30.$j -g 192.168.60.2 -G 192.168.30.2 -D 192.168.60.2 -i $w -r in
 	    w=`expr $w + 1`
-            ipsecfwd_config -A -s  192.168.60.$i -d  192.168.40.$j -g 192.168.60.2 -G 192.168.40.2 -D 192.168.60.2 -i $w -r in
+            ipsecfwd_config -P $pid -A -s  192.168.60.$i -d  192.168.40.$j -g 192.168.60.2 -G 192.168.40.2 -D 192.168.60.2 -i $w -r in
 	    w=`expr $w + 1`
-            ipsecfwd_config -A -s  192.168.60.$i -d  192.168.50.$j -g 192.168.60.2 -G 192.168.50.2 -D 192.168.60.2 -i $w -r in
+            ipsecfwd_config -P $pid -A -s  192.168.60.$i -d  192.168.50.$j -g 192.168.60.2 -G 192.168.50.2 -D 192.168.60.2 -i $w -r in
 	    w=`expr $w + 1`
-            ipsecfwd_config -A -s  192.168.10.$i -d  192.168.60.$j -g 192.168.60.2 -G 192.168.10.2 -D 192.168.10.2 -i $w -r out
+            ipsecfwd_config -P $pid -A -s  192.168.10.$i -d  192.168.60.$j -g 192.168.60.2 -G 192.168.10.2 -D 192.168.10.2 -i $w -r out
 	    w=`expr $w + 1`
-            ipsecfwd_config -A -s  192.168.20.$i -d  192.168.60.$j -g 192.168.60.2 -G 192.168.20.2 -D 192.168.20.2 -i $w -r out
+            ipsecfwd_config -P $pid -A -s  192.168.20.$i -d  192.168.60.$j -g 192.168.60.2 -G 192.168.20.2 -D 192.168.20.2 -i $w -r out
 	    w=`expr $w + 1`
-            ipsecfwd_config -A -s  192.168.30.$i -d  192.168.60.$j -g 192.168.60.2 -G 192.168.30.2 -D 192.168.30.2 -i $w -r out
+            ipsecfwd_config -P $pid -A -s  192.168.30.$i -d  192.168.60.$j -g 192.168.60.2 -G 192.168.30.2 -D 192.168.30.2 -i $w -r out
 	    w=`expr $w + 1`
-            ipsecfwd_config -A -s  192.168.40.$i -d  192.168.60.$j -g 192.168.60.2 -G 192.168.40.2 -D 192.168.40.2 -i $w -r out
+            ipsecfwd_config -P $pid -A -s  192.168.40.$i -d  192.168.60.$j -g 192.168.60.2 -G 192.168.40.2 -D 192.168.40.2 -i $w -r out
 	    w=`expr $w + 1`
-            ipsecfwd_config -A -s  192.168.50.$i -d  192.168.60.$j -g 192.168.60.2 -G 192.168.50.2 -D 192.168.50.2 -i $w -r out
+            ipsecfwd_config -P $pid -A -s  192.168.50.$i -d  192.168.60.$j -g 192.168.60.2 -G 192.168.50.2 -D 192.168.50.2 -i $w -r out
 	    w=`expr $w + 1`
 	fi
 
