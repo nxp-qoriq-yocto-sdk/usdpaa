@@ -658,7 +658,6 @@ int rman_send_frame(struct hash_opt *opt, const struct qm_fd *fd)
 
 	memcpy(md, opt->tx_pvt, sizeof(*md));
 	md->count = fd->length20;
-	FD_SET_TYPE((struct qm_fd *)fd, md->ftype);
 #endif
 
 #ifdef ENABLE_FRA_DEBUG

@@ -43,9 +43,6 @@ struct rman_tx;
 
 #define RM_FD_SIZE		0x20
 #define RM_DATA_OFFSET		0x40
-#define FD_TYPE_OFFSET		28
-#define FD_SET_TYPE(fd, type)	(((fd)->cmd) = (type) << FD_TYPE_OFFSET)
-#define FD_GET_FTYPE(fd)	((((fd)->status) >> FD_TYPE_OFFSET) & 0xf)
 #define FD_GET_STATUS(fd)	(((fd)->status) & 0x07ffffff)
 #define FD_CLEAR_STATUS(fd)	(((fd)->status) = 0)
 
