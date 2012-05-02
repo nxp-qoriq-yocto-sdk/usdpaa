@@ -85,6 +85,5 @@ do
     i=`expr $i + 1`
 done
 
-ipsecfwd_config -O
 echo IPSecfwd CP initialization complete
 

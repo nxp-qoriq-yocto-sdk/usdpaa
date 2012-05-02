@@ -140,7 +140,6 @@ struct app_ctrl_op_info {
 #define IPC_CTRL_CMD_TYPE_SHOW_INTF		6
 #define IPC_CTRL_CMD_TYPE_ARP_ADD		7
 #define IPC_CTRL_CMD_TYPE_ARP_DEL		8
-#define IPC_CTRL_CMD_TYPE_GO			9
 
 	unsigned int msg_type;
 	/**<Type of Request>*/
