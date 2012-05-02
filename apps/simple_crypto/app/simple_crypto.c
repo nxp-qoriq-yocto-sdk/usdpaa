@@ -1665,19 +1665,6 @@ static int validate_params(void)
 	return 0;
 }
 
-static void calm_down(void)
-{
-	int die_slowly = 1000;
-	/* FIXME: there may be stale MR entries (eg. FQRNIs that the driver
-	 * ignores and drops in the bin), but these will hamper any attempt to
-	 * run another user-driver instance after we exit. Loop on the portal
-	 * processing a bit to let it "go idle". */
-	while (die_slowly--) {
-		barrier();
-		qman_poll();
-	}
-}
-
 static pthread_barrier_t app_barrier;
 
 /* This is not actually necessary, the threads can just start up without any
@@ -1696,6 +1683,7 @@ static int worker_fn(thread_data_t *tdata)
 	/* Counters to record time */
 	uint64_t atb_start_enc=0;
 	uint64_t atb_start_dec=0;
+	int calm_down = 16;
 
 	pr_debug("\nThis is the thread on cpu %d\n", tdata->cpu);
 
@@ -1862,7 +1850,12 @@ err_free_fq:
 			abort();
 	}
 
-	calm_down();
+	while (calm_down--) {
+		qman_poll_slow();
+		qman_poll_dqrr(16);
+	}
+	qman_thread_finish();
+
 	pr_debug("Leaving thread on cpu %d\n", tdata->cpu);
 	return 0;
 }
