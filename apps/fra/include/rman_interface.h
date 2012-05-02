@@ -47,6 +47,7 @@ struct rman_tx;
 #define FD_SET_TYPE(fd, type)	(((fd)->cmd) = (type) << FD_TYPE_OFFSET)
 #define FD_GET_FTYPE(fd)	((((fd)->status) >> FD_TYPE_OFFSET) & 0xf)
 #define FD_GET_STATUS(fd)	(((fd)->status) & 0x07ffffff)
+#define FD_CLEAR_STATUS(fd)	(((fd)->status) = 0)
 
 #define RM_MBOX_MG_SHIFT 5
 #define RM_MBOX_ML_MASK 0x1f
