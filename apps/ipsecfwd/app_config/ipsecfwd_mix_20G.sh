@@ -25,7 +25,7 @@
 # Script for board_left-board_right ipsec connction of 10G ports
 # Note: check the mac addresses of the board and create ARP entry accordingly
 
-pid=$1
+pid=$2
 if [ "$pid" == "" ]
 	then
 		echo "Give PID to hook up with"
