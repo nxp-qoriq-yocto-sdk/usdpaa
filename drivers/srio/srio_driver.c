@@ -284,7 +284,7 @@ int fsl_srio_port_connected(struct srio_dev *sriodev)
 
 	for (i = 0; i < sriodev->port_num; i++)
 		if (sriodev->port[i].enable)
-			port_flag |= 0x01  << i++;
+			port_flag |= 0x01  << i;
 
 	return port_flag;
 }
