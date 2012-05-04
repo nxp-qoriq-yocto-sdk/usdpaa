@@ -35,7 +35,6 @@ dist_DATA =						\
 	usdpaa_config_p3_p5_serdes_0x36.xml		\
 	usdpaa_config_p3_p5_serdes_0x04.xml		\
 	usdpaa_config_p3_p5_serdes_0x33.xml		\
-	usdpaa_config_p3_serdes_0x06.xml		\
 	usdpaa_config_p4_serdes_0xe_offline_host.xml	\
 	usdpaa_config_p4_serdes_0x10.xml		\
 	usdpaa_config_p4_serdes_0xe.xml			\
