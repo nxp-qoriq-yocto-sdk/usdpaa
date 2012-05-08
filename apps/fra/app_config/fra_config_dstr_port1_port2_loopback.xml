@@ -157,7 +157,7 @@
 		<transactionref name="dstr-dtsec2"/>
 	</distribution>
 	<distribution name="rman_to_peer_dtsec1" type="RMAN_TX">
-		<prio_port number="0"/>
+		<rio_port number="0"/>
 		<did value="1"/>
 		<queue base="0x6100" count="4" wq="0"/>
 		<transactionref name="dstr-dtsec1"/>

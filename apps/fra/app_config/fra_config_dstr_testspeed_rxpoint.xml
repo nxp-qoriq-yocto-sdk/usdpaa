@@ -59,13 +59,13 @@
 
 <!--	xxxxxxxxxxxxxxxxxxxxxx RMAN RX distribution xxxxxxxxxxxxxxxxxxxxxxxx -->
 	<distribution name="dstr_from_peer" type="RMAN_RX">
-		<port number="0" mask="1"/>
+		<rio_port number="0" mask="1"/>
 		<sid value="0" mask="0xff"/>
 		<queue base="0x4000" mode="algorithmic" wq="0"/>
 		<transactionref name="dstr-peer"/>
 	</distribution>
 	<distribution name="dbell_from_peer" type="RMAN_RX">
-		<port number="0" mask="1"/>
+		<rio_port number="0" mask="1"/>
 		<sid value="0" mask="0xff"/>
 		<queue base="0x4100" mode="direct" wq="0"/>
 		<transactionref name="dbell-peer"/>
