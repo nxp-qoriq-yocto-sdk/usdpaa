@@ -337,7 +337,7 @@ int rman_config_ibcu(struct rman_dev *rmdev, const struct ibcu_cfg *cfg)
 			  cfg->tran->flowlvl << 28 |
 			  cfg->port << 24);
 		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->rmr[1],
-			  cfg->tran->flowlvl << 28 |
+			  cfg->tran->flowlvl_mask << 28 |
 			  cfg->port_mask << 24);
 		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->dbpr,
 			  (cfg->msgsize << 16) | cfg->bpid);
