@@ -294,7 +294,6 @@ static void check_fman_enabled_interfaces(void)
 				__if->shared_mac_info.shared_mac_name =
 							cli_info->name;
 			cli_info->fman_enabled_mac_interface = 1;
-			idx++;
 			break;
 		}
 	}
@@ -463,6 +462,8 @@ struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
 		check_fman_enabled_interfaces();
 	/* Fill in configuration info for all FMAN enabled command-line ports */
 	idx = 0;
+	if (use_all_interfaces == 0)
+		idx += netcfg_interface->numof_fman_enabled_macless;
 	list_for_each_entry(__if, fman_if_list, node) {
 		struct fmc_netcfg_fqs xmlcfg;
 		struct fm_eth_port_cfg *cfg = &usdpaa_netcfg->port_cfg[idx];
