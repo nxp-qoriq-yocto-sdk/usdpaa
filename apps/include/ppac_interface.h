@@ -55,10 +55,6 @@ struct ppac_interface {
 		struct qman_fq fq;
 		struct ppam_rx_error s;
 	} rx_error;
-	struct ppac_rx_default {
-		struct qman_fq fq;
-		struct ppam_rx_default s;
-	} ____cacheline_aligned rx_default[0];
 	struct ppac_tx_error {
 		struct qman_fq fq;
 		struct ppam_tx_error s;
@@ -68,6 +64,11 @@ struct ppac_interface {
 		struct ppam_tx_confirm s;
 	} tx_confirm;
 	struct list_head list; /* list of "ppac_pcd_range"s */
+	struct ppac_rx_default {
+		struct qman_fq fq;
+		struct ppam_rx_default s;
+		struct ppac_interface *ppac_if;
+	} ____cacheline_aligned rx_default[0];
 } ____cacheline_aligned;
 
 struct ppac_pcd_range {

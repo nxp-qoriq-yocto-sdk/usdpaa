@@ -102,8 +102,7 @@ cb_dqrr_rx_default(struct qman_portal *qm __always_unused,
 {
 	struct ppac_rx_default *r = container_of(fq, struct ppac_rx_default,
 						 fq);
-	struct ppac_interface *_if = container_of(r, struct ppac_interface,
-						  rx_default);
+	struct ppac_interface *_if = r->ppac_if;
 	TRACE("Rx_default: fqid=%d\tfd_status = 0x%08x\n", fq->fqid, dqrr->fd.status);
 	PRE_DQRR();
 	ppam_rx_default_cb(&r->s, &_if->ppam_data, dqrr);
@@ -284,6 +283,7 @@ int ppac_interface_init_rx(struct ppac_interface *i)
 	if (fif->mac_type == fman_mac_less) {
 		uint32_t fqid = fif->macless_info.tx_start;
 		for (loop = 0; loop < fif->macless_info.tx_count; loop++) {
+			i->rx_default[loop].ppac_if = i;
 			err = ppam_rx_default_init(&i->rx_default[loop].s,
 				&i->ppam_data, loop, &stash_opts);
 			if (err) {
@@ -297,6 +297,7 @@ int ppac_interface_init_rx(struct ppac_interface *i)
 		ppac_interface_enable_shared_rx(i);
 		return 0;
 	}
+	i->rx_default[0].ppac_if = i;
 	if (fif->shared_mac_info.is_shared_mac == 1) {
 		struct qm_mcr_queryfq_np np;
 		struct qman_fq fq;
