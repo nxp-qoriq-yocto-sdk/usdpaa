@@ -186,6 +186,40 @@ struct ppac_interface;
  * have acccess to the ppac_interface type due to its dependence on ppam). */
 const struct fm_eth_port_cfg *ppac_interface_pcfg(struct ppac_interface *i);
 
+/*******************************************************/
+/* Initialisation of application-specific buffer pools */
+/*******************************************************/
+
+/* During application initialisation, applications can declare any buffer pool
+ * IDs (BPIDs) that they will use in datapath operations, in addition to the
+ * buffer pool IDs that PPAC already knows about due to its automatic parsing
+ * and initialisation of the network configuration. As such, if packet-handling
+ * functionality needs to drop a frame, and thus release the buffers
+ * corresponding to that frame, it can do so even if those buffers came from
+ * pools that PPAC did not already know about from the network config.
+ *
+ * Optionally, the user can request that PPAC empties the pool of any stale
+ * contents, by specifying a non-zero value for 'to_drain'.
+ *
+ * Optionally, the user can specify a non-zero 'count' if it wishes PPAC to seed
+ * the pool with buffers allocated from the 'dma_mem_generic' DMA map (and in
+ * which case 'sz' should be non-zero too, of course).
+ *
+ * Optionally, the user can specify a non-NULL 'notify_cb' depletion callback if
+ * it wishes the PPAC to register depletion entry and exit notifications to be
+ * enabled for its internal pool object. If so, the 'cb_ctx' parameter value
+ * will be passed back to the depletion callback as its 3rd parameter whenever
+ * it is called - the user can use this context value for whatever purpose.
+ */
+
+int ppac_prepare_bpid(u8 bpid, unsigned int count, uint64_t sz,
+		      int to_drain,
+		      void (*notify_cb)(struct bman_portal *,
+					struct bman_pool *,
+					void *cb_ctx,
+					int depleted),
+		      void *cb_ctx);
+
 /************************************/
 /* Items to be implemented by PPAMs */
 /************************************/
