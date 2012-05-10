@@ -734,7 +734,7 @@ static int cmd_implement(struct srio_dev *sriodev, struct dma_ch *dmadev,
 		err = test_implement(sriodev, dmadev, port_data);
 	}
 
-	return 0;
+	return err;
 }
 
 /* Init DMA pool */
