@@ -251,14 +251,44 @@ policy.
 			<fieldref name="ipsec_esp.spi"/>
 		</key>
 	</distribution>
+	<distribution name="hash_ipv4_shared_mac_dist5">
+		<queue base="1" count="1" />
+		<protocols>
+			<protocolref name="ipv4" />
+		</protocols>
+		<action type="classification" name="ip_dest_clsf5"/>
+	</distribution>
+	<classification name="ip_dest_clsf5">
+		<key>
+			<fieldref name="ipv4.dst" />
+		</key>
+		<entry>
+			<data>0xc0a85803</data>
+			<queue base="0x02" />
+			<action type="distribution" name="usdpaa_dist5" />
+		</entry>
+		<entry>
+			<data>0xc0a85804</data>
+			<queue base="0x03" />
+			<action type="distribution" name="default_dist5" />
+		</entry>
+		<action type="distribution" name="default_dist5" condition="on-miss" />
+	</classification>
+	<distribution name="usdpaa_dist5">
+		<queue count="32" base="0x900"/>
+		<key>
+			<fieldref name="ipv4.dst"/>
+		</key>
+	</distribution>
+
 	<distribution name="hash_ipv4_shared_mac_dist11">
 		<queue base="1" count="1" />
 		<protocols>
 			<protocolref name="ipv4" />
 		</protocols>
-		<action type="classification" name="ip_dest_clsf"/>
+		<action type="classification" name="ip_dest_clsf11"/>
 	</distribution>
-	<classification name="ip_dest_clsf">
+	<classification name="ip_dest_clsf11">
 		<key>
 			<fieldref name="ipv4.dst" />
 		</key>
@@ -394,6 +424,13 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist5"/>
 			<distributionref name="hash_ipv4_src_dst_dist5"/>
+			<distributionref name="default_dist5"/>
+		</dist_order>
+	</policy>
+
+	<policy name="hash_ipv4_shared_policy5">
+		<dist_order>
+			<distributionref name="hash_ipv4_shared_mac_dist5"/>
 			<distributionref name="default_dist5"/>
 		</dist_order>
 	</policy>
