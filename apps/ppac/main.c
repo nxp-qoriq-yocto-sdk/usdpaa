@@ -1297,16 +1297,36 @@ static int ppac_cli_list(int argc, char *argv[])
 static int ppac_cli_macs(int argc, char *argv[])
 {
 	struct list_head *i;
+	const struct fman_if *fif;
+	const struct fm_eth_port_cfg *pcfg;
 
 	if (argc != 2)
 		return -EINVAL;
 
 	if (strcmp(argv[1], "off") == 0)
-		list_for_each(i, &ifs)
-			ppac_interface_disable_rx((struct ppac_interface *)i);
+		list_for_each(i, &ifs) {
+			pcfg = ppac_interface_pcfg((struct ppac_interface *)i);
+			fif = pcfg->fman_if;
+			if (fif->mac_type == fman_mac_less ||
+				 fif->shared_mac_info.is_shared_mac == 1)
+				ppac_interface_disable_shared_rx(
+					(struct ppac_interface *)i);
+			else
+				ppac_interface_disable_rx(
+					(struct ppac_interface *)i);
+		}
 	else if (strcmp(argv[1], "on") == 0) {
-		list_for_each(i, &ifs)
-			ppac_interface_enable_rx((struct ppac_interface *)i);
+		list_for_each(i, &ifs) {
+			pcfg = ppac_interface_pcfg((struct ppac_interface *)i);
+			fif = pcfg->fman_if;
+			if (fif->mac_type == fman_mac_less ||
+				 fif->shared_mac_info.is_shared_mac == 1)
+				ppac_interface_enable_shared_rx(
+					(struct ppac_interface *)i);
+			else
+				ppac_interface_enable_rx(
+					(struct ppac_interface *)i);
+		}
 	}
 	else
 		return -EINVAL;
