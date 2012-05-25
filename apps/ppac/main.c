@@ -735,10 +735,6 @@ static void *worker_fn(void *__worker)
 	int fd_qman, fd_bman, nfds;
 	int irq_mode = 0, fastpoll = 0;
 	fd_set readset;
-	struct timeval tv = {
-		.tv_sec = WORKER_SELECT_TIMEOUT_us / 1000000,
-		.tv_usec = WORKER_SELECT_TIMEOUT_us % 1000000
-	};
 #endif
 
 	TRACE("This is the thread on cpu %d\n", worker->cpu);
@@ -817,6 +813,10 @@ static void *worker_fn(void *__worker)
 			/* Go into (and back out of) IRQ mode for each select,
 			 * it simplifies exit-path considerations and other
 			 * potential nastiness. */
+			struct timeval tv = {
+				.tv_sec = WORKER_SELECT_TIMEOUT_us / 1000000,
+				.tv_usec = WORKER_SELECT_TIMEOUT_us % 1000000
+			};
 			FD_ZERO(&readset);
 			FD_SET(fd_qman, &readset);
 			FD_SET(fd_bman, &readset);
