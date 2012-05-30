@@ -1,5 +1,5 @@
 <!--
- Copyright (c) 2011 Freescale Semiconductor, Inc.
+ Copyright (c) 2011 - 2012 Freescale Semiconductor, Inc.
  All rights reserved.
 
  Redistribution and use in source and binary forms, with or without
@@ -32,8 +32,8 @@
 -->
 
 <!--
-This fmc configuration file sets the 4x1G and 1x10g ports(0x09_14g rcw) on the
-p2041rds board.
+This fmc configuration file sets the 4x1G and 1x10g ports(serdex 0x36 on p3/p5
+or serdes 0x09 on p2) on the FMan to use the policies indicated below.
 -->
 
 
@@ -44,7 +44,7 @@ p2041rds board.
 		<port type="1G" number="1" policy="hash_ipsec_src_dst_spi_policy1"/>
 		<port type="1G" number="3" policy="hash_ipsec_src_dst_spi_policy3"/>
 		<port type="1G" number="4" policy="hash_ipsec_src_dst_spi_policy4"/>
-		<port type="10G" number="0" policy="hash_ipsec_src_dst_spi_policy5"/>
+		<port type="10G" number="0" policy="hash_ipv4_shared_policy5"/>
 	</engine>
     </config>
 </cfgdata>
