@@ -1,4 +1,4 @@
-/* Copyright (c) 2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2011-2012 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -815,13 +815,14 @@ static struct worker *worker_new(int cpu)
 		free(ret);
 		goto out;
 	}
-	err = posix_memalign((void **)&ret->ref, L1_CACHE_BYTES,
-			sizeof(*ret->ref));
-	if (err) {
+
+	ret->ref = __dma_mem_memalign(L1_CACHE_BYTES,sizeof(*ret->ref));
+	if (!ret->ref) {
 		free(ret->msg);
 		free(ret);
 		goto out;
 	}
+
 	ret->cpu = cpu;
 	ret->ref->worker = ret;
 	ret->msg->msg = worker_msg_none;
@@ -853,7 +854,7 @@ static void __worker_free(struct worker *worker)
 		return;
 	}
 	free(worker->msg);
-	free(worker->ref);
+	__dma_mem_free(worker->ref);
 	free(worker);
 	printf("Thread killed on cpu %d\n", cpu);
 }

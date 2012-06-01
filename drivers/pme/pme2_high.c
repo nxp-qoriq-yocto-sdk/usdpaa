@@ -1,4 +1,4 @@
-/* Copyright 2008-2011 Freescale Semiconductor, Inc.
+/* Copyright 2008-2012 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -260,8 +260,8 @@ int pme_ctx_init(struct pme_ctx *ctx, u32 flags, u32 bpid, u8 qosin,
 	INIT_LIST_HEAD(&ctx->tokens);
 	ctx->hw_flow = NULL;
 	ctx->hw_residue = NULL;
-
-	ctx->us_data = kzalloc(sizeof(struct pme_nostash), GFP_KERNEL);
+	ctx->us_data = __dma_mem_memalign(L1_CACHE_BYTES,
+				sizeof(struct pme_nostash));
 	if (!ctx->us_data)
 		goto err;
 	ctx->us_data->parent = ctx;
@@ -303,7 +303,7 @@ err:
 	if (ctx->us_data) {
 		if (fqin_inited)
 			qman_destroy_fq(&ctx->us_data->fqin, 0);
-		kfree(ctx->us_data);
+		__dma_mem_free(ctx->us_data);
 	}
 	if (rxinit)
 		qman_destroy_fq(&ctx->fq, 0);
@@ -335,7 +335,7 @@ void pme_ctx_finish(struct pme_ctx *ctx)
 	BUG_ON(ret);
 	qman_destroy_fq(&ctx->us_data->fqin, 0);
 	qman_destroy_fq(&ctx->fq, 0);
-	kfree(ctx->us_data);
+	__dma_mem_free(ctx->us_data);
 	if (ctx->hw_flow)
 		pme_hw_flow_free(ctx->hw_flow);
 	if (ctx->hw_residue)
