@@ -31,9 +31,8 @@
 
 lib_LIBRARIES = usdpaa_ppac
 dist_DATA =						\
-	usdpaa_config_p2_serdes_0x09.xml		\
-	usdpaa_config_p3_p5_serdes_0x36.xml		\
-	usdpaa_config_p3_p5_serdes_0x36_shared_mac.xml	\
+	usdpaa_config_p2_p3_p5_14g.xml			\
+	usdpaa_config_p2_p3_p5_14g_shared_mac.xml	\
 	usdpaa_config_p3_p5_serdes_0x04.xml		\
 	usdpaa_config_p3_p5_serdes_0x33.xml		\
 	usdpaa_config_p4_serdes_0xe_offline_host.xml	\
