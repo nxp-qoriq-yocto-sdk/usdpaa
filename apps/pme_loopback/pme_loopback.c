@@ -1095,11 +1095,11 @@ static int pme_loopback_cli_create_ctx_flow_mode(int argc, char *argv[])
 	struct worker *worker;
 	int sessionid, ren;
 
+	if ((argc > 4) || (argc < 3))
+		return -EINVAL;
+
 	sessionid = atoi(argv[1]);
 	ren = atoi(argv[2]);
-
-	if (argc > 4)
-		return -EINVAL;
 	/* cpu-range is an optional argument */
 	if (argc > 3) {
 		do {
