@@ -56,19 +56,39 @@
 #endif
 
 /* Application options */
-#undef PPAC_HOLDACTIVE		/* Process each FQ on one portal at a time */
+/* For Network applications, Packet ordering is one of the important QoS parameter.
+   TCP and IPSec like scenario are worst impacted if packet goes out of order.
+   Hold_Active Enable portal level packet ordering per FQ */
+#define PPAC_HOLDACTIVE
 #undef PPAC_ORDER_PRESERVATION	/* HOLDACTIVE + enqueue-DCAs */
 #undef PPAC_ORDER_RESTORATION	/* Use ORP */
-#define PPAC_AVOIDBLOCK		/* No full-DQRR blocking of FQs */
+/* For RAW network performance which don't require QoS like packet ordering,
+ Enable following setting to avoid full-DQRR blocking of FQs. This setting if
+ used along PPAC_HOLDACTIVE will be ignored by Qman, thus USDPAA raise error
+ if both are enabled simultaneously. Never set AVOIDBLOCK if packet order is
+ important*/
+#undef PPAC_AVOIDBLOCK
 #define PPAC_RX_10G_PREFERINCACHE/* Keep 10G rx FQDs in-cache even when empty */
 #define PPAC_RX_1G_PREFERINCACHE/* Keep 1G rx FQDs in-cache even when empty */
 #define PPAC_2FWD_RX_OFFLINE_PREFERINCACHE /* Keep OFFLINE rx FQDs in-cache even when empty */
 #define PPAC_TX_PREFERINCACHE	/* Keep tx FQDs in-cache even when empty */
-#undef PPAC_TX_FORCESFDR	/* Priority allocation of SFDRs to egress */
-#define PPAC_DEPLETION		/* Trace depletion entry/exit */
-#undef PPAC_CGR			/* Track rx and tx fill-levels via CGR */
-#undef PPAC_CSTD		/* CGR tail-drop */
-#undef PPAC_CSCN		/* Log CGR state-change notifications */
+/* Priority allocation of SFDRs to Egress FQs. These are high priority FQ whose
+ frame are preferred to be in SFDR at head of FQ during SFDR crunch. This is
+ performance improvement of QMAN itself during handling high priority FQ */
+#define PPAC_TX_FORCESFDR
+/* Trace BP depletion entry/exit, Enable only during debugging to avoid flood
+ of prints above ZLT */
+#undef PPAC_DEPLETION
+/* Track rx and tx fill-levels via CGR. Full buffer depletion must be avoid
+   to avoid  imbalance between fman port performance due to buffer depletion
+   by other FMAN port */
+#define PPAC_CGR
+/* CGR tail-drop should be set with CGR though for debugging PPAC_CGR can be
+   set only with CSCN to check congestion point in FMAN */
+#define PPAC_CSTD
+/* Log CGR state-change notifications. Should only be defined during
+ debugging */
+#undef PPAC_CSCN
 #define PPAC_IDLE_IRQ		/* Block in interrupt-mode when idle */
 #undef PPAC_TX_CONFIRM		/* Use Tx confirmation for all transmits */
 
@@ -102,7 +122,7 @@
 #define PPAC_DMA_MAP_SIZE	0x1000000 /* 16MB */
 #define PPAC_BPOOL_CNT0		0
 #define PPAC_BPOOL_CNT1		0
-#define PPAC_BPOOL_CNT2		1728
+#define PPAC_BPOOL_CNT2		0x2000
 
 /**********/
 /* macros */
