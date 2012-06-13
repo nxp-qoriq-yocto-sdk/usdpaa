@@ -30,7 +30,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 bin_PROGRAMS = lpm_ipfwd_config
-dist_DATA = lpm_ipfwd_22G.sh lpm_ipfwd_20G.sh lpm_ipfwd_15G.sh lpm_ipfwd_20G_1Mroutes.sh
+dist_DATA = lpm_ipfwd_22G.sh lpm_ipfwd_20G.sh lpm_ipfwd_14G.sh lpm_ipfwd_20G_1Mroutes.sh
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/lpm-ipfwd/lib -I$(TOP_LEVEL)/apps/lpm-ipfwd/include
 
@@ -41,7 +41,7 @@ lpm_ipfwd_22G.sh_install = $(INSTALL_BIN)
 lpm_ipfwd_22G.sh_install_flags = $(INSTALL_BIN_FLAGS)
 lpm_ipfwd_20G.sh_install = $(INSTALL_BIN)
 lpm_ipfwd_20G.sh_install_flags = $(INSTALL_BIN_FLAGS)
-lpm_ipfwd_15G.sh_install = $(INSTALL_BIN)
-lpm_ipfwd_15G.sh_install_flags = $(INSTALL_BIN_FLAGS)
+lpm_ipfwd_14G.sh_install = $(INSTALL_BIN)
+lpm_ipfwd_14G.sh_install_flags = $(INSTALL_BIN_FLAGS)
 lpm_ipfwd_20G_1Mroutes.sh_install = $(INSTALL_BIN)
 lpm_ipfwd_20G_1Mroutes.sh_install_flags = $(INSTALL_BIN_FLAGS)

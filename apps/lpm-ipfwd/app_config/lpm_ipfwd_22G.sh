@@ -77,14 +77,12 @@ case $(basename $0 .sh) in
 	lpm_ipfwd_15G)
 		lpm_ipfwd_config -P $pid -F -a 192.168.10.1 -i 0
 		lpm_ipfwd_config -P $pid -F -a 192.168.20.1 -i 1
-		lpm_ipfwd_config -P $pid -F -a 192.168.30.1 -i 2
 		lpm_ipfwd_config -P $pid -F -a 192.168.40.1 -i 3
 		lpm_ipfwd_config -P $pid -F -a 192.168.50.1 -i 4
 		lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 5
 
 		lpm_ipfwd_config -P $pid -G -s 192.168.10.2 -m 02:00:c0:a8:0a:02 -r true
 		lpm_ipfwd_config -P $pid -G -s 192.168.20.2 -m 02:00:c0:a8:14:02 -r true
-		lpm_ipfwd_config -P $pid -G -s 192.168.30.2 -m 02:00:c0:a8:1e:02 -r true
 		lpm_ipfwd_config -P $pid -G -s 192.168.40.2 -m 02:00:c0:a8:28:02 -r true
 		lpm_ipfwd_config -P $pid -G -s 192.168.50.2 -m 02:00:c0:a8:32:02 -r true
 		lpm_ipfwd_config -P $pid -G -s 192.168.60.2 -m 02:00:c0:a8:3c:02 -r true
@@ -92,7 +90,6 @@ case $(basename $0 .sh) in
 						# 1000
 		net_pair_routes 190 1 16 10 99	# 100
 		net_pair_routes 191 1 16 20 99	# 100
-		net_pair_routes 192 1 16 30 99	# 100
 		net_pair_routes 193 1 16 40 99	# 100
 		net_pair_routes 194 1 16 50 99	# 100
 		net_pair_routes 195 1 16 60 99	# 100

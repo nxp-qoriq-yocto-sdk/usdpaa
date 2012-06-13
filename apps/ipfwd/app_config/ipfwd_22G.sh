@@ -68,17 +68,15 @@ case $(basename $0 .sh) in
 						# 1012
 		net_pair_routes 60 160 22 23	# 2 * 22 * 23 = 1012
 		;;
-	ipfwd_15G)
+	ipfwd_14G)
 		ipfwd_config -P $pid -F -a 192.168.10.1 -i 0
 		ipfwd_config -P $pid -F -a 192.168.20.1 -i 1
-		ipfwd_config -P $pid -F -a 192.168.30.1 -i 2
 		ipfwd_config -P $pid -F -a 192.168.40.1 -i 3
 		ipfwd_config -P $pid -F -a 192.168.50.1 -i 4
 		ipfwd_config -P $pid -F -a 192.168.60.1	-i 5
 
 		ipfwd_config -P $pid -G -s 192.168.10.2 -m 02:00:c0:a8:0a:02 -r true
 		ipfwd_config -P $pid -G -s 192.168.20.2 -m 02:00:c0:a8:14:02 -r true
-		ipfwd_config -P $pid -G -s 192.168.30.2 -m 02:00:c0:a8:1e:02 -r true
 		ipfwd_config -P $pid -G -s 192.168.40.2 -m 02:00:c0:a8:28:02 -r true
 		ipfwd_config -P $pid -G -s 192.168.50.2 -m 02:00:c0:a8:32:02 -r true
 		ipfwd_config -P $pid -G -s 192.168.60.2 -m 02:00:c0:a8:3c:02 -r true
@@ -86,7 +84,6 @@ case $(basename $0 .sh) in
 						# 1000
 		net_pair_routes 10 60 10 10	# 2 * 10 * 10 = 200
 		net_pair_routes 20 60 10 10	# 2 * 10 * 10 = 200
-		net_pair_routes 30 60 10 10	# 2 * 10 * 10 = 200
 		net_pair_routes 40 60 10 10	# 2 * 10 * 10 = 200
 		net_pair_routes 50 60 10 10	# 2 * 10 * 10 = 200
 		;;
