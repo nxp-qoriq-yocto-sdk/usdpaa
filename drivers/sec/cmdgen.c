@@ -1295,3 +1295,38 @@ uint32_t *cmd_insert_move(uint32_t *descwd, uint32_t waitcomp,
 
 	return descwd;
 }
+
+/**
+ * cmd_insert_movelen()
+ * Insert a MOVELEN instruction into a descriptor
+ *
+ * Returns: pointer to next incremental descriptor word past the
+ * instruction just inserted. No error is returned.
+ *
+ * @descwd = pointer to target descriptor word intended to hold this
+ *           instruction.
+ *
+ * @waitcomp = if MOVE_WAITCOMPLETE specified, stall execution until
+ *             the MOVE completes. This is only valid if it is using
+ *             the DMA CCB, else use MOVE_NOWAIT.
+ *
+ * @src = defines the source for the move. Must be one of MOVE_SRC_
+ *
+ * @dst = defined the destination for the move. Must be one of
+ *        MOVE_DEST_
+ *
+ * @offset = specifies the offset into the source or destination
+ *           to use.
+ *
+ * @mrsel = specifies the MATH register carrying length. MUST be one of
+ *           MOVE_MRSEL_
+ **/
+uint32_t *cmd_insert_movelen(uint32_t *descwd, uint32_t waitcomp,
+			   uint32_t src, uint32_t dst, uint8_t offset,
+			   uint8_t mrsel)
+{
+	*descwd++ = CMD_MOVELEN | waitcomp | src | dst |
+	(offset << MOVE_OFFSET_SHIFT) | (mrsel & MOVE_MRSEL_MASK);
+
+	return descwd;
+}

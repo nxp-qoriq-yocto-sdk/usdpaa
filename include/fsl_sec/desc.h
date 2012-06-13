@@ -60,6 +60,7 @@
 #define CMD_SEQ_STORE           (0x0b << CMD_SHIFT)
 #define CMD_FIFO_STORE          (0x0c << CMD_SHIFT)
 #define CMD_SEQ_FIFO_STORE      (0x0d << CMD_SHIFT)
+#define CMD_MOVELEN                (0x0e << CMD_SHIFT)
 #define CMD_MOVE                (0x0f << CMD_SHIFT)
 #define CMD_OPERATION           (0x10 << CMD_SHIFT)
 #define CMD_SIGNATURE           (0x12 << CMD_SHIFT)
@@ -1322,6 +1323,15 @@
 #define MOVE_LEN_SHIFT           0
 #define MOVE_LEN_MASK           (0xff << MOVE_LEN_SHIFT)
 
+/* Following macros are for Movelen command */
+#define MOVE_MRSEL_SHIFT	0
+#define MOVE_MRSEL_MASK	(0x3 << MOVE_MRSEL_SHIFT)
+
+#define MOVE_MRSEL_MATH0	(0 << MOVE_MRSEL_SHIFT)
+#define MOVE_MRSEL_MATH1	(1 << MOVE_MRSEL_SHIFT)
+#define MOVE_MRSEL_MATH2	(2 << MOVE_MRSEL_SHIFT)
+#define MOVE_MRSEL_MATH3	(3 << MOVE_MRSEL_SHIFT)
+
 /*
  * MATH Command Constructs
  */
@@ -1365,6 +1375,8 @@
 #define MATH_SRC0_VARSEQINLEN   (0x0a << MATH_SRC0_SHIFT)
 #define MATH_SRC0_VARSEQOUTLEN  (0x0b << MATH_SRC0_SHIFT)
 #define MATH_SRC0_ZERO          (0x0c << MATH_SRC0_SHIFT)
+#define MATH_SRC0_ONE          (0x0f << MATH_SRC0_SHIFT)
+
 
 /* Source 1 selectors */
 #define MATH_SRC1_SHIFT         12
@@ -1377,6 +1389,7 @@
 #define MATH_SRC1_INFIFO        (0x0a << MATH_SRC1_SHIFT)
 #define MATH_SRC1_OUTFIFO       (0x0b << MATH_SRC1_SHIFT)
 #define MATH_SRC1_ONE           (0x0c << MATH_SRC1_SHIFT)
+#define MATH_SRC1_ZERO           (0x0f << MATH_SRC1_SHIFT)
 
 /* Destination selectors */
 #define MATH_DEST_SHIFT         8

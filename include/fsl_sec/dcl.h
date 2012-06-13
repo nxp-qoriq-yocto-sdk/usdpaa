@@ -244,6 +244,10 @@ uint32_t *cmd_insert_move(uint32_t *descwd, uint32_t waitcomp,
 			   uint32_t src, uint32_t dst, uint8_t offset,
 			   uint8_t length);
 
+uint32_t *cmd_insert_movelen(uint32_t *descwd, uint32_t waitcomp,
+			   uint32_t src, uint32_t dst, uint8_t offset,
+			   uint8_t mrsel);
+
 uint32_t *cmd_insert_math(uint32_t *descwd, uint32_t func,
 			    uint32_t src0, uint32_t src1,
 			    uint32_t dest, uint32_t len,
