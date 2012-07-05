@@ -73,7 +73,7 @@ struct fman_if {
 	/* The MAC address */
 	struct ether_addr mac_addr;
 	/* The Qman channel to schedule Tx FQs to */
-	enum qm_channel tx_channel_id;
+	u16 tx_channel_id;
 	/* The hard-coded FQIDs for this interface. Note: this doesn't cover the
 	 * PCD nor the "Rx default" FQIDs, which are configured via FMC and its
 	 * XML-based configuration. */

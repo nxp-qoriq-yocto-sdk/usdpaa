@@ -193,7 +193,7 @@ void teardown_fq(struct qman_fq *fq)
 /*******************/
 
 void ppac_fq_nonpcd_init(struct qman_fq *fq, u32 fqid,
-			 enum qm_channel channel,
+			 u16 channel,
 			 const struct qm_fqd_stashing *stashing,
 			 qman_cb_dqrr cb)
 {
@@ -215,7 +215,7 @@ void ppac_fq_nonpcd_init(struct qman_fq *fq, u32 fqid,
 }
 
 void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
-		      enum qm_channel channel,
+		      u16 channel,
 		      const struct qm_fqd_stashing *stashing,
 		      int prefer_in_cache)
 {
@@ -278,7 +278,7 @@ cb_tx_drain(struct qman_portal *qm __always_unused,
 	return qman_cb_dqrr_consume;
 }
 
-void ppac_fq_tx_init(struct qman_fq *fq, enum qm_channel channel,
+void ppac_fq_tx_init(struct qman_fq *fq, u16 channel,
 		     u32 tx_confirm_fqid __maybe_unused)
 {
 	struct qm_mcc_initfq opts;
@@ -341,9 +341,9 @@ static void finish_pool_channels(void)
 	qman_release_pool_range(pchannels[0], PPAC_NUM_POOL_CHANNELS);
 }
 
-enum qm_channel get_rxc(void)
+u16 get_rxc(void)
 {
-	enum qm_channel ret = pchannels[pchannel_idx];
+	u16 ret = pchannels[pchannel_idx];
 	pchannel_idx = (pchannel_idx + 1) % PPAC_NUM_POOL_CHANNELS;
 	return ret;
 }

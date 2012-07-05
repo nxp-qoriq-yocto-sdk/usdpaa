@@ -385,25 +385,25 @@ void teardown_fq(struct qman_fq *fq);
  * that is inlined into PPAM (ppac.c). */
 
 void ppac_fq_nonpcd_init(struct qman_fq *fq, u32 fqid,
-			 enum qm_channel channel,
+			 u16 channel,
 			 const struct qm_fqd_stashing *stashing,
 			 qman_cb_dqrr cb);
 
 void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
-		      enum qm_channel channel,
+		      u16 channel,
 		      const struct qm_fqd_stashing *stashing,
 		      int prefer_in_cache);
 #ifdef PPAC_ORDER_RESTORATION
 void ppac_orp_init(u32 *orp_id);
 #endif
 void ppac_fq_tx_init(struct qman_fq *fq,
-		     enum qm_channel channel,
+		     u16 channel,
 		     u32 tx_confirm_fqid __maybe_unused);
 enum qman_cb_dqrr_result
 cb_dqrr_rx_hash(struct qman_portal *qm __always_unused,
 		struct qman_fq *fq,
 		const struct qm_dqrr_entry *dqrr);
-enum qm_channel get_rxc(void);
+u16 get_rxc(void);
 int lazy_init_bpool(u8 bpid, u8 depletion_notify);
 int ppac_interface_init(unsigned idx);
 int ppac_interface_init_rx(struct ppac_interface *i);

@@ -231,7 +231,7 @@ int opt_bindto_rman_tx(struct hash_opt *opt, struct rman_tx *tx, int idx);
  */
 struct rman_rx *
 rman_rx_init(int hash_init, uint32_t fqid, int fq_mode, uint8_t wq,
-	     enum qm_channel channel, struct rio_tran *tran,
+	     u16 channel, struct rio_tran *tran,
 	     void *pvt, hash_handler handler);
 
 /* Configures classification unit to receive the specific rapidio messages. */

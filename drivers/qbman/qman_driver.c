@@ -37,6 +37,12 @@
  * where CCSR isn't available) */
 u16 qman_ip_rev;
 EXPORT_SYMBOL(qman_ip_rev);
+u16 qm_channel_pool1;
+EXPORT_SYMBOL(qm_channnel_pool1);
+u16 qm_channel_caam = QMAN_CHANNEL_CAAM;
+EXPORT_SYMBOL(qman_channel_caam);
+u16 qm_channel_pme = QMAN_CHANNEL_PME;
+EXPORT_SYMBOL(qman_channel_pme);
 
 static __thread int fd = -1;
 static __thread const struct qbman_uio_irq *irq;
@@ -222,9 +228,9 @@ void qman_thread_irq(void)
 int qman_global_init(void)
 {
 	const struct device_node *dt_node;
-#ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
 	int ret;
-#endif
+	u32 *chanid;
+
 	static int done = 0;
 	if (done)
 		return -EBUSY;
@@ -248,6 +254,23 @@ int qman_global_init(void)
 		pr_err("Unknown qman portal version\n");
 		return -ENODEV;
 	}
+	if ((qman_ip_rev & 0xFF00) >= QMAN_REV30) {
+		qm_channel_caam = QMAN_CHANNEL_CAAM_REV3;
+		qm_channel_pme = QMAN_CHANNEL_PME_REV3;
+	}
+
+	dt_node = of_find_compatible_node(NULL, NULL, "fsl,pool-channel-range");
+	if (!dt_node) {
+		pr_err("No qman pool channel range available\n");
+		return -ENODEV;
+	}
+	chanid = of_get_property(dt_node, "fsl,pool-channel-range", &ret);
+	if (!chanid) {
+		pr_err("Can not get pool-channel-range property\n");
+		return -EINVAL;
+	}
+	qm_channel_pool1 = chanid[0];
+
 #ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
 	ret = qman_setup_fq_lookup_table(CONFIG_FSL_QMAN_FQ_LOOKUP_MAX);
 	if (ret)

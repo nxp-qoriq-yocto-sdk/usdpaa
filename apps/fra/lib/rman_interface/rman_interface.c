@@ -46,7 +46,7 @@ struct rman_if {
 	struct rman_cfg cfg;
 	struct srio_dev *sriodev;
 	int port_connected;
-	enum qm_channel tx_channel_id[RMAN_MAX_NUM_OF_CHANNELS];
+	u16 tx_channel_id[RMAN_MAX_NUM_OF_CHANNELS];
 	uint32_t msg_size[RIO_TYPE_NUM];
 	int sg_size;
 	struct list_head rman_rx_list;
@@ -351,7 +351,7 @@ void rman_rx_finish(struct rman_rx *rx)
 
 struct rman_rx *
 rman_rx_init(int hash_init, uint32_t fqid, int fq_mode, uint8_t wq,
-	     enum qm_channel channel, struct rio_tran *tran,
+	     u16 channel, struct rio_tran *tran,
 	     void *pvt, hash_handler handler)
 {
 	int ibcu, i;

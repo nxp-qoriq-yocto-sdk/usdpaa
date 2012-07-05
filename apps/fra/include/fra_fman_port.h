@@ -96,7 +96,7 @@ int opt_bindto_fman_tx(struct hash_opt *opt, struct fra_fman_port *port,
  * also created using the specific work queue and channel ID.
  */
 int fman_rx_init(struct fra_fman_port *port, int non_hash, uint8_t wq,
-		 enum qm_channel channel);
+		 u16 channel);
 
 /*
  * Listen to rx default frame, if received frame, handler function will be

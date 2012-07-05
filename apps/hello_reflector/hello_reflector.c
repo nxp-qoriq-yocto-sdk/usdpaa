@@ -472,10 +472,10 @@ static int net_if_tx_init(struct qman_fq *fq, const struct fman_if *fif)
 /* Utility to select one of the available pool channels in a round-robin manner.
  * As software-consumed FQs are initialised, this function is called each time
  * in order to spread the FQs around the pool-channels. */
-static enum qm_channel get_next_rx_channel(void)
+static u16 get_next_rx_channel(void)
 {
 	static uint32_t pchannel_idx;
-	enum qm_channel ret = pchannels[pchannel_idx];
+	u16 ret = pchannels[pchannel_idx];
 	pchannel_idx = (pchannel_idx + 1) % NUM_POOL_CHANNELS;
 	return ret;
 }

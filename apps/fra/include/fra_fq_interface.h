@@ -206,19 +206,19 @@ void local_fq_init(void);
 
 /* Initialize pcd frame queue */
 void fra_fq_pcd_init(struct qman_fq *fq, uint32_t fqid,
-		     uint8_t wq, enum qm_channel channel,
+		     uint8_t wq, u16 channel,
 		     const struct qm_fqd_stashing *stashing,
 		     qman_cb_dqrr cb);
 
 /* Initialize nonpcd frame queue */
 void fra_fq_nonpcd_init(struct qman_fq *fq, uint32_t fqid,
-			uint8_t wq, enum qm_channel channel,
+			uint8_t wq, u16 channel,
 			const struct qm_fqd_stashing *stashing,
 			qman_cb_dqrr cb);
 
 /* Initialize tx frame queue */
 void fra_fq_tx_init(struct qman_fq *fq,  uint32_t fqid,
-		    uint8_t wq, enum qm_channel channel,
+		    uint8_t wq, u16 channel,
 		    uint64_t cont_a, uint32_t cont_b);
 
 /* Tear down frame queue */

@@ -104,7 +104,7 @@ static void fman_port_disable_rx(const struct fra_fman_port *port)
 }
 
 int fman_rx_init(struct fra_fman_port *port, int init_hash, uint8_t wq,
-		 enum qm_channel channel)
+		 u16 channel)
 {
 	const struct fman_if *fif;
 	struct fm_eth_port_fqrange *fqr;
