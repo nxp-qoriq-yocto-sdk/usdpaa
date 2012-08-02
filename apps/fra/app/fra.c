@@ -193,18 +193,17 @@ static void dist_tx_confirm_cb(void *pvt, const struct qm_fd *fd)
 }
 #endif
 
-static void dist_rman_rx_cb(void *pvt, struct hash_opt *opt,
-			    const struct qm_fd *fd)
-{
-	struct qm_fd newfd;
 #ifdef ENABLE_FRA_DEBUG
+static void dist_rman_rx_info(struct distribution *dist,
+			      struct hash_opt *opt,
+			      const struct qm_fd *fd)
+{
 	struct msg_buf *msg;
-	struct distribution *dist = pvt;
 
 	FRA_DBG("DIST(%s) receives a msg frome fqid(0x%x)",
 		dist->cfg->name, opt->rx_fqid);
 	msg = fd_to_msg(fd);
-	if (msg && fra->cfg->rman_cfg.md_create) {
+	if (msg && !fra->cfg->rman_cfg.md_create) {
 		FRA_DBG("This msg is sent by device(%d) using %s",
 			msg_get_sid(msg),
 			RIO_TYPE_TO_STR[msg_get_type(msg)]);
@@ -221,6 +220,16 @@ static void dist_rman_rx_cb(void *pvt, struct hash_opt *opt,
 			break;
 		}
 	}
+}
+#endif
+
+static void dist_rman_rx_cb_clearstatus(void *pvt, struct hash_opt *opt,
+					const struct qm_fd *fd)
+{
+	struct qm_fd newfd;
+
+#ifdef ENABLE_FRA_DEBUG
+	dist_rman_rx_info(pvt, opt, fd);
 #endif
 
 	if (FD_GET_STATUS(fd)) {
@@ -240,6 +249,23 @@ static void dist_rman_rx_cb(void *pvt, struct hash_opt *opt,
 	memcpy(&newfd, fd, sizeof(newfd));
 	FD_CLEAR_STATUS(&newfd);
 	dist_order_handler(pvt, opt, &newfd);
+}
+
+static void dist_rman_rx_cb(void *pvt, struct hash_opt *opt,
+			    const struct qm_fd *fd)
+{
+#ifdef ENABLE_FRA_DEBUG
+	dist_rman_rx_info(pvt, opt, fd);
+#endif
+
+	if (FD_GET_STATUS(fd)) {
+		FRA_DBG("This msg has an error status 0x%x",
+			FD_GET_STATUS(fd));
+		fra_drop_frame(fd);
+		return;
+	}
+
+	dist_order_handler(pvt, opt, fd);
 }
 
 static enum handler_status
@@ -389,9 +415,16 @@ static struct distribution *dist_rman_rx_init(struct dist_cfg *cfg)
 	memset(dist, 0, sizeof(*dist));
 
 	dist->cfg = cfg;
-	dist->rman_rx = rman_rx_init(1, rxcfg->fqid, rxcfg->fq_mode,
-				     rxcfg->wq, 0, rxcfg->tran, dist,
-				     dist_rman_rx_cb);
+
+	if (rman_svr_rev() > SVR_REV_1_0)
+		dist->rman_rx = rman_rx_init(1, rxcfg->fqid, rxcfg->fq_mode,
+					     rxcfg->wq, 0, rxcfg->tran, dist,
+					     dist_rman_rx_cb);
+	else
+		dist->rman_rx = rman_rx_init(1, rxcfg->fqid, rxcfg->fq_mode,
+					     rxcfg->wq, 0, rxcfg->tran, dist,
+					     dist_rman_rx_cb_clearstatus);
+
 	if (!dist->rman_rx) {
 		__dma_mem_free(dist);
 		return NULL;

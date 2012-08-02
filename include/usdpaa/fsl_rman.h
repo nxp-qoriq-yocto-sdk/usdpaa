@@ -35,6 +35,8 @@
 
 #include <limits.h>
 
+#define SVR_REV_1_0 0x10
+
 #define RMAN_MAX_NUM_OF_CHANNELS 2
 
 /* Rman interrupt error mask */
@@ -137,6 +139,9 @@ struct rman_cfg {
 };
 
 struct rman_dev;
+
+/* Return the system revision */
+int rman_svr_rev(void);
 
 /**
  * rman_global_fd - get the file descriptor refers to global register
