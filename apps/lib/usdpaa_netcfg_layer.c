@@ -248,6 +248,7 @@ static void check_fman_enabled_interfaces(void)
 	char str[10];
 	uint8_t num, num1;
 	struct interface_info *cli_info;
+	struct list_head *fqlist;
 
 	/* Fill in configuration info for all command-line ports */
 	idx = 0;
@@ -263,6 +264,14 @@ static void check_fman_enabled_interfaces(void)
 				 * matches the one in fman list */
 			   if (memcmp(&__if->macless_info.peer_mac,
 				&cli_info->peer_mac, ETHER_ADDR_LEN) == 0) {
+				fqlist = malloc(sizeof(struct list_head));
+				if (!fqlist) {
+					fprintf(stderr, "%s: No mem fqlist\n",
+						__FILE__);
+					return;
+				}
+				cfg->list = fqlist;
+				INIT_LIST_HEAD(cfg->list);
 				memcpy(&__if->macless_info.src_mac,
 					&cli_info->mac_addr, ETHER_ADDR_LEN);
 				memcpy(&__if->mac_addr,
