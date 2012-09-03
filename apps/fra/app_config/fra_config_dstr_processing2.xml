@@ -38,6 +38,21 @@
 		<fqbits type="Data-streaming" value="2"/>
 		<fqbits type="Mailbox" value="2"/>
 		<md_create mode="yes"/>
+		<!--
+		OSID - Outbound Segmentation Interleaving Disable
+		Segmentation interleaving allows the message manager to
+		interleave segments from two or more transactions with the
+		same destination device ID (regardless of type). This may
+		increase performance for transmission but may also consume
+		additional reassembly resources at the destination.
+
+		A non-Freescale target device may not complete Type 9
+		reassembly correctly when segmentation interleaving is
+		performed on two PDUs with the same flow but different CoS.
+		Workaround: disable segmentation interleaving by setting
+		<osid value="yes">
+		-->
+		<osid value="no"/>
 		<bpid type="Data-streaming" value="11"/>
 		<bpid type="Doorbell" value="10"/>
 		<bpid type="Mailbox" value="11"/>
