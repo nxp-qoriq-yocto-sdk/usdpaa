@@ -43,6 +43,7 @@
 #define RMAN_FQ_BITS_NODE	("fqbits")
 #define MD_CREATE_NODE		("md_create")
 #define MD_CREATE_MODE		("mode")
+#define RMAN_OSID_NODE		("osid")
 #define BPID_NODE		("bpid")
 #define SG_BPID_NODE		("sgbpid")
 
@@ -744,6 +745,14 @@ static int parse_rman_cfg(xmlNodePtr cur, struct rman_cfg *cfg)
 				cfg->md_create = 0;
 			else
 				cfg->md_create = 1;
+		} else if ((is_node(cfgptr, BAD_CAST RMAN_OSID_NODE))) {
+			ptr = get_attributes(cfgptr, BAD_CAST RMAN_CFG_VALUE);
+			if (unlikely(ptr == NULL))
+				return -EINVAL;
+			if (!strcmp(ptr, "yes"))
+				cfg->osid = 1;
+			else
+				cfg->osid = 0;
 		} else if ((is_node(cfgptr, BAD_CAST BPID_NODE))) {
 			ptr = get_attributes(cfgptr, BAD_CAST RMAN_CFG_TYPE);
 			if (unlikely(ptr == NULL))

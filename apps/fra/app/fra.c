@@ -134,11 +134,13 @@ static int fra_cli_status(int argc, char *argv[])
 	fra_cfg = fra->cfg;
 	fprintf(stderr, "RMan configuration:\n"
 		"\tCreate inbound message descriptor: %s\n"
+		"\tOutbound segmentation interleaving disable: %s\n"
 		"\tThe algorithmic frame queue bits info:\n"
 		"\t\tdata streaming:%d mailbox:%d\n"
 		"\tBPID info:\n"
 		"\t\tdata streaming:%d mailbox:%d doorbell:%d sg:%d\n",
 		MD_CREATE_MODE_STR[fra_cfg->rman_cfg.md_create],
+		fra_cfg->rman_cfg.osid == 1 ? "yes" : "no",
 		fra_cfg->rman_cfg.fq_bits[RIO_TYPE_DSTR],
 		fra_cfg->rman_cfg.fq_bits[RIO_TYPE_MBOX],
 		fra_cfg->rman_cfg.bpid[RIO_TYPE_DSTR],

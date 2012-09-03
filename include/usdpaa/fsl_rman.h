@@ -135,6 +135,7 @@ struct rman_cfg {
 	uint8_t fq_bits[RIO_TYPE_NUM];
 	uint8_t bpid[RIO_TYPE_NUM];
 	uint8_t md_create;
+	uint8_t osid; /* Outbound segmentation interleaving disable */
 	uint8_t sgbpid;
 };
 

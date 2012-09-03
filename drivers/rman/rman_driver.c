@@ -47,6 +47,7 @@
 #define RMAN_MMSR_IMUB_SHIFT	31
 #define RMAN_MMSR_OMUB_SHIFT	30
 #define RMAN_MMMR_MDD_SHIFT	31
+#define RMAN_MMMR_OSID_SHIFT	28
 #define RMAN_FQAR_STID_SHIFT	7
 #define RMAN_FQAR_LTR_SHIFT	8
 
@@ -472,18 +473,19 @@ static int rman_ib_init(const struct device_node *ib_node,
 
 int rman_dev_config(struct rman_dev *rmdev, const struct rman_cfg *cfg)
 {
+	uint32_t mmmr;
+
 	if (!rmdev || !cfg)
 		return -EINVAL;
 
+	mmmr = read_reg(&rmdev->global_regs->mmmr);
 	/* Set inbound message descriptor write status */
-	if (cfg->md_create)
-		write_reg(&rmdev->global_regs->mmmr,
-			  read_reg(&rmdev->global_regs->mmmr) |
-			  cfg->md_create << RMAN_MMMR_MDD_SHIFT);
-	else
-		write_reg(&rmdev->global_regs->mmmr,
-			  read_reg(&rmdev->global_regs->mmmr) &
-			  ~(cfg->md_create << RMAN_MMMR_MDD_SHIFT));
+	mmmr &= ~(1 << RMAN_MMMR_MDD_SHIFT);
+	mmmr |= cfg->md_create << RMAN_MMMR_MDD_SHIFT;
+	/* Set OSID */
+	mmmr &= ~(1 << RMAN_MMMR_OSID_SHIFT);
+	mmmr |= cfg->osid << RMAN_MMMR_OSID_SHIFT;
+	write_reg(&rmdev->global_regs->mmmr, mmmr);
 
 	/* Initialize the frame queue assembly register */
 	/* Data streaming supports max 32 inbound frame queues */
