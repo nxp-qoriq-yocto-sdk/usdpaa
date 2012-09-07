@@ -65,7 +65,7 @@
 	<transaction name="mbox-10gec" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
 		<mbox value="1" mask="0"/>
-		<ltr value="0" mask="0" />
+		<ltr value="0" mask="3" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 	<transaction name="mbox-dtsec4" type="Mailbox">
@@ -105,7 +105,7 @@
 	<distribution name="rman_to_10gec" type="RMAN_RX">
 		<rio_port number="0" mask="1"/>
 		<sid value="0" mask="0xff"/>
-		<queue base="0x2000" mode="direct" wq="0"/>
+		<queue base="0x2000" mode="algorithmic" wq="0"/>
 		<transactionref name="mbox-10gec"/>
 	</distribution>
 	<distribution name="rman_to_dtsec4" type="RMAN_RX">
@@ -143,7 +143,7 @@
 	<distribution name="rman_to_peer_10gec" type="RMAN_TX">
 		<rio_port number="0"/>
 		<did value="1"/>
-		<queue base="0x6500" count="1" wq="0"/>
+		<queue base="0x6500" count="4" wq="0"/>
 		<transactionref name="mbox-10gec"/>
 	</distribution>
 	<distribution name="rman_to_peer_dtsec4" type="RMAN_TX">
@@ -206,7 +206,7 @@
 <!--	xxxxxxxxxxxxxxxxxxxxxx FMAN TX distribution xxxxxxxxxxxxxxxxxxxxxxxx -->
 	<distribution name="10gec_to_network" type="FMAN_TX">
 		<fman_port name="10gec"/>
-		<queue count="1" wq="4"/>
+		<queue count="2" wq="4"/>
 	</distribution>
 	<distribution name="dtsec4_to_network" type="FMAN_TX">
 		<fman_port name="dtsec4"/>
