@@ -33,8 +33,9 @@
 #include <usdpaa/fsl_qman.h>
 #include <usdpaa/fsl_bman.h>
 
-#include <fsl_sec/dcl.h>
-#include <fsl_sec/desc.h>
+#include <rta.h>
+#include <desc.h>
+#include <protoshared.h>
 
 #include <internal/compat.h>
 

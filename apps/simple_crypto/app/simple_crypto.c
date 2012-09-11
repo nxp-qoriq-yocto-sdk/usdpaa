@@ -452,29 +452,29 @@ static void *setup_init_descriptor(bool mode)
 	switch (crypto_info.algo) {
 	case AES_CBC:
 		ret = cnstr_shdsc_cbc_blkcipher(shared_desc, &shared_desc_len,
-			ref_test_vector.key, AES_CBC_KEY_LEN * BITS_PER_BYTE,
+			ref_test_vector.key, AES_CBC_KEY_LEN,
 			ref_test_vector.iv.init_vec,
-			AES_CBC_IV_LEN * BITS_PER_BYTE,
-			mode ? DIR_ENCRYPT : DIR_DECRYPT,
-			OP_ALG_ALGSEL_AES, 0);
+			AES_CBC_IV_LEN,
+			mode ? DIR_ENC : DIR_DEC,
+			OP_ALG_ALGSEL_AES);
 		break;
 
 	case TDES_CBC:
 		ret = cnstr_shdsc_cbc_blkcipher(shared_desc, &shared_desc_len,
-			ref_test_vector.key, TDES_CBC_KEY_LEN * BITS_PER_BYTE,
+			ref_test_vector.key, TDES_CBC_KEY_LEN,
 			ref_test_vector.iv.init_vec,
-			TDES_CBC_IV_LEN * BITS_PER_BYTE,
-			mode ? DIR_ENCRYPT : DIR_DECRYPT,
-			OP_ALG_ALGSEL_3DES, 0);
+			TDES_CBC_IV_LEN,
+			mode ? DIR_ENC : DIR_DEC,
+			OP_ALG_ALGSEL_3DES);
 		break;
 
 	case SNOW_F8:
 		ret = cnstr_shdsc_snow_f8(shared_desc, &shared_desc_len,
-			ref_test_vector.key, F8_KEY_LEN * BITS_PER_BYTE,
-			mode ? DIR_ENCRYPT : DIR_DECRYPT,
+			ref_test_vector.key, F8_KEY_LEN,
+			mode ? DIR_ENC : DIR_DEC,
 			ref_test_vector.iv.f8.count,
 			ref_test_vector.iv.f8.bearer,
-			ref_test_vector.iv.f8.direction, 0);
+			ref_test_vector.iv.f8.direction);
 		break;
 
 	case SNOW_F9:
@@ -490,20 +490,20 @@ static void *setup_init_descriptor(bool mode)
 			length = crypto_info.buf_size * BITS_PER_BYTE;
 
 		ret = cnstr_shdsc_snow_f9(shared_desc, &shared_desc_len,
-			ref_test_vector.key, F9_KEY_LEN * BITS_PER_BYTE,
-			DIR_ENCRYPT, ref_test_vector.iv.f9.count,
+			ref_test_vector.key, F9_KEY_LEN,
+			DIR_ENC, ref_test_vector.iv.f9.count,
 			ref_test_vector.iv.f9.fresh,
-			ref_test_vector.iv.f9.direction, 0,
+			ref_test_vector.iv.f9.direction,
 			length);
 		break;
 
 	case KASUMI_F8:
 		ret = cnstr_shdsc_kasumi_f8(shared_desc, &shared_desc_len,
-			ref_test_vector.key, F8_KEY_LEN * BITS_PER_BYTE,
-			mode ? DIR_ENCRYPT : DIR_DECRYPT,
+			ref_test_vector.key, F8_KEY_LEN,
+			mode ? DIR_ENC : DIR_DEC,
 			ref_test_vector.iv.f8.count,
 			ref_test_vector.iv.f8.bearer,
-			ref_test_vector.iv.f8.direction, 0);
+			ref_test_vector.iv.f8.direction);
 		break;
 
 	case KASUMI_F9:
@@ -519,10 +519,10 @@ static void *setup_init_descriptor(bool mode)
 			length = crypto_info.buf_size * BITS_PER_BYTE;
 
 		ret = cnstr_shdsc_kasumi_f9(shared_desc, &shared_desc_len,
-			ref_test_vector.key, F9_KEY_LEN * BITS_PER_BYTE,
-			DIR_ENCRYPT, ref_test_vector.iv.f9.count,
+			ref_test_vector.key, F9_KEY_LEN,
+			DIR_ENC, ref_test_vector.iv.f9.count,
 			ref_test_vector.iv.f9.fresh,
-			ref_test_vector.iv.f9.direction, 0,
+			ref_test_vector.iv.f9.direction,
 			length);
 		break;
 
@@ -533,7 +533,7 @@ static void *setup_init_descriptor(bool mode)
 			return NULL;
 		}
 
-		ret = cnstr_shdsc_crc(shared_desc, &shared_desc_len, 0);
+		ret = cnstr_shdsc_crc(shared_desc, &shared_desc_len);
 		break;
 
 	case HMAC_SHA1:
@@ -544,7 +544,7 @@ static void *setup_init_descriptor(bool mode)
 		}
 
 		ret = cnstr_shdsc_hmac(shared_desc, &shared_desc_len,
-			ref_test_vector.key, OP_ALG_ALGSEL_SHA1, NULL, 0);
+			ref_test_vector.key, OP_ALG_ALGSEL_SHA1, NULL);
 		break;
 
 	default:
