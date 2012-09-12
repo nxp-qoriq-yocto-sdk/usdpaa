@@ -52,6 +52,6 @@ struct annotations_t {
 	struct output_parse_result_t parse;	/**< Pointer to Parsed result*/
 	uint64_t timestamp;			/**< TimeStamp */
 	uint64_t hash_result;			/**< Hash Result */
-} __packed;
+};
 
 #endif	/* __ANNOTATIONS_H */
