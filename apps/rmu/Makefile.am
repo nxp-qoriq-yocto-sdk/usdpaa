@@ -1,4 +1,4 @@
-# Copyright (c) 2011 - 2012 Freescale Semiconductor, Inc.
+# Copyright (c) 2012 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -29,10 +29,9 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback \
-	  hello_reflector ipfwd ipsecfwd sra rmu fra lpm-ipfwd dma_test
+bin_PROGRAMS = rmu
 
-dist_DATA = SOURCE_THIS
-
-# install the SOURCE_THIS file in the 'root' home directory
-SOURCE_THIS_install := root
+AM_CFLAGS := $(LIBEDIT_CFLAGS) -I$(TOP_LEVEL)/apps/include
+rmu_SOURCES := rmu.c
+rmu_LDADD := usdpaa_rmu usdpaa_dma_mem usdpaa_of usdpaa_process
+rmu_LDFLAGS := $(LIBEDIT_LDFLAGS)
