@@ -73,7 +73,6 @@ export LIBXML2_CFLAGS=$(pkg-config --cflags libxml-2.0)
 export LIBXML2_LDFLAGS=$(pkg-config --libs --static libxml-2.0)
 export LIBEDIT_CFLAGS=$(pkg-config --cflags libedit)
 export LIBEDIT_LDFLAGS=$(pkg-config --libs --static libedit)
-export LIBRTA_CFLAGS="-I$PKG_CONFIG_SYSROOT_DIR/usr/include/flib/rta"
-export LIBRTA_LDFLAGS="-L$PKG_CONFIG_SYSROOT_DIR/usr/lib -lrta"
+export LIBRTA_CFLAGS="-I$PKG_CONFIG_SYSROOT_DIR/usr/include"
 export EXTRA_LDFLAGS="-L $(${CROSS_COMPILE}gcc -print-sysroot)/usr/lib"
 unset -v OLD_OPTIND board PKG_CONFIG_SYSROOT_DIR PKG_CONFIG_LIBDIR PKG_CONFIG_ALLOW_SYSTEM_LIBS
