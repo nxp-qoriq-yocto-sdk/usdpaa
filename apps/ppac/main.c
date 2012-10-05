@@ -341,6 +341,14 @@ static void finish_pool_channels(void)
 	qman_release_pool_range(pchannels[0], PPAC_NUM_POOL_CHANNELS);
 }
 
+#ifdef PPAC_CGR
+static void release_cgrids(void)
+{
+	qman_release_cgrid(cgr_rx.cgrid);
+	qman_release_cgrid(cgr_tx.cgrid);
+}
+#endif
+
 u16 get_rxc(void)
 {
 	u16 ret = pchannels[pchannel_idx];
@@ -1540,6 +1548,9 @@ leave:
 	primary = NULL;
 	worker_free(worker);
 	finish_pool_channels();
+#ifdef PPAC_CGR
+	release_cgrids();
+#endif
 	usdpaa_netcfg_release(netcfg);
 	of_finish();
 	return rcode;
