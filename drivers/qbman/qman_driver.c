@@ -240,15 +240,22 @@ int qman_global_init(void)
 		pr_err("No qman portals available for any CPU\n");
 		return -ENODEV;
 	}
-	if (of_device_is_compatible(dt_node, "fsl,qman-portal-1.0"))
+	if (of_device_is_compatible(dt_node, "fsl,qman-portal-1.0") ||
+		of_device_is_compatible(dt_node, "fsl,qman-portal-1.0.0"))
 		qman_ip_rev = QMAN_REV10;
-	else if (of_device_is_compatible(dt_node, "fsl,qman-portal-1.1"))
+	else if (of_device_is_compatible(dt_node, "fsl,qman-portal-1.1") ||
+		of_device_is_compatible(dt_node, "fsl,qman-portal-1.1.0"))
 		qman_ip_rev = QMAN_REV11;
-	else if	(of_device_is_compatible(dt_node, "fsl,qman-portal-1.2"))
+	else if	(of_device_is_compatible(dt_node, "fsl,qman-portal-1.2") ||
+		of_device_is_compatible(dt_node, "fsl,qman-portal-1.2.0"))
 		qman_ip_rev = QMAN_REV12;
-	else if (of_device_is_compatible(dt_node, "fsl,qman-portal-2.0"))
+	else if (of_device_is_compatible(dt_node, "fsl,qman-portal-2.0") ||
+		of_device_is_compatible(dt_node, "fsl,qman-portal-2.0.0"))
 		qman_ip_rev = QMAN_REV20;
-	else if (of_device_is_compatible(dt_node, "fsl,qman-portal-3.0"))
+	else if (of_device_is_compatible(dt_node, "fsl,qman-portal-3.0.0") ||
+		of_device_is_compatible(dt_node, "fsl,qman-portal-3.0.1") ||
+		of_device_is_compatible(dt_node, "fsl,qman-portal-3.0.2") ||
+		of_device_is_compatible(dt_node, "fsl,qman-portal-3.0.3"))
 		qman_ip_rev = QMAN_REV30;
 	if (!qman_ip_rev) {
 		pr_err("Unknown qman portal version\n");
