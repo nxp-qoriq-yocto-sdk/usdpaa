@@ -74,7 +74,7 @@ case $(basename $0 .sh) in
 		net_pair_routes 192 1 16 160 255 # 256
 		net_pair_routes 193 1 16 160 255 # 256
 		;;
-	lpm_ipfwd_15G)
+	lpm_ipfwd_14G)
 		lpm_ipfwd_config -P $pid -F -a 192.168.10.1 -i 0
 		lpm_ipfwd_config -P $pid -F -a 192.168.20.1 -i 1
 		lpm_ipfwd_config -P $pid -F -a 192.168.40.1 -i 3
@@ -87,16 +87,12 @@ case $(basename $0 .sh) in
 		lpm_ipfwd_config -P $pid -G -s 192.168.50.2 -m 02:00:c0:a8:32:02 -r true
 		lpm_ipfwd_config -P $pid -G -s 192.168.60.2 -m 02:00:c0:a8:3c:02 -r true
 
-						# 1000
-		net_pair_routes 190 1 16 10 99	# 100
-		net_pair_routes 191 1 16 20 99	# 100
-		net_pair_routes 193 1 16 40 99	# 100
-		net_pair_routes 194 1 16 50 99	# 100
-		net_pair_routes 195 1 16 60 99	# 100
-		net_pair_routes 196 1 16 60 99	# 100
-		net_pair_routes 197 1 16 60 99	# 100
-		net_pair_routes 198 1 16 60 99	# 100
-		net_pair_routes 199 1 16 60 99	# 100
-		;;
+		                               # 1020
+                net_pair_routes 190 1 16 10 203 # 204
+                net_pair_routes 191 1 16 20 203 # 204
+                net_pair_routes 193 1 16 40 203 # 204
+                net_pair_routes 194 1 16 50 203 # 204
+                net_pair_routes 195 1 16 60 203 # 204
+                ;;
 esac
 echo LPM-IPFwd Route Creation completed
