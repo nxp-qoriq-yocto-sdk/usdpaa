@@ -43,22 +43,21 @@ u8 fib_tree_level[FIBTBL_MAX_LEVEL] = {
 };
 
 struct nh_entry {
-	nh_action_t action;
-	uint32_t gwaddr;
-	uint32_t port;
-	uint32_t refcnt;
-	/* reference count - many fib_entries can refer to one same nh_entry.*/
 	struct neigh_t *neighbour;
-};
+	uint32_t gwaddr;
+	uint16_t port;
+	uint16_t refcnt;
+	/* reference count - many fib_entries can refer to one same nh_entry.*/
+	nh_action_t action;
+} __attribute__((packed));
 
 struct fib_entdata {
 	struct fib_entdata *parent;
 	/*always pointing to the parent data node (NULL for no parent)*/
 	struct nh_entry *nh;
-	uint32_t refcnt;
+	uint16_t refcnt;
 	u8 mask;
-	u8 resved[3];		/* padding to 32b aligned */
-};
+} __attribute__((packed));
 
 struct fib_entry {
 	union {
@@ -72,11 +71,10 @@ struct fib_entry {
 #define uparent u.data->parent
 #define urefcnt u.data->refcnt
 
-	u16 flags;		/* for later flags use */
-	u8 end;			/* with next level fib_entry or not,
+	u8 end:1;			/* with next level fib_entry or not,
 				if set the 'u'->nh will point to an nh_entry.*/
-	u8 valid;
-};
+	u8 valid:1;
+} __attribute__((packed));
 
 #define FIB_ENTRY_IS_END(p)	((p)->end != 0)
 #define FIB_ENTRY_SET_END(p)	((p)->end = 1)
@@ -368,7 +366,6 @@ static int fib_rtnew_subentry(struct fib_entry *parentent, uint32_t net,
 		fib_rtupd_subentry(p, parentent->udata, parentent->umask,
 								 sublevel);
 		fib_put_datanode(fib_datatbl, parentent->udata);
-		parentent->flags = 0;
 		FIB_ENTRY_CLR_END(parentent);
 	}
 

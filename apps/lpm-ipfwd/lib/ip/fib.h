@@ -54,7 +54,7 @@ typedef enum {
 	NH_DROP,	/* drop the packet */
 	NH_RECV,	/* receive the packet for self-handling */
 	NH_FWD	/* forward the packet according to route-table */
-} nh_action_t;
+} __attribute__((packed)) nh_action_t;
 
 
 extern int fib_init(void);
