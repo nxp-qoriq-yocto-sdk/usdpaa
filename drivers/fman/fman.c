@@ -105,6 +105,7 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 	int is_offline = 0, is_shared = 0;
 	size_t lenp;
 	int _errno;
+	const char *char_prop;
 
 	if (of_device_is_available(dpa_node) == false)
 		return 0;
@@ -172,7 +173,15 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 		__if->__if.mac_type = fman_mac_1g;
 	else if (of_device_is_compatible(mac_node, "fsl,fman-10g-mac"))
 		__if->__if.mac_type = fman_mac_10g;
-	else
+	else if (of_device_is_compatible(mac_node, "fsl,fman-memac")) {
+		__if->__if.is_memac = 1;
+		char_prop = of_get_property(mac_node, "phy-connection-type",
+								NULL);
+		if (strstr(char_prop, "sgmii"))
+			__if->__if.mac_type = fman_mac_1g;
+		else if (strstr(char_prop, "xgmii"))
+			__if->__if.mac_type = fman_mac_10g;
+	} else
 		my_err(1, -EINVAL, "%s: unknown MAC type\n", mname);
 
 	if (is_shared)
@@ -451,7 +460,7 @@ void fman_if_enable_rx(const struct fman_if *p)
 		return;
 
 	/* enable Rx and Tx */
-	if (__if->__if.mac_type == fman_mac_1g)
+	if ((__if->__if.mac_type == fman_mac_1g) && (!__if->__if.is_memac))
 		out_be32(__if->ccsr_map + 0x100,
 			in_be32(__if->ccsr_map + 0x100) | 0x5);
 	else
@@ -470,7 +479,7 @@ void fman_if_disable_rx(const struct fman_if *p)
 		return;
 
 	/* only disable Rx, not Tx */
-	if (__if->__if.mac_type == fman_mac_1g)
+	if ((__if->__if.mac_type == fman_mac_1g) && (!__if->__if.is_memac))
 		out_be32(__if->ccsr_map + 0x100,
 			in_be32(__if->ccsr_map + 0x100) & ~(u32)0x4);
 	else

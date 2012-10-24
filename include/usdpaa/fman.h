@@ -68,6 +68,8 @@ struct fman_if {
 	uint8_t fman_idx;
 	/* The type/speed of the interface */
 	enum fman_mac_type mac_type;
+	/* Boolean, set when mac type is memac */
+	uint8_t is_memac;
 	/* The index of this MAC (within the Fman it belongs to) */
 	uint8_t mac_idx;
 	/* The MAC address */
