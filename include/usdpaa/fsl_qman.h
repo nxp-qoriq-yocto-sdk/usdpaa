@@ -396,7 +396,7 @@ struct qm_fqd {
 	union {
 		u16 dest_wq;
 		struct {
-			u16 channel:13; /* enum qm_channel */
+			u16 channel:13; /* qm_channel */
 			u16 wq:3;
 		} __packed dest;
 	};
@@ -643,7 +643,7 @@ struct qm_mcc_querywq {
 	union {
 		u16 channel_wq; /* ignores wq (3 lsbits) */
 		struct {
-			u16 id:13; /* enum qm_channel */
+			u16 id:13; /* qm_channel */
 			u16 __reserved1:3;
 		} __packed channel;
 	};
@@ -835,7 +835,7 @@ struct qm_mcr_querywq {
 	union {
 		u16 channel_wq; /* ignores wq (3 lsbits) */
 		struct {
-			u16 id:13; /* enum qm_channel */
+			u16 id:13; /* qm_channel */
 			u16 __reserved:3;
 		} __packed channel;
 	};
