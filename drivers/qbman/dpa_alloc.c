@@ -79,3 +79,59 @@ void qman_release_cgrid_range(u32 cgrid, u32 count)
 	process_release(usdpaa_id_cgrid, cgrid, count);
 }
 EXPORT_SYMBOL(qman_release_cgrid_range);
+
+int qman_alloc_ceetm0_lfqid_range(u32 *result, u32 count, u32 align,
+								int partial)
+{
+	return process_alloc(usdpaa_id_ceetm0_lfqid, result, count, align,
+								partial);
+}
+EXPORT_SYMBOL(qman_alloc_ceetm0_lfqid_range);
+
+void qman_release_ceetm0_lfqid_range(u32 lfqid, u32 count)
+{
+	process_release(usdpaa_id_ceetm0_lfqid, lfqid, count);
+}
+EXPORT_SYMBOL(qman_release_ceetm0_lfqid_range);
+
+int qman_alloc_ceetm0_channel_range(u32 *result, u32 count, u32 align,
+								int partial)
+{
+	return process_alloc(usdpaa_id_ceetm0_channelid, result, count, align,
+								partial);
+}
+EXPORT_SYMBOL(qman_alloc_ceetm0_channel_range);
+
+void qman_release_ceetm0_channel_range(u32 channelid, u32 count)
+{
+	process_release(usdpaa_id_ceetm0_channelid, channelid, count);
+}
+EXPORT_SYMBOL(qman_release_ceetm0_channel_range);
+
+int qman_alloc_ceetm1_lfqid_range(u32 *result, u32 count, u32 align,
+								int partial)
+{
+	return process_alloc(usdpaa_id_ceetm1_lfqid, result, count, align,
+								partial);
+}
+EXPORT_SYMBOL(qman_alloc_ceetm1_lfqid_range);
+
+void qman_release_ceetm1_lfqid_range(u32 lfqid, u32 count)
+{
+	process_release(usdpaa_id_ceetm1_lfqid, lfqid, count);
+}
+EXPORT_SYMBOL(qman_release_ceetm1_lfqid_range);
+
+int qman_alloc_ceetm1_channel_range(u32 *result, u32 count, u32 align,
+								int partial)
+{
+	return process_alloc(usdpaa_id_ceetm1_channelid, result, count, align,
+								partial);
+}
+EXPORT_SYMBOL(qman_alloc_ceetm1_channel_range);
+
+void qman_release_ceetm1_channel_range(u32 channelid, u32 count)
+{
+	process_release(usdpaa_id_ceetm1_channelid, channelid, count);
+}
+EXPORT_SYMBOL(qman_release_ceetm1_channel_range);

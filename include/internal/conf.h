@@ -90,6 +90,9 @@ extern "C" {
 /* don't compile support for DQRR prefetching (so stashing is required) */
 #undef CONFIG_FSL_QMAN_DQRR_PREFETCHING
 
+/* define the token update period for shaping, in nanoseconds */
+#define CONFIG_QMAN_CEETM_UPDATE_PERIOD 1000
+
 #ifdef __cplusplus
 }
 #endif
