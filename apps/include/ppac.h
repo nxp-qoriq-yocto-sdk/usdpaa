@@ -198,6 +198,9 @@ const struct fm_eth_port_cfg *ppac_interface_pcfg(struct ppac_interface *i);
  * corresponding to that frame, it can do so even if those buffers came from
  * pools that PPAC did not already know about from the network config.
  *
+ * Optionally, the user can request a specific alignment for the buffers. If
+ * set to zero, the buffer alignment defaults to 64 bytes.
+ *
  * Optionally, the user can request that PPAC empties the pool of any stale
  * contents, by specifying a non-zero value for 'to_drain'.
  *
@@ -213,6 +216,7 @@ const struct fm_eth_port_cfg *ppac_interface_pcfg(struct ppac_interface *i);
  */
 
 int ppac_prepare_bpid(u8 bpid, unsigned int count, uint64_t sz,
+		      unsigned int align,
 		      int to_drain,
 		      void (*notify_cb)(struct bman_portal *,
 					struct bman_pool *,

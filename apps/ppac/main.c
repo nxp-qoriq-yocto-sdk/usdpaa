@@ -384,6 +384,7 @@ static void bp_depletion(struct bman_portal *bm __always_unused,
 #endif
 
 int ppac_prepare_bpid(u8 bpid, unsigned int count, uint64_t sz,
+		      unsigned int align,
 		      int to_drain,
 		      void (*notify_cb)(struct bman_portal *,
 					struct bman_pool *,
@@ -432,7 +433,11 @@ int ppac_prepare_bpid(u8 bpid, unsigned int count, uint64_t sz,
 		unsigned int loop, rel = (count - num_bufs) > 8 ? 8 :
 					(count - num_bufs);
 		for (loop = 0; loop < rel; loop++) {
-			void *ptr = __dma_mem_memalign(64, sz);
+			void *ptr;
+			if (!align)
+				ptr = __dma_mem_memalign(64, sz);
+			else
+				ptr = __dma_mem_memalign(align, sz);
 			if (!ptr) {
 				fprintf(stderr, "error: no buffer space\n");
 				abort();
@@ -670,7 +675,7 @@ static void do_global_init(void)
 				break;
 			}
 			err = ppac_prepare_bpid(bp->bpid, bpool_cnt[bp_idx],
-						bp->size, 1,
+						bp->size, 0, 1,
 #if PPAC_DEPLETION
 						bpool_cnt[bp_idx] ?
 							bp_depletion : NULL,
