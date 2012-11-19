@@ -55,6 +55,12 @@ struct __fman_if {
 	struct list_head node;
 };
 
+/* CCSR map address to access ccsr based register */
+void *fman_ccsr_map;
+/* fman version info */
+u16 fman_ip_rev;
+static int get_once;
+
 static int ccsr_map_fd = -1;
 static LIST_HEAD(__ifs);
 
@@ -87,6 +93,42 @@ cleanup:
 		my_log(_errno, fmt, ##args); \
 		goto err; \
 	}
+
+static int fman_get_ip_rev(const struct device_node *fman_node)
+{
+	const uint32_t *fman_addr;
+	uint64_t phys_addr;
+	uint64_t regs_size;
+	uint32_t ip_rev_1;
+	int _errno;
+
+	fman_addr = of_get_address(fman_node, 0, &regs_size, NULL);
+	if (!fman_addr) {
+		pr_err("of_get_address cannot return fman address\n");
+		return -EINVAL;
+	}
+	phys_addr = of_translate_address(fman_node, fman_addr);
+	if (!phys_addr) {
+		pr_err("of_translate_address failed\n");
+		return -EINVAL;
+	}
+	fman_ccsr_map = mmap(NULL, regs_size, PROT_READ|PROT_WRITE, MAP_SHARED,
+					ccsr_map_fd, phys_addr);
+	if (fman_ccsr_map == MAP_FAILED) {
+		pr_err("Can not map FMan ccsr base\n");
+		return -EINVAL;
+	}
+
+	ip_rev_1 = in_be32(fman_ccsr_map + FMAN_IP_REV_1);
+	fman_ip_rev = (ip_rev_1 & FMAN_IP_REV_1_MAJOR_MASK) >>
+			FMAN_IP_REV_1_MAJOR_SHIFT;
+
+	_errno = munmap(fman_ccsr_map, regs_size);
+	if (_errno)
+		pr_err("munmap() of FMan ccsr failed \n");
+
+	return 0;
+}
 
 static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 {
@@ -161,6 +203,11 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 		my_err(!cell_idx, -ENXIO, "%s: no cell-index)\n", fname);
 		assert(lenp == sizeof(*cell_idx));
 		__if->__if.fman_idx = *cell_idx;
+		if (!get_once) {
+			_errno = fman_get_ip_rev(fman_node);
+			my_err(_errno, -ENXIO, "%s: ip_rev is not avaiable\n",
+								fname);
+		}
 	} else
 		fname = "mac-less-node";
 

@@ -403,6 +403,10 @@ enum qman_cb_dqrr_result
 cb_dqrr_rx_hash(struct qman_portal *qm __always_unused,
 		struct qman_fq *fq,
 		const struct qm_dqrr_entry *dqrr);
+enum qman_cb_dqrr_result
+cb_dqrr_rx_hash_v3(struct qman_portal *qm __always_unused,
+		struct qman_fq *fq,
+		const struct qm_dqrr_entry *dqrr);
 u16 get_rxc(void);
 int lazy_init_bpool(u8 bpid, u8 depletion_notify);
 int ppac_interface_init(unsigned idx);

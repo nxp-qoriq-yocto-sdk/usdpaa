@@ -447,6 +447,39 @@ static enum qman_cb_dqrr_result cb_rx(struct qman_portal *qm __always_unused,
 	return qman_cb_dqrr_consume;
 }
 
+/* DQRR callback for Rx FQs on FMANv3, this is the essential "reflector" logic
+ * (together with the ether_header_swap() helper above that it uses). */
+static enum qman_cb_dqrr_result cb_rx_v3(
+					struct qman_portal *qm __always_unused,
+					struct qman_fq *fq,
+					const struct qm_dqrr_entry *dqrr)
+{
+	struct ether_header *prot_eth;
+	struct qm_fd *fd = &dqrr->fd;
+	struct net_if_rx *rx = container_of(fq, struct net_if_rx, fq);
+
+	BUG_ON(fd->format != qm_fd_contig);
+	prot_eth = __dma_mem_ptov(qm_fd_addr(fd)) + fd->offset;
+	/* Broadcasts and non-IP packets are not reflected. */
+	if (likely(!(prot_eth->ether_dhost[0] & 0x01) &&
+			(prot_eth->ether_type == ETHERTYPE_IP))) {
+		struct iphdr *iphdr = (typeof(iphdr))(prot_eth + 1);
+		__be32 tmp;
+		/* switch ipv4 src/dst addresses */
+		tmp = iphdr->daddr;
+		iphdr->daddr = iphdr->saddr;
+		iphdr->saddr = tmp;
+		/* switch ethernet src/dest MAC addresses */
+		ether_header_swap(prot_eth);
+		/* Set FCO bit */
+		fd->cmd |= 0x80000000;
+		/* transmit */
+		send_frame(rx->tx_fqid, fd);
+	} else
+		/* drop */
+		drop_frame(fd);
+	return qman_cb_dqrr_consume;
+}
 /* Initialise a Tx FQ */
 static int net_if_tx_init(struct qman_fq *fq, const struct fman_if *fif)
 {
@@ -464,8 +497,15 @@ static int net_if_tx_init(struct qman_fq *fq, const struct fman_if *fif)
 	opts.fqd.dest.wq = NET_IF_TX_PRIORITY;
 	opts.fqd.fq_ctrl = QM_FQCTRL_PREFERINCACHE;
 	opts.fqd.context_b = 0;
-	opts.fqd.context_a.hi = 0x80000000; /* no tx-confirmation */
-	opts.fqd.context_a.lo = 0;
+	if (fman_ip_rev >= FMAN_V3) {
+		/* set EBD to allow buffer deallocation */
+		opts.fqd.context_a.hi = 0x1a000000; /* no tx-confirmation */
+		opts.fqd.context_a.lo = 0x80000000;
+	} else {
+		opts.fqd.context_a.hi = 0x80000000; /* no tx-confirmation */
+		opts.fqd.context_a.lo = 0;
+	}
+
 	return qman_init_fq(fq, QMAN_INITFQ_FLAG_SCHED, &opts);
 }
 
@@ -521,7 +561,10 @@ static int net_if_rx_init(struct net_if *interface,
 
 	/* "map" this Rx FQ to one of the interfaces Tx FQID */
 	rx->tx_fqid = interface->tx_fqs[overall % NET_IF_NUM_TX].fqid;
-	rx->fq.cb.dqrr = cb_rx;
+	if (fman_ip_rev >= FMAN_V3)
+		rx->fq.cb.dqrr = cb_rx_v3;
+	else
+		rx->fq.cb.dqrr = cb_rx;
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_NO_ENQUEUE, &rx->fq);
 	if (ret)
 		return ret;

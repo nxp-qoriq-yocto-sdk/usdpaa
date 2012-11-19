@@ -309,7 +309,96 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 			tx_fqid = *(uint32_t *)annotations;
 		} else
 			tx_fqid = p->tx_fqid;
+		ppac_send_frame(tx_fqid, fd);
+		}
+		return;
+	case ETHERTYPE_ARP:
+		TRACE("	       -> it's ETHERTYPE_ARP!\n");
+#ifdef ENABLE_TRACE
+		{
+		struct ether_arp *arp = (typeof(arp))(prot_eth + 1);
+		TRACE("		  hrd=%d, pro=%d, hln=%d, pln=%d, op=%d\n",
+		      arp->arp_hrd, arp->arp_pro, arp->arp_hln,
+		      arp->arp_pln, arp->arp_op);
+		}
+#endif
+		TRACE("		  -> dropping ARP packet\n");
+		break;
+	default:
+		TRACE("	       -> it's UNKNOWN (!!) type 0x%04x\n",
+			prot_eth->ether_type);
+		TRACE("		  -> dropping unknown packet\n");
+	}
+	ppac_drop_frame(fd);
+}
 
+static inline void ppam_rx_hash_cb_v3(struct ppam_rx_hash *p,
+				   const struct qm_dqrr_entry *dqrr)
+{
+	void *addr;
+	void *annotations;
+	struct ether_header *prot_eth;
+	struct qm_fd *fd = &dqrr->fd;
+	uint32_t tx_fqid;
+
+	BUG_ON(fd->format != qm_fd_contig);
+	annotations = __dma_mem_ptov(qm_fd_addr(fd));
+	TRACE("Rx: 2fwd	 fqid=%d\n", dqrr->fqid);
+	TRACE("	     phys=0x%"PRIx64", virt=%p, offset=%d, len=%d, bpid=%d\n",
+		qm_fd_addr(fd), addr, fd->offset, fd->length20, fd->bpid);
+	addr = annotations + fd->offset;
+	prot_eth = addr;
+	TRACE("	     dhost="ETH_MAC_PRINTF_FMT"\n",
+	      prot_eth->ether_dhost[0], prot_eth->ether_dhost[1],
+	      prot_eth->ether_dhost[2], prot_eth->ether_dhost[3],
+	      prot_eth->ether_dhost[4], prot_eth->ether_dhost[5]);
+	TRACE("	     shost="ETH_MAC_PRINTF_FMT"\n",
+	      prot_eth->ether_shost[0], prot_eth->ether_shost[1],
+	      prot_eth->ether_shost[2], prot_eth->ether_shost[3],
+	      prot_eth->ether_shost[4], prot_eth->ether_shost[5]);
+	TRACE("	     ether_type=%04x\n", prot_eth->ether_type);
+	/* Eliminate ethernet broadcasts. */
+	if (prot_eth->ether_dhost[0] & 0x01)
+		TRACE("	     -> dropping broadcast packet\n");
+	else
+	switch (prot_eth->ether_type) {
+	case ETHERTYPE_IP:
+		TRACE("	       -> it's ETHERTYPE_IP!\n");
+		{
+		struct iphdr *iphdr = (typeof(iphdr))(prot_eth + 1);
+		__be32 tmp;
+#ifdef ENABLE_TRACE
+		u8 *src = (void *)&iphdr->saddr;
+		u8 *dst = (void *)&iphdr->daddr;
+		TRACE("		  ver=%d,ihl=%d,tos=%d,len=%d,id=%d\n",
+			iphdr->version, iphdr->ihl, iphdr->tos, iphdr->tot_len,
+			iphdr->id);
+		TRACE("		  frag_off=%d,ttl=%d,prot=%d,csum=0x%04x\n",
+			iphdr->frag_off, iphdr->ttl, iphdr->protocol,
+			iphdr->check);
+		TRACE("		  src=%d.%d.%d.%d\n",
+			src[0], src[1], src[2], src[3]);
+		TRACE("		  dst=%d.%d.%d.%d\n",
+			dst[0], dst[1], dst[2], dst[3]);
+#endif
+		/* switch ipv4 src/dst addresses */
+		tmp = iphdr->daddr;
+		iphdr->daddr = iphdr->saddr;
+		iphdr->saddr = tmp;
+		/* switch ethernet src/dest MAC addresses */
+		ether_header_swap(prot_eth);
+		TRACE("Tx: 2fwd	 fqid=%d\n", p->tx_fqid);
+		TRACE("	     phys=0x%"PRIx64", offset=%d, len=%d, bpid=%d\n",
+			qm_fd_addr(fd), fd->offset, fd->length20, fd->bpid);
+
+		/* Frame received on Offline port PCD FQ range */
+		if (!p->tx_fqid) {
+			BUG_ON(fd->offset < sizeof(tx_fqid));
+			tx_fqid = *(uint32_t *)annotations;
+		} else
+			tx_fqid = p->tx_fqid;
+		/* Set FCO bit */
+		fd->cmd |= 0x80000000;
 		ppac_send_frame(tx_fqid, fd);
 		}
 		return;
