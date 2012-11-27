@@ -223,11 +223,11 @@ void rman_enable_ibcu(struct rman_dev *rmdev, int idx)
 {
 	int ib_index, cu_index, mr;
 
-	if (idx >= rmdev->ib_num)
-		return;
-
 	ib_index = idx / RMAN_CU_NUM_PER_IB;
 	cu_index = idx % RMAN_CU_NUM_PER_IB;
+
+	if (ib_index >= rmdev->ib_num)
+		return;
 
 	mr = read_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->mr);
 	mr |= RMAN_IBCU_ENABLE_MASK;
@@ -241,7 +241,7 @@ void rman_disable_ibcu(struct rman_dev *rmdev, int idx)
 	ib_index = idx / RMAN_CU_NUM_PER_IB;
 	cu_index = idx % RMAN_CU_NUM_PER_IB;
 
-	if (idx >= rmdev->ib_num)
+	if (ib_index >= rmdev->ib_num)
 		return;
 
 	mr = read_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->mr);
@@ -253,11 +253,12 @@ void rman_release_ibcu(struct rman_dev *rmdev, int idx)
 {
 	int ib_index, cu_index;
 
-	if (idx >= rmdev->ib_num)
-		return;
-
 	ib_index = idx / RMAN_CU_NUM_PER_IB;
 	cu_index = idx % RMAN_CU_NUM_PER_IB;
+
+	if (ib_index >= rmdev->ib_num)
+		return;
+
 	rman_disable_ibcu(rmdev, idx);
 	rmdev->ib[ib_index].cu[cu_index].fqid = IBCU_IDLE_FQID;
 }
