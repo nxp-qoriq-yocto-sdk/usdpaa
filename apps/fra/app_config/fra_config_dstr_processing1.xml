@@ -35,213 +35,27 @@
 <fra_cfg>
 <!--	xxxxxxxxxxxxxxxxxxxx RMan hardware configuration xxxxxxxxxxxxxxxxxxx -->
 	<rman_cfg>
-		<fqbits type="Data-streaming" value="2"/>
-		<fqbits type="Mailbox" value="2"/>
-		<md_create mode="yes"/>
-		<!--
-		OSID - Outbound Segmentation Interleaving Disable
-		Segmentation interleaving allows the message manager to
-		interleave segments from two or more transactions with the
-		same destination device ID (regardless of type). This may
-		increase performance for transmission but may also consume
-		additional reassembly resources at the destination.
-
-		A non-Freescale target device may not complete Type 9
-		reassembly correctly when segmentation interleaving is
-		performed on two PDUs with the same flow but different CoS.
-		Workaround: disable segmentation interleaving by setting
-		<osid value="yes">
-		-->
-		<osid value="no"/>
-		<bpid type="Data-streaming" value="11"/>
-		<bpid type="Doorbell" value="10"/>
-		<bpid type="Mailbox" value="11"/>
-		<sgbpid value="12"/>
+		<defcfg file="/usr/etc/rman_config.xml"/>
 	</rman_cfg>
 
 <!--	xxxxxxxxxxxxxxxxxxxxx FMan port configuration xxxxxxxxxxxxxxxxxxxxxx -->
 	<network_cfg>
-		<port name="10gec" type="10G" fm="fm0" number="0"/>
-		<port name="dtsec0" type="1G" fm="fm0" number="0"/>
-		<port name="dtsec1" type="1G" fm="fm0" number="1"/>
-		<port name="dtsec2" type="1G" fm="fm0" number="2"/>
-		<port name="dtsec3" type="1G" fm="fm0" number="3"/>
-		<port name="dtsec4" type="1G" fm="fm0" number="4"/>
+		<defcfg file="/usr/etc/network_config.xml"/>
 	</network_cfg>
 
-<!--	xxxxxxxxxxxxxxxxxxxxxxxx transaction xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx -->
-	<transaction name="dstr-general" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="0" mask="0xff"/>
-		<streamid value="0" mask="0xffff"/>
-	</transaction>
-	<transaction name="dstr-10gec" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="15" mask="0"/>
-		<streamid value="0" mask="0x1f"/>
-	</transaction>
-	<transaction name="dstr-dtsec4" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="14" mask="0"/>
-		<streamid value="0" mask="0x1f"/>
-	</transaction>
-	<transaction name="dstr-dtsec3" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="13" mask="0"/>
-		<streamid value="0" mask="0x1f"/>
-	</transaction>
-	<transaction name="dstr-dtsec2" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="12" mask="0"/>
-		<streamid value="0" mask="0x1f"/>
-	</transaction>
-	<transaction name="dstr-dtsec1" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="11" mask="0"/>
-		<streamid value="0" mask="0x1f"/>
-	</transaction>
-	<transaction name="dstr-dtsec0" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="10" mask="0"/>
-		<streamid value="0" mask="0x1f"/>
-	</transaction>
+<!--	xxxxxxxxxxxxxxxxxxxxxxxx Transaction xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx -->
+	<trans_cfg>
+		<defcfg file="/usr/etc/transactions_config.xml"/>
+	</trans_cfg>
 
-<!--	xxxxxxxxxxxxxxxxxxxx RMan to FMan distribution xxxxxxxxxxxxxxxxxxxx -->
-	<distribution name="rman_to_fman0_10gec" type="RMAN_TO_FMAN">
-		<rio_port number="0" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x1500" mode="algorithmic" wq="0"/>
-		<transactionref name="dstr-10gec"/>
-		<fman_port name="10gec"/>
-	</distribution>
-	<distribution name="rman_to_fman0_dtsec4" type="RMAN_TO_FMAN">
-		<rio_port number="0" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x1400" mode="algorithmic" wq="0"/>
-		<transactionref name="dstr-dtsec4"/>
-		<fman_port name="dtsec4"/>
-	</distribution>
-	<distribution name="rman_to_fman0_dtsec3" type="RMAN_TO_FMAN">
-		<rio_port number="0" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x1300" mode="algorithmic" wq="0"/>
-		<transactionref name="dstr-dtsec3"/>
-		<fman_port name="dtsec3"/>
-	</distribution>
-	<distribution name="rman_to_fman0_dtsec2" type="RMAN_TO_FMAN">
-		<rio_port number="0" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x1200" mode="algorithmic" wq="0"/>
-		<transactionref name="dstr-dtsec2"/>
-		<fman_port name="dtsec2"/>
-	</distribution>
-	<distribution name="rman_to_fman0_dtsec1" type="RMAN_TO_FMAN">
-		<rio_port number="0" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x1100" mode="algorithmic" wq="0"/>
-		<transactionref name="dstr-dtsec1"/>
-		<fman_port name="dtsec1"/>
-	</distribution>
-	<distribution name="rman_to_fman0_dtsec0" type="RMAN_TO_FMAN">
-		<rio_port number="0" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x1000" mode="algorithmic" wq="0"/>
-		<transactionref name="dstr-dtsec0"/>
-		<fman_port name="dtsec0"/>
-	</distribution>
+<!--	xxxxxxxxxxxxxxxxxxxxxxxx Distribution xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx -->
+	<dists_cfg>
+		<defcfg file="/usr/etc/distributions_config.xml"/>
+	</dists_cfg>
 
-<!--	xxxxxxxxxxxxxxxxxxxFMan to RMan distribution xxxxxxxxxxxxxxxxxxxxx -->
-	<distribution name="fman_to_rman_10gec" type="FMAN_TO_RMAN">
-		<fman_port name="10gec"/>
-		<queue wq="0"/>
-		<rio_port number="0"/>
-		<did value="1"/>
-		<transactionref name="dstr-10gec"/>
-	</distribution>
-	<distribution name="fman_to_rman_dtsec4" type="FMAN_TO_RMAN">
-		<fman_port name="dtsec4"/>
-		<queue wq="0"/>
-		<rio_port number="0"/>
-		<did value="1"/>
-		<transactionref name="dstr-dtsec4"/>
-	</distribution>
-	<distribution name="fman_to_rman_dtsec3" type="FMAN_TO_RMAN">
-		<fman_port name="dtsec3"/>
-		<queue wq="0"/>
-		<rio_port number="0"/>
-		<did value="1"/>
-		<transactionref name="dstr-dtsec3"/>
-	</distribution>
-	<distribution name="fman_to_rman_dtsec2" type="FMAN_TO_RMAN">
-		<fman_port name="dtsec2"/>
-		<queue wq="0"/>
-		<rio_port number="0"/>
-		<did value="1"/>
-		<transactionref name="dstr-dtsec2"/>
-	</distribution>
-	<distribution name="fman_to_rman_dtsec1" type="FMAN_TO_RMAN">
-		<fman_port name="dtsec1"/>
-		<queue wq="0"/>
-		<rio_port number="0"/>
-		<did value="1"/>
-		<transactionref name="dstr-dtsec1"/>
-	</distribution>
-	<distribution name="fman_to_rman_dtsec0" type="FMAN_TO_RMAN">
-		<fman_port name="dtsec0"/>
-		<queue wq="0"/>
-		<rio_port number="0"/>
-		<did value="1"/>
-		<transactionref name="dstr-dtsec0"/>
-	</distribution>
-
-<!--	xxxxxxxxxxxxxxxxxxxxxxxxxx Policy xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx -->
-	<policy name="network-srio-network">
-		<!-- 10gec packets processing -->
-		<dist_order>
-			<distributionref name="rman_to_fman0_10gec"/>
-		</dist_order>
-		<dist_order>
-			<distributionref name="fman_to_rman_10gec"/>
-		</dist_order>
-
-		<!-- dtsec4 packets processing -->
-		<dist_order>
-			<distributionref name="rman_to_fman0_dtsec4"/>
-		</dist_order>
-		<dist_order>
-			<distributionref name="fman_to_rman_dtsec4"/>
-		</dist_order>
-
-		<!-- dtsec3 packets processing -->
-		<dist_order>
-			<distributionref name="rman_to_fman0_dtsec3"/>
-		</dist_order>
-		<dist_order>
-			<distributionref name="fman_to_rman_dtsec3"/>
-		</dist_order>
-
-		<!-- dtsec2 packets processing -->
-		<dist_order>
-			<distributionref name="rman_to_fman0_dtsec2"/>
-		</dist_order>
-		<dist_order>
-			<distributionref name="fman_to_rman_dtsec2"/>
-		</dist_order>
-
-		<!-- dtsec1 packets processing -->
-		<dist_order>
-			<distributionref name="rman_to_fman0_dtsec1"/>
-		</dist_order>
-		<dist_order>
-			<distributionref name="fman_to_rman_dtsec1"/>
-		</dist_order>
-
-		<!-- dtsec0 packets processing -->
-		<dist_order>
-			<distributionref name="rman_to_fman0_dtsec0"/>
-		</dist_order>
-		<dist_order>
-			<distributionref name="fman_to_rman_dtsec0"/>
-		</dist_order>
-	</policy>
+<!--	xxxxxxxxxxxxxxxxxxxxxxxxxx Policy xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx -->
+	<policies_cfg>
+		<defcfg file="/usr/etc/policies_config.xml"/>
+		<policy name="processing1" enable="yes"/>
+	</policies_cfg>
 </fra_cfg>

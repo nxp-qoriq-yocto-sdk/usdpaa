@@ -35,4 +35,7 @@ dist_DATA = fra_config_dstr_processing1.xml \
 	    fra_config_dstr_testspeed_rxpoint.xml \
 	    fra_config_dstr_testspeed_txpoint.xml \
 	    fra_config_mbox_processing1.xml \
-	    fra_config_mbox_processing2.xml
+	    fra_config_mbox_processing2.xml \
+	    rman_config.xml network_config.xml \
+	    transactions_config.xml distributions_config.xml \
+	    policies_config.xml

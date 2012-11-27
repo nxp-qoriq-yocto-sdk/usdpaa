@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
- Copyright (c) 2011 Freescale Semiconductor, Inc.
- All rights reserved.
+ Copyright 2012 Freescale Semiconductor, Inc.
 
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
@@ -32,49 +31,27 @@
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 
-<fra_cfg>
-<!--	xxxxxxxxxxxxxxxxxxxx RMan hardware configuration xxxxxxxxxxxxxxxxxxx -->
-	<rman_cfg>
-		<defcfg file="/usr/etc/rman_config.xml"/>
-	</rman_cfg>
+<rman_cfg>
+	<fqbits type="Data-streaming" value="2"/>
+	<fqbits type="Mailbox" value="2"/>
+	<md_create mode="yes"/>
+	<!--
+	OSID - Outbound Segmentation Interleaving Disable
+	Segmentation interleaving allows the message manager to
+	interleave segments from two or more transactions with the
+	same destination device ID (regardless of type). This may
+	increase performance for transmission but may also consume
+	additional reassembly resources at the destination.
 
-<!--	xxxxxxxxxxxxxxxxxxxxx FMan port configuration xxxxxxxxxxxxxxxxxxxxxx -->
-	<network_cfg>
-		<defcfg file="/usr/etc/network_config.xml"/>
-	</network_cfg>
-
-<!--	xxxxxxxxxxxxxxxxxxxxxxxx transaction xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx -->
-	<trans_cfg>
-		<defcfg file="/usr/etc/transactions_config.xml"/>
-	</trans_cfg>
-
-<!--	xxxxxxxxxxxxxxxxxxxx RMan to FMan distribution xxxxxxxxxxxxxxxxxxxx -->
-	<dists_cfg>
-		<defcfg file="/usr/etc/distributions_config.xml"/>
-	</dists_cfg>
-
-<!--	xxxxxxxxxxxxxxxxxxxxxxxxxx Policy xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx -->
-	<policies_cfg>
-		<policy name="loopback" enable="yes">
-			<!-- dtsec3 packets processing -->
-			<dist_order>
-				<distributionref name="fman_from_dtsec3"/>
-				<distributionref name="rman_to_peer_dtsec4"/>
-			</dist_order>
-			<dist_order>
-				<distributionref name="rman_from_peer_dtsec3"/>
-				<distributionref name="fman_to_dtsec3"/>
-			</dist_order>
-
-			<!-- dtsec4 packets processing -->
-			<dist_order>
-				<distributionref name="fman_from_dtsec4"/>
-				<distributionref name="rman_to_peer_dtsec3"/>
-			</dist_order>
-			<dist_order>
-				<distributionref name="rman_from_peer_dtsec4"/>
-				<distributionref name="fman_to_dtsec4"/>
-			</dist_order>
-		</policy>
-	</policies_cfg>
-</fra_cfg>
+	A non-Freescale target device may not complete Type 9
+	reassembly correctly when segmentation interleaving is
+	performed on two PDUs with the same flow but different CoS.
+	Workaround: disable segmentation interleaving by setting
+	<osid value="yes">
+	-->
+	<osid value="no"/>
+	<bpid type="Data-streaming" value="11"/>
+	<bpid type="Doorbell" value="10"/>
+	<bpid type="Mailbox" value="11"/>
+	<sgbpid value="12"/>
+</rman_cfg>

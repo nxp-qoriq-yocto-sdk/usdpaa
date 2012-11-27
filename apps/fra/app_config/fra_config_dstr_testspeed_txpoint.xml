@@ -35,73 +35,73 @@
 <fra_cfg>
 <!--	xxxxxxxxxxxxxxxxxxxx RMan hardware configuration xxxxxxxxxxxxxxxxxxx -->
 	<rman_cfg>
-		<fqbits type="Data-streaming" value="2"/>
-		<fqbits type="Mailbox" value="2"/>
-		<md_create mode="yes"/>
-		<bpid type="Data-streaming" value="11"/>
-		<bpid type="Doorbell" value="10"/>
-		<bpid type="Mailbox" value="11"/>
-		<sgbpid value="12"/>
+		<defcfg file="/usr/etc/rman_config.xml"/>
 	</rman_cfg>
 
-<!--	xxxxxxxxxxxxxxxxxxxxxxxx transaction xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx -->
 <!--	transaction field described all the type transaction settings -->
-	<!-- dbell setting -->
-	<transaction name="dbell-peer" type="Doorbell">
-		<flowlvl value="5" mask="1"/>
-	</transaction>
-	<!-- data streaming settings -->
-	<transaction name="dstr-peer" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="20" mask="0"/>
-		<streamid value="0" mask="0x1f"/>
-	</transaction>
 
+	<trans_cfg>
+		<!-- dbell setting -->
+		<transaction name="dbell-peer" type="Doorbell">
+			<flowlvl value="5" mask="1"/>
+		</transaction>
+		<!-- data streaming settings -->
+		<transaction name="dstr-peer" type="Data-streaming">
+			<flowlvl value="0" mask="2"/>
+			<cos value="20" mask="0"/>
+			<streamid value="0" mask="0x1f"/>
+		</transaction>
+	</trans_cfg>
+
+	<dists_cfg>
 <!--	xxxxxxxxxxxxxxxxxxxxxx RMAN RX distribution xxxxxxxxxxxxxxxxxxxxxxxx -->
-	<distribution name="dstr_from_peer" type="RMAN_RX">
-		<rio_port number="0" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x4000" mode="algorithmic" wq="0"/>
-		<transactionref name="dstr-peer"/>
-	</distribution>
-	<distribution name="dbell_from_peer" type="RMAN_RX">
-		<rio_port number="0" mask="1"/>
-		<sid value="0" mask="0xff"/>
-		<queue base="0x4100" mode="direct" wq="0"/>
-		<transactionref name="dbell-peer"/>
-	</distribution>
+		<distribution name="dstr_from_peer" type="RMAN_RX">
+			<rio_port number="0" mask="1"/>
+			<sid value="0" mask="0xff"/>
+			<queue base="0x4000" mode="algorithmic" wq="0"/>
+			<transactionref name="dstr-peer"/>
+		</distribution>
+		<distribution name="dbell_from_peer" type="RMAN_RX">
+			<rio_port number="0" mask="1"/>
+			<sid value="0" mask="0xff"/>
+			<queue base="0x4100" mode="direct" wq="0"/>
+			<transactionref name="dbell-peer"/>
+		</distribution>
 
 <!--	xxxxxxxxxxxxxxxxxxxxxxx RMAN TX distribution xxxxxxxxxxxxxxxxxxxxxxx -->
-	<distribution name="dstr_to_peer" type="RMAN_TX">
-		<rio_port number="0"/>
-		<did value="1"/>
-		<queue base="0x4200" count="4" wq="0"/>
-		<transactionref name="dstr-peer"/>
-	</distribution>
-	<distribution name="dbell_to_peer" type="RMAN_TX">
-		<rio_port number="0"/>
-		<did value="1"/>
-		<queue base="0x4300" count="1" wq="0"/>
-		<transactionref name="dbell-peer"/>
-	</distribution>
+		<distribution name="dstr_to_peer" type="RMAN_TX">
+			<rio_port number="0"/>
+			<did value="1"/>
+			<queue base="0x4200" count="4" wq="0"/>
+			<transactionref name="dstr-peer"/>
+		</distribution>
+		<distribution name="dbell_to_peer" type="RMAN_TX">
+			<rio_port number="0"/>
+			<did value="1"/>
+			<queue base="0x4300" count="1" wq="0"/>
+			<transactionref name="dbell-peer"/>
+		</distribution>
+	</dists_cfg>
 
 <!--	xxxxxxxxxxxxxxxxxxxxxxxxxx Policy xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx -->
-	<policy name="peer-srio-peer">
-		<!-- test speed core-rman<->rman-core-rman -->
-		<dist_order>
-			<cpu_generate_command/>
-			<distributionref name="dbell_to_peer"/>
-		</dist_order>
-		<dist_order>
-			<distributionref name="dbell_from_peer"/>
-		</dist_order>
-		<!-- send point -->
-		<dist_order>
-			<cpu_generate_packets/>
-			<distributionref name="dstr_to_peer"/>
-		</dist_order>
-		<dist_order>
-			<distributionref name="dstr_from_peer"/>
-		</dist_order>
-	</policy>
+	<policies_cfg>
+		<policy name="peer-srio-peer" enable="yes">
+			<!-- test speed core-rman<->rman-core-rman -->
+			<dist_order>
+				<cpu_generate_command/>
+				<distributionref name="dbell_to_peer"/>
+			</dist_order>
+			<dist_order>
+				<distributionref name="dbell_from_peer"/>
+			</dist_order>
+			<!-- send point -->
+			<dist_order>
+				<cpu_generate_packets/>
+				<distributionref name="dstr_to_peer"/>
+			</dist_order>
+			<dist_order>
+				<distributionref name="dstr_from_peer"/>
+			</dist_order>
+		</policy>
+	</policies_cfg>
 </fra_cfg>
