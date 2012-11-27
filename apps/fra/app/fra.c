@@ -861,7 +861,7 @@ int dist_order_list_init(void)
 
 	INIT_LIST_HEAD(&fra->dist_order_list);
 	list_for_each_entry(dist_order_cfg,
-		&fra->cfg->dist_order_cfg_list, node) {
+		&fra->cfg->policy_cfg->dist_order_cfg_list, node) {
 		dist_order = dist_order_init(dist_order_cfg);
 		if (dist_order)
 			list_add_tail(&dist_order->node,
@@ -986,12 +986,8 @@ int fra_init(const struct usdpaa_netcfg_info *netcfg,
 	}
 
 	list_for_each_entry(fra_fman_port_cfg,
-		&fra_cfg->fman_port_cfg_list, node) {
-		if (fman_port_init(fra_fman_port_cfg, netcfg)) {
-			error(0, 0, "can not find fman port %s",
-				fra_fman_port_cfg->port_name);
-		}
-	}
+		&fra_cfg->fman_port_cfg_list, node)
+		fman_port_init(fra_fman_port_cfg, netcfg);
 
 	err = dist_order_list_init();
 	if (err)

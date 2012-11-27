@@ -71,7 +71,7 @@ struct dist_rman_tx_cfg {
 
 struct fra_fman_port_cfg {
 	struct list_head node;
-	char port_name[MAX_LENGTH_OF_NAME];
+	char name[MAX_LENGTH_OF_NAME];
 	uint8_t fman_num; /* 0 => FMAN0, 1 => FMAN1 and so on */
 	uint8_t port_type;
 	uint8_t port_num; /* 0 onwards */
@@ -109,6 +109,7 @@ struct dist_rman_to_fman_cfg {
 };
 
 struct dist_cfg {
+	struct list_head node;
 	struct dist_cfg *next;
 	char name[MAX_LENGTH_OF_NAME];
 	enum dist_type type;
@@ -128,9 +129,20 @@ struct dist_order_cfg {
 	struct dist_cfg *dist_cfg;
 };
 
+struct policy_cfg {
+	struct list_head node;
+	char name[MAX_LENGTH_OF_NAME];
+	int enable;
+	struct list_head dist_order_cfg_list;
+};
+
 struct fra_cfg {
 	struct list_head dist_order_cfg_list;
 	struct list_head fman_port_cfg_list;
+	struct list_head trans_list;
+	struct list_head dists_list;
+	struct list_head policies_list;
+	struct policy_cfg *policy_cfg;
 	struct rman_cfg rman_cfg;
 };
 

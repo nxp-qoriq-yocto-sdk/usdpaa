@@ -292,7 +292,7 @@ struct fra_fman_port *get_fra_fman_port(const char *name)
 	if (!name)
 		return NULL;
 	list_for_each_entry(port, &ifs, node) {
-		if (!strncmp(name, port->cfg->port_name, MAX_LENGTH_OF_NAME))
+		if (!strncmp(name, port->cfg->name, MAX_LENGTH_OF_NAME))
 			return port;
 	}
 	return NULL;
