@@ -755,6 +755,40 @@ struct dist_order *dist_order_init(struct dist_order_cfg  *dist_order_cfg)
 	if (!dist_order_cfg || !dist_order_cfg->dist_cfg)
 		return NULL;
 
+	/* Check whether dist has a valid network configuration */
+	dist_cfg = dist_order_cfg->dist_cfg;
+	while (dist_cfg) {
+		char *fman_port_name = NULL;
+		switch (dist_cfg->type) {
+		case DIST_TYPE_FMAN_RX:
+			fman_port_name = dist_cfg->
+				dist_fman_rx_cfg.fman_port_name;
+			break;
+		case DIST_TYPE_FMAN_TX:
+			fman_port_name = dist_cfg->
+				dist_fman_tx_cfg.fman_port_name;
+			break;
+		case DIST_TYPE_FMAN_TO_RMAN:
+			fman_port_name = dist_cfg->
+				dist_fman_tx_cfg.fman_port_name;
+			break;
+		case DIST_TYPE_RMAN_TO_FMAN:
+			fman_port_name = dist_cfg->
+				dist_fman_tx_cfg.fman_port_name;
+			break;
+		default:
+			break;
+		}
+
+		if (fman_port_name && !get_fra_fman_port(fman_port_name)) {
+			FRA_DBG("Dist(%s): can not find fman port %s",
+				dist_cfg->name, fman_port_name);
+			return NULL;
+		}
+
+		dist_cfg = dist_cfg->next;
+	}
+
 	dist_order = malloc(sizeof(*dist_order));
 	if (!dist_order) {
 		error(0, errno, "failed to allocate dist_order memory");
