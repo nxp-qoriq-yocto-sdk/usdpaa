@@ -51,13 +51,6 @@
 #define RMAN_FQAR_STID_SHIFT	7
 #define RMAN_FQAR_LTR_SHIFT	8
 
-/* The magic is a workaround for mailbox transaction.
- * The MMSEPR0 setting assigns AG0 to only execute on SU0
- * AG1 on SU1, AG2 on SU2, AG3 on SU3.
- */
-#define MMSEPR0_MAILBOX 0x010234F8
-#define MMSEPR0_DEFAULT 0x030F3FFF
-
 /* Inbound Block TypeX Classification Registers */
 struct rman_ibcu_regs {
 	uint32_t  mr;		/* 0xmn00 - Mode Register */
@@ -152,14 +145,12 @@ struct rman_inbound_block {
 
 struct rman_dev {
 	int uiofd;
-	int svr;
 	int irq;
 	int ib_num;
 	int channel_id[RMAN_MAX_NUM_OF_CHANNELS];
 	volatile struct rman_global_reg *global_regs;
 	uint64_t regs_size;
 	struct rman_inbound_block *ib;
-	int fix_mbox_flag;
 };
 
 static struct rman_dev *__rmdev;
@@ -176,11 +167,6 @@ static inline uint32_t read_reg(const volatile uint32_t *p)
 	ret = *(volatile uint32_t *)(p);
 	__sync_synchronize();
 	return ret;
-}
-
-int rman_svr_rev()
-{
-	return __rmdev->svr & 0xff;
 }
 
 int rman_global_fd(void)
@@ -368,16 +354,6 @@ int rman_config_ibcu(struct rman_dev *rmdev, const struct ibcu_cfg *cfg)
 			  (cfg->msgsize << 16) | cfg->bpid);
 		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->dor,
 			  cfg->data_offset);
-
-		/* RMan can't handle type 11 (message) packets after long
-		 * time traffic. To fix this, assign an arbitration group to
-		 * only execute on one segmentation unit
-		 */
-		if (!rmdev->fix_mbox_flag) {
-			write_reg(&rmdev->global_regs->mmsepr0,
-				  MMSEPR0_MAILBOX);
-			rmdev->fix_mbox_flag = 1;
-		}
 		break;
 	case RIO_TYPE_DSTR:
 		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->rvr[1],
@@ -497,12 +473,6 @@ int rman_dev_config(struct rman_dev *rmdev, const struct rman_cfg *cfg)
 	write_reg(&rmdev->global_regs->mmt11fqar,
 		  cfg->fq_bits[RIO_TYPE11] << RMAN_FQAR_LTR_SHIFT);
 
-	/* Set MMSEPR0 default value to avoid mailbox workaround impact */
-	write_reg(&rmdev->global_regs->mmsepr0, MMSEPR0_DEFAULT);
-
-	if (rman_svr_rev() > SVR_REV_1_0)
-		rmdev->fix_mbox_flag = 1;
-
 	return 0;
 }
 
@@ -526,58 +496,6 @@ rman_global_node_init(const struct device_node *global_regs_node,
 	}
 
 	return 0;
-}
-
-uint32_t get_svr(const struct device_node *soc_node)
-{
-#define DEVICE_CONFIGURATION_OFFSET 0x0E0000
-#define SVR_OFFSET 0xA4
-#define PAGE_SIZE  0x1000
-
-	const uint32_t *regs_addr;
-	uint64_t phys_addr;
-	int fd;
-	void *device_config_map;
-	uint32_t svr = 0;
-
-	if (!soc_node)
-		return 0;
-
-	regs_addr = of_get_address(soc_node, 0, NULL, NULL);
-	if (!regs_addr) {
-		error(0, EINVAL, "of_get_address(%s)\n", soc_node->name);
-		return 0;
-	}
-
-	phys_addr = of_translate_address(soc_node, regs_addr);
-	if (!phys_addr) {
-		error(0, EINVAL, "of_translate_address(%s, %p)\n",
-			soc_node->name, regs_addr);
-		return 0;
-	}
-
-	phys_addr += DEVICE_CONFIGURATION_OFFSET;
-
-	fd = open("/dev/mem", O_RDWR);
-	if (fd < 0) {
-		error(0, errno, "open file /dev/mem\n");
-		return 0;
-	}
-
-	device_config_map = mmap(NULL, PAGE_SIZE,
-				 PROT_READ, MAP_SHARED,
-				 fd, phys_addr);
-
-	if (device_config_map == MAP_FAILED) {
-		error(0, errno, "mmap(0x%llx)\n", phys_addr);
-		goto _err;
-	}
-
-	svr = read_reg(device_config_map + SVR_OFFSET);
-	munmap(device_config_map, PAGE_SIZE);
-_err:
-	close(fd);
-	return svr;
 }
 
 struct rman_dev *rman_dev_init(void)
@@ -606,8 +524,6 @@ struct rman_dev *rman_dev_init(void)
 	memset(rmdev, 0, sizeof(*rmdev));
 
 	rmdev->uiofd = uiofd;
-
-	rmdev->svr = get_svr(of_get_parent(rman_node));
 
 	/* Setup channels */
 	prop = of_get_property(rman_node, "fsl,qman-channels-id", &lenp);
