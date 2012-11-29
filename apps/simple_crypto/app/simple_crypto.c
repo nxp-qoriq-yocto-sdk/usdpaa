@@ -73,10 +73,9 @@ uint32_t ind;
 struct qm_fd fd[BUFF_NUM];	/* storage for frame descriptor */
 
 /* start FQ no. for encryption flows */
-static __PERCPU uint32_t fq_base_encrypt = SEC40_FQ_BASE;
+static __PERCPU uint32_t fq_base_encrypt;
 /* start FQ no. for decryption flows */
-static __PERCPU uint32_t fq_base_decrypt = SEC40_FQ_BASE +
-		2 * FQ_PER_CORE * MAX_THREADS;
+static __PERCPU uint32_t fq_base_decrypt;
 
 /* storage for encryption FQ's(from SEC4.0 to software portal) object*/
 static __PERCPU struct qman_fq *enc_fq_from_sec[FQ_PER_CORE];
@@ -1679,6 +1678,9 @@ static int worker_fn(thread_data_t *tdata)
 
 	pr_debug("\nThis is the thread on cpu %d\n", tdata->cpu);
 
+	fq_base_encrypt = SEC40_FQ_BASE ;
+	fq_base_decrypt = SEC40_FQ_BASE + 2 * FQ_PER_CORE * sysconf(_SC_NPROCESSORS_ONLN);
+	
 	cpu_ind = tdata->index;
 
 	if (unlikely(init_sec_fq() != 0)) {

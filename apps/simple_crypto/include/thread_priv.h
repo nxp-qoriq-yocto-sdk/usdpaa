@@ -41,7 +41,6 @@
 
 #include <net/if_arp.h>
 
-#define MAX_THREADS 8
 
 /* Per-thread data, including the pthread id */
 typedef struct thread_data thread_data_t;
