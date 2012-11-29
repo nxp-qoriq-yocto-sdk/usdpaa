@@ -49,7 +49,7 @@ do
 	case $flags in
 		m)
 			case $OPTARG in
-				p1023ds | p3041ds | p4080ds | p5020ds)
+				p1023ds | p3041ds | p4080ds | p5020ds | b4860qds)
 					board=$OPTARG
 					;;
 				*)
