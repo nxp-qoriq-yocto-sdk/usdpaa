@@ -38,4 +38,8 @@ dist_DATA = fra_config_dstr_processing1.xml \
 	    fra_config_mbox_processing2.xml \
 	    rman_config.xml network_config.xml \
 	    transactions_config.xml distributions_config.xml \
-	    policies_config.xml
+	    policies_config.xml \
+	    fra_config_dstr_processing1_b4_serdes_0x2a_0x8d.xml \
+	    fra_config_dstr_processing2_b4_serdes_0x2a_0x8d.xml \
+	    fra_config_mbox_processing1_b4_serdes_0x2a_0x8d.xml \
+	    fra_config_mbox_processing2_b4_serdes_0x2a_0x8d.xml
