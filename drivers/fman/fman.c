@@ -224,7 +224,7 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 		__if->__if.is_memac = 1;
 		char_prop = of_get_property(mac_node, "phy-connection-type",
 								NULL);
-		if (strstr(char_prop, "sgmii"))
+		if (strstr(char_prop, "sgmii") || strstr(char_prop, "rgmii"))
 			__if->__if.mac_type = fman_mac_1g;
 		else if (strstr(char_prop, "xgmii"))
 			__if->__if.mac_type = fman_mac_10g;
