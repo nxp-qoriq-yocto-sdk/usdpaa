@@ -889,6 +889,8 @@ static void rman_interrupt_handler(void)
 		msg_do_reset();
 		return;
 	}
+
+#ifdef FRA_ERROR_INTERRUPT_INFO
 	if (status & RMAN_OFER_ERROR_MASK)
 		error(0, 0, "Outbound frame queue enqueue rejection error");
 	if (status & RMAN_IFER_ERROR_MASK)
@@ -901,6 +903,7 @@ static void rman_interrupt_handler(void)
 		error(0, 0, "Type8 interrupt coalescing drop threshold exceed");
 	if (status & RMAN_MFE_ERROR_MASK)
 		error(0, 0, "RMan message format error");
+#endif
 
 	rman_interrupt_clear();
 	rman_interrupt_enable();
