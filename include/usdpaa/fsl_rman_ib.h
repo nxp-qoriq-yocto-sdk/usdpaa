@@ -164,6 +164,25 @@ int rman_request_ibcu(struct rman_inbound_block *ib);
 int rman_config_ibcu(struct rman_inbound_block *ib, const struct ibcu_cfg *cfg);
 
 /**
+ * rman_set_ibef - set the error frame queue
+ * @ib: RMan inbound block info
+ * @fqid: error frame queue id
+ *
+ * Error frame queue ID used when MMMR[EFQ]=1. For proper operation,
+ * this field should only be modified when the inbound reassembly unit
+ * is not enabled.
+ */
+void rman_set_ibef(struct rman_inbound_block *ib, uint32_t fqid);
+
+/**
+ * rman_get_ibef - get the error frame queue
+ * @ib: RMan inbound block info
+ *
+ * Return error frame queue ID
+ */
+int rman_get_ibef(struct rman_inbound_block *ib);
+
+/**
  * rman_ib_init - initialize the specified inbound block device
  *
  * This function firstly find the specified RMan inbound block , then maps

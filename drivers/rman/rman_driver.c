@@ -42,6 +42,7 @@
 #define RMAN_MMSR_OMUB_SHIFT	30
 #define RMAN_MMMR_MDD_SHIFT	31
 #define RMAN_MMMR_OSID_SHIFT	28
+#define RMAN_MMMR_EFQ_SHIFT	27
 #define RMAN_FQAR_STID_SHIFT	7
 #define RMAN_FQAR_LTR_SHIFT	8
 
@@ -191,6 +192,9 @@ int rman_dev_config(struct rman_dev *rmdev, const struct rman_cfg *cfg)
 	/* Set OSID */
 	mmmr &= ~(1 << RMAN_MMMR_OSID_SHIFT);
 	mmmr |= cfg->osid << RMAN_MMMR_OSID_SHIFT;
+	/* Set EFQ */
+	mmmr &= ~(1 << RMAN_MMMR_EFQ_SHIFT);
+	mmmr |= cfg->efq << RMAN_MMMR_EFQ_SHIFT;
 	write_reg(&rmdev->global_regs->mmmr, mmmr);
 
 	/* Initialize the frame queue assembly register */

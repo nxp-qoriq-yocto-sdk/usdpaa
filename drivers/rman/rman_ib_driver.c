@@ -60,6 +60,8 @@ struct rman_ibcu_regs {
 	uint32_t dor;		/* 0xmn34 - Data Offset Register */
 	uint32_t t9sgbpr;	/* 0xmn38 -
 				   Type9 Scatter/Gather Buffer Poll Register */
+	uint32_t res4;
+	uint32_t efqr;		/* 0xm040 - error frame queue register */
 };
 
 /**
@@ -225,6 +227,17 @@ int rman_config_ibcu(struct rman_inbound_block *ib,
 	write_reg(&ib->cu[cu_index].cu_regs->mr,
 		  cfg->fq_mode << 28 | (cfg->tran->type << 24));
 	return 0;
+}
+
+void rman_set_ibef(struct rman_inbound_block *ib, uint32_t fqid)
+{
+	ib->efq = fqid;
+	write_reg(&ib->cu[0].cu_regs->efqr, fqid);
+}
+
+int rman_get_ibef(struct rman_inbound_block *ib)
+{
+	return ib->efq;
 }
 
 struct rman_inbound_block *rman_ib_init(int idx)
