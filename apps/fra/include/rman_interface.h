@@ -237,6 +237,10 @@ rman_rx_init(int hash_init, uint32_t fqid, int fq_mode, uint8_t wq,
 	     u16 channel, struct rio_tran *tran,
 	     void *pvt, hash_handler handler);
 
+/* Configures error frame handler. */
+int rman_rx_error_listen(struct rman_rx *rx, void *pvt,
+			     nonhash_handler handler);
+
 /* Configures classification unit to receive the specific rapidio messages. */
 int rman_rx_listen(struct rman_rx *rx, uint8_t port, uint8_t port_mask,
 		   uint16_t sid, uint16_t sid_mask);

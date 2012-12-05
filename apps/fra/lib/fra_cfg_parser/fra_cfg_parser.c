@@ -49,6 +49,7 @@
 #define RMAN_OSID_NODE		("osid")
 #define BPID_NODE		("bpid")
 #define SG_BPID_NODE		("sgbpid")
+#define RMAN_EFQ_NODE		("efq")
 
 #define NETWORK_CFG_NODE	("network_cfg")
 #define FMAN_PORT_NODE		("port")
@@ -965,6 +966,12 @@ static int parse_rman_cfg(xmlNodePtr cur, struct rman_cfg *cfg)
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
 			cfg->sgbpid = strtoul(ptr, NULL, 0);
+		} else if ((is_node(cfgptr, BAD_CAST RMAN_EFQ_NODE))) {
+			ptr = get_attributes(cfgptr, BAD_CAST RMAN_CFG_VALUE);
+			if (ptr && !strcmp(ptr, "yes"))
+				cfg->efq = 1;
+			else
+				cfg->efq = 0;
 		}
 		cfgptr = cfgptr->next;
 	}

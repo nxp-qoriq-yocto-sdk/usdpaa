@@ -227,6 +227,17 @@ static void dist_rman_rx_info(struct distribution *dist,
 }
 #endif
 
+static void dist_rx_error_cb(void *pvt, const struct qm_fd *fd)
+{
+#ifdef ENABLE_FRA_DEBUG
+	struct distribution *dist = pvt;
+
+	FRA_DBG("DIST(%s) receives an error frame with status 0x%x",
+		dist->cfg->name, fd->status);
+#endif
+	fra_drop_frame(fd);
+}
+
 static void dist_rman_rx_cb(void *pvt, struct hash_opt *opt,
 			    const struct qm_fd *fd)
 {
@@ -403,6 +414,8 @@ static struct distribution *dist_rman_rx_init(struct dist_cfg *cfg)
 	rman_rx_listen(dist->rman_rx, rxcfg->rio_port, rxcfg->port_mask,
 		       rxcfg->sid, rxcfg->sid_mask);
 
+	rman_rx_error_listen(dist->rman_rx, dist, dist_rx_error_cb);
+
 	return dist;
 }
 
@@ -502,6 +515,10 @@ static struct distribution *dist_rman_to_fman_init(struct dist_cfg *cfg)
 
 	rman_rx_listen(dist->rman_to_fman->rman_rx, r2fcfg->rio_port,
 		       r2fcfg->port_mask, r2fcfg->sid, r2fcfg->sid_mask);
+
+	rman_rx_error_listen(dist->rman_to_fman->rman_rx, dist,
+			     dist_rx_error_cb);
+
 	dist->handler = NULL;
 	return dist;
 _err:

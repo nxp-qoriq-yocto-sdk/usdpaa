@@ -56,6 +56,12 @@ struct rman_if {
 	struct list_head rman_tx_list;
 };
 
+struct rman_status {
+	struct qman_fq fq;
+	void *pvt;
+	nonhash_handler handler;
+} ____cacheline_aligned;
+
 struct rman_rx_hash {
 	struct qman_fq fq;
 	struct hash_opt opt;
@@ -67,6 +73,7 @@ struct rman_rx {
 	struct list_head node;
 	struct rman_inbound_block *rmib;
 	struct ibcu_cfg cfg;
+	struct rman_status *status;
 	int fqs_num;
 	struct rman_rx_hash *hash;
 };
@@ -76,16 +83,10 @@ struct rman_tx_hash {
 	struct qman_fq fq;
 } ____cacheline_aligned;
 
-struct rman_tx_status {
-	struct qman_fq fq;
-	void *pvt;
-	nonhash_handler handler;
-} ____cacheline_aligned;
-
 struct rman_tx {
 	struct list_head node;
 	struct rio_tran *tran;
-	struct rman_tx_status *status;
+	struct rman_status *status;
 	int fqs_num;
 	struct rman_tx_hash *hash;
 };
@@ -311,12 +312,12 @@ rman_rx_dqrr(struct qman_portal *portal, struct qman_fq *fq,
 }
 
 static enum qman_cb_dqrr_result
-rman_tx_status_dqrr(struct qman_portal *portal,
+rman_status_dqrr(struct qman_portal *portal,
 		    struct qman_fq *fq,
 		    const struct qm_dqrr_entry *dqrr)
 {
-	struct rman_tx_status *status;
-	status = container_of(fq, struct rman_tx_status, fq);
+	struct rman_status *status;
+	status = container_of(fq, struct rman_status, fq);
 
 	FRA_DBG("%s receives a status frame from fqid(%d) status(0x%08x)",
 		__func__, fq->fqid, dqrr->fd.status);
@@ -349,6 +350,11 @@ void rman_rx_finish(struct rman_rx *rx)
 	if (rx->rmib)
 		rman_release_ibcu(rx->rmib, rx->cfg.ibcu);
 
+	if (rx->status) {
+		fra_teardown_fq(&rx->status->fq);
+		__dma_mem_free(rx->status);
+	}
+
 	if (rx->hash) {
 		for (i = 0; i < rx->fqs_num; i++)
 			fra_teardown_fq(&rx->hash[i].fq);
@@ -359,6 +365,23 @@ void rman_rx_finish(struct rman_rx *rx)
 		list_del(&rx->node);
 
 	free(rx);
+}
+
+static struct rman_status *rman_status_init(void)
+{
+	struct rman_status *status;
+
+	status = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(*status));
+	if (!status) {
+		error(0, 0, "failed to allocate dma mem\n");
+		return NULL;
+	}
+	memset(status, 0, sizeof(*status));
+
+	fra_fq_nonpcd_init(&status->fq, 0,
+			   FRA_NONHASH_WQ, FRA_NONHASH_CHANNEL,
+			   &default_stash_opts, rman_status_dqrr);
+	return status;
 }
 
 static int rman_rx_ibcu_request(struct rman_rx *rx)
@@ -405,6 +428,13 @@ rman_rx_init(int hash_init, uint32_t fqid, int fq_mode, uint8_t wq,
 	if (rman_rx_ibcu_request(rx))
 		goto _err;
 
+	if (!rman_get_ibef(rx->rmib)) {
+		rx->status = rman_status_init();
+		if (!rx->status)
+			goto _err;
+		rman_set_ibef(rx->rmib, qman_fq_fqid(&rx->status->fq));
+	}
+
 	rx->cfg.tran = tran;
 	rx->cfg.fqid = fqid;
 	rx->cfg.fq_mode = fq_mode;
@@ -441,6 +471,18 @@ rman_rx_init(int hash_init, uint32_t fqid, int fq_mode, uint8_t wq,
 _err:
 	rman_rx_finish(rx);
 	return NULL;
+}
+
+int rman_rx_error_listen(struct rman_rx *rx, void *pvt,
+			     nonhash_handler handler)
+{
+	if (!rx || !rx->status)
+		return -EINVAL;
+
+	rx->status->pvt = pvt;
+	rx->status->handler = handler;
+
+	return 0;
 }
 
 int rman_rx_listen(struct rman_rx *rx, uint8_t port, uint8_t port_mask,
@@ -480,25 +522,6 @@ void rman_rx_enable(struct rman_rx *rx)
 	rman_enable_ibcu(rx->rmib, rx->cfg.ibcu);
 }
 
-static int rman_tx_status_init(struct rman_tx *tx)
-{
-	if (tx->status)
-		return -EINVAL;
-
-	tx->status = __dma_mem_memalign(L1_CACHE_BYTES,
-				      sizeof(struct rman_tx_status));
-	if (!tx->status) {
-		error(0, 0, "failed to allocate dma mem\n");
-		return -ENOMEM;
-	}
-	memset(tx->status, 0, sizeof(struct rman_tx_status));
-
-	fra_fq_nonpcd_init(&tx->status->fq, 0,
-			   FRA_NONHASH_WQ, FRA_NONHASH_CHANNEL,
-			   &default_stash_opts, rman_tx_status_dqrr);
-	return 0;
-}
-
 struct rman_tx *
 rman_tx_init(uint8_t port, int fqid, int fqs_num, uint8_t wq,
 	     struct rio_tran *tran)
@@ -518,7 +541,8 @@ rman_tx_init(uint8_t port, int fqid, int fqs_num, uint8_t wq,
 		return NULL;
 	memset(tx, 0, sizeof(*tx));
 
-	if (rman_tx_status_init(tx))
+	tx->status = rman_status_init();
+	if (!tx->status)
 		goto _err;
 
 	tx->tran = tran;

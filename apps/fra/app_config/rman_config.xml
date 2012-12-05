@@ -50,6 +50,7 @@
 	<osid value="yes">
 	-->
 	<osid value="no"/>
+	<efq value="yes"/>
 	<bpid type="Data-streaming" value="11"/>
 	<bpid type="Doorbell" value="10"/>
 	<bpid type="Mailbox" value="11"/>
