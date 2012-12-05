@@ -35,38 +35,15 @@
 #include <error.h>
 
 #define RMAN_UIO_FILE		"/dev/rman-uio"
-#define RMAN_IB_FILE		"/dev/rman-inbound-block"
-#define RMAN_IB_INDEX_OFFSET	12
-#define RMAN_CU_NUM_PER_IB	8
-#define RMAN_CU_OFFSET		0x100
 #define MMIER_ENABLE_ALL	0x800000FF
 #define MMEDR_CLEAR		0x800000FF
-#define IBCU_IDLE_FQID		0
 #define RMAN_RESET_VALUE	1
-#define RMAN_IBCU_ENABLE_MASK	0x80000000
 #define RMAN_MMSR_IMUB_SHIFT	31
 #define RMAN_MMSR_OMUB_SHIFT	30
 #define RMAN_MMMR_MDD_SHIFT	31
 #define RMAN_MMMR_OSID_SHIFT	28
 #define RMAN_FQAR_STID_SHIFT	7
 #define RMAN_FQAR_LTR_SHIFT	8
-
-/* Inbound Block TypeX Classification Registers */
-struct rman_ibcu_regs {
-	uint32_t  mr;		/* 0xmn00 - Mode Register */
-	uint32_t res1;
-	uint32_t fqr;		/* 0xmn08 - Frame Queue Register */
-	uint32_t res2;
-	uint32_t rvr[2];	/* 0xmn10 - Rule Value Register 0/1 */
-	uint32_t rmr[2];	/* 0xmn18 - Rule Mask Register 0/1 */
-	uint32_t t9fcdr;	/* 0xmn20 -
-				   Type9 Flow Control Destination Register */
-	uint32_t res3[3];
-	uint32_t dbpr;		/* 0xmn30 - Data Buffer Pool Register */
-	uint32_t dor;		/* 0xmn34 - Data Offset Register */
-	uint32_t t9sgbpr;	/* 0xmn38 -
-				   Type9 Scatter/Gather Buffer Poll Register */
-};
 
 struct rman_global_reg {
 	uint32_t res0[766];	/* 0x1E_0000 - Add for 4K aligned */
@@ -121,28 +98,6 @@ struct rman_global_reg {
 				   support mode register */
 };
 
-/**
- * A RMan classification unit contains a set of run-time registers to filter
- * and reassembles transaction then put onto a specified queue for processing
- * by software.
- */
-struct rman_classification_unit {
-	volatile struct rman_ibcu_regs *cu_regs;
-	int fqid;
-};
-
-/**
- * A RMan device contains multiple inbound blocks.
- * Each block contains eight classification units.
- */
-struct rman_inbound_block {
-	int index;
-	int uiofd;
-	volatile void *ib_regs;
-	uint64_t regs_size;
-	struct rman_classification_unit cu[RMAN_CU_NUM_PER_IB];
-};
-
 struct rman_dev {
 	int uiofd;
 	int irq;
@@ -150,7 +105,6 @@ struct rman_dev {
 	int channel_id[RMAN_MAX_NUM_OF_CHANNELS];
 	volatile struct rman_global_reg *global_regs;
 	uint64_t regs_size;
-	struct rman_inbound_block *ib;
 };
 
 static struct rman_dev *__rmdev;
@@ -218,241 +172,16 @@ int rman_get_channel_id(const struct rman_dev *rmdev, int idx)
 	return rmdev->channel_id[idx];
 }
 
-/************************* ibcu handler ***************************/
-void rman_enable_ibcu(struct rman_dev *rmdev, int idx)
+int rman_get_ib_number(struct rman_dev *rmdev)
 {
-	int ib_index, cu_index, mr;
-
-	ib_index = idx / RMAN_CU_NUM_PER_IB;
-	cu_index = idx % RMAN_CU_NUM_PER_IB;
-
-	if (ib_index >= rmdev->ib_num)
-		return;
-
-	mr = read_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->mr);
-	mr |= RMAN_IBCU_ENABLE_MASK;
-	write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->mr, mr);
-}
-
-void rman_disable_ibcu(struct rman_dev *rmdev, int idx)
-{
-	int ib_index, cu_index, mr;
-
-	ib_index = idx / RMAN_CU_NUM_PER_IB;
-	cu_index = idx % RMAN_CU_NUM_PER_IB;
-
-	if (ib_index >= rmdev->ib_num)
-		return;
-
-	mr = read_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->mr);
-	mr &= ~RMAN_IBCU_ENABLE_MASK;
-	write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->mr, mr);
-}
-
-void rman_release_ibcu(struct rman_dev *rmdev, int idx)
-{
-	int ib_index, cu_index;
-
-	ib_index = idx / RMAN_CU_NUM_PER_IB;
-	cu_index = idx % RMAN_CU_NUM_PER_IB;
-
-	if (ib_index >= rmdev->ib_num)
-		return;
-
-	rman_disable_ibcu(rmdev, idx);
-	rmdev->ib[ib_index].cu[cu_index].fqid = IBCU_IDLE_FQID;
-}
-
-int rman_request_ibcu(struct rman_dev *rmdev, int fqid)
-{
-	int ib_index, cu_index, ibcu_index;
-
-	if (!fqid)
-		return -EINVAL;
-
-	ibcu_index = rman_get_ibcu(rmdev, fqid);
-	if (ibcu_index >= 0)
-		return ibcu_index;
-
-	for (ib_index = 0; ib_index < rmdev->ib_num; ib_index++) {
-		if (!rmdev->ib[ib_index].ib_regs)
-			continue;
-		for (cu_index = 0; cu_index < RMAN_CU_NUM_PER_IB; cu_index++) {
-			if (rmdev->ib[ib_index].cu[cu_index].fqid ==
-				IBCU_IDLE_FQID) {
-				rmdev->ib[ib_index].cu[cu_index].fqid = fqid;
-				return ib_index * RMAN_CU_NUM_PER_IB +
-					cu_index;
-			}
-		}
-	}
-	return -EINVAL;
-}
-
-int rman_get_ibcu(const struct rman_dev *rmdev, int fqid)
-{
-	int ib_index, cu_index;
-
-	if (!fqid)
-		return -EINVAL;
-
-	for (ib_index = 0; ib_index < rmdev->ib_num; ib_index++) {
-		if (!rmdev->ib[ib_index].ib_regs)
-			continue;
-		for (cu_index = 0; cu_index < RMAN_CU_NUM_PER_IB; cu_index++)
-			if (rmdev->ib[ib_index].cu[cu_index].fqid == fqid)
-				return ib_index * RMAN_CU_NUM_PER_IB +
-					cu_index;
-	}
-
-	return -EINVAL;
-}
-
-int rman_config_ibcu(struct rman_dev *rmdev, const struct ibcu_cfg *cfg)
-{
-	int ib_index, cu_index;
-
-	ib_index = cfg->ibcu / RMAN_CU_NUM_PER_IB;
-	cu_index = cfg->ibcu % RMAN_CU_NUM_PER_IB;
-
-	if (rmdev->ib[ib_index].cu[cu_index].fqid != cfg->fqid) {
-		error(0, EINVAL, "RMan: please firstly request a ibcu");
-		return -EINVAL;
-	}
-
-	write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->fqr, cfg->fqid);
-	write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->rvr[0],
-		  cfg->sid << 16 | cfg->did);
-	write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->rmr[0],
-		  cfg->sid_mask << 16 | cfg->did_mask);
-	switch (cfg->tran->type) {
-	case RIO_TYPE_DBELL:
-		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->rvr[1],
-			  cfg->tran->flowlvl << 28 |
-			  cfg->port << 24);
-		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->rmr[1],
-			  cfg->tran->flowlvl_mask << 28 |
-			  cfg->port_mask << 24);
-		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->dbpr,
-			  (cfg->msgsize << 16) | cfg->bpid);
-		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->dor,
-			  cfg->data_offset);
-		break;
-	case RIO_TYPE_MBOX:
-		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->rvr[1],
-			  cfg->tran->flowlvl << 28 |
-			  cfg->port << 24 |
-			  cfg->tran->mbox.msglen << 8 |
-			  cfg->tran->mbox.ltr << 6 |
-			  cfg->tran->mbox.mbox);
-		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->rmr[1],
-			  cfg->tran->flowlvl_mask << 28 |
-			  cfg->port_mask << 24 |
-			  cfg->tran->mbox.msglen_mask << 8 |
-			  cfg->tran->mbox.ltr_mask << 6 |
-			  cfg->tran->mbox.mbox_mask);
-		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->dbpr,
-			  (cfg->msgsize << 16) | cfg->bpid);
-		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->dor,
-			  cfg->data_offset);
-		break;
-	case RIO_TYPE_DSTR:
-		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->rvr[1],
-			  cfg->tran->flowlvl << 28 |
-			  cfg->port << 24 |
-			  cfg->tran->dstr.cos << 16 |
-			  cfg->tran->dstr.streamid);
-		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->rmr[1],
-			  cfg->tran->flowlvl_mask << 28 |
-			  cfg->port_mask << 24 |
-			  cfg->tran->dstr.cos_mask << 16 |
-			  cfg->tran->dstr.streamid_mask);
-		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->dbpr,
-			  (cfg->msgsize << 16) | cfg->bpid);
-		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->t9sgbpr,
-			  (cfg->sgsize << 16) | cfg->sgbpid);
-		write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->dor,
-			  cfg->data_offset);
-		break;
-	default:
-		return -EINVAL;
-	}
-	write_reg(&rmdev->ib[ib_index].cu[cu_index].cu_regs->mr,
-		  cfg->fq_mode << 28 | (cfg->tran->type << 24));
-	return 0;
-}
-
-static int rman_get_ib_number(struct rman_dev *rmdev)
-{
-	uint32_t ip_cfg;
-
-	if (!rmdev || !rmdev->global_regs)
-		return -EINVAL;
-
-	ip_cfg = read_reg(&rmdev->global_regs->ipbrr[1]);
-	return 2 << (((ip_cfg >> 6) & 0x3) + 1);
-}
-
-static int rman_ib_init(const struct device_node *ib_node,
-			struct rman_dev *rmdev)
-{
-	struct rman_inbound_block *ib;
-	const uint32_t *regs_addr;
-	uint64_t regs_size;
-	uint64_t phys_addr;
-	int ib_index;
-	char ib_name[PATH_MAX];
-	int cu_index;
-
-	if (!ib_node || !rmdev)
-		return -EINVAL;
-
-	regs_addr = of_get_address(ib_node, 0, &regs_size, NULL);
-	if (!regs_addr) {
-		error(0, 0, "%s missed reg property", ib_node->full_name);
-		return -EINVAL;
-	}
-
-	phys_addr = of_translate_address(ib_node, regs_addr);
-	if (!phys_addr) {
-		error(0, 0, "%s of_translate_address failed",
-		      ib_node->full_name);
-		return -EINVAL;
-	}
-	ib_index = (phys_addr >> RMAN_IB_INDEX_OFFSET) & 0xf;
-	if (ib_index >= rmdev->ib_num)
-		return -EFAULT;
-
-	ib = &rmdev->ib[ib_index];
-	ib->index = ib_index;
-	ib->regs_size = regs_size;
-	sprintf(ib_name, RMAN_IB_FILE"%d", ib->index);
-
-	ib->uiofd = open(ib_name, O_RDWR);
-	if (ib->uiofd < 0) {
-		error(0, errno, "%s", __func__);
-		return -errno;
-	}
-
-	ib->ib_regs = mmap(NULL, ib->regs_size, PROT_READ | PROT_WRITE,
-			   MAP_SHARED, ib->uiofd, 0);
-	if (MAP_FAILED == ib->ib_regs) {
-		error(0, errno, "%s", __func__);
-		return -errno;
-	}
-
-	for (cu_index = 0; cu_index < RMAN_CU_NUM_PER_IB; cu_index++)
-		ib->cu[cu_index].cu_regs = ib->ib_regs +
-					   cu_index * RMAN_CU_OFFSET;
-	error(0, 0, "RMan inbound block%d initialized", ib->index);
-	return 0;
+	return rmdev->ib_num;
 }
 
 int rman_dev_config(struct rman_dev *rmdev, const struct rman_cfg *cfg)
 {
 	uint32_t mmmr;
 
-	if (!rmdev || !cfg)
+	if (!rmdev || !rmdev->global_regs || !cfg)
 		return -EINVAL;
 
 	mmmr = read_reg(&rmdev->global_regs->mmmr);
@@ -508,10 +237,9 @@ struct rman_dev *rman_dev_init(void)
 	const phandle *prop;
 
 	uiofd = open(RMAN_UIO_FILE, O_RDWR);
-	if (uiofd < 0) {
-		error(0, errno, "%s", __func__);
-		return NULL;
-	}
+	if (uiofd < 0)
+		error(0, 0, "Can not open RMan device file"
+			"It may have been opened by other app");
 
 	rman_node = of_find_compatible_node(NULL, NULL, "fsl,rman");
 	if (of_device_is_available(rman_node) == false)
@@ -539,29 +267,18 @@ struct rman_dev *rman_dev_init(void)
 		rmdev->channel_id[i] = prop[i];
 
 	/* Setup global regs */
-	for_each_child_node(rman_node, child) {
+	for_each_child_node(rman_node, child)
 		if (of_device_is_compatible(child, "fsl,rman-global-cfg"))
-			if (rman_global_node_init(child, rmdev))
-				goto _err;
-	}
+			rman_global_node_init(child, rmdev);
 
-	/* Setup inbound blocks */
-	rmdev->ib_num = rman_get_ib_number(rmdev);
+	/* get inbound blocks number according to dts nodes */
+	for_each_child_node(rman_node, child)
+		if (of_device_is_compatible(child, "fsl,rman-inbound-block"))
+			rmdev->ib_num++;
+
 	if (rmdev->ib_num < 1) {
 		error(0, 0, "%s has no inbound block", __func__);
 		goto _err;
-	}
-	rmdev->ib = malloc(rmdev->ib_num * sizeof(*rmdev->ib));
-	if (!rmdev->ib) {
-		error(0, errno, "%s", __func__);
-		goto _err;
-	}
-	memset(rmdev->ib, 0, rmdev->ib_num * sizeof(*rmdev->ib));
-
-	for_each_child_node(rman_node, child) {
-		if (of_device_is_compatible(child, "fsl,rman-inbound-block"))
-			if (rman_ib_init(child, rmdev))
-				goto _err;
 	}
 
 	__rmdev = rmdev;
@@ -573,21 +290,8 @@ _err:
 
 void rman_dev_finish(struct rman_dev *rmdev)
 {
-	int ib_index;
-
 	if (!rmdev)
 		return;
-
-	if (rmdev->ib) {
-		for (ib_index = 0; ib_index < rmdev->ib_num; ib_index++) {
-			if (rmdev->ib[ib_index].ib_regs)
-				munmap((void *)rmdev->ib[ib_index].ib_regs,
-					rmdev->ib[ib_index].regs_size);
-			if (rmdev->ib[ib_index].uiofd > 0)
-				close(rmdev->ib[ib_index].uiofd);
-		}
-		free(rmdev->ib);
-	}
 
 	if (rmdev->global_regs)
 		munmap((void *)rmdev->global_regs, rmdev->regs_size);

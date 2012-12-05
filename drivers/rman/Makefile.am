@@ -33,6 +33,6 @@ lib_LIBRARIES = usdpaa_rman
 
 dist_DATA = 07-rman-uio.rules
 
-usdpaa_rman_SOURCES := rman_driver.c
+usdpaa_rman_SOURCES := rman_driver.c rman_ib_driver.c
 
 07-rman-uio.rules_install := etc/udev/rules.d

@@ -34,6 +34,7 @@
 #define _FSL_RMAN_H
 
 #include <limits.h>
+#include <usdpaa/fsl_rman_ib.h>
 
 #define RMAN_MAX_NUM_OF_CHANNELS 2
 
@@ -54,80 +55,6 @@
 #define RMAN_T8IC_ERROR_MASK	0x40
 /* Message format error */
 #define RMAN_MFE_ERROR_MASK	0x80
-
-enum RIO_TYPE {
-	RIO_TYPE0 = 0,
-	RIO_TYPE1,
-	RIO_TYPE2,
-	RIO_TYPE3,
-	RIO_TYPE4,
-	RIO_TYPE5,
-	RIO_TYPE6,
-	RIO_TYPE7,
-	RIO_TYPE8,
-	RIO_TYPE9,
-	RIO_TYPE10,
-	RIO_TYPE11,
-	RIO_TYPE_NUM,
-	RIO_TYPE_DSTR = RIO_TYPE9,
-	RIO_TYPE_DBELL = RIO_TYPE10,
-	RIO_TYPE_MBOX = RIO_TYPE11
-};
-
-enum RIO_MBOX_NUM {
-	RIO_MBOX_A,
-	RIO_MBOX_B,
-	RIO_MBOX_C,
-	RIO_MBOX_D
-};
-
-enum RMAN_FQ_MODE {
-	DIRECT,
-	ALGORITHMIC
-};
-
-struct rio_tran {
-	struct list_head node;
-	char name[PATH_MAX];
-	uint8_t type;
-	uint8_t flowlvl;
-	uint8_t flowlvl_mask;
-	union {
-		struct mbox_attr {
-			uint8_t mbox;
-			uint8_t mbox_mask;
-			uint8_t ltr;
-			uint8_t ltr_mask;
-			uint8_t msglen;
-			uint8_t msglen_mask;
-		} mbox;
-
-		struct dstr_attr {
-			uint16_t streamid;
-			uint16_t streamid_mask;
-			uint8_t cos;
-			uint8_t cos_mask;
-		} dstr;
-	};
-};
-
-struct ibcu_cfg {
-	uint8_t		ibcu;
-	uint8_t		port;
-	uint8_t		port_mask;
-	uint16_t	sid;
-	uint16_t	sid_mask;
-	uint16_t	did;
-	uint16_t	did_mask;
-	int		fqid;
-	uint8_t		bpid;
-	uint8_t		sgbpid;
-	uint32_t	msgsize;
-	uint32_t	sgsize;
-	uint32_t	data_offset;
-	enum RMAN_FQ_MODE	fq_mode;
-	struct rio_tran	*tran;
-};
 
 struct rman_cfg {
 	uint8_t fq_bits[RIO_TYPE_NUM];
@@ -166,6 +93,9 @@ int rman_tx_busy(void);
 /* Reset rman device */
 void rman_reset(void);
 
+/* Return inbound block number */
+int rman_get_ib_number(struct rman_dev *rmdev);
+
 /**
  * rman_get_channel_id - get the default transmission channel id
  * @rmdev: RMan device info
@@ -175,61 +105,6 @@ void rman_reset(void);
  * This function returns the corresponding QMan channel id.
  */
 int rman_get_channel_id(const struct rman_dev *rmdev, int index);
-
-/**
- * rman_enable_ibcu - enable the ibcu resource
- * @rmdev: RMan device info
- * @idx: rman inbound classification unit index
- *
- * Enable the corresponding ibcu resource
- */
-void rman_enable_ibcu(struct rman_dev *rmdev, int idx);
-
-/**
- * rman_enable_ibcu - enable the ibcu resource
- * @rmdev: RMan device info
- * @idx: rman inbound classification unit index
- *
- * Disable the corresponding ibcu resource
- */
-void rman_disable_ibcu(struct rman_dev *rmdev, int idx);
-
-/**
- * rman_release_ibcu - release the ibcu resource
- * @rmdev: RMan device info
- * @idx: rman inbound classification unit index
- *
- * This function will disable the specified ibcu and release the resource.
- */
-void rman_release_ibcu(struct rman_dev *rmdev, int idx);
-/**
- * rman_request_ibcu - request the ibcu resource
- * @rmdev: RMan device info
- * @fqid: Frame queue id
- *
- * If the fqid has been binded to a ibcu resource, just returns the
- * corresponding ibcu index, if not returns the first idle ibcu index.
- * If no idle ibcu it returns -EINVAL
- */
-int rman_request_ibcu(struct rman_dev *rmdev, int fqid);
-/**
- * rman_get_ibcu - get the ibcu index
- * @rmdev: RMan device info
- * @fqid: Frame queue id
- *
- * If the fqid has been binded to a ibcu resource, just returns the
- * corresponding ibcu index, otherwise returns -EINVAL.
- */
-int rman_get_ibcu(const struct rman_dev *rmdev, int fqid);
-/**
- * rman_config_ibcu - configure the ibcu resource
- * @rmdev: RMan device info
- * @cfg: ibcu configuration
- *
- * This function configure the ibcu according to ibcu configuration.
- * Returns %0 on success or %-EINVAL on failure.
- */
-int rman_config_ibcu(struct rman_dev *rmdev, const struct ibcu_cfg *cfg);
 
 /**
  * rman_dev_init - initialize the RMan device
