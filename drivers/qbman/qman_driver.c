@@ -467,3 +467,31 @@ int qman_sp_disable_ceetm_mode(enum qm_dc_portal portal, u16 sub_portal)
 	out_be32(qman_ccsr_map + DCP_CFG(portal), dcp_cfg);
 	return 0;
 }
+
+#define MISC_CFG	0x0be0
+#define MISC_CFG_WPM_MASK	0x00000002
+int qm_set_wpm(int wpm)
+{
+	u32 before;
+	u32 after;
+
+	if (!qman_ccsr_map)
+		return -ENODEV;
+
+	before = in_be32(qman_ccsr_map + MISC_CFG);
+	after = (before & (~MISC_CFG_WPM_MASK)) | (wpm << 1);
+	out_be32(qman_ccsr_map + MISC_CFG, after);
+	return 0;
+}
+
+int qm_get_wpm(int *wpm)
+{
+	u32 before;
+
+	if (!qman_ccsr_map)
+		return -ENODEV;
+
+	before = in_be32(qman_ccsr_map + MISC_CFG);
+	*wpm = (before & MISC_CFG_WPM_MASK) >> 1;
+	return 0;
+}

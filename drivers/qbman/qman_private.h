@@ -137,6 +137,9 @@ int qman_init_ccsr(struct device_node *node);
 void qman_liodn_fixup(u16 channel);
 #endif
 
+int qm_set_wpm(int wpm);
+int qm_get_wpm(int *wpm);
+
 /* Hooks from qman_driver.c in to qman_high.c */
 struct qman_portal *qman_create_affine_portal(
 			const struct qm_portal_config *config,
