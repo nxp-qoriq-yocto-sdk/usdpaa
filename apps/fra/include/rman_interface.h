@@ -211,8 +211,11 @@ static inline int dstr_get_size(const struct msg_buf *msg)
  */
 int rman_rx_get_fqs_num(struct rman_rx *rx);
 
-/* This function returns this ibcu index which this rx socket binded to */
-int rman_rx_get_ibcu(struct rman_rx *rx);
+/* This function returns this ib index which this rx socket binded to */
+int rman_rx_get_ib(struct rman_rx *rx);
+
+/* This function returns this cu index which this rx socket binded to */
+int rman_rx_get_cu(struct rman_rx *rx);
 
 /*
  * Structure hash_opt is used to describe which frame queue the received frame

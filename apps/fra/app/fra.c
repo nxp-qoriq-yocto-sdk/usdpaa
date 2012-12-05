@@ -65,10 +65,11 @@ static void dist_info(struct distribution *dist)
 			FQ_MODE_STR[cfg->dist_rman_rx_cfg.fq_mode]);
 		tran_status(cfg->dist_rman_rx_cfg.tran);
 		fprintf(stderr, "\t\tbase FQID:0x%x count:%d "
-			"configured to IBCU %d\n",
+			"configured to IB%d CU%d\n",
 			cfg->dist_rman_rx_cfg.fqid,
 			rman_rx_get_fqs_num(dist->rman_rx),
-			rman_rx_get_ibcu(dist->rman_rx));
+			rman_rx_get_ib(dist->rman_rx),
+			rman_rx_get_cu(dist->rman_rx));
 		break;
 	case DIST_TYPE_RMAN_TX:
 		fprintf(stderr, "\t\tport:%d did:%d\n"
@@ -99,10 +100,11 @@ static void dist_info(struct distribution *dist)
 			FQ_MODE_STR[cfg->dist_rman_to_fman_cfg.fq_mode]);
 		tran_status(cfg->dist_rman_to_fman_cfg.tran);
 		fprintf(stderr, "\t\tbase FQID:0x%x count:%d "
-			"configured to IBCU %d\n",
+			"configured to IB%d CU%d\n",
 			cfg->dist_rman_to_fman_cfg.fqid,
 			rman_rx_get_fqs_num(dist->rman_to_fman->rman_rx),
-			rman_rx_get_ibcu(dist->rman_to_fman->rman_rx));
+			rman_rx_get_ib(dist->rman_to_fman->rman_rx),
+			rman_rx_get_cu(dist->rman_to_fman->rman_rx));
 		break;
 	case DIST_TYPE_FMAN_TO_RMAN:
 		fprintf(stderr, "\t\tFMan:%s - rio port %d\n"

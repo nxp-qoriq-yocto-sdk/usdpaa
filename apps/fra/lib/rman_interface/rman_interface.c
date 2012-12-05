@@ -34,6 +34,8 @@
 #include <fra_fq_interface.h>
 #include <rman_interface.h>
 
+#define FRA_MAX_NUM_OF_IB 4
+
 /* This struct holds the default stashing opts for Rx FQ configuration. */
 static const struct qm_fqd_stashing default_stash_opts = {
 	.annotation_cl = FRA_STASH_ANNOTATION_CL,
@@ -43,6 +45,7 @@ static const struct qm_fqd_stashing default_stash_opts = {
 
 struct rman_if {
 	struct rman_dev *rmdev;
+	struct rman_inbound_block *rmib[FRA_MAX_NUM_OF_IB];
 	struct rman_cfg cfg;
 	struct srio_dev *sriodev;
 	int port_connected;
@@ -62,6 +65,7 @@ struct rman_rx_hash {
 
 struct rman_rx {
 	struct list_head node;
+	struct rman_inbound_block *rmib;
 	struct ibcu_cfg cfg;
 	int fqs_num;
 	struct rman_rx_hash *hash;
@@ -193,7 +197,14 @@ int rman_rx_get_fqs_num(struct rman_rx *rman_rx)
 	return rman_rx->fqs_num;
 }
 
-int rman_rx_get_ibcu(struct rman_rx *rman_rx)
+int rman_rx_get_ib(struct rman_rx *rman_rx)
+{
+	if (!rman_rx)
+		return -EINVAL;
+	return rman_ib_idx(rman_rx->rmib);
+}
+
+int rman_rx_get_cu(struct rman_rx *rman_rx)
 {
 	if (!rman_rx)
 		return -EINVAL;
@@ -324,7 +335,7 @@ void rman_rx_disable(struct rman_rx *rx)
 		return;
 
 	/* Disable inbound block classification unit */
-	rman_disable_ibcu(rmif->rmdev, rx->cfg.ibcu);
+	rman_disable_ibcu(rx->rmib, rx->cfg.ibcu);
 }
 
 void rman_rx_finish(struct rman_rx *rx)
@@ -335,7 +346,8 @@ void rman_rx_finish(struct rman_rx *rx)
 		return;
 
 	/* Disable inbound block classification unit */
-	rman_release_ibcu(rmif->rmdev, rx->cfg.ibcu);
+	if (rx->rmib)
+		rman_release_ibcu(rx->rmib, rx->cfg.ibcu);
 
 	if (rx->hash) {
 		for (i = 0; i < rx->fqs_num; i++)
@@ -349,12 +361,35 @@ void rman_rx_finish(struct rman_rx *rx)
 	free(rx);
 }
 
+static int rman_rx_ibcu_request(struct rman_rx *rx)
+{
+	int i;
+
+	if (!rx)
+		return -EINVAL;
+
+	for (i = 0; i < FRA_MAX_NUM_OF_IB; i++) {
+		/* first initialize inbound block */
+		if (!rmif->rmib[i])
+			rmif->rmib[i] = rman_ib_init(i);
+		if (!rmif->rmib[i])
+			continue;
+
+		rx->cfg.ibcu = rman_request_ibcu(rmif->rmib[i]);
+		if (rx->cfg.ibcu < 0)
+			continue;
+		rx->rmib = rmif->rmib[i];
+		return 0;
+	}
+	return -EINVAL;
+}
+
 struct rman_rx *
 rman_rx_init(int hash_init, uint32_t fqid, int fq_mode, uint8_t wq,
 	     u16 channel, struct rio_tran *tran,
 	     void *pvt, hash_handler handler)
 {
-	int ibcu, i;
+	int i;
 	struct rman_rx *rx;
 	struct rman_rx_hash *hash;
 	size_t size;
@@ -362,19 +397,14 @@ rman_rx_init(int hash_init, uint32_t fqid, int fq_mode, uint8_t wq,
 	if (!rmif || !fqid || !tran)
 		return NULL;
 
-	ibcu = rman_request_ibcu(rmif->rmdev, fqid);
-	if (ibcu < 0) {
-		error(0, -ibcu,
-			"fqid(0x%x) failed to request ibcu resource", fqid);
-		return NULL;
-	}
-
 	rx = malloc(sizeof(*rx));
 	if (!rx)
 		return NULL;
 	memset(rx, 0, sizeof(*rx));
 
-	rx->cfg.ibcu = ibcu;
+	if (rman_rx_ibcu_request(rx))
+		goto _err;
+
 	rx->cfg.tran = tran;
 	rx->cfg.fqid = fqid;
 	rx->cfg.fq_mode = fq_mode;
@@ -437,7 +467,7 @@ int rman_rx_listen(struct rman_rx *rx, uint8_t port, uint8_t port_mask,
 	cfg->msgsize = rmif->msg_size[cfg->tran->type];
 	cfg->sgsize = rmif->sg_size;
 	cfg->data_offset = RM_DATA_OFFSET;
-	err = rman_config_ibcu(rmif->rmdev, cfg);
+	err = rman_config_ibcu(rx->rmib, cfg);
 	return err;
 }
 
@@ -447,7 +477,7 @@ void rman_rx_enable(struct rman_rx *rx)
 		return;
 
 	/* Enable inbound block classification unit */
-	rman_enable_ibcu(rmif->rmdev, rx->cfg.ibcu);
+	rman_enable_ibcu(rx->rmib, rx->cfg.ibcu);
 }
 
 static int rman_tx_status_init(struct rman_tx *tx)
@@ -875,6 +905,7 @@ void rman_if_finish(void)
 {
 	struct rman_rx *rx, *rx_tmp;
 	struct rman_tx *tx, *tx_tmp;
+	int i;
 
 	if (!rmif)
 		return;
@@ -892,6 +923,9 @@ void rman_if_finish(void)
 
 	if (rmif->rmdev)
 		rman_dev_finish(rmif->rmdev);
+
+	for (i = 0; i < FRA_MAX_NUM_OF_IB; i++)
+		rman_ib_finish(rmif->rmib[i]);
 
 	free(rmif);
 	rmif = NULL;
