@@ -152,21 +152,6 @@ cb_dqrr_rx_hash(struct qman_portal *qm __always_unused,
 	return POST_DQRR();
 }
 
-enum qman_cb_dqrr_result
-cb_dqrr_rx_hash_v3(struct qman_portal *qm __always_unused,
-		struct qman_fq *fq,
-		const struct qm_dqrr_entry *dqrr)
-{
-	struct ppac_rx_hash *p = container_of(fq, struct ppac_rx_hash, fq);
-	TRACE("Rx_hash: fqid=%d\tfd_status = 0x%08x\n", fq->fqid,
-							 dqrr->fd.status);
-	PRE_DQRR();
-	PRE_ORP(p->orp_id, dqrr->seqnum);
-	ppam_rx_hash_cb_v3(&p->s, dqrr);
-	POST_ORP();
-	return POST_DQRR();
-}
-
 void cb_ern(struct qman_portal *qm __always_unused,
 	    struct qman_fq *fq,
 	    const struct qm_mr_entry *msg)

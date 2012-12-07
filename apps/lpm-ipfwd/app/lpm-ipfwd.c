@@ -813,29 +813,6 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 	ip_handler(p, notes, data);
 }
 
-static inline void ppam_rx_hash_cb_v3(struct ppam_rx_hash *p,
-				   const struct qm_dqrr_entry *dqrr)
-{
-	struct annotations_t *notes;
-	void *data;
-	struct qm_fd *fd = &dqrr->fd;
-
-	switch (dqrr->fd.format) {
-	case qm_fd_contig:
-		notes = __dma_mem_ptov(qm_fd_addr(&dqrr->fd));
-		data = (void *)notes + dqrr->fd.offset;
-		break;
-	default:
-		pr_err("Unsupported format packet came\n");
-		return;
-	}
-	/* Set FCO bit */
-	fd->cmd |= 0x80000000;
-	notes->dqrr = dqrr;
-
-	ip_handler(p, notes, data);
-}
-
 #include <ppac.c>
 
 struct ppam_arguments {
