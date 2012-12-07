@@ -153,4 +153,9 @@ static inline void fman_if_disable_all_rx(void)
 #define fman_if_for_each_bpool(bp, __if) \
 	list_for_each_entry(bp, &(__if)->bpool_list, node)
 
+#define FMAN_IP_REV_1	0xC30C4
+#define FMAN_IP_REV_1_MAJOR_MASK 0x0000FF00
+#define FMAN_IP_REV_1_MAJOR_SHIFT 8
+#define FMAN_V3	0x06
+extern u16 fman_ip_rev;
 #endif	/* __FMAN_H */
