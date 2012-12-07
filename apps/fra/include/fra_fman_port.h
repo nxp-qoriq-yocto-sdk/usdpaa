@@ -142,12 +142,6 @@ void fman_tx_error_listen(struct fra_fman_port *port,
  */
 int fman_send_frame(struct hash_opt *opt, const struct qm_fd *fd);
 
-/*
- * Send a packet described by fd, using the specific FMan port and frame queue
- * defined in hash_opt for FMan V3
- */
-int fman_send_frame_v3(struct hash_opt *opt, const struct qm_fd *fd);
-
 /* Initialize the FMan port according to the configuration */
 int fman_port_init(const struct fra_fman_port_cfg *cfg,
 		   const struct usdpaa_netcfg_info *netcfg);

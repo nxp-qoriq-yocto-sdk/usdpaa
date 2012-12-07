@@ -274,16 +274,6 @@ dist_fman_tx_handler(struct distribution *dist, struct hash_opt *opt,
 	return HANDLER_DONE;
 }
 
-static enum handler_status
-dist_fman_tx_handler_v3(struct distribution *dist, struct hash_opt *opt,
-		     const struct qm_fd *fd)
-{
-	FRA_DBG("Dist(%s)-FMANv3 will transmit this msg", dist->cfg->name);
-	if (fman_send_frame_v3(opt, fd))
-		return HANDLER_ERROR;
-	return HANDLER_DONE;
-}
-
 static void dist_finish(struct distribution *dist)
 {
 	struct dist_cfg *cfg;
@@ -570,10 +560,7 @@ static struct distribution *dist_fman_tx_init(struct dist_cfg *cfg)
 
 	dist->cfg = cfg;
 	dist->fman_tx = port;
-	if (fman_ip_rev >= FMAN_V3)
-		dist->handler = dist_fman_tx_handler_v3;
-	else
-		dist->handler = dist_fman_tx_handler;
+	dist->handler = dist_fman_tx_handler;
 
 #ifdef FRA_TX_CONFIRM
 	fman_tx_confirm_listen(dist->fman_tx, dist, dist_tx_confirm_cb);

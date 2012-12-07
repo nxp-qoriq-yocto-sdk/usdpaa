@@ -247,14 +247,11 @@ int fman_tx_init(struct fra_fman_port *port, uint32_t fqid,
 
 #ifdef FRA_TX_CONFIRM
 	context_b = fif->fqid_tx_confirm;
-	context_a = 0;
+	context_a = fman_dealloc_bufs_mask_lo;
 #else
 	context_b = 0;
-	if (fman_ip_rev >= FMAN_V3)
-		/* Set EBD to allow external buffer deallocation */
-		context_a = (uint64_t)0x1a000000 << 32 | 0x80000000;
-	else
-		context_a = (uint64_t)1 << 63;
+	context_a = (((uint64_t) 0x80000000 | fman_dealloc_bufs_mask_hi)
+		      << 32) | fman_dealloc_bufs_mask_lo;
 #endif
 	for (loop = 0; loop < fqs_num; loop++) {
 		struct qman_fq *fq = &port->tx_fqs[loop];
@@ -285,14 +282,6 @@ void fman_tx_error_listen(struct fra_fman_port *port,
 
 int fman_send_frame(struct hash_opt *opt, const struct qm_fd *fd)
 {
-	fra_send_frame(opt->tx_fqid, fd);
-	return 0;
-}
-
-int fman_send_frame_v3(struct hash_opt *opt, const struct qm_fd *fd)
-{
-	/* Set FCO bit */
-	((struct qm_fd *)fd)->cmd |= 0x80000000;
 	fra_send_frame(opt->tx_fqid, fd);
 	return 0;
 }
