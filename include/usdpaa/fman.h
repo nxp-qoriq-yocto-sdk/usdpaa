@@ -157,5 +157,10 @@ static inline void fman_if_disable_all_rx(void)
 #define FMAN_IP_REV_1_MAJOR_MASK 0x0000FF00
 #define FMAN_IP_REV_1_MAJOR_SHIFT 8
 #define FMAN_V3	0x06
+#define FMAN_V3_CONTEXTA_EN_A2V	0x10000000
+#define FMAN_V3_CONTEXTA_EN_OVOM	0x02000000
+#define FMAN_V3_CONTEXTA_EN_EBD	0x80000000
 extern u16 fman_ip_rev;
+extern u32 fman_dealloc_bufs_mask_hi;
+extern u32 fman_dealloc_bufs_mask_lo;
 #endif	/* __FMAN_H */

@@ -464,8 +464,9 @@ static int net_if_tx_init(struct qman_fq *fq, const struct fman_if *fif)
 	opts.fqd.dest.wq = NET_IF_TX_PRIORITY;
 	opts.fqd.fq_ctrl = QM_FQCTRL_PREFERINCACHE;
 	opts.fqd.context_b = 0;
-	opts.fqd.context_a.hi = 0x80000000; /* no tx-confirmation */
-	opts.fqd.context_a.lo = 0;
+	/* no tx-confirmation */
+	opts.fqd.context_a.hi = 0x80000000 | fman_dealloc_bufs_mask_hi;
+	opts.fqd.context_a.lo = 0 | fman_dealloc_bufs_mask_lo;
 	return qman_init_fq(fq, QMAN_INITFQ_FLAG_SCHED, &opts);
 }
 

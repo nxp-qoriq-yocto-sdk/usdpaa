@@ -313,9 +313,9 @@ void ppac_fq_tx_init(struct qman_fq *fq, u16 channel,
 	opts.fqd.context_a.hi = 0;
 #else
 	opts.fqd.context_b = 0;
-	opts.fqd.context_a.hi = 0x80000000;
+	opts.fqd.context_a.hi = 0x80000000 | fman_dealloc_bufs_mask_hi;
 #endif
-	opts.fqd.context_a.lo = 0;
+	opts.fqd.context_a.lo = 0 | fman_dealloc_bufs_mask_lo;
 	err = qman_init_fq(fq, QMAN_INITFQ_FLAG_SCHED, &opts);
 	BUG_ON(err);
 }

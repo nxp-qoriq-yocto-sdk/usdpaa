@@ -60,6 +60,8 @@ void *fman_ccsr_map;
 /* fman version info */
 u16 fman_ip_rev;
 static int get_once;
+u32 fman_dealloc_bufs_mask_hi;
+u32 fman_dealloc_bufs_mask_lo;
 
 static int ccsr_map_fd = -1;
 static LIST_HEAD(__ifs);
@@ -211,6 +213,18 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 	} else
 		fname = "mac-less-node";
 
+	if (fman_ip_rev >= FMAN_V3) {
+		/*
+		 * Set A2V, OVOM, EBD bits in contextA to allow external
+		 * buffer deallocation by fman.
+		 */
+		fman_dealloc_bufs_mask_hi = FMAN_V3_CONTEXTA_EN_A2V |
+						FMAN_V3_CONTEXTA_EN_OVOM;
+		fman_dealloc_bufs_mask_lo = FMAN_V3_CONTEXTA_EN_EBD;
+	} else {
+		fman_dealloc_bufs_mask_hi = 0;
+		fman_dealloc_bufs_mask_lo = 0;
+	}
 	/* Is the MAC node 1G, 10G, offline or MAC-less? */
 	if (is_offline)
 		__if->__if.mac_type = fman_offline;
