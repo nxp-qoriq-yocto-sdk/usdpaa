@@ -524,60 +524,60 @@
 
 	<distribution name="fman_to_rman_dtsec0" type="FMAN_TO_RMAN">
 		<distributionref name="fman_from_dtsec0"/>
-		<distributionref name="rman_to_peer_desec0"/>
+		<distributionref name="rman_to_peer_dtsec0"/>
 	</distribution>
 
 	<distribution name="fman_to_rman_dtsec1" type="FMAN_TO_RMAN">
 		<distributionref name="fman_from_dtsec1"/>
-		<distributionref name="rman_to_peer_desec1"/>
+		<distributionref name="rman_to_peer_dtsec1"/>
 	</distribution>
 
 	<distribution name="fman_to_rman_dtsec2" type="FMAN_TO_RMAN">
 		<distributionref name="fman_from_dtsec2"/>
-		<distributionref name="rman_to_peer_desec2"/>
+		<distributionref name="rman_to_peer_dtsec2"/>
 	</distribution>
 
 	<distribution name="fman_to_rman_dtsec3" type="FMAN_TO_RMAN">
 		<distributionref name="fman_from_dtsec3"/>
-		<distributionref name="rman_to_peer_desec3"/>
+		<distributionref name="rman_to_peer_dtsec3"/>
 	</distribution>
 
 	<distribution name="fman_to_rman_dtsec4" type="FMAN_TO_RMAN">
 		<distributionref name="fman_from_dtsec4"/>
-		<distributionref name="rman_to_peer_desec4"/>
+		<distributionref name="rman_to_peer_dtsec4"/>
 	</distribution>
 	<distribution name="fman_to_rman_dtsec5" type="FMAN_TO_RMAN">
 		<distributionref name="fman_from_dtsec5"/>
-		<distributionref name="rman_to_peer_desec5"/>
+		<distributionref name="rman_to_peer_dtsec5"/>
 	</distribution>
 
 	<distribution name="fman_to_rman_dtsec8" type="FMAN_TO_RMAN">
 		<distributionref name="fman_from_dtsec8"/>
-		<distributionref name="rman_to_peer_desec8"/>
+		<distributionref name="rman_to_peer_dtsec8"/>
 	</distribution>
 
 	<distribution name="fman_to_rman_dtsec9" type="FMAN_TO_RMAN">
 		<distributionref name="fman_from_dtsec9"/>
-		<distributionref name="rman_to_peer_desec9"/>
+		<distributionref name="rman_to_peer_dtsec9"/>
 	</distribution>
 
 	<distribution name="fman_to_rman_dtsec10" type="FMAN_TO_RMAN">
 		<distributionref name="fman_from_dtsec10"/>
-		<distributionref name="rman_to_peer_desec10"/>
+		<distributionref name="rman_to_peer_dtsec10"/>
 	</distribution>
 
 	<distribution name="fman_to_rman_dtsec11" type="FMAN_TO_RMAN">
 		<distributionref name="fman_from_dtsec11"/>
-		<distributionref name="rman_to_peer_desec11"/>
+		<distributionref name="rman_to_peer_dtsec11"/>
 	</distribution>
 
 	<distribution name="fman_to_rman_dtsec12" type="FMAN_TO_RMAN">
 		<distributionref name="fman_from_dtsec12"/>
-		<distributionref name="rman_to_peer_desec12"/>
+		<distributionref name="rman_to_peer_dtsec12"/>
 	</distribution>
 
 	<distribution name="fman_to_rman_dtsec13" type="FMAN_TO_RMAN">
 		<distributionref name="fman_from_dtsec13"/>
-		<distributionref name="rman_to_peer_desec13"/>
+		<distributionref name="rman_to_peer_dtsec13"/>
 	</distribution>
 </dists_cfg>
