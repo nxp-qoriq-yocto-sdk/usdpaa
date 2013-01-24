@@ -560,3 +560,25 @@ bool of_device_is_compatible(const struct device_node *dev_node,
 		return true;
 	return false;
 }
+
+struct device_node *of_find_node_with_property(struct device_node *from,
+	const char *prop_name)
+{
+	const struct dt_dir *d;
+	const struct dt_file *f;
+
+	WARN_ON(!alive, "Device-tree driver not initialised");
+	if (list_empty(&linear))
+		return NULL;
+	if (!from)
+		d = list_entry(linear.next, struct dt_dir, linear);
+	else
+		d = node2dir(from);
+
+	for (d = next_linear(d); d; d = next_linear(d)) {
+		list_for_each_entry(f, &d->files, node.list)
+			if (!strcmp(f->node.node.name, prop_name))
+				return (struct device_node *)&d->node.node;
+	}
+	return NULL;
+}

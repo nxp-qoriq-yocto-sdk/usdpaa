@@ -88,4 +88,14 @@ uint64_t of_translate_address(const struct device_node *dev_node,
 bool of_device_is_compatible(const struct device_node *dev_node,
 				const char *compatible);
 
+struct device_node *of_find_node_with_property(struct device_node *from,
+	const char *prop_name);
+
+static inline void of_node_put(struct device_node *node)
+{
+}
+
+extern struct device_node *of_find_node_with_property(
+	struct device_node *from, const char *prop_name);
+
 #endif	/*  __OF_INTERNAL_H */
