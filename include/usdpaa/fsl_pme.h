@@ -490,12 +490,13 @@ struct pme_ctx {
 	struct qm_fqd_stashing stashing;
 	struct qm_fd update_fd;
 	struct pme_nostash *us_data;
+	u32 pme_rev1;
+	u32 pme_rev2;
+	int max_scan_size;
 };
 
 /* Flags for pme_ctx_init() */
-#ifndef CONFIG_FSL_PME2_NO_DEPRECATED
 #define PME_CTX_FLAG_LOCKED      0x00000001 /* use QMAN_FQ_FLAG_LOCKED */
-#endif
 #define PME_CTX_FLAG_EXCLUSIVE   0x00000002 /* unscheduled, exclusive mode */
 #define PME_CTX_FLAG_PMTCC       0x00000004 /* PMTCC rather than scanning */
 #define PME_CTX_FLAG_DIRECT      0x00000008 /* Direct Action mode (not Flow) */

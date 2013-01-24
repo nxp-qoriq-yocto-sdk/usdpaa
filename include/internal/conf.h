@@ -93,6 +93,9 @@ extern "C" {
 /* define the token update period for shaping, in nanoseconds */
 #define CONFIG_QMAN_CEETM_UPDATE_PERIOD 1000
 
+/* workaround for PME errata in HW version 2.1.4 */
+#define CONFIG_FSL_PME_BUG_4K_SCAN_REV_2_1_4
+
 #ifdef __cplusplus
 }
 #endif

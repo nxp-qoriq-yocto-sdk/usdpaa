@@ -30,6 +30,7 @@
  */
 
 #include "pme2_private.h"
+#include <internal/of.h>
 
 /* The pme_ctx state machine is described via the following list of
  * internal PME_CTX_FLAG_*** bits and cross-referenced to the APIs (and
@@ -60,7 +61,7 @@
  * Simplifications: the do_flag() wrapper provides synchronised modifications of
  * the ctx 'flags', and callers can rely on the following implications to reduce
  * the number of flags in the masks being passed in;
- *	DISABLED implies DISABLING (and enable will clear both)
+ *	DISABLED implies DISABLING ( and enable will clear both )
  */
 
 /* Internal-only ctx flags, mustn't conflict with exported ones */
@@ -90,14 +91,16 @@ static inline int do_flags(struct pme_ctx *ctx,
 			u32 to_set, u32 to_unset)
 {
 	int err = -EBUSY;
-	spin_lock_irq(&ctx->lock);
+	unsigned long irqflags __maybe_unused;
+
+	spin_lock_irqsave(&ctx->lock, irqflags);
 	if (((ctx->flags & must_be_set) == must_be_set) &&
 			!(ctx->flags & must_not_be_set)) {
 		ctx->flags |= to_set;
 		ctx->flags &= ~to_unset;
 		err = 0;
 	}
-	spin_unlock_irq(&ctx->lock);
+	spin_unlock_irqrestore(&ctx->lock, irqflags);
 	return err;
 }
 
@@ -118,7 +121,7 @@ static const struct qman_fq_cb pme_fq_base_out = {
 
 /* Globals related to competition for PME_EFQC, ie. exclusivity */
 static DECLARE_WAIT_QUEUE_HEAD(exclusive_queue);
-static DEFINE_SPINLOCK(exclusive_lock);
+static spinlock_t exclusive_lock = __SPIN_LOCK_UNLOCKED(exclusive_lock);
 static unsigned int exclusive_refs;
 static struct pme_ctx *exclusive_ctx;
 
@@ -175,7 +178,14 @@ static int park(struct qman_fq *fq, struct qm_mcc_initfq *initfq)
 	BUG_ON(ret);
 	ret = qman_oos_fq(fq);
 	BUG_ON(ret);
-	initfq->we_mask = QM_INITFQ_WE_MASK;
+	/*
+	 * can't set QM_INITFQ_WE_OAC and QM_INITFQ_WE_TDTHRESH at the same
+	 * time
+	 */
+	initfq->we_mask = QM_INITFQ_WE_MASK & ~QM_INITFQ_WE_TDTHRESH;
+	ret = qman_init_fq(fq, 0, initfq);
+	BUG_ON(ret);
+	initfq->we_mask = QM_INITFQ_WE_TDTHRESH;
 	ret = qman_init_fq(fq, 0, initfq);
 	BUG_ON(ret);
 	return 0;
@@ -243,6 +253,52 @@ static int empty_pipeline(struct pme_ctx *ctx, __maybe_unused u32 flags)
 	return ret;
 }
 
+static int set_pme_revision(struct pme_ctx *ctx)
+{
+	int ret = 0;
+	u32 rev1, rev2;
+	struct device_node *dn;
+	const u32 *dt_rev;
+	size_t len;
+
+#ifdef CONFIG_FSL_PME2_CTRL
+	/* Can try and read it from CCSR */
+	if (pme2_have_control()) {
+		ret = pme_attr_get(pme_attr_rev1, &rev1);
+		if (ret)
+			return ret;
+		ret = pme_attr_get(pme_attr_rev2, &rev2);
+		if (ret)
+			return ret;
+		ctx->pme_rev1 = rev1;
+		ctx->pme_rev2 = rev2;
+		return 0;
+	}
+#endif
+
+	/* Not on control-plane, try and get it from pme portal node */
+	dn = of_find_node_with_property(NULL, "fsl,pme-rev1");
+	if (!dn)
+		return -ENODEV;
+	dt_rev = of_get_property(dn, "fsl,pme-rev1", &len);
+	if (!dt_rev || len != 4) {
+		of_node_put(dn);
+		return -ENODEV;
+	}
+	rev1 = *dt_rev;
+
+	dt_rev = of_get_property(dn, "fsl,pme-rev2", &len);
+	if (!dt_rev || len != 4) {
+		of_node_put(dn);
+		return -ENODEV;
+	}
+	rev2 = *dt_rev;
+	of_node_put(dn);
+	ctx->pme_rev1 = rev1;
+	ctx->pme_rev2 = rev2;
+	return ret;
+}
+
 int pme_ctx_init(struct pme_ctx *ctx, u32 flags, u32 bpid, u8 qosin,
 			u8 qosout, u16 dest,
 			const struct qm_fqd_stashing *stashing)
@@ -260,6 +316,15 @@ int pme_ctx_init(struct pme_ctx *ctx, u32 flags, u32 bpid, u8 qosin,
 	INIT_LIST_HEAD(&ctx->tokens);
 	ctx->hw_flow = NULL;
 	ctx->hw_residue = NULL;
+	/*
+	 * Don't check for error since this could depend on newer version
+	 * of u-boot which might not be present.
+	 */
+	set_pme_revision(ctx);
+#ifdef CONFIG_FSL_PME_BUG_4K_SCAN_REV_2_1_4
+	if (is_version_2_1_4(ctx->pme_rev1, ctx->pme_rev2))
+		ctx->max_scan_size = PME_MAX_SCAN_SIZE_BUG_2_1_4;
+#endif
 	ctx->us_data = __dma_mem_memalign(L1_CACHE_BYTES,
 				sizeof(struct pme_nostash));
 	if (!ctx->us_data)
@@ -269,14 +334,14 @@ int pme_ctx_init(struct pme_ctx *ctx, u32 flags, u32 bpid, u8 qosin,
 		goto err;
 	ctx->us_data->fqin.cb = pme_fq_base_in;
 	if (qman_create_fq(0, QMAN_FQ_FLAG_TO_DCPORTAL |
-				QMAN_FQ_FLAG_DYNAMIC_FQID |
-				QMAN_FQ_FLAG_LOCKED,
-				&ctx->us_data->fqin))
+			QMAN_FQ_FLAG_DYNAMIC_FQID |
+			QMAN_FQ_FLAG_LOCKED,
+			&ctx->us_data->fqin))
 		goto err;
 	fqin_inited = 1;
 	if (qman_create_fq(0, QMAN_FQ_FLAG_NO_ENQUEUE |
-				QMAN_FQ_FLAG_DYNAMIC_FQID |
-				QMAN_FQ_FLAG_LOCKED, &ctx->fq))
+			QMAN_FQ_FLAG_DYNAMIC_FQID |
+			QMAN_FQ_FLAG_LOCKED, &ctx->fq))
 		goto err;
 	rxinit = 1;
 	/* Input FQ */
@@ -316,7 +381,7 @@ EXPORT_SYMBOL(pme_ctx_init);
 void pme_ctx_finish(struct pme_ctx *ctx)
 {
 	u32 flags;
-	int ret;
+	int ret __maybe_unused;
 
 	ret = do_flags(ctx, PME_CTX_FLAG_DISABLED, PME_CTX_FLAG_RECONFIG, 0, 0);
 	BUG_ON(ret);
@@ -469,20 +534,24 @@ EXPORT_SYMBOL(pme_ctx_reconfigure_rx);
  * is EXCLUSIVE. */
 static inline void release_exclusive(__maybe_unused struct pme_ctx *ctx)
 {
+	unsigned long irqflags __maybe_unused;
+
 	BUG_ON(exclusive_ctx != ctx);
 	BUG_ON(!exclusive_refs);
-	spin_lock_irq(&exclusive_lock);
+	spin_lock_irqsave(&exclusive_lock, irqflags);
 	if (!(--exclusive_refs)) {
 		exclusive_ctx = NULL;
 		pme2_exclusive_unset();
 		wake_up(&exclusive_queue);
 	}
-	spin_unlock_irq(&exclusive_lock);
+	spin_unlock_irqrestore(&exclusive_lock, irqflags);
 }
 static int __try_exclusive(struct pme_ctx *ctx)
 {
 	int ret = 0;
-	spin_lock_irq(&exclusive_lock);
+	unsigned long irqflags __maybe_unused;
+
+	spin_lock_irqsave(&exclusive_lock, irqflags);
 	if (exclusive_refs) {
 		/* exclusivity already held, continue if we're the owner */
 		if (exclusive_ctx != ctx)
@@ -495,7 +564,7 @@ static int __try_exclusive(struct pme_ctx *ctx)
 	}
 	if (!ret)
 		exclusive_refs++;
-	spin_unlock_irq(&exclusive_lock);
+	spin_unlock_irqrestore(&exclusive_lock, irqflags);
 	return ret;
 }
 /* Use this macro as the wait expression because we don't want to continue
@@ -571,6 +640,7 @@ static int get_work(struct pme_ctx *ctx, u32 flags)
 static inline int do_work(struct pme_ctx *ctx, u32 flags, struct qm_fd *fd,
 		struct pme_ctx_token *token, struct qman_fq *orp_fq, u16 seqnum)
 {
+	unsigned long irqflags __maybe_unused;
 	int ret = get_work(ctx, flags);
 	if (ret)
 		return ret;
@@ -584,9 +654,9 @@ static inline int do_work(struct pme_ctx *ctx, u32 flags, struct qm_fd *fd,
 	BUG_ON(sizeof(*fd) != sizeof(token->blob));
 	memcpy(&token->blob, fd, sizeof(*fd));
 
-	spin_lock_irq(&ctx->lock);
+	spin_lock_irqsave(&ctx->lock, irqflags);
 	list_add_tail(&token->node, &ctx->tokens);
-	spin_unlock_irq(&ctx->lock);
+	spin_unlock_irqrestore(&ctx->lock, irqflags);
 
 	if (!orp_fq)
 		ret = qman_enqueue(&ctx->us_data->fqin, fd, ctrl2eq(flags));
@@ -594,9 +664,9 @@ static inline int do_work(struct pme_ctx *ctx, u32 flags, struct qm_fd *fd,
 		ret = qman_enqueue_orp(&ctx->us_data->fqin, fd, ctrl2eq(flags),
 					orp_fq, seqnum);
 	if (ret) {
-		spin_lock_irq(&ctx->lock);
+		spin_lock_irqsave(&ctx->lock, irqflags);
 		list_del(&token->node);
-		spin_unlock_irq(&ctx->lock);
+		spin_unlock_irqrestore(&ctx->lock, irqflags);
 		if (ctx->flags & PME_CTX_FLAG_EXCLUSIVE)
 			release_exclusive(ctx);
 		release_work(ctx);
@@ -612,6 +682,7 @@ static inline int __update_flow(struct pme_ctx *ctx, u32 flags,
 	int ret;
 	int hw_res_used = 0;
 	struct pme_hw_residue *hw_res = pme_hw_residue_new();
+	unsigned long irqflags __maybe_unused;
 
 	BUG_ON(ctx->flags & PME_CTX_FLAG_DIRECT);
 	if (!hw_res)
@@ -627,7 +698,7 @@ static inline int __update_flow(struct pme_ctx *ctx, u32 flags,
 	/* The callback will want to know this */
 	token->base_token.is_disable_flush = is_disabling ? 1 : 0;
 	flags |= (is_disabling ? PME_CTX_OP_INSIDE_DISABLE : 0);
-	spin_lock_irq(&ctx->lock);
+	spin_lock_irqsave(&ctx->lock, irqflags);
 	if (flags & PME_CTX_OP_RESETRESLEN) {
 		if (ctx->hw_residue) {
 			params->ren = 1;
@@ -640,7 +711,7 @@ static inline int __update_flow(struct pme_ctx *ctx, u32 flags,
 		ctx->hw_residue = hw_res;
 		hw_res_used = 1;
 	}
-	spin_unlock_irq(&ctx->lock);
+	spin_unlock_irqrestore(&ctx->lock, irqflags);
 	if (!hw_res_used)
 		pme_hw_residue_free(hw_res);
 	/* enqueue the FCW command to PME */
@@ -694,18 +765,35 @@ int pme_ctx_ctrl_nop(struct pme_ctx *ctx, u32 flags,
 }
 EXPORT_SYMBOL(pme_ctx_ctrl_nop);
 
-static inline void __prep_scan(__maybe_unused struct pme_ctx *ctx,
+static inline int __prep_scan(__maybe_unused struct pme_ctx *ctx,
 			struct qm_fd *fd, u32 args, struct pme_ctx_token *token)
 {
 	BUG_ON(ctx->flags & PME_CTX_FLAG_PMTCC);
 	token->cmd_type = pme_cmd_scan;
 	pme_fd_cmd_scan(fd, args);
+#ifdef CONFIG_FSL_PME_BUG_4K_SCAN_REV_2_1_4
+	if (ctx->max_scan_size) {
+		if (fd->format == qm_fd_contig || fd->format == qm_fd_sg) {
+			if (fd->length20 > ctx->max_scan_size)
+				return -EINVAL;
+		} else if (fd->format == qm_fd_contig_big ||
+				fd->format == qm_fd_sg_big) {
+			if (fd->length29 > ctx->max_scan_size)
+				return -EINVAL;
+		}
+	}
+#endif
+	return 0;
 }
 
 int pme_ctx_scan(struct pme_ctx *ctx, u32 flags, struct qm_fd *fd, u32 args,
 		struct pme_ctx_token *token)
 {
-	__prep_scan(ctx, fd, args, token);
+	int ret;
+
+	ret = __prep_scan(ctx, fd, args, token);
+	if (ret)
+		return ret;
 	return do_work(ctx, flags, fd, token, NULL, 0);
 }
 EXPORT_SYMBOL(pme_ctx_scan);
@@ -759,6 +847,7 @@ static inline struct pme_ctx_token *pop_matching_token(struct pme_ctx *ctx,
 {
 	struct pme_ctx_token *token;
 	const struct qm_fd *t_fd;
+	unsigned long irqflags __maybe_unused;
 
 	/* The fast-path case is that the for() loop actually degenerates into;
 	 *     token = list_first_entry();
@@ -767,7 +856,7 @@ static inline struct pme_ctx_token *pop_matching_token(struct pme_ctx *ctx,
 	 * The penalty of the slow-path case is the for() loop plus the fact
 	 * we're optimising for a "likely" match first time, which might hurt
 	 * when that assumption is wrong a few times in succession. */
-	spin_lock_irq(&ctx->lock);
+	spin_lock_irqsave(&ctx->lock, irqflags);
 	list_for_each_entry(token, &ctx->tokens, node) {
 		t_fd = (const struct qm_fd *)&token->blob[0];
 		if (likely(MATCH(t_fd, fd))) {
@@ -779,7 +868,7 @@ static inline struct pme_ctx_token *pop_matching_token(struct pme_ctx *ctx,
 	pr_err("PME2 Could not find matching token!\n");
 	BUG();
 found:
-	spin_unlock_irq(&ctx->lock);
+	spin_unlock_irqrestore(&ctx->lock, irqflags);
 	return token;
 }
 

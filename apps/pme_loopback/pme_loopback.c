@@ -114,6 +114,7 @@ struct ctrl_op {
 struct stats {
 	int in_flight;
 	int rx_packets;
+	int dropped;
 	int total_notifs;
 	int num_queue_empty;
 	int num_erns;
@@ -371,7 +372,7 @@ static int do_prep_scan(struct worker *worker, struct worker_msg *msg)
 	} else {
 		worker->fd_in.format = qm_fd_contig;
 		qm_fd_addr_set64(&worker->fd_in, pme_map(worker->scan_data));
-		worker->fd_in.length29 = worker->scan_size;
+		worker->fd_in.length20 = worker->scan_size;
 	}
 #ifndef USE_MALLOC
 	INIT_LIST_HEAD(&worker->token_list);
@@ -431,7 +432,7 @@ static int do_prep_scan_2(struct worker *worker, struct worker_msg *msg)
 	} else {
 		worker->fd_in.format = qm_fd_contig;
 		qm_fd_addr_set64(&worker->fd_in, pme_map(worker->scan_data));
-		worker->fd_in.length29 = worker->scan_size;
+		worker->fd_in.length20 = worker->scan_size;
 	}
 #ifndef USE_MALLOC
 	INIT_LIST_HEAD(&worker->token_list);
@@ -492,6 +493,7 @@ static void do_display_stats(struct worker *worker)
 	printf("Stats for worker on cpu %d\n", worker->cpu);
 	printf(" in_flight = %d\n", worker->stats.in_flight);
 	printf(" rx_packets = %d\n", worker->stats.rx_packets);
+	printf(" dropped_packets = %d\n", worker->stats.dropped);
 	printf(" total_notifs = %d\n", worker->stats.total_notifs);
 	printf(" num_queue_empty = %d\n", worker->stats.num_queue_empty);
 	printf(" num_erns = %d\n", worker->stats.num_erns);
@@ -632,7 +634,6 @@ static void *worker_fn(void *__worker)
 			}
 
 			if (worker->produce_suis) {
-				++worker->stats.rx_packets;
 #ifdef USE_MALLOC
 				token = malloc(sizeof(*token));
 				if (!token) {
@@ -660,11 +661,11 @@ static void *worker_fn(void *__worker)
 						/* enqueue command ring full */
 						++worker->stats.full_fifo;
 					} else {
-						fprintf(stderr, "pme_ctx_scan "
-							"failed %d\n", s);
+						++worker->stats.dropped;
 						break;
 					}
 				} else {
+					++worker->stats.rx_packets;
 					worker->stats.in_flight++;
 					if (worker->stats.in_flight >=
 							worker->high_inflight) {
@@ -1266,6 +1267,7 @@ static int pme_loopback_cli_stop_scan(int argc, char *argv[])
 {
 	struct worker *worker;
 	uint64_t total_units = 0;
+	uint64_t total_units_dropped = 0;
 	unsigned total_time_sec = 0;
 	unsigned total_time_usec = 0;
 	unsigned num_workers = 0;
@@ -1292,13 +1294,16 @@ static int pme_loopback_cli_stop_scan(int argc, char *argv[])
 		total_time_sec += worker->stats.total_sec;
 		total_time_usec += worker->stats.total_usec;
 		total_packet_size += worker->scan_size;
+		total_units_dropped += worker->stats.dropped;
 	}
-	pps = total_units/((total_time_sec+total_time_usec*1e-6)
+	if (total_units)
+		pps = total_units/((total_time_sec+total_time_usec*1e-6)
 			/num_workers);
 	bw = total_packet_size / num_workers;
 	bw *= 8*pps;
 	bw /= (1000*1000);
 	printf("Total units scanned: %"PRIu64"\n", total_units);
+	printf("Total units dropped: %"PRIu64"\n", total_units_dropped);
 	printf("Total time: %f sec\n",
 		(total_time_sec+total_time_usec*1e-6)/num_workers);
 	printf("Scan Units per second: %"PRIu64"\n", pps);
