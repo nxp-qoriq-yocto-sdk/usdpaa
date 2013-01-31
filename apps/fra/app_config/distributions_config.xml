@@ -48,14 +48,14 @@
 	</distribution>
 
 	<distribution name="rman_from_peer_10gec2" type="RMAN_RX">
-		<rio_port number="1" mask="1"/>
+		<rio_port number="0" mask="1"/>
 		<sid value="0" mask="0xff"/>
 		<queue base="0x2e00" mode="algorithmic" wq="0"/>
 		<transactionref name="dstr-10gec2"/>
 	</distribution>
 
 	<distribution name="rman_from_peer_10gec3" type="RMAN_RX">
-		<rio_port number="1" mask="1"/>
+		<rio_port number="0" mask="1"/>
 		<sid value="0" mask="0xff"/>
 		<queue base="0x2f00" mode="algorithmic" wq="0"/>
 		<transactionref name="dstr-10gec3"/>
@@ -104,42 +104,42 @@
 	</distribution>
 
 	<distribution name="rman_from_peer_dtsec8" type="RMAN_RX">
-		<rio_port number="1" mask="1"/>
+		<rio_port number="0" mask="1"/>
 		<sid value="0" mask="0xff"/>
 		<queue base="0x2800" mode="algorithmic" wq="0"/>
 		<transactionref name="dstr-dtsec8"/>
 	</distribution>
 
 	<distribution name="rman_from_peer_dtsec9" type="RMAN_RX">
-		<rio_port number="1" mask="1"/>
+		<rio_port number="0" mask="1"/>
 		<sid value="0" mask="0xff"/>
 		<queue base="0x2900" mode="algorithmic" wq="0"/>
 		<transactionref name="dstr-dtsec9"/>
 	</distribution>
 
 	<distribution name="rman_from_peer_dtsec10" type="RMAN_RX">
-		<rio_port number="1" mask="1"/>
+		<rio_port number="0" mask="1"/>
 		<sid value="0" mask="0xff"/>
 		<queue base="0x2a000" mode="algorithmic" wq="0"/>
 		<transactionref name="dstr-dtsec10"/>
 	</distribution>
 
 	<distribution name="rman_from_peer_dtsec11" type="RMAN_RX">
-		<rio_port number="1" mask="1"/>
+		<rio_port number="0" mask="1"/>
 		<sid value="0" mask="0xff"/>
 		<queue base="0x2b00" mode="algorithmic" wq="0"/>
 		<transactionref name="dstr-dtsec11"/>
 	</distribution>
 
 	<distribution name="rman_from_peer_dtsec12" type="RMAN_RX">
-		<rio_port number="1" mask="1"/>
+		<rio_port number="0" mask="1"/>
 		<sid value="0" mask="0xff"/>
 		<queue base="0x2c00" mode="algorithmic" wq="0"/>
 		<transactionref name="dstr-dtsec12"/>
 	</distribution>
 
 	<distribution name="rman_from_peer_dtsec13" type="RMAN_RX">
-		<rio_port number="1" mask="1"/>
+		<rio_port number="0" mask="1"/>
 		<sid value="0" mask="0xff"/>
 		<queue base="0x2d00" mode="algorithmic" wq="0"/>
 		<transactionref name="dstr-dtsec13"/>
@@ -161,14 +161,14 @@
 	</distribution>
 
 	<distribution name="rman_to_peer_10gec2" type="RMAN_TX">
-		<rio_port number="1"/>
+		<rio_port number="0"/>
 		<did value="1"/>
 		<queue base="0x3e00" count="4" wq="0"/>
 		<transactionref name="dstr-10gec2"/>
 	</distribution>
 
 	<distribution name="rman_to_peer_10gec3" type="RMAN_TX">
-		<rio_port number="1"/>
+		<rio_port number="0"/>
 		<did value="1"/>
 		<queue base="0x3f00" count="4" wq="0"/>
 		<transactionref name="dstr-10gec3"/>
@@ -217,42 +217,42 @@
 	</distribution>
 
 	<distribution name="rman_to_peer_dtsec8" type="RMAN_TX">
-		<rio_port number="1"/>
+		<rio_port number="0"/>
 		<did value="1"/>
 		<queue base="0x3800" count="4" wq="0"/>
 		<transactionref name="dstr-dtsec8"/>
 	</distribution>
 
 	<distribution name="rman_to_peer_dtsec9" type="RMAN_TX">
-		<rio_port number="1"/>
+		<rio_port number="0"/>
 		<did value="1"/>
 		<queue base="0x3900" count="4" wq="0"/>
 		<transactionref name="dstr-dtsec9"/>
 	</distribution>
 
 	<distribution name="rman_to_peer_dtsec10" type="RMAN_TX">
-		<rio_port number="1"/>
+		<rio_port number="0"/>
 		<did value="1"/>
 		<queue base="0x3a00" count="4" wq="0"/>
 		<transactionref name="dstr-dtsec10"/>
 	</distribution>
 
 	<distribution name="rman_to_peer_dtsec11" type="RMAN_TX">
-		<rio_port number="1"/>
+		<rio_port number="0"/>
 		<did value="1"/>
 		<queue base="0x3b00" count="4" wq="0"/>
 		<transactionref name="dstr-dtsec11"/>
 	</distribution>
 
 	<distribution name="rman_to_peer_dtsec12" type="RMAN_TX">
-		<rio_port number="1"/>
+		<rio_port number="0"/>
 		<did value="1"/>
 		<queue base="0x3c00" count="4" wq="0"/>
 		<transactionref name="dstr-dtsec12"/>
 	</distribution>
 
 	<distribution name="rman_to_peer_dtsec13" type="RMAN_TX">
-		<rio_port number="1"/>
+		<rio_port number="0"/>
 		<did value="1"/>
 		<queue base="0x3d00" count="4" wq="0"/>
 		<transactionref name="dstr-dtsec13"/>
