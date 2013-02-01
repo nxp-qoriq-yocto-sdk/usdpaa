@@ -33,17 +33,21 @@ if [ "$pid" == "" ]
 fi
 
 ipsecfwd_config -P $pid -F -a 192.168.60.1 -i 8
+ipsecfwd_config -P $pid -F -a 192.168.70.1 -i 9
 ipsecfwd_config -P $pid -F -a 192.168.160.1 -i 18
+ipsecfwd_config -P $pid -F -a 192.168.170.1 -i 19
 
 if [ "$1" == "left" ]
 then
     i=2
-    while [ "$i" -le 24 ]
+    while [ "$i" -le 17 ]
     do
 #set the mac address of the right board here for creating ARP entry
-     ipsecfwd_config -P $pid -G -s 192.168.60.$i -m 00:e0:0c:00:e2:09 -r true
-     ipsecfwd_config -P $pid -G -s 192.168.160.$i -m 00:e0:0c:00:e2:04 -r true
-     i=`expr $i + 1`
+      ipsecfwd_config -P $pid -G -s 192.168.60.$i -m 00:e0:0c:00:e2:09 -r true
+      ipsecfwd_config -P $pid -G -s 192.168.70.$i -m 00:e0:0c:00:e2:0a -r true
+      ipsecfwd_config -P $pid -G -s 192.168.160.$i -m 00:e0:0c:00:e2:04 -r true
+      ipsecfwd_config -P $pid -G -s 192.168.170.$i -m 00:e0:0c:00:e2:05 -r true
+      i=`expr $i + 1`
     done
     f=out
     s=in
@@ -52,12 +56,14 @@ fi
 if [ "$1" == "right" ]
 then
     i=2
-    while [ "$i" -le 24 ]
+    while [ "$i" -le 17 ]
     do
 #set the mac address of the left board here for creating ARP entry
-     ipsecfwd_config -P $pid -G -s 192.168.60.$i -m 00:e0:0c:00:8a:09 -r true
-     ipsecfwd_config -P $pid -G -s 192.168.160.$i -m 00:e0:0c:00:8a:04 -r true
-     i=`expr $i + 1`
+      ipsecfwd_config -P $pid -G -s 192.168.60.$i -m 00:e0:0c:00:8a:09 -r true
+      ipsecfwd_config -P $pid -G -s 192.168.70.$i -m 00:e0:0c:00:8a:0a -r true
+      ipsecfwd_config -P $pid -G -s 192.168.160.$i -m 00:e0:0c:00:8a:04 -r true
+      ipsecfwd_config -P $pid -G -s 192.168.170.$i -m 00:e0:0c:00:8a:05 -r true
+      i=`expr $i + 1`
     done
     f=in
     s=out
@@ -70,19 +76,25 @@ fi
 
 w=1
 i=2
-while [ "$i" -le 23 ]
+while [ "$i" -le 17 ]
 do
     j=2
-    while [ "$j" -le 24 ]
+    while [ "$j" -le 17 ]
     do
-	ipsecfwd_config -P $pid -A -s  192.168.60.$i -d  192.168.160.$j \
-		-g 192.168.60.2 -G 192.168.160.2 -i $w -r $f
-	w=`expr $w + 1`
-	ipsecfwd_config -P $pid -A -s  192.168.160.$i -d  192.168.60.$j \
-		-g 192.168.160.2 -G 192.168.60.2 -i $w -r $s
-	w=`expr $w + 1`
+        ipsecfwd_config -P $pid -A -s  192.168.60.$i -d  192.168.160.$j \
+            -g 192.168.60.2 -G 192.168.160.2 -i $w -r $f
+        w=`expr $w + 1`
+        ipsecfwd_config -P $pid -A -s  192.168.70.$i -d  192.168.170.$j \
+            -g 192.168.70.2 -G 192.168.170.2 -i $w -r $f
+        w=`expr $w + 1`
+        ipsecfwd_config -P $pid -A -s  192.168.160.$i -d  192.168.60.$j \
+            -g 192.168.160.2 -G 192.168.60.2 -i $w -r $s
+        w=`expr $w + 1`
+        ipsecfwd_config -P $pid -A -s  192.168.170.$i -d  192.168.70.$j \
+            -g 192.168.170.2 -G 192.168.70.2 -i $w -r $s
+        w=`expr $w + 1`
 
-	j=`expr $j + 1`
+        j=`expr $j + 1`
     done
     i=`expr $i + 1`
 done

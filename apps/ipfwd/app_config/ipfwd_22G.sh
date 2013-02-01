@@ -37,55 +37,95 @@ net_pair_routes()
 	for net in $1 $2
 	do
 		ipfwd_config -P $pid -B -s 192.168.$net.2 -c $3 \
-		-d 192.168.$(expr $1 + $2 - $net).2 -n $4 -g \
-		192.168.$(expr $1 + $2 - $net).2
+		-d 192.168.$(expr $1 + $2 - $net).2 -n $4 \
+		-g 192.168.$(expr $1 + $2 - $net).2
 	done
 }
 
 case $(basename $0 .sh) in
-	ipfwd_22G)
-		ipfwd_config -P $pid -F -a 192.168.60.1	 -i 5
-		ipfwd_config -P $pid -F -a 192.168.130.1 -i 8
-		ipfwd_config -P $pid -F -a 192.168.140.1 -i 9
-		ipfwd_config -P $pid -F -a 192.168.160.1 -i 11
+   ipfwd_22G)
+	ipfwd_config -P $pid -F -a 192.168.60.1	 -i 8
+	ipfwd_config -P $pid -F -a 192.168.130.1 -i 12
+	ipfwd_config -P $pid -F -a 192.168.140.1 -i 13
+	ipfwd_config -P $pid -F -a 192.168.160.1 -i 18
 
-		ipfwd_config -P $pid -G -s 192.168.60.2	 -m 02:00:c0:a8:3c:02 -r true
-		ipfwd_config -P $pid -G -s 192.168.130.2 -m 02:00:c0:a8:82:02 -r true
-		ipfwd_config -P $pid -G -s 192.168.140.2 -m 02:00:c0:a8:8c:02 -r true
-		ipfwd_config -P $pid -G -s 192.168.160.2 -m 02:00:c0:a8:a0:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.60.2	 -m 02:00:c0:a8:3c:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.130.2 -m 02:00:c0:a8:82:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.140.2 -m 02:00:c0:a8:8c:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.160.2 -m 02:00:c0:a8:a0:02 -r true
 
-						# 1022
-		net_pair_routes 130 140	 7  7	# 2 *  7 *  7 =	 98
-		net_pair_routes	 60 160 21 22	# 2 * 21 * 22 = 924
-		;;
-	ipfwd_20G)
-		ipfwd_config -P $pid -F -a 192.168.60.1	 -i 5
-		ipfwd_config -P $pid -F -a 192.168.160.1 -i 11
+					# 1022
+	net_pair_routes 130 140	 7  7	# 2 *  7 *  7 =	 98
+	net_pair_routes	 60 160 21 22	# 2 * 21 * 22 = 924
+	;;
 
-		ipfwd_config -P $pid -G -s 192.168.60.2	 -m 02:00:c0:a8:3c:02 -r true
-		ipfwd_config -P $pid -G -s 192.168.160.2 -m 02:00:c0:a8:a0:02 -r true
+   ipfwd_20G)
+	ipfwd_config -P $pid -F -a 192.168.60.1	 -i 8
+	ipfwd_config -P $pid -F -a 192.168.160.1 -i 18
 
-						# 1012
-		net_pair_routes 60 160 22 23	# 2 * 22 * 23 = 1012
-		;;
-	ipfwd_14G)
-		ipfwd_config -P $pid -F -a 192.168.10.1 -i 0
-		ipfwd_config -P $pid -F -a 192.168.20.1 -i 1
-		ipfwd_config -P $pid -F -a 192.168.40.1 -i 3
-		ipfwd_config -P $pid -F -a 192.168.50.1 -i 4
-		ipfwd_config -P $pid -F -a 192.168.60.1	-i 5
+	ipfwd_config -P $pid -G -s 192.168.60.2	 -m 02:00:c0:a8:3c:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.160.2 -m 02:00:c0:a8:a0:02 -r true
 
-		ipfwd_config -P $pid -G -s 192.168.10.2 -m 02:00:c0:a8:0a:02 -r true
-		ipfwd_config -P $pid -G -s 192.168.20.2 -m 02:00:c0:a8:14:02 -r true
-		ipfwd_config -P $pid -G -s 192.168.40.2 -m 02:00:c0:a8:28:02 -r true
-		ipfwd_config -P $pid -G -s 192.168.50.2 -m 02:00:c0:a8:32:02 -r true
-		ipfwd_config -P $pid -G -s 192.168.60.2 -m 02:00:c0:a8:3c:02 -r true
+					# 1012
+	net_pair_routes 60 160 22 23	# 2 * 22 * 23 = 1012
+	;;
 
-						# 1000
-		net_pair_routes 10 60 10 10	# 2 * 10 * 10 = 200
-		net_pair_routes 20 60 10 10	# 2 * 10 * 10 = 200
-		net_pair_routes 40 60 10 10	# 2 * 10 * 10 = 200
-		net_pair_routes 50 60 10 10	# 2 * 10 * 10 = 200
-		;;
+   ipfwd_14G)
+	ipfwd_config -P $pid -F -a 192.168.10.1 -i 0
+	ipfwd_config -P $pid -F -a 192.168.20.1 -i 1
+	ipfwd_config -P $pid -F -a 192.168.40.1 -i 3
+	ipfwd_config -P $pid -F -a 192.168.50.1 -i 4
+	ipfwd_config -P $pid -F -a 192.168.60.1	-i 8
+
+	ipfwd_config -P $pid -G -s 192.168.10.2 -m 02:00:c0:a8:0a:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.20.2 -m 02:00:c0:a8:14:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.40.2 -m 02:00:c0:a8:28:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.50.2 -m 02:00:c0:a8:32:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.60.2 -m 02:00:c0:a8:3c:02 -r true
+
+					# 1000
+	net_pair_routes 10 60 10 10	# 2 * 10 * 10 = 200
+	net_pair_routes 20 60 10 10	# 2 * 10 * 10 = 200
+	net_pair_routes 40 60 10 10	# 2 * 10 * 10 = 200
+	net_pair_routes 50 60 10 10	# 2 * 10 * 10 = 200
+	;;
+
+   ipfwd_40G)
+	ipfwd_config -P $pid -F -a 192.168.50.1 -i 8
+	ipfwd_config -P $pid -F -a 192.168.60.1 -i 9
+	ipfwd_config -P $pid -F -a 192.168.140.1 -i 18
+	ipfwd_config -P $pid -F -a 192.168.150.1 -i 19
+
+	ipfwd_config -P $pid -G -s 192.168.50.2 -m 02:00:c0:a8:0a:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.60.2 -m 02:00:c0:a8:14:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.140.2 -m 02:00:c0:a8:28:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.150.2 -m 02:00:c0:a8:32:02 -r true
+
+					# 1024
+	net_pair_routes 50 60 16 16	# 2 * 16 * 16 = 512
+	net_pair_routes 140 150 16 16	# 2 * 16 * 16 = 512
+	;;
+
+   ipfwd_42G)
+	ipfwd_config -P $pid -F -a 192.168.40.1 -i 4
+	ipfwd_config -P $pid -F -a 192.168.50.1 -i 8
+	ipfwd_config -P $pid -F -a 192.168.60.1 -i 9
+	ipfwd_config -P $pid -F -a 192.168.130.1 -i 14
+	ipfwd_config -P $pid -F -a 192.168.140.1 -i 18
+	ipfwd_config -P $pid -F -a 192.168.150.1 -i 19
+
+	ipfwd_config -P $pid -G -s 192.168.40.2 -m 02:00:c0:a8:da:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.50.2 -m 02:00:c0:a8:0a:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.60.2 -m 02:00:c0:a8:14:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.130.2 -m 02:00:c0:a8:a8:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.140.2 -m 02:00:c0:a8:28:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.150.2 -m 02:00:c0:a8:32:02 -r true
+
+					# 998
+	net_pair_routes 40 130 7 7	# 2 *  7 *  7 = 98
+	net_pair_routes 50 60 15 15	# 2 * 15 * 15 = 450
+	net_pair_routes 140 150 15 15	# 2 * 15 * 15 = 450
+	;;
+
 esac
 echo IPFwd Route Creation completed

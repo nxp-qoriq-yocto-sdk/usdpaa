@@ -135,7 +135,7 @@ static struct argp_option arp_del_options[] = {
 };
 
 #define IPC_CTRL_IFNUM_MIN				0
-#define IPC_CTRL_IFNUM_MAX				11
+#define IPC_CTRL_IFNUM_MAX				19
 static struct argp_option intf_conf_options[] = {
 	{"i", 'i', "IFNAME", 0, "If Name", 0},
 	{"a", 'a', "IPADDR", 0, "IP Address", 0},
