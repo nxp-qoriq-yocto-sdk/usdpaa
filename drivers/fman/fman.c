@@ -226,6 +226,8 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 		fman_dealloc_bufs_mask_lo = 0;
 	}
 	/* Is the MAC node 1G, 10G, offline or MAC-less? */
+	__if->__if.is_memac = 0;
+
 	if (is_offline)
 		__if->__if.mac_type = fman_offline;
 	else if (is_macless)
