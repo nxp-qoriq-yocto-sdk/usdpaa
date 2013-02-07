@@ -31,6 +31,7 @@
  */
 
 #include <ppac.h>
+#include <flib/rta.h>
 
 #include <unistd.h>
 #include <readline.h>  /* libedit */
@@ -109,6 +110,8 @@ const char ppam_cfg_path[] __attribute__((weak)) = __stringify(DEF_CFG_PATH);
 /* Global data */
 /***************/
 
+/* SEC engine era used by RTA functions*/
+enum rta_sec_era rta_sec_era;
 /* The triplet of buffer counts indicating how many to seed to pools */
 static unsigned int bpool_cnt[3];
 /* The SDQCR mask to use (computed from pchannels) */
@@ -1206,6 +1209,7 @@ static const struct argp_option argp_opts[] = {
 	{"dma-mem",	'd',	"SIZE",	0,		"Size of DMA region to allocate"},
 	{"buffers",	'b',	"x:y:z", 0,		"Number of buffers to allocate"},
 	{"cpu-range",	 0,	0,	OPTION_DOC,	"'index' or 'first'..'last'"},
+	{"sec-era",     'e', "ERA", 0, "SEC engine era (default 2)"},
 	{}
 };
 
@@ -1246,6 +1250,16 @@ static error_t ppac_parse(int key, char *arg, struct argp_state *state)
 		if ((val == ULONG_MAX) || (*endptr != '\0'))
 			argp_usage(state);
 		args->bpool_cnt[2] = val;
+		break;
+	case 'e':
+		val = atoi(arg);
+		/* enum rta_sec_era starts from 0 */
+		rta_sec_era = val - 1;
+		if (rta_sec_era < RTA_SEC_ERA_1 || rta_sec_era > MAX_SEC_ERA) {
+			fprintf(stderr, "%s: invalid SEC era: %lu\n",
+				state->argv[0], val);
+			return EINVAL;
+		}
 		break;
 	case ARGP_KEY_ARGS:
 		if (state->argc - state->next != 1)
@@ -1474,6 +1488,8 @@ int main(int argc, char *argv[])
 	char *cli, **cli_argv;
 	const struct cli_table_entry *cli_cmd;
 
+	/* TODO: Retrieve default SEC ERA from the platform */
+	rta_set_sec_era(RTA_SEC_ERA_2);
 	rcode = of_init();
 	if (rcode) {
 		pr_err("of_init() failed\n");
@@ -1498,6 +1514,8 @@ int main(int argc, char *argv[])
 	bpool_cnt[0] = ppac_args.bpool_cnt[0];
 	bpool_cnt[1] = ppac_args.bpool_cnt[1];
 	bpool_cnt[2] = ppac_args.bpool_cnt[2];
+
+	printf("Using SEC ERA %i\n", rta_sec_era + 1);
 
 	/* Do global init that doesn't require portal access; */
 	/* - load the config (includes discovery and mapping of MAC devices) */

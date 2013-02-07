@@ -23,8 +23,8 @@
  */
 
 #include <usdpaa/dma_mem.h>
-#include <fsl_sec/desc.h>
-#include <fsl_sec/dcl.h>
+#include <flib/desc.h>
+#include <flib/protoshared.h>
 #include "ipsec_sec.h"
 #include "app_common.h"
 
@@ -32,23 +32,22 @@
  \brief Initializes the SEC40 descriptor
 	for encapsulation with preheader and Initialization descriptor
  \param[in] sa Pointer to the SA Info structure
- \param[in] outer_ip_header Pointer to the IP Header
+ \param[in] ip_header Pointer to the IP Header
  \param[in] next_header
  \param[in] ealg Encryption Algo Info
  \param[in] aalg Authentication Algo Info
  \return Pointer to the IPSec Encap SEC40 descriptor structure
  */
 void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
-					  struct iphdr *outer_ip_header,
+					  struct iphdr *ip_header,
 					  uint8_t next_header)
 {
 	struct ipsec_encap_descriptor_t *preheader_initdesc;
-	uint16_t desc_len;
+	unsigned desc_len;
 	struct ipsec_encap_pdb pdb;
-	struct cipherparams cipher;
-	struct authparams auth;
+	struct alginfo cipher;
+	struct alginfo auth;
 	unsigned char *buff_start = NULL;
-	int ret;
 
 	preheader_initdesc = __dma_mem_memalign(L1_CACHE_BYTES,
 				sizeof(struct ipsec_encap_descriptor_t));
@@ -66,24 +65,21 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 	pdb.spi = sa->spi;
 	pdb.ip_hdr_len = 20;
 	pdb.options = PDBOPTS_ESPCBC_TUNNEL | PDBOPTS_ESPCBC_INCIPHDR |
-			PDBOPTS_ESPCBC_IPHDRSRC | PDBOPTS_ESPCBC_IVSRC;
-	pdb.hmo.dttl = 1;
-	pdb.options |= PDBOPTS_ESPCBC_CKSUM;
+		PDBOPTS_ESPCBC_IPHDRSRC | PDBOPTS_ESPCBC_IVSRC |
+		PDBOPTS_ESPCBC_CKSUM;
+	pdb.hmo = PDBHMO_DTTL;
 
 	cipher.algtype = sa->ealg->alg_type;
 	cipher.key = (uint8_t *)sa->ealg->alg_key;
-	cipher.keylen = (sa->ealg)->alg_key_len * 8;	/* Encryption keysize in bits */
+	cipher.keylen = sa->ealg->alg_key_len;
 
 	auth.algtype = sa->aalg->alg_type;
 	auth.key = (uint8_t *)sa->aalg->alg_key_ptr;
-	auth.keylen = sa->aalg->alg_key_len * 8;	/* SHA1 keysize in bits */
+	auth.keylen = sa->aalg->alg_key_len;
 
 	/* Now construct */
-	ret = cnstr_shdsc_ipsec_encap((uint32_t *) buff_start, &desc_len,
-				      &pdb, (uint8_t *)outer_ip_header,
-				      &cipher, &auth);
-	if (ret)
-		return NULL;
+	cnstr_shdsc_ipsec_encap((uint32_t *) buff_start, &desc_len,
+				&pdb, (uint8_t *)ip_header, &cipher, &auth);
 
 	pr_debug("Desc len in %s is %x\n", __func__, desc_len);
 
@@ -109,12 +105,11 @@ void
 *create_decapsulation_sec_descriptor(struct ipsec_tunnel_t *sa)
 {
 	struct ipsec_decap_descriptor_t *preheader_initdesc;
-	uint16_t desc_len;
+	unsigned desc_len;
 	struct ipsec_decap_pdb pdb;
-	struct cipherparams cipher;
-	struct authparams auth;
+	struct alginfo cipher;
+	struct alginfo auth;
 	unsigned char *buff_start = NULL;
-	int ret;
 
 	preheader_initdesc = __dma_mem_memalign(L1_CACHE_BYTES,
 				sizeof(struct ipsec_encap_descriptor_t));
@@ -134,18 +129,15 @@ void
 
 	cipher.algtype = sa->ealg->alg_type;
 	cipher.key = (uint8_t *)sa->ealg->alg_key;
-	cipher.keylen = sa->ealg->alg_key_len * 8;	/* Decryption keysize in bits */
+	cipher.keylen = sa->ealg->alg_key_len;
 
 	auth.algtype = sa->aalg->alg_type;
 	auth.key = (uint8_t *)sa->aalg->alg_key_ptr;
-	auth.keylen = sa->aalg->alg_key_len * 8;	/* SHA1 keysize in bits */
+	auth.keylen = sa->aalg->alg_key_len;
 
 	/* Now construct */
-	ret = cnstr_shdsc_ipsec_decap((uint32_t *) buff_start,
-					       &desc_len,
-					       &pdb, &cipher, &auth);
-	if (ret)
-		return NULL;
+	cnstr_shdsc_ipsec_decap((uint32_t *) buff_start,
+				&desc_len, &pdb, &cipher, &auth);
 
 	pr_debug("Desc len in %s is %x\n", __func__, desc_len);
 

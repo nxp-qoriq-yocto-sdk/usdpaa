@@ -32,9 +32,8 @@
 #include "ipsec/ipsec.h"
 #include "ip/ip_common.h"
 #include "net/annotations.h"
-#include <fsl_sec/pdb.h>
 #include "ip/ip_appconf.h"
-#include <fsl_sec/desc.h>
+#include <flib/desc.h>
 
 
 /* BPID for use by SEC in case simple FD mode is used */

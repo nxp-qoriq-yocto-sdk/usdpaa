@@ -48,7 +48,8 @@ dist_DATA =						\
 	usdpaa_custom_coarse_classify_netpdl.xml	\
 	usdpaa_policer.xml
 
-AM_CFLAGS = -I$(TOP_LEVEL)/apps/include
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/include
+AM_CFLAGS += $(LIBRTA_CFLAGS)
 
 usdpaa_ppac_SOURCES = main.c
 usdpaa_ppac_CFLAGS :=								\

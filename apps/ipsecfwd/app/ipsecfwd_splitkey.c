@@ -28,8 +28,8 @@
 #include "ipsec/ipsec_sec.h"
 #include "ipsec/ipsec_common.h"
 #include "ipsec/ipsec_encap.h"
-#include <fsl_sec/desc.h>
-#include <fsl_sec/dcl.h>
+#include <flib/jobdesc.h>
+#include <flib/desc.h>
 #include <usdpaa/dma_mem.h>
 
 int32_t g_key_split_flag;
@@ -161,7 +161,7 @@ int generate_splitkey(void)
 	struct qm_sg_entry *sg;
 	void *alg_key, *job_desc;
 	struct qm_fd fd;
-	uint16_t bufsize;
+	unsigned bufsize;
 
 	job_desc = __dma_mem_memalign(L1_CACHE_BYTES, 256);
 	if (job_desc == NULL) {
@@ -192,17 +192,10 @@ int generate_splitkey(void)
 	bufsize = 256;
 	memcpy(alg_key, def_auth_key, 20);
 	pr_debug("ipsec_tunnel_create: before cnstr_jobdesc_mdsplitkey\n");
-	if (0 != cnstr_jobdesc_mdsplitkey(job_desc, &bufsize,
-				alg_key, OP_ALG_ALGSEL_SHA1,
-				g_split_key)) {
-		fprintf(stderr, "error: %s: Unable to create Job descriptor\n",
-			__func__);
-		__dma_mem_free(job_desc);
-		__dma_mem_free(g_split_key);
-		__dma_mem_free(alg_key);
-		return -EINVAL;
-	}
-
+	cnstr_jobdesc_mdsplitkey(job_desc, &bufsize,
+				 __dma_mem_vtop(alg_key),
+				 OP_ALG_ALGSEL_SHA1,
+				 __dma_mem_vtop(g_split_key));
 	pr_debug("ipsec_tunnel_create: after cnstr_jobdesc_mdsplitkey\n");
 
 	sg = __dma_mem_memalign(L1_CACHE_BYTES, 2 * sizeof(struct qm_sg_entry));

@@ -28,7 +28,7 @@
 
 #include <usdpaa/of.h>
 #include <internal/compat.h>
-#include <fsl_sec/dcl.h>
+#include <flib/desc.h>
 
 #include "ipc_send.h"
 #include "ip/ip_appconf.h"
@@ -57,10 +57,10 @@ unsigned char def_auth_key[] = { 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
 };
 
 /* Mapping between command-line and internal values */
-static const uint8_t auth_map[] = { AUTH_TYPE_IPSEC_SHA1HMAC_96,
+static const uint16_t auth_map[] = { OP_PCL_IPSEC_HMAC_SHA1_96,
 };
-static const uint8_t cipher_map[] = { CIPHER_TYPE_IPSEC_AESCBC,
-				       CIPHER_TYPE_IPSEC_3DESCBC,
+static const uint16_t cipher_map[] = { OP_PCL_IPSEC_AES_CBC,
+					OP_PCL_IPSEC_3DES,
 };
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state);
@@ -323,7 +323,7 @@ void ipc_sa_add_del_command(int argc, char **argv, unsigned type)
 		/* Setting the default */
 		if ((g_mndtr_param & IPC_CTRL_PARAM_BIT_EKEY) == 0) {
 			if (sa_info.ipsec_info.ealg.alg_type ==
-			    CIPHER_TYPE_IPSEC_3DESCBC) {
+			    OP_PCL_IPSEC_3DES) {
 				memcpy(&sa_info.ipsec_info.
 				       ealg.alg_key, def_tdes_enc_key, 24);
 				sa_info.ipsec_info.ealg.alg_key_len = 24;

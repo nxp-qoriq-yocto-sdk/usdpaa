@@ -36,6 +36,7 @@ dist_DATA = ipsecfwd_enc_20G.sh ipsecfwd_enc_22G.sh ipsecfwd_dec_20G.sh \
 	ipsecfwd_dec_40G.sh ipsecfwd_dec_42G.sh
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/ipsecfwd/lib -I$(TOP_LEVEL)/apps/ipsecfwd/include
+AM_CFLAGS += $(LIBRTA_CFLAGS)
 
 ipsecfwd_config_SOURCES := ipc_send.c
 
