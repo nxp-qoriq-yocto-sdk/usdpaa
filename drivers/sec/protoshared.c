@@ -105,7 +105,7 @@ int32_t cnstr_shdsc_ipsec_encap(uint32_t *descbuf, uint16_t *bufsize,
 	/* Insert keys */
 	descbuf = cmd_insert_key(descbuf, authdata->key, authdata->keylen,
 				 PTR_DIRECT, KEYDST_MD_SPLIT, KEY_COVERED,
-				 ITEM_REFERENCE, ITEM_CLASS2);
+				 ITEM_INLINE, ITEM_CLASS2);
 
 	descbuf = cmd_insert_key(descbuf, cipherdata->key, cipherdata->keylen,
 				 PTR_DIRECT, KEYDST_KEYREG, KEY_CLEAR,
@@ -180,7 +180,7 @@ int32_t cnstr_shdsc_ipsec_decap(uint32_t *descbuf, uint16_t *bufsize,
 	/* Insert keys */
 	descbuf = cmd_insert_key(descbuf, authdata->key, authdata->keylen,
 				 PTR_DIRECT, KEYDST_MD_SPLIT, KEY_COVERED,
-				 ITEM_REFERENCE, ITEM_CLASS2);
+				 ITEM_INLINE, ITEM_CLASS2);
 
 	descbuf = cmd_insert_key(descbuf, cipherdata->key, cipherdata->keylen,
 				 PTR_DIRECT, KEYDST_KEYREG, KEY_CLEAR,

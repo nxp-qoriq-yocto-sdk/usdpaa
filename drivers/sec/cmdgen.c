@@ -274,6 +274,9 @@ uint32_t *cmd_insert_key(uint32_t *descwd, uint8_t *key, uint32_t keylen,
 	*nextwd++ |= keysz;
 
 	if (imm == ITEM_INLINE) {
+		if ((cover == KEY_COVERED) && (keysz & 15))
+			keysz = keysz + (16 - (keysz & 15));
+
 		memcpy(nextwd, (void *)key, keysz);
 		nextwd += keysz / sizeof(*nextwd);
 	} else
