@@ -37,6 +37,10 @@
 
 #define SEC_FQ_BASE	20480
 
+/* BPID for use by SEC in case simple FD mode is used */
+extern u32 sec_bpid;
+extern bool simple_fd_mode;
+
 struct preheader_t {
 	union {
 		uint32_t word;

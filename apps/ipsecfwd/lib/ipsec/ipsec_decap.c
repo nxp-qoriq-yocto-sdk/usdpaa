@@ -82,7 +82,18 @@ enum IP_STATUS ipsec_decap_send(const struct ppam_rx_hash *ctxt,
 	}
 	fd = &notes->dqrr->fd;
 
-	ipsec_create_compound_fd(&fd2, fd, ip_hdr, DECRYPT);
+	if (false == simple_fd_mode) {
+		ipsec_create_compound_fd(&fd2, fd, ip_hdr, DECRYPT);
+	} else {
+		fd2 = *fd;
+
+		fd2.cmd = 0;
+		fd2._format1 = qm_fd_contig;
+		fd2.length20 = ip_hdr->tot_len;
+		fd2.offset = fd->offset + ETHER_HDR_LEN;
+		fd2.bpid = sec_bpid; /*Release to BPool used by SEC*/
+	}
+
 #ifdef STATS_TBD
 	/* update statistics that enqueue to sec is done for decap */
 	decorated_notify_inc_32(&(ctxt->stats->decap_pre_sec));
@@ -126,17 +137,21 @@ void ipsec_decap_cb(const struct ipsec_context_t *ipsec_ctxt,
 	struct qm_sg_entry *sg;
 	struct iphdr *ip_hdr;
 	struct annotations_t *ip_notes;
-	const struct qm_fd *compound_fd = fd;
 	uint8_t padlen = 0;
 
-	/* Error Returned by SEC Block, Refer to Section 1.5.2.9 of BG */
-	if (unlikely(compound_fd->status)) {
+	if (unlikely(fd->status)) {
 		fprintf(stderr, "error: %s: SEC Block returned Status = %x\n",
-			__func__, compound_fd->status);
+			__func__, fd->status);
 		return;
 	}
 
-	ipsec_create_simple_fd(simple_fd, compound_fd, DECRYPT);
+	if (false == simple_fd_mode) {
+		ipsec_create_simple_fd(simple_fd, fd, DECRYPT);
+	} else {
+		*simple_fd = *fd;
+		simple_fd->cmd = 0;
+		simple_fd->bpid = 9; /* Hardcoding for now */
+	}
 
 	ip_notes = __dma_mem_ptov(qm_fd_addr(simple_fd));
 #ifdef STATS_TBD

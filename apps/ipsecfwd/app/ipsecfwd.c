@@ -37,6 +37,10 @@
 
 #include <mqueue.h>
 
+static struct bman_pool *sec_bpool;
+u32 sec_bpid;
+bool simple_fd_mode;
+
 int32_t g_tunnel_id;
 struct ipsec_tunnel_config_t *g_ipsec_tunnel_config;
 
@@ -663,9 +667,86 @@ error:
 	return _err;
 }
 
+static int init_sec_bpool(void)
+{
+#define SEC_BPOOL_BUF_COUNT	256
+	struct bm_buffer bufs[8];
+
+	struct bman_pool_params params = {
+		.flags	= BMAN_POOL_FLAG_DYNAMIC_BPID,
+	};
+
+	unsigned int num_bufs = 0;
+	int ret = 0, count = SEC_BPOOL_BUF_COUNT;
+
+	sec_bpool = bman_new_pool(&params);
+	if (!sec_bpool) {
+		pr_err("Unable to allocate bpool for SEC use\n");
+		return -ENOMEM;
+	}
+
+	sec_bpid = bman_get_params(sec_bpool)->bpid;
+
+	/* Drain the pool of anything already in it. */
+	do {
+		/* Acquire is all-or-nothing, so we drain in 8s, then in 1s for
+		 * the remainder. */
+		if (ret != 1)
+			ret = bman_acquire(sec_bpool, bufs, 8, 0);
+		if (ret < 8)
+			ret = bman_acquire(sec_bpool, bufs, 1, 0);
+		if (ret > 0)
+			num_bufs += ret;
+	} while (ret > 0);
+
+	if (num_bufs)
+		fprintf(stderr, "Warn: drained %u bufs from SEC BPID %u\n",
+			num_bufs, sec_bpid);
+
+
+	/* Fill the SEC bpool */
+	count = SEC_BPOOL_BUF_COUNT;
+	for (num_bufs = 0; num_bufs < count; ) {
+		unsigned int loop, rel = (count - num_bufs) > 8 ? 8 :
+					(count - num_bufs);
+
+		for (loop = 0; loop < rel; loop++) {
+			void *ptr = __dma_mem_memalign(64, DMA_MEM_BP3_SIZE);
+
+			if (!ptr) {
+				fprintf(stderr, "error: no buffer space\n");
+				abort();
+			}
+
+			bm_buffer_set64(&bufs[loop], __dma_mem_vtop(ptr));
+		}
+
+		do {
+			ret = bman_release(sec_bpool, bufs, rel, 0);
+		} while (ret == -EBUSY);
+
+		if (ret)
+			fprintf(stderr, "Fail: %s\n", "bman_release()");
+
+		num_bufs += rel;
+	}
+
+	printf("Released %u bufs to SEC BPID %u\n", num_bufs, sec_bpid);
+	return 0;
+}
+
 int ppam_init(void)
 {
 	int _errno;
+
+	/* Allocate a temporary bpool for SEC usage if simple FD*/
+	if (simple_fd_mode) {
+		_errno = init_sec_bpool();
+		if (_errno < 0) {
+			pr_err("SEC bool initialization error\n");
+			return -errno;
+		}
+	}
 
 	/* Initializes a soft cache of buffers */
 	if (unlikely(NULL == mem_cache_init())) {
@@ -729,6 +810,9 @@ void ppam_finish(void)
 		if (mq_unlink(name) == -1)
 			error(0, errno, "%s():mq_unlink rcv", __func__);
 	}
+
+	if (simple_fd_mode)
+		bman_free_pool(sec_bpool);
 }
 
 static int ppam_interface_init(struct ppam_interface *p,
@@ -902,10 +986,29 @@ struct ppam_arguments {
 
 struct ppam_arguments ppam_args;
 
+static error_t ipsecfwd_parser(int key, char *arg, struct argp_state *state)
+{
+	unsigned long val;
+	switch (key) {
+	case 'm':
+		errno = 0;
+		val = strtoul(arg, NULL, 0);
+		if (errno)
+			argp_usage(state);
+		if (val)
+			simple_fd_mode = true;
+		break;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+	return 0;
+}
+
 const char ppam_doc[] = "IP forwarding";
 
 static const struct argp_option argp_opts[] = {
+	{"sec-simple-fd", 'm', "0/non-zero", 0, "Use Simple FD for SEC"},
 	{}
 };
 
-const struct argp ppam_argp = {argp_opts, 0, 0, ppam_doc};
+const struct argp ppam_argp = {argp_opts, ipsecfwd_parser, 0, ppam_doc};

@@ -23,6 +23,7 @@
  */
 
 #include <usdpaa/dma_mem.h>
+#include <usdpaa/fsl_qman.h>
 #include <stdbool.h>
 #include "app_common.h"
 #include "ipsec_sec.h"
@@ -49,7 +50,18 @@ enum IP_STATUS ipsec_encap_send(const struct ppam_rx_hash *ctxt,
 	uint32_t ret;
 	uint32_t sec_fq;
 
-	ipsec_create_compound_fd(&fd2, fd, ip_hdr, ENCRYPT);
+	if (false == simple_fd_mode) {
+		ipsec_create_compound_fd(&fd2, fd, ip_hdr, ENCRYPT);
+	} else {
+		fd2 = *fd;
+
+		fd2.cmd = 0;
+		fd2._format1 = qm_fd_contig;
+		fd2.length20 = ip_hdr->tot_len;
+		fd2.offset = fd->offset + ETHER_HDR_LEN;
+		fd2.bpid = sec_bpid; /*Release to BPool used by SEC*/
+	}
+
 	fd = &fd2;
 #ifdef STATS_TBD
 	decorated_notify_inc_32(&(ctxt->stats->encap_pre_sec));
@@ -90,21 +102,28 @@ void ipsec_encap_cb(const struct ipsec_context_t *ipsec_ctxt,
 	struct qm_fd *simple_fd = &dqrr.fd;
 	struct iphdr *ip_hdr;
 	struct annotations_t *ip_notes;
-	const struct qm_fd *compound_fd = fd;
 
 	memset(&dqrr, 0, sizeof(struct qm_dqrr_entry));
-	if (unlikely(compound_fd->status)) {
+	if (unlikely(fd->status)) {
 		fprintf(stderr, "error: %s: Non-Zero Status from"
-			" SEC Block %x\n", __func__, compound_fd->status);
+			" SEC Block %x\n", __func__, fd->status);
 /* TBD
 		ipsec_free_fd(buff_allocator, compound_fd);
 */
 		return;
 	}
-	ipsec_create_simple_fd(simple_fd, compound_fd, ENCRYPT);
-	ip_notes = __dma_mem_ptov(qm_fd_addr(simple_fd));
 
+	if (false == simple_fd_mode) {
+		ipsec_create_simple_fd(simple_fd, fd, ENCRYPT);
+	} else {
+		*simple_fd = *fd;
+		simple_fd->cmd = 0;
+		simple_fd->bpid = 9; /* Hardcoding for now */
+	}
+
+	ip_notes = __dma_mem_ptov(qm_fd_addr(simple_fd));
 	ip_hdr = (void *)((uint8_t *) ip_notes + simple_fd->offset);
+
 	simple_fd->offset -= ETHER_HDR_LEN;
 	simple_fd->length20 += ETHER_HDR_LEN;
 	ip_notes->dqrr = &dqrr;

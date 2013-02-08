@@ -116,8 +116,7 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 	preheader_initdesc->prehdr.hi.field.idlen = desc_len;
 	preheader_initdesc->prehdr.lo.field.offset = 1;
 
-/* TBD: Remove hardcoding */
-	preheader_initdesc->prehdr.lo.field.pool_id = 9;
+	preheader_initdesc->prehdr.lo.field.pool_id = sec_bpid;
 	preheader_initdesc->prehdr.lo.field.pool_buffer_size =
 		(uint16_t)(DMA_MEM_BP3_SIZE);
 
@@ -201,8 +200,7 @@ void
 	/* 1 burst length to be reserved */
 	preheader_initdesc->prehdr.lo.field.offset = 1;
 
-/* TBD: Remove hardcoding */
-	preheader_initdesc->prehdr.lo.field.pool_id = 9;
+	preheader_initdesc->prehdr.lo.field.pool_id = sec_bpid;
 	preheader_initdesc->prehdr.lo.field.pool_buffer_size =
 		(uint16_t)(DMA_MEM_BP3_SIZE);
 
