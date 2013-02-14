@@ -124,6 +124,12 @@
 #define PPAC_BPOOL_CNT1		0
 #define PPAC_BPOOL_CNT2		0x2000
 
+/**************/
+/* PPAM flags */
+/**************/
+#define PPAM_TX_FQ_NO_BUF_DEALLOC 0x00000001	/* Disable buffer deallocation*/
+#define PPAM_TX_FQ_NO_CHECKSUM	0x00000002	/* Disable checksum */
+
 /**********/
 /* macros */
 /**********/
@@ -398,7 +404,8 @@ void ppac_orp_init(u32 *orp_id);
 #endif
 void ppac_fq_tx_init(struct qman_fq *fq,
 		     u16 channel,
-		     u32 tx_confirm_fqid __maybe_unused);
+		     uint64_t context_a,
+		     uint32_t context_b);
 enum qman_cb_dqrr_result
 cb_dqrr_rx_hash(struct qman_portal *qm __always_unused,
 		struct qman_fq *fq,

@@ -604,7 +604,8 @@ void ppam_finish(void)
 
 static int ppam_interface_init(struct ppam_interface *p,
 			       const struct fm_eth_port_cfg *cfg,
-			       unsigned int num_tx_fqs)
+			       unsigned int num_tx_fqs,
+			       uint32_t *flags __maybe_unused)
 {
 	int iface;
 	const struct fman_if *fif;

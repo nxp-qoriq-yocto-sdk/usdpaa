@@ -80,7 +80,8 @@ static int fwd_offline = 1;
  * post-allocation but prior to Rx initialisation. */
 static int ppam_interface_init(struct ppam_interface *p,
 			       const struct fm_eth_port_cfg *cfg,
-			       unsigned int num_tx_fqs)
+			       unsigned int num_tx_fqs,
+			       uint32_t *flags __maybe_unused)
 {
 	p->num_tx_fqids = num_tx_fqs;
 	p->tx_fqids = malloc(p->num_tx_fqids * sizeof(*p->tx_fqids));

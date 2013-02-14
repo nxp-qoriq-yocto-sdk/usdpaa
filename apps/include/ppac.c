@@ -188,6 +188,9 @@ int ppac_interface_init(unsigned idx)
 	const struct fm_eth_port_cfg *port = &netcfg->port_cfg[idx];
 	const struct fman_if *fif = port->fman_if;
 	size_t size;
+	uint64_t context_a = 0;
+	uint32_t context_b = 0;
+	uint32_t flags = 0;
 
 	if (fif->mac_type == fman_mac_less) {
 		size = sizeof(struct ppac_interface) +
@@ -219,7 +222,7 @@ int ppac_interface_init(unsigned idx)
 			return -ENOMEM;
 		}
 	}
-	err = ppam_interface_init(&i->ppam_data, port, i->num_tx_fqs);
+	err = ppam_interface_init(&i->ppam_data, port, i->num_tx_fqs, &flags);
 	if (err) {
 		free(i->tx_fqs);
 		__dma_mem_free(i);
@@ -237,9 +240,21 @@ int ppac_interface_init(unsigned idx)
 	}
 
 	memset(i->tx_fqs, 0, sizeof(*i->tx_fqs) * i->num_tx_fqs);
+
+#ifdef PPAC_TX_CONFIRM
+	context_b = fif->fqid_tx_confirm;
+#else
+	context_a = (uint64_t)1 << 63;
+	if (!(flags & PPAM_TX_FQ_NO_BUF_DEALLOC))
+		context_a |= ((uint64_t)fman_dealloc_bufs_mask_hi << 32) |
+					(uint64_t)fman_dealloc_bufs_mask_lo;
+	if (flags & PPAM_TX_FQ_NO_CHECKSUM)
+		context_a |= FMAN_CONTEXTA_DIS_CHECKSUM;
+#endif
+
 	for (loop = 0; loop < i->num_tx_fqs; loop++) {
 		struct qman_fq *fq = &i->tx_fqs[loop];
-		ppac_fq_tx_init(fq, fif->tx_channel_id, fif->fqid_tx_confirm);
+		ppac_fq_tx_init(fq, fif->tx_channel_id, context_a, context_b);
 		TRACE("I/F %d, using Tx FQID %d\n", idx, fq->fqid);
 		ppam_interface_tx_fqid(&i->ppam_data, loop, fq->fqid);
 	}

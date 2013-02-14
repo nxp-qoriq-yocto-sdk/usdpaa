@@ -279,7 +279,7 @@ cb_tx_drain(struct qman_portal *qm __always_unused,
 }
 
 void ppac_fq_tx_init(struct qman_fq *fq, u16 channel,
-		     u32 tx_confirm_fqid __maybe_unused)
+		     uint64_t context_a, uint32_t context_b)
 {
 	struct qm_mcc_initfq opts;
 	__maybe_unused int err;
@@ -308,14 +308,8 @@ void ppac_fq_tx_init(struct qman_fq *fq, u16 channel,
 	opts.fqd.cgid = cgr_tx.cgrid;
 	opts.fqd.fq_ctrl |= QM_FQCTRL_CGE;
 #endif
-#ifdef PPAC_TX_CONFIRM
-	opts.fqd.context_b = tx_confirm_fqid;
-	opts.fqd.context_a.hi = 0;
-#else
-	opts.fqd.context_b = 0;
-	opts.fqd.context_a.hi = 0x80000000 | fman_dealloc_bufs_mask_hi;
-#endif
-	opts.fqd.context_a.lo = 0 | fman_dealloc_bufs_mask_lo;
+	opts.fqd.context_b = context_b;
+	qm_fqd_context_a_set64(&opts.fqd, context_a);
 	err = qman_init_fq(fq, QMAN_INITFQ_FLAG_SCHED, &opts);
 	BUG_ON(err);
 }
