@@ -4301,6 +4301,6 @@ EXPORT_SYMBOL(qman_set_wpm);
 
 int qman_get_wpm(int *wpm_enable)
 {
-	return qman_get_wpm(wpm_enable);
+	return qm_get_wpm(wpm_enable);
 }
 EXPORT_SYMBOL(qman_get_wpm);
