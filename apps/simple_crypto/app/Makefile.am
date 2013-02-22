@@ -31,9 +31,9 @@
 
 bin_PROGRAMS = simple_crypto
 
-AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/simple_crypto/include
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/simple_crypto/include -I$(TOP_LEVEL)/apps/lib
 AM_CFLAGS += $(LIBRTA_CFLAGS)
 
-simple_crypto_SOURCES := thread_priv.c simple_crypto.c
+simple_crypto_SOURCES := simple_crypto.c
 simple_crypto_LDADD := usdpaa_qbman usdpaa_dma_mem usdpaa_of usdpaa_sec \
-		       usdpaa_process
+		       usdpaa_process lib_crypto

@@ -33,16 +33,16 @@
 #include "thread_priv.h"
 
 static pthread_barrier_t barr;
-static __thread thread_data_t *__my_thread_data;
+static __thread struct thread_data *__my_thread_data;
 
-thread_data_t *my_thread_data(void)
+struct thread_data *my_thread_data(void)
 {
 	return __my_thread_data;
 }
 
 static void *thread_wrapper(void *arg)
 {
-	thread_data_t *tdata = (thread_data_t *)arg;
+	struct thread_data *tdata = (struct thread_data *)arg;
 	cpu_set_t cpuset;
 	int s;
 
@@ -112,4 +112,3 @@ int wait_threads(struct thread_data *ctxs, int num_ctxs)
 	}
 	return err;
 }
-

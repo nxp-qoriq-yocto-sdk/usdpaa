@@ -29,26 +29,23 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 #ifndef THREAD_PRIV_H
 #define THREAD_PRIV_H
 
 #include <usdpaa/dma_mem.h>
 #include <usdpaa/fman.h>
 #include <usdpaa/fsl_usd.h>
-
 #include <internal/compat.h>
-
 #include <net/if_arp.h>
 
-
 /* Per-thread data, including the pthread id */
-typedef struct thread_data thread_data_t;
 struct thread_data {
 	/* Inputs to run_threads_custom() */
 	int cpu;
 	int index;
-	int (*fn)(thread_data_t *ctx);
+	void *test_param;
+	void *test_cb;
+	int (*fn) (struct thread_data *ctx);
 	int total_cpus;
 	/* Value used within 'fn' - handle to the pthread; */
 	pthread_t id;
@@ -56,15 +53,20 @@ struct thread_data {
 	int result;
 } ____cacheline_aligned;
 
-/* Threads can determine their own thread_data_t using this; */
-thread_data_t *my_thread_data(void);
+/* Threads can determine their own structure thread_data using this; */
+struct thread_data *my_thread_data(void);
+
+#define handle_error_en(en, msg) \
+	do { errno = en; perror(msg); exit(EXIT_FAILURE); } while (0)
 
 /* API(s) used to kick off application cpu-affine threads and wait for them to
  * complete. 'am_master' is automatically set for the first thread (running on
  * the first cpu). */
 int start_threads_custom(struct thread_data *ctxs, int num_ctxs);
+int wait_threads(struct thread_data *ctxs, int num_ctxs);
+
 static inline int start_threads(struct thread_data *ctxs, int num_ctxs,
-			int first_cpu, int (*fn)(thread_data_t *))
+				int first_cpu, int (*fn) (struct thread_data *))
 {
 	int loop;
 	long num_online_cpus;
@@ -79,17 +81,14 @@ static inline int start_threads(struct thread_data *ctxs, int num_ctxs,
 	}
 	return start_threads_custom(ctxs, num_ctxs);
 }
-int wait_threads(struct thread_data *ctxs, int num_ctxs);
+
 static inline int run_threads(struct thread_data *ctxs, int num_ctxs,
-			int first_cpu, int (*fn)(thread_data_t *))
+			      int first_cpu, int (*fn) (struct thread_data *))
 {
 	int ret = start_threads(ctxs, num_ctxs, first_cpu, fn);
 	if (ret)
 		return ret;
 	return wait_threads(ctxs, num_ctxs);
 }
-
-#define handle_error_en(en, msg) \
-	do { errno = en; perror(msg); exit(EXIT_FAILURE); } while (0)
 
 #endif /* !THREAD_PRIV_H */

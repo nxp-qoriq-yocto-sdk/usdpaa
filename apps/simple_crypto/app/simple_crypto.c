@@ -38,310 +38,321 @@
 
 #include "simple_crypto.h"
 
-#include <inttypes.h>
+/* processing authentication algorithm */
+uint8_t authnct;
 
-#define BITS_PER_BYTE (8)
-#define BYTES_PER_WORD sizeof(int)
-#define ONE_MEGA 1000000
-#define QMAN_WAIT_CYCLES 1000
-
-uint32_t g_cmd_params;	/* bit mask of all parameters provided by user */
-
-/* user defined parameters through CP */
-struct crypto_param crypto_info;
-
-/* refrence test vector consists of key, iv, plain text, cipher text etc*/
 struct ref_vector_s ref_test_vector;
-
-/* output buffer size(varies for authentication algos) */
-uint32_t output_buf_size;
-/* input buffer capacity(varies for authentication algos) */
-uint32_t input_buf_capacity;
-/* The size required for a buffer that can hold descriptors */
-uint32_t job_desc_buf_size;
-/* Total size of sg entry, i/p and o/p buffer required */
-uint32_t total_size;
-
-/* packets send to SEC4.0 per core */
-__PERCPU uint32_t pkts_to_sec;
-/* number of encrypted frame(s) returned from SEC4.0 per core*/
-__PERCPU uint32_t enc_pkts_from_sec;
-/* number of decrypted frame(s) returned from SEC4.0 per core*/
-__PERCPU uint32_t dec_pkts_from_sec;
-
-uint32_t ind;
-struct qm_fd fd[BUFF_NUM];	/* storage for frame descriptor */
-
-/* start FQ no. for encryption flows */
-static __PERCPU uint32_t fq_base_encrypt;
-/* start FQ no. for decryption flows */
-static __PERCPU uint32_t fq_base_decrypt;
-
-/* storage for encryption FQ's(from SEC4.0 to software portal) object*/
-static __PERCPU struct qman_fq *enc_fq_from_sec[FQ_PER_CORE];
-/* storage for encryption FQ's(from software portal to SEC4.0) object*/
-static __PERCPU struct qman_fq *enc_fq_to_sec[FQ_PER_CORE];
-/* storage for decryption FQ's(from SEC4.0 to software portal) object*/
-static __PERCPU struct qman_fq *dec_fq_from_sec[FQ_PER_CORE];
-/* storage for decryption FQ's(from software portal to SEC4.0) object*/
-static __PERCPU struct qman_fq *dec_fq_to_sec[FQ_PER_CORE];
-
-/* retire flag associated with each of the frame queues */
-static __PERCPU bool enc_fq_from_sec_retire[FQ_PER_CORE];
-static __PERCPU bool enc_fq_to_sec_retire[FQ_PER_CORE];
-static __PERCPU bool dec_fq_from_sec_retire[FQ_PER_CORE];
-static __PERCPU bool dec_fq_to_sec_retire[FQ_PER_CORE];
-
-uint8_t authnct;	/* processing authentication algorithm */
-
-/* pool Channel Offset */
-volatile int32_t pool_channel_offset;
-
-static bool ctrl_error;
 
 /* Number of active cpus */
 long ncpus;
-__PERCPU uint32_t cpu_ind;
 
-/* Counters to accumulate time taken for packet processing */
-uint64_t enc_delta, dec_delta;
-
-char algorithm[20];	/* string corresponding to integral value */
-char mode_type[20];	/* string corresponding to integral value */
-
-static void cb_ern(struct qman_portal *qm, struct qman_fq *fq,
-		const struct qm_mr_entry *msg);
-
-/* callback handler for dequeued frames and fq's(from SEC40) state change */
-const struct qman_fq_cb sec40_rx_cb = {
-	.dqrr = cb_dqrr,
-	.fqs = cb_fqs
-};
-
-/* callback handler for fq's(to SEC40) state change */
-const struct qman_fq_cb sec40_tx_cb = {
-	.ern = cb_ern,
-	.fqs = cb_fqs
-};
+pthread_barrier_t app_barrier;
 
 /*
  * brief	Initialises the reference test vector for aes-cbc
  * details	Initializes key, length and other variables for the algorithm
- * return	void
+ * param[in]	crypto_info - test parameters
+ * return	None
  */
-void init_rtv_aes_cbc(void)
+void init_rtv_aes_cbc(struct test_param crypto_info)
 {
 	strcpy(algorithm, "AES_CBC");
-	ref_test_vector.key =
-		aes_cbc_reference_key[crypto_info.test_set - 1];
+	ref_test_vector.key = aes_cbc_reference_key[crypto_info.test_set - 1];
 	ref_test_vector.iv.init_vec =
-		aes_cbc_reference_iv[crypto_info.test_set - 1];
+	    aes_cbc_reference_iv[crypto_info.test_set - 1];
 	ref_test_vector.length =
-		aes_cbc_reference_length[crypto_info.test_set - 1];
+	    aes_cbc_reference_length[crypto_info.test_set - 1];
 	ref_test_vector.plaintext =
-		aes_cbc_reference_plaintext[crypto_info.test_set - 1];
+	    aes_cbc_reference_plaintext[crypto_info.test_set - 1];
 	ref_test_vector.ciphertext =
-		aes_cbc_reference_ciphertext[crypto_info.test_set - 1];
+	    aes_cbc_reference_ciphertext[crypto_info.test_set - 1];
 }
 
-void init_rtv_tdes_cbc(void)
+/*
+ * brief	Initialises the reference test vector for tdes-cbc
+ * details	Initializes key, length and other variables for the algorithm
+ * param[in]	crypto_info - test parameters
+ * return	None
+ */
+void init_rtv_tdes_cbc(struct test_param crypto_info)
 {
 	strcpy(algorithm, "TDES_CBC");
-	ref_test_vector.key =
-		tdes_cbc_reference_key[crypto_info.test_set - 1];
+	ref_test_vector.key = tdes_cbc_reference_key[crypto_info.test_set - 1];
 	ref_test_vector.iv.init_vec =
-		tdes_cbc_reference_iv[crypto_info.test_set - 1];
+	    tdes_cbc_reference_iv[crypto_info.test_set - 1];
 	ref_test_vector.length =
-		tdes_cbc_reference_length[crypto_info.test_set - 1];
+	    tdes_cbc_reference_length[crypto_info.test_set - 1];
 	ref_test_vector.plaintext =
-		tdes_cbc_reference_plaintext[crypto_info.test_set - 1];
+	    tdes_cbc_reference_plaintext[crypto_info.test_set - 1];
 	ref_test_vector.ciphertext =
-		tdes_cbc_reference_ciphertext[crypto_info.test_set - 1];
+	    tdes_cbc_reference_ciphertext[crypto_info.test_set - 1];
 }
 
-void init_rtv_snow_f8(void)
+/*
+ * brief	Initialises the reference test vector for snow-f8
+ * details	Initializes key, length and other variables for the algorithm
+ * param[in]	crypto_info - test parameters
+ * return	None
+ */
+void init_rtv_snow_f8(struct test_param crypto_info)
 {
 	strcpy(algorithm, "SNOW_F8");
 	ref_test_vector.key = snow_f8_reference_key[crypto_info.test_set - 1];
 	ref_test_vector.iv.f8.count =
-		snow_f8_reference_count[crypto_info.test_set - 1];
+	    snow_f8_reference_count[crypto_info.test_set - 1];
 	ref_test_vector.iv.f8.bearer =
-		snow_f8_reference_bearer[crypto_info.test_set - 1];
+	    snow_f8_reference_bearer[crypto_info.test_set - 1];
 	ref_test_vector.iv.f8.direction =
-		snow_f8_reference_dir[crypto_info.test_set - 1];
+	    snow_f8_reference_dir[crypto_info.test_set - 1];
 	ref_test_vector.length =
-		snow_f8_reference_length[crypto_info.test_set - 1];
+	    snow_f8_reference_length[crypto_info.test_set - 1];
 	ref_test_vector.plaintext =
-		snow_f8_reference_plaintext[crypto_info.test_set - 1];
+	    snow_f8_reference_plaintext[crypto_info.test_set - 1];
 	ref_test_vector.ciphertext =
-		snow_f8_reference_ciphertext[crypto_info.test_set - 1];
+	    snow_f8_reference_ciphertext[crypto_info.test_set - 1];
 }
 
-void init_rtv_snow_f9(void)
+/*
+ * brief	Initialises the reference test vector for snow-f9
+ * details	Initializes key, length and other variables for the algorithm
+ * param[in]	crypto_info - test parameters
+ * return	None
+ */
+void init_rtv_snow_f9(struct test_param crypto_info)
 {
 	strcpy(algorithm, "SNOW_F9");
 	ref_test_vector.key = snow_f9_reference_key[crypto_info.test_set - 1];
 	ref_test_vector.iv.f9.count =
-		snow_f9_reference_count[crypto_info.test_set - 1];
+	    snow_f9_reference_count[crypto_info.test_set - 1];
 	ref_test_vector.iv.f9.fresh =
-		snow_f9_reference_fresh[crypto_info.test_set - 1];
+	    snow_f9_reference_fresh[crypto_info.test_set - 1];
 	ref_test_vector.iv.f9.direction =
-		snow_f9_reference_dir[crypto_info.test_set - 1];
+	    snow_f9_reference_dir[crypto_info.test_set - 1];
 	ref_test_vector.length =
-		snow_f9_reference_length[crypto_info.test_set - 1];
+	    snow_f9_reference_length[crypto_info.test_set - 1];
 	ref_test_vector.plaintext =
-		snow_f9_reference_plaintext[crypto_info.test_set - 1];
+	    snow_f9_reference_plaintext[crypto_info.test_set - 1];
 	ref_test_vector.ciphertext = NULL;
 	ref_test_vector.digest =
-		snow_f9_reference_digest[crypto_info.test_set - 1];
+	    snow_f9_reference_digest[crypto_info.test_set - 1];
 	authnct = 1;
-}
-
-void init_rtv_kasumi_f8(void)
-{
-	strcpy(algorithm, "KASUMI_F8");
-	ref_test_vector.key =
-		kasumi_f8_reference_key[crypto_info.test_set - 1];
-	ref_test_vector.iv.f8.count =
-		kasumi_f8_reference_count[crypto_info.test_set - 1];
-	ref_test_vector.iv.f8.bearer =
-		kasumi_f8_reference_bearer[crypto_info.test_set - 1];
-	ref_test_vector.iv.f8.direction =
-		kasumi_f8_reference_dir[crypto_info.test_set - 1];
-	ref_test_vector.length =
-		kasumi_f8_reference_length[crypto_info.test_set - 1];
-	ref_test_vector.plaintext =
-		kasumi_f8_reference_plaintext[crypto_info.test_set - 1];
-	ref_test_vector.ciphertext =
-		kasumi_f8_reference_ciphertext[crypto_info.test_set - 1];
-}
-
-void init_rtv_kasumi_f9(void)
-{
-	strcpy(algorithm, "KASUMI_F9");
-	ref_test_vector.key =
-		kasumi_f9_reference_key[crypto_info.test_set - 1];
-	ref_test_vector.iv.f9.count =
-		kasumi_f9_reference_count[crypto_info.test_set - 1];
-	ref_test_vector.iv.f9.fresh =
-		kasumi_f9_reference_fresh[crypto_info.test_set - 1];
-	ref_test_vector.iv.f9.direction =
-		kasumi_f9_reference_dir[crypto_info.test_set - 1];
-	ref_test_vector.length =
-		kasumi_f9_reference_length[crypto_info.test_set - 1];
-	ref_test_vector.plaintext =
-		kasumi_f9_reference_plaintext[crypto_info.test_set - 1];
-	ref_test_vector.ciphertext = NULL;
-	ref_test_vector.digest =
-		kasumi_f9_reference_digest[crypto_info.test_set - 1];
-	authnct = 1;
-}
-
-void init_rtv_crc(void)
-{
-	strcpy(algorithm, "CRC");
-	ref_test_vector.length =
-		crc_reference_length[crypto_info.test_set - 1];
-	ref_test_vector.plaintext =
-		crc_reference_plaintext[crypto_info.test_set - 1];
-	ref_test_vector.ciphertext = NULL;
-	ref_test_vector.digest =
-		crc_reference_digest[crypto_info.test_set - 1];
-	authnct = 1;
-}
-
-void init_rtv_hmac_sha1(void)
-{
-	strcpy(algorithm, "HMAC_SHA1");
-	ref_test_vector.key =
-		hmac_sha1_reference_key[crypto_info.test_set - 1];
-	ref_test_vector.length =
-		hamc_sha1_reference_length[crypto_info.test_set - 1];
-	ref_test_vector.plaintext =
-		hmac_sha1_reference_plaintext[crypto_info.test_set - 1];
-	ref_test_vector.ciphertext = NULL;
-	ref_test_vector.digest =
-		hamc_sha1_reference_digest[crypto_info.test_set - 1];
-	authnct = 1;
-}
-
-void init_rtv_snow_f8_f9(void)
-{
-	strcpy(algorithm, "SNOW_F8_F9");
-	ref_test_vector.length =
-		snow_enc_f8_f9_reference_length[crypto_info.test_set - 1];
-	ref_test_vector.plaintext =
-		snow_enc_f8_f9_reference_plaintext[crypto_info.test_set - 1];
-	ref_test_vector.ciphertext =
-		snow_enc_f8_f9_reference_ciphertext[crypto_info.test_set - 1];
-}
-
-/* Function pointer to reference test vector for suported algos */
-void (*init_ref_test_vector[])(void) = {
-		init_rtv_aes_cbc,
-		init_rtv_tdes_cbc,
-		init_rtv_snow_f8,
-		init_rtv_snow_f9,
-		init_rtv_kasumi_f8,
-		init_rtv_kasumi_f9,
-		init_rtv_crc,
-		init_rtv_hmac_sha1,
-		init_rtv_snow_f8_f9 };
-
-void get_pkts_to_sec(void)
-{
-	int rem;
-	pkts_to_sec = (crypto_info.buf_num / ncpus);
-	rem = crypto_info.buf_num % ncpus;
-	if (rem > cpu_ind)
-		pkts_to_sec++;
 }
 
 /*
- * brief	Create a compound frame descriptor understood by SEC 4.0
+ * brief	Initialises the reference test vector for kasumi-f8
+ * details	Initializes key, length and other variables for the algorithm
+ * param[in]	crypto_info - test parameters
+ * return	None
+ */
+void init_rtv_kasumi_f8(struct test_param crypto_info)
+{
+	strcpy(algorithm, "KASUMI_F8");
+	ref_test_vector.key = kasumi_f8_reference_key[crypto_info.test_set - 1];
+	ref_test_vector.iv.f8.count =
+	    kasumi_f8_reference_count[crypto_info.test_set - 1];
+	ref_test_vector.iv.f8.bearer =
+	    kasumi_f8_reference_bearer[crypto_info.test_set - 1];
+	ref_test_vector.iv.f8.direction =
+	    kasumi_f8_reference_dir[crypto_info.test_set - 1];
+	ref_test_vector.length =
+	    kasumi_f8_reference_length[crypto_info.test_set - 1];
+	ref_test_vector.plaintext =
+	    kasumi_f8_reference_plaintext[crypto_info.test_set - 1];
+	ref_test_vector.ciphertext =
+	    kasumi_f8_reference_ciphertext[crypto_info.test_set - 1];
+}
+
+/*
+ * brief	Initialises the reference test vector for kasumi-f9
+ * details	Initializes key, length and other variables for the algorithm
+ * param[in]	crypto_info - test parameters
+ * return	None
+ */
+void init_rtv_kasumi_f9(struct test_param crypto_info)
+{
+	strcpy(algorithm, "KASUMI_F9");
+	ref_test_vector.key = kasumi_f9_reference_key[crypto_info.test_set - 1];
+	ref_test_vector.iv.f9.count =
+	    kasumi_f9_reference_count[crypto_info.test_set - 1];
+	ref_test_vector.iv.f9.fresh =
+	    kasumi_f9_reference_fresh[crypto_info.test_set - 1];
+	ref_test_vector.iv.f9.direction =
+	    kasumi_f9_reference_dir[crypto_info.test_set - 1];
+	ref_test_vector.length =
+	    kasumi_f9_reference_length[crypto_info.test_set - 1];
+	ref_test_vector.plaintext =
+	    kasumi_f9_reference_plaintext[crypto_info.test_set - 1];
+	ref_test_vector.ciphertext = NULL;
+	ref_test_vector.digest =
+	    kasumi_f9_reference_digest[crypto_info.test_set - 1];
+	authnct = 1;
+}
+
+/*
+ * brief	Initialises the reference test vector for crc
+ * details	Initializes key, length and other variables for the algorithm
+ * param[in]	crypto_info - test parameters
+ * return	None
+ */
+void init_rtv_crc(struct test_param crypto_info)
+{
+	strcpy(algorithm, "CRC");
+	ref_test_vector.length = crc_reference_length[crypto_info.test_set - 1];
+	ref_test_vector.plaintext =
+	    crc_reference_plaintext[crypto_info.test_set - 1];
+	ref_test_vector.ciphertext = NULL;
+	ref_test_vector.digest = crc_reference_digest[crypto_info.test_set - 1];
+	authnct = 1;
+}
+
+/*
+ * brief	Initialises the reference test vector for hmac-sha1
+ * details	Initializes key, length and other variables for the algorithm
+ * param[in]	crypto_info - test parameters
+ * return	None
+ */
+void init_rtv_hmac_sha1(struct test_param crypto_info)
+{
+	strcpy(algorithm, "HMAC_SHA1");
+	ref_test_vector.key = hmac_sha1_reference_key[crypto_info.test_set - 1];
+	ref_test_vector.length =
+	    hamc_sha1_reference_length[crypto_info.test_set - 1];
+	ref_test_vector.plaintext =
+	    hmac_sha1_reference_plaintext[crypto_info.test_set - 1];
+	ref_test_vector.ciphertext = NULL;
+	ref_test_vector.digest =
+	    hamc_sha1_reference_digest[crypto_info.test_set - 1];
+	authnct = 1;
+}
+
+/*
+ * brief	Initialises the reference test vector for snow-f8-f9
+ * details	Initializes key, length and other variables for the algorithm
+ * param[in]	crypto_info - test parameters
+ * return	None
+ */
+void init_rtv_snow_f8_f9(struct test_param crypto_info)
+{
+	strcpy(algorithm, "SNOW_F8_F9");
+	ref_test_vector.length =
+	    snow_enc_f8_f9_reference_length[crypto_info.test_set - 1];
+	ref_test_vector.plaintext =
+	    snow_enc_f8_f9_reference_plaintext[crypto_info.test_set - 1];
+	ref_test_vector.ciphertext =
+	    snow_enc_f8_f9_reference_ciphertext[crypto_info.test_set - 1];
+}
+
+/* Function pointer to reference test vector for suported algos */
+void (*init_ref_test_vector[]) (struct test_param crypto_info) = {
+	    init_rtv_aes_cbc,
+	    init_rtv_tdes_cbc,
+	    init_rtv_snow_f8,
+	    init_rtv_snow_f9,
+	    init_rtv_kasumi_f8,
+	    init_rtv_kasumi_f9,
+	    init_rtv_crc,
+	    init_rtv_hmac_sha1,
+	    init_rtv_snow_f8_f9};
+
+/*
+ * brief	Init test vector, calculates output buffer size and creates
+ *		compound FDs
+ * param[in]	crypto_info - test parameters
  * return	0 on success, otherwise -ve value
  */
-static int create_compound_fd(void)
+int prepare_test_frames(struct test_param *crypto_info)
 {
-	uint8_t *in_buf, *out_buf;
-	struct sg_entry_priv_t *sg_priv_and_data;
-	struct qm_sg_entry *sg;
-	uint32_t input_buf_length = 0;
-	input_buf_capacity = crypto_info.buf_size;
-	input_buf_length = crypto_info.buf_size;
+	int err = 0;
 
-	switch (crypto_info.algo) {
+	if (PERF == crypto_info->mode) {
+		strcpy(mode_type, "PERF");
+		crypto_info->test_set = 1;
+	}
+
+	init_ref_test_vector[crypto_info->algo - 1] (*crypto_info);
+
+	if (CIPHER == crypto_info->mode) {
+		strcpy(mode_type, "CIPHER");
+		crypto_info->buf_size = NO_OF_BYTES(ref_test_vector.length);
+	}
+
+	err = set_buf_size(crypto_info);
+	if (err)
+		error(err, err, "error: set output buffer size");
+
+	err = create_compound_fd(crypto_info->buf_num,
+				 crypto_info->rt.output_buf_size,
+				 crypto_info->rt.input_buf_capacity,
+				 crypto_info->rt.input_buf_length);
+	if (err)
+		error(err, err, "error: create_compound_fd() failed");
+
+	fprintf(stdout, "Processing %s for %d Frames\n", algorithm,
+		crypto_info->buf_num);
+	fprintf(stdout, "%s mode, buffer length = %d\n", mode_type,
+		crypto_info->buf_size);
+	fprintf(stdout, "Number of iterations = %d\n", crypto_info->itr_num);
+	fprintf(stdout, "\nStarting threads for %ld cpus\n", ncpus);
+
+	return err;
+}
+
+/*
+ * brief	Set buffer sizes for input/output frames
+ * param[in]	crypto_info - test parameters
+ * return	0 on success, otherwise -ve value
+ */
+int set_buf_size(struct test_param *crypto_info)
+{
+	struct runtime_param *p_rt = &(crypto_info->rt);
+
+	p_rt->input_buf_capacity = crypto_info->buf_size;
+	p_rt->input_buf_length = crypto_info->buf_size;
+
+	/* Store the number of bytes for the job descriptor.
+	 * The SNOW_JDESC_ENC_F8_F9_LEN and SNOW_JDESC_DEC_F8_F9_LEN macros
+	 * return the length in 32 bit words.
+	 * Calculate the maximum between the encrypt and decrypt descriptors
+	 * because the same compound FD will be used for both processes, so
+	 * will allocate the memory area that can hold both descriptors.
+	 */
+	p_rt->job_desc_buf_size = MAX(SNOW_JDESC_ENC_F8_F9_LEN,
+				      SNOW_JDESC_DEC_F8_F9_LEN);
+
+	switch (crypto_info->algo) {
 	case AES_CBC:
 	case TDES_CBC:
 	case SNOW_F8:
-		output_buf_size = crypto_info.buf_size;
+		p_rt->output_buf_size = crypto_info->buf_size;
 		break;
 	case SNOW_F9:
-		output_buf_size = SNOW_F9_DIGEST_SIZE;
+		p_rt->output_buf_size = SNOW_F9_DIGEST_SIZE;
 		break;
 	case KASUMI_F8:
-		output_buf_size = crypto_info.buf_size;
+		p_rt->output_buf_size = crypto_info->buf_size;
 		break;
 	case KASUMI_F9:
-		output_buf_size = KASUMI_F9_DIGEST_SIZE;
+		p_rt->output_buf_size = KASUMI_F9_DIGEST_SIZE;
 		break;
 	case CRC:
-		output_buf_size = CRC_DIGEST_SIZE;
+		p_rt->output_buf_size = CRC_DIGEST_SIZE;
 		break;
 	case HMAC_SHA1:
-		output_buf_size = HMAC_SHA1_DIGEST_SIZE;
+		p_rt->output_buf_size = HMAC_SHA1_DIGEST_SIZE;
 		break;
 	case SNOW_F8_F9:
-		output_buf_size = crypto_info.buf_size + SNOW_F9_DIGEST_SIZE;
+		p_rt->output_buf_size =
+		    crypto_info->buf_size + SNOW_F9_DIGEST_SIZE;
 
-		/* For this algorithm a	 Job Descriptor will be added to the
+		/* For this algorithm a  Job Descriptor will be added to the
 		 * head of the SEC frame. Increase the buffer capacity and
 		 * length. The same buffer will be used for holding the
 		 * plain-text data + encrypt job descriptor and later the
 		 * encrypted data + SNOW F9 digest + decrypt job descriptor.
 		 */
-		input_buf_capacity += job_desc_buf_size + SNOW_F9_DIGEST_SIZE;
-		input_buf_length += job_desc_buf_size;
+		p_rt->input_buf_capacity +=
+		    p_rt->job_desc_buf_size + SNOW_F9_DIGEST_SIZE;
+		p_rt->input_buf_length += p_rt->job_desc_buf_size;
 
 		break;
 	default:
@@ -350,54 +361,15 @@ static int create_compound_fd(void)
 		return -EINVAL;
 	}
 
-	for (ind = 0; ind < crypto_info.buf_num; ind++) {
-
-		/* Allocate memory for scatter-gather entry and
-		   i/p & o/p buffers */
-		total_size = sizeof(struct sg_entry_priv_t) + output_buf_size
-			+ input_buf_capacity;
-
-		sg_priv_and_data = __dma_mem_memalign(L1_CACHE_BYTES, total_size);
-
-		if (unlikely(!sg_priv_and_data)) {
-			fprintf(stderr, "error: Unable to allocate memory"
-				" for buffer!\n");
-			return -EINVAL;
-		}
-		memset(sg_priv_and_data, 0, total_size);
-
-		/* Get the address of output and input buffers */
-		out_buf = (uint8_t *)(sg_priv_and_data)
-			+ sizeof(struct sg_entry_priv_t);
-		in_buf = (uint8_t *)sg_priv_and_data + (total_size
-				- input_buf_capacity);
-
-		sg = (struct qm_sg_entry *)sg_priv_and_data;
-
-		/* output buffer */
-		qm_sg_entry_set64(sg, __dma_mem_vtop(out_buf));
-		sg->length = output_buf_size;
-
-		/* input buffer */
-		sg++;
-		qm_sg_entry_set64(sg, __dma_mem_vtop(in_buf));
-		sg->length = input_buf_length;
-		sg->final = 1;
-		sg--;
-
-		/* Frame Descriptor */
-		qm_fd_addr_set64(&fd[ind], __dma_mem_vtop(sg));
-		fd[ind]._format1 = qm_fd_compound;
-		fd[ind].length29 = 2 * sizeof(struct qm_sg_entry);
-
-		sg_priv_and_data->index = ind;
-	}
-
 	return 0;
 }
 
-static void *setup_preheader(uint32_t shared_desc_len, uint32_t pool_id,
-		uint32_t pool_buf_size, uint8_t absolute, uint8_t add_buf)
+/*
+ * brief	Setup preheader for shared descriptor
+ * return	0 on success, otherwise -ve value
+ */
+void *setup_preheader(uint32_t shared_desc_len, uint32_t pool_id,
+		      uint32_t pool_buf_size, uint8_t absolute, uint8_t add_buf)
 {
 	struct preheader_s *prehdr = NULL;
 
@@ -419,7 +391,34 @@ static void *setup_preheader(uint32_t shared_desc_len, uint32_t pool_id,
 	prehdr->lo.field.pool_buffer_size = pool_buf_size;
 
 	return (void *)prehdr;
+}
 
+/*
+ * brief	Set parameters for descriptor init
+ * param[in]	mode - Encrypt/Decrypt
+ * param[in]	params - pointer to test parameters
+ * return	Shared descriptor pointer on success, otherwise NULL
+ */
+void *setup_sec_descriptor(bool mode, void *params)
+{
+	struct test_param crypto_info = *((struct test_param *)params);
+	void *descriptor = NULL;
+
+	if (SNOW_F8_F9 == crypto_info.algo) {
+		descriptor = setup_preheader(
+				 0, /* shared descriptor length is 0, meaning
+				       there is no shared desc in context A */
+				 0, /* pool buffer id */
+				 0, /* pool buffer size */
+				 0, /* abs = 0 and add_buf = 0 means that the
+				       output buffer is provided inside
+				       compound frame */
+				 0); /* add_buf = 0 */
+
+	} else {
+		descriptor = setup_init_descriptor(mode, crypto_info);
+	}
+	return descriptor;
 }
 
 /*
@@ -427,9 +426,10 @@ static void *setup_preheader(uint32_t shared_desc_len, uint32_t pool_id,
  *		commands to SEC 4.0 with necessary key, iv etc initialisation
  * param[in]	mode -	To check whether descriptor is for encryption or
  *		decryption
+ * param[in]	crypto_info - test parameters
  * return	Shared descriptor pointer on success, otherwise NULL
  */
-static void *setup_init_descriptor(bool mode)
+static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 {
 	struct sec_descriptor_t *prehdr_desc;
 	uint32_t *shared_desc = NULL;
@@ -445,35 +445,34 @@ static void *setup_init_descriptor(bool mode)
 	}
 
 	memset(prehdr_desc, 0, sizeof(struct sec_descriptor_t));
-
-	shared_desc = (typeof(shared_desc))&prehdr_desc->deschdr;
+	shared_desc = (typeof(shared_desc)) &prehdr_desc->descbuf;
 
 	switch (crypto_info.algo) {
 	case AES_CBC:
 		cnstr_shdsc_cbc_blkcipher(shared_desc, &shared_desc_len,
-			ref_test_vector.key, AES_CBC_KEY_LEN,
-			ref_test_vector.iv.init_vec,
-			AES_CBC_IV_LEN,
-			mode ? DIR_ENC : DIR_DEC,
-			OP_ALG_ALGSEL_AES);
+					  ref_test_vector.key, AES_CBC_KEY_LEN,
+					  ref_test_vector.iv.init_vec,
+					  AES_CBC_IV_LEN,
+					  mode ? DIR_ENC : DIR_DEC,
+					  OP_ALG_ALGSEL_AES);
 		break;
 
 	case TDES_CBC:
 		cnstr_shdsc_cbc_blkcipher(shared_desc, &shared_desc_len,
-			ref_test_vector.key, TDES_CBC_KEY_LEN,
-			ref_test_vector.iv.init_vec,
-			TDES_CBC_IV_LEN,
-			mode ? DIR_ENC : DIR_DEC,
-			OP_ALG_ALGSEL_3DES);
+					  ref_test_vector.key, TDES_CBC_KEY_LEN,
+					  ref_test_vector.iv.init_vec,
+					  TDES_CBC_IV_LEN,
+					  mode ? DIR_ENC : DIR_DEC,
+					  OP_ALG_ALGSEL_3DES);
 		break;
 
 	case SNOW_F8:
 		cnstr_shdsc_snow_f8(shared_desc, &shared_desc_len,
-			ref_test_vector.key, F8_KEY_LEN,
-			mode ? DIR_ENC : DIR_DEC,
-			ref_test_vector.iv.f8.count,
-			ref_test_vector.iv.f8.bearer,
-			ref_test_vector.iv.f8.direction);
+				    ref_test_vector.key, F8_KEY_LEN,
+				    mode ? DIR_ENC : DIR_DEC,
+				    ref_test_vector.iv.f8.count,
+				    ref_test_vector.iv.f8.bearer,
+				    ref_test_vector.iv.f8.direction);
 		break;
 
 	case SNOW_F9:
@@ -489,20 +488,19 @@ static void *setup_init_descriptor(bool mode)
 			length = crypto_info.buf_size * BITS_PER_BYTE;
 
 		cnstr_shdsc_snow_f9(shared_desc, &shared_desc_len,
-			ref_test_vector.key, F9_KEY_LEN,
-			DIR_ENC, ref_test_vector.iv.f9.count,
-			ref_test_vector.iv.f9.fresh,
-			ref_test_vector.iv.f9.direction,
-			length);
+				    ref_test_vector.key, F9_KEY_LEN,
+				    DIR_ENC, ref_test_vector.iv.f9.count,
+				    ref_test_vector.iv.f9.fresh,
+				    ref_test_vector.iv.f9.direction, length);
 		break;
 
 	case KASUMI_F8:
 		cnstr_shdsc_kasumi_f8(shared_desc, &shared_desc_len,
-			ref_test_vector.key, F8_KEY_LEN,
-			mode ? DIR_ENC : DIR_DEC,
-			ref_test_vector.iv.f8.count,
-			ref_test_vector.iv.f8.bearer,
-			ref_test_vector.iv.f8.direction);
+				      ref_test_vector.key, F8_KEY_LEN,
+				      mode ? DIR_ENC : DIR_DEC,
+				      ref_test_vector.iv.f8.count,
+				      ref_test_vector.iv.f8.bearer,
+				      ref_test_vector.iv.f8.direction);
 		break;
 
 	case KASUMI_F9:
@@ -518,11 +516,10 @@ static void *setup_init_descriptor(bool mode)
 			length = crypto_info.buf_size * BITS_PER_BYTE;
 
 		cnstr_shdsc_kasumi_f9(shared_desc, &shared_desc_len,
-			ref_test_vector.key, F9_KEY_LEN,
-			DIR_ENC, ref_test_vector.iv.f9.count,
-			ref_test_vector.iv.f9.fresh,
-			ref_test_vector.iv.f9.direction,
-			length);
+				      ref_test_vector.key, F9_KEY_LEN,
+				      DIR_ENC, ref_test_vector.iv.f9.count,
+				      ref_test_vector.iv.f9.fresh,
+				      ref_test_vector.iv.f9.direction, length);
 		break;
 
 	case CRC:
@@ -543,7 +540,7 @@ static void *setup_init_descriptor(bool mode)
 		}
 
 		cnstr_shdsc_hmac(shared_desc, &shared_desc_len,
-			ref_test_vector.key, OP_ALG_ALGSEL_SHA1, NULL);
+				 ref_test_vector.key, OP_ALG_ALGSEL_SHA1, NULL);
 		break;
 
 	default:
@@ -562,281 +559,21 @@ static void *setup_init_descriptor(bool mode)
 	return prehdr_desc;
 }
 
-static void *setup_sec_descriptor(bool mode)
-{
-	void *descriptor = NULL;
-
-	if (SNOW_F8_F9 == crypto_info.algo) {
-		descriptor = setup_preheader
-			(0, /* shared descriptor length is 0, meaning
-			       there is no shared desc in context A*/
-			 0, /* pool buffer id*/
-			 0, /* pool buffer size*/
-			 0, /* abs = 0 and add_buf = 0 means that the
-			       output buffer is provided inside
-			       compound frame*/
-			 0); /* add_buf = 0*/
-
-	} else {
-		descriptor = setup_init_descriptor(mode);
-	}
-	return descriptor;
-}
-
-struct qman_fq *create_sec_frame_queue(uint32_t fq_id,
-		dma_addr_t ctxt_a_addr, uint32_t ctx_b)
-{
-	struct qm_mcc_initfq fq_opts;
-	struct qman_fq *fq;
-	uint32_t flags;
-
-	fq = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(struct qman_fq));
-	if (unlikely(NULL == fq)) {
-		fprintf(stderr, "error: dma_mem_memalign failed in create_fqs"
-			" for FQ ID:%u\n", fq_id);
-		return NULL;
-	}
-	memset(fq, 0, sizeof(struct qman_fq));
-
-	if (ctxt_a_addr) {
-		flags = QMAN_FQ_FLAG_LOCKED | QMAN_FQ_FLAG_TO_DCPORTAL;
-		fq->cb = sec40_tx_cb;
-	} else {
-		flags = QMAN_FQ_FLAG_LOCKED | QMAN_FQ_FLAG_NO_ENQUEUE;
-		fq->cb = sec40_rx_cb;
-	}
-
-	if (unlikely(qman_create_fq(fq_id, flags, fq) != 0)) {
-		fprintf(stderr, "error: qman_create_fq failed for FQ ID: %u\n",
-			fq_id);
-		return NULL;
-	}
-
-	flags = QMAN_INITFQ_FLAG_SCHED;
-	fq_opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_CONTEXTA;
-
-	if (ctxt_a_addr) {
-		fq_opts.we_mask |= QM_INITFQ_WE_CONTEXTB;
-		qm_fqd_context_a_set64(&fq_opts.fqd, ctxt_a_addr);
-		fq_opts.fqd.context_b = ctx_b;
-		fq_opts.fqd.dest.channel = qm_channel_caam;
-		fq_opts.fqd.dest.wq = 0;
-	} else {
-		flags |= QMAN_INITFQ_FLAG_LOCAL;
-		fq_opts.fqd.fq_ctrl |= QM_FQCTRL_CTXASTASHING;
-		fq_opts.we_mask |= QM_INITFQ_WE_FQCTRL;
-		fq_opts.fqd.context_a.stashing.exclusive =
-			QM_STASHING_EXCL_DATA | QM_STASHING_EXCL_CTX;
-		fq_opts.fqd.context_a.stashing.data_cl = 1;
-		fq_opts.fqd.context_a.stashing.context_cl = 1;
-	}
-
-	if (unlikely(qman_init_fq(fq, flags, &fq_opts) != 0)) {
-		fprintf(stderr, "error: qm_init_fq failed for fq_id: %u\n",
-			fq_id);
-		return NULL;
-	}
-
-	return fq;
-}
-
-static int init_sec_frame_queues(enum SEC_MODE mode)
-{
-	uint32_t frame_q_base;
-	uint32_t fq_from_sec, fq_to_sec;
-	struct qman_fq **fq_from_sec_ptr, **fq_to_sec_ptr;
-	void *ctxt_a;
-	dma_addr_t addr;
-	int i;
-
-	if (ENCRYPT == mode) {
-		frame_q_base = fq_base_encrypt;
-		fq_from_sec_ptr = enc_fq_from_sec;
-		fq_to_sec_ptr = enc_fq_to_sec;
-	} else {
-		frame_q_base = fq_base_decrypt;
-		fq_from_sec_ptr = dec_fq_from_sec;
-		fq_to_sec_ptr = dec_fq_to_sec;
-	}
-
-	for (i = 0; i < FQ_PER_CORE; i++) {
-		ctxt_a = setup_sec_descriptor(mode);
-		if (0 == ctxt_a) {
-			fprintf(stderr, "error: %s: Initializing shared"
-				" descriptor failure!\n", __func__);
-			return -1;
-		}
-		addr = __dma_mem_vtop(ctxt_a);
-
-		fq_from_sec = frame_q_base + 2*i;;
-		fq_to_sec = fq_from_sec + 1;
-
-		fq_from_sec_ptr[i] =
-			create_sec_frame_queue(fq_from_sec, 0, 0);
-		if (!fq_from_sec_ptr[i]) {
-			fprintf(stderr, "error: %s : Encrypt FQ(from SEC)"
-				" couldn't be allocated, ID = %d\n", __func__,
-				fq_from_sec);
-			return -1;
-		}
-
-		fq_to_sec_ptr[i] =
-			create_sec_frame_queue(fq_to_sec, addr, fq_from_sec);
-		if (!fq_to_sec_ptr[i]) {
-			fprintf(stderr, "error: %s : Encrypt FQ(to SEC)"
-				" couldn't be allocated, ID = %d\n",
-				__func__, fq_to_sec);
-			return -1;
-		}
-	}
-	return 0;
-}
-
-/*
- * brief	Initialize frame queues to enqueue and dequeue frames to SEC
- *		and from SEC respectively
- * param[in]	None
- * return	0 on success, otherwise -ve value
- */
-static int init_sec_fq(void)
-{
-	/* Each core now has its own FQ base id for encrypt and decrypt */
-	fq_base_encrypt += 2 * cpu_ind * FQ_PER_CORE;
-	fq_base_decrypt += 2 * cpu_ind * FQ_PER_CORE;
-
-	if (init_sec_frame_queues(ENCRYPT)) {
-		fprintf(stderr, "error: %s: couldn't Initialize SEC 4.0 Encrypt"
-			" Queues\n", __func__);
-		return -1;
-	}
-
-	if (!authnct) {
-		if (init_sec_frame_queues(DECRYPT)) {
-			fprintf(stderr, "error: %s: couldn't Initialize SEC 4.0"
-				" Decrypt Queues\n", __func__);
-			return -1;
-		}
-	}
-
-	return 0;
-}
-
-void cb_fqs(struct qman_portal *qm, struct qman_fq *fq,
-		const struct qm_mr_entry *msg)
-{
-	uint32_t fqid;
-	uint32_t rem, offset;
-
-	fqid = fq->fqid;
-
-	if ((fqid >= fq_base_encrypt)
-			&& (fqid < fq_base_encrypt + 2*FQ_PER_CORE)) {
-		offset = fqid - fq_base_encrypt;
-		rem = offset % 2;
-		if (!rem)
-			enc_fq_from_sec_retire[offset / 2] = true;
-		else
-			enc_fq_to_sec_retire[offset / 2] = true;
-	} else if ((fqid >= fq_base_decrypt)
-			&& (fqid < (fq_base_decrypt + 2 * FQ_PER_CORE))) {
-		offset = fqid - fq_base_decrypt;
-		rem = offset % 2;
-		if (!rem)
-			dec_fq_from_sec_retire[offset / 2] = true;
-		else
-			dec_fq_to_sec_retire[offset / 2] = true;
-	}
-}
-
-void free_fd(void)
-{
-	dma_addr_t addr;
-	uint8_t *buf;
-
-	for (ind = 0; ind < crypto_info.buf_num; ind++) {
-		addr = qm_fd_addr_get64(&fd[ind]);
-		buf = __dma_mem_ptov(addr);
-		__dma_mem_free(buf);
-	}
-}
-
-static int free_sec_frame_queues(struct qman_fq *fq[],
-		bool fq_retire_flag[])
-{
-	int res, i;
-	uint32_t flags;
-
-	for (i = 0; i < FQ_PER_CORE; i++) {
-		res = qman_retire_fq(fq[i], &flags);
-		if (0 > res) {
-			fprintf(stderr, "error: qman_retire_fq failed for"
-				" fq %d\n", i);
-			return -EINVAL;
-		}
-
-		while (!fq_retire_flag[i])
-			qman_poll();
-
-		if (flags & QMAN_FQ_STATE_BLOCKOOS) {
-			fprintf(stderr, "error: leaking frames for"
-				" fq %d\n", i);
-			return -1;
-		}
-		if (qman_oos_fq(fq[i])) {
-			fprintf(stderr, "error: qman_oos_fq failed for"
-				" fq %d\n", i);
-			return -EINVAL;
-		}
-		qman_destroy_fq(fq[i], 0);
-	}
-	return 0;
-}
-
-int free_sec_fq(void)
-{
-	if (unlikely(free_sec_frame_queues(enc_fq_from_sec,
-		enc_fq_from_sec_retire) != 0)) {
-		fprintf(stderr, "error: free_sec_frame_queues failed for"
-			" enc_fq_from_sec\n");
-		return -1;
-	}
-
-	if (unlikely(free_sec_frame_queues(enc_fq_to_sec,
-		enc_fq_to_sec_retire) != 0)) {
-		fprintf(stderr, "error: free_sec_frame_queues failed for"
-			" enc_fq_to_sec\n");
-		return -1;
-	}
-
-	if (!authnct) {
-		if (unlikely(free_sec_frame_queues(dec_fq_from_sec,
-			dec_fq_from_sec_retire) != 0)) {
-			fprintf(stderr, "error: free_sec_frame_queues failed"
-				" for dec_fq_from_sec\n");
-			return -1;
-		}
-
-		if (unlikely(free_sec_frame_queues(dec_fq_to_sec,
-			dec_fq_to_sec_retire) != 0)) {
-			fprintf(stderr, "error: free_sec_frame_queues failed"
-				" for dec_fq_to_sec\n");
-			return -1;
-		}
-	}
-	return 0;
-}
-
 /*
  * brief	Initialize input buffer plain text data	and set	output buffer
  *		as 0 in compound frame descriptor
+ * param[in]	params - test parameters
+ * param[in]	struct qm_fd - frame descriptors list
+ * return       None
  */
-static void set_enc_buf(void)
+void set_enc_buf(void *params, struct qm_fd fd[])
 {
+	struct test_param crypto_info = *((struct test_param *)params);
 	struct qm_sg_entry *sgentry;
 	uint8_t *in_buf;
 	uint8_t plain_data = 0;
 	dma_addr_t addr;
-	uint32_t i;
+	uint32_t i, ind;
 
 	for (ind = 0; ind < crypto_info.buf_num; ind++) {
 		addr = qm_fd_addr_get64(&fd[ind]);
@@ -857,8 +594,8 @@ static void set_enc_buf(void)
 			 *  encrypt is different than for decrypt.
 			 */
 
-			sgentry->length = input_buf_capacity -
-				SNOW_F9_DIGEST_SIZE;
+			sgentry->length = crypto_info.rt.input_buf_capacity -
+			    SNOW_F9_DIGEST_SIZE;
 
 			/* Update the out frame length. If this is not the
 			 *  first iteration, the output len will remain set
@@ -866,17 +603,17 @@ static void set_enc_buf(void)
 			 *  encrypt is different than for decrypt.
 			 */
 			sgentry--;
-			sgentry->length = output_buf_size;
+			sgentry->length = crypto_info.rt.output_buf_size;
 
-			memcpy(in_buf, snow_jdesc_enc_f8_f9, job_desc_buf_size);
-			in_buf += job_desc_buf_size;
+			memcpy(in_buf, snow_jdesc_enc_f8_f9,
+			       crypto_info.rt.job_desc_buf_size);
+			in_buf += crypto_info.rt.job_desc_buf_size;
 		}
-
 		/* Copy the input plain-text data */
 		for (i = 0; i < crypto_info.buf_size; i++) {
 			if (CIPHER == crypto_info.mode)
 				memcpy(in_buf, ref_test_vector.plaintext,
-					crypto_info.buf_size);
+				       crypto_info.buf_size);
 			else
 				in_buf[i] = plain_data++;
 		}
@@ -886,17 +623,20 @@ static void set_enc_buf(void)
 /*
  * brief	Initialize input buffer as cipher text data and	set output
  *		buffer as 0 in compound frame descriptor
+ * param[in]	params - test parameters
+ * param[in]	struct qm_fd - frame descriptors list
+ * return       None
  */
-static void set_dec_buf(void)
+void set_dec_buf(void *params, struct qm_fd fd[])
 {
-
+	struct test_param crypto_info = *((struct test_param *)params);
 	struct qm_sg_entry *sg_out;
 	struct qm_sg_entry *sg_in;
-
 	dma_addr_t addr;
 	uint32_t length;
 	uint16_t offset;
 	uint8_t bpid;
+	uint32_t ind;
 
 	for (ind = 0; ind < crypto_info.buf_num; ind++) {
 		addr = qm_fd_addr_get64(&fd[ind]);
@@ -920,14 +660,22 @@ static void set_dec_buf(void)
 	}
 }
 
-static void set_dec_auth_buf(void)
+/*
+ * brief	Initialize input buffer as authenticated text data and set
+ *		output buffer as 0 in compound frame descriptor
+ * param[in]	params - test parameters
+ * param[in]	struct qm_fd - frame descriptors list
+ * return       None
+ */
+void set_dec_auth_buf(void *params, struct qm_fd fd[])
 {
-
+	struct test_param crypto_info = *((struct test_param *)params);
 	struct qm_sg_entry *sg_out;
 	struct qm_sg_entry *sg_in;
 	uint8_t *in_buf = NULL;
 	dma_addr_t addr;
 	uint8_t *dec_job_descriptor = NULL;
+	uint32_t ind;
 
 	if (SNOW_F8_F9 != crypto_info.algo) {
 		fprintf(stderr, "error: %s: algorithm not supported\n",
@@ -943,433 +691,40 @@ static void set_dec_auth_buf(void)
 
 		addr = qm_sg_entry_get64(sg_in);
 		in_buf = __dma_mem_ptov(addr);
-		memset(in_buf, 0, input_buf_capacity);
+		memset(in_buf, 0, crypto_info.rt.input_buf_capacity);
 
 		/* Convert the descriptor to an array of uint8_t items */
 		dec_job_descriptor = (uint8_t *) snow_jdesc_dec_f8_f9;
 
 		/* A Job Descriptor must be inlined at the head of the input
 		 * buffer. Set the decrypt job descriptor here. */
-		memcpy(in_buf, dec_job_descriptor, job_desc_buf_size);
-		in_buf += job_desc_buf_size;
+		memcpy(in_buf, dec_job_descriptor,
+		       crypto_info.rt.job_desc_buf_size);
+		in_buf += crypto_info.rt.job_desc_buf_size;
 
 		/* Validate that the output buffer size is equal with the
 		 *  size of the reference cyphertext for decryption
 		 */
-		if (output_buf_size != (snow_dec_f8_f9_reference_length
-					[crypto_info.test_set - 1]/8)) {
-			fprintf(stderr, "error: Invalid output buffer"
-				" length\n");
+		if (crypto_info.rt.output_buf_size !=
+		    (snow_dec_f8_f9_reference_length[crypto_info.test_set - 1] /
+		     8)) {
+			fprintf(stderr,
+				"error: Invalid output buffer" " length\n");
 			abort();
 		}
 
 		/* Use the reference encrypted data as input for decryption */
 		memcpy(in_buf, snow_dec_f8_f9_reference_ciphertext
-			[crypto_info.test_set - 1], output_buf_size);
+		       [crypto_info.test_set - 1],
+		       crypto_info.rt.output_buf_size);
 
-		sg_in->length = output_buf_size + job_desc_buf_size;
+		sg_in->length =
+		    crypto_info.rt.output_buf_size +
+		    crypto_info.rt.job_desc_buf_size;
 
 		/* The output buffer will contain only the decoded F8 data */
 		sg_out->length = crypto_info.buf_size;
 	}
-}
-
-/*
- * brief	Bitwise comparison of two vectors
- * param[in]	left - The lefthand-side vector to enter the comparison
- * param[in]	right - The righthand-side vector to enter the comparison
- * param[in]	bitlength - The length(in bits) on which the comparison
- *		will be made
- * retval	0 if and only if the vectors are identical up to
- *		(including) the given bitlength.
- * pre		Neither of the buffer pointers is allowed to be NULL.
- * pre		Both buffers must be at least of size ceil
- *		(bitlength / sizeof(32)).
- */
-static int test_vector_match(uint32_t *left, uint32_t *right,
-		uint32_t bitlen)
-{
-	uint8_t reminder_bitlen;
-	uint32_t bitmasks[32];
-	uint32_t i;
-
-	if (!left || !right) {
-		fprintf(stderr, "error: Wrong parameters to %s\n", __func__);
-		abort();
-	}
-
-	/* initialize bitmasks */
-	bitmasks[0] = 0xFFFFFFFF;
-	for (i = 1; i <= 31; i++)
-		bitmasks[i] = bitmasks[i - 1] >> 1;
-
-	/* compare the full 32-bit quantities */
-	for (i = 0; i < (bitlen >> 5); i++) {
-		if (left[i] != right[i]) {
-			fprintf(stderr, "error: %s(): Bytes at offset %d don't"
-				" match (0x%x, 0x%x)\n", __func__, i, left[i],
-				 right[i]);
-			return -1;
-		}
-	}
-
-	/* compare the reminder dword starting with its most significant
-	 *  bits */
-	reminder_bitlen = bitlen & 0x1F;
-	if (reminder_bitlen) {
-		/* compare left[bitlen >> 5] with right[bitlen >> 5]
-		 *  on the remaining number of bits
-		 */
-		uint32_t left_last = left[bitlen >> 5];
-		uint32_t right_last = right[bitlen >> 5];
-
-		if ((left_last | bitmasks[reminder_bitlen])
-				!= (right_last | bitmasks[reminder_bitlen])) {
-			fprintf(stderr, "error: %s(): Last bytes (%d) don't"
-				" match on full %d bitlength\n", __func__,
-				bitlen >> 5, reminder_bitlen);
-			return -1;
-		}
-	}
-	return 0;
-}
-
-/*
- * brief	Prints the Frame Descriptor on Console
- * param[in]	struct qm_fd * Pointer to the Frame Descriptor
- * return	None
- */
-void print_frame_desc(struct qm_fd *frame_desc)
-{
-	uint8_t *v;
-	dma_addr_t addr;
-	uint32_t i;
-
-	fprintf(stdout, "error: Frame Description at address %p\n",
-		(void *)frame_desc);
-	if (!frame_desc) {
-		fprintf(stdout, "error: - NULL pointer\n");
-	} else {
-		fprintf(stdout, "error: - debug : %d\n",
-			frame_desc->dd);
-		fprintf(stdout, "error: - bpid	: %d\n", frame_desc->bpid);
-		fprintf(stdout, "error: - address : 0x%"PRIx64"\n",
-			qm_fd_addr_get64(frame_desc));
-
-		switch (frame_desc->format) {
-		case 0:
-			fprintf(stdout, "error: - format : 0"
-				" - Short single buffer FD\n");
-			fprintf(stdout, "error: - offset : %d\n",
-				frame_desc->offset);
-			fprintf(stdout, "error: - length : %d\n",
-				frame_desc->length20);
-			break;
-		case 1:
-			fprintf(stdout, "error: - format : 1 - Compound FD\n");
-			fprintf(stdout, "error: - congestion weight : %d\n",
-				frame_desc->cong_weight);
-			break;
-		case 2:
-			fprintf(stdout, "error: - format : 2"
-				" - Long single buffer FD\n");
-			fprintf(stdout, "error: - length : %d\n",
-				frame_desc->length29);
-			break;
-		case 4:
-			fprintf(stderr, "error: - format : 4"
-				" - Short multi buffer FD\n");
-			fprintf(stdout, "error: - offset : %d\n",
-				frame_desc->offset);
-			fprintf(stdout, "error: - length : %d\n",
-				frame_desc->length29);
-			break;
-		case 6:
-			fprintf(stdout, "error: - format : 6"
-				" - Long multi buffer FD\n");
-			fprintf(stdout, "error: - length : %d\n",
-				frame_desc->length29);
-			break;
-		default:
-			fprintf(stderr, "error: - format : INVALID"
-				 " format %d\n", frame_desc->format);
-		}
-
-		fprintf(stdout, "error: - status/command : 0x%08x\n",
-			 frame_desc->cmd);
-
-		if (frame_desc->format == qm_fd_compound) {
-			struct qm_sg_entry *sgentry;
-
-			addr = qm_fd_addr_get64(frame_desc);
-			sgentry = __dma_mem_ptov(addr);
-
-			fprintf(stdout, "error: - compound FD S/G list at 0x%"
-				PRIx64"\n", addr);
-			addr = qm_sg_entry_get64(sgentry);
-			fprintf(stdout, "error: - SG Entry\n");
-			fprintf(stdout, "error:       - address	0x%"
-				PRIx64"\n", addr);
-			fprintf(stdout, "error:       - F %d\n",
-				sgentry->final);
-			fprintf(stdout, "error:       - E %d\n",
-				sgentry->extension);
-			fprintf(stdout, "error:       - length %d\n",
-				sgentry->length);
-			fprintf(stdout, "error:       - bpid %d\n",
-				sgentry->bpid);
-			fprintf(stdout, "error:       - offset %d\n",
-				sgentry->offset);
-
-			v = __dma_mem_ptov(addr);
-			for (i = 0; i < sgentry->length; i++)
-				fprintf(stdout, "error: 0x%x\n", *v++);
-
-			sgentry++;
-			addr = qm_sg_entry_get64(sgentry);
-			fprintf(stdout, "error:    - Next SG Entry\n");
-			fprintf(stdout, "error:       - address	0x%"
-				PRIx64"\n", addr);
-			fprintf(stdout, "error:       - F %d\n",
-				sgentry->final);
-			fprintf(stdout, "error:       - E %d\n",
-				sgentry->extension);
-			fprintf(stdout, "error:       - length %d\n",
-				sgentry->length);
-			fprintf(stdout, "error:       - bpid %d\n",
-				sgentry->bpid);
-			fprintf(stdout, "error:       - offset %d\n",
-				sgentry->offset);
-
-			v = __dma_mem_ptov(addr);
-			for (i = 0; i < sgentry->length; i++)
-				fprintf(stdout, "error: 0x%x\n", *v++);
-		}
-	}
-}
-
-/*
- * brief	Compare encrypted data returned by SEC 4.0 with	standard
- *		cipher text
- * param[in]	None
- * return	0 on success, otherwise -ve value
- */
-static int test_enc_match(void)
-{
-	struct qm_sg_entry *sgentry;
-	uint8_t *enc_buf;
-	dma_addr_t addr;
-
-	for (ind = 0; ind < crypto_info.buf_num; ind++) {
-		addr = qm_fd_addr_get64(&fd[ind]);
-		sgentry = __dma_mem_ptov(addr);
-
-		addr = qm_sg_entry_get64(sgentry);
-		enc_buf = __dma_mem_ptov(addr);
-
-		if (test_vector_match((uint32_t *) enc_buf,
-			authnct ? (uint32_t *)
-			ref_test_vector.digest : (uint32_t *)
-			ref_test_vector.ciphertext,
-			authnct ? output_buf_size * BITS_PER_BYTE :
-			ref_test_vector.length) != 0) {
-			if (!authnct)
-				fprintf(stderr, "error: %s: Encrypted frame %d"
-					" with CIPHERTEXT test vector doesn't"
-					" match\n" , __func__, ind + 1);
-			else
-				fprintf(stderr, "error: %s digest match"
-					" failed\n", algorithm);
-
-			print_frame_desc(&fd[ind]);
-			return -1;
-		}
-	}
-	if (!authnct)
-		fprintf(stdout, "All %s encrypted frame match found with"
-			" cipher text\n", algorithm);
-	else
-		fprintf(stdout, "All %s digest successfully matched\n",
-			algorithm);
-
-	return 0;
-}
-
-/*
- * brief	Compare decrypted data returned by SEC 4.0 with plain text
- *		input data
- * param[in]	None
- * return	0 on success, otherwise -ve value
- */
-static int test_dec_match(void)
-{
-	struct qm_sg_entry *sgentry;
-	uint8_t *dec_buf;
-	uint8_t plain_data = 0;
-	dma_addr_t addr;
-	uint32_t i;
-
-	for (ind = 0; ind < crypto_info.buf_num; ind++) {
-		addr = qm_fd_addr_get64(&fd[ind]);
-		sgentry = __dma_mem_ptov(addr);
-
-		addr = qm_sg_entry_get64(sgentry);
-		dec_buf = __dma_mem_ptov(addr);
-		if (CIPHER == crypto_info.mode) {
-			if (test_vector_match((uint32_t *) dec_buf, (uint32_t *)
-						ref_test_vector.plaintext,
-						ref_test_vector.length) != 0) {
-				fprintf(stderr, "error: %s: Decrypted frame %d"
-					" with PLAINTEXT test vector doesn't"
-					" match\n", __func__, ind + 1);
-				print_frame_desc(&fd[ind]);
-				return -1;
-			}
-		} else {
-			for (i = 0; i < crypto_info.buf_size; i++) {
-				if (dec_buf[i] != plain_data) {
-					fprintf(stderr, "error: %s: %s"
-						" decrypted frame %d doesn't"
-						" match!\n" , __func__,
-						algorithm, ind + 1);
-					print_frame_desc(&fd[ind]);
-					return -1;
-				}
-				plain_data++;
-			}
-		}
-	}
-	fprintf(stdout, "All %s decrypted frame matches initial text\n",
-		algorithm);
-	return 0;
-}
-
-/*
- * brief	Enqueue frames to SEC 4.0 on Encrypt/Decrypt FQ's
- * param[in]	mode - Encrypt/Decrypt
- * return	0 on success, otherwise -ve value
- */
-static void do_enqueues(enum SEC_MODE mode)
-{
-	struct qman_fq *fq_to_sec;
-	uint32_t ret;
-	int fd_ind;
-	int i = 0;
-
-	do {
-		if (i >= pkts_to_sec)
-			return;
-
-		fd_ind = (i*ncpus + cpu_ind) % crypto_info.buf_num;
-
-		if (ENCRYPT == mode)
-			fq_to_sec = enc_fq_to_sec[i % FQ_PER_CORE];
-		else
-			fq_to_sec = dec_fq_to_sec[i % FQ_PER_CORE];
-
-		pr_debug("%s mode: Enqueue packet ->%d\n", mode ? "Encrypt" :
-				"Decrypt\n", fd_ind);
-
-loop:
-		ret = qman_enqueue(fq_to_sec, (struct qm_fd *)&fd[fd_ind], 0);
-
-		if (unlikely(ret)) {
-			uint64_t now, then = mfatb();
-			do {
-				now = mfatb();
-			} while (now < (then + QMAN_WAIT_CYCLES));
-			goto loop;
-		}
-
-		i++;
-	} while (1);
-}
-
-/*
- * brief	Enqueue Rejection Notification Handler for SEC Tx FQ
- * param[in]	msg - Message Ring entry to be processed
- * param[out]	NULL
- */
-static void cb_ern(struct qman_portal *qm, struct qman_fq *fq,
-		const struct qm_mr_entry *msg)
-{
-	fprintf(stderr, "error: %s: RC = %x, seqnum = %x\n", __func__,
-		msg->ern.rc, msg->ern.seqnum);
-	/* TODO Add handling */
-	return;
-}
-
-
-/*
- * brief	call back handler for dequeued frames; Counts number of
- *		dequeued packets returned by SEC 4.0 on Encrypt/Decrypt FQ's
- * param[in]	mode - Encrypt/Decrypt
- * return	None
- */
-enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
-		const struct qm_dqrr_entry *dqrr)
-{
-	enum SEC_MODE mode = ENCRYPT;
-	struct sg_entry_priv_t *sgentry_priv;
-	dma_addr_t addr;
-
-	if ((dqrr->fqid >= fq_base_encrypt)
-			&& (dqrr->fqid < fq_base_encrypt + 2 * FQ_PER_CORE)) {
-		enc_pkts_from_sec++;
-	} else if ((dqrr->fqid >= fq_base_decrypt)
-			&& (dqrr->fqid < fq_base_decrypt + 2 * FQ_PER_CORE)) {
-		dec_pkts_from_sec++;
-		mode = DECRYPT;
-	} else {
-		fprintf(stderr, "error: %s: Invalid Frame Queue ID Returned"
-			" by SEC = %d\n", __func__, dqrr->fqid);
-		abort();
-	}
-
-	pr_debug("%s mode: Packet dequeued ->%d\n", mode ? "Encrypt" :
-		"Decrypt", mode ? enc_pkts_from_sec :
-		dec_pkts_from_sec);
-
-	addr = qm_fd_addr_get64(&(dqrr->fd));
-	sgentry_priv = __dma_mem_ptov(addr);
-	fd[sgentry_priv->index].status = dqrr->fd.status;
-
-	return qman_cb_dqrr_consume;
-}
-
-/* Poll qman DQCR for encrypted frames */
-static void enc_qman_poll(void)
-{
-	while (enc_pkts_from_sec < pkts_to_sec)
-		qman_poll();
-	return;
-}
-
-/** Poll qman DQCR for decrypted frames */
-static void dec_qman_poll(void)
-{
-	while (dec_pkts_from_sec < pkts_to_sec)
-		qman_poll();
-	return;
-}
-
-/*
- * brief	Checks if the status received in FD from CAAM block is valid
- * param[in]	Void
- * param[in]	Void
- * return	0 - if status is correct (i.e. 0)
- *		-1 - if CAAM returned an error status (i.e. non 0)
- */
-static int check_fd_status()
-{
-	for (ind = 0; ind < crypto_info.buf_num; ind++) {
-		if (fd[ind].status) {
-			fprintf(stderr, "error: Bad status return from SEC\n");
-			print_frame_desc(&fd[ind]);
-			return -1;
-		}
-	}
-	return 0;
 }
 
 /*
@@ -1400,54 +755,54 @@ static int check_fd_status()
  */
 static struct argp_option options[] = {
 	{"mode", 'm', "TEST MODE", 0,
-		"\n\r\ttest mode: provide following number\
-		\n\r\t\t1 for perf\
-		\n\r\t\t2 for cipher\
-		\n\r\tFollowing two combinations are valid only\
-		\n\r\tand all options are mandatory:\
-		\n\r\t\t-m 1 -s <buf_size> -n <buf_num_per_core>\
-		\n\r\t\t-o <algo> -l <itr_num>\
-		\n\r\t\t-m 2 -t <test_set> -n <buf_num_per_core>\
-		\n\r\t\t-o <algo> -l <itr_num>\n"},
+	 "\n\r\ttest mode: provide following number"
+		"\n\r\t\t1 for perf"
+		"\n\r\t\t2 for cipher"
+		"\n\r\tFollowing two combinations are valid only"
+		"\n\r\tand all options are mandatory:"
+		"\n\r\t\t-m 1 -s <buf_size> -n <buf_num_per_core>"
+		"\n\r\t\t-o <algo> -l <itr_num>"
+		"\n\r\t\t-m 2 -t <test_set> -n <buf_num_per_core>"
+		"\n\r\t\t-o <algo> -l <itr_num>\n"},
 	{"algo", 'o', "ALGORITHM", 0,
-		"\n\r\tCryptographic operation to perform by SEC4.0,\
-		\n\r\tprovide following number\
-		\n\r\t\t1 for AES_CBC\
-		\n\r\t\t2 for TDES_CBC\
-		\n\r\t\t3 for SNOW_F8\
-		\n\r\t\t4 for SNOW_F9\
-		\n\r\t\t5 for KASUMI_F8\
-		\n\r\t\t6 for KASUMI_F9\
-		\n\r\t\t7 for CRC\
-		\n\r\t\t8 for HMAC_SHA1\
-		\n\r\t\t9 for SNOW_F8_F9(only with PERF mode)\n"},
+	 "\n\r\tCryptographic operation to perform by SEC4.0,"
+		"\n\r\tprovide following number"
+		"\n\r\t\t1 for AES_CBC"
+		"\n\r\t\t2 for TDES_CBC"
+		"\n\r\t\t3 for SNOW_F8"
+		"\n\r\t\t4 for SNOW_F9"
+		"\n\r\t\t5 for KASUMI_F8"
+		"\n\r\t\t6 for KASUMI_F9"
+		"\n\r\t\t7 for CRC"
+		"\n\r\t\t8 for HMAC_SHA1"
+		"\n\r\t\t9 for SNOW_F8_F9(only with PERF mode)\n"},
 	{"itrnum", 'l', "ITERATIONS", 0,
-		"\n\r\tNumber of iteration to repeat\n"},
+	 "\n\r\tNumber of iteration to repeat\n"},
 	{"bufnum", 'n', "TOTAL BUFFERS", 0,
-		"\n\r\tTotal number of buffers(1-6400)\
-		\n\r\t\t Note: Both of Buffer size and buffer number\
-		\n\r\t\t cannot be greater than 3200 at the same time\n"},
+	 "\n\r\tTotal number of buffers(1-6400)"
+		"\n\r\t\t Note: Both of Buffer size and buffer number"
+		"\n\r\t\t cannot be greater than 3200 at the same time\n"},
 	{"bufsize", 's', "BUFFER SIZE", 0,
-		"\n\r\tOPTION IS VALID ONLY IN PERF MODE\
-		\n\r\t\t Buffer size (64, 128 ...upto 6400)\
-		\n\r\t\t Note: Both of Buffer size and buffer number\
-		\n\r\t\t cannot be greater than 3200 at the same time\n"},
+	 "\n\r\tOPTION IS VALID ONLY IN PERF MODE"
+		"\n\r\t\t Buffer size (64, 128 ...upto 6400)"
+		"\n\r\t\t Note: Both of Buffer size and buffer number"
+		"\n\r\t\t cannot be greater than 3200 at the same time\n"},
 	{"ncpus", 'c', "CPUS", 0,
-		"\n\r\tOPTIONAL PARAMETER\n\
-		\n\r\tNumber of cpus to work for the\
-		\n\r\tapplication(1-8)\n", 0},
+	 "\n\r\tOPTIONAL PARAMETER\n"
+		"\n\r\tNumber of cpus to work for the"
+		"\n\r\tapplication(1-8)\n", 0},
 	{"testset", 't', "TEST SET", 0,
-		"\n\r\tOPTION IS VALID ONLY IN CIPHER MODE\
-		\n\r\t\t provide following test set number:\
-		\n\r\t\t test set for AES_CBC is 1 to 4\
-		\n\r\t\t test set for TDES_CBC is 1 to 2\
-		\n\r\t\t test set for SNOW_F8 is 1 to 5\
-		\n\r\t\t test set for SNOW_F9 is 1 to 5\
-		\n\r\t\t test set for KASUMI_F8 is 1 to 5\
-		\n\r\t\t test set for KASUMI_F9 is 1 to 5\
-		\n\r\t\t test set for CRC is 1 to 5\
-		\n\r\t\t test set for HMAC_SHA1 is 1 to 2\
-		\n\r\t\t test set for SNOW_F8_F9 is 1\n"},
+	 "\n\r\tOPTION IS VALID ONLY IN CIPHER MODE"
+		"\n\r\t\t provide following test set number:"
+		"\n\r\t\t test set for AES_CBC is 1 to 4"
+		"\n\r\t\t test set for TDES_CBC is 1 to 2"
+		"\n\r\t\t test set for SNOW_F8 is 1 to 5"
+		"\n\r\t\t test set for SNOW_F9 is 1 to 5"
+		"\n\r\t\t test set for KASUMI_F8 is 1 to 5"
+		"\n\r\t\t test set for KASUMI_F9 is 1 to 5"
+		"\n\r\t\t test set for CRC is 1 to 5"
+		"\n\r\t\t test set for HMAC_SHA1 is 1 to 2"
+		"\n\r\t\t test set for SNOW_F8_F9 is 1\n"},
 	{}
 };
 
@@ -1469,45 +824,49 @@ static struct argp_option options[] = {
  *		meaning the given KEY wasn't recognized, or an errno value
  *		indicating some other error
  */
-static error_t parse_opt(int key, char *arg, struct argp_state *state)
+error_t parse_opt(int key, char *arg, struct argp_state *state)
 {
+	struct parse_input_t *input = state->input;
+	struct test_param *crypto_info = input->crypto_info;
+	uint32_t *p_cmd_params = input->cmd_params;
+
 	switch (key) {
 	case 'm':
-		crypto_info.mode = atoi(arg);
-		g_cmd_params |= BMASK_SEC_TEST_MODE;
+		crypto_info->mode = atoi(arg);
+		*p_cmd_params |= BMASK_SEC_TEST_MODE;
 		fprintf(stdout, "Test mode = %s\n", arg);
 		break;
 
 	case 't':
-		crypto_info.test_set = atoi(arg);
-		g_cmd_params |= BMASK_SEC_TEST_SET;
-		fprintf(stdout, "Test set = %d\n", crypto_info.test_set);
+		crypto_info->test_set = atoi(arg);
+		*p_cmd_params |= BMASK_SEC_TEST_SET;
+		fprintf(stdout, "Test set = %d\n", crypto_info->test_set);
 		break;
 
 	case 's':
-		crypto_info.buf_size = atoi(arg);
-		g_cmd_params |= BMASK_SEC_BUFFER_SIZE;
-		fprintf(stdout, "Buffer size = %d\n", crypto_info.buf_size);
+		crypto_info->buf_size = atoi(arg);
+		*p_cmd_params |= BMASK_SEC_BUFFER_SIZE;
+		fprintf(stdout, "Buffer size = %d\n", crypto_info->buf_size);
 		break;
 
 	case 'n':
-		crypto_info.buf_num = atoi(arg);
-		g_cmd_params |= BMASK_SEC_BUFFER_NUM;
+		crypto_info->buf_num = atoi(arg);
+		*p_cmd_params |= BMASK_SEC_BUFFER_NUM;
 		fprintf(stdout, "Number of Buffers per core = %d\n",
-				crypto_info.buf_num);
+			crypto_info->buf_num);
 		break;
 
 	case 'o':
-		crypto_info.algo = atoi(arg);
-		g_cmd_params |= BMASK_SEC_ALG;
+		crypto_info->algo = atoi(arg);
+		*p_cmd_params |= BMASK_SEC_ALG;
 		fprintf(stdout, "SEC4.0 cryptographic operation = %s\n", arg);
 		break;
 
 	case 'l':
-		crypto_info.itr_num = atoi(arg);
-		g_cmd_params |= BMASK_SEC_ITR_NUM;
+		crypto_info->itr_num = atoi(arg);
+		*p_cmd_params |= BMASK_SEC_ITR_NUM;
 		fprintf(stdout, "Number of iteration = %d\n",
-			crypto_info.itr_num);
+			crypto_info->itr_num);
 		break;
 
 	case 'c':
@@ -1518,63 +877,60 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
+
 	return 0;
 }
 
-static int validate_test_set(void)
+/*
+ * brief	Verifies if user gave a correct test set
+ * param[in]	crypto_info - test parameters
+ * return	0 on success, otherwise -ve value
+ */
+static int validate_test_set(struct test_param crypto_info)
 {
 	switch (crypto_info.algo) {
 	case AES_CBC:
-		if (crypto_info.test_set > 0 &&
-			crypto_info.test_set < 5)
+		if (crypto_info.test_set > 0 && crypto_info.test_set < 5)
 			return 0;
 		else
 			goto err;
 	case TDES_CBC:
-		if (crypto_info.test_set > 0 &&
-			crypto_info.test_set < 3)
+		if (crypto_info.test_set > 0 && crypto_info.test_set < 3)
 			return 0;
 		else
 			goto err;
 	case SNOW_F8:
-		if (crypto_info.test_set > 0 &&
-			crypto_info.test_set < 6)
+		if (crypto_info.test_set > 0 && crypto_info.test_set < 6)
 			return 0;
 		else
 			goto err;
 	case SNOW_F9:
-		if (crypto_info.test_set > 0 &&
-			crypto_info.test_set < 6)
+		if (crypto_info.test_set > 0 && crypto_info.test_set < 6)
 			return 0;
 		else
 			goto err;
 	case KASUMI_F8:
-		if (crypto_info.test_set > 0 &&
-			crypto_info.test_set < 6)
+		if (crypto_info.test_set > 0 && crypto_info.test_set < 6)
 			return 0;
 		else
 			goto err;
 	case KASUMI_F9:
-		if (crypto_info.test_set > 0 &&
-			crypto_info.test_set < 6)
+		if (crypto_info.test_set > 0 && crypto_info.test_set < 6)
 			return 0;
 		else
 			goto err;
 	case CRC:
-		if (crypto_info.test_set > 0 &&
-			crypto_info.test_set < 6)
+		if (crypto_info.test_set > 0 && crypto_info.test_set < 6)
 			return 0;
 		else
 			goto err;
 	case HMAC_SHA1:
-		if (crypto_info.test_set > 0 &&
-			crypto_info.test_set < 3)
+		if (crypto_info.test_set > 0 && crypto_info.test_set < 3)
 			return 0;
 		else
 			goto err;
 	case SNOW_F8_F9:
-		if (crypto_info.test_set > 0 &&
-			crypto_info.test_set < 2)
+		if (crypto_info.test_set > 0 && crypto_info.test_set < 2)
 			return 0;
 		else
 			goto err;
@@ -1592,16 +948,17 @@ err:
 /*
  * brief	Check SEC 4.0 parameters provided by user whether valid or not
  * param[in]	g_cmd_params - Bit mask of all parameters provided by user
+ * param[in]	crypto_info - test parameters
  * return	0 on success, otherwise -ve value
  */
-static int validate_params(void)
+static int validate_params(uint32_t g_cmd_params, struct test_param crypto_info)
 {
 	if ((PERF == crypto_info.mode)
-			&& BMASK_SEC_PERF_MODE == g_cmd_params) {
+	    && BMASK_SEC_PERF_MODE == g_cmd_params) {
 		/* do nothing */
 	} else if ((CIPHER == crypto_info.mode)
-			&& g_cmd_params == BMASK_SEC_CIPHER_MODE) {
-		if (validate_test_set() != 0) {
+		   && g_cmd_params == BMASK_SEC_CIPHER_MODE) {
+		if (validate_test_set(crypto_info) != 0) {
 			fprintf(stderr, "error: Invalid Parameters: Invalid"
 				" test set\nsee --help option\n");
 			return -EINVAL;
@@ -1613,26 +970,35 @@ static int validate_params(void)
 		return -EINVAL;
 	}
 
-	if (crypto_info.buf_num == 0 ||
-		crypto_info.buf_num > BUFF_NUM) {
+	if (crypto_info.buf_num == 0 || crypto_info.buf_num > BUFF_NUM) {
 		fprintf(stderr, "error: Invalid Parameters: Invalid number of"
 			" buffers\nsee --help option\n");
 		return -EINVAL;
 	}
 
 	if (PERF == crypto_info.mode && (crypto_info.buf_size == 0 ||
-		crypto_info.buf_size % L1_CACHE_BYTES != 0 ||
-		crypto_info.buf_size > BUFF_SIZE)) {
-		fprintf(stderr, "error: Invalid Parameters: Invalid number of"
+					 crypto_info.buf_size %
+					 L1_CACHE_BYTES != 0
+					 || crypto_info.buf_size > BUFF_SIZE)) {
+		fprintf(stderr,
+			"error: Invalid Parameters: Invalid number of"
 			" buffers\nsee --help option\n");
 		return -EINVAL;
 	}
 
 	if (PERF == crypto_info.mode && (crypto_info.buf_num > BUFF_NUM / 2
-		&& crypto_info.buf_size > BUFF_SIZE / 2)) {
-		fprintf(stderr, "error: Both of number of buffers and buffer"
+					 && crypto_info.buf_size >
+					 BUFF_SIZE / 2)) {
+		fprintf(stderr,
+			"error: Both of number of buffers and buffer"
 			" size\ncannot be more than 3200 at the same time\n"
 			"see --help option\n");
+		return -EINVAL;
+	}
+
+	if (SNOW_F8_F9 == crypto_info.algo && PERF == crypto_info.mode) {
+		fprintf(stdout, "info: PERF mode is not supported for"
+			" SNOW_F8_F9");
 		return -EINVAL;
 	}
 
@@ -1656,201 +1022,107 @@ static int validate_params(void)
 	return 0;
 }
 
-static pthread_barrier_t app_barrier;
-
-/* This is not actually necessary, the threads can just start up without any
- * ordering requirement. The first cpu will initialise the interfaces before
- * enabling the MACs, and cpus/portals can come online in any order. On
- * simulation however, the initialising thread/cpu *crawls* because the
- * simulator spends most of its time simulating the other cpus in their tight
- * polling loops, whereas having those threads suspended in a barrier allows
- * the simulator to focus on the cpu doing the initialisation. On h/w this is
- * harmless but of no benefit. */
-
-static int worker_fn(thread_data_t *tdata)
+/*
+ * brief	Compare encrypted data returned by SEC 4.0 with	standard
+ *		cipher text
+ * param[in]	params - test parameters
+ * param[in]	struct qm_fd - frame descriptor list
+ * return	    0 on success, otherwise -ve value
+ */
+int test_enc_match(void *params, struct qm_fd fd[])
 {
-	int i = 1;
-	int iterations = crypto_info.itr_num;
-	/* Counters to record time */
-	uint64_t atb_start_enc=0;
-	uint64_t atb_start_dec=0;
-	int calm_down = 16;
+	struct test_param crypto_info = *((struct test_param *)params);
+	struct qm_sg_entry *sgentry;
+	uint8_t *enc_buf;
+	dma_addr_t addr;
+	uint32_t ind;
 
-	pr_debug("\nThis is the thread on cpu %d\n", tdata->cpu);
+	for (ind = 0; ind < crypto_info.buf_num; ind++) {
+		addr = qm_fd_addr_get64(&fd[ind]);
+		sgentry = __dma_mem_ptov(addr);
 
-	fq_base_encrypt = SEC40_FQ_BASE ;
-	fq_base_decrypt = SEC40_FQ_BASE + 2 * FQ_PER_CORE * sysconf(_SC_NPROCESSORS_ONLN);
-	
-	cpu_ind = tdata->index;
+		addr = qm_sg_entry_get64(sgentry);
+		enc_buf = __dma_mem_ptov(addr);
 
-	if (unlikely(init_sec_fq() != 0)) {
-		fprintf(stderr, "error: %s: init_sec_fq() failure\n",
-			__func__);
-		abort();
+		if (test_vector_match((uint32_t *) enc_buf,
+				      authnct ? (uint32_t *)
+				      ref_test_vector.digest : (uint32_t *)
+				      ref_test_vector.ciphertext,
+				      authnct ? crypto_info.rt.output_buf_size *
+				      BITS_PER_BYTE : ref_test_vector.length) !=
+		    0) {
+			if (!authnct)
+				fprintf(stderr, "error: %s: Encrypted frame %d"
+					" with CIPHERTEXT test vector doesn't"
+					" match\n", __func__, ind + 1);
+			else
+				fprintf(stderr, "error: %s digest match"
+					" failed\n", algorithm);
+
+			print_frame_desc(&fd[ind]);
+			return -1;
+		}
 	}
 
-	get_pkts_to_sec();
+	if (!authnct)
+		fprintf(stdout, "All %s encrypted frame match found with"
+			" cipher text\n", algorithm);
+	else
+		fprintf(stdout, "All %s digest successfully matched\n",
+			algorithm);
 
-	while (iterations) {
-		/* Set encryption buffer */
-		if (!tdata->index) {
-			if (crypto_info.itr_num < ONE_MEGA) {
-				fprintf(stdout, "Iteration %d started\n", i);
-			} else {
-				if (1 == (i % ONE_MEGA/10))
-					fprintf(stdout, "Iteration %d started."
-							" working....\n", i);
+	return 0;
+}
+
+/*
+ * brief	Compare decrypted data returned by SEC 4.0 with plain text
+ *		input data
+ * param[in]	params - test parameters
+ * param[in]	struct qm_fd - frame descriptor list
+ * return	0 on success, otherwise -ve value
+ */
+int test_dec_match(void *params, struct qm_fd fd[])
+{
+	struct test_param crypto_info = *((struct test_param *)params);
+	struct qm_sg_entry *sgentry;
+	uint8_t *dec_buf;
+	uint8_t plain_data = 0;
+	dma_addr_t addr;
+	uint32_t i, ind;
+
+	for (ind = 0; ind < crypto_info.buf_num; ind++) {
+		addr = qm_fd_addr_get64(&fd[ind]);
+		sgentry = __dma_mem_ptov(addr);
+
+		addr = qm_sg_entry_get64(sgentry);
+		dec_buf = __dma_mem_ptov(addr);
+		if (CIPHER == crypto_info.mode) {
+			if (test_vector_match((uint32_t *) dec_buf, (uint32_t *)
+					      ref_test_vector.plaintext,
+					      ref_test_vector.length) != 0) {
+				fprintf(stderr, "error: %s: Decrypted frame %d"
+					" with PLAINTEXT test vector doesn't"
+					" match\n", __func__, ind + 1);
+				print_frame_desc(&fd[ind]);
+				return -1;
 			}
-			set_enc_buf();
-		}
-		enc_pkts_from_sec = 0;
-
-		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
-			fprintf(stderr, "error: Encrypt mode:"
-				" pthread_barrier_wait failed"
-				" before enqueue\n");
-			abort();
-		}
-
-		if (!tdata->index)
-			/* encrypt mode: start time */
-			atb_start_enc = mfatb();
-
-		/* Send data to SEC40 for encryption/authentication */
-		do_enqueues(ENCRYPT);
-
-		if (!tdata->index)
-			pr_debug("Encrypt mode: Total packet sent to "
-				 "SEC = %u\n", crypto_info.buf_num);
-
-		/* Recieve encrypted or MAC data from SEC40 */
-		enc_qman_poll();
-
-		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
-			fprintf(stderr, "error: Encrypt mode:"
-				" pthread_barrier_wait failed"
-				" before enqueue\n");
-			abort();
-		}
-
-		if (!tdata->index) {
-			pr_debug("Encrypt mode: Total packet returned from "
-				 "SEC = %d\n", enc_pkts_from_sec);
-
-			/* accumulated time difference */
-			enc_delta += (mfatb() - atb_start_enc);
-
-			if (unlikely(check_fd_status() != 0)) {
-				ctrl_error = 1;
-				goto error2;
-			}
-
-			/* Test ciphertext or MAC generated by SEC40 */
-			if (CIPHER == crypto_info.mode) {
-				if (unlikely(test_enc_match() != 0)) {
-					ctrl_error = 1;
-					goto error2;
+		} else {
+			for (i = 0; i < crypto_info.buf_size; i++) {
+				if (dec_buf[i] != plain_data) {
+					fprintf(stderr, "error: %s: %s"
+						" decrypted frame %d doesn't"
+						" match!\n", __func__,
+						algorithm, ind + 1);
+					print_frame_desc(&fd[ind]);
+					return -1;
 				}
-			}
-
-			/* Set decryption buffer */
-			if (SNOW_F8_F9 == crypto_info.algo)
-				set_dec_auth_buf();
-			else if (!authnct)
-				set_dec_buf();
-		}
-		dec_pkts_from_sec = 0;
-error2:
-		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
-			fprintf(stderr, "error: Decrypt mode:"
-				" pthread_barrier_wait failed"
-				" before enqueue\n");
-			abort();
-		}
-
-		if (ctrl_error)
-			goto err_free_fq;
-
-		if (authnct)
-			goto result;
-
-		if (!tdata->index)
-			/* decrypt mode: start time */
-			atb_start_dec = mfatb();
-
-		/* Send data to SEC40 for decryption */
-		do_enqueues(DECRYPT);
-
-		if (!tdata->index)
-			pr_debug("Decrypt mode: Total packet sent to "
-				 "SEC = %u\n", crypto_info.buf_num);
-
-		/* Recieve decrypted data from SEC40 */
-		dec_qman_poll();
-
-		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
-			fprintf(stderr, "error: Encrypt mode:"
-				" pthread_barrier_wait failed"
-				" before enqueue\n");
-			abort();
-		}
-
-		if (!tdata->index) {
-			pr_debug("Decrypt mode: Total packet returned from "
-				 "SEC = %d\n", dec_pkts_from_sec);
-
-			/* accumulated time difference */
-			dec_delta += (mfatb() - atb_start_dec);
-
-			if (unlikely(check_fd_status() != 0)) {
-				ctrl_error = 1;
-				goto error2;
-			}
-
-			if (unlikely(test_dec_match() != 0)) {
-				ctrl_error = 1;
-				goto error3;
+				plain_data++;
 			}
 		}
-error3:
-		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
-			fprintf(stderr, "error: pthread_barrier_wait failed"
-				" after test_dec_match\n");
-			abort();
-		}
-
-		if (ctrl_error)
-			goto err_free_fq;
-
-result:
-		if (!tdata->index) {
-			if (ONE_MEGA > crypto_info.itr_num) {
-				fprintf(stdout, "Iteration %d finished\n", i);
-			} else {
-				if (1 == (i % ONE_MEGA/10))
-					fprintf(stdout, "Iteration %d finished."
-							" working....\n", i);
-			}
-		}
-
-		iterations--;
-		i++;
 	}
+	fprintf(stdout, "All %s decrypted frame matches initial text\n",
+		algorithm);
 
-err_free_fq:
-	if (unlikely(free_sec_fq() != 0)) {
-			fprintf(stderr, "error: %s: free_sec_fq failed\n",
-				__func__);
-			abort();
-	}
-
-	while (calm_down--) {
-		qman_poll_slow();
-		qman_poll_dqrr(16);
-	}
-	qman_thread_finish();
-
-	pr_debug("Leaving thread on cpu %d\n", tdata->cpu);
 	return 0;
 }
 
@@ -1865,26 +1137,22 @@ static struct argp argp = { options, parse_opt, NULL, NULL, NULL, NULL, NULL };
 int main(int argc, char *argv[])
 {
 	long num_online_cpus = sysconf(_SC_NPROCESSORS_ONLN);
-	thread_data_t thread_data[num_online_cpus];
+	struct thread_data thread_data[num_online_cpus];
 	int err;
-	uint16_t enc_cycles_per_frame = 0;
-	uint16_t dec_cycles_per_frame = 0;
-	uint64_t cpu_freq;
-	FILE *p_cpuinfo;
-	char buf[255], cpu_f[20];
-
-	fprintf(stdout, "\nWelcome to FSL SEC 4.0 application!\n");
-
-	err = of_init();
-	if (err)
-		error(err, err, "error: of_init() failed");
+	uint32_t g_cmd_params = 0, i;
+	struct test_param crypto_info;
+	struct parse_input_t input;
+	struct test_cb crypto_cb;
 
 	ncpus = num_online_cpus;
 
-	/* Where the magic happens */
-	argp_parse(&argp, argc, argv, 0, 0, &crypto_info);
+	input.cmd_params = &g_cmd_params;
+	input.crypto_info = &crypto_info;
 
-	err = validate_params();
+	/* Parse and check input arguments */
+	argp_parse(&argp, argc, argv, 0, 0, &input);
+
+	err = validate_params(g_cmd_params, crypto_info);
 	if (err)
 		error(err, err, "error: validate_params failed!");
 
@@ -1895,11 +1163,11 @@ int main(int argc, char *argv[])
 		exit(-EINVAL);
 	}
 
-	if (SNOW_F8_F9 == crypto_info.algo && PERF == crypto_info.mode) {
-		fprintf(stdout, "info: PERF mode is not supported for"
-			" SNOW_F8_F9");
-		exit(0);
-	}
+	fprintf(stdout, "\nWelcome to FSL SEC 4.0 application!\n");
+
+	err = of_init();
+	if (err)
+		error(err, err, "error: of_init() failed");
 
 	/* map DMA memory */
 	dma_mem_generic = dma_mem_create(DMA_MAP_FLAG_ALLOC, NULL, 0x1000000);
@@ -1917,92 +1185,124 @@ int main(int argc, char *argv[])
 	if (err)
 		error(err, err, "error: qman global init failed");
 
-	/* Store the number of bytes for the job descriptor.
-	 * The SNOW_JDESC_ENC_F8_F9_LEN and SNOW_JDESC_DEC_F8_F9_LEN macros
-	 * return the length in 32 bit words.
-	 * Calculate the maximum between the encrypt and decrypt descriptors
-	 * because the same compound FD will be used for both processes, so
-	 * will allocate the memory area that can hold both descriptors.
-	 */
-	job_desc_buf_size = MAX(SNOW_JDESC_ENC_F8_F9_LEN,
-			SNOW_JDESC_DEC_F8_F9_LEN);
-
-	/* Read cpu frequency from /poc/cpuinfo */
-	p_cpuinfo = fopen("/proc/cpuinfo", "rb");
-
-	if (NULL == p_cpuinfo) {
-		fprintf(stderr, "error: opening file /proc/cpuinfo");
-	} else {
-		while (fgets(buf, 255, p_cpuinfo)) {
-			if (strstr(buf, "clock")) {
-				strncpy(cpu_f, &buf[9], 20);
-				break;
-			}
-		}
-	}
-
-	cpu_freq = strtoul(cpu_f, NULL, 10); /* cpu_freq in MHz */
-	if (ERANGE == errno || EINVAL == errno)
-		error(err, err, "error: could not read cpu frequency"
-			" from /proc/cpuinfo");
-
-	/* TODO get pool_channel_offset through API */
-	pool_channel_offset = 9;
-
-	if (PERF == crypto_info.mode) {
-		strcpy(mode_type, "PERF");
-		crypto_info.test_set = 1;
-	}
-
-	init_ref_test_vector[crypto_info.algo - 1]();
-
-	if (CIPHER == crypto_info.mode) {
-		strcpy(mode_type, "CIPHER");
-		crypto_info.buf_size =
-			NO_OF_BYTES(ref_test_vector.length);
-	}
-
-	err = create_compound_fd();
+	/* Prepare and create compound fds */
+	err = prepare_test_frames(&crypto_info);
 	if (err)
-		error(err, err, "error: create_compound_fd() failed");
+		error(err, err, "error: preparing test frames failed");
 
-	fprintf(stdout, "Processing %s for %d Frames\n", algorithm,
-		crypto_info.buf_num);
-	fprintf(stdout, "%s mode, buffer length = %d\n", mode_type,
-			crypto_info.buf_size);
-	fprintf(stdout, "Number of iterations = %d\n", crypto_info.itr_num);
-	fprintf(stdout, "\nStarting threads for %ld cpus\n", ncpus);
+	set_crypto_cbs(&crypto_cb, crypto_info);
+
+	for (i = 0; i < ncpus; i++) {
+		thread_data[i].test_param = (void *)(&crypto_info);
+		thread_data[i].test_cb = (void *)(&crypto_cb);
+	}
 
 	/* Starting threads on all active cpus */
 	err = start_threads(thread_data, ncpus, 1, worker_fn);
 	if (err)
-		error(err, err, "error: start_threads failiure");
+		error(err, err, "error: start_threads failure");
 
 	/* Wait for all the threads to finish */
 	wait_threads(thread_data, ncpus);
 
-	if (!ctrl_error) {
-		enc_cycles_per_frame = (enc_delta) /
-			(crypto_info.itr_num * crypto_info.buf_num);
+	validate_test(crypto_info.itr_num, crypto_info.buf_num,
+		      crypto_info.buf_size);
 
-		fprintf(stdout, "%s: Throughput = %"PRIu64" Mbps\n", authnct ?
-			"Authenticate" : "Encrypt", (cpu_freq * BITS_PER_BYTE *
-			crypto_info.buf_size) / enc_cycles_per_frame);
-
-		if (!authnct) {
-			dec_cycles_per_frame = (dec_delta) /
-				(crypto_info.itr_num * crypto_info.buf_num);
-
-			fprintf(stdout, "%s: Throughput = %"PRIu64" Mbps\n",
-				"Decrypt", (cpu_freq * BITS_PER_BYTE *
-				crypto_info.buf_size) / dec_cycles_per_frame);
-		}
-		fprintf(stdout, "SEC 4.0 TEST PASSED\n");
-	} else {
-		fprintf(stdout, "info: TEST FAILED\n");
-	}
-
-	free_fd();
+	free_fd(crypto_info.buf_num);
 	of_finish();
 	exit(EXIT_SUCCESS);
+}
+
+/*
+ * brief	Returns number of iterations for test
+ * param[in]	params - test parameters
+ * return	Number of iterations for test
+ */
+int get_num_of_iterations(void *params)
+{
+	struct test_param crypto_info = *((struct test_param *)params);
+
+	return crypto_info.itr_num;
+}
+
+/*
+ * brief	Returns number of buffers for test
+ * param[in]	params - test parameters
+ * return	Number of buffers for test
+ */
+inline int get_num_of_buffers(void *params)
+{
+	struct test_param crypto_info = *((struct test_param *)params);
+
+	return crypto_info.buf_num;
+}
+
+/*
+ * brief	Returns test mode - CIPHER/PERF
+ * param[in]	params - test parameters
+ * return	Test mode - CIPHER/PERF
+ */
+inline enum test_mode get_test_mode(void *params)
+{
+	struct test_param crypto_info = *((struct test_param *)params);
+
+	return crypto_info.mode;
+}
+
+/*
+ * brief	Returns if test requires authentication
+ * param[in]	params - test parameters
+ * return	0 - doesn't require authentication/1 - requires authentication
+ */
+inline uint8_t requires_authentication(void)
+{
+	return authnct;
+}
+
+/*
+ * brief	Returns number of cpus for test
+ * param[in]	params - test parameters
+ * return	Number of cpus for test
+ */
+inline long get_num_of_cpus(void)
+{
+	return ncpus;
+}
+
+/*
+ * brief	Returns thread barrier for test
+ * param[in]	None
+ * return	Thread barrier
+ */
+inline pthread_barrier_t get_thread_barrier(void)
+{
+	return app_barrier;
+}
+
+/*
+ * brief	Set specific callbacks for test
+ * param[in]	crypto_cb - structure that holds reference to test callbacks
+ * return	None
+ */
+void set_crypto_cbs(struct test_cb *crypto_cb, struct test_param crypto_info)
+{
+	crypto_cb->set_sec_descriptor = setup_sec_descriptor;
+	crypto_cb->is_enc_match = test_enc_match;
+	crypto_cb->is_dec_match = test_dec_match;
+	crypto_cb->set_enc_buf = set_enc_buf;
+
+	/* Set decryption buffer */
+	if (SNOW_F8_F9 == crypto_info.algo)
+		crypto_cb->set_dec_buf = set_dec_auth_buf;
+	else if (!authnct)
+		crypto_cb->set_dec_buf = set_dec_buf;
+	else
+		crypto_cb->set_dec_buf = NULL;
+
+	crypto_cb->get_num_of_iterations = get_num_of_iterations;
+	crypto_cb->get_num_of_buffers = get_num_of_buffers;
+	crypto_cb->get_test_mode = get_test_mode;
+	crypto_cb->get_num_of_cpus = get_num_of_cpus;
+	crypto_cb->requires_authentication = requires_authentication;
+	crypto_cb->get_thread_barrier = get_thread_barrier;
 }
