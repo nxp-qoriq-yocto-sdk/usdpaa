@@ -149,7 +149,7 @@ __thread struct qman_fq local_fq;
 __thread const struct qm_dqrr_entry *local_dqrr;
 #endif
 #ifdef PPAC_ORDER_RESTORATION
-__thread u32 local_orp_id;
+__thread struct qman_fq *local_orp_fq;
 __thread u32 local_seqnum;
 #endif
 
@@ -250,20 +250,25 @@ void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
 }
 
 #ifdef PPAC_ORDER_RESTORATION
-void ppac_orp_init(u32 *orp_id)
+struct qman_fq *ppac_orp_init(void)
 {
 	struct qm_mcc_initfq opts;
-	struct qman_fq tmp_fq;
-	int ret = qman_create_fq(0, QMAN_FQ_FLAG_DYNAMIC_FQID, &tmp_fq);
+	struct qman_fq *orp_fq;
+	int ret;
+
+	orp_fq = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(*orp_fq));
+	BUG_ON(!orp_fq);
+	memset(&orp_fq->cb, NULL, sizeof(orp_fq->cb));
+	ret = qman_create_fq(0, QMAN_FQ_FLAG_DYNAMIC_FQID, orp_fq);
 	BUG_ON(ret);
 	opts.we_mask = QM_INITFQ_WE_FQCTRL | QM_INITFQ_WE_ORPC;
 	opts.fqd.fq_ctrl = QM_FQCTRL_PREFERINCACHE | QM_FQCTRL_ORP;
 	opts.fqd.orprws = PPAC_ORP_WINDOW_SIZE;
 	opts.fqd.oa = PPAC_ORP_AUTO_ADVANCE;
 	opts.fqd.olws = PPAC_ORP_ACCEPT_LATE;
-	ret = qman_init_fq(&tmp_fq, QMAN_INITFQ_FLAG_SCHED, &opts);
+	ret = qman_init_fq(orp_fq, QMAN_INITFQ_FLAG_SCHED, &opts);
 	BUG_ON(ret);
-	*orp_id = tmp_fq.fqid;
+	return orp_fq;
 }
 #endif
 

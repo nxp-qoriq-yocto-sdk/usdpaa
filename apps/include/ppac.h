@@ -244,7 +244,7 @@ extern __thread struct qman_fq local_fq;
 extern __thread const struct qm_dqrr_entry *local_dqrr;
 #endif
 #ifdef PPAC_ORDER_RESTORATION
-extern __thread u32 local_orp_id;
+extern __thread struct qman_fq *local_orp_fq;
 extern __thread u32 local_seqnum;
 #endif
 
@@ -298,12 +298,6 @@ static inline void ppac_drop_frame(const struct qm_fd *fd)
 	struct bm_buffer buf;
 #ifdef PPAC_ORDER_RESTORATION
 	int ret;
-	/* The "ORP object" passed to qman_enqueue_orp() is only used to extract
-	 * the ORPID, so declare a temporary object to provide that. */
-	struct qman_fq tmp_orp = {
-		.fqid = local_orp_id
-	};
-	local_fq.fqid = local_orp_id;
 #endif
 
 	BUG_ON(fd->format != qm_fd_contig);
@@ -314,17 +308,17 @@ static inline void ppac_drop_frame(const struct qm_fd *fd)
 #ifdef PPAC_ORDER_RESTORATION
 	/* Perform a "HOLE" enqueue so that the ORP doesn't wait for the
 	 * sequence number that we're dropping. */
-	if (!local_orp_id)
+	if (!local_orp_fq)
 		return;
 retry_orp:
-	ret = qman_enqueue_orp(&local_fq, fd, QMAN_ENQUEUE_FLAG_HOLE, &tmp_orp,
-				local_seqnum);
+	ret = qman_enqueue_orp(local_orp_fq, fd, QMAN_ENQUEUE_FLAG_HOLE,
+			       local_orp_fq, local_seqnum);
 	if (ret) {
 		cpu_spin(PPAC_BACKOFF_CYCLES);
 		goto retry_orp;
 	}
 	TRACE("drop: fqid %d <-- 0x%x (HOLE)\n",
-		local_fq.fqid, local_seqnum);
+		local_orp_fq->fqid, local_seqnum);
 #endif
 }
 
@@ -339,14 +333,8 @@ static inline void ppac_send_frame(u32 fqid, const struct qm_fd *fd)
 	local_fq.fqid = fqid;
 retry:
 #ifdef PPAC_ORDER_RESTORATION
-	if (local_orp_id) {
-		/* The "ORP object" passed to qman_enqueue_orp() is only used to
-		 * extract the ORPID, so declare a temporary object to provide
-		 * that. */
-		struct qman_fq tmp_orp = {
-			.fqid = local_orp_id
-		};
-		ret = qman_enqueue_orp(&local_fq, fd, EQ_FLAGS(), &tmp_orp,
+	if (local_orp_fq) {
+		ret = qman_enqueue_orp(&local_fq, fd, EQ_FLAGS(), local_orp_fq,
 					local_dqrr->seqnum);
 		TRACE("send ORP: fqid %d, orpid %d, seqnum %d <-- 0x%llx (%d)\n",
 			local_fq.fqid, tmp_orp.fqid, local_dqrr->seqnum,
@@ -400,7 +388,7 @@ void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
 		      const struct qm_fqd_stashing *stashing,
 		      int prefer_in_cache);
 #ifdef PPAC_ORDER_RESTORATION
-void ppac_orp_init(u32 *orp_id);
+struct qman_fq *ppac_orp_init(void);
 #endif
 void ppac_fq_tx_init(struct qman_fq *fq,
 		     u16 channel,

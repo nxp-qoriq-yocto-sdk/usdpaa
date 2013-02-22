@@ -67,13 +67,13 @@ const struct fm_eth_port_cfg *ppac_interface_pcfg(struct ppac_interface *i)
 #ifdef PPAC_ORDER_RESTORATION
 #define PRE_ORP(orpid, seqnum) \
 	do { \
-		local_orp_id = orpid; \
+		local_orp_fq = orpid; \
 		local_seqnum = seqnum; \
 	} while (0)
 
 #define POST_ORP() \
 	do { \
-		local_orp_id = 0; \
+		local_orp_fq = NULL; \
 	} while (0)
 #else
 #define PRE_ORP(orpid, seqnum) do { ; } while (0)
@@ -146,7 +146,7 @@ cb_dqrr_rx_hash(struct qman_portal *qm __always_unused,
 	struct ppac_rx_hash *p = container_of(fq, struct ppac_rx_hash, fq);
 	TRACE("Rx_hash: fqid=%d\tfd_status = 0x%08x\n", fq->fqid, dqrr->fd.status);
 	PRE_DQRR();
-	PRE_ORP(p->orp_id, dqrr->seqnum);
+	PRE_ORP(p->orp_fq, dqrr->seqnum);
 	ppam_rx_hash_cb(&p->s, dqrr);
 	POST_ORP();
 	return POST_DQRR();
@@ -156,9 +156,10 @@ void cb_ern(struct qman_portal *qm __always_unused,
 	    struct qman_fq *fq,
 	    const struct qm_mr_entry *msg)
 {
+	struct ppac_rx_hash *p = container_of(fq, struct ppac_rx_hash, fq);
 	TRACE("Tx_ern: fqid=%d\tfd_status = 0x%08x\n", msg->ern.fqid,
 	      msg->ern.fd.status);
-	PRE_ORP(msg->ern.orp, msg->ern.seqnum);
+	PRE_ORP(p->orp_fq, msg->ern.seqnum);
 	ppac_drop_frame(&msg->ern.fd);
 	POST_ORP();
 }
@@ -373,7 +374,7 @@ int ppac_interface_init_rx(struct ppac_interface *i)
 				 &i->ppam_data, loop, &stash_opts);
 			BUG_ON(err);
 #ifdef PPAC_ORDER_RESTORATION
-			ppac_orp_init(&pcd_range->rx_hash[loop].orp_id);
+			pcd_range->rx_hash[loop].orp_fq = ppac_orp_init();
 			TRACE("I/F %d, Rx FQID %d associated with ORP ID %d\n",
 				idx, pcd_range->rx_hash[loop].fq.fqid,
 				pcd_range->rx_hash[loop].orp_id);
@@ -499,6 +500,10 @@ void ppac_interface_finish_rx(struct ppac_interface *i)
 			ppam_rx_hash_finish(&pcd_range->rx_hash[loop].s,
 				 &i->ppam_data, loop);
 			teardown_fq(&pcd_range->rx_hash[loop].fq);
+#ifdef PPAC_ORDER_RESTORATION
+			teardown_fq(pcd_range->rx_hash[loop].orp_fq);
+			__dma_mem_free(pcd_range->rx_hash[loop].orp_fq);
+#endif
 		}
 	}
 }
