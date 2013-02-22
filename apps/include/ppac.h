@@ -82,10 +82,10 @@
 /* Track rx and tx fill-levels via CGR. Full buffer depletion must be avoid
    to avoid  imbalance between fman port performance due to buffer depletion
    by other FMAN port */
-#define PPAC_CGR
+#undef PPAC_CGR
 /* CGR tail-drop should be set with CGR though for debugging PPAC_CGR can be
    set only with CSCN to check congestion point in FMAN */
-#define PPAC_CSTD
+#undef PPAC_CSTD
 /* Log CGR state-change notifications. Should only be defined during
  debugging */
 #undef PPAC_CSCN
