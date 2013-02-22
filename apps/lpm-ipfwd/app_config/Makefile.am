@@ -30,7 +30,8 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 bin_PROGRAMS = lpm_ipfwd_config
-dist_DATA = lpm_ipfwd_22G.sh lpm_ipfwd_20G.sh lpm_ipfwd_14G.sh lpm_ipfwd_20G_1Mroutes.sh
+dist_DATA = lpm_ipfwd_22G.sh lpm_ipfwd_20G.sh lpm_ipfwd_14G.sh \
+	lpm_ipfwd_20G_1Mroutes.sh lpm_ipfwd_40G.sh lpm_ipfwd_42G.sh
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/lpm-ipfwd/lib -I$(TOP_LEVEL)/apps/lpm-ipfwd/include
 
