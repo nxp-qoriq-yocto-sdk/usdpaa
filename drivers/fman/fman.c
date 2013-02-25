@@ -549,3 +549,47 @@ void fman_if_disable_rx(const struct fman_if *p)
 		out_be32(__if->ccsr_map + 8,
 			in_be32(__if->ccsr_map + 8) & ~(u32)2);
 }
+
+void fman_if_loopback_enable(const struct fman_if *p)
+{
+	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
+
+	assert(ccsr_map_fd != -1);
+
+	/* Do nothing for Offline port */
+	if (__if->__if.mac_type == fman_offline)
+		return;
+
+	/* Enable loopback mode */
+	if ((__if->__if.mac_type == fman_mac_1g) && (!__if->__if.is_memac)) {
+		unsigned *maccfg =
+				&((struct dtsec_regs *)__if->ccsr_map)->maccfg1;
+		out_be32(maccfg, in_be32(maccfg) | MACCFG1_LOOPBACK);
+	} else {
+		unsigned *cmdcfg =
+			 &((struct memac_regs *)__if->ccsr_map)->command_config;
+		out_be32(cmdcfg, in_be32(cmdcfg) | CMD_CFG_LOOPBACK_EN);
+	}
+}
+
+void fman_if_loopback_disable(const struct fman_if *p)
+{
+	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
+
+	assert(ccsr_map_fd != -1);
+
+	/* Do nothing for Offline port */
+	if (__if->__if.mac_type == fman_offline)
+		return;
+
+	/* Disable loopback mode */
+	if ((__if->__if.mac_type == fman_mac_1g) && (!__if->__if.is_memac)) {
+		unsigned *maccfg =
+				&((struct dtsec_regs *)__if->ccsr_map)->maccfg1;
+		out_be32(maccfg, in_be32(maccfg) & ~MACCFG1_LOOPBACK);
+	} else {
+		unsigned *cmdcfg =
+			 &((struct memac_regs *)__if->ccsr_map)->command_config;
+		out_be32(cmdcfg, in_be32(cmdcfg) & ~CMD_CFG_LOOPBACK_EN);
+	}
+}
