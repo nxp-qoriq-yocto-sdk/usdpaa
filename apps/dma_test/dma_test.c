@@ -294,6 +294,8 @@ int main(int argc, char *argv[])
 			do_free(argc, argv);
 		else if (argv[0][0] == 'r')
 			do_reg(argc, argv);
+		else if (argv[0][0] == 'x')
+			dma_mem_destroy(dma_mem_generic);
 		else
 			fprintf(stderr, "Error: unrecognised command '%s'\n",
 				*argv);

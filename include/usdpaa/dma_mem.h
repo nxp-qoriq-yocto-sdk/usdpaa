@@ -69,7 +69,7 @@ struct dma_mem;
  * to synchronise (de)allocations across multiple processes, however this will
  * not protect against leaks when processes exit without deallocating buffers
  * from regions that are shared with other processes. */
-#define DMA_MAP_FLAG_ALLOC    0x08
+#define DMA_MAP_FLAG_ALLOC    0x10
 /* This flag only makes sense when _SHARED is set. If this _NEW flag is not set,
  * then the named region must already exist. */
 #define DMA_MAP_FLAG_NEW      0x02
@@ -80,11 +80,14 @@ struct dma_mem;
  * to "lazy-initialise" the memory region. */
 #define DMA_MAP_FLAG_LAZY     0x04
 /* This flag only makes sense when _SHARED is set and _ALLOC is not set. */
-#define DMA_MAP_FLAG_READONLY 0x10
+#define DMA_MAP_FLAG_READONLY 0x08
 /* See the above flags for semantics. Note that 'map_name' must be shorter than
  * 16 characters in length if it is non-NULL. */
 struct dma_mem *dma_mem_create(uint32_t flags, const char *map_name,
 			       size_t len);
+
+/* Tears down a map */
+void dma_mem_destroy(struct dma_mem *map);
 
 /* Return the params for a given map */
 void dma_mem_params(struct dma_mem *map, uint32_t *flags, const char **map_name,
@@ -154,5 +157,8 @@ static inline void __dma_mem_free(void *ptr)
 
 /* Debugging support - dump DMA map details to stdout */
 void dma_mem_print(struct dma_mem *map);
+
+/* Queries how much DMA memory has been used */
+int dma_mem_query(uint64_t *free_bytes, uint64_t *total_bytes);
 
 #endif	/* __DMA_MEM_H */

@@ -31,8 +31,9 @@
  */
 
 #include <usdpaa/fsl_usd.h>
+#include <internal/process.h>
 #include "bman_private.h"
-
+#include <sys/ioctl.h>
 /*
  * Global variables of the max portal/pool number this bman version supported
  */
@@ -49,136 +50,77 @@ void *bman_ccsr_map;
 /*****************/
 
 static __thread int fd = -1;
-static __thread const struct qbman_uio_irq *irq;
+static __thread struct bm_portal_config pcfg;
+static __thread struct usdpaa_ioctl_portal_map map = {
+	.type = usdpaa_portal_bman
+};
 
 static int __init fsl_bman_portal_init(void)
 {
 	cpu_set_t cpuset;
-	const struct device_node *dt_node;
-	struct bm_portal_config *pcfg;
 	struct bman_portal *portal;
-	int loop, ret = 0;
-	char name[20]; /* Big enough for "/dev/bman-uio-xx" */
+	int loop, ret;
 
-	if (fd >= 0) {
-		pr_err("%s: on already-initialised thread\n", __func__);
-		return -EBUSY;
-	}
-	pcfg = malloc(sizeof(*pcfg));
-	if (!pcfg) {
-		perror("can't allocate portal config");
-		ret = -ENOMEM;
-		goto end;
-	}
+	/* Verify the thread's cpu-affinity */
 	ret = pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t),
 				     &cpuset);
 	if (ret) {
-		errno = ret;
-		perror("pthread_getaffinity_np");
-		goto end;
+		error(0, ret, "pthread_getaffinity_np()");
+		return ret;
 	}
-	pcfg->public_cfg.cpu = -1;
+	pcfg.public_cfg.cpu = -1;
 	for (loop = 0; loop < CPU_SETSIZE; loop++)
 		if (CPU_ISSET(loop, &cpuset)) {
-			if (pcfg->public_cfg.cpu != -1) {
+			if (pcfg.public_cfg.cpu != -1) {
 				pr_err("Thread is not affine to 1 cpu\n");
-				ret = -EINVAL;
-				goto end;
+				return -EINVAL;
 			}
-			pcfg->public_cfg.cpu = loop;
+			pcfg.public_cfg.cpu = loop;
 		}
-	if (pcfg->public_cfg.cpu == -1) {
+	if (pcfg.public_cfg.cpu == -1) {
 		pr_err("Bug in getaffinity handling!\n");
-		ret = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
-	/* For each portal node, use the cell-index to determine the UIO device
-	 * name and try opening it. */
-	for_each_compatible_node(dt_node, NULL, "fsl,bman-portal") {
-		size_t lenp;
-		const u32 *cell_index = of_get_property(dt_node, "cell-index",
-							&lenp);
-		if (!cell_index || (lenp != sizeof(*cell_index))) {
-			pr_err("Malformed property %s:cell-index\n",
-				dt_node->full_name);
-			continue;
-		}
-		sprintf(name, "/dev/bman-uio-%x", *cell_index);
-		fd = open(name, O_RDWR);
-		if (fd >= 0)
-			break;
+	/* Allocate and map a bman portal */
+	ret = process_portal_map(&map);
+	if (ret) {
+		error(0, ret, "process_portal_map()");
+		return ret;
 	}
-	if (fd < 0) {
-		ret = -ENODEV;
-		goto end;
-	}
-	pcfg->addr_virt[DPA_PORTAL_CE] = mmap(NULL, 16*1024,
-			PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-	pcfg->addr_virt[DPA_PORTAL_CI] = mmap(NULL, 4*1024,
-			PROT_READ | PROT_WRITE, MAP_SHARED, fd, 4*1024);
-	if ((pcfg->addr_virt[DPA_PORTAL_CE] == MAP_FAILED) ||
-			(pcfg->addr_virt[DPA_PORTAL_CI] == MAP_FAILED)) {
-		perror("mmap of CENA or CINH failed");
-		ret = -ENODEV;
-		goto end;
-	}
-	pcfg->public_cfg.irq = fd;
-	pcfg->public_cfg.is_shared = 0;
-	bman_depletion_fill(&pcfg->public_cfg.mask);
+	/* Make the portal's cache-[enabled|inhibited] regions */
+	pcfg.addr_virt[DPA_PORTAL_CE] = compat_ptr(map.addr.cena);
+	pcfg.addr_virt[DPA_PORTAL_CI] = compat_ptr(map.addr.cinh);
+	pcfg.public_cfg.irq = map.irq;
+	pcfg.public_cfg.is_shared = 0;
 
-	portal = bman_create_affine_portal(pcfg);
+	fd = open("/dev/fsl-usdpaa-irq", O_RDONLY);
+	if (fd == -1) {
+		pr_err("BMan irq init failed\n");
+		process_portal_unmap(&map.addr);
+		return -EBUSY;
+	}
+	portal = bman_create_affine_portal(&pcfg);
 	if (!portal) {
 		pr_err("Bman portal initialisation failed (%d)\n",
-			pcfg->public_cfg.cpu);
-		goto end;
+			pcfg.public_cfg.cpu);
+		process_portal_unmap(&map.addr);
+		return -EBUSY;
 	}
-	/* bman_create_affine_portal() will have called request_irq(), which in
-	 * USDPAA-speak, means we have to retrieve the handler here. */
-	irq = qbman_get_irq_handler(fd);
-	if (!irq)
-		pr_warning("Bman portal interrupt handling is disabled (%d)\n",
-			pcfg->public_cfg.cpu);
-
-end:
-	if (ret) {
-		if (fd >= 0) {
-			close(fd);
-			fd = -1;
-		}
-		if (pcfg)
-			free(pcfg);
-	}
-	return ret;
+	/* Set the IRQ number */
+	process_portal_irq_map(fd, pcfg.public_cfg.irq);
+	return 0;
 }
 
 static int fsl_bman_portal_finish(void)
 {
-	const struct bm_portal_config *cfg;
+	__maybe_unused const struct bm_portal_config *cfg;
 	int ret;
 
 	cfg = bman_destroy_affine_portal();
-	ret = munmap(cfg->addr_virt[DPA_PORTAL_CE], 16*1024);
-	if (ret) {
-		perror("munmap() of Bman ADDR_CE failed");
-		goto end;
-	}
-	ret = munmap(cfg->addr_virt[DPA_PORTAL_CI], 4*1024);
-	if (ret) {
-		perror("munmap() of Bman ADDR_CI failed");
-		goto end;
-	}
-end:
+	BUG_ON(cfg != &pcfg);
+	ret = process_portal_unmap(&map.addr);
 	if (ret)
-		pr_err("Bman portal cleanup failed (%d), ret=%d\n",
-			cfg->public_cfg.cpu, ret);
-	/* The cast is to remove the const attribute. NB, the 'cfg' pointer
-	 * lives in the portal and is supposed to be read-only while it is being
-	 * used. However bman_driver.c allocates it when setting up the portal
-	 * and destroys it here when tearing the portal down, so that's why this
-	 * is justified. */
-	free((void *)cfg);
-	close(fd);
-	fd = -1;
+		error(0, ret, "process_portal_unmap()");
 	return ret;
 }
 
@@ -201,18 +143,14 @@ int bman_thread_fd(void)
 
 void bman_thread_irq(void)
 {
-	const struct bman_portal_config *cfg = bman_get_portal_config();
-	const struct bm_portal_config *pcfg = container_of(cfg,
-			const struct bm_portal_config, public_cfg);
-	if (!irq)
-		return;
-	irq->isr(fd, irq->arg);
+	qbman_invoke_irq(pcfg.public_cfg.irq);
 	/* Now we need to uninhibit interrupts. This is the only code outside
 	 * the regular portal driver that manipulates any portal register, so
 	 * rather than breaking that encapsulation I am simply hard-coding the
 	 * offset to the inhibit register here. */
-	out_be32(pcfg->addr_virt[DPA_PORTAL_CI] + 0xe0c, 0);
+	out_be32(pcfg.addr_virt[DPA_PORTAL_CI] + 0xe0c, 0);
 }
+
 
 #ifdef CONFIG_FSL_BMAN_CONFIG
 int bman_have_ccsr(void)
@@ -264,6 +202,8 @@ int bman_global_init(void)
 	static int done = 0;
 	if (done)
 		return -EBUSY;
+	/* Use the device-tree to determine IP revision until something better
+	 * is devised. */
 	dt_node = of_find_compatible_node(NULL, NULL, "fsl,bman-portal");
 	if (!dt_node) {
 		pr_err("No bman portals available for any CPU\n");

@@ -30,6 +30,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef HEADER_DPA_SYS_H
+#define HEADER_DPA_SYS_H
+
 #include <usdpaa/dma_mem.h>
 #include <internal/of.h>
 
@@ -70,19 +73,12 @@ void dpa_alloc_free(struct dpa_alloc *alloc, u32 fqid, u32 count);
 #define DPA_ASSERT(x)		do { ; } while(0)
 #endif
 
-struct qbman_uio_irq {
-	int irq;
-	irqreturn_t (*isr)(int irq, void *arg);
-	unsigned long flags;
-	const char *name;
-	void *arg;
-	struct list_head node;
-};
 /* This is the interface from the platform-agnostic driver code to (de)register
  * interrupt handlers. We simply create/destroy corresponding structs. */
 int qbman_request_irq(int irq, irqreturn_t (*isr)(int irq, void *arg),
 			unsigned long flags, const char *name, void *arg);
 int qbman_free_irq(int irq, void *arg);
-/* This is the interface from the platform-specific driver code to obtain
- * interrupt handlers that have been registered. */
-const struct qbman_uio_irq *qbman_get_irq_handler(int irq);
+
+void qbman_invoke_irq(int irq);
+
+#endif /* HEADER_DPA_SYS_H */

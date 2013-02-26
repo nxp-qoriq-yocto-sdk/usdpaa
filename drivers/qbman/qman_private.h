@@ -196,17 +196,29 @@ extern u32 qman_clk;
 /* Hooks from qman_driver.c to qman_config.c */
 int qman_init_ccsr(struct device_node *node);
 void qman_liodn_fixup(u16 channel);
+int qman_set_sdest(u16 channel, unsigned int cpu_idx);
 #endif
 
 int qm_set_wpm(int wpm);
 int qm_get_wpm(int *wpm);
 
 /* Hooks from qman_driver.c in to qman_high.c */
+struct qman_portal *qman_create_portal(
+			struct qman_portal *portal,
+			const struct qm_portal_config *config,
+			const struct qman_cgrs *cgrs);
+
 struct qman_portal *qman_create_affine_portal(
 			const struct qm_portal_config *config,
 			const struct qman_cgrs *cgrs);
 struct qman_portal *qman_create_affine_slave(struct qman_portal *redirect);
 const struct qm_portal_config *qman_destroy_affine_portal(void);
+void qman_destroy_portal(struct qman_portal *qm);
+
+/* Hooks from fsl_usdpaa.c to qman_driver.c */
+struct qm_portal_config *qm_get_unused_portal(void);
+void qm_put_unused_portal(struct qm_portal_config *pcfg);
+void qm_set_liodns(struct qm_portal_config *pcfg);
 
 /* This CGR feature is supported by h/w and required by unit-tests and the
  * debugfs hooks, so is implemented in the driver. However it allows an explicit
@@ -355,4 +367,7 @@ extern u8 num_ceetms;
 extern struct qm_ceetm qman_ceetms[QMAN_CEETM_MAX];
 int qman_sp_enable_ceetm_mode(enum qm_dc_portal portal, u16 sub_portal);
 int qman_sp_disable_ceetm_mode(enum qm_dc_portal portal, u16 sub_portal);
+int qman_ceetm_set_prescaler(enum qm_dc_portal portal);
 int qman_ceetm_get_prescaler(u16 *pres);
+int qman_ceetm_query_cq(unsigned int cqid, unsigned int dcpid,
+			struct qm_mcr_ceetm_cq_query *cq_query);

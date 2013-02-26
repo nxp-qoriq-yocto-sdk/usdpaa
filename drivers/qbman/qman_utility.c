@@ -128,4 +128,3 @@ u32 qman_fqid_pool_used(struct qman_fqid_pool *pool)
 	return pool->used;
 }
 EXPORT_SYMBOL(qman_fqid_pool_used);
-

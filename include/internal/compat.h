@@ -51,6 +51,7 @@
 #include <assert.h>
 #include <dirent.h>
 #include <inttypes.h>
+#include <error.h>
 
 /* Strange though it may seem, all qman/bman-dependent apps include this header,
  * so this is a good place to force the inclusion of conf.h. There are

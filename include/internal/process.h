@@ -37,7 +37,13 @@
  * driver-internal interface. The other parts (ioctl() specifics) are private to
  * the process driver itself. */
 
+#include <usdpaa/compat.h>
+#include <usdpaa/fsl_qman.h>
 #include <internal/compat.h>
+
+/******************************/
+/* Allocation of resource IDs */
+/******************************/
 
 /* Allocation of resource IDs uses a generic interface. This enum is used to
  * distinguish between the type of underlying object being manipulated. */
@@ -56,6 +62,10 @@ enum usdpaa_id_type {
 int process_alloc(enum usdpaa_id_type id_type, uint32_t *base, uint32_t num,
 		  uint32_t align, int partial);
 void process_release(enum usdpaa_id_type id_type, uint32_t base, uint32_t num);
+
+/**********************/
+/* Mapping DMA memory */
+/**********************/
 
 /* Maximum length for a map name, including NULL-terminator */
 #define USDPAA_DMA_NAME_MAX 16
@@ -76,10 +86,11 @@ void process_release(enum usdpaa_id_type id_type, uint32_t base, uint32_t num);
 #define USDPAA_DMA_FLAG_SHARE    0x01
 #define USDPAA_DMA_FLAG_CREATE   0x02
 #define USDPAA_DMA_FLAG_LAZY     0x04
+#define USDPAA_DMA_FLAG_RDONLY   0x08
 struct usdpaa_ioctl_dma_map {
-	/* If the map succeeds, pa_offset is returned and can be used in a
-	 * subsequent call to mmap(). */
-	uint64_t pa_offset;
+	/* Output parameters - virtual and physical addresses */
+	void *ptr;
+	uint64_t phys_addr;
 	/* Input parameter, the length of the region to be created (or if
 	 * mapping an existing region, this must match it). Must be a power-of-4
 	 * multiple of page size. */
@@ -101,10 +112,40 @@ struct usdpaa_ioctl_dma_map {
 
 /* Although usdpaa_ioctl_dma_map returns 'pa_offset', this API will also take
  * care of the mmap(), hence the return of 'ptr'. */
-int process_dma_map(struct usdpaa_ioctl_dma_map *params, int readonly,
-		    void **ptr);
+int process_dma_map(struct usdpaa_ioctl_dma_map *params);
+int process_dma_unmap(void *ptr);
 
 int process_dma_lock(void *ptr);
 int process_dma_unlock(void *ptr);
+
+/***************************************/
+/* Mapping and using QMan/BMan portals */
+/***************************************/
+
+struct usdpaa_ioctl_portal_map {
+	/* Input parameter, is a qman or bman portal required. */
+	enum {
+		usdpaa_portal_qman,
+		usdpaa_portal_bman,
+	} type;
+	/* Return value if the map succeeds, this gives the mapped
+	 * cache-inhibited (cinh) and cache-enabled (cena) addresses. */
+	struct usdpaa_portal_map {
+		void *cinh;
+		void *cena;
+	} addr;
+	/* Qman-specific return values */
+	u16 channel;
+	uint32_t pools;
+	uint32_t irq;
+};
+
+int process_portal_map(struct usdpaa_ioctl_portal_map *params);
+int process_portal_unmap(struct usdpaa_portal_map *map);
+
+int process_portal_irq_map(int fd, uint32_t irq);
+
+int process_query_dma_mem(uint64_t *free_bytes, uint64_t *total_bytes);
+
 
 #endif	/*  __PROCESS_INTERNAL_H */

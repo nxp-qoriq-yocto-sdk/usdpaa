@@ -1,4 +1,4 @@
-/* Copyright (c) 2011 Freescale Semiconductor, Inc.
+/* Copyright (c) 2013 Freescale Semiconductor, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,88 +30,74 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <internal/process.h>
 #include "dpa_sys.h"
 
-static LIST_HEAD(irqs);
-static pthread_mutex_t irqs_lock = PTHREAD_MUTEX_INITIALIZER;
 
-int qbman_request_irq(int irq, irqreturn_t (*isr)(int irq, void *arg),
-			unsigned long flags, const char *name, void *arg)
+struct process_interrupt {
+	int irq;
+	irqreturn_t (*isr)(int irq, void *arg);
+	unsigned long flags;
+	const char *name;
+	void *arg;
+	struct list_head node;
+};
+
+static LIST_HEAD(process_irq_list);
+
+void process_interrupt_install(struct process_interrupt *irq)
 {
-	struct qbman_uio_irq *it, *newirq;
-	int ret = 0;
-
-	pthread_mutex_lock(&irqs_lock);
-	list_for_each_entry(it, &irqs, node) {
-		if (it->irq == irq) {
-			pr_err("%s: irq %d, conflict '%s' and '%s'\n", __func__,
-				irq, it->name, name);
-			ret = -EINVAL;
-			goto end;
-		}
-		if (it->irq > irq)
-			break;
-	}
-	newirq = malloc(sizeof(*newirq));
-	if (!newirq) {
-		ret = -ENOMEM;
-		goto end;
-	}
-	newirq->irq = irq;
-	newirq->isr = isr;
-	newirq->flags = flags;
-	newirq->name = name;
-	newirq->arg = arg;
-	/* Append to the tail. NB this works if the for() loop found no
-	 * insertion point, because in that case it->node==&irqs. */
-	list_add_tail(&newirq->node, &it->node);
-end:
-	pthread_mutex_unlock(&irqs_lock);
-	return ret;
+	/* Add the irq to the end of the list */
+	list_add_tail(&irq->node, &process_irq_list);
 }
-
-/* Internal, assumes the lock is held */
-static struct qbman_uio_irq *find_irq(int irq)
+void process_interrupt_remove(struct process_interrupt *irq)
 {
-	struct qbman_uio_irq *it;
-
-	list_for_each_entry(it, &irqs, node) {
-		if (it->irq == irq)
-			return it;
+	list_del(&irq->node);
+}
+struct process_interrupt *process_interrupt_find(int irq_num)
+{
+	struct process_interrupt *i;
+	list_for_each_entry(i, &process_irq_list, node) {
+		if (i->irq == irq_num)
+			return i;
 	}
 	return NULL;
 }
 
+
+/* This is the interface from the platform-agnostic driver code to (de)register
+ * interrupt handlers. We simply create/destroy corresponding structs. */
+int qbman_request_irq(int irq, irqreturn_t (*isr)(int irq, void *arg),
+			unsigned long flags, const char *name, void *arg)
+{
+	struct process_interrupt *irq_node =
+		kmalloc(sizeof(*irq_node), GFP_KERNEL);
+
+	if (!irq_node)
+		return -ENOMEM;
+	irq_node->irq = irq;
+	irq_node->isr = isr;
+	irq_node->flags = flags;
+	irq_node->name = name;
+	irq_node->arg = arg;
+	process_interrupt_install(irq_node);
+	return 0;
+}
+
 int qbman_free_irq(int irq, void *arg)
 {
-	struct qbman_uio_irq *it;
-	int ret = -EINVAL;
-
-	pthread_mutex_lock(&irqs_lock);
-	it = find_irq(irq);
-	if (!it) {
-		pr_err("%s: no irq %d\n", __func__, irq);
-		goto end;
-	}
-	if (it->arg != arg) {
-		pr_err("%s: irq %d:%s arg mismatch\n", __func__, irq, it->name);
-		goto end;
-	}
-	list_del(&it->node);
-	free(it);
-	ret = 0;
-end:
-	pthread_mutex_unlock(&irqs_lock);
-	return ret;
+	struct process_interrupt *irq_node = process_interrupt_find(irq);
+	if (!irq_node)
+		return -EINVAL;
+	process_interrupt_remove(irq_node);
+	kfree(irq_node);
+	return 0;
 }
-
-const struct qbman_uio_irq *qbman_get_irq_handler(int irq)
+/* This is the interface from the platform-specific driver code to obtain
+ * interrupt handlers that have been registered. */
+void qbman_invoke_irq(int irq)
 {
-	const struct qbman_uio_irq *it;
-
-	pthread_mutex_lock(&irqs_lock);
-	it = find_irq(irq);
-	pthread_mutex_unlock(&irqs_lock);
-	return it;
+	struct process_interrupt *irq_node = process_interrupt_find(irq);
+	if (irq_node)
+		irq_node->isr(irq, irq_node->arg);
 }
-

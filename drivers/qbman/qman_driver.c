@@ -31,7 +31,9 @@
  */
 
 #include <usdpaa/fsl_usd.h>
+#include <internal/process.h>
 #include "qman_private.h"
+#include <sys/ioctl.h>
 
 /* Global variable containing revision id (even on non-control plane systems
  * where CCSR isn't available) */
@@ -54,151 +56,82 @@ struct qm_ceetm qman_ceetms[QMAN_CEETM_MAX];
 u8 num_ceetms;
 
 static __thread int fd = -1;
-static __thread const struct qbman_uio_irq *irq;
+static __thread struct qm_portal_config pcfg;
+static __thread struct usdpaa_ioctl_portal_map map = {
+	.type = usdpaa_portal_qman
+};
 
 static int __init fsl_qman_portal_init(void)
 {
 	cpu_set_t cpuset;
-	const struct device_node *dt_node;
-	const u32 *channel, *cell_index;
-	struct qm_portal_config *pcfg;
 	struct qman_portal *portal;
-	size_t lenp;
-	int loop, ret = 0;
-	char name[20]; /* Big enough for "/dev/qman-uio-xx" */
+	int loop, ret;
 
-	if (fd >= 0) {
-		pr_err("%s: on already-initialised thread\n", __func__);
-		return -EBUSY;
-	}
-	pcfg = malloc(sizeof(*pcfg));
-	if (!pcfg) {
-		perror("can't allocate portal config");
-		ret = -ENOMEM;
-		goto end;
-	}
+	/* Verify the thread's cpu-affinity */
 	ret = pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t),
-				     &cpuset);
+					 &cpuset);
 	if (ret) {
-		errno = ret;
-		perror("pthread_getaffinity_np");
-		goto end;
+		error(0, ret, "pthread_getaffinity_np()");
+		return ret;
 	}
-	pcfg->public_cfg.cpu = -1;
+	pcfg.public_cfg.cpu = -1;
 	for (loop = 0; loop < CPU_SETSIZE; loop++)
 		if (CPU_ISSET(loop, &cpuset)) {
-			if (pcfg->public_cfg.cpu != -1) {
+			if (pcfg.public_cfg.cpu != -1) {
 				pr_err("Thread is not affine to 1 cpu\n");
-				ret = -EINVAL;
-				goto end;
+				return -EINVAL;
 			}
-			pcfg->public_cfg.cpu = loop;
+			pcfg.public_cfg.cpu = loop;
 		}
-	if (pcfg->public_cfg.cpu == -1) {
+	if (pcfg.public_cfg.cpu == -1) {
 		pr_err("Bug in getaffinity handling!\n");
-		ret = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
-	/* Loop the portal nodes looking for a matching cpu, and for each such
-	 * match, use the cell-index to determine the UIO device name and try
-	 * opening it. */
-	for_each_compatible_node(dt_node, NULL, "fsl,qman-portal") {
-		cell_index = of_get_property(dt_node, "cell-index", &lenp);
-		if (!cell_index || (lenp != sizeof(*cell_index))) {
-			pr_err("Malformed property %s:cell-index\n",
-				dt_node->full_name);
-			continue;
-		}
-		sprintf(name, "/dev/qman-uio-%x", *cell_index);
-		fd = open(name, O_RDWR);
-		if (fd >= 0)
-			break;
+	/* Allocate and map a qman portal */
+	ret = process_portal_map(&map);
+	if (ret) {
+		error(0, ret, "process_portal_map()");
+		return ret;
 	}
-	if (fd < 0) {
-		ret = -ENODEV;
-		goto end;
-	}
-	/* Parse the portal's channel */
-	channel = of_get_property(dt_node, "fsl,qman-channel-id", &lenp);
-	if (!channel || (lenp != sizeof(*channel))) {
-		pr_err("Malformed property %s:fsl,qman-channel-id\n",
-			dt_node->full_name);
-		ret = -EIO;
-		goto end;
-	}
-	pcfg->public_cfg.channel = *channel;
-	pcfg->public_cfg.pools = QM_SDQCR_CHANNELS_POOL_MASK;
+	pcfg.public_cfg.channel = map.channel;
+	pcfg.public_cfg.pools = map.pools;
+	pcfg.public_cfg.irq = map.irq;
 	/* Make the portal's cache-[enabled|inhibited] regions */
-	pcfg->addr_virt[DPA_PORTAL_CE] = mmap(NULL, 16*1024,
-			PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-	pcfg->addr_virt[DPA_PORTAL_CI] = mmap(NULL, 4*1024,
-			PROT_READ | PROT_WRITE, MAP_SHARED, fd, 4*1024);
-	if ((pcfg->addr_virt[DPA_PORTAL_CE] == MAP_FAILED) ||
-			(pcfg->addr_virt[DPA_PORTAL_CI] == MAP_FAILED)) {
-		perror("mmap of CENA or CINH failed");
-		ret = -ENODEV;
-		goto end;
+	pcfg.addr_virt[DPA_PORTAL_CE] = compat_ptr(map.addr.cena);
+	pcfg.addr_virt[DPA_PORTAL_CI] = compat_ptr(map.addr.cinh);
+
+
+	fd = open("/dev/fsl-usdpaa-irq", O_RDONLY);
+	if (fd == -1) {
+		pr_err("QMan irq init failed\n");
+		process_portal_unmap(&map.addr);
+		return -EBUSY;
 	}
-	pcfg->public_cfg.irq = fd;
-	pcfg->public_cfg.is_shared = 0;
-	pcfg->node = NULL;
 
-	if (pcfg->public_cfg.cpu == -1)
-		goto end;
+	pcfg.public_cfg.is_shared = 0;
+	pcfg.node = NULL;
 
-	portal = qman_create_affine_portal(pcfg, NULL);
+	portal = qman_create_affine_portal(&pcfg, NULL);
 	if (!portal) {
 		pr_err("Qman portal initialisation failed (%d)\n",
-			pcfg->public_cfg.cpu);
-		goto end;
+			pcfg.public_cfg.cpu);
+		process_portal_unmap(&map.addr);
+		return -EBUSY;
 	}
-	/* qman_create_affine_portal() will have called request_irq(), which in
-	 * USDPAA-speak, means we have to retrieve the handler here. */
-	irq = qbman_get_irq_handler(fd);
-	if (!irq)
-		pr_warning("Qman portal interrupt handling is disabled (%d)\n",
-			pcfg->public_cfg.cpu);
-
-end:
-	if (ret) {
-		if (fd >= 0) {
-			close(fd);
-			fd = -1;
-		}
-		if (pcfg)
-			free(pcfg);
-	}
-	return ret;
+	process_portal_irq_map(fd, pcfg.public_cfg.irq);
+	return 0;
 }
 
 static int fsl_qman_portal_finish(void)
 {
-	const struct qm_portal_config *cfg;
+	__maybe_unused const struct qm_portal_config *cfg;
 	int ret;
 
 	cfg = qman_destroy_affine_portal();
-	ret = munmap(cfg->addr_virt[DPA_PORTAL_CE], 16*1024);
-	if (ret) {
-		perror("munmap() of Qman ADDR_CE failed");
-		goto end;
-	}
-	ret = munmap(cfg->addr_virt[DPA_PORTAL_CI], 4*1024);
-	if (ret) {
-		perror("munmap() of Qman ADDR_CI failed");
-		goto end;
-	}
-end:
+	BUG_ON(cfg != &pcfg);
+	ret = process_portal_unmap(&map.addr);
 	if (ret)
-		pr_err("Qman portal cleanup failed (%d), ret=%d\n",
-			cfg->public_cfg.cpu, ret);
-	/* The cast is to remove the const attribute. NB, the 'cfg' pointer
-	 * lives in the portal and is supposed to be read-only while it is being
-	 * used. However qman_driver.c allocates it when setting up the portal
-	 * and destroys it here when tearing the portal down, so that's why this
-	 * is justified. */
-	free((void *)cfg);
-	close(fd);
-	fd = -1;
+		error(0, ret, "process_portal_unmap()");
 	return ret;
 }
 
@@ -214,6 +147,7 @@ int qman_thread_finish(void)
 	return fsl_qman_portal_finish();
 }
 
+
 int qman_thread_fd(void)
 {
 	return fd;
@@ -221,18 +155,15 @@ int qman_thread_fd(void)
 
 void qman_thread_irq(void)
 {
-	const struct qman_portal_config *cfg = qman_get_portal_config();
-	const struct qm_portal_config *pcfg = container_of(cfg,
-			const struct qm_portal_config, public_cfg);
-	if (!irq)
-		return;
-	irq->isr(fd, irq->arg);
+	qbman_invoke_irq(pcfg.public_cfg.irq);
+
 	/* Now we need to uninhibit interrupts. This is the only code outside
 	 * the regular portal driver that manipulates any portal register, so
 	 * rather than breaking that encapsulation I am simply hard-coding the
 	 * offset to the inhibit register here. */
-	out_be32(pcfg->addr_virt[DPA_PORTAL_CI] + 0xe0c, 0);
+	out_be32(pcfg.addr_virt[DPA_PORTAL_CI] + 0xe0c, 0);
 }
+
 
 static __init int fsl_ceetm_init(struct device_node *node)
 {
@@ -345,6 +276,8 @@ int qman_global_init(void)
 	if (done)
 		return -EBUSY;
 
+	/* Use the device-tree to determine IP revision until something better
+	 * is devised. */
 	dt_node = of_find_compatible_node(NULL, NULL, "fsl,qman-portal");
 	if (!dt_node) {
 		pr_err("No qman portals available for any CPU\n");

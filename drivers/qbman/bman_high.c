@@ -61,6 +61,8 @@ struct bman_portal {
 	 * you'll never guess the hash-function ... */
 	struct bman_pool *cb[64];
 	char irqname[MAX_IRQNAME];
+	/* Track if the portal was alloced by the driver */
+	u8 alloced;
 };
 
 /* For an explanation of the locking, redirection, or affine-portal logic,
@@ -191,14 +193,23 @@ static irqreturn_t portal_isr(__always_unused int irq, void *ptr)
 	return IRQ_HANDLED;
 }
 
-struct bman_portal *bman_create_affine_portal(
-			const struct bm_portal_config *config)
+
+struct bman_portal *bman_create_portal(
+				       struct bman_portal *portal,
+				       const struct bm_portal_config *config)
 {
-	struct bman_portal *portal = get_raw_affine_portal();
-	struct bm_portal *__p = &portal->p;
+	struct bm_portal *__p;
 	const struct bman_depletion *pools = &config->public_cfg.mask;
 	int ret;
 	u8 bpid = 0;
+
+	if (!portal) {
+		portal = kmalloc(sizeof(*portal), GFP_KERNEL);
+		portal->alloced = 1;
+	} else
+		portal->alloced = 0;
+
+	__p = &portal->p;
 
 	/* prep the low-level portal struct with the mapped addresses from the
 	 * config, everything that follows depends on it and "config" is more
@@ -256,6 +267,7 @@ struct bman_portal *bman_create_affine_portal(
 		pr_err("irq_set_affinity() failed\n");
 		goto fail_affinity;
 	}
+
 	/* Need RCR to be empty before continuing */
 	ret = bm_rcr_get_fill(__p);
 	if (ret) {
@@ -264,12 +276,9 @@ struct bman_portal *bman_create_affine_portal(
 	}
 	/* Success */
 	portal->config = config;
-	spin_lock(&affine_mask_lock);
-	cpumask_set_cpu(config->public_cfg.cpu, &affine_mask);
-	spin_unlock(&affine_mask_lock);
+
 	bm_isr_disable_write(__p, 0);
 	bm_isr_uninhibit(__p);
-	put_affine_portal();
 	return portal;
 fail_rcr_empty:
 fail_affinity:
@@ -284,9 +293,25 @@ fail_isr:
 fail_mc:
 	bm_rcr_finish(__p);
 fail_rcr:
-	put_affine_portal();
+	if (portal->alloced)
+		kfree(portal);
 	return NULL;
 }
+
+struct bman_portal *bman_create_affine_portal(
+			const struct bm_portal_config *config)
+{
+	struct bman_portal *portal = get_raw_affine_portal();
+	portal = bman_create_portal(portal, config);
+	if (portal) {
+		spin_lock(&affine_mask_lock);
+		cpumask_set_cpu(config->public_cfg.cpu, &affine_mask);
+		spin_unlock(&affine_mask_lock);
+	}
+	put_affine_portal();
+	return portal;
+}
+
 
 struct bman_portal *bman_create_affine_slave(struct bman_portal *redirect)
 {
@@ -305,6 +330,24 @@ struct bman_portal *bman_create_affine_slave(struct bman_portal *redirect)
 #endif
 }
 
+void bman_destroy_portal(struct bman_portal *bm)
+{
+	const struct bm_portal_config *pcfg;
+	pcfg = bm->config;
+	bm_rcr_cce_update(&bm->p);
+	bm_rcr_cce_update(&bm->p);
+
+	free_irq(pcfg->public_cfg.irq, bm);
+
+	kfree(bm->pools);
+	bm_isr_finish(&bm->p);
+	bm_mc_finish(&bm->p);
+	bm_rcr_finish(&bm->p);
+	bm->config = NULL;
+	if (bm->alloced)
+		kfree(bm);
+}
+
 const struct bm_portal_config *bman_destroy_affine_portal(void)
 {
 	struct bman_portal *bm = get_raw_affine_portal();
@@ -318,14 +361,7 @@ const struct bm_portal_config *bman_destroy_affine_portal(void)
 	bm->is_shared = 0;
 #endif
 	pcfg = bm->config;
-	bm_rcr_cce_update(&bm->p);
-	bm_rcr_cce_update(&bm->p);
-	free_irq(pcfg->public_cfg.irq, bm);
-	kfree(bm->pools);
-	bm_isr_finish(&bm->p);
-	bm_mc_finish(&bm->p);
-	bm_rcr_finish(&bm->p);
-	bm->config = NULL;
+	bman_destroy_portal(bm);
 	spin_lock(&affine_mask_lock);
 	cpumask_clear_cpu(pcfg->public_cfg.cpu, &affine_mask);
 	spin_unlock(&affine_mask_lock);
@@ -625,24 +661,8 @@ void bman_free_pool(struct bman_pool *pool)
 		pool->sp = NULL;
 		pool->params.flags ^= BMAN_POOL_FLAG_STOCKPILE;
 	}
-	if (pool->params.flags & BMAN_POOL_FLAG_DYNAMIC_BPID) {
-		/* When releasing a BPID to the dynamic allocator, that pool
-		 * must be *empty*. This code makes it so by dropping everything
-		 * into the bit-bucket. This ignores whether or not it was a
-		 * mistake (or a leak) on the caller's part not to drain the
-		 * pool beforehand. */
-		struct bm_buffer bufs[8];
-		int ret = 0;
-		do {
-			/* Acquire is all-or-nothing, so we drain in 8s, then in
-			 * 1s for the remainder. */
-			if (ret != 1)
-				ret = bman_acquire(pool, bufs, 8, 0);
-			if (ret < 8)
-				ret = bman_acquire(pool, bufs, 1, 0);
-		} while (ret > 0);
+	if (pool->params.flags & BMAN_POOL_FLAG_DYNAMIC_BPID)
 		bman_release_bpid(pool->params.bpid);
-	}
 	kfree(pool);
 }
 EXPORT_SYMBOL(bman_free_pool);
@@ -1003,3 +1023,17 @@ int bman_update_pool_thresholds(struct bman_pool *pool, const u32 *thresholds)
 }
 EXPORT_SYMBOL(bman_update_pool_thresholds);
 #endif
+
+int bman_shutdown_pool(u32 bpid)
+{
+	struct bman_portal *p = get_affine_portal();
+	__maybe_unused unsigned long irqflags;
+	int ret;
+
+	PORTAL_IRQ_LOCK(p, irqflags);
+	ret = bm_shutdown_pool(&p->p, bpid);
+	PORTAL_IRQ_UNLOCK(p, irqflags);
+	put_affine_portal();
+	return ret;
+}
+EXPORT_SYMBOL(bman_shutdown_pool);

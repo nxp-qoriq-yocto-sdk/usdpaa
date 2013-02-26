@@ -100,13 +100,13 @@ struct dma_mem *dma_mem_create(uint32_t flags, const char *map_name,
 		params.name[0]= '\0';
 		params.has_locking = 0;
 	}
-	ret = process_dma_map(&params, flags & DMA_MAP_FLAG_READONLY,
-			      &map->addr.virt);
+	ret = process_dma_map(&params);
 	if (ret) {
 		free(map);
 		return NULL;
 	}
-	map->addr.phys = params.pa_offset;
+	map->addr.virt = compat_ptr(params.ptr);
+	map->addr.phys = params.phys_addr;
 	map->sz = params.len;
 	map->flags = flags;
 	map->has_locking = params.has_locking;
@@ -124,6 +124,24 @@ struct dma_mem *dma_mem_create(uint32_t flags, const char *map_name,
 	}
 	pthread_mutex_unlock(&maps_lock);
 	return map;
+}
+
+void dma_mem_destroy(struct dma_mem *map)
+{
+	unsigned int idx;
+	pthread_mutex_lock(&maps_lock);
+	for (idx = 0; idx < num_maps; idx++)
+		if (maps[idx] == map) {
+			/* Delete the array entry, and if it wasn't at the end
+			 * of the array, promote the entry that is at the tail
+			 * to fill the gap. */
+			if (idx < --num_maps)
+				maps[idx] = maps[num_maps];
+			break;
+		}
+	pthread_mutex_unlock(&maps_lock);
+	process_dma_unmap(map->addr.virt);
+	free(map);
 }
 
 void dma_mem_params(struct dma_mem *map, uint32_t *flags, const char **map_name,

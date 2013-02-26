@@ -249,3 +249,8 @@ void dma_mem_print(struct dma_mem *map)
 
 	map_unlock(map);
 }
+
+int dma_mem_query(uint64_t *free_bytes, uint64_t *total_bytes)
+{
+	return process_query_dma_mem(free_bytes, total_bytes);
+}

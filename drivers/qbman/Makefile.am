@@ -34,6 +34,6 @@ dist_DATA = 06-usdpaa-uio.rules
 
 usdpaa_qbman_SOURCES := bman_high.c bman_driver.c \
 		qman_high.c qman_utility.c qman_driver.c \
-		uio_irq.c dpa_alloc.c
+		dpa_alloc.c dpa_sys.c
 
 06-usdpaa-uio.rules_install := etc/udev/rules.d
