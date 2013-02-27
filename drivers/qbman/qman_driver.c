@@ -37,7 +37,7 @@
  * where CCSR isn't available) */
 u16 qman_ip_rev;
 EXPORT_SYMBOL(qman_ip_rev);
-u16 qm_channel_pool1;
+u16 qm_channel_pool1 = QMAN_CHANNEL_POOL1;
 EXPORT_SYMBOL(qm_channnel_pool1);
 u16 qm_channel_caam = QMAN_CHANNEL_CAAM;
 EXPORT_SYMBOL(qman_channel_caam);
@@ -370,6 +370,7 @@ int qman_global_init(void)
 		return -ENODEV;
 	}
 	if ((qman_ip_rev & 0xFF00) >= QMAN_REV30) {
+		qm_channel_pool1 = QMAN_CHANNEL_POOL1_REV3;
 		qm_channel_caam = QMAN_CHANNEL_CAAM_REV3;
 		qm_channel_pme = QMAN_CHANNEL_PME_REV3;
 	}
@@ -384,7 +385,6 @@ int qman_global_init(void)
 		pr_err("Can not get pool-channel-range property\n");
 		return -EINVAL;
 	}
-	qm_channel_pool1 = chanid[0];
 
 	/* Parse CEETM */
 	for_each_compatible_node(dt_node, NULL, "fsl,qman-ceetm") {
