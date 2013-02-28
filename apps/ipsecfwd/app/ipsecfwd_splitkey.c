@@ -80,11 +80,12 @@ int32_t init_split_key_fqs(void)
 	uint32_t ctx_a_len;
 	void *ctxt_a;
 
-	flags = QMAN_FQ_FLAG_NO_ENQUEUE | QMAN_FQ_FLAG_LOCKED;
+	flags = QMAN_FQ_FLAG_NO_ENQUEUE | QMAN_FQ_FLAG_LOCKED |
+		QMAN_FQ_FLAG_DYNAMIC_FQID;
 	fq = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(struct qman_fq));
 	if (unlikely(NULL == fq)) {
 		fprintf(stderr, "error: %s: malloc failed in create_fqs"
-			" for FQ ID: %u\n", __func__, KEY_SPLIT_FQ_FROM_SEC);
+			" for FQ ID\n", __func__);
 		return -ENOMEM;
 	}
 
@@ -92,9 +93,9 @@ int32_t init_split_key_fqs(void)
 	g_splitkey_fq_from_sec = fq;
 	fq->cb = ipfwd_split_key_cb;
 
-	if (unlikely(0 != qman_create_fq(KEY_SPLIT_FQ_FROM_SEC, flags, fq))) {
+	if (unlikely(0 != qman_create_fq(0, flags, fq))) {
 		fprintf(stderr, "error: %s: qman_create_fq failed for"
-			" FQ ID: %u\n", __func__, KEY_SPLIT_FQ_FROM_SEC);
+			" FQ ID\n", __func__);
 		return -EINVAL;
 	}
 
@@ -113,7 +114,8 @@ int32_t init_split_key_fqs(void)
 		return -1;
 	}
 
-	flags = QMAN_FQ_FLAG_LOCKED | QMAN_FQ_FLAG_TO_DCPORTAL;
+	flags = QMAN_FQ_FLAG_LOCKED | QMAN_FQ_FLAG_TO_DCPORTAL |
+		QMAN_FQ_FLAG_DYNAMIC_FQID;
 
 	fq = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(struct qman_fq));
 	if (unlikely(NULL == fq)) {
@@ -126,7 +128,7 @@ int32_t init_split_key_fqs(void)
 	g_splitkey_fq_to_sec = fq;
 	fq->cb = ipfwd_split_key_cb;
 
-	if (unlikely(0 != qman_create_fq(KEY_SPLIT_FQ_TO_SEC, flags, fq))) {
+	if (unlikely(0 != qman_create_fq(0, flags, fq))) {
 		fprintf(stderr, "error: %s: qman_create_fq failed"
 			" for FQ ID\n", __func__);
 		return -EINVAL;
@@ -142,7 +144,7 @@ int32_t init_split_key_fqs(void)
 	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_CONTEXTA |
 	    QM_INITFQ_WE_CONTEXTB;
 	qm_fqd_context_a_set64(&opts.fqd, __dma_mem_vtop(ctxt_a));
-	opts.fqd.context_b = KEY_SPLIT_FQ_FROM_SEC;
+	opts.fqd.context_b = g_splitkey_fq_from_sec->fqid;
 	opts.fqd.dest.channel = qm_channel_caam;
 	opts.fqd.dest.wq = 0;
 

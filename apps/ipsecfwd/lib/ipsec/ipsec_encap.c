@@ -69,9 +69,8 @@ enum IP_STATUS ipsec_encap_send(const struct ppam_rx_hash *ctxt,
 	if (unlikely(entry->fq_state == PARKED)) {
 		spin_lock(&entry->tlock);
 		if (entry->fq_state == PARKED) {
-			sec_fq = SEC_FQ_BASE + (entry->tunnel_id * 2);
 			if (init_sec_fqs(entry, ENCRYPT, entry->ctxtA,
-					sec_fq)) {
+					entry->tunnel_id)) {
 				fprintf(stderr, "error: %s: Failed to Init"
 					" encap Context\n", __func__);
 				return IP_STATUS_DROP;

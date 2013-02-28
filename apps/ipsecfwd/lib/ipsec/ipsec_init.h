@@ -37,8 +37,6 @@
 #define IPSEC_MAX_HMAC_KEY_SIZE_BYTES 48
 #define IPSEC_MAX_HMAC_KEY_SIZE (IPSEC_MAX_HMAC_KEY_SIZE_BYTES / 4)
 
-#define KEY_SPLIT_FQ_TO_SEC 22530
-#define KEY_SPLIT_FQ_FROM_SEC (KEY_SPLIT_FQ_TO_SEC + 1)
 
 /**
  \brief This structure allows the user to provide all IPsec

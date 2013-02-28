@@ -52,11 +52,11 @@ void init_ppam_ctxt(struct ppam_rx_hash *ppam_ctxt)
  \param[out] entry IpSec tunnel entry
  \param[out] ctxt IpSec Context
  \param[out] ctxt_a Context A for the FQ
- \param[out] sec_fq FQ Id for the Queue towards SEC
+ \param[out] tunnel_id Tunnel Id for the Queue towards SEC
  \return Integer status
  */
 int32_t init_sec_fqs(struct ipsec_tunnel_t *entry, bool mode,
-			void *ctxt_a, uint32_t sec_fq)
+			void *ctxt_a, uint32_t tunnel_id)
 {
 	uint32_t flags;
 	struct qman_fq *fq_from_sec;
@@ -65,13 +65,14 @@ int32_t init_sec_fqs(struct ipsec_tunnel_t *entry, bool mode,
 	uint32_t ctx_a_excl;
 	uint32_t ctx_a_len;
 
-	flags = QMAN_FQ_FLAG_NO_ENQUEUE | QMAN_FQ_FLAG_LOCKED;
+	flags = QMAN_FQ_FLAG_NO_ENQUEUE | QMAN_FQ_FLAG_LOCKED |
+		QMAN_FQ_FLAG_DYNAMIC_FQID;
 
 	g_ipsec_ctxt[entry->tunnel_id] = __dma_mem_memalign(L1_CACHE_BYTES,
 						sizeof(struct ipsec_context_t));
 	if (unlikely(NULL == g_ipsec_ctxt[entry->tunnel_id])) {
-		pr_err("malloc failed in create_fqs for FQ ID: %u\n",
-			  sec_fq + 1);
+		pr_err("malloc failed in create_fqs for Tunnel ID: %u\n",
+			  tunnel_id);
 		return -ENOMEM;
 	}
 
@@ -79,8 +80,8 @@ int32_t init_sec_fqs(struct ipsec_tunnel_t *entry, bool mode,
 	/* Rx Callback Handler */
 	fq_from_sec->cb = ipsecfwd_rx_cb_pcd;
 
-	if (unlikely(0 != qman_create_fq(sec_fq + 1, flags, fq_from_sec))) {
-		pr_err("qman_create_fq failed for FQ ID: %u\n", sec_fq + 1);
+	if (unlikely(0 != qman_create_fq(0, flags, fq_from_sec))) {
+		pr_err("qman_create_fq failed for Tunnel ID: %u\n", tunnel_id);
 		return -1;
 	}
 
@@ -100,18 +101,20 @@ int32_t init_sec_fqs(struct ipsec_tunnel_t *entry, bool mode,
 	opts.fqd.dest.wq = 2;
 
 	if (unlikely(0 != qman_init_fq(fq_from_sec, flags, &opts))) {
-		pr_err("Unable to initialize ingress FQ for SEC4.0");
+		pr_err("Unable to initialize ingress FQ from sec FQID:%u"
+			",tunnel ID: %u\n", fq_from_sec->fqid, tunnel_id);
 		return -1;
 	}
 
-	flags = QMAN_FQ_FLAG_LOCKED | QMAN_FQ_FLAG_TO_DCPORTAL;
+	flags = QMAN_FQ_FLAG_LOCKED | QMAN_FQ_FLAG_TO_DCPORTAL |
+		QMAN_FQ_FLAG_DYNAMIC_FQID;
 
 	fq_to_sec = &(g_ipsec_ctxt[entry->tunnel_id]->fq_to_sec);
 
 	/* Tx Callback Handlers */
 	fq_to_sec->cb = ipsecfwd_tx_cb;
-	if (unlikely(0 != qman_create_fq(sec_fq, flags, fq_to_sec))) {
-		pr_err("qman_create_fq failed for FQ ID");
+	if (unlikely(0 != qman_create_fq(0, flags, fq_to_sec))) {
+		pr_err("qman_create_fq failed for Tunnel ID:%u\n", tunnel_id);
 		return -1;
 	}
 
@@ -119,12 +122,13 @@ int32_t init_sec_fqs(struct ipsec_tunnel_t *entry, bool mode,
 	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_CONTEXTA |
 	    QM_INITFQ_WE_CONTEXTB;
 	qm_fqd_context_a_set64(&opts.fqd, __dma_mem_vtop(ctxt_a));
-	opts.fqd.context_b = sec_fq + 1;
+	opts.fqd.context_b = fq_from_sec->fqid;
 	opts.fqd.dest.channel = qm_channel_caam;
 	opts.fqd.dest.wq = 0;
 
 	if (unlikely(0 != qman_init_fq(fq_to_sec, flags, &opts))) {
-		pr_err("Unable to Init CAAM Egress FQ");
+		pr_err("Unable to Init CAAM Egress FQ to sec FQID:%u"
+			",tunnel ID: %u\n", fq_to_sec->fqid, tunnel_id);
 		return -EINVAL;
 	}
 	entry->qm_fq_to_sec = fq_to_sec;

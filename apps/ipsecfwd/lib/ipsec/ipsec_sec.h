@@ -35,7 +35,6 @@
 #include <fsl_sec/pdb.h>
 #include "ip/ip_appconf.h"
 
-#define SEC_FQ_BASE	20480
 
 /* BPID for use by SEC in case simple FD mode is used */
 extern u32 sec_bpid;
@@ -126,6 +125,6 @@ void
 
 extern int32_t init_sec_fqs(struct ipsec_tunnel_t *entry,
 			       bool mode, void *ctxtA,
-			       uint32_t sec_fq);
+			       uint32_t tunnel_id);
 
 #endif /* ifndef LIB_IPSEC_SEC_H */
