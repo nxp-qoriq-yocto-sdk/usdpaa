@@ -791,6 +791,7 @@ int ppam_init(void)
 void ppam_finish(void)
 {
 	char name[10];
+	int i;
 
 	TRACE("closing snd and rcv message queues\n");
 
@@ -809,6 +810,18 @@ void ppam_finish(void)
 		sprintf(name, "/mq_rcv_%d", getpid());
 		if (mq_unlink(name) == -1)
 			error(0, errno, "%s():mq_unlink rcv", __func__);
+	}
+
+	/* Closing splitkey FQ's */
+	teardown_fq(g_splitkey_fq_to_sec);
+	teardown_fq(g_splitkey_fq_from_sec);
+
+	/* Closing SEC Rx and Tx FQ's */
+	for (i = 0; i < IPSEC_TUNNEL_ENTRIES; i++) {
+		if (g_ipsec_ctxt[i] != NULL) {
+			teardown_fq(&(g_ipsec_ctxt[i]->fq_to_sec));
+			teardown_fq(&(g_ipsec_ctxt[i]->fq_from_sec));
+		}
 	}
 
 	if (simple_fd_mode)
@@ -913,23 +926,9 @@ static int ppam_tx_confirm_init(struct ppam_tx_confirm *p,
 {
 	return 0;
 }
-/* Temporarily using this for SEC FQ's clean-up */
 static void ppam_tx_confirm_finish(struct ppam_tx_confirm *p,
 				   struct ppam_interface *_if)
 {
-	int i;
-
-	/* Closing splitkey FQ's */
-	teardown_fq(g_splitkey_fq_to_sec);
-	teardown_fq(g_splitkey_fq_from_sec);
-
-	/* Closing SEC Rx and Tx FQ's */
-	for (i = 0; i < IPSEC_TUNNEL_ENTRIES; i++) {
-		if (g_ipsec_ctxt[i] != NULL) {
-			teardown_fq(&(g_ipsec_ctxt[i]->fq_to_sec));
-			teardown_fq(&(g_ipsec_ctxt[i]->fq_from_sec));
-		}
-	}
 }
 static inline void ppam_tx_confirm_cb(struct ppam_tx_confirm *p,
 				      struct ppam_interface *_if,
