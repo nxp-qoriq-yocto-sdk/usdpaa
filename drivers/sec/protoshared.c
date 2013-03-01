@@ -117,7 +117,7 @@ int32_t cnstr_shdsc_ipsec_encap(uint32_t *descbuf, uint16_t *bufsize,
 	 * sizes are computed.
 	 */
 	cmd_insert_jump(keyjump, JUMP_TYPE_LOCAL, CLASS_BOTH, JUMP_TEST_ALL,
-			JUMP_COND_SHRD | JUMP_COND_SELF, descbuf - keyjump,
+			JUMP_COND_SHRD, descbuf - keyjump,
 			NULL);
 
 	descbuf = cmd_insert_proto_op_ipsec(descbuf,
@@ -126,7 +126,7 @@ int32_t cnstr_shdsc_ipsec_encap(uint32_t *descbuf, uint16_t *bufsize,
 					    DIR_ENCAP);
 
 	endidx = descbuf - start;
-	cmd_insert_shared_hdr(start, startidx, endidx, CTX_SAVE, SHR_SERIAL);
+	cmd_insert_shared_hdr(start, startidx, endidx, CTX_ERASE, SHR_SERIAL);
 	*bufsize = endidx;
 	return 0;
 }
@@ -191,7 +191,7 @@ int32_t cnstr_shdsc_ipsec_decap(uint32_t *descbuf, uint16_t *bufsize,
 	 * Update before we insert the OP
 	 */
 	cmd_insert_jump(keyjump, JUMP_TYPE_LOCAL, CLASS_BOTH, JUMP_TEST_ALL,
-			JUMP_COND_SHRD | JUMP_COND_SELF, descbuf - keyjump,
+			JUMP_COND_SHRD, descbuf - keyjump,
 			NULL);
 
 	descbuf = cmd_insert_proto_op_ipsec(descbuf,
@@ -200,7 +200,7 @@ int32_t cnstr_shdsc_ipsec_decap(uint32_t *descbuf, uint16_t *bufsize,
 					    DIR_DECAP);
 
 	endidx = descbuf - start;
-	cmd_insert_shared_hdr(start, startidx, endidx, CTX_SAVE, SHR_SERIAL);
+	cmd_insert_shared_hdr(start, startidx, endidx, CTX_ERASE, SHR_SERIAL);
 	*bufsize = endidx;
 	return 0;
 }
