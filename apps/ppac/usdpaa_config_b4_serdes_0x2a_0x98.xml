@@ -1,5 +1,5 @@
 <!--
- Copyright (c) 2012 Freescale Semiconductor, Inc.
+ Copyright (c) 2013 Freescale Semiconductor, Inc.
  All rights reserved.
 
  Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,7 @@
 -->
 
 <!--
-This fmc configuration file sets the 4x1G (0x2a_0x49 rcw) to use the policies
+This fmc configuration file sets the 2x10G (0x2a_0x98 rcw) to use the policies
 indicated below.
 -->
 
@@ -40,10 +40,9 @@ indicated below.
 <cfgdata>
     <config>
 	<engine name="fm0">
-		<port type="1G" number="0" policy="hash_ipsec_src_dst_spi_policy0"/>
-		<port type="1G" number="1" policy="hash_ipsec_src_dst_spi_policy1"/>
-		<port type="1G" number="2" policy="hash_ipsec_src_dst_spi_policy2"/>
 		<port type="1G" number="5" policy="hash_ipsec_src_dst_spi_policy5"/>
+		<port type="10G" number="0" policy="hash_ipsec_src_dst_spi_policy6"/>
+		<port type="10G" number="1" policy="hash_ipsec_src_dst_spi_policy7"/>
 	</engine>
     </config>
 </cfgdata>
