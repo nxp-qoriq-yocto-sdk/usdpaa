@@ -41,8 +41,6 @@
 unsigned int g_mndtr_param;
 error_t g_parse_error;
 mqd_t mq_fd_wr, mq_fd_rd;
-struct sigevent notification;
-volatile uint32_t response_flag;
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state);
 static error_t parse_route_add_opt(int key, char *arg,
@@ -81,7 +79,6 @@ static struct argp_option options[] = {
 	{}
 };
 
-int receive_from_mq(mqd_t mqdes);
 /*
    The ARGP structure itself.
 */
@@ -102,10 +99,8 @@ void send_to_mq(struct app_ctrl_op_info *saInfo)
 	saInfo->state = IPC_CTRL_CMD_STATE_BUSY;
 	/* Send message to message queue */
 	ret = mq_send(mq_fd_wr, (char *)saInfo, sizeof(*saInfo), 10);
-	if (ret != 0) {
+	if (ret != 0)
 		pr_err("%s : Error in sending mesage on MQ\n", __FILE__);
-	}
-	while (response_flag == 0);
 }
 /**
  \brief Processes the Route Add/ Delete Request
@@ -333,14 +328,6 @@ void ipc_show_intf_command(int argc, char **argv, char *type)
 	return;
 }
 
-void mq_handler(union sigval sval)
-{
-	pr_debug("mq_handler called %d\n", sval.sival_int);
-
-	receive_from_mq(mq_fd_rd);
-	mq_notify(mq_fd_rd, &notification);
-}
-
 /* opens message queue to talk to the application */
 static int create_mq(int pid)
 {
@@ -363,14 +350,6 @@ static int create_mq(int pid)
 		return -1;
 	}
 
-	notification.sigev_notify = SIGEV_THREAD;
-	notification.sigev_notify_function = mq_handler;
-	notification.sigev_value.sival_ptr = &mq_fd_rd;
-	notification.sigev_notify_attributes = NULL;
-	tmp = mq_notify(mq_fd_rd, &notification);
-	if (tmp)
-		pr_err("%sError in mq_notify call\n",
-				 __FILE__);
 	return 0;
 }
 
@@ -640,7 +619,7 @@ static error_t parse_show_intf_opt(int key, char *arg, struct argp_state *state)
  \param[in]message queue data structure mqd_t
  \return none
  */
-int receive_from_mq(mqd_t mqdes)
+static int receive_from_mq(mqd_t mqdes)
 {
 	ssize_t size;
 	struct app_ctrl_op_info ip_info;
@@ -694,7 +673,6 @@ int receive_from_mq(mqd_t mqdes)
 			pr_info("Show Interfaces failed\n");
 	}
 
-	response_flag = 1;
 	return 0;
 }
 
@@ -709,7 +687,6 @@ int main(int argc, char **argv)
 	struct app_ctrl_op_info sa_info;
 	int ret;
 
-	response_flag = 0;
 	memset(&sa_info, 0, sizeof(struct app_ctrl_op_info));
 
 	if (argc == 1) {
@@ -795,6 +772,7 @@ int main(int argc, char **argv)
 		pr_debug("Invalid Option\n");
 	}
 
+	receive_from_mq(mq_fd_rd);
 _close:
 	ret = mq_close(mq_fd_wr);
 	if (ret) {

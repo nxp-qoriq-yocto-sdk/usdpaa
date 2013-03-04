@@ -41,8 +41,6 @@
 unsigned int g_mndtr_param;
 error_t g_parse_error;
 mqd_t mq_fd_wr, mq_fd_rd;
-struct sigevent notification;
-volatile uint32_t response_flag;
 
 unsigned char def_aes_enc_key[] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
 	0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10
@@ -106,7 +104,6 @@ static struct argp_option options[] = {
 	{}
 };
 
-int receive_from_mq(mqd_t mqdes);
 /*
    The ARGP structure itself.
 */
@@ -128,9 +125,6 @@ void send_to_mq(struct app_ctrl_op_info *saInfo)
 	ret = mq_send(mq_fd_wr, (char *)saInfo, sizeof(*saInfo), 10);
 	if (ret != 0)
 		pr_err("%s : Error in sending mesage on MQ\n", __FILE__);
-
-	while (response_flag == 0)
-		;
 }
 
 /**
@@ -460,14 +454,6 @@ void ipc_show_intf_command(int argc, char **argv, char *type)
 	return;
 }
 
-void mq_handler(union sigval sval)
-{
-	pr_debug("mq_handler called %d\n", sval.sival_int);
-
-	receive_from_mq(mq_fd_rd);
-	mq_notify(mq_fd_rd, &notification);
-}
-
 /* opens message queue to talk to the application */
 static int create_mq(int pid)
 {
@@ -490,14 +476,6 @@ static int create_mq(int pid)
 		return -1;
 	}
 
-	notification.sigev_notify = SIGEV_THREAD;
-	notification.sigev_notify_function = mq_handler;
-	notification.sigev_value.sival_ptr = &mq_fd_rd;
-	notification.sigev_notify_attributes = NULL;
-	tmp = mq_notify(mq_fd_rd, &notification);
-	if (tmp)
-		pr_err("%sError in mq_notify call\n",
-				 __FILE__);
 	return 0;
 }
 
@@ -892,7 +870,7 @@ static error_t parse_show_intf_opt(int key, char *arg, struct argp_state *state)
  \param[in]message queue data structure mqd_t
  \return none
  */
-int receive_from_mq(mqd_t mqdes)
+static int receive_from_mq(mqd_t mqdes)
 {
 	ssize_t size;
 	struct app_ctrl_op_info ip_info;
@@ -956,7 +934,6 @@ int receive_from_mq(mqd_t mqdes)
 			pr_info("Show Interfaces failed\n");
 	}
 
-	response_flag = 1;
 	return 0;
 }
 
@@ -973,7 +950,6 @@ int main(int argc, char **argv)
 	struct app_ctrl_op_info route_info;
 	int ret;
 
-	response_flag = 0;
 	memset(&sa_info, 0, sizeof(struct app_ctrl_op_info));
 
 	if (argc == 1) {
@@ -1077,12 +1053,15 @@ int main(int argc, char **argv)
 		pr_debug("Invalid Option\n");
 	}
 
+	receive_from_mq(mq_fd_rd);
+
 _close:
 	ret = mq_close(mq_fd_wr);
 	if (ret) {
 		pr_err("%s: %d error in closing MQ: errno = %d\n",
 			__FILE__, __LINE__, errno);
 	}
+
 	ret = mq_close(mq_fd_rd);
 	if (ret) {
 		pr_err("%s: %d error in closing MQ: errno = %d\n",
