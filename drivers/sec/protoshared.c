@@ -77,9 +77,6 @@ int32_t cnstr_shdsc_ipsec_encap(uint32_t *descbuf, uint16_t *bufsize,
 
 	start = descbuf;
 
-	/* Compute optional header size, rounded up to descriptor word size */
-	opthdrsz = (pdb->ip_hdr_len + 3) & ~3;
-
 	/* copy in core of PDB */
 	memcpy(descbuf, pdb, sizeof(struct ipsec_encap_pdb));
 	descbuf += sizeof(struct ipsec_encap_pdb) >> 2;
