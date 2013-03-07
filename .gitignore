@@ -7,3 +7,10 @@
 /bin_*
 .Makefile.touch
 .yocto
+cscope*
+*.patch
+*~
+\#*\#
+.\#*
+*.swp
+*.orig
