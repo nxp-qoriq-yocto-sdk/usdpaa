@@ -64,21 +64,6 @@ const struct fm_eth_port_cfg *ppac_interface_pcfg(struct ppac_interface *i)
 #define POST_DQRR() qman_cb_dqrr_consume
 #endif
 
-#ifdef PPAC_ORDER_RESTORATION
-#define PRE_ORP(orpid, seqnum) \
-	do { \
-		local_orp_fq = orpid; \
-		local_seqnum = seqnum; \
-	} while (0)
-
-#define POST_ORP() \
-	do { \
-		local_orp_fq = NULL; \
-	} while (0)
-#else
-#define PRE_ORP(orpid, seqnum) do { ; } while (0)
-#define POST_ORP()             do { ; } while (0)
-#endif
 
 static enum qman_cb_dqrr_result
 cb_dqrr_rx_error(struct qman_portal *qm __always_unused,

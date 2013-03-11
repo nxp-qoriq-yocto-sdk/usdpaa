@@ -246,6 +246,19 @@ extern __thread const struct qm_dqrr_entry *local_dqrr;
 #ifdef PPAC_ORDER_RESTORATION
 extern __thread struct qman_fq *local_orp_fq;
 extern __thread u32 local_seqnum;
+#define PRE_ORP(orpid, seqnum) \
+	do { \
+		local_orp_fq = orpid; \
+		local_seqnum = seqnum; \
+	} while (0)
+
+#define POST_ORP() \
+	do { \
+		local_orp_fq = NULL; \
+	} while (0)
+#else
+#define PRE_ORP(orpid, seqnum) do { ; } while (0)
+#define POST_ORP()             do { ; } while (0)
 #endif
 
 /****************************************/
@@ -335,9 +348,9 @@ retry:
 #ifdef PPAC_ORDER_RESTORATION
 	if (local_orp_fq) {
 		ret = qman_enqueue_orp(&local_fq, fd, EQ_FLAGS(), local_orp_fq,
-					local_dqrr->seqnum);
+					local_seqnum);
 		TRACE("send ORP: fqid %d, orpid %d, seqnum %d <-- 0x%llx (%d)\n",
-			local_fq.fqid, tmp_orp.fqid, local_dqrr->seqnum,
+			local_fq.fqid, tmp_orp.fqid, local_seqnum,
 			qm_fd_addr(fd), ret);
 	} else
 #endif
