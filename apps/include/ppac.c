@@ -207,7 +207,9 @@ int ppac_interface_init(unsigned idx)
 			__dma_mem_free(i);
 			return -ENOMEM;
 		}
+		memset(i->tx_fqs, 0, sizeof(*i->tx_fqs) * i->num_tx_fqs);
 	}
+
 	err = ppam_interface_init(&i->ppam_data, port, i->num_tx_fqs, &flags);
 	if (err) {
 		free(i->tx_fqs);
@@ -224,8 +226,6 @@ int ppac_interface_init(unsigned idx)
 		list_add_tail(&i->node, &ifs);
 		return 0;
 	}
-
-	memset(i->tx_fqs, 0, sizeof(*i->tx_fqs) * i->num_tx_fqs);
 
 #ifdef PPAC_TX_CONFIRM
 	context_b = fif->fqid_tx_confirm;

@@ -293,11 +293,13 @@ void ppac_fq_tx_init(struct qman_fq *fq, u16 channel,
 {
 	struct qm_mcc_initfq opts;
 	__maybe_unused int err;
+	uint32_t flags = QMAN_FQ_FLAG_TO_DCPORTAL;
 	/* These FQ objects need to be able to handle DQRR callbacks, when
 	 * cleaning up. */
 	fq->cb.dqrr = cb_tx_drain;
-	err = qman_create_fq(0, QMAN_FQ_FLAG_DYNAMIC_FQID |
-				QMAN_FQ_FLAG_TO_DCPORTAL, fq);
+	if (!fq->fqid)
+		flags |= QMAN_FQ_FLAG_DYNAMIC_FQID;
+	err = qman_create_fq(fq->fqid, flags, fq);
 	/* Note: handle errors here, BUG_ON()s are compiled out in performance
 	 * builds (ie. the default) and this code isn't even
 	 * performance-sensitive. */
