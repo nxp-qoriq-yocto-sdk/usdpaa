@@ -46,7 +46,6 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 {
 	struct ipsec_encap_descriptor_t *preheader_initdesc;
 	uint16_t desc_len;
-	struct iphdr iphdr;
 	struct ipsec_encap_pdb pdb;
 	struct cipherparams cipher;
 	struct authparams auth;
@@ -68,7 +67,6 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 
 	buff_start =
 	    (unsigned char *)preheader_initdesc + sizeof(struct preheader_t);
-	memcpy(&iphdr, outer_ip_header, sizeof(iphdr));
 	memset(&pdb, 0, sizeof(struct ipsec_encap_pdb));
 	pdb.seq_num = sa->seq_num;
 	pdb.spi = sa->spi;
@@ -105,8 +103,8 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 
 	/* Now construct */
 	ret = cnstr_shdsc_ipsec_encap((uint32_t *) buff_start, &desc_len,
-						 &pdb, (uint8_t *)&iphdr,
-						 &cipher, &auth);
+				      &pdb, (uint8_t *)outer_ip_header,
+				      &cipher, &auth);
 
 	if (ret)
 		return NULL;
