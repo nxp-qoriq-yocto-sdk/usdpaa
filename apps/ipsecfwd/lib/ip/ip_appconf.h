@@ -53,9 +53,7 @@ struct app_ctrl_sa_algo {
 
 #define HMAC_SHA1 0
 	unsigned int alg_type;	/**< Algo type - HMAC_SHA1 or AES_CBC */
-
-	unsigned int alg_key_len;	/**< Length of the key in bits */
-
+	unsigned int alg_key_len;	/**< Length of the key in bytes */
 #define IPC_CTRL_MAX_ALGO_KEY_LEN 48
 	char alg_key[IPC_CTRL_MAX_ALGO_KEY_LEN];	/**< Key */
 	char *alg_key_ptr;
