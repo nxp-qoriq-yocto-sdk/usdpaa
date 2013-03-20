@@ -1,4 +1,4 @@
-# Copyright (c) 2011 - 2012 Freescale Semiconductor, Inc.
+# Copyright (c) 2011-2013 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -29,12 +29,20 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback \
-	  hello_reflector ipfwd ipsecfwd sra rmu fra lpm-ipfwd dma_test \
-	  simple_proto classifier_demo fragmentation_demo reassembly_demo \
-	  ipsec_offload
+bin_PROGRAMS = ipsec_offload
 
-dist_DATA = SOURCE_THIS
+dist_DATA = ipsec_offload_config_p4080.xml ipsec_offload_config_b4860.xml \
+	    ipsec_offload_policy.xml ipsec_offload_pcd.xml ipsec_offload_swp.xml
 
-# install the SOURCE_THIS file in the 'root' home directory
-SOURCE_THIS_install := root
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/include \
+	     $(FMC_CFLAGS) $(FMLIB_CFLAGS)
+
+ipsec_offload_SOURCES := ipsec_offload.c pcd_init.c \
+			ipsec_init.c xfrm_km.c pfkey_utils.c neigh_utils.c
+
+ipsec_offload_LDADD := usdpaa_ppac usdpaa_syscfg usdpaa_qbman usdpaa_fman \
+		      usdpaa_dma_mem usdpaa_of usdpaa_process usdpaa_dpa_offload
+
+ipsec_offload_LDFLAGS := $(LIBXML2_LDFLAGS) $(LIBEDIT_LDFLAGS) \
+			$(FMC_LDFLAGS) $(FMLIB_LDFLAGS) \
+			-T $(TOP_LEVEL)/apps/ppac/ppac.lds
