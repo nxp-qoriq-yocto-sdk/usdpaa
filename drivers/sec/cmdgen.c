@@ -1298,7 +1298,7 @@ uint32_t *cmd_insert_move(uint32_t *descwd, uint32_t waitcomp,
 
 /**
  * cmd_insert_movelen()
- * Insert a MOVELEN instruction into a descriptor
+ * Insert a MOVE_LEN instruction into a descriptor
  *
  * Returns: pointer to next incremental descriptor word past the
  * instruction just inserted. No error is returned.
@@ -1325,7 +1325,7 @@ uint32_t *cmd_insert_movelen(uint32_t *descwd, uint32_t waitcomp,
 			   uint32_t src, uint32_t dst, uint8_t offset,
 			   uint8_t mrsel)
 {
-	*descwd++ = CMD_MOVELEN | waitcomp | src | dst |
+	*descwd++ = CMD_MOVE_LEN | waitcomp | src | dst |
 	(offset << MOVE_OFFSET_SHIFT) | (mrsel & MOVE_MRSEL_MASK);
 
 	return descwd;

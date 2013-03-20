@@ -60,7 +60,7 @@
 #define CMD_SEQ_STORE           (0x0b << CMD_SHIFT)
 #define CMD_FIFO_STORE          (0x0c << CMD_SHIFT)
 #define CMD_SEQ_FIFO_STORE      (0x0d << CMD_SHIFT)
-#define CMD_MOVELEN                (0x0e << CMD_SHIFT)
+#define CMD_MOVE_LEN            (0x0e << CMD_SHIFT)
 #define CMD_MOVE                (0x0f << CMD_SHIFT)
 #define CMD_OPERATION           (0x10 << CMD_SHIFT)
 #define CMD_SIGNATURE           (0x12 << CMD_SHIFT)
