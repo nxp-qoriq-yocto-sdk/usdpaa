@@ -31,4 +31,4 @@
 
 lib_LIBRARIES = usdpaa_dpa_offload
 
-usdpaa_dpa_offload_SOURCES := dpa_classifier.c
+usdpaa_dpa_offload_SOURCES := dpa_classifier.c dpa_ipsec.c
