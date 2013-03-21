@@ -40,7 +40,7 @@
 #include <internal/compat.h>
 #include <error.h>
 
-#define BPOOL_DEPLETION
+#undef BPOOL_DEPLETION
 #define BPOOL_BACKOFF_CYCLES	512
 #define POOL_MAX		64
 

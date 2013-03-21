@@ -36,7 +36,7 @@
 /* Application options */
 #undef ENABLE_FRA_DEBUG
 #undef FRA_CORE_COPY_MD /* core copy the rman descriptor */
-#undef FRA_ERROR_INTERRUPT_INFO /* print error interrupt info */
+#define FRA_ERROR_INTERRUPT_INFO /* print error interrupt info */
 
 /*
  * This macro is to enable Mailbox multicast mode
@@ -52,14 +52,14 @@
  */
 #define FRA_VIRTUAL_MULTI_DID
 
-#undef FRA_HOLDACTIVE		/* Process each FQ on one portal at a time */
+#define FRA_HOLDACTIVE		/* Process each FQ on one portal at a time */
 #undef FRA_ORDER_PRESERVATION	/* HOLDACTIVE + enqueue-DCAs */
 #undef FRA_ORDER_RESTORATION	/* Use ORP */
-#define FRA_AVOIDBLOCK		/* No full-DQRR blocking of FQs */
+#undef FRA_AVOIDBLOCK		/* No full-DQRR blocking of FQs */
 #define FRA_PCD_PREFERINCACHE	/* Keep pcd  FQDs in-cache even when empty */
 #define FRA_TX_PREFERINCACHE	/* Keep tx FQDs in-cache even when empty */
-#undef FRA_TX_FORCESFDR		/* Priority allocation of SFDRs to egress */
-#define FRA_DEPLETION		/* Trace depletion entry/exit */
+#define FRA_TX_FORCESFDR	/* Priority allocation of SFDRs to egress */
+#undef FRA_DEPLETION		/* Trace depletion entry/exit */
 #undef FRA_CGR			/* Track rx and tx fill-levels via CGR */
 #undef FRA_CSTD			/* CGR tail-drop */
 #undef FRA_CSCN			/* Log CGR state-change notifications */
