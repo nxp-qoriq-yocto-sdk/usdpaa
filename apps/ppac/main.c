@@ -373,20 +373,14 @@ static void bp_depletion(struct bman_portal *bm __always_unused,
 }
 #endif
 
-int ppac_prepare_bpid(u8 bpid, unsigned int count, uint64_t sz,
-		      int to_drain,
-		      void (*notify_cb)(struct bman_portal *,
-					struct bman_pool *,
-					void *cb_ctx,
-					int depleted),
-		      void *cb_ctx)
+static int init_bpid(u8 bpid, unsigned int count, uint64_t sz)
 {
 	struct bman_pool_params params = {
 		.bpid	= bpid,
 #ifdef PPAC_DEPLETION
-		.flags	= notify_cb ? BMAN_POOL_FLAG_DEPLETION : 0,
-		.cb	= notify_cb,
-		.cb_ctx	= cb_ctx
+		.flags	= count ? BMAN_POOL_FLAG_DEPLETION : 0,
+		.cb	= bp_depletion,
+		.cb_ctx	= &pool[bpid]
 #endif
 	};
 	struct bm_buffer bufs[8];
@@ -403,7 +397,6 @@ int ppac_prepare_bpid(u8 bpid, unsigned int count, uint64_t sz,
 		return -ENOMEM;
 	}
 	/* Drain the pool of anything already in it. */
-	if (to_drain)
 	do {
 		/* Acquire is all-or-nothing, so we drain in 8s, then in 1s for
 		 * the remainder. */
@@ -652,18 +645,14 @@ static void do_global_init(void)
 					"for interface %d\n", loop);
 				break;
 			}
-			err = ppac_prepare_bpid(bp->bpid, bpool_cnt[bp_idx],
-						bp->size, 1,
-						bpool_cnt[bp_idx] ?
-							bp_depletion : NULL,
-						&pool[bp->bpid]);
+			err = init_bpid(bp->bpid, bpool_cnt[bp_idx++],
+					bp->size);
 			if (err) {
 				fprintf(stderr, "error: bpid %d failed\n",
 					bp->bpid);
 				do_global_finish();
 				return;
 			}
-			bp_idx++;
 		}
 	}
 }
