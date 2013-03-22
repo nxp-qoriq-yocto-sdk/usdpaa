@@ -50,6 +50,8 @@ void *qman_ccsr_map;
 u32 qman_clk;
 /* Two CEETM instances provided by QMan v3.0 */
 struct qm_ceetm qman_ceetms[QMAN_CEETM_MAX];
+/* the qman ceetm instances on the given SoC */
+u8 num_ceetms;
 
 static __thread int fd = -1;
 static __thread const struct qbman_uio_irq *irq;
@@ -387,8 +389,10 @@ int qman_global_init(void)
 	}
 
 	/* Parse CEETM */
+	num_ceetms = 0;
 	for_each_compatible_node(dt_node, NULL, "fsl,qman-ceetm") {
 		ret = fsl_ceetm_init(dt_node);
+		num_ceetms++;
 		if (ret)
 			return ret;
 	}
