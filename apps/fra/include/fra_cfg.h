@@ -82,7 +82,7 @@
 
 /* QMan channel settings */
 #define FRA_NUM_POOL_CHANNELS 4
-#define FRA_NONHASH_WQ 3
+#define FRA_NONHASH_WQ 2
 #define FRA_DYNAMIC_CHANNEL 0
 #define FRA_NONHASH_CHANNEL FRA_DYNAMIC_CHANNEL
 
