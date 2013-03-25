@@ -88,7 +88,13 @@ int32_t init_sec_fqs(struct ipsec_tunnel_t *entry, bool mode,
 	flags = QMAN_INITFQ_FLAG_SCHED;
 	opts.we_mask =
 	    QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_CONTEXTA | QM_INITFQ_WE_FQCTRL;
-	opts.fqd.fq_ctrl = QM_FQCTRL_CTXASTASHING | QM_FQCTRL_HOLDACTIVE;
+	opts.fqd.fq_ctrl = QM_FQCTRL_CTXASTASHING;
+
+#if defined(PPAC_HOLDACTIVE)
+	opts.fqd.fq_ctrl |= QM_FQCTRL_HOLDACTIVE;
+#elif defined(PPAC_AVOIDBLOCK)
+	opts.fqd.fq_ctrl |= QM_FQCTRL_AVOIDBLOCK;
+#endif
 
 	ctx_a_excl = (QM_STASHING_EXCL_DATA | QM_STASHING_EXCL_CTX);
 
