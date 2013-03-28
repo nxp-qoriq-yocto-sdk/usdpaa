@@ -91,7 +91,7 @@ static struct argp show_intf_argp = {
 	show_intf_options, parse_show_intf_opt, NULL, NULL, NULL, NULL, NULL };
 
 static struct argp_option options[] = {
-	{"saentryadd", 'A', "TYPE", 0, "adding an SA enrty"},
+	{"saentryadd", 'A', "TYPE", 0, "adding an SA entry", 0},
 	{"routeadd", 'B', "TYPE", 0, "adding a route", 0},
 	{"routedel", 'C', "TYPE", 0, "deleting a route", 0},
 	{"saentrydel", 'D', "TYPE", 0, "deleting an SA enrty"},
