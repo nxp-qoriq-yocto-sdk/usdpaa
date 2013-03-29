@@ -46,13 +46,7 @@ struct app_ctrl_intf_conf {
 };
 
 struct app_ctrl_sa_algo {
-
-/* Different types of Algos - Authentication and Encryption*/
-#define AES_CBC 0
-#define TRIP_DES_CBC 1
-
-#define HMAC_SHA1 0
-	unsigned int alg_type;	/**< Algo type - HMAC_SHA1 or AES_CBC */
+	unsigned int alg_type;          /**< Algorithm selector */
 	unsigned int alg_key_len;	/**< Length of the key in bytes */
 #define IPC_CTRL_MAX_ALGO_KEY_LEN 48
 	char alg_key[IPC_CTRL_MAX_ALGO_KEY_LEN];	/**< Key */

@@ -27,8 +27,8 @@
  */
 
 #include <usdpaa/of.h>
-
 #include <internal/compat.h>
+#include <fsl_sec/dcl.h>
 
 #include "ipc_send.h"
 #include "ip/ip_appconf.h"
@@ -54,6 +54,13 @@ unsigned char def_tdes_enc_key[] = { 0x62, 0x7f, 0x46, 0x0e, 0x08, 0x10, 0x4a,
 unsigned char def_auth_key[] = { 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
 	0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32,
 	0x33, 0x34
+};
+
+/* Mapping between command-line and internal values */
+static const uint8_t auth_map[] = { AUTH_TYPE_IPSEC_SHA1HMAC_96,
+};
+static const uint8_t cipher_map[] = { CIPHER_TYPE_IPSEC_AESCBC,
+				       CIPHER_TYPE_IPSEC_3DESCBC,
 };
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state);
@@ -282,6 +289,9 @@ void ipc_sa_add_del_command(int argc, char **argv, unsigned type)
 
 	g_mndtr_param = 0;
 	sa_info.ipsec_info.id.proto = IPSEC_PROTO_ESP;
+	sa_info.ipsec_info.ealg.alg_type =
+		cipher_map[IPC_CTRL_SA_ENCRIPTN_TYPE_DEF];
+	sa_info.ipsec_info.aalg.alg_type = auth_map[IPC_CTRL_SA_AUTH_TYPE_DEF];
 
 	/* Where the magic happens */
 	argp_parse(sa_argp
@@ -313,17 +323,14 @@ void ipc_sa_add_del_command(int argc, char **argv, unsigned type)
 		/* Setting the default */
 		if ((g_mndtr_param & IPC_CTRL_PARAM_BIT_EKEY) == 0) {
 			if (sa_info.ipsec_info.ealg.alg_type ==
-			    TRIP_DES_CBC) {
+			    CIPHER_TYPE_IPSEC_3DESCBC) {
 				memcpy(&sa_info.ipsec_info.
 				       ealg.alg_key, def_tdes_enc_key, 24);
-				sa_info.ipsec_info.ealg.alg_key_len =
-				    24;
-
+				sa_info.ipsec_info.ealg.alg_key_len = 24;
 			} else {
 				memcpy(&sa_info.ipsec_info.
 				       ealg.alg_key, def_aes_enc_key, 16);
-				sa_info.ipsec_info.ealg.alg_key_len =
-				    16;
+				sa_info.ipsec_info.ealg.alg_key_len = 16;
 			}
 		}
 
@@ -661,7 +668,7 @@ static error_t parse_sa_add_opt(int key, char *arg, struct argp_state *state)
 			return ERANGE;
 		}
 
-		sa_info->ipsec_info.ealg.alg_type = (uint32_t)val;
+		sa_info->ipsec_info.ealg.alg_type = cipher_map[val];
 		g_mndtr_param |= IPC_CTRL_PARAM_BIT_ETYPE;
 		break;
 
@@ -675,7 +682,7 @@ static error_t parse_sa_add_opt(int key, char *arg, struct argp_state *state)
 			return ERANGE;
 		}
 
-		sa_info->ipsec_info.aalg.alg_type = (uint32_t)val;
+		sa_info->ipsec_info.aalg.alg_type = auth_map[val];
 		g_mndtr_param |= IPC_CTRL_PARAM_BIT_ATYPE;
 		break;
 

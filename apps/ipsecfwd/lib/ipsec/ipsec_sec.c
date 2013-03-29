@@ -76,28 +76,11 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 	pdb.hmo_cbc.dttl = 1;
 	pdb.options |= PDBOPTS_ESPCBC_CKSUM;
 
-	switch (ealg->alg_type) {
-	case AES_CBC:
-		cipher.algtype = CIPHER_TYPE_IPSEC_AESCBC;
-		break;
-	case TRIP_DES_CBC:
-		cipher.algtype = CIPHER_TYPE_IPSEC_3DESCBC;
-		break;
-	default:
-		fprintf(stderr, "error: %s: Unsupported Encryption"
-			" Algorithm\n", __func__);
-		return NULL;
-	}
+	cipher.algtype = ealg->alg_type;
 	cipher.key = (uint8_t *)ealg->alg_key;
 	cipher.keylen = ealg->alg_key_len * 8;	/* Encryption keysize in bits */
 
-	if (aalg->alg_type == HMAC_SHA1) {
-		auth.algtype = AUTH_TYPE_IPSEC_SHA1HMAC_96;
-	} else {
-		fprintf(stderr, "error: %s: Unsupported Authentication"
-			" Algorithm\n", __func__);
-		return NULL;
-	}
+	auth.algtype = aalg->alg_type;
 	auth.key = (uint8_t *)aalg->alg_key_ptr;
 	auth.keylen = aalg->alg_key_len * 8;	/* SHA1 keysize in bits */
 
@@ -162,28 +145,12 @@ void
 	pdb.ip_hdr_len = 20;
 	pdb.options = PDBOPTS_ESPCBC_TUNNEL | PDBOPTS_ESPCBC_OUTFMT |
 			 PDBOPTS_ESPCBC_ARSNONE;
-	switch (ealg->alg_type) {
-	case AES_CBC:
-		cipher.algtype = CIPHER_TYPE_IPSEC_AESCBC;
-		break;
-	case TRIP_DES_CBC:
-		cipher.algtype = CIPHER_TYPE_IPSEC_3DESCBC;
-		break;
-	default:
-		fprintf(stderr, "error: %s: Unsupported Encryption"
-			" Algorithm\n", __func__);
-		return NULL;
-	}
+
+	cipher.algtype = ealg->alg_type;
 	cipher.key = (uint8_t *)ealg->alg_key;
 	cipher.keylen = ealg->alg_key_len * 8;	/* Decryption keysize in bits */
 
-	if (aalg->alg_type == HMAC_SHA1) {
-		auth.algtype = AUTH_TYPE_IPSEC_SHA1HMAC_96;
-	} else {
-		fprintf(stderr, "error: %s: Unsupported Authentication"
-			" Algorithm\n", __func__);
-		return NULL;
-	}
+	auth.algtype = aalg->alg_type;
 	auth.key = (uint8_t *)aalg->alg_key_ptr;
 	auth.keylen = aalg->alg_key_len * 8;	/* SHA1 keysize in bits */
 
