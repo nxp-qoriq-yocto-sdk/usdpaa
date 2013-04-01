@@ -58,11 +58,6 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 	}
 	memset(preheader_initdesc, 0, sizeof(struct ipsec_encap_descriptor_t));
 
-	desc_len = (sizeof(struct ipsec_encap_descriptor_t) -
-		    sizeof(struct preheader_t)) / sizeof(uint32_t);
-
-	pr_debug("Desc Len in %s is %x\n", __func__, desc_len);
-
 	buff_start =
 	    (unsigned char *)preheader_initdesc + sizeof(struct preheader_t);
 	memset(&pdb, 0, sizeof(struct ipsec_encap_pdb));
@@ -86,9 +81,10 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 	ret = cnstr_shdsc_ipsec_encap((uint32_t *) buff_start, &desc_len,
 				      &pdb, (uint8_t *)outer_ip_header,
 				      &cipher, &auth);
-
 	if (ret)
 		return NULL;
+
+	pr_debug("Desc len in %s is %x\n", __func__, desc_len);
 
 	*(buff_start + 5) = next_header;
 
@@ -119,7 +115,6 @@ void
 	struct cipherparams cipher;
 	struct authparams auth;
 	unsigned char *buff_start = NULL;
-
 	int ret;
 
 	preheader_initdesc = __dma_mem_memalign(L1_CACHE_BYTES,
@@ -129,9 +124,6 @@ void
 		return NULL;
 	}
 	memset(preheader_initdesc, 0, sizeof(struct ipsec_decap_descriptor_t));
-
-	desc_len = (sizeof(struct ipsec_decap_descriptor_t) -
-		    sizeof(struct preheader_t)) / sizeof(uint32_t);
 
 	buff_start =
 	    (unsigned char *)preheader_initdesc + sizeof(struct preheader_t);
@@ -156,6 +148,8 @@ void
 					       &pdb, &cipher, &auth);
 	if (ret)
 		return NULL;
+
+	pr_debug("Desc len in %s is %x\n", __func__, desc_len);
 
 	preheader_initdesc->prehdr.hi.field.idlen = desc_len;
 	/* 1 burst length to be reserved */
