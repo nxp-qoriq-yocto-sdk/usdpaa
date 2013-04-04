@@ -40,7 +40,7 @@
 	it receives in an encrypted packet with an outer clear-text
 	IP packet. This routine enqueues the packet to the right
 	Frame Queue.
- \param[in] ctxt IP Context
+ \param[in] ip_ctxt IP Context
  \param[in] notes Annotations
  \param[in] ip_hdr Pointer to the IP Header
  \return Status
@@ -58,8 +58,8 @@ enum IP_STATUS ipsec_decap_send(const struct ppam_rx_hash *ip_ctxt,
 	description is converted to simple, statistics are updated
 	and then the packet is handed over to IP layer for validity
 	check and sending the packet through egress port.
- \param[in] fq_ctxt Per FQ Context
- \param[in] notes Annotations
+ \param[in] ipsec_ctxt Per FQ Context
+ \param[in] fd Pointer to the Frame Descriptor
  \return none
  */
 void ipsec_decap_cb(const struct ipsec_context_t *ipsec_ctxt,
@@ -74,8 +74,6 @@ void ipsec_decap_cb(const struct ipsec_context_t *ipsec_ctxt,
  \param[in] entry IPSec tunnel entry
  \param[in] ealg IPSec Decryption Algorithm struct
  \param[in] aalg IPSec Authentication Algorithm struct
- \param[in] ctxt IPSec Context
- \param[in] SEC4.0 egress FQID
  \return none
  */
 void ipsec_decap_init(struct ipsec_tunnel_t *entry,

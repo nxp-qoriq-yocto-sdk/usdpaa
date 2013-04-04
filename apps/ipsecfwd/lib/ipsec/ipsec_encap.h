@@ -44,8 +44,8 @@
 	also calls ip_accept routine to perform validity check on
 	the packet SEC40 constructed and finally send the packet
 	through egress port.
- \param[in] fq_ctxt Per FQ Context
- \param[in] notes Annotations
+ \param[in] ipsec_ctxt Per FQ Context
+ \param[in] fd Pointer to the Frame Descriptor
  \return none
  */
 void ipsec_encap_cb(const struct ipsec_context_t *ipsec_ctxt,
@@ -58,10 +58,9 @@ void ipsec_encap_cb(const struct ipsec_context_t *ipsec_ctxt,
 	for this tunnel in order to interact with SEC40 are
 	initialized here.
  \param[in] entry IPSec tunnel entry
+ \param[in] ip_hdr Pointer to the IP Header
  \param[in] ealg Encryption Algorithm struct
  \param[in] aalg Authentication Algorithm struct
- \param[in] ctxt IPSec Context
- \param[in] SEC4.0 egress FQID
  \return none
  */
 void ipsec_encap_init(struct ipsec_tunnel_t *entry,
