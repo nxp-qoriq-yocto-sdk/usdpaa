@@ -48,7 +48,6 @@ enum IP_STATUS ipsec_decap_send(const struct ppam_rx_hash *ctxt,
 	const struct qm_fd *fd;
 	struct qm_fd fd2;
 	uint32_t ret;
-	uint32_t sec_fq;
 
 	esp_hdr =
 	    (struct ipsec_esp_hdr_t *)((char *) ip_hdr +

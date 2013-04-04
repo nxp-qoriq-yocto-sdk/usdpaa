@@ -331,7 +331,6 @@ void ipc_show_intf_command(int argc, char **argv, char *type)
 /* opens message queue to talk to the application */
 static int create_mq(int pid)
 {
-	int tmp;
 	char name[10];
 
 	sprintf(name, "/mq_rcv_%d", pid);

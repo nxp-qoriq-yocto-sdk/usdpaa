@@ -48,7 +48,6 @@ enum IP_STATUS ipsec_encap_send(const struct ppam_rx_hash *ctxt,
 	const struct qm_fd *fd = &notes->dqrr->fd;
 	struct qm_fd fd2;
 	uint32_t ret;
-	uint32_t sec_fq;
 
 	if (false == simple_fd_mode) {
 		ipsec_create_compound_fd(&fd2, fd, ip_hdr, ENCRYPT);

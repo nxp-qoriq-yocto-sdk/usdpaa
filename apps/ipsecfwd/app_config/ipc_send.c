@@ -464,7 +464,6 @@ void ipc_show_intf_command(int argc, char **argv, char *type)
 /* opens message queue to talk to the application */
 static int create_mq(int pid)
 {
-	int tmp;
 	char name[10];
 
 	sprintf(name, "/mq_rcv_%d", pid);
@@ -953,8 +952,6 @@ static int receive_from_mq(mqd_t mqdes)
 int main(int argc, char **argv)
 {
 	struct app_ctrl_op_info sa_info;
-	const char *tmp_argv = "-O";
-	struct app_ctrl_op_info route_info;
 	int ret;
 
 	memset(&sa_info, 0, sizeof(struct app_ctrl_op_info));
