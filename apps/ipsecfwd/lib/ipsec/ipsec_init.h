@@ -59,8 +59,6 @@ struct ipsec_tunnel_config_entry_t {
 	uint32_t tunnel_dst_ip_addr;  /**< Tunnel Destination IP Address */
 	uint32_t tunnel_id;	/**< Tunnel Id */
 	uint32_t defgw;	/** Default Gateway */
-	uint32_t enc_key[IPSEC_MAX_ENC_KEY_SIZE];		/**< Encryption Key */
-	uint32_t auth_key[IPSEC_MAX_HMAC_KEY_SIZE];	/**< Authentication Key */
 } __attribute__ ((aligned(64)));
 
 /**

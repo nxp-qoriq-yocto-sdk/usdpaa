@@ -64,10 +64,6 @@ struct ipsec_tunnel_t {
 	uint32_t seq_num;
 	uint8_t type;
 	bool valid;
-	/**< Encryption Key */
-	uint8_t *esp_dec_key;
-	/**< Authentication Key */
-	uint8_t *esp_auth_key;
 	/**< Pointer to ctxtA for the tunnel entry */
 	void *ctxtA;
 	enum ipsec_fq_state fq_state;

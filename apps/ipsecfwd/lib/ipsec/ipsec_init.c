@@ -126,13 +126,6 @@ int32_t ipsecfwd_create_sa(struct app_ctrl_ipsec_info *ipsec_info,
 	ipsec_tunnel_config_entry->tunnel_src_ip_addr = ipsec_info->id.saddr;
 	ipsec_tunnel_config_entry->tunnel_dst_ip_addr = ipsec_info->id.daddr;
 	ipsec_tunnel_config_entry->defgw = ipsec_info->id.defgw;
-
-	memcpy(&ipsec_tunnel_config_entry->enc_key[0],
-		ipsec_info->ealg.alg_key, ipsec_info->ealg.alg_key_len);
-
-	memcpy(&ipsec_tunnel_config_entry->auth_key[0],
-		ipsec_info->aalg.alg_key, ipsec_info->aalg.alg_key_len);
-
 	ipsec_tunnel_config_entry->tunnel_id = g_tunnel_id;
 	ipsec_tunnel_config_entry->spi = ipsec_info->id.spi;
 
@@ -196,8 +189,6 @@ int32_t ipsec_tunnel_encap_init(struct ipsec_tunnel_config_entry_t *config,
 	entry->tunnel_daddr = config->tunnel_dst_ip_addr;
 	entry->spi = config->spi;
 	entry->seq_num = config->seq_num;
-	entry->esp_dec_key = (uint8_t *) ealg->alg_key;
-	entry->esp_auth_key = (uint8_t *) aalg->alg_key;
 	spin_lock_init(&entry->tlock);
 	pr_debug("SPI Value is %x\n", config->spi);
 
@@ -271,8 +262,6 @@ int32_t ipsec_tunnel_decap_init(struct ipsec_tunnel_config_entry_t *config,
 	entry->tunnel_daddr = config->tunnel_dst_ip_addr;
 	entry->spi = config->spi;
 	entry->seq_num = config->seq_num;
-	entry->esp_dec_key = (uint8_t *) ealg->alg_key;
-	entry->esp_auth_key = (uint8_t *) aalg->alg_key;
 	spin_lock_init(&entry->tlock);
 	pr_debug("Added Decap Tunnel src = %x, dst = %x, spi = %x\n",
 		 config->tunnel_src_ip_addr, config->tunnel_dst_ip_addr,
