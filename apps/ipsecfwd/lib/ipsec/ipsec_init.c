@@ -126,6 +126,8 @@ int32_t ipsecfwd_create_sa(struct app_ctrl_ipsec_info *ipsec_info,
 	ipsec_tunnel_config_entry->tunnel_src_ip_addr = ipsec_info->id.saddr;
 	ipsec_tunnel_config_entry->tunnel_dst_ip_addr = ipsec_info->id.daddr;
 	ipsec_tunnel_config_entry->defgw = ipsec_info->id.defgw;
+	ipsec_tunnel_config_entry->ealg = &ipsec_info->ealg;
+	ipsec_tunnel_config_entry->aalg = &ipsec_info->aalg;
 	ipsec_tunnel_config_entry->tunnel_id = g_tunnel_id;
 	ipsec_tunnel_config_entry->spi = ipsec_info->id.spi;
 
@@ -145,8 +147,7 @@ int32_t ipsecfwd_create_sa(struct app_ctrl_ipsec_info *ipsec_info,
 			next_hop_addr = &ipsec_tunnel_config_entry->defgw;
 	}
 	ret = ipsec_tunnel_create(ipsec_tunnel_config_entry,
-			    ipsec_stack, next_hop_addr, encryption_mode,
-			    &ipsec_info->ealg, &ipsec_info->aalg);
+				  ipsec_stack, next_hop_addr, encryption_mode);
 	if (ret == 0)
 		g_tunnel_id++;
 
@@ -164,10 +165,8 @@ int32_t ipsecfwd_create_sa(struct app_ctrl_ipsec_info *ipsec_info,
  \return Status
  */
 int32_t ipsec_tunnel_encap_init(struct ipsec_tunnel_config_entry_t *config,
-			     uint32_t *next_hop_addr,
-			     struct ipsec_stack_t *ipsec_stack,
-			     struct app_ctrl_sa_algo *ealg,
-			     struct app_ctrl_sa_algo *aalg)
+				uint32_t *next_hop_addr,
+				struct ipsec_stack_t *ipsec_stack)
 {
 	struct ipsec_tunnel_t *entry;
 	bool tunnel_route;
@@ -189,6 +188,8 @@ int32_t ipsec_tunnel_encap_init(struct ipsec_tunnel_config_entry_t *config,
 	entry->tunnel_daddr = config->tunnel_dst_ip_addr;
 	entry->spi = config->spi;
 	entry->seq_num = config->seq_num;
+	entry->ealg = config->ealg;
+	entry->aalg = config->aalg;
 	spin_lock_init(&entry->tlock);
 	pr_debug("SPI Value is %x\n", config->spi);
 
@@ -209,7 +210,7 @@ int32_t ipsec_tunnel_encap_init(struct ipsec_tunnel_config_entry_t *config,
 
 	ipsec_build_outer_ip_hdr(outer_ip_hdr, &config->tunnel_src_ip_addr,
 				 &config->tunnel_dst_ip_addr);
-	ipsec_encap_init(entry, outer_ip_hdr, ealg, aalg);
+	ipsec_encap_init(entry, outer_ip_hdr);
 	/* populate route cache */
 	tunnel_route = true;
 	scope = ROUTE_SCOPE_ENCAP;
@@ -239,10 +240,8 @@ int32_t ipsec_tunnel_encap_init(struct ipsec_tunnel_config_entry_t *config,
  \return Status
  */
 int32_t ipsec_tunnel_decap_init(struct ipsec_tunnel_config_entry_t *config,
-			     uint32_t *next_hop_addr,
-			     struct ipsec_stack_t *ipsec_stack,
-			     struct app_ctrl_sa_algo *ealg,
-			     struct app_ctrl_sa_algo *aalg)
+				uint32_t *next_hop_addr,
+				struct ipsec_stack_t *ipsec_stack)
 {
 	struct ipsec_tunnel_t *entry;
 	bool tunnel_route;
@@ -262,6 +261,8 @@ int32_t ipsec_tunnel_decap_init(struct ipsec_tunnel_config_entry_t *config,
 	entry->tunnel_daddr = config->tunnel_dst_ip_addr;
 	entry->spi = config->spi;
 	entry->seq_num = config->seq_num;
+	entry->ealg = config->ealg;
+	entry->aalg = config->aalg;
 	spin_lock_init(&entry->tlock);
 	pr_debug("Added Decap Tunnel src = %x, dst = %x, spi = %x\n",
 		 config->tunnel_src_ip_addr, config->tunnel_dst_ip_addr,
@@ -275,7 +276,7 @@ int32_t ipsec_tunnel_decap_init(struct ipsec_tunnel_config_entry_t *config,
 	}
 
 	/* create the pdb based on tunnel sa information */
-	ipsec_decap_init(entry, ealg, aalg);
+	ipsec_decap_init(entry);
 
 	/* populate route cache */
 	tunnel_route = true;
@@ -293,20 +294,17 @@ int32_t ipsec_tunnel_decap_init(struct ipsec_tunnel_config_entry_t *config,
 	return 0;
 }
 int32_t ipsec_tunnel_create(struct ipsec_tunnel_config_entry_t *config,
-			 struct ipsec_stack_t *ipsec_stack,
-			 uint32_t *next_hop_addr, uint32_t mode,
-			 struct app_ctrl_sa_algo *ealg,
-			 struct app_ctrl_sa_algo *aalg)
+			    struct ipsec_stack_t *ipsec_stack,
+			    uint32_t *next_hop_addr, uint32_t mode)
 {
-	aalg->alg_key_ptr = g_split_key;
-	aalg->alg_key_len = 40;
+	config->aalg->alg_key_ptr = g_split_key;
+	config->aalg->alg_key_len = 40;
 
 	if (mode == ENCRYPT) {
 		return ipsec_tunnel_encap_init(config, next_hop_addr,
-					ipsec_stack, ealg, aalg);
+					       ipsec_stack);
 	}
-	return ipsec_tunnel_decap_init(config, next_hop_addr,
-					ipsec_stack, ealg, aalg);
+	return ipsec_tunnel_decap_init(config, next_hop_addr, ipsec_stack);
 }
 
 /* This routine has been modified to support ipsec traffic */

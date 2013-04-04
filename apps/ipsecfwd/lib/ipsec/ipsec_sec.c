@@ -40,9 +40,7 @@
  */
 void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 					  struct iphdr *outer_ip_header,
-					  uint8_t next_header,
-					  struct app_ctrl_sa_algo *ealg,
-					  struct app_ctrl_sa_algo *aalg)
+					  uint8_t next_header)
 {
 	struct ipsec_encap_descriptor_t *preheader_initdesc;
 	uint16_t desc_len;
@@ -76,13 +74,13 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 	pdb.hmo_cbc.dttl = 1;
 	pdb.options |= PDBOPTS_ESPCBC_CKSUM;
 
-	cipher.algtype = ealg->alg_type;
-	cipher.key = (uint8_t *)ealg->alg_key;
-	cipher.keylen = ealg->alg_key_len * 8;	/* Encryption keysize in bits */
+	cipher.algtype = sa->ealg->alg_type;
+	cipher.key = (uint8_t *)sa->ealg->alg_key;
+	cipher.keylen = (sa->ealg)->alg_key_len * 8;	/* Encryption keysize in bits */
 
-	auth.algtype = aalg->alg_type;
-	auth.key = (uint8_t *)aalg->alg_key_ptr;
-	auth.keylen = aalg->alg_key_len * 8;	/* SHA1 keysize in bits */
+	auth.algtype = sa->aalg->alg_type;
+	auth.key = (uint8_t *)sa->aalg->alg_key_ptr;
+	auth.keylen = sa->aalg->alg_key_len * 8;	/* SHA1 keysize in bits */
 
 	/* Now construct */
 	ret = cnstr_shdsc_ipsec_encap((uint32_t *) buff_start, &desc_len,
@@ -113,9 +111,7 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
  \return Pointer to the IPSec Encap SEC40 descriptor structure
  */
 void
-*create_decapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
-				     struct app_ctrl_sa_algo *ealg,
-				     struct app_ctrl_sa_algo *aalg)
+*create_decapsulation_sec_descriptor(struct ipsec_tunnel_t *sa)
 {
 	struct ipsec_decap_descriptor_t *preheader_initdesc;
 	uint16_t desc_len;
@@ -146,13 +142,13 @@ void
 	pdb.options = PDBOPTS_ESPCBC_TUNNEL | PDBOPTS_ESPCBC_OUTFMT |
 			 PDBOPTS_ESPCBC_ARSNONE;
 
-	cipher.algtype = ealg->alg_type;
-	cipher.key = (uint8_t *)ealg->alg_key;
-	cipher.keylen = ealg->alg_key_len * 8;	/* Decryption keysize in bits */
+	cipher.algtype = sa->ealg->alg_type;
+	cipher.key = (uint8_t *)sa->ealg->alg_key;
+	cipher.keylen = sa->ealg->alg_key_len * 8;	/* Decryption keysize in bits */
 
-	auth.algtype = aalg->alg_type;
-	auth.key = (uint8_t *)aalg->alg_key_ptr;
-	auth.keylen = aalg->alg_key_len * 8;	/* SHA1 keysize in bits */
+	auth.algtype = sa->aalg->alg_type;
+	auth.key = (uint8_t *)sa->aalg->alg_key_ptr;
+	auth.keylen = sa->aalg->alg_key_len * 8;	/* SHA1 keysize in bits */
 
 	/* Now construct */
 	ret = cnstr_shdsc_ipsec_decap((uint32_t *) buff_start,

@@ -59,14 +59,9 @@ void ipsec_encap_cb(const struct ipsec_context_t *ipsec_ctxt,
 	initialized here.
  \param[in] entry IPSec tunnel entry
  \param[in] ip_hdr Pointer to the IP Header
- \param[in] ealg Encryption Algorithm struct
- \param[in] aalg Authentication Algorithm struct
  \return none
  */
-void ipsec_encap_init(struct ipsec_tunnel_t *entry,
-		struct iphdr *ip_hdr,
-		struct app_ctrl_sa_algo *ealg,
-		struct app_ctrl_sa_algo *aalg);
+void ipsec_encap_init(struct ipsec_tunnel_t *entry, struct iphdr *ip_hdr);
 
 /**
  \brief IPsec encapsulation work producer.

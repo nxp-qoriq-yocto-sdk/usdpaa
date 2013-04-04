@@ -64,6 +64,10 @@ struct ipsec_tunnel_t {
 	uint32_t seq_num;
 	uint8_t type;
 	bool valid;
+	/**< Encryption info */
+	struct app_ctrl_sa_algo *ealg;
+	/**< Authentication info*/
+	struct app_ctrl_sa_algo *aalg;
 	/**< Pointer to ctxtA for the tunnel entry */
 	void *ctxtA;
 	enum ipsec_fq_state fq_state;

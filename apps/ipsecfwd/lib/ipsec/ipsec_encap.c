@@ -132,14 +132,10 @@ void ipsec_encap_cb(const struct ipsec_context_t *ipsec_ctxt,
 		SOURCE_POST_ENCAP);
 }
 
-void ipsec_encap_init(struct ipsec_tunnel_t *entry,
-		struct iphdr *ip_hdr,
-		struct app_ctrl_sa_algo *ealg,
-		struct app_ctrl_sa_algo *aalg)
+void ipsec_encap_init(struct ipsec_tunnel_t *entry, struct iphdr *ip_hdr)
 {
 	void *ctxtA;
-	ctxtA = create_encapsulation_sec_descriptor(entry, ip_hdr,
-			IPPROTO_TCP, ealg, aalg);
+	ctxtA = create_encapsulation_sec_descriptor(entry, ip_hdr, IPPROTO_TCP);
 	if (NULL == ctxtA) {
 		fprintf(stderr, "error: %s: Error creating descriptor\n",
 			__func__);

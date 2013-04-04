@@ -59,6 +59,8 @@ struct ipsec_tunnel_config_entry_t {
 	uint32_t tunnel_dst_ip_addr;  /**< Tunnel Destination IP Address */
 	uint32_t tunnel_id;	/**< Tunnel Id */
 	uint32_t defgw;	/** Default Gateway */
+	struct app_ctrl_sa_algo *ealg; /**< Encryption Algo info */
+	struct app_ctrl_sa_algo *aalg; /**< Authentication Algo info */
 } __attribute__ ((aligned(64)));
 
 /**
@@ -91,15 +93,11 @@ struct ipsec_tunnel_config_entry_t *ipsec_config_entry_create
  \param[in] ipsec_stack Ipsec Stack pointer
  \param[in] next_hop_addr Next Hop Address
  \param[in] mode mode encryption/ decryption
- \param[in] ealg Encryption Algo Info
- \param[in] aalg Authentication Algo Info
  \return Status
  */
 int32_t ipsec_tunnel_create(struct ipsec_tunnel_config_entry_t *config,
-			 struct ipsec_stack_t *ipsec_stack,
-			 uint32_t *next_hop_addr, uint32_t mode,
-			 struct app_ctrl_sa_algo *ealg,
-			 struct app_ctrl_sa_algo *aalg);
+			    struct ipsec_stack_t *ipsec_stack,
+			    uint32_t *next_hop_addr, uint32_t mode);
 
 /**
  \brief Adds entries to route cache.

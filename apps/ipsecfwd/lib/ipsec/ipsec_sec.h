@@ -114,14 +114,10 @@ struct ipsec_decap_descriptor_t {
 
 void
 *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa, struct iphdr
-				     *outer_ip_header, uint8_t next_header,
-				     struct app_ctrl_sa_algo *ealg,
-				     struct app_ctrl_sa_algo *aalg);
+				     *outer_ip_header, uint8_t next_header);
 
 void
-*create_decapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
-				     struct app_ctrl_sa_algo *ealg,
-				     struct app_ctrl_sa_algo *aalg);
+*create_decapsulation_sec_descriptor(struct ipsec_tunnel_t *sa);
 
 extern int32_t init_sec_fqs(struct ipsec_tunnel_t *entry,
 			       bool mode, void *ctxtA,

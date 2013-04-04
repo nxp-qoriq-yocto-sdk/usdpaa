@@ -211,13 +211,11 @@ void ipsec_decap_cb(const struct ipsec_context_t *ipsec_ctxt,
 		 SOURCE_POST_DECAP);
 }
 
-void ipsec_decap_init(struct ipsec_tunnel_t *entry,
-		struct app_ctrl_sa_algo *ealg,
-		struct app_ctrl_sa_algo *aalg)
+void ipsec_decap_init(struct ipsec_tunnel_t *entry)
 {
 	void *ctxtA;
 
-	ctxtA = create_decapsulation_sec_descriptor(entry, ealg, aalg);
+	ctxtA = create_decapsulation_sec_descriptor(entry);
 	if (NULL == ctxtA) {
 		fprintf(stderr, "error: %s: Unable to allocate buffer"
 			" for descriptor\n", __func__);

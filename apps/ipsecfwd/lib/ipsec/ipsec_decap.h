@@ -72,12 +72,8 @@ void ipsec_decap_cb(const struct ipsec_context_t *ipsec_ctxt,
 	for this tunnel in order to interact with SEC40 are
 	initialized here.
  \param[in] entry IPSec tunnel entry
- \param[in] ealg IPSec Decryption Algorithm struct
- \param[in] aalg IPSec Authentication Algorithm struct
  \return none
  */
-void ipsec_decap_init(struct ipsec_tunnel_t *entry,
-		struct app_ctrl_sa_algo *ealg,
-		struct app_ctrl_sa_algo *aalg);
+void ipsec_decap_init(struct ipsec_tunnel_t *entry);
 
 #endif /* ifndef LIB_IPSEC_IPSEC_DECAP_H */
