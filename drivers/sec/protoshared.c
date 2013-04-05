@@ -38,7 +38,6 @@
 #include <fsl_sec/dcl.h>
 #include <internal/compat.h>
 
-#define SPR_PVR		 287  /* Processor Version Register */
 
 /**
  * Construct IPSec ESP encapsulation protocol-level sharedesc
