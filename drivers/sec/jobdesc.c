@@ -39,7 +39,6 @@
 #include <usdpaa/dma_mem.h>
 #include <internal/compat.h>
 
-static const uint8_t mdkeylen[] = { 16, 20, 28, 32, 48, 64 };
 
 /**
  * cnstr_seq_jobdesc() - Construct simple sequence job descriptor
@@ -197,9 +196,9 @@ EXPORT_SYMBOL(cnstr_jobdesc_blkcipher_cbc);
  *	  by cipher:
  *	  - OP_ALG_ALGSEL_MD5	 = 16
  *	  - OP_ALG_ALGSEL_SHA1	 = 20
- *	  - OP_ALG_ALGSEL_SHA224 = 28 (broken)
+ *	  - OP_ALG_ALGSEL_SHA224 = 28
  *	  - OP_ALG_ALGSEL_SHA256 = 32
- *	  - OP_ALG_ALGSEL_SHA384 = 48 (broken)
+ *	  - OP_ALG_ALGSEL_SHA384 = 48
  *	  - OP_ALG_ALGSEL_SHA512 = 64
  *
  * @cipher - HMAC algorithm selection, one of OP_ALG_ALGSEL_
@@ -213,15 +212,22 @@ int cnstr_jobdesc_mdsplitkey(uint32_t *descbuf, uint16_t *bufsize,
 {
 	uint32_t *start;
 	uint16_t endidx;
-	uint8_t keylen, storelen;
+	uint8_t keylen, storelen, idx;
+	const uint8_t mdkeylen[][2] = {
+		{16, 32},   /* MD5 */
+		{20, 40},   /* SHA1 */
+		{28, 64},   /* SHA224 */
+		{32, 64},   /* SHA256 */
+		{48, 128},  /* SHA384 */
+		{64, 128},  /* SHA512 */
+	};
 
 	start = descbuf++;
 
-	/* Pick key length from cipher submask as an enum */
-	keylen = mdkeylen[(cipher & OP_ALG_ALGSEL_SUBMASK) >>
-			  OP_ALG_ALGSEL_SHIFT];
-
-	storelen = keylen * 2;
+	/* Pick key and split-key lengths */
+	idx = (cipher & OP_ALG_ALGSEL_SUBMASK) >> OP_ALG_ALGSEL_SHIFT;
+	keylen = mdkeylen[idx][0];
+	storelen = mdkeylen[idx][1];
 
 	/* Load the HMAC key */
 	descbuf = cmd_insert_key(descbuf, key, keylen * 8, PTR_DIRECT,
