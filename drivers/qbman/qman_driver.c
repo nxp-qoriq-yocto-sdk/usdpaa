@@ -363,10 +363,13 @@ int qman_global_init(void)
 		of_device_is_compatible(dt_node, "fsl,qman-portal-2.0.0"))
 		qman_ip_rev = QMAN_REV20;
 	else if (of_device_is_compatible(dt_node, "fsl,qman-portal-3.0.0") ||
-		of_device_is_compatible(dt_node, "fsl,qman-portal-3.0.1") ||
-		of_device_is_compatible(dt_node, "fsl,qman-portal-3.0.2") ||
-		of_device_is_compatible(dt_node, "fsl,qman-portal-3.0.3"))
+		of_device_is_compatible(dt_node, "fsl,qman-portal-3.0.1"))
 		qman_ip_rev = QMAN_REV30;
+	else if (of_device_is_compatible(dt_node, "fsl,qman-portal-3.1.0") ||
+		of_device_is_compatible(dt_node, "fsl,qman-portal-3.1.1") ||
+		of_device_is_compatible(dt_node, "fsl,qman-portal-3.1.2") ||
+		of_device_is_compatible(dt_node, "fsl,qman-portal-3.1.3"))
+		qman_ip_rev = QMAN_REV31;
 	if (!qman_ip_rev) {
 		pr_err("Unknown qman portal version\n");
 		return -ENODEV;
