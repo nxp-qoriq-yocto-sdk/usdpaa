@@ -34,6 +34,7 @@
 #include "net/annotations.h"
 #include <fsl_sec/pdb.h>
 #include "ip/ip_appconf.h"
+#include <fsl_sec/desc.h>
 
 
 /* BPID for use by SEC in case simple FD mode is used */
@@ -66,51 +67,16 @@ struct preheader_t {
 	} __PACKED lo;
 } __PACKED;
 
-struct init_descriptor_header_t {
-	union {
-		uint32_t word;
-		struct {
-			unsigned int ctype:5;
-			unsigned int rsvd5_6:2;
-			unsigned int dnr:1;
-			unsigned int one:1;
-			unsigned int rsvd9:1;
-			unsigned int start_idx:6;
-			unsigned int zro:1;
-			unsigned int rsvd17_18:2;
-			unsigned int sc:1;
-			unsigned int propogate_dnr:1;
-			unsigned int rsvd21:1;
-			unsigned int share:2;
-			unsigned int rsvd24_25:2;
-			unsigned int desc_len:6;
-		} field;
-	} __PACKED command;
-} __PACKED;
-
-
+/* TODO: allocate RAM in amount of descriptor size */
 struct ipsec_encap_descriptor_t {
 	struct preheader_t prehdr;
-	struct init_descriptor_header_t deschdr;
-	struct ipsec_encap_pdb pdb;
-	struct iphdr iphdr;
-	/* DCL library will fill following info */
-	uint32_t reserved1; /**< For Storing Jump Command */
-	uint32_t reserved2[12]; /**<Max Space for storing auth Key */
-	uint32_t reserved3[7]; /**<Max Space for storing enc Key */
-	uint32_t reserved4; /**< For operation Command */
-} __PACKED;
+	uint32_t descbuf[MAX_CAAM_DESCSIZE];
+};
 
 struct ipsec_decap_descriptor_t {
 	struct preheader_t prehdr;
-	struct init_descriptor_header_t deschdr;
-	struct ipsec_decap_pdb pdb;
-	/* DCL library will fill following info */
-	uint32_t reserved1; /**< For Storing Jump Command */
-	uint32_t reserved2[12]; /**<Max Space for storing auth Key */
-	uint32_t reserved3[7]; /**<Max Space for storing dec Key */
-	uint32_t reserved4; /**< For operation Command */
-} __PACKED;
+	uint32_t descbuf[MAX_CAAM_DESCSIZE];
+};
 
 void
 *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa, struct iphdr
