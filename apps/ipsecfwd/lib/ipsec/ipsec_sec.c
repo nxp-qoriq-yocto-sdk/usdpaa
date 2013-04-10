@@ -58,8 +58,8 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 	}
 	memset(preheader_initdesc, 0, sizeof(struct ipsec_encap_descriptor_t));
 
-	buff_start =
-	    (unsigned char *)preheader_initdesc + sizeof(struct preheader_t);
+	buff_start = (unsigned char *)&preheader_initdesc->deschdr;
+
 	memset(&pdb, 0, sizeof(struct ipsec_encap_pdb));
 	pdb.seq_num = sa->seq_num;
 	pdb.spi = sa->spi;
@@ -125,8 +125,7 @@ void
 	}
 	memset(preheader_initdesc, 0, sizeof(struct ipsec_decap_descriptor_t));
 
-	buff_start =
-	    (unsigned char *)preheader_initdesc + sizeof(struct preheader_t);
+	buff_start = (unsigned char *)&preheader_initdesc->deschdr;
 
 	memset(&pdb, 0, sizeof(struct ipsec_decap_pdb));
 	pdb.seq_num = sa->seq_num;
