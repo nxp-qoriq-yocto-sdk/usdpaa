@@ -31,6 +31,12 @@
 
 lib_LIBRARIES = app_ipsecfwd_ip
 
-AM_CFLAGS := -I$(TOP_LEVEL)/apps/ipsecfwd/include -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipsecfwd/lib -I$(TOP_LEVEL)/apps/lib -I$(TOP_LEVEL)/apps/lib/ip
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/ipsecfwd/include
+AM_CFLAGS += -I$(TOP_LEVEL)/apps/include
+AM_CFLAGS += -I$(TOP_LEVEL)/apps/ipsecfwd/lib
+AM_CFLAGS += -I$(TOP_LEVEL)/apps/lib
+AM_CFLAGS += -I$(TOP_LEVEL)/apps/lib/ip
 
-app_ipsecfwd_ip_SOURCES := ip_accept.c ip_forward.c ip_handler.c ip_route.c ../../../lib/ip/ip_rc.c ip_hooks.c ip_local.c ip_output.c ../../../lib/ip/ip_protos.c
+app_ipsecfwd_ip_SOURCES := ip_accept.c ip_forward.c ip_handler.c ip_route.c \
+	../../../lib/ip/ip_rc.c ip_hooks.c ip_local.c ip_output.c \
+	../../../lib/ip/ip_protos.c

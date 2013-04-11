@@ -31,6 +31,10 @@
 
 lib_LIBRARIES = app_ipsecfwd_ethernet
 
-AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipsecfwd/lib -I$(TOP_LEVEL)/apps/ipsecfwd/include -I$(TOP_LEVEL)/apps/lib -I$(TOP_LEVEL)/apps/lib/ethernet
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/include
+AM_CFLAGS += -I$(TOP_LEVEL)/apps/ipsecfwd/lib
+AM_CFLAGS += -I$(TOP_LEVEL)/apps/ipsecfwd/include
+AM_CFLAGS += -I$(TOP_LEVEL)/apps/lib
+AM_CFLAGS += -I$(TOP_LEVEL)/apps/lib/ethernet
 
 app_ipsecfwd_ethernet_SOURCES := ../../../lib/ethernet/eth.c

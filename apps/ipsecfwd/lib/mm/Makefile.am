@@ -31,6 +31,8 @@
 
 lib_LIBRARIES = app_ipsecfwd_mm
 
-AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipsecfwd/include -I$(TOP_LEVEL)/apps/lib/mm
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/include
+AM_CFLAGS += -I$(TOP_LEVEL)/apps/ipsecfwd/include
+AM_CFLAGS += -I$(TOP_LEVEL)/apps/lib/mm
 
 app_ipsecfwd_mm_SOURCES := ../../../lib/mm/mem_cache.c

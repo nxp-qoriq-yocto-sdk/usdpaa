@@ -31,6 +31,10 @@
 
 lib_LIBRARIES = apps_ipsecfwd_arp
 
-AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipsecfwd/include -I$(TOP_LEVEL)/apps/ipsecfwd/lib -I$(TOP_LEVEL)/apps/lib -I$(TOP_LEVEL)/apps/lib/arp
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/include
+AM_CFLAGS += -I$(TOP_LEVEL)/apps/ipsecfwd/include
+AM_CFLAGS += -I$(TOP_LEVEL)/apps/ipsecfwd/lib
+AM_CFLAGS += -I$(TOP_LEVEL)/apps/lib
+AM_CFLAGS += -I$(TOP_LEVEL)/apps/lib/arp
 
 apps_ipsecfwd_arp_SOURCES := arp.c

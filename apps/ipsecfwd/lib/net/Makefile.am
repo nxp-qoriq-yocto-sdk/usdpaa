@@ -31,6 +31,11 @@
 
 lib_LIBRARIES = app_ipsecfwd_net
 
-AM_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/ipsecfwd/lib -I$(TOP_LEVEL)/apps/ipsecfwd/include -I$(TOP_LEVEL)/apps/lib -I$(TOP_LEVEL)/apps/lib/net
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/include
+AM_CFLAGS += -I$(TOP_LEVEL)/apps/ipsecfwd/lib
+AM_CFLAGS += -I$(TOP_LEVEL)/apps/ipsecfwd/include
+AM_CFLAGS += -I$(TOP_LEVEL)/apps/lib
+AM_CFLAGS += -I$(TOP_LEVEL)/apps/lib/net
 
-app_ipsecfwd_net_SOURCES :=  ../../../lib/net/neigh.c ../../../lib/net/ll_cache.c ../../../lib/net/rt.c
+app_ipsecfwd_net_SOURCES :=  ../../../lib/net/neigh.c \
+	../../../lib/net/ll_cache.c ../../../lib/net/rt.c
