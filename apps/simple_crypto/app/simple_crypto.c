@@ -48,6 +48,10 @@ long ncpus;
 
 pthread_barrier_t app_barrier;
 
+int32_t set_user_sec_era = -1;
+
+enum rta_sec_era rta_sec_era = RTA_SEC_ERA_2;
+
 /*
  * brief	Initialises the reference test vector for aes-cbc
  * details	Initializes key, length and other variables for the algorithm
@@ -803,6 +807,9 @@ static struct argp_option options[] = {
 		"\n\r\t\t test set for CRC is 1 to 5"
 		"\n\r\t\t test set for HMAC_SHA1 is 1 to 2"
 		"\n\r\t\t test set for SNOW_F8_F9 is 1\n"},
+	{"sec_era", 'e', "ERA", 0,
+		 "\n\r\tOPTIONAL PARAMETER\n"
+		 "\n\r\tSEC Era version on the targeted platform(2-5)\n", 0},
 	{}
 };
 
@@ -872,6 +879,13 @@ error_t parse_opt(int key, char *arg, struct argp_state *state)
 	case 'c':
 		ncpus = atoi(arg);
 		fprintf(stdout, "Number of cpus = %ld\n", ncpus);
+		break;
+
+	case 'e':
+		/* enum rta_sec_era starts from 0 */
+		rta_sec_era = atoi(arg) - 1;
+		set_user_sec_era = 1;
+		printf("SEC Era version = %d\n", USER_SEC_ERA(rta_sec_era));
 		break;
 
 	default:
@@ -945,6 +959,31 @@ err:
 	return -EINVAL;
 }
 
+/**
+ * @brief	Verifies if SEC Era version set by user is valid; in case the user
+ *		didn't specify any era, the application with run w/ a default
+ *		value
+ * @return	0 on success, otherwise -1 value
+ */
+static int validate_sec_era_version()
+{
+	if (set_user_sec_era < 0) {
+		printf("WARNING: Running with default SEC Era version 2!\n");
+	} else {
+		if ((rta_sec_era < RTA_SEC_ERA_1) ||
+		    (rta_sec_era > MAX_SEC_ERA)) {
+			fprintf(stderr,
+				"error: Unsupported SEC Era version by RTA\n");
+			return -1;
+		}
+		if (rta_sec_era < RTA_SEC_ERA_2) {
+			printf("WARNING: Unsupported SEC Era version by"
+			       " USDPAA\n");
+		}
+	}
+	return 0;
+}
+
 /*
  * brief	Check SEC 4.0 parameters provided by user whether valid or not
  * param[in]	g_cmd_params - Bit mask of all parameters provided by user
@@ -1001,6 +1040,9 @@ static int validate_params(uint32_t g_cmd_params, struct test_param crypto_info)
 			" SNOW_F8_F9");
 		return -EINVAL;
 	}
+
+	if (validate_sec_era_version())
+		return -EINVAL;
 
 	switch (crypto_info.algo) {
 	case AES_CBC:
