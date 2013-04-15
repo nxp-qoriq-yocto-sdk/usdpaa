@@ -34,7 +34,9 @@
 #include <usdpaa/dma_mem.h>
 #include "common.h"
 
-#define MAX_DESCRIPTOR_SIZE 64
+#define MAX_DESCRIPTOR_SIZE      64
+#define SEC_PREHDR_SDLEN_MASK    0x0000007F /**< Bit mask for PreHeader length
+						 field */
 
 struct preheader_s {
 	union {
