@@ -175,7 +175,7 @@ int generate_splitkey(void)
 	if (g_split_key == NULL) {
 		fprintf(stderr, "error: %s: No More Buffers left for"
 			" split key\n", __func__);
-		free(job_desc);
+		__dma_mem_free(job_desc);
 		return -ENOMEM;
 	}
 	memset(g_split_key, 0, 60);
@@ -184,8 +184,8 @@ int generate_splitkey(void)
 	if (alg_key == NULL) {
 		fprintf(stderr, "error: %s: No More Buffers left for"
 			" Auth Algo key\n", __func__);
-		free(job_desc);
-		free(g_split_key);
+		__dma_mem_free(job_desc);
+		__dma_mem_free(g_split_key);
 		return -ENOMEM;
 	}
 
@@ -197,8 +197,9 @@ int generate_splitkey(void)
 				g_split_key)) {
 		fprintf(stderr, "error: %s: Unable to create Job descriptor\n",
 			__func__);
-		free(job_desc);
-		free(g_split_key);
+		__dma_mem_free(job_desc);
+		__dma_mem_free(g_split_key);
+		__dma_mem_free(alg_key);
 		return -EINVAL;
 	}
 
@@ -208,9 +209,9 @@ int generate_splitkey(void)
 	if (sg == NULL) {
 		fprintf(stderr, "error: %s: No More Buffers left for Auth"
 			" Algo key\n", __func__);
-		free(job_desc);
-		free(g_split_key);
-		free(alg_key);
+		__dma_mem_free(job_desc);
+		__dma_mem_free(g_split_key);
+		__dma_mem_free(alg_key);
 		return -ENOMEM;
 	}
 
@@ -253,9 +254,9 @@ loop:
 	while (g_key_split_flag == 0)
 		qman_poll();
 
-	__dma_mem_free(alg_key);
-	__dma_mem_free(job_desc);
 	__dma_mem_free(sg);
+	__dma_mem_free(job_desc);
+	__dma_mem_free(alg_key);
 
 	return 0;
 }

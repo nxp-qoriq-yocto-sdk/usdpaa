@@ -49,7 +49,7 @@ int32_t ipsec_config_create(void)
 	if (config->free_entries == NULL) {
 		fprintf(stderr, "error: %s: mem_cache_create failed\n",
 			__func__);
-		free(config);
+		__dma_mem_free(config);
 		return -ENOMEM;
 	}
 
@@ -57,8 +57,9 @@ int32_t ipsec_config_create(void)
 	if (entries != ENTRIES_POOL_SIZE) {
 		fprintf(stderr, "error: %s: mem_cache_refill failed\n",
 			__func__);
+		/* TODO: This doesn't seem the reverse of mem_cache_create */
 		free(config->free_entries);
-		free(config);
+		__dma_mem_free(config);
 		return -ENOMEM;
 	}
 
@@ -80,11 +81,13 @@ void ipsec_config_delete(struct ipsec_tunnel_config_t *config)
 	    mem_cache_create(sizeof(struct ipsec_tunnel_config_entry_t),
 			     ENTRIES_POOL_SIZE);
 	if (config->free_entries == NULL) {
+		/* TODO: This doesn't seem the reverse of mem_cache_create */
 		free(config);
 		return NULL;
 	}
 #endif
-	free(config);
+	/* TODO: config->free_entries needs to be freed, too */
+	__dma_mem_free(config);
 }
 
 struct ipsec_tunnel_config_entry_t *ipsec_config_entry_create(
