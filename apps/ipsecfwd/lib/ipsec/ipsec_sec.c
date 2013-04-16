@@ -61,6 +61,7 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 	buff_start = (unsigned char *)&preheader_initdesc->descbuf;
 
 	memset(&pdb, 0, sizeof(struct ipsec_encap_pdb));
+	pdb.ip_nh = next_header;
 	pdb.seq_num = sa->seq_num;
 	pdb.spi = sa->spi;
 	pdb.ip_hdr_len = 20;
@@ -85,8 +86,6 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 		return NULL;
 
 	pr_debug("Desc len in %s is %x\n", __func__, desc_len);
-
-	*(buff_start + 5) = next_header;
 
 	preheader_initdesc->prehdr.hi.field.idlen = desc_len;
 	preheader_initdesc->prehdr.lo.field.offset = 1;
