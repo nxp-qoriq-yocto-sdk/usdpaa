@@ -433,7 +433,7 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 {
 	struct sec_descriptor_t *prehdr_desc;
 	uint32_t *shared_desc = NULL;
-	uint16_t shared_desc_len;
+	unsigned shared_desc_len;
 	int i, length;
 
 	prehdr_desc = __dma_mem_memalign(L1_CACHE_BYTES,
