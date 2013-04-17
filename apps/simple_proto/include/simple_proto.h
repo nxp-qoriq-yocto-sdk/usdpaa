@@ -50,7 +50,8 @@
  * @details	SEC security protocols supported in the application
  */
 enum sec_proto {
-	MACSEC = 1
+	MACSEC = 1,
+	WIMAX,
 };
 
 /**
@@ -91,6 +92,8 @@ char protocol[20];		/* string corresponding to integral value */
 
 /* init reference test vector routines */
 void init_rtv_macsec_gcm_128(struct test_param *crypto_info);
+void init_rtv_wimax_aes_ccm_128(struct test_param *crypto_info);
+void init_rtv_wimax_cipher(uint test_set);
 
 /* prepare test buffers, fqs, fds routines */
 void macsec_set_pn_constant(uint32_t *shared_desc, unsigned *shared_desc_len);
@@ -105,6 +108,8 @@ void set_dec_buf(void *params, struct qm_fd fd[]);
 static int validate_test_set(struct test_param *crypto_info);
 static int validate_sec_era_version(void);
 static int validate_params(uint32_t cmd_args, struct test_param *crypto_info);
+static int validate_opt_param(struct test_param *crypto_info,
+			      uint32_t *g_cmd_params, uint32_t param);
 int test_enc_match(void *params, struct qm_fd fd[]);
 int test_dec_match(void *params, struct qm_fd fd[]);
 error_t parse_opt(int opt, char *arg, struct argp_state *state);

@@ -40,6 +40,12 @@ long ncpus;
 int32_t set_user_sec_era = -1;
 
 enum rta_sec_era rta_sec_era = RTA_SEC_ERA_2;
+
+uint8_t pdb_opts;       /**< Protocol Data Block Options */
+
+uint16_t pdb_ar_len;    /**< Protocol Data Block Anti-Replay Length */
+
+
 /***********************************************/
 
 /**
@@ -71,6 +77,99 @@ void init_rtv_macsec_gcm_128(struct test_param *crypto_info)
 		ref_test_vector.ciphertext =
 		    macsec_reference_ciphertext[crypto_info->test_set - 1];
 	}
+}
+
+void init_rtv_wimax_aes_ccm_128(struct test_param *crypto_info)
+{
+	strcpy(protocol, "WIMAX");
+	ref_test_vector.key = (uint8_t *)malloc(WIMAX_KEY_SIZE);
+	memcpy(ref_test_vector.key,
+	       wimax_reference_key[crypto_info->test_set - 1],
+	       WIMAX_KEY_SIZE);
+
+	if (CIPHER == crypto_info->mode)
+		init_rtv_wimax_cipher(crypto_info->test_set);
+
+	/* set the WiMAX PDB for test */
+	memcpy(&ref_test_vector.pdb.wimax.pn,
+	       &wimax_reference_pn[crypto_info->test_set - 1],
+	       WIMAX_PN_SIZE);
+
+	if (pdb_ar_len) {
+		ref_test_vector.pdb.wimax.decap_opts = WIMAX_PDBOPTS_AR;
+		ref_test_vector.pdb.wimax.ar_len = pdb_ar_len;
+	}
+
+	if (PERF == crypto_info->mode) {
+		switch (pdb_opts) {
+		case 1:
+			ref_test_vector.pdb.wimax.encap_opts =
+				WIMAX_PDBOPTS_FCS;
+			ref_test_vector.pdb.wimax.decap_opts |=
+				WIMAX_PDBOPTS_FCS;
+			ref_test_vector.flags.wimax.protinfo =
+				OP_PCL_WIMAX_OFDM;
+			break;
+		case 2:
+			ref_test_vector.pdb.wimax.encap_opts =
+				WIMAX_PDBOPTS_FCS;
+			ref_test_vector.pdb.wimax.decap_opts |=
+				WIMAX_PDBOPTS_FCS;
+			ref_test_vector.flags.wimax.protinfo =
+				OP_PCL_WIMAX_OFDMA;
+			break;
+		default:
+			ref_test_vector.flags.wimax.protinfo =
+				OP_PCL_WIMAX_OFDM;
+			break;
+		}
+	} else {
+		ref_test_vector.pdb.wimax.encap_opts =
+			wimax_reference_pdb_opts[crypto_info->test_set - 1];
+		ref_test_vector.pdb.wimax.decap_opts |=
+			wimax_reference_pdb_opts[crypto_info->test_set - 1];
+		ref_test_vector.flags.wimax.protinfo =
+			wimax_reference_protinfo[crypto_info->test_set - 1];
+	}
+}
+
+void init_rtv_wimax_cipher(unsigned test_set)
+{
+	ref_test_vector.length =
+	    wimax_reference_length[test_set - 1];
+
+	ref_test_vector.plaintext =
+		(uint8_t *)malloc(NO_OF_BYTES(ref_test_vector.length));
+	memcpy(ref_test_vector.plaintext,
+	       wimax_reference_gmh[test_set - 1],
+	       WIMAX_GMH_SIZE);
+	memcpy(ref_test_vector.plaintext + WIMAX_GMH_SIZE,
+	       wimax_reference_payload[test_set - 1],
+	       NO_OF_BYTES(ref_test_vector.length) - WIMAX_GMH_SIZE);
+
+	ref_test_vector.ciphertext =
+		(uint8_t *)malloc(NO_OF_BYTES(ref_test_vector.length) +
+				  WIMAX_PN_SIZE +
+				  WIMAX_ICV_SIZE +
+				  WIMAX_FCS_SIZE);
+	memcpy(ref_test_vector.ciphertext,
+	       wimax_reference_enc_gmh[test_set - 1],
+	       WIMAX_GMH_SIZE);
+	memcpy(ref_test_vector.ciphertext + WIMAX_GMH_SIZE,
+	       wimax_reference_enc_pn[test_set - 1],
+	       WIMAX_PN_SIZE);
+	memcpy(ref_test_vector.ciphertext + WIMAX_GMH_SIZE + WIMAX_PN_SIZE,
+	       wimax_reference_enc_payload[test_set - 1],
+	       NO_OF_BYTES(ref_test_vector.length) - WIMAX_GMH_SIZE);
+	memcpy(ref_test_vector.ciphertext + WIMAX_PN_SIZE +
+			NO_OF_BYTES(ref_test_vector.length),
+	       wimax_reference_enc_icv[test_set - 1],
+	       WIMAX_ICV_SIZE);
+	memcpy(ref_test_vector.ciphertext +
+	       WIMAX_PN_SIZE + NO_OF_BYTES(ref_test_vector.length) +
+			WIMAX_ICV_SIZE,
+	       wimax_reference_fcs[test_set - 1],
+	       WIMAX_FCS_SIZE);
 }
 
 /**
@@ -148,7 +247,9 @@ void macsec_set_pn_constant(uint32_t *shared_desc, unsigned *shared_desc_len)
 
 /* Function pointer to reference test vector for supported protocols */
 void (*init_ref_test_vector[]) (struct test_param *crypto_info) = {
-	init_rtv_macsec_gcm_128};
+	init_rtv_macsec_gcm_128,
+	init_rtv_wimax_aes_ccm_128,
+};
 
 /**
  * @brief	Calculates output buffer size and creates compound FDs
@@ -209,6 +310,13 @@ static int set_buf_size(struct test_param *crypto_info)
 		    crypto_info->buf_size + MACSEC_ICV_SIZE +
 		    MACSEC_SECTAG_SIZE;
 		break;
+	case WIMAX:
+		crypto_info->rt.output_buf_size = crypto_info->buf_size +
+						WIMAX_PN_SIZE +
+						WIMAX_ICV_SIZE;
+		if ((CIPHER == crypto_info->mode) || (pdb_opts != 0))
+			crypto_info->rt.output_buf_size += WIMAX_FCS_SIZE;
+		break;
 	default:
 		fprintf(stderr, "error: %s: protocol not supported\n",
 			__func__);
@@ -266,6 +374,30 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 						 ref_test_vector.pdb.macsec.sci,
 						 ref_test_vector.pdb.macsec.pn);
 		macsec_set_pn_constant(shared_desc, &shared_desc_len);
+		break;
+	case WIMAX:
+		if (ENCRYPT == mode)
+			cnstr_shdsc_wimax_encap(shared_desc,
+						&shared_desc_len,
+						ref_test_vector.pdb.wimax.
+						encap_opts,
+						ref_test_vector.pdb.wimax.pn,
+						ref_test_vector.flags.wimax.
+						protinfo,
+						ref_test_vector.key,
+						WIMAX_KEY_SIZE);
+		else
+			cnstr_shdsc_wimax_decap(shared_desc,
+						&shared_desc_len,
+						ref_test_vector.pdb.wimax.
+						decap_opts,
+						ref_test_vector.pdb.wimax.pn,
+						ref_test_vector.pdb.wimax.
+						ar_len,
+						ref_test_vector.flags.wimax.
+						protinfo,
+						ref_test_vector.key,
+						WIMAX_KEY_SIZE);
 		break;
 	default:
 		fprintf(stderr, "error: %s: protocol not supported\n",
@@ -393,7 +525,9 @@ struct argp_option options[] = {
 	{"proto", 'p', "PROTOCOL", 0,
 	 "\n\r\tCryptographic operation to perform by SEC\n\r"
 		"\tprovide following number\n\r"
-		"\t\t1 for MACsec\n"},
+		"\t\t1 for MACsec\n"
+		"\t\t2 for WiMAX\n"
+	},
 	{"itrnum", 'l', "ITERATIONS", 0,
 	 "\n\r\tNumber of iterations to repeat\n"},
 	{"bufnum", 'n', "TOTAL BUFFERS", 0,
@@ -414,6 +548,17 @@ struct argp_option options[] = {
 	{"sec_era", 'e', "ERA", 0,
 	 "\n\r\tOPTIONAL PARAMETER\n\r"
 	 "\tSEC Era version on the targeted platform(2-5)\n", 0},
+	{"pdb_opts", 'o', "PDB OPTIONS", 0,
+	 "\n\r\tOPTIONAL PARAMETER VALID ONLY IN PERF MODE\n\r"
+		"\t\t SEC PDB options: provide following number\n\r"
+		"\t\t 0 - WiMAX without FCS\n\r"
+		"\t\t 1 - WiMAX with FCS for OFDM\n\r"
+		"\t\t 2 - WiMAX with FCS for OFDMA\n"
+	},
+	{"pdb_ar_len", 'r', "ANTI REPLAY LENGTH", 0,
+	 "\n\r\tPROTOCOL OPTIONAL PARAMETER\n\r"
+		"\t\t Note: Anti-Replay Window Length\n\r"
+		"\t\t cannot be greater than 64 packets\n"},
 	{}
 };
 
@@ -514,6 +659,18 @@ error_t parse_opt(int opt, char *arg, struct argp_state *state)
 		printf("SEC Era version = %d\n", USER_SEC_ERA(rta_sec_era));
 		break;
 
+	case 'o':
+		pdb_opts = atoi(arg);
+		*p_cmd_params |= BMASK_SEC_PDB_OPTS;
+		fprintf(stdout, "PDB Options = %d\n", pdb_opts);
+		break;
+
+	case 'r':
+		pdb_ar_len = atoi(arg);
+		*p_cmd_params |= BMASK_SEC_PDB_ARLEN;
+		fprintf(stdout, "Anti-Replay Length = %d\n", pdb_ar_len);
+		break;
+
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
@@ -534,6 +691,11 @@ static int validate_test_set(struct test_param *crypto_info)
 			return 0;
 		else
 			goto err;
+	case WIMAX:
+		if ((crypto_info->test_set > 0) && (crypto_info->test_set < 5))
+			return 0;
+		else
+			goto err;
 	default:
 		fprintf(stderr,
 			"error: Invalid Parameters: Invalid SEC protocol\n");
@@ -543,6 +705,34 @@ err:
 	fprintf(stderr,
 		"error: Invalid Parameters: Test set number is invalid\n");
 	return -EINVAL;
+}
+
+/**
+ * @brief     Verifies if user gave a valid combination of optional arguments.
+ * @param[in] crypto_info  Pointer to test_param structure.
+ * @param[in] g_cmd_params Pointer to Bit mask of all parameters
+ *                         provided by user.
+ * @param[in] param        User parameter to be checked.
+ * @return                 0 on success, otherwise -EINVAL value.
+ */
+static int validate_opt_param(struct test_param *crypto_info,
+			      uint32_t *g_cmd_params, uint32_t param)
+{
+	if ((*g_cmd_params & param) == 0)
+		return 0;
+
+	switch (crypto_info->proto) {
+	case WIMAX:
+		if ((BMASK_SEC_PDB_OPTS == param) &&
+		    (CIPHER == crypto_info->mode))
+			return -EINVAL;
+		break;
+	case MACSEC:
+	default:
+		return -EINVAL;
+	}
+	*g_cmd_params &= ~param;
+	return 0;
 }
 
 /**
@@ -579,6 +769,22 @@ static int validate_sec_era_version()
 static int validate_params(uint32_t g_cmd_params,
 			   struct test_param *crypto_info)
 {
+	if (validate_opt_param(crypto_info, &g_cmd_params,
+			       BMASK_SEC_PDB_OPTS) != 0) {
+		fprintf(stderr, "error: Invalid Parameters: provide"
+			" a valid combination of optional arguments\n"
+			"see --help option\n");
+		return -EINVAL;
+	}
+
+	if (validate_opt_param(crypto_info, &g_cmd_params,
+			       BMASK_SEC_PDB_ARLEN) != 0) {
+		fprintf(stderr, "error: Invalid Parameters: provide"
+			" a valid combination of optional arguments\n"
+			"see --help option\n");
+		return -EINVAL;
+	}
+
 	if ((PERF == crypto_info->mode) &&
 	    BMASK_SEC_PERF_MODE == g_cmd_params) {
 		/* do nothing */
@@ -631,6 +837,16 @@ static int validate_params(uint32_t g_cmd_params,
 	switch (crypto_info->proto) {
 	case MACSEC:
 		break;
+	case WIMAX:
+		if ((pdb_ar_len > 64) || (pdb_ar_len < 0)) {
+			fprintf(stderr,
+				"error: WiMAX Anti-Replay window length cannot"
+				" be greater than 64 packets\n"
+				"see --help option\n");
+			return -EINVAL;
+		} else {
+			break;
+		}
 	default:
 		fprintf(stderr,
 			"error: Invalid Parameters: SEC protocol not supported"
@@ -638,6 +854,16 @@ static int validate_params(uint32_t g_cmd_params,
 		return -EINVAL;
 	}
 
+	switch (pdb_opts) {
+	case 0:
+	case 1:
+	case 2:
+		break;
+	default:
+		fprintf(stderr, "error: Invalid Protocol Data Block"
+			" value\nsee --help option\n");
+		return -EINVAL;
+	}
 	return 0;
 }
 
@@ -683,11 +909,17 @@ int test_enc_match(void *params, struct qm_fd fd[])
 }
 
 /**
- * @brief	Compare decrypted data returned by SEC with plain text
- *		input data
- * @param[in]	params - test parameters
- * @param[in]	struct qm_fd - frame descriptor list
- * @return	0 on success, otherwise -1 value
+ * @brief     Compare decrypted data returned by SEC with plain text
+ *            input data.
+ * @details   WiMAX decapsulated output frame contains the decapsulation
+ *            Generic Mac Header (EC is set to zero, length is reduced
+ *            as appropiate and HCS is recomputed). For performance mode,
+ *            plaintext input packets are not GMH aware and a match between
+ *            decapsulation output frames and encapsulation input frames
+ *            cannot be guaranteed at GMH level.
+ * @param[in] params       test parameters
+ * @param[in] struct qm_fd frame descriptor list
+ * @return                 0 on success, otherwise -1
  */
 int test_dec_match(void *params, struct qm_fd fd[])
 {
@@ -714,6 +946,21 @@ int test_dec_match(void *params, struct qm_fd fd[])
 					" match\n", __func__, ind + 1);
 				print_frame_desc(&fd[ind]);
 				return -1;
+			}
+		} else if (WIMAX == crypto_info->proto) {
+			plain_data = WIMAX_GMH_SIZE;
+			for (i = WIMAX_GMH_SIZE;
+			     i < (crypto_info->buf_size - WIMAX_GMH_SIZE);
+			     i++) {
+				if (dec_buf[i] != plain_data) {
+					fprintf(stderr, "error: %s: %s"
+						" decrypted frame %d doesn't"
+						" match!\n", __func__,
+						protocol, ind + 1);
+					print_frame_desc(&fd[ind]);
+					return -1;
+				}
+				plain_data++;
 			}
 		} else {
 			for (i = 0; i < crypto_info->buf_size; i++) {
