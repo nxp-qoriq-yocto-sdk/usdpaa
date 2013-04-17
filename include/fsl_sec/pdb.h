@@ -63,28 +63,7 @@ struct ipsec_encap_gcm {
 	uint32_t iv[2];
 } __packed;
 
-struct hmo_cbc {
-	uint8_t rsvd1:1;
-	uint8_t dfc:1;
-	uint8_t dttl:1;
-	uint8_t rsvd2:5;
-} __packed;
-
-struct hmo_ctr {
-	uint8_t rsvd1:1;
-	uint8_t dfc:1;
-	uint8_t dttl:1;
-	uint8_t rsvd2:5;
-} __packed;
-
-struct hmo_ccm {
-	uint8_t rsvd1:1;
-	uint8_t dfc:1;
-	uint8_t dttl:1;
-	uint8_t rsvd2:5;
-} __packed;
-
-struct hmo_gcm {
+struct hmo {
 	uint8_t rsvd1:1;
 	uint8_t dfc:1;
 	uint8_t dttl:1;
@@ -95,10 +74,7 @@ struct ipsec_encap_pdb {
 	uint32_t desc_hdr;
 	union {
 		uint8_t rsvd3;
-		struct hmo_cbc hmo_cbc;
-		struct hmo_ctr hmo_ctr;
-		struct hmo_ccm hmo_ccm;
-		struct hmo_gcm hmo_gcm;
+		struct hmo hmo;
 	};
 	uint8_t ip_nh;
 	uint8_t ip_nh_offset;

@@ -67,7 +67,7 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 	pdb.ip_hdr_len = 20;
 	pdb.options = PDBOPTS_ESPCBC_TUNNEL | PDBOPTS_ESPCBC_INCIPHDR |
 			PDBOPTS_ESPCBC_IPHDRSRC | PDBOPTS_ESPCBC_IVSRC;
-	pdb.hmo_cbc.dttl = 1;
+	pdb.hmo.dttl = 1;
 	pdb.options |= PDBOPTS_ESPCBC_CKSUM;
 
 	cipher.algtype = sa->ealg->alg_type;
