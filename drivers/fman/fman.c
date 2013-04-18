@@ -513,6 +513,56 @@ void fman_finish(void)
 	ccsr_map_fd = -1;
 }
 
+void fman_if_promiscuous_enable(const struct fman_if *p)
+{
+	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
+
+	assert(ccsr_map_fd != -1);
+
+	/* Do nothing for Offline or Macless ports */
+	if ((__if->__if.mac_type == fman_offline) ||
+		(__if->__if.mac_type == fman_mac_less)) {
+		my_log(EINVAL, "port type (%d)\n", __if->__if.mac_type);
+		return;
+	}
+
+	/* Enable Rx promiscuous mode */
+	if ((__if->__if.mac_type == fman_mac_1g) && (!__if->__if.is_memac)) {
+		void *rx_control =
+				&((struct dtsec_regs *)__if->ccsr_map)->rctrl;
+		out_be32(rx_control, in_be32(rx_control) | RCTRL_PROM);
+	} else {
+		void *cmdcfg =
+			 &((struct memac_regs *)__if->ccsr_map)->command_config;
+		out_be32(cmdcfg, in_be32(cmdcfg) | CMD_CFG_PROMIS_EN);
+	}
+}
+
+void fman_if_promiscuous_disable(const struct fman_if *p)
+{
+	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
+
+	assert(ccsr_map_fd != -1);
+
+	/* Do nothing for Offline or Macless ports */
+	if ((__if->__if.mac_type == fman_offline) ||
+		(__if->__if.mac_type == fman_mac_less)) {
+		my_log(EINVAL, "port type (%d)\n", __if->__if.mac_type);
+		return;
+	}
+
+	/* Disable Rx promiscuous mode */
+	if ((__if->__if.mac_type == fman_mac_1g) && (!__if->__if.is_memac)) {
+		void *rx_control =
+				&((struct dtsec_regs *)__if->ccsr_map)->rctrl;
+		out_be32(rx_control, in_be32(rx_control) | (~RCTRL_PROM));
+	} else {
+		void *cmdcfg =
+			 &((struct memac_regs *)__if->ccsr_map)->command_config;
+		out_be32(cmdcfg, in_be32(cmdcfg) | (~CMD_CFG_PROMIS_EN));
+	}
+}
+
 void fman_if_enable_rx(const struct fman_if *p)
 {
 	struct __fman_if *__if = container_of(p, struct __fman_if, __if);

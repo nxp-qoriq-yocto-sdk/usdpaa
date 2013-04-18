@@ -41,9 +41,13 @@
 /* dTSEC MAC Registers */
 #define MACCFG1_LOOPBACK	0x00000100
 
+#define RCTRL_MPROM		0x00000008
+#define RCTRL_UPROM		0x00000001
+#define RCTRL_PROM		(RCTRL_UPROM | RCTRL_MPROM)
 
-/* Control and Configuration Register (COMMAND_CONFIG) for MEMAC*/
+/* Control and Configuration Register (COMMAND_CONFIG) for MEMAC */
 #define CMD_CFG_LOOPBACK_EN	0x00000400 /* 21 XGMII/GMII loopback enable */
+#define CMD_CFG_PROMIS_EN	0x00000010 /* 27 Promiscuous operation enable */
 
 
 /* Represents the different flavour of network interface */
@@ -357,6 +361,10 @@ const struct list_head *fman_if_list;
 /* "init" discovers all Fman interfaces. "finish" tears down the driver. */
 int fman_init(void);
 void fman_finish(void);
+
+/* Enable/disable Rx promiscuous mode on specified interface */
+void fman_if_promiscuous_enable(const struct fman_if *);
+void fman_if_promiscuous_disable(const struct fman_if *);
 
 /* Enable/disable Rx on specific interfaces */
 void fman_if_enable_rx(const struct fman_if *);
