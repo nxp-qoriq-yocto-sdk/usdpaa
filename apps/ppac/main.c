@@ -1399,6 +1399,58 @@ static int ppac_cli_rm(int argc, char *argv[])
 	return -EINVAL;
 }
 
+static int ppac_cli_promisc(int argc, char *argv[])
+{
+	struct list_head *i;
+	const struct fman_if *fif;
+	const struct fm_eth_port_cfg *pcfg;
+	bool enable;
+	uint8_t fman_idx, mac_idx;
+	int ret = -ENODEV;
+
+	if (argc != 4)
+		return -EINVAL;
+
+	/* Parse promiscuous mode type */
+	if (!strncmp(argv[1], "enable", 6)) {
+		enable = true;
+	} else if (!strncmp(argv[1], "disable", 7)) {
+		enable = false;
+	} else
+		return -EINVAL;
+
+	/* Parse FMan number */
+	if (!strncmp(argv[2], "f:", 2)) {
+		fman_idx = argv[2][2] - '0';
+	} else
+		return -EINVAL;
+
+	/* Parse port number */
+	if (!strncmp(argv[3], "p:", 2)) {
+		mac_idx = argv[3][2] - '0';
+	} else
+		return -EINVAL;
+
+	list_for_each(i, &ifs) {
+		pcfg = ppac_interface_pcfg((struct ppac_interface *)i);
+		fif = pcfg->fman_if;
+		if ((fif->fman_idx == fman_idx) && (fif->mac_idx == mac_idx)) {
+			if (enable)
+				fman_if_promiscuous_enable(fif);
+			else
+				fman_if_promiscuous_disable(fif);
+			ret = 0;
+			break;
+		}
+	}
+
+	if (ret)
+		fprintf(stderr, "error: no such network interface (fman:%d, "
+			"port:%d)\n", fman_idx, mac_idx);
+
+	return ret;
+}
+
 cli_cmd(help, ppac_cli_help);
 cli_cmd(add, ppac_cli_add);
 #ifdef PPAC_CGR
@@ -1407,6 +1459,7 @@ cli_cmd(cgr, ppac_cli_cgr);
 cli_cmd(list, ppac_cli_list);
 cli_cmd(macs, ppac_cli_macs);
 cli_cmd(rm, ppac_cli_rm);
+cli_cmd(promisc, ppac_cli_promisc);
 
 const char ppam_prompt[] __attribute__((weak)) = "> ";
 
