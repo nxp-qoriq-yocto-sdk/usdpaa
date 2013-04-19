@@ -1,4 +1,4 @@
-# Copyright (c) 2011 - 2012 Freescale Semiconductor, Inc.
+# Copyright (c) 2011 - 2013 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -29,11 +29,21 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback \
-	  hello_reflector ipfwd ipsecfwd sra rmu fra lpm-ipfwd dma_test \
-	  simple_proto classifier_demo
+bin_PROGRAMS = classifier_demo
 
-dist_DATA = SOURCE_THIS
+dist_DATA = classifier_demo_config-p4080.xml \
+	    classifier_demo_config-b4860.xml \
+	    classifier_demo_config-b4420.xml \
+	    classifier_demo_policy.xml
 
-# install the SOURCE_THIS file in the 'root' home directory
-SOURCE_THIS_install := root
+classifier_demo_CFLAGS := -I$(TOP_LEVEL)/apps/include \
+			  $(FMC_CFLAGS) $(FMLIB_CFLAGS) \
+
+classifier_demo_SOURCES := dpa_classif_demo.c
+
+classifier_demo_LDFLAGS := $(LIBXML2_LDFLAGS) $(LIBEDIT_LDFLAGS) \
+			   $(FMC_LDFLAGS) $(FMLIB_LDFLAGS) \
+			   -T $(TOP_LEVEL)/apps/ppac/ppac.lds
+
+classifier_demo_LDADD := usdpaa_dpa_offload usdpaa_qbman usdpaa_of usdpaa_dma_mem \
+			 usdpaa_ppac usdpaa_fman usdpaa_syscfg usdpaa_process
