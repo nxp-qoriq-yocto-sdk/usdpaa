@@ -491,7 +491,8 @@ void fman_finish(void)
 			continue;
 
 		/* disable Rx and Tx */
-		if (__if->__if.mac_type == fman_mac_1g)
+		if ((__if->__if.mac_type == fman_mac_1g) &&
+			(!__if->__if.is_memac))
 			out_be32(__if->ccsr_map + 0x100,
 				in_be32(__if->ccsr_map + 0x100) & ~(u32)0x5);
 		else
