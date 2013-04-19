@@ -133,7 +133,11 @@ struct qman_fq *create_sec_frame_queue(uint32_t fq_id,
 	struct qman_fq *fq;
 	uint32_t flags;
 
+	/* Clear FQ options */
+	memset(&fq_opts, 0x00, sizeof(struct qm_mcc_initfq));
+
 	fq = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(struct qman_fq));
+
 	if (unlikely(NULL == fq)) {
 		fprintf(stderr, "error: dma_mem_memalign failed in create_fqs"
 			" for FQ ID:%u\n", fq_id);
