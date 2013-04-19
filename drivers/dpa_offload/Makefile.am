@@ -1,4 +1,4 @@
-# Copyright (c) 2011-2012 Freescale Semiconductor, Inc.
+# Copyright (c) 2011-2013 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -29,4 +29,6 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = process dma_mem fman of qbman sec pme dma srio rman rmu dpa_offload
+lib_LIBRARIES = usdpaa_dpa_offload
+
+usdpaa_dpa_offload_SOURCES := dpa_classifier.c
