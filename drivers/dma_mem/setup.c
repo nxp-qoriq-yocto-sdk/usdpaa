@@ -105,7 +105,7 @@ struct dma_mem *dma_mem_create(uint32_t flags, const char *map_name,
 		free(map);
 		return NULL;
 	}
-	map->addr.virt = compat_ptr(params.ptr);
+	map->addr.virt = params.ptr;
 	map->addr.phys = params.phys_addr;
 	map->sz = params.len;
 	map->flags = flags;
