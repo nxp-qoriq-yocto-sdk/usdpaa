@@ -31,7 +31,7 @@
 bin_PROGRAMS = simple_proto
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/simple_proto/include -I$(TOP_LEVEL)/apps/lib
-AM_CFLAGS += $(LIBRTA_CFLAGS)
+AM_CFLAGS += $(LIBRTA_CFLAGS) -DDEBUG
 
 simple_proto_SOURCES := simple_proto.c
 

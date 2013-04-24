@@ -28,7 +28,6 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 #include "simple_proto.h"
 
 pthread_barrier_t app_barrier;
@@ -45,6 +44,7 @@ uint8_t pdb_opts;       /**< Protocol Data Block Options */
 
 uint16_t pdb_ar_len;    /**< Protocol Data Block Anti-Replay Length */
 
+static unsigned do_decap = 1;
 
 /***********************************************/
 
@@ -172,6 +172,100 @@ void init_rtv_wimax_cipher(unsigned test_set)
 	       WIMAX_FCS_SIZE);
 }
 
+void init_rtv_pdcp_c_plane(struct test_param *crypto_info)
+{
+	const int proto = PDCP_MAP_PROTO_TO_ARRAY(crypto_info->proto);
+	uint8_t *cipherkey, *authkey;
+
+	strcpy(protocol, pdcp_test_params[proto].name);
+
+	cipherkey = __dma_mem_memalign(L1_CACHE_BYTES, PDCP_MAX_KEY_LEN);
+	memcpy(cipherkey, pdcp_test_crypto_key[proto], PDCP_MAX_KEY_LEN);
+
+	authkey = __dma_mem_memalign(L1_CACHE_BYTES, PDCP_MAX_KEY_LEN);
+	memcpy(authkey, pdcp_test_auth_key[proto], PDCP_MAX_KEY_LEN);
+
+	ref_test_vector.cipher_alg = pdcp_test_params[proto].cipher_algorithm;
+	ref_test_vector.key = __dma_mem_vtop(cipherkey);
+	ref_test_vector.cipher_keylen = PDCP_MAX_KEY_LEN;
+
+	ref_test_vector.auth_alg = pdcp_test_params[proto].integrity_algorithm;
+	ref_test_vector.auth_key = __dma_mem_vtop(authkey);
+	ref_test_vector.auth_keylen = PDCP_MAX_KEY_LEN;
+
+	ref_test_vector.pdb.pdcp.bearer = pdcp_test_bearer[proto];
+	ref_test_vector.pdb.pdcp.direction =
+			pdcp_test_packet_direction[proto];
+
+	ref_test_vector.pdb.pdcp.hfn = pdcp_test_hfn[proto];
+	ref_test_vector.pdb.pdcp.hfn_threshold =
+			pdcp_test_hfn_threshold[proto];
+
+	if (CIPHER == crypto_info->mode) {
+		ref_test_vector.length =
+				NO_OF_BITS(pdcp_test_data_in_len[proto]);
+		ref_test_vector.plaintext = pdcp_test_data_in[proto];
+		ref_test_vector.ciphertext = pdcp_test_data_out[proto];
+	}
+
+	do_decap = 0;
+}
+
+void init_rtv_pdcp_u_plane(struct test_param *crypto_info)
+{
+	const int proto = PDCP_MAP_PROTO_TO_ARRAY(crypto_info->proto);
+	uint8_t *cipherkey;
+	strcpy(protocol, pdcp_test_params[proto].name);
+
+	cipherkey = __dma_mem_memalign(L1_CACHE_BYTES, PDCP_MAX_KEY_LEN);
+	memcpy(cipherkey, pdcp_test_crypto_key[proto], PDCP_MAX_KEY_LEN);
+
+	ref_test_vector.cipher_alg = pdcp_test_params[proto].cipher_algorithm;
+	ref_test_vector.key = __dma_mem_vtop(cipherkey);
+	ref_test_vector.cipher_keylen = PDCP_MAX_KEY_LEN;
+
+	ref_test_vector.pdb.pdcp.bearer = pdcp_test_bearer[proto];
+	ref_test_vector.pdb.pdcp.direction =
+			pdcp_test_packet_direction[proto];
+	ref_test_vector.pdb.pdcp.hfn = pdcp_test_hfn[proto];
+	ref_test_vector.pdb.pdcp.hfn_threshold =
+			pdcp_test_hfn_threshold[proto];
+	ref_test_vector.pdb.pdcp.sns = pdcp_test_data_sns[proto];
+
+	if (CIPHER == crypto_info->mode) {
+		ref_test_vector.length =
+				NO_OF_BITS(pdcp_test_data_in_len[proto]);
+		ref_test_vector.plaintext = pdcp_test_data_in[proto];
+		ref_test_vector.ciphertext = pdcp_test_data_out[proto];
+	}
+	do_decap = 0;
+}
+
+void init_rtv_pdcp_short_mac(struct test_param *crypto_info)
+{
+	const int proto = PDCP_MAP_PROTO_TO_ARRAY(crypto_info->proto);
+	uint8_t *authkey;
+	strcpy(protocol, pdcp_test_params[proto].name);
+
+	authkey = __dma_mem_memalign(L1_CACHE_BYTES, PDCP_MAX_KEY_LEN);
+
+	memcpy(authkey, pdcp_test_auth_key[proto], PDCP_MAX_KEY_LEN);
+
+	ref_test_vector.auth_alg = pdcp_test_params[proto].integrity_algorithm;
+
+	ref_test_vector.auth_key = __dma_mem_vtop(authkey);
+	ref_test_vector.auth_keylen = PDCP_MAX_KEY_LEN;
+
+	if (CIPHER == crypto_info->mode) {
+		ref_test_vector.length =
+				NO_OF_BITS(pdcp_test_data_in_len[proto]);
+		ref_test_vector.plaintext = pdcp_test_data_in[proto];
+		ref_test_vector.ciphertext = pdcp_test_data_out[proto];
+	}
+
+	do_decap = 1;
+}
+
 /**
  * @brief	Set PN constant in MACsec shared descriptor
  * @details	Inside this routine, context is erased, PN is read from
@@ -249,6 +343,88 @@ void macsec_set_pn_constant(uint32_t *shared_desc, unsigned *shared_desc_len)
 void (*init_ref_test_vector[]) (struct test_param *crypto_info) = {
 	init_rtv_macsec_gcm_128,
 	init_rtv_wimax_aes_ccm_128,
+	/* PDCP Control Plane w/AES CTR enc. + AES CMAC int. UL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/AES CTR enc. + AES CMAC int. DL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/AES CTR enc. + SNOW f9 int. UL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/AES CTR enc. + SNOW f9 int. DL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/SNOW f8 enc. + SNOW f9 int. DL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/SNOW f8 enc. + SNOW f9 int. UL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/ZUC enc. + ZUC int. DL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/ZUC enc. + ZUC int. UL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/SNOW f8 + AES CMAC int. DL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/SNOW f8 + AES CMAC int. UL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/SNOW f8 enc. + NULL int. DL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/SNOW f8 enc. + NULL int. UL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/AES CTR enc. + NULL int. DL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/AES CTR enc. + NULL int. UL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/ZUC enc. + NULL int. DL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/ZUC enc. + NULL int. UL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/NULL enc. + SNOW f9 int. DL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/NULL enc. + SNOW f9 int. UL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/NULL enc. + AES CMAC int. DL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/NULL enc. + AES CMAC int. UL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/NULL enc. + ZUC int. DL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/NULL enc. + ZUC int. UL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP Control Plane w/NULL enc. + NULL int. UL */
+	init_rtv_pdcp_c_plane,
+	/* PDCP User Plane w/AES CTR enc. UL LONG SN */
+	init_rtv_pdcp_u_plane,
+	/* PDCP User Plane w/AES CTR enc. DL LONG SN */
+	init_rtv_pdcp_u_plane,
+	/* PDCP User Plane w/AES CTR enc. UL SHORT SN */
+	init_rtv_pdcp_u_plane,
+	/* PDCP User Plane w/AES CTR enc. DL SHORT SN */
+	init_rtv_pdcp_u_plane,
+	/* PDCP User Plane w/SNOW f8 enc. UL LONG SN */
+	init_rtv_pdcp_u_plane,
+	/* PDCP User Plane w/SNOW f8 enc. DL LONG SN */
+	init_rtv_pdcp_u_plane,
+	/* PDCP User Plane w/SNOW f8 enc. UL SHORT SN */
+	init_rtv_pdcp_u_plane,
+	/* PDCP User Plane w/SNOW f8 enc. DL SHORT SN */
+	init_rtv_pdcp_u_plane,
+	/* PDCP User Plane w/ZUC enc. UL LONG SN */
+	init_rtv_pdcp_u_plane,
+	/* PDCP User Plane w/ZUC enc. DL LONG SN */
+	init_rtv_pdcp_u_plane,
+	/* PDCP User Plane w/ZUC enc. UL SHORT SN */
+	init_rtv_pdcp_u_plane,
+	/* PDCP User Plane w/ZUC enc. DL SHORT SN */
+	init_rtv_pdcp_u_plane,
+	/* PDCP User Plane w/NULL enc. DL LONG SN */
+	init_rtv_pdcp_u_plane,
+	/* PDCP User Plane w/NULL enc. DL SHORT SN */
+	init_rtv_pdcp_u_plane,
+	/* PDCP Short MAC-I w/SNOW f9 int. */
+	init_rtv_pdcp_short_mac,
+	/* PDCP Short MAC-I w/AES CMAC int. */
+	init_rtv_pdcp_short_mac,
+	/* PDCP Short MAC-I w/ZUC int. */
+	init_rtv_pdcp_short_mac,
+	/* PDCP Short MAC-I w/NULL int. */
+	init_rtv_pdcp_short_mac
 };
 
 /**
@@ -317,6 +493,60 @@ static int set_buf_size(struct test_param *crypto_info)
 		if ((CIPHER == crypto_info->mode) || (pdb_opts != 0))
 			crypto_info->rt.output_buf_size += WIMAX_FCS_SIZE;
 		break;
+
+	case PDCP_CTRL_PLANE_AES_CTR_AES_CMAC_UL:
+	case PDCP_CTRL_PLANE_AES_CTR_AES_CMAC_DL:
+	case PDCP_CTRL_PLANE_AES_CTR_SNOW_F9_UL:
+	case PDCP_CTRL_PLANE_AES_CTR_SNOW_F9_DL:
+	case PDCP_CTRL_PLANE_SNOW_F8_SNOW_F9_DL:
+	case PDCP_CTRL_PLANE_SNOW_F8_SNOW_F9_UL:
+	case PDCP_CTRL_PLANE_SNOW_F8_AES_CMAC_DL:
+	case PDCP_CTRL_PLANE_SNOW_F8_AES_CMAC_UL:
+	case PDCP_CTRL_PLANE_SNOW_F8_NULL_DL:
+	case PDCP_CTRL_PLANE_SNOW_F8_NULL_UL:
+	case PDCP_CTRL_PLANE_AES_CTR_NULL_DL:
+	case PDCP_CTRL_PLANE_AES_CTR_NULL_UL:
+	case PDCP_CTRL_PLANE_NULL_SNOW_F9_DL:
+	case PDCP_CTRL_PLANE_NULL_SNOW_F9_UL:
+	case PDCP_CTRL_PLANE_NULL_AES_CMAC_DL:
+	case PDCP_CTRL_PLANE_NULL_AES_CMAC_UL:
+	case PDCP_CTRL_PLANE_NULL_NULL_UL:
+	case PDCP_CTRL_PLANE_ZUC_E_ZUC_I_DL:
+	case PDCP_CTRL_PLANE_ZUC_E_ZUC_I_UL:
+	case PDCP_CTRL_PLANE_ZUC_E_NULL_DL:
+	case PDCP_CTRL_PLANE_ZUC_E_NULL_UL:
+	case PDCP_CTRL_PLANE_NULL_ZUC_I_DL:
+	case PDCP_CTRL_PLANE_NULL_ZUC_I_UL:
+		crypto_info->rt.output_buf_size =
+			crypto_info->buf_size + PDCP_MAC_I_LEN;
+		break;
+
+	case PDCP_USER_PLANE_AES_CTR_UL_LONG_SN:
+	case PDCP_USER_PLANE_AES_CTR_DL_LONG_SN:
+	case PDCP_USER_PLANE_AES_CTR_UL_SHORT_SN:
+	case PDCP_USER_PLANE_AES_CTR_DL_SHORT_SN:
+	case PDCP_USER_PLANE_SNOW_F8_UL_LONG_SN:
+	case PDCP_USER_PLANE_SNOW_F8_DL_LONG_SN:
+	case PDCP_USER_PLANE_SNOW_F8_UL_SHORT_SN:
+	case PDCP_USER_PLANE_SNOW_F8_DL_SHORT_SN:
+	case PDCP_USER_PLANE_NULL_DL_LONG_SN:
+	case PDCP_USER_PLANE_NULL_DL_SHORT_SN:
+	case PDCP_USER_PLANE_ZUC_E_UL_LONG_SN:
+	case PDCP_USER_PLANE_ZUC_E_DL_LONG_SN:
+	case PDCP_USER_PLANE_ZUC_E_UL_SHORT_SN:
+	case PDCP_USER_PLANE_ZUC_E_DL_SHORT_SN:
+		crypto_info->rt.output_buf_size = crypto_info->buf_size;
+		break;
+
+	case PDCP_SHORT_MAC_SNOW_F9:
+	case PDCP_SHORT_MAC_AES_CMAC:
+	case PDCP_SHORT_MAC_NULL:
+	case PDCP_SHORT_MAC_ZUC_I:
+		crypto_info->rt.output_buf_size =
+				crypto_info->buf_size +
+				PDCP_MAC_I_LEN;
+		break;
+
 	default:
 		fprintf(stderr, "error: %s: protocol not supported\n",
 			__func__);
@@ -399,6 +629,152 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 						ref_test_vector.key,
 						WIMAX_KEY_SIZE);
 		break;
+
+	case PDCP_CTRL_PLANE_AES_CTR_AES_CMAC_UL:
+	case PDCP_CTRL_PLANE_AES_CTR_AES_CMAC_DL:
+	case PDCP_CTRL_PLANE_AES_CTR_SNOW_F9_UL:
+	case PDCP_CTRL_PLANE_AES_CTR_SNOW_F9_DL:
+	case PDCP_CTRL_PLANE_SNOW_F8_SNOW_F9_DL:
+	case PDCP_CTRL_PLANE_SNOW_F8_SNOW_F9_UL:
+	case PDCP_CTRL_PLANE_SNOW_F8_AES_CMAC_DL:
+	case PDCP_CTRL_PLANE_SNOW_F8_AES_CMAC_UL:
+	case PDCP_CTRL_PLANE_SNOW_F8_NULL_DL:
+	case PDCP_CTRL_PLANE_SNOW_F8_NULL_UL:
+	case PDCP_CTRL_PLANE_AES_CTR_NULL_DL:
+	case PDCP_CTRL_PLANE_AES_CTR_NULL_UL:
+	case PDCP_CTRL_PLANE_NULL_SNOW_F9_DL:
+	case PDCP_CTRL_PLANE_NULL_SNOW_F9_UL:
+	case PDCP_CTRL_PLANE_NULL_AES_CMAC_DL:
+	case PDCP_CTRL_PLANE_NULL_AES_CMAC_UL:
+	case PDCP_CTRL_PLANE_NULL_NULL_UL:
+	case PDCP_CTRL_PLANE_ZUC_E_ZUC_I_DL:
+	case PDCP_CTRL_PLANE_ZUC_E_ZUC_I_UL:
+	case PDCP_CTRL_PLANE_ZUC_E_NULL_DL:
+	case PDCP_CTRL_PLANE_ZUC_E_NULL_UL:
+	case PDCP_CTRL_PLANE_NULL_ZUC_I_DL:
+	case PDCP_CTRL_PLANE_NULL_ZUC_I_UL:
+		if (ENCRYPT == mode)
+			cnstr_shdsc_pdcp_c_plane_encap(shared_desc,
+				&shared_desc_len,
+/*
+ * This is currently hardcoded. The application doesn't allow for
+ * proper retrieval of PS.
+ */
+				1,
+				ref_test_vector.pdb.pdcp.hfn,
+				ref_test_vector.pdb.pdcp.bearer,
+				ref_test_vector.pdb.pdcp.direction,
+				ref_test_vector.pdb.pdcp.hfn_threshold,
+				(struct alginfo *)&((struct alginfo){
+					ref_test_vector.cipher_alg,
+					ref_test_vector.key,
+					ref_test_vector.cipher_keylen
+				}),
+				(struct alginfo *)&((struct alginfo){
+					ref_test_vector.auth_alg,
+					ref_test_vector.auth_key,
+					ref_test_vector.auth_keylen
+				}),
+				0);
+		else
+			cnstr_shdsc_pdcp_c_plane_decap(shared_desc,
+				&shared_desc_len,
+/*
+ * This is currently hardcoded. The application doesn't allow for
+ * proper retrieval of PS.
+ */
+				1,
+				ref_test_vector.pdb.pdcp.hfn,
+				ref_test_vector.pdb.pdcp.bearer,
+				ref_test_vector.pdb.pdcp.direction,
+				ref_test_vector.pdb.pdcp.hfn_threshold,
+				(struct alginfo *)&((struct alginfo){
+					ref_test_vector.cipher_alg,
+					ref_test_vector.key,
+					ref_test_vector.cipher_keylen
+				}),
+				(struct alginfo *)&((struct alginfo){
+					ref_test_vector.auth_alg,
+					ref_test_vector.auth_key,
+					ref_test_vector.auth_keylen
+				}),
+				0);
+		break;
+
+	case PDCP_USER_PLANE_AES_CTR_UL_LONG_SN:
+	case PDCP_USER_PLANE_AES_CTR_DL_LONG_SN:
+	case PDCP_USER_PLANE_AES_CTR_UL_SHORT_SN:
+	case PDCP_USER_PLANE_AES_CTR_DL_SHORT_SN:
+	case PDCP_USER_PLANE_SNOW_F8_UL_LONG_SN:
+	case PDCP_USER_PLANE_SNOW_F8_DL_LONG_SN:
+	case PDCP_USER_PLANE_SNOW_F8_UL_SHORT_SN:
+	case PDCP_USER_PLANE_SNOW_F8_DL_SHORT_SN:
+	case PDCP_USER_PLANE_NULL_DL_LONG_SN:
+	case PDCP_USER_PLANE_NULL_DL_SHORT_SN:
+	case PDCP_USER_PLANE_ZUC_E_UL_LONG_SN:
+	case PDCP_USER_PLANE_ZUC_E_DL_LONG_SN:
+	case PDCP_USER_PLANE_ZUC_E_UL_SHORT_SN:
+	case PDCP_USER_PLANE_ZUC_E_DL_SHORT_SN:
+
+		if (ENCRYPT == mode)
+			cnstr_shdsc_pdcp_u_plane_encap(shared_desc,
+				&shared_desc_len,
+/*
+* This is currently hardcoded. The application doesn't allow for
+* proper retrieval of PS.
+*/
+				1,
+				ref_test_vector.pdb.pdcp.sns,
+				ref_test_vector.pdb.pdcp.hfn,
+				ref_test_vector.pdb.pdcp.bearer,
+				ref_test_vector.pdb.pdcp.direction,
+				ref_test_vector.pdb.pdcp.hfn_threshold,
+				(struct alginfo *)&((struct alginfo){
+					ref_test_vector.cipher_alg,
+					ref_test_vector.key,
+					ref_test_vector.cipher_keylen
+				}),
+				0);
+		else
+			cnstr_shdsc_pdcp_u_plane_decap(shared_desc,
+				&shared_desc_len,
+/*
+ * This is currently hardcoded. The application doesn't allow for
+ * proper retrieval of PS.
+*/
+				1,
+				ref_test_vector.pdb.pdcp.sns,
+				ref_test_vector.pdb.pdcp.hfn,
+				ref_test_vector.pdb.pdcp.bearer,
+				ref_test_vector.pdb.pdcp.direction,
+				ref_test_vector.pdb.pdcp.hfn_threshold,
+				(struct alginfo *)&((struct alginfo){
+				ref_test_vector.cipher_alg,
+				ref_test_vector.key,
+				ref_test_vector.cipher_keylen
+			}),
+			0);
+		break;
+
+	case PDCP_SHORT_MAC_SNOW_F9:
+	case PDCP_SHORT_MAC_AES_CMAC:
+	case PDCP_SHORT_MAC_NULL:
+	case PDCP_SHORT_MAC_ZUC_I:
+		if (ENCRYPT == mode)
+			cnstr_shdsc_pdcp_short_mac(shared_desc,
+				&shared_desc_len,
+/*
+ * This is currently hardcoded. The application doesn't allow for
+ * proper retrieval of PS.
+ */
+				1,
+				(struct alginfo *)&((struct alginfo){
+					ref_test_vector.auth_alg,
+					ref_test_vector.auth_key,
+					ref_test_vector.auth_keylen
+				}));
+		break;
+
 	default:
 		fprintf(stderr, "error: %s: protocol not supported\n",
 			__func__);
@@ -525,9 +901,54 @@ struct argp_option options[] = {
 	{"proto", 'p', "PROTOCOL", 0,
 	 "\n\r\tCryptographic operation to perform by SEC\n\r"
 		"\tprovide following number\n\r"
-		"\t\t1 for MACsec\n"
-		"\t\t2 for WiMAX\n"
-	},
+		"\t\t 1 for MACsec\n"
+		"\t\t 2 for WiMAX\n"
+		"\t\t For PDCP Control Plane:\n"
+		"\t\t\t 3 AES CTR + AES CMAC UL\n"
+		"\t\t\t 4 AES CTR + AES CMAC DL\n"
+		"\t\t\t 5 AES CTR + SNOW f9 UL\n"
+		"\t\t\t 6 AES CTR + SNOW f9 DL\n"
+		"\t\t\t 7 SNOW f8 + SNOW f9 DL\n"
+		"\t\t\t 8 SNOW f8 + SNOW f9 UL\n"
+		"\t\t\t 9 ZUC-E + ZUC-I DL*\n"
+		"\t\t\t10 ZUC-E + ZUC-I UL*\n"
+		"\t\t\t11 SNOW f8 + AES CMAC DL\n"
+		"\t\t\t12 SNOW f8 + AES CMAC UL\n"
+		"\t\t\t13 SNOW f8 + NULL DL\n"
+		"\t\t\t14 SNOW f8 + NULL UL\n"
+		"\t\t\t15 AES CTR + NULL DL\n"
+		"\t\t\t16 AES CTR + NULL UL\n"
+		"\t\t\t17 ZUC-E + NULL DL*\n"
+		"\t\t\t18 ZUC-E + NULL UL*\n"
+		"\t\t\t19 NULL + SNOW f9 DL\n"
+		"\t\t\t20 NULL + SNOW f9 UL\n"
+		"\t\t\t21 NULL + AES CMAC DL\n"
+		"\t\t\t22 NULL + AES CMAC UL\n"
+		"\t\t\t23 NULL + ZUC-I DL*\n"
+		"\t\t\t24 NULL + ZUC-I UL*\n"
+		"\t\t\t25 NULL + NULL UL\n"
+		"\t\t For PDCP User Plane:\n"
+		"\t\t\t26 AES CTR Long SN UL\n"
+		"\t\t\t27 AES CTR Long SN DL\n"
+		"\t\t\t28 AES CTR Short SN UL\n"
+		"\t\t\t29 AES CTR Short SN DL\n"
+		"\t\t\t30 SNOW f8 Long SN UL\n"
+		"\t\t\t31 SNOW f8 Long SN DL\n"
+		"\t\t\t32 SNOW f8 Short SN UL\n"
+		"\t\t\t33 SNOW f8 Short SN DL\n"
+		"\t\t\t34 ZUC-E Long SN UL*\n"
+		"\t\t\t35 ZUC-E Long SN DL*\n"
+		"\t\t\t36 ZUC-E Short SN UL*\n"
+		"\t\t\t37 ZUC-E Short SN DL*\n"
+		"\t\t\t38 NULL Long SN DL\n"
+		"\t\t\t39 NULL Short SN DL\n"
+		"\t\tFor PDCP Short MAC-I:\n"
+		"\t\t\t40 SNOW f9\n"
+		"\t\t\t41 AES CMAC\n"
+		"\t\t\t42 ZUC-I*\n"
+		"\t\t\t43 NULL\n"
+		"\n\n"
+		"\t\t * Only available for platforms with SEC>=5.3\n"},
 	{"itrnum", 'l', "ITERATIONS", 0,
 	 "\n\r\tNumber of iterations to repeat\n"},
 	{"bufnum", 'n', "TOTAL BUFFERS", 0,
@@ -696,6 +1117,52 @@ static int validate_test_set(struct test_param *crypto_info)
 			return 0;
 		else
 			goto err;
+
+	case PDCP_CTRL_PLANE_AES_CTR_AES_CMAC_UL:
+	case PDCP_CTRL_PLANE_AES_CTR_AES_CMAC_DL:
+	case PDCP_CTRL_PLANE_AES_CTR_SNOW_F9_UL:
+	case PDCP_CTRL_PLANE_AES_CTR_SNOW_F9_DL:
+	case PDCP_CTRL_PLANE_SNOW_F8_SNOW_F9_DL:
+	case PDCP_CTRL_PLANE_SNOW_F8_SNOW_F9_UL:
+	case PDCP_CTRL_PLANE_SNOW_F8_AES_CMAC_DL:
+	case PDCP_CTRL_PLANE_SNOW_F8_AES_CMAC_UL:
+	case PDCP_CTRL_PLANE_SNOW_F8_NULL_DL:
+	case PDCP_CTRL_PLANE_SNOW_F8_NULL_UL:
+	case PDCP_CTRL_PLANE_AES_CTR_NULL_DL:
+	case PDCP_CTRL_PLANE_AES_CTR_NULL_UL:
+	case PDCP_CTRL_PLANE_NULL_SNOW_F9_DL:
+	case PDCP_CTRL_PLANE_NULL_SNOW_F9_UL:
+	case PDCP_CTRL_PLANE_NULL_AES_CMAC_DL:
+	case PDCP_CTRL_PLANE_NULL_AES_CMAC_UL:
+	case PDCP_CTRL_PLANE_NULL_NULL_UL:
+	case PDCP_USER_PLANE_AES_CTR_UL_LONG_SN:
+	case PDCP_USER_PLANE_AES_CTR_DL_LONG_SN:
+	case PDCP_USER_PLANE_AES_CTR_UL_SHORT_SN:
+	case PDCP_USER_PLANE_AES_CTR_DL_SHORT_SN:
+	case PDCP_USER_PLANE_SNOW_F8_UL_LONG_SN:
+	case PDCP_USER_PLANE_SNOW_F8_DL_LONG_SN:
+	case PDCP_USER_PLANE_SNOW_F8_UL_SHORT_SN:
+	case PDCP_USER_PLANE_SNOW_F8_DL_SHORT_SN:
+	case PDCP_USER_PLANE_NULL_DL_LONG_SN:
+	case PDCP_USER_PLANE_NULL_DL_SHORT_SN:
+	case PDCP_CTRL_PLANE_ZUC_E_ZUC_I_DL:
+	case PDCP_CTRL_PLANE_ZUC_E_ZUC_I_UL:
+	case PDCP_CTRL_PLANE_ZUC_E_NULL_DL:
+	case PDCP_CTRL_PLANE_ZUC_E_NULL_UL:
+	case PDCP_CTRL_PLANE_NULL_ZUC_I_DL:
+	case PDCP_CTRL_PLANE_NULL_ZUC_I_UL:
+	case PDCP_USER_PLANE_ZUC_E_UL_LONG_SN:
+	case PDCP_USER_PLANE_ZUC_E_DL_LONG_SN:
+	case PDCP_USER_PLANE_ZUC_E_UL_SHORT_SN:
+	case PDCP_USER_PLANE_ZUC_E_DL_SHORT_SN:
+	case PDCP_SHORT_MAC_SNOW_F9:
+	case PDCP_SHORT_MAC_AES_CMAC:
+	case PDCP_SHORT_MAC_NULL:
+	case PDCP_SHORT_MAC_ZUC_I:
+		if (crypto_info->test_set == 1)
+			return 0;
+		goto err;
+
 	default:
 		fprintf(stderr,
 			"error: Invalid Parameters: Invalid SEC protocol\n");
@@ -847,6 +1314,52 @@ static int validate_params(uint32_t g_cmd_params,
 		} else {
 			break;
 		}
+
+	case PDCP_CTRL_PLANE_AES_CTR_AES_CMAC_UL:
+	case PDCP_CTRL_PLANE_AES_CTR_AES_CMAC_DL:
+	case PDCP_CTRL_PLANE_AES_CTR_SNOW_F9_UL:
+	case PDCP_CTRL_PLANE_AES_CTR_SNOW_F9_DL:
+	case PDCP_CTRL_PLANE_SNOW_F8_SNOW_F9_DL:
+	case PDCP_CTRL_PLANE_SNOW_F8_SNOW_F9_UL:
+	case PDCP_CTRL_PLANE_SNOW_F8_AES_CMAC_DL:
+	case PDCP_CTRL_PLANE_SNOW_F8_AES_CMAC_UL:
+	case PDCP_CTRL_PLANE_SNOW_F8_NULL_DL:
+	case PDCP_CTRL_PLANE_SNOW_F8_NULL_UL:
+	case PDCP_CTRL_PLANE_AES_CTR_NULL_DL:
+	case PDCP_CTRL_PLANE_AES_CTR_NULL_UL:
+	case PDCP_CTRL_PLANE_NULL_SNOW_F9_DL:
+	case PDCP_CTRL_PLANE_NULL_SNOW_F9_UL:
+	case PDCP_CTRL_PLANE_NULL_AES_CMAC_DL:
+	case PDCP_CTRL_PLANE_NULL_AES_CMAC_UL:
+	case PDCP_CTRL_PLANE_NULL_NULL_UL:
+	case PDCP_USER_PLANE_AES_CTR_UL_LONG_SN:
+	case PDCP_USER_PLANE_AES_CTR_DL_LONG_SN:
+	case PDCP_USER_PLANE_AES_CTR_UL_SHORT_SN:
+	case PDCP_USER_PLANE_AES_CTR_DL_SHORT_SN:
+	case PDCP_USER_PLANE_SNOW_F8_UL_LONG_SN:
+	case PDCP_USER_PLANE_SNOW_F8_DL_LONG_SN:
+	case PDCP_USER_PLANE_SNOW_F8_UL_SHORT_SN:
+	case PDCP_USER_PLANE_SNOW_F8_DL_SHORT_SN:
+	case PDCP_USER_PLANE_NULL_DL_LONG_SN:
+	case PDCP_USER_PLANE_NULL_DL_SHORT_SN:
+	case PDCP_SHORT_MAC_SNOW_F9:
+	case PDCP_SHORT_MAC_AES_CMAC:
+	case PDCP_SHORT_MAC_NULL:
+		break;
+	case PDCP_CTRL_PLANE_ZUC_E_ZUC_I_DL:
+	case PDCP_CTRL_PLANE_ZUC_E_ZUC_I_UL:
+	case PDCP_CTRL_PLANE_ZUC_E_NULL_DL:
+	case PDCP_CTRL_PLANE_ZUC_E_NULL_UL:
+	case PDCP_CTRL_PLANE_NULL_ZUC_I_DL:
+	case PDCP_CTRL_PLANE_NULL_ZUC_I_UL:
+	case PDCP_USER_PLANE_ZUC_E_UL_LONG_SN:
+	case PDCP_USER_PLANE_ZUC_E_DL_LONG_SN:
+	case PDCP_USER_PLANE_ZUC_E_UL_SHORT_SN:
+	case PDCP_USER_PLANE_ZUC_E_DL_SHORT_SN:
+	case PDCP_SHORT_MAC_ZUC_I:
+		if (rta_sec_era >= RTA_SEC_ERA_5)
+			break;
+
 	default:
 		fprintf(stderr,
 			"error: Invalid Parameters: SEC protocol not supported"
@@ -1106,7 +1619,7 @@ inline enum test_mode get_test_mode(void *params)
  */
 inline uint8_t requires_authentication(void)
 {
-	return 0;
+	return do_decap;
 }
 
 /**
