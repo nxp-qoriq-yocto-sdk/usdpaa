@@ -41,6 +41,16 @@
 # staging area managed by Poky, assuming that this usdpaa tree
 # is a sibling of the Poky tree (again, adjust as required).
 
+board2soc()
+{
+       case $1 in
+               [pP]1023*) echo p1023;;
+               [pP]3041*) echo p3041;;
+               [pP]4080*) echo p4080;;
+               [pP]5020*) echo p5020;;
+       esac
+}
+
 declare -l board=p5020ds
 declare -i OLD_OPTIND=$OPTIND
 while getopts "m:" flags
@@ -62,6 +72,7 @@ do
 	esac
 done
 OPTIND=$OLD_OPTIND
+declare -u SOC=$(board2soc $board)
 
 export ARCH=powerpc64
 export CROSS_COMPILE=powerpc-linux-gnu-
@@ -76,5 +87,7 @@ export LIBEDIT_LDFLAGS=$(pkg-config --libs --static libedit)
 export LIBRTA_CFLAGS="-I$PKG_CONFIG_SYSROOT_DIR/usr/include"
 export FMC_CFLAGS="-I $PWD/../build_${board}-64b_release/tmp/sysroots/${board}-64b/usr/include"
 export FMC_LDFLAGS="-L $PWD/../build_${board}-64b_release/tmp/sysroots/${board}-64b/usr/lib64 -lfmc -lstdc++"
+export FMLIB_CFLAGS="-I ../build_${board}-64b_release/tmp/sysroots/${board}-64b/usr/include/fmd -I $PWD/../build_${board}-64b_release/tmp/sysroots/${board}-64b/usr/include/fmd/Peripherals -I $PWD/../build_${board}-64b_release/tmp/sysroots/${board}-64b/usr/include/fmd/integrations -D $SOC -D NCSW_LINUX"
+export FMLIB_LDFLAGS="-L $PWD/../build_${board}-64b_release/tmp/sysroots/${board}-64b/usr/lib64 -lfm"
 export EXTRA_LDFLAGS="-L $(${CROSS_COMPILE}gcc -print-sysroot)/usr/lib"
-unset -v OLD_OPTIND board PKG_CONFIG_SYSROOT_DIR PKG_CONFIG_LIBDIR PKG_CONFIG_ALLOW_SYSTEM_LIBS
+unset -v OLD_OPTIND board SOC PKG_CONFIG_SYSROOT_DIR PKG_CONFIG_LIBDIR PKG_CONFIG_ALLOW_SYSTEM_LIBS
