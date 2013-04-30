@@ -43,7 +43,16 @@
  *  SEC4.0
  */
 struct ref_vector_s {
-	uint8_t *key;
+	union {
+		uintptr_t key;			/**< Used when the key contents
+						     are supposed to be copied
+						     by RTA as immediate in the
+						     created descriptor. */
+		dma_addr_t dma_addr_key;	/**< Used when a pointer to
+						     the key is supposed to be
+						     used as-is by RTA in the
+						     created descriptor. */
+	};
 	union {
 		uint8_t *init_vec;
 		struct {

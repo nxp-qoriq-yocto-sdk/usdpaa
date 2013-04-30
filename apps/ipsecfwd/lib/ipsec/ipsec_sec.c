@@ -70,11 +70,11 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 	pdb.hmo = PDBHMO_DTTL;
 
 	cipher.algtype = sa->ealg->alg_type;
-	cipher.key = (uint8_t *)sa->ealg->alg_key;
+	cipher.key = (uintptr_t)sa->ealg->alg_key;
 	cipher.keylen = sa->ealg->alg_key_len;
 
 	auth.algtype = sa->aalg->alg_type;
-	auth.key = (uint8_t *)sa->aalg->alg_key_ptr;
+	auth.key = (uintptr_t)sa->aalg->alg_key_ptr;
 	auth.keylen = sa->aalg->alg_key_len;
 
 	/* Now construct */
@@ -128,11 +128,11 @@ void
 			 PDBOPTS_ESPCBC_ARSNONE;
 
 	cipher.algtype = sa->ealg->alg_type;
-	cipher.key = (uint8_t *)sa->ealg->alg_key;
+	cipher.key = (uintptr_t)sa->ealg->alg_key;
 	cipher.keylen = sa->ealg->alg_key_len;
 
 	auth.algtype = sa->aalg->alg_type;
-	auth.key = (uint8_t *)sa->aalg->alg_key_ptr;
+	auth.key = (uintptr_t)sa->aalg->alg_key_ptr;
 	auth.keylen = sa->aalg->alg_key_len;
 
 	/* Now construct */

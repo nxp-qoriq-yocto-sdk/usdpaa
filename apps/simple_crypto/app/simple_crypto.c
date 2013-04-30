@@ -61,7 +61,8 @@ enum rta_sec_era rta_sec_era = RTA_SEC_ERA_2;
 void init_rtv_aes_cbc(struct test_param crypto_info)
 {
 	strcpy(algorithm, "AES_CBC");
-	ref_test_vector.key = aes_cbc_reference_key[crypto_info.test_set - 1];
+	ref_test_vector.key =
+		(uintptr_t)aes_cbc_reference_key[crypto_info.test_set - 1];
 	ref_test_vector.iv.init_vec =
 	    aes_cbc_reference_iv[crypto_info.test_set - 1];
 	ref_test_vector.length =
@@ -81,7 +82,8 @@ void init_rtv_aes_cbc(struct test_param crypto_info)
 void init_rtv_tdes_cbc(struct test_param crypto_info)
 {
 	strcpy(algorithm, "TDES_CBC");
-	ref_test_vector.key = tdes_cbc_reference_key[crypto_info.test_set - 1];
+	ref_test_vector.key =
+		(uintptr_t)tdes_cbc_reference_key[crypto_info.test_set - 1];
 	ref_test_vector.iv.init_vec =
 	    tdes_cbc_reference_iv[crypto_info.test_set - 1];
 	ref_test_vector.length =
@@ -101,7 +103,8 @@ void init_rtv_tdes_cbc(struct test_param crypto_info)
 void init_rtv_snow_f8(struct test_param crypto_info)
 {
 	strcpy(algorithm, "SNOW_F8");
-	ref_test_vector.key = snow_f8_reference_key[crypto_info.test_set - 1];
+	ref_test_vector.key =
+		(uintptr_t)snow_f8_reference_key[crypto_info.test_set - 1];
 	ref_test_vector.iv.f8.count =
 	    snow_f8_reference_count[crypto_info.test_set - 1];
 	ref_test_vector.iv.f8.bearer =
@@ -125,7 +128,8 @@ void init_rtv_snow_f8(struct test_param crypto_info)
 void init_rtv_snow_f9(struct test_param crypto_info)
 {
 	strcpy(algorithm, "SNOW_F9");
-	ref_test_vector.key = snow_f9_reference_key[crypto_info.test_set - 1];
+	ref_test_vector.key =
+		(uintptr_t)snow_f9_reference_key[crypto_info.test_set - 1];
 	ref_test_vector.iv.f9.count =
 	    snow_f9_reference_count[crypto_info.test_set - 1];
 	ref_test_vector.iv.f9.fresh =
@@ -151,7 +155,8 @@ void init_rtv_snow_f9(struct test_param crypto_info)
 void init_rtv_kasumi_f8(struct test_param crypto_info)
 {
 	strcpy(algorithm, "KASUMI_F8");
-	ref_test_vector.key = kasumi_f8_reference_key[crypto_info.test_set - 1];
+	ref_test_vector.key =
+		(uintptr_t)kasumi_f8_reference_key[crypto_info.test_set - 1];
 	ref_test_vector.iv.f8.count =
 	    kasumi_f8_reference_count[crypto_info.test_set - 1];
 	ref_test_vector.iv.f8.bearer =
@@ -175,7 +180,8 @@ void init_rtv_kasumi_f8(struct test_param crypto_info)
 void init_rtv_kasumi_f9(struct test_param crypto_info)
 {
 	strcpy(algorithm, "KASUMI_F9");
-	ref_test_vector.key = kasumi_f9_reference_key[crypto_info.test_set - 1];
+	ref_test_vector.key =
+		(uintptr_t)kasumi_f9_reference_key[crypto_info.test_set - 1];
 	ref_test_vector.iv.f9.count =
 	    kasumi_f9_reference_count[crypto_info.test_set - 1];
 	ref_test_vector.iv.f9.fresh =
@@ -218,7 +224,8 @@ void init_rtv_crc(struct test_param crypto_info)
 void init_rtv_hmac_sha1(struct test_param crypto_info)
 {
 	strcpy(algorithm, "HMAC_SHA1");
-	ref_test_vector.key = hmac_sha1_reference_key[crypto_info.test_set - 1];
+	ref_test_vector.key =
+		(uintptr_t)hmac_sha1_reference_key[crypto_info.test_set - 1];
 	ref_test_vector.length =
 	    hamc_sha1_reference_length[crypto_info.test_set - 1];
 	ref_test_vector.plaintext =
@@ -436,6 +443,7 @@ void *setup_sec_descriptor(bool mode, void *params)
 static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 {
 	struct sec_descriptor_t *prehdr_desc;
+	struct alginfo alginfo;
 	uint32_t *shared_desc = NULL;
 	unsigned shared_desc_len;
 	int i, length;
@@ -453,8 +461,10 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 
 	switch (crypto_info.algo) {
 	case AES_CBC:
+		alginfo.key = ref_test_vector.key;
+		alginfo.keylen = AES_CBC_KEY_LEN;
 		cnstr_shdsc_cbc_blkcipher(shared_desc, &shared_desc_len,
-					  ref_test_vector.key, AES_CBC_KEY_LEN,
+					  &alginfo,
 					  ref_test_vector.iv.init_vec,
 					  AES_CBC_IV_LEN,
 					  mode ? DIR_ENC : DIR_DEC,
@@ -462,8 +472,10 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 		break;
 
 	case TDES_CBC:
+		alginfo.key = ref_test_vector.key;
+		alginfo.keylen = TDES_CBC_KEY_LEN;
 		cnstr_shdsc_cbc_blkcipher(shared_desc, &shared_desc_len,
-					  ref_test_vector.key, TDES_CBC_KEY_LEN,
+					  &alginfo,
 					  ref_test_vector.iv.init_vec,
 					  TDES_CBC_IV_LEN,
 					  mode ? DIR_ENC : DIR_DEC,
@@ -471,8 +483,10 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 		break;
 
 	case SNOW_F8:
+		alginfo.key = ref_test_vector.key;
+		alginfo.keylen = F8_KEY_LEN;
 		cnstr_shdsc_snow_f8(shared_desc, &shared_desc_len,
-				    ref_test_vector.key, F8_KEY_LEN,
+				    &alginfo,
 				    mode ? DIR_ENC : DIR_DEC,
 				    ref_test_vector.iv.f8.count,
 				    ref_test_vector.iv.f8.bearer,
@@ -491,16 +505,20 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 		else
 			length = crypto_info.buf_size * BITS_PER_BYTE;
 
+		alginfo.key = ref_test_vector.key;
+		alginfo.keylen = F9_KEY_LEN;
 		cnstr_shdsc_snow_f9(shared_desc, &shared_desc_len,
-				    ref_test_vector.key, F9_KEY_LEN,
+				    &alginfo,
 				    DIR_ENC, ref_test_vector.iv.f9.count,
 				    ref_test_vector.iv.f9.fresh,
 				    ref_test_vector.iv.f9.direction, length);
 		break;
 
 	case KASUMI_F8:
+		alginfo.key = ref_test_vector.key;
+		alginfo.keylen = F8_KEY_LEN;
 		cnstr_shdsc_kasumi_f8(shared_desc, &shared_desc_len,
-				      ref_test_vector.key, F8_KEY_LEN,
+				      &alginfo,
 				      mode ? DIR_ENC : DIR_DEC,
 				      ref_test_vector.iv.f8.count,
 				      ref_test_vector.iv.f8.bearer,
@@ -519,8 +537,10 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 		else
 			length = crypto_info.buf_size * BITS_PER_BYTE;
 
+		alginfo.key = ref_test_vector.key;
+		alginfo.keylen = F9_KEY_LEN;
 		cnstr_shdsc_kasumi_f9(shared_desc, &shared_desc_len,
-				      ref_test_vector.key, F9_KEY_LEN,
+				      &alginfo,
 				      DIR_ENC, ref_test_vector.iv.f9.count,
 				      ref_test_vector.iv.f9.fresh,
 				      ref_test_vector.iv.f9.direction, length);
@@ -543,8 +563,9 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 			return NULL;
 		}
 
-		cnstr_shdsc_hmac(shared_desc, &shared_desc_len,
-				 ref_test_vector.key, OP_ALG_ALGSEL_SHA1, NULL);
+		alginfo.algtype = OP_ALG_ALGSEL_SHA1;
+		alginfo.key = ref_test_vector.key;
+		cnstr_shdsc_hmac(shared_desc, &shared_desc_len, &alginfo, NULL);
 		break;
 
 	default:

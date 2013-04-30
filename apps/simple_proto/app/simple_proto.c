@@ -57,7 +57,8 @@ static unsigned do_decap = 1;
 void init_rtv_macsec_gcm_128(struct test_param *crypto_info)
 {
 	strcpy(protocol, "MACsec");
-	ref_test_vector.key = macsec_reference_key[crypto_info->test_set - 1];
+	ref_test_vector.key =
+		(uintptr_t)macsec_reference_key[crypto_info->test_set - 1];
 
 	/* set the MACsec pdb params for test */
 	ref_test_vector.pdb.macsec.ethertype =
@@ -82,8 +83,8 @@ void init_rtv_macsec_gcm_128(struct test_param *crypto_info)
 void init_rtv_wimax_aes_ccm_128(struct test_param *crypto_info)
 {
 	strcpy(protocol, "WIMAX");
-	ref_test_vector.key = (uint8_t *)malloc(WIMAX_KEY_SIZE);
-	memcpy(ref_test_vector.key,
+	ref_test_vector.key = (uintptr_t)malloc(WIMAX_KEY_SIZE);
+	memcpy((uint8_t *)(uintptr_t)ref_test_vector.key,
 	       wimax_reference_key[crypto_info->test_set - 1],
 	       WIMAX_KEY_SIZE);
 
@@ -186,11 +187,11 @@ void init_rtv_pdcp_c_plane(struct test_param *crypto_info)
 	memcpy(authkey, pdcp_test_auth_key[proto], PDCP_MAX_KEY_LEN);
 
 	ref_test_vector.cipher_alg = pdcp_test_params[proto].cipher_algorithm;
-	ref_test_vector.key = __dma_mem_vtop(cipherkey);
+	ref_test_vector.dma_addr_key = __dma_mem_vtop(cipherkey);
 	ref_test_vector.cipher_keylen = PDCP_MAX_KEY_LEN;
 
 	ref_test_vector.auth_alg = pdcp_test_params[proto].integrity_algorithm;
-	ref_test_vector.auth_key = __dma_mem_vtop(authkey);
+	ref_test_vector.dma_addr_auth_key = __dma_mem_vtop(authkey);
 	ref_test_vector.auth_keylen = PDCP_MAX_KEY_LEN;
 
 	ref_test_vector.pdb.pdcp.bearer = pdcp_test_bearer[proto];
@@ -221,7 +222,7 @@ void init_rtv_pdcp_u_plane(struct test_param *crypto_info)
 	memcpy(cipherkey, pdcp_test_crypto_key[proto], PDCP_MAX_KEY_LEN);
 
 	ref_test_vector.cipher_alg = pdcp_test_params[proto].cipher_algorithm;
-	ref_test_vector.key = __dma_mem_vtop(cipherkey);
+	ref_test_vector.dma_addr_key = __dma_mem_vtop(cipherkey);
 	ref_test_vector.cipher_keylen = PDCP_MAX_KEY_LEN;
 
 	ref_test_vector.pdb.pdcp.bearer = pdcp_test_bearer[proto];
@@ -253,7 +254,7 @@ void init_rtv_pdcp_short_mac(struct test_param *crypto_info)
 
 	ref_test_vector.auth_alg = pdcp_test_params[proto].integrity_algorithm;
 
-	ref_test_vector.auth_key = __dma_mem_vtop(authkey);
+	ref_test_vector.dma_addr_auth_key = __dma_mem_vtop(authkey);
 	ref_test_vector.auth_keylen = PDCP_MAX_KEY_LEN;
 
 	if (CIPHER == crypto_info->mode) {
@@ -566,6 +567,7 @@ static int set_buf_size(struct test_param *crypto_info)
 static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 {
 	struct sec_descriptor_t *prehdr_desc;
+	struct alginfo alginfo;
 	uint32_t *shared_desc = NULL;
 	unsigned shared_desc_len;
 	int i;
@@ -584,11 +586,12 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 
 	switch (crypto_info->proto) {
 	case MACSEC:
+		alginfo.key = ref_test_vector.key;
+		alginfo.keylen = MACSEC_KEY_SIZE;
 		if (ENCRYPT == mode)
 			cnstr_shdsc_macsec_encap(shared_desc,
 						 &shared_desc_len,
-						 ref_test_vector.key,
-						 MACSEC_KEY_SIZE,
+						 &alginfo,
 						 ref_test_vector.pdb.macsec.sci,
 						 ref_test_vector.pdb.macsec.
 						 ethertype,
@@ -599,35 +602,29 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 		else
 			cnstr_shdsc_macsec_decap(shared_desc,
 						 &shared_desc_len,
-						 ref_test_vector.key,
-						 MACSEC_KEY_SIZE,
+						 &alginfo,
 						 ref_test_vector.pdb.macsec.sci,
 						 ref_test_vector.pdb.macsec.pn);
 		macsec_set_pn_constant(shared_desc, &shared_desc_len);
 		break;
 	case WIMAX:
+		alginfo.key = ref_test_vector.key;
+		alginfo.keylen = WIMAX_KEY_SIZE;
 		if (ENCRYPT == mode)
 			cnstr_shdsc_wimax_encap(shared_desc,
-						&shared_desc_len,
-						ref_test_vector.pdb.wimax.
-						encap_opts,
-						ref_test_vector.pdb.wimax.pn,
-						ref_test_vector.flags.wimax.
-						protinfo,
-						ref_test_vector.key,
-						WIMAX_KEY_SIZE);
+					&shared_desc_len,
+					ref_test_vector.pdb.wimax.encap_opts,
+					ref_test_vector.pdb.wimax.pn,
+					ref_test_vector.flags.wimax.protinfo,
+					&alginfo);
 		else
 			cnstr_shdsc_wimax_decap(shared_desc,
-						&shared_desc_len,
-						ref_test_vector.pdb.wimax.
-						decap_opts,
-						ref_test_vector.pdb.wimax.pn,
-						ref_test_vector.pdb.wimax.
-						ar_len,
-						ref_test_vector.flags.wimax.
-						protinfo,
-						ref_test_vector.key,
-						WIMAX_KEY_SIZE);
+					&shared_desc_len,
+					ref_test_vector.pdb.wimax.decap_opts,
+					ref_test_vector.pdb.wimax.pn,
+					ref_test_vector.pdb.wimax.ar_len,
+					ref_test_vector.flags.wimax.protinfo,
+					&alginfo);
 		break;
 
 	case PDCP_CTRL_PLANE_AES_CTR_AES_CMAC_UL:
@@ -667,12 +664,12 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 				ref_test_vector.pdb.pdcp.hfn_threshold,
 				(struct alginfo *)&((struct alginfo){
 					ref_test_vector.cipher_alg,
-					ref_test_vector.key,
+					ref_test_vector.dma_addr_key,
 					ref_test_vector.cipher_keylen
 				}),
 				(struct alginfo *)&((struct alginfo){
 					ref_test_vector.auth_alg,
-					ref_test_vector.auth_key,
+					ref_test_vector.dma_addr_auth_key,
 					ref_test_vector.auth_keylen
 				}),
 				0);
@@ -690,12 +687,12 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 				ref_test_vector.pdb.pdcp.hfn_threshold,
 				(struct alginfo *)&((struct alginfo){
 					ref_test_vector.cipher_alg,
-					ref_test_vector.key,
+					ref_test_vector.dma_addr_key,
 					ref_test_vector.cipher_keylen
 				}),
 				(struct alginfo *)&((struct alginfo){
 					ref_test_vector.auth_alg,
-					ref_test_vector.auth_key,
+					ref_test_vector.dma_addr_auth_key,
 					ref_test_vector.auth_keylen
 				}),
 				0);
@@ -731,7 +728,7 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 				ref_test_vector.pdb.pdcp.hfn_threshold,
 				(struct alginfo *)&((struct alginfo){
 					ref_test_vector.cipher_alg,
-					ref_test_vector.key,
+					ref_test_vector.dma_addr_key,
 					ref_test_vector.cipher_keylen
 				}),
 				0);
@@ -750,7 +747,7 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 				ref_test_vector.pdb.pdcp.hfn_threshold,
 				(struct alginfo *)&((struct alginfo){
 				ref_test_vector.cipher_alg,
-				ref_test_vector.key,
+				ref_test_vector.dma_addr_key,
 				ref_test_vector.cipher_keylen
 			}),
 			0);
@@ -770,7 +767,7 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 				1,
 				(struct alginfo *)&((struct alginfo){
 					ref_test_vector.auth_alg,
-					ref_test_vector.auth_key,
+					ref_test_vector.dma_addr_auth_key,
 					ref_test_vector.auth_keylen
 				}));
 		break;
