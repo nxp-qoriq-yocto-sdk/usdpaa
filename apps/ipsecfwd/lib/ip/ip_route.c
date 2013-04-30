@@ -82,7 +82,7 @@ enum IP_STATUS ip_route_input(const struct ppam_rx_hash *ctxt,
 	{
 		struct ipsec_tunnel_t *entry;
 		esp_hdr =
-			(struct ipsec_esp_hdr_t *)((uint32_t) ip_hdr +
+			(struct ipsec_esp_hdr_t *)((uintptr_t) ip_hdr +
 					   sizeof(struct iphdr));
 		pr_debug("%s: Pkt src = %x, dst = %x and spi = %x\n", __func__,
 		ip_hdr->saddr, ip_hdr->daddr, esp_hdr->spi);
