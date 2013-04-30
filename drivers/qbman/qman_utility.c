@@ -95,7 +95,7 @@ EXPORT_SYMBOL(qman_fqid_pool_destroy);
 
 int qman_fqid_pool_alloc(struct qman_fqid_pool *pool, u32 *fqid)
 {
-	int ret;
+	int ret __maybe_unused;
 	if (pool->used == pool->total)
 		return -ENOMEM;
 	*fqid = pool->fqid_base + pool->next;
@@ -113,7 +113,7 @@ EXPORT_SYMBOL(qman_fqid_pool_alloc);
 
 void qman_fqid_pool_free(struct qman_fqid_pool *pool, u32 fqid)
 {
-	int ret;
+	int ret __maybe_unused;
 
 	fqid -= pool->fqid_base;
 	ret = test_and_clear_bit(fqid, pool->bits);
