@@ -97,6 +97,9 @@ do { \
 do { \
 	*(volatile unsigned int *)(p) = (v); \
 } while (0)
+#ifdef ARRAY_SIZE
+#undef ARRAY_SIZE
+#endif
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 #if defined(__powerpc64__)
 #define CONFIG_PPC64

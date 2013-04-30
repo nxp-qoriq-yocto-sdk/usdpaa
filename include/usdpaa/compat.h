@@ -105,6 +105,9 @@ static inline compat_uptr_t ptr_to_compat(void __user *uptr)
 
 #define BUG()	abort()
 #ifdef CONFIG_BUGON
+#ifdef pr_debug
+#undef pr_debug
+#endif
 #define pr_debug(fmt, args...)	printf(fmt, ##args)
 #define BUG_ON(c) \
 do { \
@@ -120,6 +123,9 @@ do { \
 	exit(EXIT_FAILURE); \
 } while(0)
 #else
+#ifdef pr_debug
+#undef pr_debug
+#endif
 #define pr_debug(fmt, args...)	do { ; } while(0)
 #define BUG_ON(c)		do { ; } while(0)
 #define might_sleep_if(c)	do { ; } while(0)
