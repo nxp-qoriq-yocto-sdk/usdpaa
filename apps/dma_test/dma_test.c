@@ -258,12 +258,12 @@ int main(int argc, char *argv[])
 	}
 	dma_mem_generic = dma_mem_create(flags, share_name, len);
 	if (!dma_mem_generic) {
-		fprintf(stderr, "Mapping %s:0x%x:0x%x failed\n",
+		fprintf(stderr, "Mapping %s:0x%x:0x%zx failed\n",
 			share_name ? share_name : "<private>", flags, len);
 		exit(EXIT_FAILURE);
 	}
 	dma_mem_params(dma_mem_generic, &flags, &share_name, &len);
-	printf("Mapped \"%s\":0x%x:0x%x\n", share_name, flags, len);
+	printf("Mapped \"%s\":0x%x:0x%zx\n", share_name, flags, len);
 	/* Go in to CLI loop */
 	while (1) {
 		char *cli = readline(prompt);
