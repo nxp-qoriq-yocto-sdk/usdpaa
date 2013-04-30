@@ -241,7 +241,7 @@ void dma_mem_print(struct dma_mem *map)
 	p_numbufs = get_numbufs(map);
 	numbufs = *p_numbufs;
 	buf = get_bufinfo(map, numbufs - 1);
-	printf("Map %p: v=%p,p=%llx,sz=0x%x,bufs=0x%x\n", map, map->addr.virt,
+	printf("Map %p: v=%p,p=%"PRIu64",sz=0x%zx,bufs=0x%x\n", map, map->addr.virt,
 	       map->addr.phys, map->sz, numbufs);
 	for (idx = 0, buf = get_bufinfo(map, idx); idx < numbufs; buf--, idx++)
 		printf("  [0x%x-0x%x] len=0x%x, bufinfo=%p\n",
