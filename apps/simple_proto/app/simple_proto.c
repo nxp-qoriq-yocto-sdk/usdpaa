@@ -44,7 +44,7 @@ uint8_t pdb_opts;       /**< Protocol Data Block Options */
 
 uint16_t pdb_ar_len;    /**< Protocol Data Block Anti-Replay Length */
 
-static unsigned do_decap = 1;
+static unsigned authnct = 0; /**< By default, do both encrypt & decrypt */
 
 /***********************************************/
 
@@ -208,8 +208,6 @@ void init_rtv_pdcp_c_plane(struct test_param *crypto_info)
 		ref_test_vector.plaintext = pdcp_test_data_in[proto];
 		ref_test_vector.ciphertext = pdcp_test_data_out[proto];
 	}
-
-	do_decap = 0;
 }
 
 void init_rtv_pdcp_u_plane(struct test_param *crypto_info)
@@ -239,7 +237,6 @@ void init_rtv_pdcp_u_plane(struct test_param *crypto_info)
 		ref_test_vector.plaintext = pdcp_test_data_in[proto];
 		ref_test_vector.ciphertext = pdcp_test_data_out[proto];
 	}
-	do_decap = 0;
 }
 
 void init_rtv_pdcp_short_mac(struct test_param *crypto_info)
@@ -264,7 +261,7 @@ void init_rtv_pdcp_short_mac(struct test_param *crypto_info)
 		ref_test_vector.ciphertext = pdcp_test_data_out[proto];
 	}
 
-	do_decap = 1;
+	authnct = 1;
 }
 
 /**
@@ -1622,7 +1619,7 @@ inline enum test_mode get_test_mode(void *params)
  */
 inline uint8_t requires_authentication(void)
 {
-	return do_decap;
+	return authnct;
 }
 
 /**
