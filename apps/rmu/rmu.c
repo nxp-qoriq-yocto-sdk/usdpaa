@@ -362,9 +362,9 @@ static int fsl_rmu_msg_txbuff_set(struct rmu_ring *ring,
 	uint32_t i;
 	uint8_t *setbuff;
 
-	printf("\ttxbuff %d; virt addr:%x; phy addr:%x\n", slot,
-			(uint32_t)(ring->virt + slot * ring->cell_size),
-			(uint32_t)(ring->phys + slot * ring->cell_size));
+	printf("\ttxbuff %d; virt addr:%p; phy addr:%"PRIu64"\n", slot,
+			(ring->virt + slot * ring->cell_size),
+			(ring->phys + slot * ring->cell_size));
 	setbuff = (uint8_t *)(ring->virt + slot * ring->cell_size);
 	for (i = 0; i < len; i++)
 		*(setbuff + i) = data;
@@ -379,12 +379,12 @@ static int fsl_rmu_msg_txbuff_print(struct rmu_ring *ring,
 	uint32_t i;
 	uint32_t *data;
 
-	printf("\ttxbuff %d; virt addr:%x; phy addr:%x\n", slot,
-			(uint32_t)(ring->virt + slot * ring->cell_size),
+	printf("\ttxbuff %d; virt addr:%p; phy addr:%x\n", slot,
+			(ring->virt + slot * ring->cell_size),
 			(uint32_t)(ring->phys + slot * ring->cell_size));
 	data = (uint32_t *)(ring->virt + slot * ring->cell_size);
 	for (i = 0; i < len/4; i += 4) {
-		printf("\t%08x:", (uint32_t)(data + i));
+		printf("\t%p:", (data + i));
 		printf(" %08x %08x %08x %08x\n",
 			*(data + i), *(data + i + 1),
 			*(data + i + 2), *(data + i + 3));
@@ -649,23 +649,21 @@ static int fsl_rmu_txdesc_print(uint32_t unit)
 		printf("ATTR: Msg%d Tx Desc ......\n", unit);
 		printf("\tcell size:%dbytes; entries:%d\n", desc->cell_size,
 					desc->entries);
-		printf("\tbase virt addr:%x; base phy addr:%x\n",
-					(uint32_t)desc->virt,
-					(uint32_t)desc->phys);
+		printf("\tbase virt addr:%p; base phy addr:%"PRIu64"\n",
+					desc->virt,
+					desc->phys);
 		printf("\n");
 		if (slot >= desc->entries) {
 			printf("\tall the desc:\n");
 			for (j = 0; j < desc->entries; j++) {
-				printf("\tdesc %d; virt addr:%x; phy addr:%x\n",
+				printf("\tdesc %d; virt addr:%p; phy addr:%"PRIu64"\n",
 					j,
-					(uint32_t)(desc->virt
-					+ j * desc->cell_size),
-					(uint32_t)(desc->phys
-					+ j * desc->cell_size));
+					(desc->virt + j * desc->cell_size),
+					(desc->phys + j * desc->cell_size));
 				data = (uint32_t *)(desc->virt
 					+ j * desc->cell_size);
 				for (i = 0; i < desc->cell_size/4; i += 4) {
-					printf("\t%08x:", (uint32_t)(data + i));
+					printf("\t%p:", (data + i));
 					printf(" %08x %08x %08x %08x\n",
 						*(data + i), *(data + i + 1),
 						*(data + i + 2),
@@ -673,15 +671,13 @@ static int fsl_rmu_txdesc_print(uint32_t unit)
 				}
 			}
 		} else {
-			printf("\tdesc %d; virt addr:%x; phy addr:%x\n", slot,
-				(uint32_t)(desc->virt
-				+ slot * desc->cell_size),
-				(uint32_t)(desc->phys
-				+ slot * desc->cell_size));
+			printf("\tdesc %d; virt addr:%p; phy addr:%"PRIu64"\n",
+			       slot, (desc->virt + slot * desc->cell_size),
+			       (desc->phys + slot * desc->cell_size));
 			data = (uint32_t *)(desc->virt
 				+ slot * desc->cell_size);
 			for (i = 0; i < desc->cell_size/4; i += 4) {
-				printf("\t%08x:", (uint32_t)(data + i));
+				printf("\t%p:", (data + i));
 				printf(" %08x %08x %08x %08x\n",
 					*(data + i), *(data + i + 1),
 					*(data + i + 2), *(data + i + 3));
@@ -720,23 +716,20 @@ static int fsl_rmu_txbuff_print(uint32_t unit)
 		printf("ATTR: Msg%d Tx buffer ......\n", unit);
 		printf("\tcell size:%dbytes; entries:%d\n", txbuff->cell_size,
 					txbuff->entries);
-		printf("\tbase virt addr:%x; base phy addr:%x\n",
-					(uint32_t)txbuff->virt,
-					(uint32_t)txbuff->phys);
+		printf("\tbase virt addr:%p; base phy addr:%"PRIu64"\n",
+			txbuff->virt, txbuff->phys);
 		printf("\n");
 		if (slot >= txbuff->entries) {
 			printf("\tall the Tx buffer:\n");
 			for (j = 0; j < txbuff->entries; j++) {
-				printf("\ttxbuff %d; virt addr:%x;"
-						"phy addr:%x\n", j,
-						(uint32_t)(txbuff->virt
-						+ j * txbuff->cell_size),
-						(uint32_t)(txbuff->phys
-						+ j * txbuff->cell_size));
+				printf("\ttxbuff %d; virt addr:%p;"
+				       "phy addr:%"PRIu64"\n", j,
+					(txbuff->virt + j * txbuff->cell_size),
+					(txbuff->phys + j * txbuff->cell_size));
 				data = (uint32_t *)(txbuff->virt
 					+ j * txbuff->cell_size);
 				for (i = 0; i < txbuff->cell_size/4; i += 4) {
-					printf("\t%08x:", (uint32_t)(data + i));
+					printf("\t%p:", (data + i));
 					printf(" %08x %08x %08x %08x\n",
 						*(data + i), *(data + i + 1),
 						*(data + i + 2),
@@ -744,15 +737,13 @@ static int fsl_rmu_txbuff_print(uint32_t unit)
 				}
 			}
 		} else {
-			printf("\ttxbuff %d; virt addr:%x; phy addr:%x\n", slot,
-					(uint32_t)(txbuff->virt
-					+ slot * txbuff->cell_size),
-					(uint32_t)(txbuff->phys
-					+ slot * txbuff->cell_size));
+			printf("\ttxbuff %d; virt addr:%p; phy addr:%"PRIu64"\n", slot,
+					(txbuff->virt + slot * txbuff->cell_size),
+					(txbuff->phys + slot * txbuff->cell_size));
 			data = (uint32_t *)(txbuff->virt
 				+ slot * txbuff->cell_size);
 			for (i = 0; i < txbuff->cell_size/4; i += 4) {
-				printf("\t%08x:", (uint32_t)(data + i));
+				printf("\t%p:", (data + i));
 				printf(" %08x %08x %08x %08x\n",
 					*(data + i), *(data + i + 1),
 					*(data + i + 2), *(data + i + 3));
@@ -796,34 +787,31 @@ static int fsl_rmu_rxbuff_print(uint32_t unit)
 	}
 	printf("\tcell size:%dbytes; entries:%d\n",
 				rxbuff->cell_size, rxbuff->entries);
-	printf("\tbase virt addr:%x; base phy addr:%x\n",
-				(uint32_t)rxbuff->virt,
-				(uint32_t)rxbuff->phys);
+	printf("\tbase virt addr:%p; base phy addr:%"PRIu64"\n",
+				rxbuff->virt, rxbuff->phys);
 	printf("\n");
 	if (slot >= rxbuff->entries) {
 		printf("\tall the Rx buffer:\n");
 		for (j = 0; j < rxbuff->entries; j++) {
-			printf("\trxbuff %d; virt addr:%x; phy addr:%x\n", j,
-					(uint32_t)(rxbuff->virt
-					+ j * rxbuff->cell_size),
-					(uint32_t)(rxbuff->phys
-					+ j * rxbuff->cell_size));
+			printf("\trxbuff %d; virt addr:%p; phy addr:%"PRIu64"\n", j,
+					(rxbuff->virt + j * rxbuff->cell_size),
+					(rxbuff->phys + j * rxbuff->cell_size));
 			data = (uint32_t *)(rxbuff->virt
 				+ j * rxbuff->cell_size);
 			for (i = 0; i < rxbuff->cell_size/4; i += 4) {
-				printf("\t%08x:", (uint32_t)(data + i));
+				printf("\t%p:", (data + i));
 				printf(" %08x %08x %08x %08x\n",
 					*(data + i), *(data + i + 1),
 					*(data + i + 2), *(data + i + 3));
 			}
 		}
 	} else {
-		printf("\trxbuff %d; virt addr:%x; phy addr:%x\n", slot,
-			(uint32_t)(rxbuff->virt + slot * rxbuff->cell_size),
-			(uint32_t)(rxbuff->phys + slot * rxbuff->cell_size));
+		printf("\trxbuff %d; virt addr:%p; phy addr:%"PRIu64"\n", slot,
+			(rxbuff->virt + slot * rxbuff->cell_size),
+			(rxbuff->phys + slot * rxbuff->cell_size));
 		data = (uint32_t *)(rxbuff->virt + slot * rxbuff->cell_size);
 		for (i = 0; i < rxbuff->cell_size/4; i += 4) {
-			printf("\t%08x:", (uint32_t)(data + i));
+			printf("\t%p:", (data + i));
 			printf(" %08x %08x %08x %08x\n",
 				*(data + i), *(data + i + 1),
 				*(data + i + 2), *(data + i + 3));
@@ -1118,9 +1106,9 @@ int main(int argc, char *argv[])
 			printf("\tcell size:%dbytes; entries:%d\n",
 						resource.msg0desc->cell_size,
 						resource.msg0desc->entries);
-			printf("\tbase virt addr:%x; base phy addr:%x\n",
-					(uint32_t)resource.msg0desc->virt,
-					(uint32_t)resource.msg0desc->phys);
+			printf("\tbase virt addr:%p; base phy addr:%"PRIu64"\n",
+					resource.msg0desc->virt,
+					resource.msg0desc->phys);
 		}
 
 		/* init msg0txbuff for tx */
@@ -1137,9 +1125,9 @@ int main(int argc, char *argv[])
 			printf("\tcell size:%dbytes; entries:%d\n",
 						resource.msg0txbuff->cell_size,
 						resource.msg0txbuff->entries);
-			printf("\tbase virt addr:%x; base phy addr:%x\n",
-					(uint32_t)resource.msg0txbuff->virt,
-					(uint32_t)resource.msg0txbuff->phys);
+			printf("\tbase virt addr:%p; base phy addr:%"PRIu64"\n",
+					resource.msg0txbuff->virt,
+					resource.msg0txbuff->phys);
 		}
 
 		/* init msg0rxbuff for rx */
@@ -1158,9 +1146,9 @@ int main(int argc, char *argv[])
 			printf("\tcell size:%dbytes; entries:%d\n",
 						resource.msg0rxbuff->cell_size,
 						resource.msg0rxbuff->entries);
-			printf("\tbase virt addr:%x; base phy addr:%x\n",
-					(uint32_t)resource.msg0rxbuff->virt,
-					(uint32_t)resource.msg0rxbuff->phys);
+			printf("\tbase virt addr:%p; base phy addr:%"PRIu64"\n",
+					resource.msg0rxbuff->virt,
+					resource.msg0rxbuff->phys);
 		}
 	}
 
@@ -1187,9 +1175,9 @@ int main(int argc, char *argv[])
 			printf("\tcell size:%dbytes; entries:%d\n",
 						resource.msg1desc->cell_size,
 						resource.msg1desc->entries);
-			printf("\tbase virt addr:%x; base phy addr:%x\n",
-					(uint32_t)resource.msg1desc->virt,
-					(uint32_t)resource.msg1desc->phys);
+			printf("\tbase virt addr:%p; base phy addr:%"PRIu64"\n",
+					resource.msg1desc->virt,
+					resource.msg1desc->phys);
 		}
 
 		/* init msg1txbuff for tx */
@@ -1206,9 +1194,9 @@ int main(int argc, char *argv[])
 			printf("\tcell size:%dbytes; entries:%d\n",
 						resource.msg1txbuff->cell_size,
 						resource.msg1txbuff->entries);
-			printf("\tbase virt addr:%x; base phy addr:%x\n",
-					(uint32_t)resource.msg1txbuff->virt,
-					(uint32_t)resource.msg1txbuff->phys);
+			printf("\tbase virt addr:%p; base phy addr:%"PRIu64"\n",
+					resource.msg1txbuff->virt,
+					resource.msg1txbuff->phys);
 		}
 
 		/* init msg1rxbuff for rx */
@@ -1227,9 +1215,9 @@ int main(int argc, char *argv[])
 			printf("\tcell size:%dbytes; entries:%d\n",
 						resource.msg1rxbuff->cell_size,
 						resource.msg1rxbuff->entries);
-			printf("\tbase virt addr:%x; base phy addr:%x\n",
-					(uint32_t)resource.msg1rxbuff->virt,
-					(uint32_t)resource.msg1rxbuff->phys);
+			printf("\tbase virt addr:%p; base phy addr:%"PRIu64"\n",
+					resource.msg1rxbuff->virt,
+					resource.msg1rxbuff->phys);
 		}
 	}
 
@@ -1259,9 +1247,9 @@ int main(int argc, char *argv[])
 			printf("\tcell size:%dbytes; entries:%d\n",
 					resource.dbellrxbuff->cell_size,
 					resource.dbellrxbuff->entries);
-			printf("\tbase virt addr:%x; base phy addr:%x\n",
-					(uint32_t)resource.dbellrxbuff->virt,
-					(uint32_t)resource.dbellrxbuff->phys);
+			printf("\tbase virt addr:%p; base phy addr:%"PRIu64"\n",
+					resource.dbellrxbuff->virt,
+					resource.dbellrxbuff->phys);
 		}
 	}
 
