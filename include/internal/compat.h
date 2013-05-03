@@ -33,6 +33,8 @@
 #ifndef HEADER_COMPAT_H
 #define HEADER_COMPAT_H
 
+#include <sched.h>
+
 #include <usdpaa/compat.h>
 
 /* <usdpaa/compat.h> already includes system headers and definitions required

@@ -30,7 +30,6 @@
  */
 
 /* System headers */
-#define _GNU_SOURCE
 #include <unistd.h>
 #include <stdlib.h>
 #include <limits.h>
