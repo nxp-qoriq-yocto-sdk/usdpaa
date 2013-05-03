@@ -141,7 +141,8 @@ void cb_ern(struct qman_portal *qm __always_unused,
 	    struct qman_fq *fq,
 	    const struct qm_mr_entry *msg)
 {
-	struct ppac_rx_hash *p = container_of(fq, struct ppac_rx_hash, fq);
+	struct ppac_rx_hash *p __maybe_unused;
+	p = container_of(fq, struct ppac_rx_hash, fq);
 	TRACE("Tx_ern: fqid=%d\tfd_status = 0x%08x\n", msg->ern.fqid,
 	      msg->ern.fd.status);
 	PRE_ORP(p->orp_fq, msg->ern.seqnum);
