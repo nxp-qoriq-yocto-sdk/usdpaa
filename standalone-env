@@ -48,6 +48,7 @@ board2soc()
                [pP]3041*) echo p3041;;
                [pP]4080*) echo p4080;;
                [pP]5020*) echo p5020;;
+               [bB]4860*) echo b4860;;
        esac
 }
 
