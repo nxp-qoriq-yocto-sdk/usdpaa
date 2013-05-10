@@ -233,7 +233,6 @@ int bman_global_init(void)
 	dn = of_find_compatible_node(NULL, NULL, "fsl,bman");
 	if (!dn) {
 		pr_err("No bman device node available\n");
-		return -ENODEV;
 	}
 
 	if (bman_init_ccsr(dn))
