@@ -77,9 +77,13 @@ CFLAGS		+= -I$(TOP_LEVEL)/include $(addprefix -I,$($(ARCH)_SPEC_INC_PATH))
 CFLAGS		+= -DPACKAGE_VERSION=\"$(shell git describe --always --dirty 2>/dev/null || echo n/a)\" -D_GNU_SOURCE
 CFLAGS		+= $(addprefix -D,$($(ARCH)_SPEC_DEFINE) $(EXTRA_DEFINE))
 CFLAGS		+= $($(ARCH)_SPEC_CFLAGS) $(EXTRA_CFLAGS)
+FMLIB_CFLAGS	:= $(FMLIB_EXTRA_CFLAGS) -D NCSW_LINUX
+FMC_CFLAGS	:= $(FMC_EXTRA_CFLAGS)
 LDFLAGS		:= -pthread -lm
 LDFLAGS		+= $(addprefix -L,$(LIB_DIR)) $(addprefix -L,$($(ARCH)_SPEC_LIB_PATH))
 LDFLAGS		+= $($(ARCH)_SPEC_LDFLAGS) $(EXTRA_LDFLAGS)
+FMLIB_LDFLAGS	:= $(FMLIB_EXTRA_LDFLAGS) -lfm
+FMC_LDFLAGS	:= $(FMC_EXTRA_LDFLAGS) -lfmc -lstdc++
 ARFLAGS		:= rcs
 INSTALL_FLAGS	?= -D
 INSTALL_BIN_FLAGS ?= --mode=755
