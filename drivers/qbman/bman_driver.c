@@ -60,6 +60,7 @@ static int __init fsl_bman_portal_init(void)
 	cpu_set_t cpuset;
 	struct bman_portal *portal;
 	int loop, ret;
+	struct usdpaa_ioctl_irq_map irq_map;
 
 	/* Verify the thread's cpu-affinity */
 	ret = pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t),
@@ -88,9 +89,8 @@ static int __init fsl_bman_portal_init(void)
 		return ret;
 	}
 	/* Make the portal's cache-[enabled|inhibited] regions */
-	pcfg.addr_virt[DPA_PORTAL_CE] = compat_ptr(map.addr.cena);
-	pcfg.addr_virt[DPA_PORTAL_CI] = compat_ptr(map.addr.cinh);
-	pcfg.public_cfg.irq = map.irq;
+	pcfg.addr_virt[DPA_PORTAL_CE] = map.addr.cena;
+	pcfg.addr_virt[DPA_PORTAL_CI] = map.addr.cinh;
 	pcfg.public_cfg.is_shared = 0;
 	bman_depletion_fill(&pcfg.public_cfg.mask);
 
@@ -108,7 +108,9 @@ static int __init fsl_bman_portal_init(void)
 		return -EBUSY;
 	}
 	/* Set the IRQ number */
-	process_portal_irq_map(fd, pcfg.public_cfg.irq);
+	irq_map.type = usdpaa_portal_bman;
+	irq_map.portal_cinh = map.addr.cinh;
+	process_portal_irq_map(fd, &irq_map);
 	return 0;
 }
 

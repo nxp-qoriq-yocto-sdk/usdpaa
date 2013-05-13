@@ -66,6 +66,7 @@ static int __init fsl_qman_portal_init(void)
 	cpu_set_t cpuset;
 	struct qman_portal *portal;
 	int loop, ret;
+	struct usdpaa_ioctl_irq_map irq_map;
 
 	/* Verify the thread's cpu-affinity */
 	ret = pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t),
@@ -88,6 +89,8 @@ static int __init fsl_qman_portal_init(void)
 		return -EINVAL;
 	}
 	/* Allocate and map a qman portal */
+
+
 	ret = process_portal_map(&map);
 	if (ret) {
 		error(0, ret, "process_portal_map()");
@@ -95,10 +98,10 @@ static int __init fsl_qman_portal_init(void)
 	}
 	pcfg.public_cfg.channel = map.channel;
 	pcfg.public_cfg.pools = map.pools;
-	pcfg.public_cfg.irq = map.irq;
+
 	/* Make the portal's cache-[enabled|inhibited] regions */
-	pcfg.addr_virt[DPA_PORTAL_CE] = compat_ptr(map.addr.cena);
-	pcfg.addr_virt[DPA_PORTAL_CI] = compat_ptr(map.addr.cinh);
+	pcfg.addr_virt[DPA_PORTAL_CE] = map.addr.cena;
+	pcfg.addr_virt[DPA_PORTAL_CI] = map.addr.cinh;
 
 
 	fd = open("/dev/fsl-usdpaa-irq", O_RDONLY);
@@ -118,7 +121,9 @@ static int __init fsl_qman_portal_init(void)
 		process_portal_unmap(&map.addr);
 		return -EBUSY;
 	}
-	process_portal_irq_map(fd, pcfg.public_cfg.irq);
+	irq_map.type = usdpaa_portal_qman;
+	irq_map.portal_cinh = map.addr.cinh;
+	process_portal_irq_map(fd, &irq_map);
 	return 0;
 }
 

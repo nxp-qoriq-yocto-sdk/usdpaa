@@ -229,11 +229,12 @@ int process_portal_unmap(struct usdpaa_portal_map *map)
 }
 
 #define USDPAA_IOCTL_PORTAL_IRQ_MAP \
-	_IOW(USDPAA_IOCTL_MAGIC, 0x09, uint32_t)
+	_IOW(USDPAA_IOCTL_MAGIC, 0x09, struct usdpaa_ioctl_irq_map)
 
-int process_portal_irq_map(int lfd, uint32_t irq)
+int process_portal_irq_map(int ifd, struct usdpaa_ioctl_irq_map *map)
 {
-	return ioctl(lfd, USDPAA_IOCTL_PORTAL_IRQ_MAP, irq);
+	map->fd = fd;
+	return ioctl(ifd, USDPAA_IOCTL_PORTAL_IRQ_MAP, map);
 }
 
 /* ioctl to query the amount of DMA memory used in the system */

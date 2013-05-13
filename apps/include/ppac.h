@@ -89,7 +89,7 @@
 /* Log CGR state-change notifications. Should only be defined during
  debugging */
 #undef PPAC_CSCN
-#undef PPAC_IDLE_IRQ		/* Block in interrupt-mode when idle */
+#define PPAC_IDLE_IRQ		/* Block in interrupt-mode when idle */
 #undef PPAC_TX_CONFIRM		/* Use Tx confirmation for all transmits */
 
 /* sanity check the application options for basic conflicts */

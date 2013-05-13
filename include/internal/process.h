@@ -121,13 +121,14 @@ int process_dma_unlock(void *ptr);
 /***************************************/
 /* Mapping and using QMan/BMan portals */
 /***************************************/
-
+enum usdpaa_portal_type {
+	usdpaa_portal_qman,
+	usdpaa_portal_bman,
+};
 struct usdpaa_ioctl_portal_map {
 	/* Input parameter, is a qman or bman portal required. */
-	enum {
-		usdpaa_portal_qman,
-		usdpaa_portal_bman,
-	} type;
+	enum usdpaa_portal_type type;
+
 	/* Return value if the map succeeds, this gives the mapped
 	 * cache-inhibited (cinh) and cache-enabled (cena) addresses. */
 	struct usdpaa_portal_map {
@@ -137,13 +138,18 @@ struct usdpaa_ioctl_portal_map {
 	/* Qman-specific return values */
 	u16 channel;
 	uint32_t pools;
-	uint32_t irq;
 };
 
 int process_portal_map(struct usdpaa_ioctl_portal_map *params);
 int process_portal_unmap(struct usdpaa_portal_map *map);
 
-int process_portal_irq_map(int fd, uint32_t irq);
+struct usdpaa_ioctl_irq_map {
+	enum usdpaa_portal_type type; /* Type of portal to map */
+	int fd; /* File descriptor that contains the portal */
+	void *portal_cinh; /* Cache inhibited area to identify the portal */
+};
+
+int process_portal_irq_map(int fd,  struct usdpaa_ioctl_irq_map *irq);
 
 int process_query_dma_mem(uint64_t *free_bytes, uint64_t *total_bytes);
 
