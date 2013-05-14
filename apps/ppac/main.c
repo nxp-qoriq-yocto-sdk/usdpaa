@@ -1520,8 +1520,6 @@ int main(int argc, char *argv[])
 	bpool_cnt[1] = ppac_args.bpool_cnt[1];
 	bpool_cnt[2] = ppac_args.bpool_cnt[2];
 
-	printf("Using SEC ERA %i\n", rta_sec_era + 1);
-
 	/* Do global init that doesn't require portal access; */
 	/* - load the config (includes discovery and mapping of MAC devices) */
 	TRACE("Loading configuration\n");
