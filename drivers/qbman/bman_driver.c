@@ -92,6 +92,7 @@ static int __init fsl_bman_portal_init(void)
 	pcfg.addr_virt[DPA_PORTAL_CI] = compat_ptr(map.addr.cinh);
 	pcfg.public_cfg.irq = map.irq;
 	pcfg.public_cfg.is_shared = 0;
+	bman_depletion_fill(&pcfg.public_cfg.mask);
 
 	fd = open("/dev/fsl-usdpaa-irq", O_RDONLY);
 	if (fd == -1) {
