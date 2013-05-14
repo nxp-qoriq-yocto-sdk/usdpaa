@@ -105,7 +105,8 @@ int fmc_config(void)
 
 	if (err != E_OK) {
 		fprintf(stderr,
-			"error compiling fmc configuration (%d)\n", err);
+			"error compiling fmc configuration (%d) : %s\n", err,
+			fmc_get_error());
 		return -1;
 	}
 
