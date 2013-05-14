@@ -676,7 +676,7 @@ static void do_global_init(void)
 			}
 			err = ppac_prepare_bpid(bp->bpid, bpool_cnt[bp_idx],
 						bp->size, 0, 1,
-#if PPAC_DEPLETION
+#ifdef PPAC_DEPLETION
 						bpool_cnt[bp_idx] ?
 							bp_depletion : NULL,
 #else
