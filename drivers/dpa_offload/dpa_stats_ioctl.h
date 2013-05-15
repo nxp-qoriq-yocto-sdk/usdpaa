@@ -130,6 +130,12 @@ struct dpa_stats_compat_cnt_classif_node {
 	unsigned int cnt_sel;
 };
 
+struct dpa_stats_compat_cnt_traffic_mng {
+	enum dpa_stats_cnt_traffic_mng_src src;
+	compat_uptr_t traffic_mng;
+	enum dpa_stats_cnt_sel cnt_sel;
+};
+
 struct dpa_stats_compat_cnt_params {
 	enum dpa_stats_cnt_type type;
 	union {
@@ -140,7 +146,7 @@ struct dpa_stats_compat_cnt_params {
 		struct dpa_stats_compat_cnt_classif_tbl classif_tbl_params;
 		struct dpa_stats_compat_cnt_classif_node classif_node_params;
 		struct dpa_stats_cnt_ipsec ipsec_params;
-		struct dpa_stats_cnt_traffic_mng traffic_mng_params;
+		struct dpa_stats_compat_cnt_traffic_mng traffic_mng_params;
 	};
 };
 
@@ -177,12 +183,6 @@ struct dpa_stats_compat_cls_cnt_ipsec {
 	enum dpa_stats_cnt_sel cnt_sel;
 };
 
-struct dpa_stats_compat_cls_cnt_traffic_mng {
-	enum dpa_stats_cnt_traffic_mng_src src;
-	compat_uptr_t src_id;
-	enum dpa_stats_cnt_sel cnt_sel;
-};
-
 struct dpa_stats_compat_cls_cnt_params {
 	unsigned int class_members;
 	enum dpa_stats_cnt_type type;
@@ -194,7 +194,7 @@ struct dpa_stats_compat_cls_cnt_params {
 		struct dpa_stats_compat_cls_cnt_classif_tbl classif_tbl_params;
 		struct dpa_stats_compat_cls_cnt_classif_node ccnode_params;
 		struct dpa_stats_compat_cls_cnt_ipsec ipsec_params;
-		struct dpa_stats_compat_cls_cnt_traffic_mng traffic_mng_params;
+		struct dpa_stats_compat_cnt_traffic_mng traffic_mng_params;
 	};
 };
 
