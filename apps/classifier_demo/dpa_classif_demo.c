@@ -125,7 +125,7 @@ const char ppam_doc[] = "DPA Classifier use case";
 
 static const struct argp_option argp_opts[] = {
 	{"fm",		'f', "INT", 0, "FMan index"},
-	{"port",	'o', "INT", 0, "FMan port index"},
+	{"port",	't', "INT", 0, "FMan port index"},
 	{}
 };
 
@@ -832,7 +832,7 @@ static int ppam_cli_parse(int key, char *arg, struct argp_state *state)
 			return -EINVAL;
 		}
 		break;
-	case 'o':
+	case 't':
 		ppam_args.port = atoi(arg);
 		if ((ppam_args.port < 0) || (ppam_args.port > 5)) {
 			error(0, EINVAL,

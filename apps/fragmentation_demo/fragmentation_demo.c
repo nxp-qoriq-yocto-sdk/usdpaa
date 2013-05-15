@@ -791,7 +791,7 @@ const char ppam_doc[] = "Fragmentation demo application";
 
 static const struct argp_option argp_opts[] = {
 	{"fm",	'f',	"INT", 0, "FMAN index for Offline port"},
-	{"eth",	'e',	"INT", 0, "Ethernet port index"},
+	{"eth",	't',	"INT", 0, "Ethernet port index"},
 	{"oh",  'o',	"INT", 0, "Offline port index" },
 	{}
 };
@@ -806,7 +806,7 @@ static error_t parse_opts(int key, char *arg, struct argp_state *state)
 			return -EINVAL;
 		}
 		break;
-	case 'e':
+	case 't':
 		ppam_args.eth = atoi(arg);
 		if ((ppam_args.eth < 0) || (ppam_args.eth > 5)) {
 			error(0, EINVAL,
