@@ -233,16 +233,21 @@ static int ppam_interface_init(struct ppam_interface *p,
 	p->tx_fqids = malloc(p->num_tx_fqids * sizeof(*p->tx_fqids));
 	if (!p->tx_fqids)
 		return -ENOMEM;
+
 #ifdef ENABLE_PROMISC
-	/* Enable promiscuous mode for testing purposes */
-	fman_if_promiscuous_enable(cfg->fman_if);
+	if ((cfg->fman_if->mac_type != fman_offline) &&
+			(cfg->fman_if->mac_type != fman_mac_less))
+		/* Enable promiscuous mode for testing purposes */
+		fman_if_promiscuous_enable(cfg->fman_if);
 #endif /* ENABLE_PROMISC */
 	return 0;
 }
+
 static void ppam_interface_finish(struct ppam_interface *p)
 {
 	free(p->tx_fqids);
 }
+
 static void ppam_interface_tx_fqid(struct ppam_interface *p, unsigned idx,
 				   uint32_t fqid)
 {
