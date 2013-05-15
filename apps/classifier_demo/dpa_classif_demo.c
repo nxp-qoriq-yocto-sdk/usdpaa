@@ -621,8 +621,10 @@ static int ppam_interface_init(struct ppam_interface	*p,
 		return -ENOMEM;
 
 #ifdef ENABLE_PROMISC
-	/* Enable promiscuous mode for testing purposes */
-	fman_if_promiscuous_enable(cfg->fman_if);
+	if ((cfg->fman_if->mac_type != fman_offline) &&
+			(cfg->fman_if->mac_type != fman_mac_less))
+		/* Enable promiscuous mode for testing purposes */
+		fman_if_promiscuous_enable(cfg->fman_if);
 #endif /* ENABLE_PROMISC */
 
 	return 0;
