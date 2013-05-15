@@ -375,6 +375,18 @@ static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_interface *_if,
 		}
 	}
 
+	if (!ib_oh_if) {
+		error(0, ENODEV, "Offline port fm%d#%d not found\n",
+			ppam_args.fm, ppam_args.oh);
+		return -ENODEV;
+	}
+
+	if (!eth_if) {
+		error(0, ENODEV, "Ethernet port fm%d#%d not found\n",
+			ppam_args.fm, ppam_args.eth);
+		return -ENODEV;
+	}
+
 	if (&ib_oh_if->ppam_data == _if) {
 		__if = &eth_if->ppam_data;
 		p->tx_fqid = __if->tx_fqids[idx % __if->num_tx_fqids];
