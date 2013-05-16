@@ -31,7 +31,7 @@
 
 bin_PROGRAMS = ipsec_offload
 
-dist_DATA = ipsec_offload_config_p4080.xml ipsec_offload_config_b4860.xml \
+dist_DATA = ipsec_offload_config_p4080.xml ipsec_offload_config_b4860.xml ipsec_offload_config_b4420.xml \
 	    ipsec_offload_policy.xml ipsec_offload_pcd.xml ipsec_offload_swp.xml
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/include \
