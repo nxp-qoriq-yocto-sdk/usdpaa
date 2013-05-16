@@ -64,7 +64,6 @@ do
 					board=$OPTARG
 					;;
 				*)
-					board=p4080ds
 					echo Unknown board $OPTARG. Defaulting to $board
 					;;
 			esac
