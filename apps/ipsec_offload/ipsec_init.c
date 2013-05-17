@@ -270,7 +270,7 @@ out_inb_post_sec:
 							DPA_OFFLD_DESC_NONE)
 		dpa_classif_table_free(ipsec_params.
 						post_sec_in_params.dpa_cls_td);
-out_inb_pre_sec:
+
 	for (i = 0; i < DPA_IPSEC_MAX_SA_TYPE; i++)
 		if (ipsec_params.pre_sec_in_params.dpa_cls_td[i] !=
 			DPA_OFFLD_DESC_NONE)

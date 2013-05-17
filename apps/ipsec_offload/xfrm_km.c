@@ -408,7 +408,7 @@ static void trace_xfrm_sa_info(struct xfrm_usersa_info *sa_info)
 	struct in_addr daddr_in;
 	struct in6_addr saddr_in6;
 	struct in6_addr daddr_in6;
-	void *saddr, *daddr;
+	__maybe_unused void *saddr, *daddr;
 	char dst[INET6_ADDRSTRLEN];
 
 	memset(dst, 0, sizeof(dst));
@@ -436,12 +436,12 @@ static void trace_xfrm_sa_info(struct xfrm_usersa_info *sa_info)
 
 void trace_xfrm_policy_info(struct xfrm_userpolicy_info *pol_info)
 {
-	char *dir;
+	__maybe_unused const char *dir;
 	struct in_addr saddr_in;
 	struct in_addr daddr_in;
 	struct in6_addr saddr_in6;
 	struct in6_addr daddr_in6;
-	void *saddr, *daddr;
+	__maybe_unused void *saddr, *daddr;
 	char dst[INET6_ADDRSTRLEN];
 
 	memset(dst, 0, sizeof(dst));
@@ -479,7 +479,7 @@ static void trace_dpa_policy(struct dpa_pol *dpa_pol)
 	struct in_addr daddr_in;
 	struct in6_addr saddr_in6;
 	struct in6_addr daddr_in6;
-	void *saddr, *daddr;
+	__maybe_unused void *saddr, *daddr;
 	char dst[INET6_ADDRSTRLEN];
 
 	memset(dst, 0, sizeof(dst));
@@ -634,7 +634,7 @@ static inline struct dpa_pol
 		set_offload_dir(dpa_sa, sa_id, dir, &pol_list);
 		dpa_pol = find_dpa_pol_bysel_list(sel, pol_list);
 		if (dpa_pol)
-			dpa_pol;
+			return dpa_pol;
 	}
 	return NULL;
 }
@@ -909,7 +909,6 @@ static void *xfrm_msg_loop(void *data)
 			{
 				struct xfrm_usersa_id *usersa_id;
 				struct dpa_sa *dpa_sa;
-				struct dpa_pol *pol;
 
 				TRACE("XFRM_MSG_DELSA\n");
 				usersa_id = (struct xfrm_usersa_id *)
@@ -1031,8 +1030,6 @@ static void *xfrm_msg_loop(void *data)
 			case XFRM_MSG_DELPOLICY:
 			{
 				struct xfrm_userpolicy_id *pol_id;
-				struct list_head *l, *tmp, *pol_list;
-				struct dpa_sa *dpa_sa;
 				struct dpa_pol *dpa_pol;
 				int *sa_id = NULL;
 

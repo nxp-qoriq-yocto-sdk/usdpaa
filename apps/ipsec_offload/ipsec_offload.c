@@ -705,7 +705,7 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 }
 
 static inline void ppam_rx_hash_cb_v3(struct ppam_rx_hash *p,
-				   const struct qm_dqrr_entry *dqrr)
+				   struct qm_dqrr_entry *dqrr)
 {
 	/* Set FCO bit */
 	struct qm_fd *fd = &dqrr->fd;

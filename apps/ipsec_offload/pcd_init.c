@@ -79,7 +79,6 @@ int fmc_config(void)
 	const char *swp_path = ppam_swp_path;
 	const char *envp;
 	char fmc_path[64];
-	int i;
 
 	envp = getenv(ppam_pcd_path);
 	if (envp != NULL)

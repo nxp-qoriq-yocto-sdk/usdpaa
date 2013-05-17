@@ -110,5 +110,7 @@ void fmc_cleanup(void);
 int ipsec_offload_init(int *dpa_ipsec_id);
 int ipsec_offload_cleanup(int dpa_ipsec_id);
 int setup_xfrm_msgloop(int dpa_ipsec_id);
+int setup_neigh_loop(void);
+int create_nl_socket(int protocol, int groups);
 
 #endif

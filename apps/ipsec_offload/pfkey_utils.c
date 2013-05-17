@@ -91,17 +91,19 @@ static inline int alg_suite(int aalg, int ealg)
 static inline void get_auth_info(struct sadb_key *m_auth,
 				 struct dpa_ipsec_sa_params *sa_params)
 {
-	sa_params->crypto_params.auth_key_len = m_auth->sadb_key_bits / 8;
-	sa_params->crypto_params.auth_key =
-		(caddr_t)(void *)m_auth + sizeof(*m_auth);
+	sa_params->crypto_params.auth_key_len = (uint8_t)
+						    (m_auth->sadb_key_bits / 8);
+	sa_params->crypto_params.auth_key =(uint8_t *)
+				    ((caddr_t)(void *)m_auth + sizeof(*m_auth));
 }
 
 static inline void get_crypt_info(struct sadb_key *m_enc,
 				  struct dpa_ipsec_sa_params *sa_params)
 {
-	sa_params->crypto_params.cipher_key_len = m_enc->sadb_key_bits / 8;
-	sa_params->crypto_params.cipher_key =
-		(caddr_t)(void *)m_enc + sizeof(*m_enc);
+	sa_params->crypto_params.cipher_key_len = (uint8_t)
+						   (m_enc->sadb_key_bits / 8);
+	sa_params->crypto_params.cipher_key = (uint8_t *)(
+				       (caddr_t)(void *)m_enc + sizeof(*m_enc));
 }
 
 void kdebug_sadb(struct sadb_msg *base)
@@ -603,7 +605,6 @@ ipsec_dump_policy(void *policy,
 	struct sadb_x_ipsecrequest *xisr;
 	size_t off;
 	char isrbuf[1024];
-	int ret = 0;
 
 	/* count length of buffer for use */
 	off = sizeof(*xpl);
@@ -633,7 +634,6 @@ pfkey_spdump(struct sadb_msg *m,
 		xfrm_address_t *saddr, xfrm_address_t *daddr,
 		int *sa_af)
 {
-	int ret = 0;
 	caddr_t mhp[SADB_EXT_MAX + 1];
 	struct sadb_x_policy *m_xpl;
 

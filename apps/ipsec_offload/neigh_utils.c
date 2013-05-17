@@ -64,7 +64,6 @@ static int init_neigh_tables(int fm, int port_idx, int port_type,
 {
 	int i, j, cls_td;
 	struct dpa_cls_tbl_params cls_tbl_params;
-	struct dpa_cls_tbl_action def_action;
 	int ret;
 	struct ppac_interface *ppac_if = get_ppac_if(fm, port_idx, port_type);
 
@@ -314,9 +313,9 @@ static void *neigh_msg_loop(void *data)
 			{
 				struct ndmsg *ndm;
 				struct nlattr *na;
-				struct ether_addr *lladdr;
-				u8 *key;
-				ndm = (struct ndm *)NLMSG_DATA(nh);
+				struct ether_addr *lladdr = NULL;
+				u8 *key = NULL;
+				ndm = (struct ndmsg *)NLMSG_DATA(nh);
 				if (ndm->ndm_ifindex != vif_idx &&
 					ndm->ndm_ifindex != vof_idx)
 					break;

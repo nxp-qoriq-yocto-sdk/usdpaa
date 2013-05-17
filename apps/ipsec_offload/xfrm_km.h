@@ -76,4 +76,13 @@ struct dpa_sa {
 	struct list_head out_pols;
 };
 
+struct sadb_msg *do_sadbget(
+			uint32_t spi, int af,
+			xfrm_address_t saddr, xfrm_address_t daddr,
+			struct dpa_ipsec_sa_params *sa_params,
+			struct xfrm_encap_tmpl *encap);
+struct sadb_msg *do_spdget(
+		int spid, xfrm_address_t *saddr,
+		xfrm_address_t *daddr, int *sa_af);
+
 #endif
