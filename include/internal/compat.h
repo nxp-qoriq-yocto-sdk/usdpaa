@@ -684,4 +684,9 @@ static inline type *name##_find(struct dpa_rbtree *tree, u32 val) \
 	return NULL; \
 }
 
+static inline u64 div64_u64(u64 n, u64 d)
+{
+	return n / d;
+}
+
 #endif /* HEADER_COMPAT_H */
