@@ -44,10 +44,9 @@
 board2soc()
 {
        case $1 in
-               [pP]1023*) echo p1023;;
-               [pP]3041*) echo p3041;;
-               [pP]4080*) echo p4080;;
+               [tT]4240*) echo t4240;;
                [pP]5020*) echo p5020;;
+               [pP]5040*) echo p5040;;
                [bB]4860*) echo b4860;;
        esac
 }
@@ -60,7 +59,7 @@ do
 	case $flags in
 		m)
 			case $OPTARG in
-				p1023ds | p3041ds | p4080ds | p5020ds | b4860qds)
+				p5020ds | p5040ds | b4860qds | t4240qds)
 					board=$OPTARG
 					;;
 				*)
@@ -75,9 +74,10 @@ OPTIND=$OLD_OPTIND
 declare -u SOC=$(board2soc $board)
 
 export ARCH=powerpc64
-export CROSS_COMPILE=powerpc-linux-gnu-
-export PATH=/opt/freescale/usr/local/gcc-4.5.38-eglibc-2.11.38/powerpc-linux-gnu/bin:$PATH
+export CROSS_COMPILE=powerpc64-fsl_networking-linux-
+export PATH=$PWD/../build_${board}-64b_release/tmp/sysroots/x86_64-linux/usr/bin/ppc64e5500-fsl_networking-linux/:$PATH
 export PKG_CONFIG_SYSROOT_DIR=$PWD/../build_${board}-64b_release/tmp/sysroots/${board}-64b
+export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$PKG_CONFIG_SYSROOT_DIR/usr/lib64/pkgconfig
 export PKG_CONFIG_LIBDIR=$PKG_CONFIG_SYSROOT_DIR/usr/lib/pkgconfig
 export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1
 export LIBXML2_CFLAGS=$(pkg-config --cflags libxml-2.0)
