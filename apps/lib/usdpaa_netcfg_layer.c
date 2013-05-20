@@ -259,11 +259,12 @@ void usdpaa_netcfg_enable_disable_shared_rx(const struct fman_if *fif,
 static void check_fman_enabled_interfaces(void)
 {
 	struct fman_if *__if;
-	int idx, i, val;
+	int idx, i;
 	char str[10];
 	uint8_t num, num1;
 	struct interface_info *cli_info;
 	struct list_head *fqlist;
+	enum fman_mac_type val;
 
 	/* Fill in configuration info for all command-line ports */
 	idx = 0;
@@ -309,15 +310,16 @@ static void check_fman_enabled_interfaces(void)
 				val = get_mac_type(str);
 			}
 			if (val == fman_mac_10g) {
-				if (strncmp((str + 4), "mac", 3) == 0)
+				if (strncmp((str + 4), "mac", 3) == 0) {
 					if ((num - 1) != __if->fman_idx ||
 						num1 != __if->mac_idx ||
 						val != __if->mac_type)
 						continue;
-				else
+				} else {
 					if ((num - 1) != __if->fman_idx ||
 					    val != __if->mac_type)
 						continue;
+				}
 			} else {
 				if ((num - 1) != __if->fman_idx ||
 					num1 != __if->mac_idx ||
@@ -400,7 +402,8 @@ static inline int netcfg_interface_match(uint8_t fman,
 	char str[10];
 	uint8_t num, num1;
 	struct interface_info *cli_info;
-	int i, val;
+	enum fman_mac_type val;
+	int i;
 
 	for (i = 0; i < netcfg_interface->numof_netcfg_interface;
 		i++) {
@@ -415,15 +418,16 @@ static inline int netcfg_interface_match(uint8_t fman,
 				val = get_mac_type(str);
 			}
 			if (val == fman_mac_10g) {
-				if (strncmp((str + 4), "mac", 3) == 0)
+				if (strncmp((str + 4), "mac", 3) == 0) {
 					if ((num - 1) != fman ||
 						num1 != p_num ||
 						val != p_type)
 						continue;
-				else
+				} else {
 					if ((num - 1) != fman ||
 					    val != p_type)
 						continue;
+				}
 			} else {
 				if ((num - 1) != fman ||
 					num1 != p_num ||
