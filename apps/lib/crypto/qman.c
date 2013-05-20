@@ -374,13 +374,14 @@ void dec_qman_poll(void)
 enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 				 const struct qm_dqrr_entry *dqrr)
 {
-	enum SEC_MODE mode = ENCRYPT;
+	enum SEC_MODE mode __maybe_unused;
 	struct sg_entry_priv_t *sgentry_priv;
 	dma_addr_t addr;
 
 	if ((dqrr->fqid >= enc_fqs.base)
 	    && (dqrr->fqid < enc_fqs.base + 2 * FQ_PER_CORE)) {
 		enc_pkts_from_sec++;
+		mode = ENCRYPT;
 	} else if ((dqrr->fqid >= dec_fqs.base)
 		   && (dqrr->fqid < dec_fqs.base + 2 * FQ_PER_CORE)) {
 		dec_pkts_from_sec++;
