@@ -61,7 +61,7 @@ int vsp_init(int fman_id, int fm_port_number)
 {
 	t_FmBufferPrefixContent fmBufferPrefixContent;
 	t_FmVspParams		fmVspParams;
-	int			i, k, ret = E_OK;
+	int			i, ret = E_OK;
 
 	ret = bpool_init();
 	if (ret < 0) {
@@ -128,7 +128,7 @@ int vsp_init(int fman_id, int fm_port_number)
 
 int bpool_init(void)
 {
-	int i = 0, ret;
+	int i = 0, err, ret;
 
 	/* - map DMA mem */
 	dma_mem_generic = dma_mem_create(DMA_MAP_FLAG_ALLOC, NULL,
@@ -145,7 +145,7 @@ int bpool_init(void)
 					bpool[i].bpid);
 			return ret;
 		}
-		int err = ppac_prepare_bpid(bpool[i].bpid , bpool[i].num,
+		err = ppac_prepare_bpid(bpool[i].bpid , bpool[i].num,
 				bpool[i].size, 256, 1, NULL, NULL);
 		if (err) {
 			error(0, err, "bp(%d) init failure\n", bpool[i].bpid);
