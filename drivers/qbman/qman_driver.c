@@ -113,6 +113,7 @@ static int __init fsl_qman_portal_init(void)
 
 	pcfg.public_cfg.is_shared = 0;
 	pcfg.node = NULL;
+	pcfg.public_cfg.irq = fd;
 
 	portal = qman_create_affine_portal(&pcfg, NULL);
 	if (!portal) {
@@ -131,6 +132,8 @@ static int fsl_qman_portal_finish(void)
 {
 	__maybe_unused const struct qm_portal_config *cfg;
 	int ret;
+
+	process_portal_irq_unmap(fd);
 
 	cfg = qman_destroy_affine_portal();
 	BUG_ON(cfg != &pcfg);

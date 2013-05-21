@@ -237,6 +237,11 @@ int process_portal_irq_map(int ifd, struct usdpaa_ioctl_irq_map *map)
 	return ioctl(ifd, USDPAA_IOCTL_PORTAL_IRQ_MAP, map);
 }
 
+int process_portal_irq_unmap(int fd)
+{
+	return close(fd);
+}
+
 /* ioctl to query the amount of DMA memory used in the system */
 struct usdpaa_ioctl_dma_used {
 	uint64_t free_bytes;

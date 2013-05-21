@@ -44,24 +44,32 @@ struct process_interrupt {
 };
 
 static LIST_HEAD(process_irq_list);
+static pthread_mutex_t process_irq_lock = PTHREAD_MUTEX_INITIALIZER;
 
 void process_interrupt_install(struct process_interrupt *irq)
 {
 	/* Add the irq to the end of the list */
+	pthread_mutex_lock(&process_irq_lock);
 	list_add_tail(&irq->node, &process_irq_list);
+	pthread_mutex_unlock(&process_irq_lock);
 }
 void process_interrupt_remove(struct process_interrupt *irq)
 {
+	pthread_mutex_lock(&process_irq_lock);
 	list_del(&irq->node);
+	pthread_mutex_unlock(&process_irq_lock);
 }
 struct process_interrupt *process_interrupt_find(int irq_num)
 {
-	struct process_interrupt *i;
+	struct process_interrupt *i = NULL;
+	pthread_mutex_lock(&process_irq_lock);
 	list_for_each_entry(i, &process_irq_list, node) {
 		if (i->irq == irq_num)
-			return i;
+			goto done;
 	}
-	return NULL;
+done:
+	pthread_mutex_unlock(&process_irq_lock);
+	return i;
 }
 
 
@@ -100,4 +108,5 @@ void qbman_invoke_irq(int irq)
 	struct process_interrupt *irq_node = process_interrupt_find(irq);
 	if (irq_node)
 		irq_node->isr(irq, irq_node->arg);
+
 }

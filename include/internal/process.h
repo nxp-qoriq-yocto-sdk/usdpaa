@@ -150,6 +150,7 @@ struct usdpaa_ioctl_irq_map {
 };
 
 int process_portal_irq_map(int fd,  struct usdpaa_ioctl_irq_map *irq);
+int process_portal_irq_unmap(int fd);
 
 int process_query_dma_mem(uint64_t *free_bytes, uint64_t *total_bytes);
 

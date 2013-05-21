@@ -100,6 +100,9 @@ static int __init fsl_bman_portal_init(void)
 		process_portal_unmap(&map.addr);
 		return -EBUSY;
 	}
+	/* Use the IRQ FD as a unique IRQ number */
+	pcfg.public_cfg.irq = fd;
+
 	portal = bman_create_affine_portal(&pcfg);
 	if (!portal) {
 		pr_err("Bman portal initialisation failed (%d)\n",
@@ -118,6 +121,8 @@ static int fsl_bman_portal_finish(void)
 {
 	__maybe_unused const struct bm_portal_config *cfg;
 	int ret;
+
+	process_portal_irq_unmap(fd);
 
 	cfg = bman_destroy_affine_portal();
 	BUG_ON(cfg != &pcfg);
