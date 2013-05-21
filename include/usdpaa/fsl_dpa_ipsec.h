@@ -69,6 +69,9 @@
 #define DPA_IPSEC_MAX_IN_POL_PER_SA  255  /* Maximum supported number of
 					   * inbound policies per SA	      */
 
+/*
+ * IPSec Special Operations
+ */
 #define DPA_IPSEC_HDR_COPY_TOS		0x01 /* Copy TOS / DiffServ byte from
 					      * inner / outer header to outer /
 					      * inner header		      */
@@ -185,15 +188,16 @@ struct dpa_ipsec_params {
 	uint16_t qm_sec_ch;	/* QMan channel# for the SEC		      */
 	uint16_t max_sa_pairs;	/* Maximum number of SA pairs
 				 * (1 SA Pair = 1 In SA + 1 Out SA)	      */
+
 	/*
-	* Maximum number of special IPSec
-	* manipulation operations that can be
-	* enabled. eg DSCP/ECN update, IP variable
-	* length. The max_sa_manip_ops
-	* should be incremented with the number
-	* of manipulations per every outbound
-	* policy
-	*/
+	 * Maximum number of special IPSec
+	 * manipulation operations that can be
+	 * enabled. eg DSCP/ECN update, IP variable
+	 * length. The max_sa_manip_ops
+	 * should be incremented with the number
+	 * of manipulations per every outbound
+	 * policy
+	 */
 	uint32_t max_sa_manip_ops;
 
 	struct dpa_ipsec_fqid_range *fqid_range; /* FQID range to be used by
@@ -264,8 +268,8 @@ struct dpa_ipsec_init_vector {
 /* DPA IPSEC Anti Replay Window Size */
 enum dpa_ipsec_arw {
 	DPA_IPSEC_ARSNONE = 0,	/* No Anti Replay Protection		      */
-	DPA_IPSEC_ARS32,	/* 32 bit Anti Replay Window size	      */
-	DPA_IPSEC_ARS64,	/* 64 bit Anti Replay Window size	      */
+	DPA_IPSEC_ARS32   = 1,	/* 32 bit Anti Replay Window size	      */
+	DPA_IPSEC_ARS64   = 3,	/* 64 bit Anti Replay Window size	      */
 };
 
 /* DPA-IPSec Security Association Cryptographic Parameters */
@@ -403,14 +407,6 @@ int dpa_ipsec_remove_sa(int sa_id);
  */
 int dpa_ipsec_flush_all_sa(int dpa_ipsec_id);
 
-/* DPA-IPSec Action For DF Bit */
-enum dpa_ipsec_df_action {
-	DPA_IPSEC_DF_ACTION_DISCARD = 0,	/* Discard the frame	      */
-	DPA_IPSEC_DF_ACTION_OVERRIDE,		/* Override DF bit	      */
-	DPA_IPSEC_DF_ACTION_CONTINUE		/* Continue processing without
-						 * performing IP Fragmentation*/
-};
-
 struct dpa_ipsec_l4_params {
 	uint16_t src_port;	/* Source port				      */
 	uint16_t src_port_mask;	/* Source port mask			      */
@@ -519,7 +515,6 @@ struct dpa_ipsec_sa_modify_prm {
 	};
 };
 
-int dpa_ipsec_sa_modify(int sa_id,
-			struct dpa_ipsec_sa_modify_prm *modify_prm);
+int dpa_ipsec_sa_modify(int sa_id, struct dpa_ipsec_sa_modify_prm *modify_prm);
 
 #endif	/* __FSL_DPA_IPSEC_H */
