@@ -78,14 +78,28 @@ enum ether_types {
 /* key number and size for neigh tables */
 #define IPv4_KEY_SIZE		4
 #define IPv6_KEY_SIZE		16
+#if defined P4080
+#define IPv4_NUM_KEYS		16
+#define IPv6_NUM_KEYS		16
+/* number of outbound tcp/udp policies */
+#define OUT_TCPUDP_POL_NUM	16
+
+#elif defined B4860
 #define IPv4_NUM_KEYS		64
 #define IPv6_NUM_KEYS		64
+/* number of outbound tcp/udp policies */
+#define OUT_TCPUDP_POL_NUM	64
+#elif defined B4420
+#define IPv4_NUM_KEYS           64
+#define IPv6_NUM_KEYS           64
+/* number of outbound tcp/udp policies */
+#define OUT_TCPUDP_POL_NUM      64
+#else
+	#error "Plaform not defined or not supported"
+#endif
 
 #define NEIGH_TABLES_KEY_SIZE { IPv4_KEY_SIZE, IPv6_KEY_SIZE }
 #define NEIGH_TABLES_NUM_KEYS { IPv4_NUM_KEYS, IPv6_NUM_KEYS }
-
-/* number of outbound tcp/udp policies */
-#define OUT_TCPUDP_POL_NUM	   64
 
 extern t_Handle pcd_dev;
 /* inbound SA lookup */

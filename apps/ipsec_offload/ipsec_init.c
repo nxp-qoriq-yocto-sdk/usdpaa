@@ -49,8 +49,18 @@
 #define SETS 0
 #define WAYS 1
 #define IN_SA_PCD_HASH_OFF	0
+#if defined P4080
+#define NUM_SETS        2
+#define NUM_WAYS        8
+#elif defined B4860
+#define NUM_SETS        8
+#define NUM_WAYS        8
+#elif defined B4420
 #define NUM_SETS	8
 #define NUM_WAYS	8
+#else
+	#error "Platform not defined or not supported"
+#endif
 
 
 /* define the number of entries (ways * sets) for each inbound sa type */
