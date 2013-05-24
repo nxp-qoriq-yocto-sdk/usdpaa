@@ -40,6 +40,7 @@ ifneq (distclean,$(MAKECMDGOALS))
    $(ARCH)_SPEC_LIB_PATH:=
    $(ARCH)_SPEC_CFLAGS	:= -mcpu=e500mc
    $(ARCH)_SPEC_LDFLAGS	:=
+   LIBDIR               ?= lib
  else
   ifeq (powerpc64,$(ARCH))
     CROSS_COMPILE	 ?= powerpc-linux-gnu-
@@ -48,6 +49,7 @@ ifneq (distclean,$(MAKECMDGOALS))
     $(ARCH)_SPEC_LIB_PATH:=
     $(ARCH)_SPEC_CFLAGS	 := -mcpu=e500mc64 -m64
     $(ARCH)_SPEC_LDFLAGS :=
+    LIBDIR               ?= lib64
   else
    $(error "ARCH not defined.")
  endif
@@ -66,7 +68,7 @@ DESTDIR		?= $(TOP_LEVEL)/test_install
 PREFIX		?= usr
 INSTALL_BIN	?= $(PREFIX)/bin
 INSTALL_SBIN	?= $(PREFIX)/sbin
-INSTALL_LIB	?= $(PREFIX)/lib
+INSTALL_LIB	?= $(PREFIX)/$(LIBDIR)
 INSTALL_OTHER	?= $(PREFIX)/etc
 OBJ_DIR		:= objs_$(ARCH)
 BIN_DIR		:= $(TOP_LEVEL)/bin_$(ARCH)
