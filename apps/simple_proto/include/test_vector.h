@@ -293,6 +293,7 @@ static uint8_t macsec_reference_ciphertext[][MAX_TEST_ENCRYPT_PACKET_SIZE] = {
 #define WIMAX_KEY_SIZE	16 /**< WiMAX Key size */
 #define WIMAX_ICV_SIZE	8  /**< WiMAX Integrity Check Value size */
 #define WIMAX_FCS_SIZE	4  /**< WiMAX Frame Check Sequence size */
+#define WIMAX_MAX_FRAME_SIZE	2047
 
 static uint8_t wimax_reference_pdb_opts[] = {
 	/* Test Set 1 */

@@ -835,14 +835,37 @@ void set_enc_buf(void *params, struct qm_fd fd[])
 		in_buf = out_buf + crypto_info->rt.output_buf_size;
 		qm_sg_entry_set64(sgentry, in_buf);
 
-		/* Copy the input plain-text data */
+		/*
+		 * Copy the input plain-text data.
+		 * For WiMAX in PERF mode set the input plain-text data
+		 * as GMH aware frames.
+		 */
 		buf = __dma_mem_ptov(in_buf);
-		if (CIPHER == crypto_info->mode)
+		if (CIPHER == crypto_info->mode) {
 			memcpy(buf, ref_test_vector.plaintext,
 			       crypto_info->buf_size);
-		else
+		} else if (WIMAX == crypto_info->proto) {
+			/* GMH Header Type bit shall be set to zero. */
+			buf[0] &= 0x7f;
+			/*
+			 * Set CRC indicator bit to value one if FCS
+			 * is included in the PDU.
+			 */
+			if (pdb_opts)
+				buf[1] |= 0x40;
+			/* Set the input frame length */
+			buf[1] &= ~0x7;
+			buf[1] |= (crypto_info->buf_size >> 8) & 0x7;
+			buf[2] = crypto_info->buf_size & 0xFF;
+
+			for (i = WIMAX_GMH_SIZE;
+			     i < crypto_info->buf_size;
+			     i++)
+				buf[i] = plain_data++;
+		} else {
 			for (i = 0; i < crypto_info->buf_size; i++)
 				buf[i] = plain_data++;
+		}
 	}
 }
 
@@ -959,7 +982,9 @@ struct argp_option options[] = {
 	 "\n\r\tOPTION IS VALID ONLY IN PERF MODE\n\r"
 		"\t\t Buffer size (64, 128 ...up to 6400)\n\r"
 		"\t\t Note: Both of Buffer size and buffer number\n\r"
-		"\t\t cannot be greater than 3200 at the same time\n"},
+		"\t\t cannot be greater than 3200 at the same time.\n\r"
+		"\t\t The WiMAX frame size, including the FCS if present,\n\r"
+		"\t\t must be shorter than 2048 bytes.\n"},
 	{"ncpus", 'c', "CPUS", 0,
 	 "\n\r\tOPTIONAL PARAMETER\n\r"
 		"\tNumber of cpus to work for the\n\r"
@@ -1278,6 +1303,15 @@ static int validate_params(uint32_t g_cmd_params,
 		return -EINVAL;
 	}
 
+	if ((PERF == crypto_info->mode) &&
+	    (WIMAX == crypto_info->proto) &&
+	    (crypto_info->buf_size > WIMAX_MAX_FRAME_SIZE)) {
+		fprintf(stderr,
+			"error: WiMAX Invalid Parameters: Invalid buffer size\n"
+			"see --help option\n");
+		return -EINVAL;
+	}
+
 	if (PERF == crypto_info->mode && (crypto_info->buf_size == 0 ||
 					  crypto_info->buf_size %
 					  L1_CACHE_BYTES != 0 ||
@@ -1305,6 +1339,18 @@ static int validate_params(uint32_t g_cmd_params,
 	case MACSEC:
 		break;
 	case WIMAX:
+		/*
+		 * For WiMAX in CIPHER mode only the first frame
+		 * from the first iteration can be verified if it is matching
+		 * with the corresponding test vector, due to
+		 * the PN incrementation by SEC for each frame processed.
+		 */
+		if (CIPHER == crypto_info->mode && crypto_info->itr_num != 1) {
+			crypto_info->itr_num = 1;
+			printf("WARNING: Running WiMAX in CIPHER mode"
+			       " with only one iteration\n");
+		}
+
 		if ((pdb_ar_len > 64) || (pdb_ar_len < 0)) {
 			fprintf(stderr,
 				"error: WiMAX Anti-Replay window length cannot"
@@ -1402,16 +1448,31 @@ int test_enc_match(void *params, struct qm_fd fd[])
 		addr = qm_sg_entry_get64(sgentry);
 		enc_buf = __dma_mem_ptov(addr);
 
-		if (test_vector_match((uint32_t *)enc_buf,
-				      (uint32_t *)ref_test_vector.ciphertext,
-				      crypto_info->rt.output_buf_size *
-				      BITS_PER_BYTE) != 0) {
-			fprintf(stderr,
-				"error: %s: Encrypted frame %d"
-				" with CIPHERTEXT test vector doesn't"
-				" match\n", __func__, ind + 1);
+		if (WIMAX == crypto_info->proto) {
+			if ((ind == 0) &&
+			    (test_vector_match((uint32_t *)enc_buf,
+					(uint32_t *)ref_test_vector.ciphertext,
+					crypto_info->rt.output_buf_size *
+					BITS_PER_BYTE) != 0)) {
+				fprintf(stderr,
+					"error: %s: Encapsulated frame %d"
+					" doesn't match with test vector\n",
+					__func__, ind + 1);
 
-			return -1;
+				return -1;
+			}
+		} else {
+			if (test_vector_match((uint32_t *)enc_buf,
+					(uint32_t *)ref_test_vector.ciphertext,
+					crypto_info->rt.output_buf_size *
+					BITS_PER_BYTE) != 0) {
+				fprintf(stderr,
+					"error: %s: Encapsulated frame %d"
+					" doesn't match with test vector\n",
+					__func__, ind + 1);
+
+				return -1;
+			}
 		}
 	}
 
@@ -1449,21 +1510,38 @@ int test_dec_match(void *params, struct qm_fd fd[])
 
 		addr = qm_sg_entry_get64(sgentry);
 		dec_buf = __dma_mem_ptov(addr);
+
 		if (CIPHER == crypto_info->mode) {
-			if (test_vector_match((uint32_t *)dec_buf, (uint32_t *)
-					      ref_test_vector.plaintext,
-					      ref_test_vector.length) != 0) {
-				fprintf(stderr,
-					"error: %s: Decrypted frame %d with"
-					" PLAINTEXT test vector doesn't"
-					" match\n", __func__, ind + 1);
-				print_frame_desc(&fd[ind]);
-				return -1;
+			if (WIMAX == crypto_info->proto) {
+				if ((ind == 0) &&
+				    (test_vector_match((uint32_t *)dec_buf,
+						(uint32_t *)
+						ref_test_vector.plaintext,
+						ref_test_vector.length) != 0)) {
+					fprintf(stderr,
+						"error: %s: Decapsulated frame"
+						" %d doesn't match with"
+						" test vector\n",
+						__func__, ind + 1);
+					print_frame_desc(&fd[ind]);
+					return -1;
+				}
+			} else {
+				if (test_vector_match((uint32_t *)dec_buf,
+					(uint32_t *)ref_test_vector.plaintext,
+					ref_test_vector.length) != 0) {
+					fprintf(stderr,
+						"error: %s: Decapsulated frame"
+						" %d doesn't match with"
+						" test vector\n",
+						__func__, ind + 1);
+					print_frame_desc(&fd[ind]);
+					return -1;
+				}
 			}
 		} else if (WIMAX == crypto_info->proto) {
-			plain_data = WIMAX_GMH_SIZE;
 			for (i = WIMAX_GMH_SIZE;
-			     i < (crypto_info->buf_size - WIMAX_GMH_SIZE);
+			     i < crypto_info->buf_size;
 			     i++) {
 				if (dec_buf[i] != plain_data) {
 					fprintf(stderr, "error: %s: %s"
