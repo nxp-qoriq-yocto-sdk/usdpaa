@@ -132,7 +132,7 @@ struct parse_input_t {
 };
 
 char mode_type[20];		/* string corresponding to integral value */
-char protocol[20];		/* string corresponding to integral value */
+char protocol[100];		/* string corresponding to integral value */
 
 /* init reference test vector routines */
 void init_rtv_macsec_gcm_128(struct test_param *crypto_info);
