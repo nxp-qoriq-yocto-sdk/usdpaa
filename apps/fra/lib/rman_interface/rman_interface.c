@@ -954,3 +954,25 @@ void rman_if_finish(void)
 	free(rmif);
 	rmif = NULL;
 }
+
+void rman_if_rxs_disable(void)
+{
+	struct rman_rx *rx;
+
+	if (!rmif)
+		return;
+
+	list_for_each_entry(rx, &rmif->rman_rx_list, node)
+		rman_rx_disable(rx);
+}
+
+void rman_if_rxs_enable(void)
+{
+	struct rman_rx *rx;
+
+	if (!rmif)
+		return;
+
+	list_for_each_entry(rx, &rmif->rman_rx_list, node)
+		rman_rx_enable(rx);
+}

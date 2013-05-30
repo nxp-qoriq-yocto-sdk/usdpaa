@@ -909,6 +909,14 @@ static void rman_interrupt_handler(void)
 		return;
 	}
 
+	/* A workaround to avoid PFDR low watermark error interrupt */
+	if (status & RMAN_BAE_ERROR_MASK) {
+		rman_if_rxs_disable();
+		/* Waiting to release the buffer */
+		sleep(1);
+		rman_if_rxs_enable();
+	}
+
 #ifdef FRA_ERROR_INTERRUPT_INFO
 	if (status & RMAN_OFER_ERROR_MASK)
 		error(0, 0, "Outbound frame queue enqueue rejection error");

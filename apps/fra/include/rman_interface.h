@@ -321,4 +321,10 @@ void rman_if_reconfig(const struct rman_cfg *cfg);
 /* Releases RMan interface resource */
 void rman_if_finish(void);
 
+/* Disable all the running RMan inbound blocks */
+void rman_if_rxs_disable(void);
+
+/* Enable all the ready RMan inbound blocks */
+void rman_if_rxs_enable(void);
+
 #endif	/* _RMAN_IF_H */
