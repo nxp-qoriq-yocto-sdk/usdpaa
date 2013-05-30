@@ -219,6 +219,35 @@ policy.
 			<fieldref name="ipsec_esp.spi"/>
 		</key>
 	</distribution>
+	<distribution name="hash_ipv4_shared_mac_dist7">
+                <queue base="1" count="1" />
+                <protocols>
+                        <protocolref name="ipv4" />
+                </protocols>
+                <action type="classification" name="ip_dest_clsf7"/>
+        </distribution>
+        <classification name="ip_dest_clsf7">
+                <key>
+                        <fieldref name="ipv4.dst" />
+                </key>
+                <entry>
+                        <data>0xc0a82c03</data>
+                        <queue base="0x02" />
+                        <action type="distribution" name="usdpaa_dist7" />
+                </entry>
+                <entry>
+                        <data>0xc0a82c04</data>
+                        <queue base="0x03" />
+                        <action type="distribution" name="default_dist7" />
+                </entry>
+		<action type="distribution" name="default_dist7" condition="on-miss" />
+        </classification>
+        <distribution name="usdpaa_dist7">
+                <queue count="32" base="0xf00"/>
+                <key>
+                        <fieldref name="ipv4.dst"/>
+                </key>
+        </distribution>
 	<distribution name="hash_ipsec_src_dst_spi_dist8">
 		<queue count="32" base="0xc00"/>
 		<key>
@@ -311,6 +340,36 @@ policy.
 		</key>
 	</distribution>
 
+	<distribution name="hash_ipv4_shared_mac_dist15">
+                <queue base="1" count="1" />
+                <protocols>
+                        <protocolref name="ipv4" />
+                </protocols>
+                <action type="classification" name="ip_dest_clsf15"/>
+        </distribution>
+        <classification name="ip_dest_clsf15">
+                <key>
+                        <fieldref name="ipv4.dst" />
+                </key>
+                <entry>
+                        <data>0xc0a82c03</data>
+                        <queue base="0x02" />
+                        <action type="distribution" name="usdpaa_dist15" />
+                </entry>
+                <entry>
+                        <data>0xc0a82c04</data>
+                        <queue base="0x03" />
+                        <action type="distribution" name="default_dist15" />
+                </entry>
+		<action type="distribution" name="default_dist15" condition="on-miss" />
+        </classification>
+        <distribution name="usdpaa_dist15">
+                <queue count="32" base="0xf00"/>
+                <key>
+                        <fieldref name="ipv4.dst"/>
+                </key>
+        </distribution>
+
 	<distribution name="default_dist0">
 		<queue count="1" base="0x51"/>
 	</distribution>
@@ -346,6 +405,9 @@ policy.
 	</distribution>
 	<distribution name="default_dist11">
 		<queue count="1" base="0x67"/>
+	</distribution>
+	<distribution name="default_dist15">
+		<queue count="1" base="0x6f"/>
 	</distribution>
 
 <!--	xxxxxxxxxxxxxxxxxxxxxxxxxx Policies xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx -->
@@ -457,8 +519,7 @@ policy.
 
 	<policy name="hash_ipsec_src_dst_spi_policy7">
 		<dist_order>
-			<distributionref name="hash_ipsec_src_dst_spi_dist7"/>
-			<distributionref name="hash_ipv4_src_dst_dist7"/>
+			<distributionref name="hash_ipv4_shared_mac_dist7"/>
 			<distributionref name="default_dist7"/>
 		</dist_order>
 	</policy>
@@ -521,6 +582,13 @@ policy.
 	<policy name="hash_default_policy11">
 		<dist_order>
 			<distributionref name="default_dist11"/>
+		</dist_order>
+	</policy>
+
+	<policy name="hash_ipsec_src_dst_spi_policy15">
+		<dist_order>
+			<distributionref name="hash_ipv4_shared_mac_dist15"/>
+			<distributionref name="default_dist15"/>
 		</dist_order>
 	</policy>
 
