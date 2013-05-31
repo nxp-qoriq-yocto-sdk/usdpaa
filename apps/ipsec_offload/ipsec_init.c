@@ -59,7 +59,8 @@
 #define NUM_SETS	8
 #define NUM_WAYS	8
 #else
-	#error "Platform not defined or not supported"
+#define NUM_SETS	2
+#define NUM_WAYS	8
 #endif
 
 

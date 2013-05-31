@@ -95,7 +95,10 @@ enum ether_types {
 /* number of outbound tcp/udp policies */
 #define OUT_TCPUDP_POL_NUM      64
 #else
-	#error "Plaform not defined or not supported"
+#define IPv4_NUM_KEYS		16
+#define IPv6_NUM_KEYS		16
+/* number of outbound tcp/udp policies */
+#define OUT_TCPUDP_POL_NUM	16
 #endif
 
 #define NEIGH_TABLES_KEY_SIZE { IPv4_KEY_SIZE, IPv6_KEY_SIZE }
