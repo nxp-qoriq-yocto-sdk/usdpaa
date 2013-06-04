@@ -129,12 +129,16 @@ static int ppam_interface_init(struct ppam_interface *p,
 	struct qman_fq *fq = &i->tx_fqs[0];
 	if (app_conf.fm == i->port_cfg->fman_if->fman_idx &&
 		i->port_cfg->fman_if->mac_type == fman_offline &&
-		app_conf.ob_oh_post == i->port_cfg->fman_if->mac_idx)
+		app_conf.ob_oh_post == i->port_cfg->fman_if->mac_idx) {
 		fq->fqid = OB_OH_POST_TX_FQID;
+		*flags |= PPAM_TX_FQ_NO_BUF_DEALLOC;
+	}
 	if (app_conf.fm == i->port_cfg->fman_if->fman_idx &&
 		i->port_cfg->fman_if->mac_type == fman_offline &&
-		app_conf.ob_oh_pre == i->port_cfg->fman_if->mac_idx)
+		app_conf.ob_oh_pre == i->port_cfg->fman_if->mac_idx) {
 		fq->fqid = OB_OH_PRE_TX_FQID;
+		*flags |= PPAM_TX_FQ_NO_BUF_DEALLOC;
+	}
 	if (app_conf.fm == i->port_cfg->fman_if->fman_idx &&
 		i->port_cfg->fman_if->mac_type == fman_mac_1g &&
 		app_conf.ib_eth == i->port_cfg->fman_if->mac_idx) {
