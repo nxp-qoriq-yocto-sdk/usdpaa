@@ -193,6 +193,8 @@ void teardown_fq(struct qman_fq *fq)
 	}
 	s = qman_oos_fq(fq);
 	BUG_ON(s);
+	if (!(fq->flags & QMAN_FQ_FLAG_DYNAMIC_FQID))
+		qman_release_fqid(fq->fqid);
 	qman_destroy_fq(fq, 0);
 }
 
@@ -207,6 +209,9 @@ void ppac_fq_nonpcd_init(struct qman_fq *fq, u32 fqid,
 {
 	struct qm_mcc_initfq opts;
 	__maybe_unused int ret;
+
+	ret = qman_reserve_fqid(fqid);
+	BUG_ON(ret);
 
 	fq->cb.dqrr = cb;
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_NO_ENQUEUE, fq);
@@ -230,6 +235,10 @@ void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
 	struct qm_mcc_initfq opts;
 	__maybe_unused int ret;
 	fq->cb.dqrr = cb_dqrr_rx_hash;
+
+	ret = qman_reserve_fqid(fqid);
+	BUG_ON(ret);
+
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_NO_ENQUEUE, fq);
 	BUG_ON(ret);
 	/* FIXME: no taildrop/holdactive for "2fwd" FQs */
@@ -302,6 +311,10 @@ void ppac_fq_tx_init(struct qman_fq *fq, u16 channel,
 	fq->cb.dqrr = cb_tx_drain;
 	if (!fq->fqid)
 		flags |= QMAN_FQ_FLAG_DYNAMIC_FQID;
+	else {
+		err = qman_reserve_fqid(fq->fqid);
+		BUG_ON(err);
+	}
 	err = qman_create_fq(fq->fqid, flags, fq);
 	/* Note: handle errors here, BUG_ON()s are compiled out in performance
 	 * builds (ie. the default) and this code isn't even
@@ -413,6 +426,9 @@ int ppac_prepare_bpid(u8 bpid, unsigned int count, uint64_t sz,
 		fprintf(stderr, "error: bman_new_pool(%d) failed\n", bpid);
 		return -ENOMEM;
 	}
+	ret = bman_reserve_bpid(bpid);
+	BUG_ON(ret);
+
 	/* Drain the pool of anything already in it. */
 	if (to_drain)
 	do {
