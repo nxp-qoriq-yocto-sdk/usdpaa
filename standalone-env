@@ -41,6 +41,14 @@
 # staging area managed by Poky, assuming that this usdpaa tree
 # is a sibling of the Poky tree (again, adjust as required).
 
+# SDK_ROOT points to the root of where you cloned SDK super-git. Even if the
+# name of this file suggests otherwise, parts of SDK build are still needed
+# to sucessfully build USDPAA.
+if [[ -z ${SDK_ROOT} ]]
+then
+	export SDK_ROOT="$PWD/.."
+fi
+
 board2soc()
 {
        case $1 in
@@ -48,8 +56,25 @@ board2soc()
                [pP]3041*) echo p3041;;
                [pP]4080*) echo p4080;;
                [pP]5020*) echo p5020;;
+               [pP]5040*) echo p5040;;
                [bB]4860*) echo b4860;;
                [tT]4240*) echo t4240;;
+       esac
+}
+
+board2cpu()
+{
+       case $1 in
+               [pP]1023*) echo e500v2;;
+               [pP]3041*) echo e500mc;;
+               [pP]4080*) echo e500mc;;
+               [pP]5020*-64b) echo 64e500mc;;
+               [pP]5020*) echo e500mc;;
+               [pP]5040*-64b) echo 64e5500;;
+               [bB]4860*-64b) echo 64e6500;;
+               [bB]4860*) echo 64e6500;;
+               [tT]4240*-64b) echo 64e6500;;
+               [tT]4240*) echo e6500;;
        esac
 }
 
@@ -61,7 +86,7 @@ do
 	case $flags in
 		m)
 			case $OPTARG in
-				p1023ds | p3041ds | p4080ds | p5020ds | b4860qds | t4240qds)
+				p1023ds | p3041ds | p4080ds | p5020ds | p5020ds-64b | p5040ds-64b | b4860qds | b4860qds-64b | t4240qds | t4240qds-64b)
 					board=$OPTARG
 					;;
 				*)
@@ -75,21 +100,44 @@ done
 OPTIND=$OLD_OPTIND
 declare -u SOC=$(board2soc $board)
 
-export ARCH=powerpc
-export CROSS_COMPILE=powerpc-fsl_networking-linux-
-export PATH=$PWD/../build_${board}_release/tmp/sysroots/x86_64-linux/usr/bin/ppce500mc-fsl_networking-linux/:$PATH
-export PKG_CONFIG_SYSROOT_DIR=$PWD/../build_${board}_release/tmp/sysroots/$board
-export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$PKG_CONFIG_SYSROOT_DIR/usr/lib/pkgconfig
-export PKG_CONFIG_LIBDIR=$PKG_CONFIG_SYSROOT_DIR/usr/lib/pkgconfig
-export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1
+if [[ $board =~ "-64b" ]]
+then
+	prefix="64"
+else
+	prefix=""
+fi
+
+sysroot="${SDK_ROOT}/build_${board}_release/tmp/sysroots"
+if [[ -d "${sysroot}" ]]
+then
+	export PATH="${sysroot}/`uname -m`-linux/usr/bin/ppc$(board2cpu $board)-fsl_networking-linux/:$PATH"
+
+	export PKG_CONFIG_SYSROOT_DIR="${sysroot}/$board"
+	export PKG_CONFIG_PATH="${PKG_CONFIG_PATH}:${PKG_CONFIG_SYSROOT_DIR}/usr/lib${prefix}/pkgconfig"
+	export PKG_CONFIG_LIBDIR=${PKG_CONFIG_SYSROOT_DIR}/usr/lib/pkgconfig
+	export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1
+else
+	echo "error: ${sysroot} does not exist or is not a valid sysroot"
+	echo "Please set SDK_ROOT environment variable to a correct path (currently is ${SDK_ROOT})"
+
+	if [[ "${BASH_SOURCE[0]}" == "$0" ]]
+	then
+		exit
+	else
+		return
+	fi
+fi
+
+export ARCH=powerpc${prefix}
+export CROSS_COMPILE=powerpc${prefix}-fsl_networking-linux-
 export LIBXML2_CFLAGS=$(pkg-config --cflags libxml-2.0)
 export LIBXML2_LDFLAGS=$(pkg-config --libs --static libxml-2.0)
 export LIBEDIT_CFLAGS=$(pkg-config --cflags libedit)
 export LIBEDIT_LDFLAGS=$(pkg-config --libs --static libedit)
 export LIBRTA_CFLAGS="-I$PKG_CONFIG_SYSROOT_DIR/usr/include"
-export FMC_EXTRA_CFLAGS="-I $PWD/../build_${board}_release/tmp/sysroots/$board/usr/include/fmc"
-export FMC_EXTRA_LDFLAGS="-L $PWD/../build_${board}_release/tmp/sysroots/$board/usr/lib"
-export FMLIB_EXTRA_CFLAGS="-I $PWD/../build_${board}_release/tmp/sysroots/$board/usr/include/fmd -I $PWD/../build_${board}_release/tmp/sysroots/$board/usr/include/fmd/Peripherals -I $PWD/../build_${board}_release/tmp/sysroots/$board/usr/include/fmd/integrations -D $SOC"
-export FMLIB_EXTRA_LDFLAGS="-L $PWD/../build_${board}_release/tmp/sysroots/$board/usr/lib"
+export FMC_EXTRA_CFLAGS="-I ${PKG_CONFIG_SYSROOT_DIR}/usr/include/fmc"
+export FMC_EXTRA_LDFLAGS="-L ${PKG_CONFIG_SYSROOT_DIR}/usr/lib"
+export FMLIB_EXTRA_CFLAGS="-I ${PKG_CONFIG_SYSROOT_DIR}/usr/include/fmd -I ${PKG_CONFIG_SYSROOT_DIR}/usr/include/fmd/Peripherals -I ${PKG_CONFIG_SYSROOT_DIR}/usr/include/fmd/integrations -D $SOC"
+export FMLIB_EXTRA_LDFLAGS="-L ${PKG_CONFIG_SYSROOT_DIR}/usr/lib"
 export EXTRA_LDFLAGS="-L $(${CROSS_COMPILE}gcc -print-sysroot)/usr/lib"
-unset -v OLD_OPTIND board SOC PKG_CONFIG_SYSROOT_DIR PKG_CONFIG_LIBDIR PKG_CONFIG_ALLOW_SYSTEM_LIBS
+unset -v OLD_OPTIND board SOC PKG_CONFIG_SYSROOT_DIR PKG_CONFIG_LIBDIR PKG_CONFIG_ALLOW_SYSTEM_LIBS prefix sysroot
