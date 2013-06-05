@@ -77,10 +77,19 @@ struct usdpaa_ioctl_id_release {
 	uint32_t base;
 	uint32_t num;
 };
+
+struct usdpaa_ioctl_id_reserve {
+	enum usdpaa_id_type id_type;
+	uint32_t base;
+	uint32_t num;
+};
+
 #define USDPAA_IOCTL_ID_ALLOC \
 	_IOWR(USDPAA_IOCTL_MAGIC, 0x01, struct usdpaa_ioctl_id_alloc)
 #define USDPAA_IOCTL_ID_RELEASE \
 	_IOW(USDPAA_IOCTL_MAGIC, 0x02, struct usdpaa_ioctl_id_release)
+#define USDPAA_IOCTL_ID_RESERVE \
+	_IOW(USDPAA_IOCTL_MAGIC, 0x0A, struct usdpaa_ioctl_id_reserve)
 
 int process_alloc(enum usdpaa_id_type id_type, uint32_t *base, uint32_t num,
 		  uint32_t align, int partial)
@@ -116,7 +125,21 @@ void process_release(enum usdpaa_id_type id_type, uint32_t base, uint32_t num)
 	}
 	ret = ioctl(fd, USDPAA_IOCTL_ID_RELEASE, &id);
 	if (ret)
-		fprintf(stderr, "Process FD ioctl failure\n");
+		fprintf(stderr, "Process FD ioctl failure type %d"
+			" base 0x%x num %d\n", id_type, base, num);
+}
+
+int process_reserve(enum usdpaa_id_type id_type, uint32_t base, uint32_t num)
+{
+	struct usdpaa_ioctl_id_reserve id = {
+		.id_type = id_type,
+		.base = base,
+		.num = num
+	};
+	int ret = check_fd();
+	if (ret)
+		return ret;
+	return ioctl(fd, USDPAA_IOCTL_ID_RESERVE, &id);
 }
 
 /**********************/
@@ -237,9 +260,9 @@ int process_portal_irq_map(int ifd, struct usdpaa_ioctl_irq_map *map)
 	return ioctl(ifd, USDPAA_IOCTL_PORTAL_IRQ_MAP, map);
 }
 
-int process_portal_irq_unmap(int fd)
+int process_portal_irq_unmap(int ifd)
 {
-	return close(fd);
+	return close(ifd);
 }
 
 /* ioctl to query the amount of DMA memory used in the system */

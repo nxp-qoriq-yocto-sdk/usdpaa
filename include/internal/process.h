@@ -63,6 +63,8 @@ int process_alloc(enum usdpaa_id_type id_type, uint32_t *base, uint32_t num,
 		  uint32_t align, int partial);
 void process_release(enum usdpaa_id_type id_type, uint32_t base, uint32_t num);
 
+int process_reserve(enum usdpaa_id_type id_type, uint32_t base, uint32_t num);
+
 /**********************/
 /* Mapping DMA memory */
 /**********************/
