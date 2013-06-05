@@ -498,6 +498,9 @@ static int net_if_admin_init(struct net_if_admin *a, uint32_t fqid, int idx)
 	struct qm_mcc_initfq opts;
 	int ret;
 
+	ret = qman_reserve_fqid(fqid);
+	if (ret)
+		return -EINVAL;
 	a->idx = idx;
 	a->fq.cb.dqrr = cb_drop;
 	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_NO_ENQUEUE, &a->fq);
@@ -519,6 +522,9 @@ static int net_if_rx_init(struct net_if *interface,
 	struct qm_mcc_initfq opts;
 	int ret;
 
+	ret = qman_reserve_fqid(fqid);
+	if (ret)
+		return -EINVAL;
 	/* "map" this Rx FQ to one of the interfaces Tx FQID */
 	rx->tx_fqid = interface->tx_fqs[overall % NET_IF_NUM_TX].fqid;
 	rx->fq.cb.dqrr = cb_rx;
@@ -638,6 +644,8 @@ static void teardown_fq(struct qman_fq *fq)
 		}
 	}
 	s = qman_oos_fq(fq);
+	if (!(fq->flags & QMAN_FQ_FLAG_DYNAMIC_FQID))
+		qman_release_fqid(fq->fqid);
 	if (s)
 		fprintf(stderr, "Fail: %s: %d\n", "qman_oos_fq()", s);
 	else
