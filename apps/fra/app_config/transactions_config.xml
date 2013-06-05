@@ -158,42 +158,42 @@
 
 	<transaction name="mbox-dtsec0" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
-		<mbox value="0" mask="0"/>
+		<mbox value="3" mask="0"/>
 		<ltr value="0" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
 	<transaction name="mbox-dtsec1" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
-		<mbox value="0" mask="0"/>
+		<mbox value="3" mask="0"/>
 		<ltr value="1" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
 	<transaction name="mbox-dtsec2" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
-		<mbox value="0" mask="0"/>
+		<mbox value="3" mask="0"/>
 		<ltr value="2" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
 	<transaction name="mbox-dtsec3" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
-		<mbox value="0" mask="0"/>
+		<mbox value="3" mask="0"/>
 		<ltr value="3" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
 	<transaction name="mbox-dtsec4" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
-		<mbox value="1" mask="0"/>
+		<mbox value="2" mask="0"/>
 		<ltr value="0" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
 	<transaction name="mbox-dtsec5" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
-		<mbox value="1" mask="0"/>
+		<mbox value="2" mask="0"/>
 		<ltr value="1" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
@@ -201,42 +201,42 @@
 	<transaction name="mbox-dtsec8" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
 		<mbox value="2" mask="0"/>
-		<ltr value="0" mask="0" />
+		<ltr value="2" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
 	<transaction name="mbox-dtsec9" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
 		<mbox value="2" mask="0"/>
-		<ltr value="1" mask="0" />
+		<ltr value="3" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
 	<transaction name="mbox-dtsec10" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
-		<mbox value="2" mask="0"/>
-		<ltr value="2" mask="0" />
+		<mbox value="1" mask="0"/>
+		<ltr value="0" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
 	<transaction name="mbox-dtsec11" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
-		<mbox value="2" mask="0"/>
-		<ltr value="3" mask="0" />
+		<mbox value="1" mask="0"/>
+		<ltr value="1" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
 	<transaction name="mbox-dtsec12" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
-		<mbox value="3" mask="0"/>
-		<ltr value="0" mask="0" />
+		<mbox value="1" mask="0"/>
+		<ltr value="2" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
 	<transaction name="mbox-dtsec13" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
-		<mbox value="3" mask="0"/>
-		<ltr value="1" mask="0" />
+		<mbox value="1" mask="0"/>
+		<ltr value="3" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 </trans_cfg>
