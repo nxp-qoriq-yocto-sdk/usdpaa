@@ -313,9 +313,7 @@ int test_vector_match(uint32_t *left, uint32_t *right, uint32_t bitlen)
 void validate_test(unsigned int itr_num, unsigned int buf_num,
 		   unsigned int buf_size)
 {
-	uint16_t enc_cycles_per_frame = 0;
-	uint16_t dec_cycles_per_frame = 0;
-	uint64_t cpu_freq;
+	uint64_t cpu_freq, throughput;
 	int err = 0;
 
 	if (!ctrl_error) {
@@ -324,19 +322,20 @@ void validate_test(unsigned int itr_num, unsigned int buf_num,
 		if (err)
 			error(err, err, "error: get cpu frequency failed");
 
-		enc_cycles_per_frame = (enc_delta) / (itr_num * buf_num);
+		throughput = ((cpu_freq * BITS_PER_BYTE * buf_size) *
+				(itr_num * buf_num)) / enc_delta ;
 
 		fprintf(stdout, "%s: Throughput = %" PRIu64 " Mbps\n",
-			"Encrypt",
-			(cpu_freq * BITS_PER_BYTE * buf_size) /
-			enc_cycles_per_frame);
+			"Encrypt", throughput);
 
-		dec_cycles_per_frame = (dec_delta) / (itr_num * buf_num);
-
-		fprintf(stdout, "%s: Throughput = %" PRIu64 " Mbps\n",
-			"Decrypt",
-			(cpu_freq * BITS_PER_BYTE * buf_size) /
-			dec_cycles_per_frame);
+		if (dec_delta != 0) {
+			throughput = ((cpu_freq * BITS_PER_BYTE * buf_size) *
+					(itr_num * buf_num)) / dec_delta;
+			fprintf(stdout, "%s: Throughput = %" PRIu64 " Mbps\n",
+				"Decrypt", throughput);
+		} else {
+			fprintf(stdout, "%s: Throughput = N/A\n", "Decrypt");
+		}
 
 		fprintf(stdout, "SEC 4.0 TEST PASSED\n");
 	} else {
