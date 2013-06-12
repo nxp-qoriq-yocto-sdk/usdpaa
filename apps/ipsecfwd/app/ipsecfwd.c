@@ -88,7 +88,8 @@ int32_t ipsecfwd_add_sa(struct app_ctrl_op_info *sa_info)
 */
 int32_t ipsecfwd_del_sa(struct app_ctrl_op_info *sa_info)
 {
-	return 0;
+	pr_err("Not implemented yet\n");
+	return -1;
 }
 
 /**
