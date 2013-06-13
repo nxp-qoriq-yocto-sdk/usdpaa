@@ -45,8 +45,49 @@
 
 #include "test_vector.h"
 
-#define PDCP_MAP_PROTO_TO_ARRAY(x)	\
-	((x) - PDCP_CTRL_PLANE_AES_CTR_AES_CMAC_UL)
+/**
+ * @def PDCP_CPLANE_TEST_ARRAY_OFFSET
+ * @brief The following macro computes the index in the PDCP test vectors array
+ * for control plane processing by using the following property of the
+ * test array: for each ciphering algorithm, the various parameters that
+ * can be given by the user are indexed by their actual values.
+ * In short, this macro uses the linear property of the test vectors arrray.
+ */
+#define PDCP_CPLANE_TEST_ARRAY_OFFSET(crypto_info)		\
+	(PDCP_CPLANE_OFFSET +					\
+	((crypto_info)->proto_params.pdcp_params.cipher_alg *	\
+	PDCP_AUTH_TYPE_INVALID * PDCP_DIR_INVALID +		\
+	(crypto_info)->proto_params.pdcp_params.integrity_alg *	\
+	PDCP_DIR_INVALID +					\
+	(crypto_info)->proto_params.pdcp_params.downlink))
+
+/**
+ * @def PDCP_UPLANE_TEST_ARRAY_OFFSET
+ * @brief The following macro computes the index in the PDCP test vectors array
+ * for user plane processing by using the following property of the
+ * test array: for each ciphering algorithm, the various parameters that
+ * can be given by the user are indexed by their actual values.
+ * In short, this macro uses the linear property of the test vectors arrray.
+ */
+#define PDCP_UPLANE_TEST_ARRAY_OFFSET(crypto_info)		\
+	(PDCP_UPLANE_OFFSET +					\
+	(crypto_info)->proto_params.pdcp_params.cipher_alg *	\
+	2 * PDCP_DIR_INVALID +					\
+	(crypto_info)->proto_params.pdcp_params.short_sn *	\
+	PDCP_DIR_INVALID +					\
+	(crypto_info)->proto_params.pdcp_params.downlink)
+
+/**
+ * @def PDCP_SHORT_MAC_TEST_ARRAY_OFFSET
+ * @brief The following macro computes the index in the PDCP test vectors array
+ * for Short MAC processing by using the following property of the
+ * test array: for each integrity algorithm, the various parameters that
+ * can be given by the user are indexed by their actual values.
+ * In short, this macro uses the linear property of the test vectors arrray.
+ */
+#define PDCP_SHORT_MAC_TEST_ARRAY_OFFSET(crypto_info)		\
+	(PDCP_SHORT_MAC_OFFSET +				\
+	(crypto_info)->proto_params.pdcp_params.integrity_alg)
 
 /**
  * WiMax parameter options specific defines
@@ -55,6 +96,25 @@
 #define BMASK_WIMAX_FCS_EN	0x40000000	/**< Enable FCS in WiMax */
 #define BMASK_WIMAX_AR_EN	0x20000000	/**< Enable AR in WiMax */
 
+/**
+ * PDCP parameter options specific defines
+ */
+
+#define	BMASK_PDCP_TYPE		0x80000000	/**< Type selected for PDCP */
+#define	BMASK_PDCP_CIPHER	0x40000000	/**< Cipher seleced for PDCP */
+#define	BMASK_PDCP_INTEGRITY	0x20000000	/**< Integrity selected for
+						     PDCP */
+#define	BMASK_PDCP_DIR_DL	0x10000000	/**< Downlink selected for
+						     PDCP */
+#define	BMASK_PDCP_SNS		0x08000000	/**< Short sequence number
+						     selected for PDCP */
+
+#define BMASK_PDCP_CPLANE_VALID	(BMASK_PDCP_TYPE | \
+				 BMASK_PDCP_CIPHER | \
+				 BMASK_PDCP_INTEGRITY)
+#define BMASK_PDCP_UPLANE_VALID	(BMASK_PDCP_TYPE | BMASK_PDCP_CIPHER)
+#define BMASK_PDCP_SHORT_MAC_VALID \
+				(BMASK_PDCP_TYPE | BMASK_PDCP_INTEGRITY)
 
 /**
  * @enum	sec_proto
@@ -63,47 +123,7 @@
 enum sec_proto {
 	MACSEC = 1,
 	WIMAX,
-	PDCP_CTRL_PLANE_AES_CTR_AES_CMAC_UL,
-	PDCP_CTRL_PLANE_AES_CTR_AES_CMAC_DL,
-	PDCP_CTRL_PLANE_AES_CTR_SNOW_F9_UL,
-	PDCP_CTRL_PLANE_AES_CTR_SNOW_F9_DL,
-	PDCP_CTRL_PLANE_SNOW_F8_SNOW_F9_DL,
-	PDCP_CTRL_PLANE_SNOW_F8_SNOW_F9_UL,
-	PDCP_CTRL_PLANE_ZUC_E_ZUC_I_DL,
-	PDCP_CTRL_PLANE_ZUC_E_ZUC_I_UL,
-	PDCP_CTRL_PLANE_SNOW_F8_AES_CMAC_DL,
-	PDCP_CTRL_PLANE_SNOW_F8_AES_CMAC_UL,
-	PDCP_CTRL_PLANE_SNOW_F8_NULL_DL,
-	PDCP_CTRL_PLANE_SNOW_F8_NULL_UL,
-	PDCP_CTRL_PLANE_AES_CTR_NULL_DL,
-	PDCP_CTRL_PLANE_AES_CTR_NULL_UL,
-	PDCP_CTRL_PLANE_ZUC_E_NULL_DL,
-	PDCP_CTRL_PLANE_ZUC_E_NULL_UL,
-	PDCP_CTRL_PLANE_NULL_SNOW_F9_DL,
-	PDCP_CTRL_PLANE_NULL_SNOW_F9_UL,
-	PDCP_CTRL_PLANE_NULL_AES_CMAC_DL,
-	PDCP_CTRL_PLANE_NULL_AES_CMAC_UL,
-	PDCP_CTRL_PLANE_NULL_ZUC_I_DL,
-	PDCP_CTRL_PLANE_NULL_ZUC_I_UL,
-	PDCP_CTRL_PLANE_NULL_NULL_UL,
-	PDCP_USER_PLANE_AES_CTR_UL_LONG_SN,
-	PDCP_USER_PLANE_AES_CTR_DL_LONG_SN,
-	PDCP_USER_PLANE_AES_CTR_UL_SHORT_SN,
-	PDCP_USER_PLANE_AES_CTR_DL_SHORT_SN,
-	PDCP_USER_PLANE_SNOW_F8_UL_LONG_SN,
-	PDCP_USER_PLANE_SNOW_F8_DL_LONG_SN,
-	PDCP_USER_PLANE_SNOW_F8_UL_SHORT_SN,
-	PDCP_USER_PLANE_SNOW_F8_DL_SHORT_SN,
-	PDCP_USER_PLANE_ZUC_E_UL_LONG_SN,
-	PDCP_USER_PLANE_ZUC_E_DL_LONG_SN,
-	PDCP_USER_PLANE_ZUC_E_UL_SHORT_SN,
-	PDCP_USER_PLANE_ZUC_E_DL_SHORT_SN,
-	PDCP_USER_PLANE_NULL_DL_LONG_SN,
-	PDCP_USER_PLANE_NULL_DL_SHORT_SN,
-	PDCP_SHORT_MAC_SNOW_F9,
-	PDCP_SHORT_MAC_AES_CMAC,
-	PDCP_SHORT_MAC_ZUC_I,
-	PDCP_SHORT_MAC_NULL
+	PDCP
 };
 
 /**
@@ -184,6 +204,10 @@ char protocol[100];		/* string corresponding to integral value */
 void init_rtv_macsec_gcm_128(struct test_param *crypto_info);
 void init_rtv_wimax_aes_ccm_128(struct test_param *crypto_info);
 void init_rtv_wimax_cipher(uint test_set);
+void init_rtv_pdcp(struct test_param *crypto_info);
+void init_rtv_pdcp_c_plane(struct test_param *crypto_info);
+void init_rtv_pdcp_u_plane(struct test_param *crypto_info);
+void init_rtv_pdcp_short_mac(struct test_param *crypto_info);
 
 /* test cleanup routines */
 void test_cleanup_wimax(struct test_param *crypto_info);
