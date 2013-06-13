@@ -46,8 +46,6 @@
 #define BMASK_SEC_ITR_NUM      0x00100000 /**< Bit mask for number of iteration */
 #define BMASK_SEC_PERF_MODE    0x00111101 /**< valid combination in perf mode */
 #define BMASK_SEC_CIPHER_MODE  0x00111011 /**< valid combination in cipher mode */
-#define BMASK_SEC_PDB_OPTS     0x01000000 /**< Bit mask for PDB Options */
-#define BMASK_SEC_PDB_ARLEN    0x10000000 /**< Bit mask for PDB AR Option */
 
 #define BITS_PER_BYTE	        (8)
 #define BYTES_PER_WORD	sizeof(int)

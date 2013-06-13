@@ -49,6 +49,14 @@
 	((x) - PDCP_CTRL_PLANE_AES_CTR_AES_CMAC_UL)
 
 /**
+ * WiMax parameter options specific defines
+ */
+#define BMASK_WIMAX_OFDMA_EN	0x80000000	/**< Enable OFDMa processing */
+#define BMASK_WIMAX_FCS_EN	0x40000000	/**< Enable FCS in WiMax */
+#define BMASK_WIMAX_AR_EN	0x20000000	/**< Enable AR in WiMax */
+
+
+/**
  * @enum	sec_proto
  * @details	SEC security protocols supported in the application
  */
@@ -110,6 +118,29 @@ struct runtime_param {
 	uint32_t job_desc_buf_size;
 };
 
+struct macsec_params {};
+
+struct wimax_params {
+	bool ofdma;
+	bool fcs;
+	bool ar;
+	int ar_len;
+};
+
+struct pdcp_params {
+	enum pdcp_plane type;
+	enum cipher_type_pdcp cipher_alg;
+	enum auth_type_pdcp integrity_alg;
+	bool downlink;
+	bool short_sn;
+};
+
+union proto_params {
+	struct macsec_params macsec_params;
+	struct wimax_params wimax_params;
+	struct pdcp_params pdcp_params;
+};
+
 /**
  * @struct	test_param
  * @details	Structure used to hold parameters for test
@@ -122,8 +153,23 @@ struct test_param {
 	unsigned int itr_num;	/**< number of iteration to repeat SEC
 				     operation */
 	enum sec_proto proto;	/**< SEC operation to perform */
+	union proto_params proto_params; /**< Protocol specific parameters */
 	struct runtime_param rt;/**< runtime parameter */
-	bool valid_params;	/**< valid parameters flag */
+	void (*set_enc_buf_cb)(struct qm_fd *, uint8_t*, struct test_param *);
+				/**< callback used for setting per-protocol
+				     parameters on the encap direction */
+	void (*set_dec_buf_cb)(struct qm_fd *, uint8_t*, struct test_param *);
+				/**< callback used for setting per-protocol
+				     parameters on the decap direction */
+	int (*test_enc_match_cb)(int, uint8_t*, struct test_param *);
+				/**< callback used for validating the encap
+				     result (per protocol) */
+	int (*test_dec_match_cb)(int, uint8_t*, struct test_param *);
+				/**< callback used for validating the encap
+				     result (per protocol) */
+	void (*test_cleanup)(struct test_param *);
+				/**< callback used for cleaning up the resources
+				     that were allocated during the test-run */
 };
 
 struct parse_input_t {
@@ -138,6 +184,9 @@ char protocol[100];		/* string corresponding to integral value */
 void init_rtv_macsec_gcm_128(struct test_param *crypto_info);
 void init_rtv_wimax_aes_ccm_128(struct test_param *crypto_info);
 void init_rtv_wimax_cipher(uint test_set);
+
+/* test cleanup routines */
+void test_cleanup_wimax(struct test_param *crypto_info);
 
 /* prepare test buffers, fqs, fds routines */
 void macsec_set_pn_constant(uint32_t *shared_desc, unsigned *shared_desc_len);
@@ -156,6 +205,10 @@ static int validate_opt_param(struct test_param *crypto_info,
 			      uint32_t *g_cmd_params, uint32_t param);
 int test_enc_match(void *params, struct qm_fd fd[]);
 int test_dec_match(void *params, struct qm_fd fd[]);
+int test_enc_match_cb_wimax(int fd_ind, uint8_t *enc_buf,
+			    struct test_param *crypto_info);
+int test_dec_match_cb_wimax(int fd_ind, uint8_t *enc_buf,
+			    struct test_param *crypto_info);
 error_t parse_opt(int opt, char *arg, struct argp_state *state);
 
 /* helper routines */
