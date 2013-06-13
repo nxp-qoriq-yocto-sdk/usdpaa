@@ -167,6 +167,7 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 	/* Allocate an object for this network interface */
 	__if = malloc(sizeof(*__if));
 	my_err(!__if, -ENOMEM, "malloc(%zu)\n", sizeof(*__if));
+	memset(__if, 0, sizeof(*__if));
 	INIT_LIST_HEAD(&__if->__if.bpool_list);
 	strncpy(__if->node_path, dpa_node->full_name, PATH_MAX - 1);
 	__if->node_path[PATH_MAX - 1] = '\0';
