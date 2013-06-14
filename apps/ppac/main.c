@@ -363,14 +363,6 @@ static void finish_pool_channels(void)
 	qman_release_pool_range(pchannels[0], PPAC_NUM_POOL_CHANNELS);
 }
 
-#ifdef PPAC_CGR
-static void release_cgrids(void)
-{
-	qman_release_cgrid(cgr_rx.cgrid);
-	qman_release_cgrid(cgr_tx.cgrid);
-}
-#endif
-
 u16 get_rxc(void)
 {
 	u16 ret = pchannels[pchannel_idx];
@@ -557,6 +549,10 @@ static void do_global_finish(void)
 		 * themselves. */
 		ppac_interface_finish((struct ppac_interface *)i);
 	ppam_finish();
+#ifdef PPAC_CGR
+	qman_delete_cgr(&cgr_rx);
+	qman_delete_cgr(&cgr_tx);
+#endif
 	/* Tear down buffer pools */
 	for (loop = 0; loop < ARRAY_SIZE(pool); loop++) {
 		if (pool[loop]) {
@@ -1667,7 +1663,7 @@ leave:
 	worker_free(worker);
 	finish_pool_channels();
 #ifdef PPAC_CGR
-	release_cgrids();
+	qman_release_cgrid_range(cgr_rx.cgrid, 2);
 #endif
 	usdpaa_netcfg_release(netcfg);
 	of_finish();
