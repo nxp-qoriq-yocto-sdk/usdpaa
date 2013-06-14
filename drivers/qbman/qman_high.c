@@ -2332,8 +2332,7 @@ int qman_delete_cgr(struct qman_cgr *cgr)
 	/* Overwrite TARG */
 	local_opts.we_mask = QM_CGR_WE_CSCN_TARG;
 	if ((qman_ip_rev & 0xFF00) >= QMAN_REV30)
-		local_opts.cgr.cscn_targ_upd_ctrl =
-			~QM_CGR_TARG_UDP_CTRL_WRITE_BIT | PORTAL_IDX(p);
+		local_opts.cgr.cscn_targ_upd_ctrl = PORTAL_IDX(p);
 	else
 		local_opts.cgr.cscn_targ = cgr_state.cgr.cscn_targ &
 							 ~(TARG_MASK(p));
@@ -4226,9 +4225,11 @@ int qman_ceetm_ccg_release(struct qm_ceetm_ccg *ccg)
 	list_for_each_entry(i, &p->ccgr_cbs[ccg->parent->dcp_idx], cb_node)
 		if ((i->idx == ccg->idx) && i->cb)
 			goto release_lock;
+	config_opts.ccgrid = CEETM_CCGR_CM_CONFIGURE |
+				(ccg->parent->idx << 4) | ccg->idx;
+	config_opts.dcpid = ccg->parent->dcp_idx;
 	config_opts.we_mask = QM_CCGR_WE_CSCN_TUPD;
-	config_opts.cm_config.cscn_tupd =
-			~QM_CGR_TARG_UDP_CTRL_WRITE_BIT | PORTAL_IDX(p);
+	config_opts.cm_config.cscn_tupd = PORTAL_IDX(p);
 
 	ret = qman_ceetm_configure_ccgr(&config_opts);
 release_lock:
