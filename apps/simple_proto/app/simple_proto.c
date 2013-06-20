@@ -1278,17 +1278,8 @@ static int validate_pdcp_opts(uint32_t g_proto_params,
 	if (g_proto_params & BMASK_PDCP_INTEGRITY) {
 		switch (pdcp_params->integrity_alg) {
 		case PDCP_AUTH_TYPE_NULL:
-			break;
-
 		case PDCP_AUTH_TYPE_SNOW:
 		case PDCP_AUTH_TYPE_AES:
-			if (pdcp_params->cipher_alg == PDCP_CIPHER_TYPE_ZUC) {
-				fprintf(stderr,
-					"error: PDCP Invalid Parameters: "
-					"Invalid integrity algorithm\n"
-					"see --help option\n");
-				return -EINVAL;
-			}
 			break;
 
 		case PDCP_AUTH_TYPE_ZUC:
