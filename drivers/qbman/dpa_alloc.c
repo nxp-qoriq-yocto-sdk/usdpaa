@@ -44,7 +44,7 @@ void bman_release_bpid_range(u32 bpid, u32 count)
 }
 EXPORT_SYMBOL(bman_release_bpid_range);
 
-void bman_reserve_bpid_range(u32 bpid, u32 count)
+int bman_reserve_bpid_range(u32 bpid, u32 count)
 {
 	return process_reserve(usdpaa_id_bpid, bpid, count);
 }
