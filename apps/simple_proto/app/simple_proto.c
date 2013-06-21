@@ -235,6 +235,107 @@ int test_dec_match_cb_wimax(int fd_ind, uint8_t *dec_buf,
 	return 0;
 }
 
+/*
+ * NOTE: this function will be called iff HFN override is enabled; thus
+ * no need to check if hfn_ov_en is true.
+ */
+void set_enc_buf_cb_pdcp(struct qm_fd *fd, uint8_t *buf,
+			 struct test_param *crypto_info)
+{
+	int i;
+	uint8_t plain_data = 0;
+	uint8_t offset = 0;
+	uint32_t fd_cmd;
+
+	if (CIPHER == crypto_info->mode) {
+		fd_cmd = PDCP_DPOVRD_HFN_OV_EN | ref_test_vector.pdb.pdcp.hfn;
+		if (rta_sec_era > RTA_SEC_ERA_2)
+			fd->status = fd_cmd;
+		else {
+			*(uint32_t *)buf = fd_cmd;
+			offset = PDCP_P4080REV2_HFN_OV_BUFLEN;
+		}
+		memcpy(buf + offset, ref_test_vector.plaintext,
+		       crypto_info->buf_size);
+	} else {
+		fd_cmd = PDCP_DPOVRD_HFN_OV_EN |
+			 crypto_info->proto_params.pdcp_params.hfn_ov_val;
+		if (rta_sec_era > RTA_SEC_ERA_2)
+			fd->status = fd_cmd;
+		else {
+			*(uint32_t *)buf = fd_cmd;
+			offset = PDCP_P4080REV2_HFN_OV_BUFLEN;
+		}
+		for (i = offset; i < crypto_info->buf_size; i++)
+			buf[i] = plain_data++;
+	}
+}
+
+/*
+ * NOTE: this function will be called iff HFN override is enabled; thus
+ * no need to check if hfn_ov_en is true.
+ */
+void set_dec_buf_cb_pdcp(struct qm_fd *fd, uint8_t *buf,
+			 struct test_param *crypto_info)
+{
+	uint32_t fd_cmd;
+	if (CIPHER == crypto_info->mode) {
+		fd_cmd = PDCP_DPOVRD_HFN_OV_EN | ref_test_vector.pdb.pdcp.hfn;
+		if (rta_sec_era > RTA_SEC_ERA_2)
+			fd->status = fd_cmd;
+		else
+			*(uint32_t *)buf = fd_cmd;
+	} else {
+		fd_cmd = PDCP_DPOVRD_HFN_OV_EN |
+			 crypto_info->proto_params.pdcp_params.hfn_ov_val;
+		if (rta_sec_era > RTA_SEC_ERA_2)
+			fd->status = fd_cmd;
+		else
+			*(uint32_t *)buf = fd_cmd;
+	}
+}
+
+/*
+ * NOTE: This function is called iff SEC ERA is 2 AND HFN override
+ * is enabled.
+ */
+int test_enc_match_cb_pdcp(int fd_ind, uint8_t *enc_buf,
+			    struct test_param *crypto_info)
+{
+	return test_vector_match((uint32_t *)(enc_buf +
+					PDCP_P4080REV2_HFN_OV_BUFLEN),
+				 (uint32_t *)ref_test_vector.ciphertext,
+				 (crypto_info->rt.output_buf_size -
+					PDCP_P4080REV2_HFN_OV_BUFLEN) *
+				 BITS_PER_BYTE);
+}
+
+/*
+ * NOTE: This function is called iff SEC ERA is 2 AND HFN override
+ * is enabled.
+ */
+int test_dec_match_cb_pdcp(int fd_ind, uint8_t *dec_buf,
+			    struct test_param *crypto_info)
+{
+	uint8_t plain_data = 0;
+	int i;
+
+	if (CIPHER == crypto_info->mode)
+		return  test_vector_match(
+				  (uint32_t *)(dec_buf +
+					PDCP_P4080REV2_HFN_OV_BUFLEN),
+				  (uint32_t *)ref_test_vector.plaintext,
+				  ref_test_vector.length);
+	else
+		for (i = PDCP_P4080REV2_HFN_OV_BUFLEN;
+		     i < crypto_info->buf_size;
+		     i++)
+			if (dec_buf[i] != plain_data++)
+				return -1;
+
+	return 0;
+}
+
 void init_rtv_pdcp(struct test_param *crypto_info)
 {
 	struct pdcp_params *pdcp_params =
@@ -526,6 +627,17 @@ static int set_buf_size(struct test_param *crypto_info)
 			return -EINVAL;
 		}
 
+		if (crypto_info->proto_params.pdcp_params.hfn_ov_en &&
+			rta_sec_era == RTA_SEC_ERA_2) {
+			/* The input buffer is 4 bytes longer */
+			p_rt->input_buf_capacity +=
+					PDCP_P4080REV2_HFN_OV_BUFLEN;
+			p_rt->input_buf_length += PDCP_P4080REV2_HFN_OV_BUFLEN;
+
+			crypto_info->rt.output_buf_size +=
+					PDCP_P4080REV2_HFN_OV_BUFLEN;
+		}
+
 		break;
 
 	default:
@@ -550,7 +662,8 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 	struct alginfo cipher_info, auth_info;
 	uint32_t *shared_desc = NULL;
 	unsigned shared_desc_len;
-	int i;
+	unsigned sw_hfn_ov = 0;
+	int i, hfn_val;
 
 	prehdr_desc = __dma_mem_memalign(L1_CACHE_BYTES,
 					 sizeof(struct sec_descriptor_t));
@@ -616,6 +729,12 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 		auth_info.key = ref_test_vector.dma_addr_auth_key;
 		auth_info.keylen = ref_test_vector.auth_keylen;
 
+		sw_hfn_ov = ((rta_sec_era == RTA_SEC_ERA_2) &&
+			(crypto_info->proto_params.pdcp_params.hfn_ov_en));
+		hfn_val = crypto_info->proto_params.pdcp_params.hfn_ov_en ?
+			  crypto_info->proto_params.pdcp_params.hfn_ov_val :
+			  ref_test_vector.pdb.pdcp.hfn;
+
 		switch (crypto_info->proto_params.pdcp_params.type) {
 		case PDCP_CONTROL_PLANE:
 			if (ENCRYPT == mode)
@@ -626,13 +745,13 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
  * proper retrieval of PS.
  */
 					1,
-					ref_test_vector.pdb.pdcp.hfn,
+					hfn_val,
 					ref_test_vector.pdb.pdcp.bearer,
 					ref_test_vector.pdb.pdcp.direction,
 					ref_test_vector.pdb.pdcp.hfn_threshold,
 					&cipher_info,
 					&auth_info,
-					0);
+					sw_hfn_ov);
 			else
 				cnstr_shdsc_pdcp_c_plane_decap(shared_desc,
 					&shared_desc_len,
@@ -641,13 +760,13 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
  * proper retrieval of PS.
  */
 					1,
-					ref_test_vector.pdb.pdcp.hfn,
+					hfn_val,
 					ref_test_vector.pdb.pdcp.bearer,
 					ref_test_vector.pdb.pdcp.direction,
 					ref_test_vector.pdb.pdcp.hfn_threshold,
 					&cipher_info,
 					&auth_info,
-					0);
+					sw_hfn_ov);
 			break;
 
 		case PDCP_DATA_PLANE:
@@ -661,12 +780,12 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 */
 					1,
 					ref_test_vector.pdb.pdcp.sns,
-					ref_test_vector.pdb.pdcp.hfn,
+					hfn_val,
 					ref_test_vector.pdb.pdcp.bearer,
 					ref_test_vector.pdb.pdcp.direction,
 					ref_test_vector.pdb.pdcp.hfn_threshold,
 					&cipher_info,
-					0);
+					sw_hfn_ov);
 			else
 				cnstr_shdsc_pdcp_u_plane_decap(shared_desc,
 					&shared_desc_len,
@@ -676,12 +795,12 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 */
 					1,
 					ref_test_vector.pdb.pdcp.sns,
-					ref_test_vector.pdb.pdcp.hfn,
+					hfn_val,
 					ref_test_vector.pdb.pdcp.bearer,
 					ref_test_vector.pdb.pdcp.direction,
 					ref_test_vector.pdb.pdcp.hfn_threshold,
 					&cipher_info,
-					0);
+					sw_hfn_ov);
 			break;
 
 		case PDCP_SHORT_MAC:
@@ -935,6 +1054,11 @@ static error_t pdcp_parse_opts(int key, char *arg, struct argp_state *state)
 	case 'x':
 		pdcp_params->short_sn = 1;
 		*p_proto_params |= BMASK_PDCP_SNS;
+		break;
+
+	case 'v':
+		pdcp_params->hfn_ov_val = atoi(arg);
+		*p_proto_params |= BMASK_PDCP_HFN_OV_EN;
 		break;
 
 	default:
@@ -1315,6 +1439,37 @@ static int validate_pdcp_opts(uint32_t g_proto_params,
 		}
 	}
 
+	if (g_proto_params & BMASK_PDCP_HFN_OV_EN) {
+		switch (pdcp_params->type) {
+		case PDCP_CONTROL_PLANE:
+		case PDCP_DATA_PLANE:
+			break;
+
+		default:
+			fprintf(stderr,
+				"error: PDCP Invalid Parameters: "
+				"Invalid HFN override for type\n"
+				"see --help option\n");
+			return -EINVAL;
+		}
+		pdcp_params->hfn_ov_en = 1;
+
+		/* Set the PDCP encap/decap callbacks, for modifying the FD */
+		crypto_info->set_enc_buf_cb = set_enc_buf_cb_pdcp;
+		crypto_info->set_dec_buf_cb = set_dec_buf_cb_pdcp;
+
+		/*
+		 * For ERA2, the in/out frames are not identical with the test
+		 * vector. Override the callbacks here.
+		 */
+		if (rta_sec_era == RTA_SEC_ERA_2) {
+			crypto_info->test_enc_match_cb = test_enc_match_cb_pdcp;
+			crypto_info->test_dec_match_cb = test_dec_match_cb_pdcp;
+		}
+	} else {
+		pdcp_params->hfn_ov_en = 0;
+	}
+
 	return 0;
 }
 
@@ -1553,6 +1708,10 @@ struct argp_option pdcp_options[] = {
 	{"sns", 'x', 0, 0,
 	 "OPTIONAL PARAMETER"
 	 "\n\nEnable Short Sequence Number for user plane PDUs"
+	 "\n"},
+	{"hfn_ov", 'v', "HFN_OV_VAL", 0,
+	 "OPTIONAL PARAMETER"
+	 "\n\nEnable HFN override mechanism (only for Control & Data Plane)"
 	 "\n"},
 	{0}
 };

@@ -108,6 +108,7 @@
 						     PDCP */
 #define	BMASK_PDCP_SNS		0x08000000	/**< Short sequence number
 						     selected for PDCP */
+#define	BMASK_PDCP_HFN_OV_EN	0x04000000	/**< HFN override enabled. */
 
 #define BMASK_PDCP_CPLANE_VALID	(BMASK_PDCP_TYPE | \
 				 BMASK_PDCP_CIPHER | \
@@ -153,6 +154,8 @@ struct pdcp_params {
 	enum auth_type_pdcp integrity_alg;
 	bool downlink;
 	bool short_sn;
+	bool hfn_ov_en;
+	int hfn_ov_val;
 };
 
 union proto_params {
