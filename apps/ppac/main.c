@@ -1414,7 +1414,7 @@ static int ppac_cli_rm(int argc, char *argv[])
 		list_for_each_entry(worker, &workers, node) {
 			char buf[16];
 			sprintf(buf, "uid:%u", worker->uid);
-			if (!strcmp(argv[1], buf)) {
+			if ((!strcmp(argv[1], buf)) && (worker != primary)) {
 				worker_free(worker);
 				return 0;
 			}
