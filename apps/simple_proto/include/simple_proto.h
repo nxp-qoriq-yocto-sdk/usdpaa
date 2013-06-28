@@ -194,8 +194,10 @@ struct test_param {
 
 struct parse_input_t {
 	uint32_t *cmd_params;
+	uint32_t *proto_params;	/**< protocol specific parameters */
 	struct test_param *crypto_info;
 };
+
 
 char mode_type[20];		/* string corresponding to integral value */
 char protocol[100];		/* string corresponding to integral value */
@@ -224,9 +226,14 @@ void set_dec_buf(void *params, struct qm_fd fd[]);
 /* validate test routines */
 static int validate_test_set(struct test_param *crypto_info);
 static int validate_sec_era_version(void);
-static int validate_params(uint32_t cmd_args, struct test_param *crypto_info);
-static int validate_opt_param(struct test_param *crypto_info,
-			      uint32_t *g_cmd_params, uint32_t param);
+static int validate_params(uint32_t cmd_args, uint32_t proto_args,
+			   struct test_param *crypto_info);
+static int validate_macsec_opts(uint32_t g_proto_params,
+				struct test_param *crypto_info);
+static int validate_wimax_opts(uint32_t g_proto_params,
+				struct test_param *crypto_info);
+static int validate_pdcp_opts(uint32_t g_proto_params,
+				struct test_param *crypto_info);
 int test_enc_match(void *params, struct qm_fd fd[]);
 int test_dec_match(void *params, struct qm_fd fd[]);
 int test_enc_match_cb_wimax(int fd_ind, uint8_t *enc_buf,
@@ -234,6 +241,12 @@ int test_enc_match_cb_wimax(int fd_ind, uint8_t *enc_buf,
 int test_dec_match_cb_wimax(int fd_ind, uint8_t *enc_buf,
 			    struct test_param *crypto_info);
 error_t parse_opt(int opt, char *arg, struct argp_state *state);
+int (*validate_proto_opts[])(uint32_t, struct test_param*) = {
+		NULL,
+		validate_macsec_opts,
+		validate_wimax_opts,
+		validate_pdcp_opts
+};
 
 /* helper routines */
 static void set_crypto_cbs(struct test_cb *crypto_cb);

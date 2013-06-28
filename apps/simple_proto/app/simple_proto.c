@@ -820,101 +820,129 @@ void set_dec_buf(void *params, struct qm_fd fd[])
 /*****************************************************************************/
 struct argp_option options[] = {
 	{"mode", 'm', "TEST MODE", 0,
-	 "\n\r\ttest mode: provide following number\n\r"
-		"\t\t1 for perf\n\r"
-		"\t\t2 for cipher\n\r"
-		"\tFollowing two combinations are valid only\n\r"
-		"\tand all options are mandatory:\n\r"
-		"\t\t-m 1 -s <buf_size> -n <buf_num_per_core>\n\r"
-		"\t\t-p <proto> -l <itr_num>\n\r"
-		"\t\t-m 2 -t <test_set> -n <buf_num_per_core>\n\r"
-		"\t\t-p <proto> -l <itr_num>\n"},
+	"Test mode:"
+	"\n\t1 for perf"
+	"\n\t2 for cipher"
+	"\n\nFollowing two combinations are valid only"
+	" and all options are mandatory:"
+	"\n-m 1 -s <buf_size> -n <buf_num_per_core> -p <proto> -l <itr_num>"
+	"\n-m 2 -t <test_set> -n <buf_num_per_core> -p <proto> -l <itr_num>"
+	"\n"},
 	{"proto", 'p', "PROTOCOL", 0,
-	 "\n\r\tCryptographic operation to perform by SEC\n\r"
-		"\tprovide following number\n\r"
-		"\t\t 1 for MACsec\n"
-		"\t\t 2 for WiMAX\n"
-		"\t\t For PDCP Control Plane:\n"
-		"\t\t\t 3 AES CTR + AES CMAC UL\n"
-		"\t\t\t 4 AES CTR + AES CMAC DL\n"
-		"\t\t\t 5 AES CTR + SNOW f9 UL\n"
-		"\t\t\t 6 AES CTR + SNOW f9 DL\n"
-		"\t\t\t 7 SNOW f8 + SNOW f9 DL\n"
-		"\t\t\t 8 SNOW f8 + SNOW f9 UL\n"
-		"\t\t\t 9 ZUC-E + ZUC-I DL*\n"
-		"\t\t\t10 ZUC-E + ZUC-I UL*\n"
-		"\t\t\t11 SNOW f8 + AES CMAC DL\n"
-		"\t\t\t12 SNOW f8 + AES CMAC UL\n"
-		"\t\t\t13 SNOW f8 + NULL DL\n"
-		"\t\t\t14 SNOW f8 + NULL UL\n"
-		"\t\t\t15 AES CTR + NULL DL\n"
-		"\t\t\t16 AES CTR + NULL UL\n"
-		"\t\t\t17 ZUC-E + NULL DL*\n"
-		"\t\t\t18 ZUC-E + NULL UL*\n"
-		"\t\t\t19 NULL + SNOW f9 DL\n"
-		"\t\t\t20 NULL + SNOW f9 UL\n"
-		"\t\t\t21 NULL + AES CMAC DL\n"
-		"\t\t\t22 NULL + AES CMAC UL\n"
-		"\t\t\t23 NULL + ZUC-I DL*\n"
-		"\t\t\t24 NULL + ZUC-I UL*\n"
-		"\t\t\t25 NULL + NULL UL\n"
-		"\t\t For PDCP User Plane:\n"
-		"\t\t\t26 AES CTR Long SN UL\n"
-		"\t\t\t27 AES CTR Long SN DL\n"
-		"\t\t\t28 AES CTR Short SN UL\n"
-		"\t\t\t29 AES CTR Short SN DL\n"
-		"\t\t\t30 SNOW f8 Long SN UL\n"
-		"\t\t\t31 SNOW f8 Long SN DL\n"
-		"\t\t\t32 SNOW f8 Short SN UL\n"
-		"\t\t\t33 SNOW f8 Short SN DL\n"
-		"\t\t\t34 ZUC-E Long SN UL*\n"
-		"\t\t\t35 ZUC-E Long SN DL*\n"
-		"\t\t\t36 ZUC-E Short SN UL*\n"
-		"\t\t\t37 ZUC-E Short SN DL*\n"
-		"\t\t\t38 NULL Long SN DL\n"
-		"\t\t\t39 NULL Short SN DL\n"
-		"\t\tFor PDCP Short MAC-I:\n"
-		"\t\t\t40 SNOW f9\n"
-		"\t\t\t41 AES CMAC\n"
-		"\t\t\t42 ZUC-I*\n"
-		"\t\t\t43 NULL\n"
-		"\n\n"
-		"\t\t * Only available for platforms with SEC>=5.3\n"},
+	"Cryptographic operation to perform by SEC:"
+	"\n 1 for MACsec"
+	"\n 2 for WiMAX"
+	"\n 3 for PDCP"
+	"\n"},
 	{"itrnum", 'l', "ITERATIONS", 0,
-	 "\n\r\tNumber of iterations to repeat\n"},
+	"Number of iterations to repeat"
+	"\n"},
 	{"bufnum", 'n', "TOTAL BUFFERS", 0,
-	 "\n\r\tTotal number of buffers(1-6400)\n\r"
-		"\t\t Note: Both of Buffer size and buffer number\n\r"
-		"\t\t cannot be greater than 3200 at the same time\n"},
-	{"bufsize", 's', "BUFFER SIZE", 0,
-	 "\n\r\tOPTION IS VALID ONLY IN PERF MODE\n\r"
-		"\t\t Buffer size (64, 128 ...up to 6400)\n\r"
-		"\t\t Note: Both of Buffer size and buffer number\n\r"
-		"\t\t cannot be greater than 3200 at the same time.\n\r"
-		"\t\t The WiMAX frame size, including the FCS if present,\n\r"
-		"\t\t must be shorter than 2048 bytes.\n"},
+	"Total number of buffers (1-6400)."
+	" Both of Buffer size and buffer number"
+	" cannot be greater than 3200 at the same time."
+	"\n"},
+	{"bufsize", 's', "BUFSIZE", 0,
+	"OPTION IS VALID ONLY IN PERF MODE"
+	"\n\nBuffer size (64, 128 ... up to 6400)."
+	" Note: Both of Buffer size and buffer number"
+	" cannot be greater than 3200 at the same time."
+	"\nThe WiMAX frame size, including the FCS if"
+	" present, must be shorter than 2048 bytes."
+	"\n"},
 	{"ncpus", 'c', "CPUS", 0,
-	 "\n\r\tOPTIONAL PARAMETER\n\r"
-		"\tNumber of cpus to work for the\n\r"
-		"\tapplication(1-8)\n", 0},
+	"OPTIONAL PARAMETER"
+	"\n\nNumber of cpus to work for the application(1-8)"
+	"\n"},
 	{"testset", 't', "TEST SET", 0,
-	 "\n\r\tOPTION IS VALID ONLY IN CIPHER MODE\n"},
+	"OPTION IS VALID ONLY IN CIPHER MODE"
+	"\n"},
 	{"sec_era", 'e', "ERA", 0,
-	 "\n\r\tOPTIONAL PARAMETER\n\r"
-	 "\tSEC Era version on the targeted platform(2-5)\n", 0},
-	{"pdb_opts", 'o', "PDB OPTIONS", 0,
-	 "\n\r\tOPTIONAL PARAMETER VALID ONLY IN PERF MODE\n\r"
-		"\t\t SEC PDB options: provide following number\n\r"
-		"\t\t 0 - WiMAX without FCS\n\r"
-		"\t\t 1 - WiMAX with FCS for OFDM\n\r"
-		"\t\t 2 - WiMAX with FCS for OFDMA\n"
-	},
-	{"pdb_ar_len", 'r', "ANTI REPLAY LENGTH", 0,
-	 "\n\r\tPROTOCOL OPTIONAL PARAMETER\n\r"
-		"\t\t Note: Anti-Replay Window Length\n\r"
-		"\t\t cannot be greater than 64 packets\n"},
-	{}
+	"OPTIONAL PARAMETER"
+	"\n\nSEC Era version on the targeted platform(2-5)"
+	"\n"},
+	{0}
 };
+
+/**
+ * @brief	Parse WiMAX related command line options
+ *
+ */
+static error_t wimax_parse_opts(int key, char *arg, struct argp_state *state)
+{
+	struct parse_input_t *input = state->input;
+	uint32_t *p_proto_params = input->proto_params;
+	struct test_param *crypto_info = input->crypto_info;
+
+	switch (key) {
+	case 'a':
+		*p_proto_params |= BMASK_WIMAX_OFDMA_EN;
+		fprintf(stdout, "WiMAX OFDMa selected\n");
+		break;
+
+	case 'f':
+		*p_proto_params |= BMASK_WIMAX_FCS_EN;
+		fprintf(stdout, "WiMAX FCS enabled\n");
+		break;
+
+	case 'w':
+		*p_proto_params |= BMASK_WIMAX_AR_EN;
+		crypto_info->proto_params.wimax_params.ar_len = atoi(arg);
+		fprintf(stdout, "Anti-Replay Length = %d\n", atoi(arg));
+		break;
+
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+
+	return 0;
+}
+
+/**
+ * @brief	Parse PDCP related command line options
+ *
+ */
+static error_t pdcp_parse_opts(int key, char *arg, struct argp_state *state)
+{
+	struct parse_input_t *input = state->input;
+	struct test_param *crypto_info = input->crypto_info;
+	struct pdcp_params *pdcp_params;
+	uint32_t *p_proto_params = input->proto_params;
+
+	pdcp_params = &crypto_info->proto_params.pdcp_params;
+	switch (key) {
+	case 'y':
+		pdcp_params->type = atoi(arg);
+		*p_proto_params |= BMASK_PDCP_TYPE;
+		fprintf(stdout, "PDCP type = %d\n", pdcp_params->type);
+		break;
+
+	case 'r':
+		pdcp_params->cipher_alg = atoi(arg);
+		*p_proto_params |= BMASK_PDCP_CIPHER;
+		break;
+
+	case 'i':
+		pdcp_params->integrity_alg = atoi(arg);
+		*p_proto_params |= BMASK_PDCP_INTEGRITY;
+		break;
+
+	case 'd':
+		pdcp_params->downlink = 1;
+		*p_proto_params |= BMASK_PDCP_DIR_DL;
+		break;
+
+	case 'x':
+		pdcp_params->short_sn = 1;
+		*p_proto_params |= BMASK_PDCP_SNS;
+		break;
+
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+
+	return 0;
+}
 
 /**
  * @brief	The OPTIONS field contains a pointer to a vector of struct
@@ -962,8 +990,13 @@ error_t parse_opt(int opt, char *arg, struct argp_state *state)
 	struct parse_input_t *input = state->input;
 	struct test_param *crypto_info = input->crypto_info;
 	uint32_t *p_cmd_params = input->cmd_params;
+	int i;
 
 	switch (opt) {
+	case ARGP_KEY_INIT:
+		for (i = 0; state->root_argp->children[i].argp; i++)
+			state->child_inputs[i] = input;
+		break;
 	case 'm':
 		crypto_info->mode = atoi(arg);
 		*p_cmd_params |= BMASK_SEC_TEST_MODE;
@@ -1295,6 +1328,80 @@ static int validate_pdcp_opts(uint32_t g_proto_params,
 }
 
 /**
+ * @brief	Check SEC parameters provided by user whether valid or not
+ * @param[in]	g_cmd_params - Bit mask of all parameters provided by user
+ * @param[in]	g_proto_params - Bit mask of protocol specific parameters, as
+ *		provided by the user
+ * @param[in]	crypto_info - test parameters
+ * @return	0 on success, otherwise -EINVAL value
+ */
+static int validate_params(uint32_t g_cmd_params, uint32_t g_proto_params,
+			   struct test_param *crypto_info)
+{
+	if ((PERF == crypto_info->mode) &&
+	    BMASK_SEC_PERF_MODE == g_cmd_params) {
+		/* do nothing */
+	} else if ((CIPHER == crypto_info->mode) &&
+		    g_cmd_params == BMASK_SEC_CIPHER_MODE) {
+		if (validate_test_set(crypto_info) != 0) {
+			fprintf(stderr,
+				"error: Invalid Parameters: Invalid test set\n"
+				"see --help option\n");
+			return -EINVAL;
+		}
+	} else {
+		fprintf(stderr,
+			"error: Invalid Parameters: provide a valid"
+			" mode for testing (CIPHER or PERF)\n"
+			"see --help option\n");
+		return -EINVAL;
+	}
+
+	if (crypto_info->buf_num == 0 || crypto_info->buf_num > BUFF_NUM) {
+		fprintf(stderr,
+			"error: Invalid Parameters: Invalid number of buffers"
+			"\nsee --help option\n");
+		return -EINVAL;
+	}
+
+	if (PERF == crypto_info->mode && (crypto_info->buf_size == 0 ||
+					  crypto_info->buf_size %
+					  L1_CACHE_BYTES != 0 ||
+					  crypto_info->buf_size > BUFF_SIZE)) {
+		fprintf(stderr,
+			"error: Invalid Parameters: Invalid number of"
+			" buffers\nsee --help option\n");
+		return -EINVAL;
+	}
+
+	if (PERF == crypto_info->mode &&
+	    (crypto_info->buf_num > BUFF_NUM / 2 &&
+	     crypto_info->buf_size > BUFF_SIZE / 2)) {
+		fprintf(stderr,
+			"error: Both of number of buffers and buffer"
+			" size\ncannot be more than 3200 at the same time\n"
+			"see --help option\n");
+		return -EINVAL;
+	}
+
+	if (validate_sec_era_version())
+		return -EINVAL;
+
+	switch (crypto_info->proto) {
+	case MACSEC:
+	case WIMAX:
+	case PDCP:
+		return validate_proto_opts[crypto_info->proto]
+					(g_proto_params, crypto_info);
+	default:
+		fprintf(stderr,
+			"error: Invalid Parameters: SEC protocol not"
+			" supported\nsee --help option\n");
+		return -EINVAL;
+	}
+}
+
+/**
  * @brief	Compare encrypted data returned by SEC with	standard
  *		cipher text
  * @param[in]	params - test parameters
@@ -1413,8 +1520,75 @@ err:
 	return -1;
 }
 
+struct argp_option wimax_options[] = {
+	{"ofdma", 'a', 0, 0,
+	 "OPTIONAL PARAMETER"
+	 "\n\nEnable OFDMa processing (default: OFDM)\n"},
+	{"fcs", 'f', 0, 0,
+	 "OPTIONAL PARAMETER"
+	 "\n\nEnable FCS calculation (default: off)\n"},
+	{"ar_len", 'w', "ARWIN", 0,
+	 "OPTIONAL PARAMETER"
+	 "\nSet anti-replay window length\n"},
+	{0}
+};
+
+struct argp_option pdcp_options[] = {
+	{"type", 'y', "TYPE",  0,
+	 "Select PDCP PDU type:"
+	 "\n\t 0 = Control Plane"
+	 "\n\t 1 = User Plane"
+	 "\n\t 2 = Short MAC"
+	 "\n"},
+	{"cipher", 'r', "CIPHER",  0,
+	 "Ciphering algorithm:"
+	 "\n0 = NULL     (EEA0)"
+	 "\n1 = SNOW f8  (EEA1)"
+	 "\n2 = AES-CTR  (EEA2)"
+	 "\n3 = ZUC-E    (EEA3) (ERA >= 5)"
+	 "\n"},
+	{"integrity", 'i', "INTEGRITY",  0,
+	"For PDCP Control Plane & Short MAC only"
+	"\n\nSelect PDCP integrity algorithm:"
+	 "\n0 = NULL     (EIA0)"
+	 "\n1 = SNOW f9  (EIA1)"
+	 "\n2 = AES-CMAC (EIA2)"
+	 "\n3 = ZUC-I    (EIA3) (ERA >= 5)"
+	 "\n"},
+	{"direction", 'd', 0, 0,
+	 "OPTIONAL PARAMETER"
+	 "\n\nInput PDU is for downlink direction"
+	 "\n"},
+	{"sns", 'x', 0, 0,
+	 "OPTIONAL PARAMETER"
+	 "\n\nEnable Short Sequence Number for user plane PDUs"
+	 "\n"},
+	{0}
+};
+
+/* Parser for WiMAX command line options */
+static struct argp wimax_argp = {
+	wimax_options, wimax_parse_opts
+};
+
+/* Parser for PDCP command line options */
+static struct argp pdcp_argp = {
+	pdcp_options, pdcp_parse_opts
+};
+
+/*
+ * "Children" structure for splitting the command line options on a
+ * per-protocol basis
+ */
+static struct argp_child argp_children[] = {
+	{ &wimax_argp, 0, "WiMAX protocol options", 1},
+	{ &pdcp_argp , 0, "PDCP protocol options", 2},
+	{ 0 }
+};
+
 /* argp structure itself of argp parser */
-static struct argp argp = { options, parse_opt, NULL, NULL, NULL, NULL, NULL };
+static struct argp argp = { options, parse_opt, NULL, NULL,
+				argp_children, NULL, NULL };
 
 /**
  * @brief	Main function of SEC Test Application
@@ -1426,20 +1600,22 @@ int main(int argc, char *argv[])
 	long num_online_cpus = sysconf(_SC_NPROCESSORS_ONLN);
 	struct thread_data thread_data[num_online_cpus];
 	int err;
-	uint32_t g_cmd_params = 0, i;
+	uint32_t g_cmd_params = 0, g_proto_params = 0, i;
 	struct test_param crypto_info;
 	struct parse_input_t input;
 	struct test_cb crypto_cb;
 
 	ncpus = num_online_cpus;
 
+	memset(&crypto_info, 0x00, sizeof(struct test_param));
 	input.cmd_params = &g_cmd_params;
+	input.proto_params = &g_proto_params;
 	input.crypto_info = &crypto_info;
 
 	/* Parse and check input arguments */
 	argp_parse(&argp, argc, argv, 0, 0, &input);
 
-	err = validate_params(g_cmd_params, &crypto_info);
+	err = validate_params(g_cmd_params, g_proto_params, &crypto_info);
 	if (err)
 		error(err, err, "error: validate_params failed!");
 
