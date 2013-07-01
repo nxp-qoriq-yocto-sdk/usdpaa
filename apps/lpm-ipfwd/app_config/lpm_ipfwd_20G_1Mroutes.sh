@@ -38,8 +38,8 @@ net_pair_routes()
 		-d 190.$1.$2.2 -n $4 -g \
 		192.168.$5.2
 }
-lpm_ipfwd_config -P $pid -F -a 192.168.24.1 -i 5
-lpm_ipfwd_config -P $pid -F -a 192.168.29.1 -i 11
+lpm_ipfwd_config -P $pid -F -a 192.168.24.1 -i 8
+lpm_ipfwd_config -P $pid -F -a 192.168.29.1 -i 18
 
 lpm_ipfwd_config -P $pid -G -s 192.168.24.2 -m 02:00:c0:a8:3c:02 -r true
 lpm_ipfwd_config -P $pid -G -s 192.168.29.2 -m 02:00:c0:a8:a0:02 -r true
