@@ -169,7 +169,7 @@ int bman_have_ccsr(void)
 		return 0;
 }
 
-int bman_init_ccsr(struct device_node *node)
+int bman_init_ccsr(const struct device_node *node)
 {
 	static int ccsr_map_fd;
 	uint64_t phys_addr;
@@ -237,14 +237,15 @@ int bman_global_init(void)
 		return -ENODEV;
 	}
 #ifdef CONFIG_FSL_BMAN_CONFIG
-	struct device_node *dn;
-	dn = of_find_compatible_node(NULL, NULL, "fsl,bman");
-	if (!dn) {
-		pr_err("No bman device node available\n");
-	}
+	{
+		const struct device_node *dn = of_find_compatible_node(NULL,
+							NULL, "fsl,bman");
+		if (!dn)
+			pr_err("No bman device node available\n");
 
-	if (bman_init_ccsr(dn))
-		pr_err("BMan CCSR map failed.\n");
+		if (bman_init_ccsr(dn))
+			pr_err("BMan CCSR map failed.\n");
+	}
 #endif
 
 	done = 1;

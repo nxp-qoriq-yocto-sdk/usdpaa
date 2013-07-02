@@ -173,7 +173,7 @@ void qman_thread_irq(void)
 }
 
 
-static __init int fsl_ceetm_init(struct device_node *node)
+static __init int fsl_ceetm_init(const struct device_node *node)
 {
 	enum qm_dc_portal dcp_portal;
 	struct qm_ceetm_sp *sp;
@@ -273,7 +273,8 @@ int qman_global_init(void)
 {
 	const struct device_node *dt_node;
 	int ret;
-	u32 *chanid;
+	size_t lenp;
+	const u32 *chanid;
 	static int ccsr_map_fd;
 	const uint32_t *qman_addr;
 	uint64_t phys_addr;
@@ -326,7 +327,7 @@ int qman_global_init(void)
 		pr_err("No qman pool channel range available\n");
 		return -ENODEV;
 	}
-	chanid = of_get_property(dt_node, "fsl,pool-channel-range", &ret);
+	chanid = of_get_property(dt_node, "fsl,pool-channel-range", &lenp);
 	if (!chanid) {
 		pr_err("Can not get pool-channel-range property\n");
 		return -EINVAL;
