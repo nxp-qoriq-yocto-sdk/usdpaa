@@ -39,6 +39,7 @@
 #include <signal.h>
 #include <netinet/if_ether.h>
 #include <netinet/ip.h>
+#include <stdbool.h>
 
 /* USDPAA APIs */
 #include <usdpaa/fsl_usd.h>
@@ -76,6 +77,10 @@ static const char __PCD_PATH[] = __stringify(DEF_PCD_PATH);
 static const char __CFG_PATH[] = __stringify(DEF_CFG_PATH);
 static const char *PCD_PATH = __PCD_PATH;
 static const char *CFG_PATH = __CFG_PATH;
+/* Flag to determine if the user wants to run hello_reflector in
+ * short circuit mode where core task is not performed.
+ */
+static bool short_circuit_mode;
 
 /* Each thread is represented by a "worker" struct. It will exit when 'quit' is
  * set non-zero. The thread for 'cpu==0' will perform global init and set
@@ -198,6 +203,8 @@ int main(int argc, char *argv[])
 				exit(EXIT_FAILURE);
 			}
 			sz = (size_t)val;
+		} else if (!strcmp(*argv, "-sc")) {
+			short_circuit_mode = 1;
 		} else if (!strcmp(*argv, "-b")) {
 			unsigned long val;
 			if (!ARGINC()) {
@@ -533,7 +540,17 @@ static int net_if_rx_init(struct net_if *interface,
 		return ret;
 	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
 		       QM_INITFQ_WE_CONTEXTA;
-	opts.fqd.dest.channel = get_next_rx_channel();
+	/* User may want to run the application in short circuit mode.
+	 * Here packets are dequeued from the interface and received on
+	 * Rx FQs. These packets are then sent out from the QMAN channel
+	 * on which Tx FQs are scheduled. We can be sure of the sanity
+	 * of the hardware path for the packet flow by this way without
+	 * any processing by the core on the received packets.
+	 */
+	if (!short_circuit_mode)
+		opts.fqd.dest.channel = get_next_rx_channel();
+	else
+		opts.fqd.dest.channel = interface->cfg->fman_if->tx_channel_id;
 	opts.fqd.dest.wq = NET_IF_RX_PRIORITY;
 	opts.fqd.fq_ctrl = QM_FQCTRL_AVOIDBLOCK | QM_FQCTRL_CTXASTASHING |
 			   QM_FQCTRL_PREFERINCACHE;
