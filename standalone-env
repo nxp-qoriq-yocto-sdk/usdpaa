@@ -68,8 +68,8 @@ board2cpu()
                [pP]1023*) echo e500v2;;
                [pP]3041*) echo e500mc;;
                [pP]4080*) echo e500mc;;
-               [pP]5020*-64b) echo 64e500mc;;
-               [pP]5020*) echo e500mc;;
+               [pP]5020*-64b) echo 64e5500;;
+               [pP]5020*) echo e5500;;
                [pP]5040*-64b) echo 64e5500;;
                [bB]4860*-64b) echo 64e6500;;
                [bB]4860*) echo 64e6500;;
