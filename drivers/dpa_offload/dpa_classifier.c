@@ -921,10 +921,11 @@ int dpa_classif_free_hm(int hmd)
 
 int dpa_classif_mcast_create_group(
 		const struct dpa_cls_mcast_group_params *group_params,
-		int *grpd)
+		int *grpd,
+		const struct dpa_cls_mcast_group_resources *res)
 {
 	struct ioc_dpa_cls_mcast_group_params params;
-	void *group, *distribution, *classification;
+	void *distribution, *classification;
 
 	CHECK_CLASSIFIER_DEV_FD();
 
@@ -932,9 +933,8 @@ int dpa_classif_mcast_create_group(
 	memcpy(&params.mcast_grp_params, group_params,
 		sizeof(struct dpa_cls_mcast_group_params));
 	params.grpd = DPA_OFFLD_DESC_NONE;
-	group = params.mcast_grp_params.group;
-	if (group)
-		params.mcast_grp_params.group = dev_get_id(group);
+	if (res && (res->group_node))
+		params.res.group_node = dev_get_id(res->group_node);
 	else
 		params.mcast_grp_params.fm_pcd = dev_get_fd(params.
 						       mcast_grp_params.fm_pcd);
