@@ -73,20 +73,6 @@ static void *worker_fn(void *__worker)
 		exit(EXIT_FAILURE);
 	}
 
-	/* Initialise bman/qman portals */
-	err = bman_thread_init();
-	if (err) {
-		fprintf(stderr, "bman_thread_init(%d) failed, ret=%d\n",
-			worker->cpu, err);
-		exit(EXIT_FAILURE);
-	}
-	err = qman_thread_init();
-	if (err) {
-		fprintf(stderr, "qman_thread_init(%d) failed, ret=%d\n",
-			worker->cpu, err);
-		exit(EXIT_FAILURE);
-	}
-
 	if (worker->do_global_init) {
 		/* Set up the bpid allocator */
 		err = bman_global_init();
@@ -111,6 +97,20 @@ static void *worker_fn(void *__worker)
 		}
 		/* The main thread is waiting on this */
 		pthread_barrier_wait(&worker->global_init_barrier);
+	}
+
+	/* Initialise bman/qman portals */
+	err = bman_thread_init();
+	if (err) {
+		fprintf(stderr, "bman_thread_init(%d) failed, ret=%d\n",
+			worker->cpu, err);
+		exit(EXIT_FAILURE);
+	}
+	err = qman_thread_init();
+	if (err) {
+		fprintf(stderr, "qman_thread_init(%d) failed, ret=%d\n",
+			worker->cpu, err);
+		exit(EXIT_FAILURE);
 	}
 
 	qconfig = qman_get_portal_config();
