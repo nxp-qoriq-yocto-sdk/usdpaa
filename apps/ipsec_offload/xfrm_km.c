@@ -419,7 +419,9 @@ static void trace_xfrm_sa_info(struct xfrm_usersa_info *sa_info)
 			sizeof(daddr_in6.s6_addr));
 		saddr = &saddr_in6.s6_addr;
 		daddr = &daddr_in6.s6_addr;
-	}
+	} else
+		return;
+
 	TRACE("xfrm sa spi %x", sa_info->id.spi);
 	TRACE(" saddr %s", inet_ntop(sa_info->family,
 				saddr, dst, sizeof(dst)));
@@ -452,7 +454,8 @@ void trace_xfrm_policy_info(struct xfrm_userpolicy_info *pol_info)
 			sizeof(daddr_in6.s6_addr));
 		saddr = &saddr_in6.s6_addr;
 		daddr = &daddr_in6.s6_addr;
-	}
+	} else
+		return;
 
 
 	dir = (pol_info->dir == XFRM_POLICY_OUT) ? "OUT" :
@@ -491,7 +494,8 @@ static void trace_dpa_policy(struct dpa_pol *dpa_pol)
 			sizeof(daddr_in6.s6_addr));
 		saddr = &saddr_in6.s6_addr;
 		daddr = &daddr_in6.s6_addr;
-	}
+	} else
+		return;
 
 	trace_xfrm_policy_info(&dpa_pol->xfrm_pol_info);
 	TRACE("\ttmpl saddr %s", inet_ntop(dpa_pol->sa_family,
