@@ -453,6 +453,38 @@ void init_rtv_pdcp_short_mac(struct test_param *crypto_info)
 	authnct = 1;
 }
 
+void init_rtv_srtp(struct test_param *crypto_info)
+{
+	strcpy(protocol, "SRTP");
+	ref_test_vector.auth_key =
+	    (uintptr_t)srtp_reference_auth_key[crypto_info->test_set - 1];
+	ref_test_vector.auth_keylen =
+	    srtp_reference_auth_keylen[crypto_info->test_set - 1];
+
+	ref_test_vector.key =
+	    (uintptr_t)srtp_reference_cipher_key[crypto_info->test_set - 1];
+	ref_test_vector.cipher_keylen =
+	    srtp_reference_cipher_keylen[crypto_info->test_set - 1];
+
+	ref_test_vector.pdb.srtp.cipher_salt =
+	    srtp_reference_cipher_salt[crypto_info->test_set - 1];
+	ref_test_vector.pdb.srtp.n_tag =
+	    srtp_reference_n_tag[crypto_info->test_set - 1];
+	ref_test_vector.pdb.srtp.roc =
+	    srtp_reference_roc[crypto_info->test_set - 1];
+	ref_test_vector.pdb.srtp.seqnum =
+	    srtp_reference_seq_num[crypto_info->test_set - 1];
+
+	if (CIPHER == crypto_info->mode) {
+		ref_test_vector.length =
+		    srtp_reference_length[crypto_info->test_set - 1];
+		ref_test_vector.plaintext =
+		    srtp_reference_plaintext[crypto_info->test_set - 1];
+		ref_test_vector.ciphertext =
+		    srtp_reference_ciphertext[crypto_info->test_set - 1];
+	}
+}
+
 /**
  * @brief	Set PN constant in MACsec shared descriptor
  * @details	Inside this routine, context is erased, PN is read from
@@ -536,7 +568,8 @@ void macsec_set_pn_constant(uint32_t *shared_desc, unsigned *shared_desc_len)
 void (*init_ref_test_vector[]) (struct test_param *crypto_info) = {
 	init_rtv_macsec_gcm_128,
 	init_rtv_wimax_aes_ccm_128,
-	init_rtv_pdcp
+	init_rtv_pdcp,
+	init_rtv_srtp
 };
 
 /**
@@ -640,6 +673,10 @@ static int set_buf_size(struct test_param *crypto_info)
 
 		break;
 
+	case SRTP:
+		crypto_info->rt.output_buf_size =
+			   crypto_info->buf_size + SRTP_MAX_ICV_SIZE;
+		break;
 	default:
 		fprintf(stderr, "error: %s: protocol not supported\n",
 			__func__);
@@ -817,6 +854,29 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 		}
 		break;
 
+	case SRTP:
+		cipher_info.key = ref_test_vector.key;
+		cipher_info.keylen = ref_test_vector.cipher_keylen;
+		auth_info.key = ref_test_vector.auth_key;
+		auth_info.keylen = ref_test_vector.auth_keylen;
+		if (ENCRYPT == mode)
+			cnstr_shdsc_srtp_encap(shared_desc,
+					&shared_desc_len,
+					&auth_info,
+					&cipher_info,
+					ref_test_vector.pdb.srtp.n_tag,
+					ref_test_vector.pdb.srtp.roc,
+					ref_test_vector.pdb.srtp.cipher_salt);
+		else
+			cnstr_shdsc_srtp_decap(shared_desc,
+					&shared_desc_len,
+					&auth_info,
+					&cipher_info,
+					ref_test_vector.pdb.srtp.n_tag,
+					ref_test_vector.pdb.srtp.roc,
+					ref_test_vector.pdb.srtp.seqnum,
+					ref_test_vector.pdb.srtp.cipher_salt);
+		break;
 	default:
 		fprintf(stderr, "error: %s: protocol not supported\n",
 			__func__);
@@ -952,6 +1012,7 @@ struct argp_option options[] = {
 	"\n 1 for MACsec"
 	"\n 2 for WiMAX"
 	"\n 3 for PDCP"
+	"\n 4 for SRTP"
 	"\n"},
 	{"itrnum", 'l', "ITERATIONS", 0,
 	"Number of iterations to repeat"
@@ -1208,6 +1269,7 @@ static int validate_test_set(struct test_param *crypto_info)
 			goto err;
 
 	case PDCP:
+	case SRTP:
 		if (crypto_info->test_set == 1)
 			return 0;
 		goto err;
@@ -1485,6 +1547,21 @@ static int validate_pdcp_opts(uint32_t g_proto_params,
 }
 
 /**
+ * @brief	Check SEC parameters provided by user for SRTP are valid
+ *		or not.
+ * @param[in]	g_proto_params - Bit mask of the optional parameters provided
+ *		by user
+ * @param[in]	crypto_info - test parameters
+ * @return	0 on success, otherwise -EINVAL value
+ */
+static int validate_srtp_opts(uint32_t g_proto_params,
+			      struct test_param *crypto_info)
+{
+	/* TODO - for future implementation of extension options and MKI */
+	return 0;
+}
+
+/**
  * @brief	Check SEC parameters provided by user whether valid or not
  * @param[in]	g_cmd_params - Bit mask of all parameters provided by user
  * @param[in]	g_proto_params - Bit mask of protocol specific parameters, as
@@ -1548,6 +1625,7 @@ static int validate_params(uint32_t g_cmd_params, uint32_t g_proto_params,
 	case MACSEC:
 	case WIMAX:
 	case PDCP:
+	case SRTP:
 		return validate_proto_opts[crypto_info->proto]
 					(g_proto_params, crypto_info);
 	default:
