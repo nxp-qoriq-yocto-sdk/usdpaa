@@ -50,8 +50,16 @@ static unsigned authnct = 0; /**< By default, do both encrypt & decrypt */
  * @param[in]	crypto_info - test parameters
  * @return	None
  */
-void init_rtv_macsec_gcm_128(struct test_param *crypto_info)
+void init_rtv_macsec(struct test_param *crypto_info)
 {
+	struct macsec_params *macsec_params;
+
+	macsec_params = &crypto_info->proto_params.macsec_params;
+	if (macsec_params->cipher_alg == MACSEC_CIPHER_TYPE_GMAC) {
+		crypto_info->test_set += MACSEC_GMAC_TEST_ID;
+		authnct = 1;
+	}
+
 	strcpy(protocol, "MACsec");
 	ref_test_vector.key =
 		(uintptr_t)macsec_reference_key[crypto_info->test_set - 1];
@@ -566,7 +574,7 @@ void macsec_set_pn_constant(uint32_t *shared_desc, unsigned *shared_desc_len)
 
 /* Function pointer to reference test vector for supported protocols */
 void (*init_ref_test_vector[]) (struct test_param *crypto_info) = {
-	init_rtv_macsec_gcm_128,
+	init_rtv_macsec,
 	init_rtv_wimax_aes_ccm_128,
 	init_rtv_pdcp,
 	init_rtv_srtp
@@ -718,6 +726,8 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 	case MACSEC:
 		cipher_info.key = ref_test_vector.key;
 		cipher_info.keylen = MACSEC_KEY_SIZE;
+		cipher_info.algtype =
+			crypto_info->proto_params.macsec_params.cipher_alg;
 		if (ENCRYPT == mode)
 			cnstr_shdsc_macsec_encap(shared_desc,
 						 &shared_desc_len,
@@ -1045,6 +1055,30 @@ struct argp_option options[] = {
 };
 
 /**
+ * @brief	Parse MACSEC related command line options
+ *
+ */
+static error_t macsec_parse_opts(int key, char *arg, struct argp_state *state)
+{
+	struct parse_input_t *input = state->input;
+	struct test_param *crypto_info = input->crypto_info;
+	struct macsec_params *macsec_params;
+
+	macsec_params =  &crypto_info->proto_params.macsec_params;
+	switch (key) {
+	case 'o':
+		macsec_params->cipher_alg = atoi(arg);
+		printf("MACSEC processing = %d\n", macsec_params->cipher_alg);
+		break;
+
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+
+	return 0;
+}
+
+/**
  * @brief	Parse WiMAX related command line options
  *
  */
@@ -1258,10 +1292,9 @@ static int validate_test_set(struct test_param *crypto_info)
 {
 	switch (crypto_info->proto) {
 	case MACSEC:
-		if ((crypto_info->test_set > 0) && (crypto_info->test_set < 6))
+		if ((crypto_info->test_set > 0) && (crypto_info->test_set < 5))
 			return 0;
-		else
-			goto err;
+		goto err;
 	case WIMAX:
 		if ((crypto_info->test_set > 0) && (crypto_info->test_set < 5))
 			return 0;
@@ -1321,6 +1354,17 @@ static int validate_sec_era_version()
 static int validate_macsec_opts(uint32_t g_proto_params,
 				struct test_param *crypto_info)
 {
+	struct macsec_params *macsec_params;
+
+	macsec_params = &crypto_info->proto_params.macsec_params;
+
+	if ((macsec_params->cipher_alg == MACSEC_CIPHER_TYPE_GMAC) &&
+	    (rta_sec_era < RTA_SEC_ERA_5)) {
+		fprintf(stderr,
+			"error: Unsupported MACsec algorithm for SEC ERAs 2-4\n");
+		return -EINVAL;
+	}
+
 	return 0;
 }
 
@@ -1755,6 +1799,16 @@ err:
 	return -1;
 }
 
+struct argp_option macsec_options[] = {
+	{"algo", 'o', "CIPHER TYPE",  0,
+	 "OPTIONAL PARAMETER"
+	 "\n\nSelect between GCM/GMAC processing (default: GCM)"
+	 "\n0 = GCM"
+	 "\n1 = GMAC"
+	 "\n"},
+	{0}
+};
+
 struct argp_option wimax_options[] = {
 	{"ofdma", 'a', 0, 0,
 	 "OPTIONAL PARAMETER"
@@ -1805,6 +1859,11 @@ struct argp_option pdcp_options[] = {
 	{0}
 };
 
+/* Parser for MACsec command line options */
+static struct argp macsec_argp = {
+	macsec_options, macsec_parse_opts
+};
+
 /* Parser for WiMAX command line options */
 static struct argp wimax_argp = {
 	wimax_options, wimax_parse_opts
@@ -1822,6 +1881,7 @@ static struct argp pdcp_argp = {
 static struct argp_child argp_children[] = {
 	{ &wimax_argp, 0, "WiMAX protocol options", 1},
 	{ &pdcp_argp , 0, "PDCP protocol options", 2},
+	{ &macsec_argp, 0, "MACsec protocol options", 3},
 	{ 0 }
 };
 

@@ -140,7 +140,9 @@ struct runtime_param {
 	uint32_t job_desc_buf_size;
 };
 
-struct macsec_params {};
+struct macsec_params {
+	enum cipher_type_macsec cipher_alg;
+};
 
 struct wimax_params {
 	bool ofdma;
@@ -202,12 +204,11 @@ struct parse_input_t {
 	struct test_param *crypto_info;
 };
 
-
 char mode_type[20];		/* string corresponding to integral value */
 char protocol[100];		/* string corresponding to integral value */
 
 /* init reference test vector routines */
-void init_rtv_macsec_gcm_128(struct test_param *crypto_info);
+void init_rtv_macsec(struct test_param *crypto_info);
 void init_rtv_wimax_aes_ccm_128(struct test_param *crypto_info);
 void init_rtv_wimax_cipher(uint test_set);
 void init_rtv_pdcp(struct test_param *crypto_info);
