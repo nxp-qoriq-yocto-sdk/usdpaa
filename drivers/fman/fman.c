@@ -155,10 +155,8 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 		return 0;
 	if (of_device_is_compatible(dpa_node, "fsl,dpa-oh"))
 		is_offline = 1;
-	else if (of_device_is_compatible(dpa_node, "fsl,dpa-ethernet")) {
-		if (!is_macless)
-			is_shared = 1;
-	}
+	else if (of_device_is_compatible(dpa_node, "fsl,dpa-ethernet-shared"))
+		is_shared = 1;
 
 	rprop = is_offline ? "fsl,qman-frame-queues-oh" :
 					 "fsl,qman-frame-queues-rx";
@@ -424,7 +422,6 @@ int fman_init(void)
 	const struct device_node *dpa_node;
 	int _errno;
 	size_t lenp;
-	const phandle *phandle_prop, *mac_phandle;
 	const char *mprop = "fsl,fman-mac";
 
 	/* If multiple dependencies try to initialise the Fman driver, don't
@@ -449,27 +446,17 @@ int fman_init(void)
 		_errno = fman_if_init(dpa_node, 0);
 		my_err(_errno, _errno, "if_init(%s)\n", dpa_node->full_name);
 	}
-	for_each_compatible_node(dpa_node, NULL, "fsl,dpa-ethernet") {
-		/* check if buffer-pool property is present. If yes, these are
-		   shared ports */
-		phandle_prop = of_get_property(dpa_node,
-					"fsl,bman-buffer-pools", &lenp);
-		if (phandle_prop) {
-			/* check if "fsl,fman-mac" property is there. If yes,
-			 * it is a shared MAC interface */
-			mac_phandle = of_get_property(dpa_node, mprop,
-					&lenp);
-			if (mac_phandle) {
-				_errno = fman_if_init(dpa_node, 0);
-				my_err(_errno, _errno, "if_init(%s)\n",
+	for_each_compatible_node(dpa_node, NULL, "fsl,dpa-ethernet-shared") {
+		/* it is a shared MAC interface */
+		_errno = fman_if_init(dpa_node, 0);
+		my_err(_errno, _errno, "if_init(%s)\n",
 						dpa_node->full_name);
-			} else {
-				/* it is a MAC-less interface */
-				_errno = fman_if_init(dpa_node, 1);
-				my_err(_errno, _errno, "if_init(%s)\n",
+	}
+	for_each_compatible_node(dpa_node, NULL, "fsl,dpa-ethernet-macless") {
+		/* it is a MAC-less interface */
+		_errno = fman_if_init(dpa_node, 1);
+		my_err(_errno, _errno, "if_init(%s)\n",
 						 dpa_node->full_name);
-			}
-		}
 	}
 	return 0;
 err:
