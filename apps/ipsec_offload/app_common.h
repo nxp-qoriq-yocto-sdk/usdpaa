@@ -94,6 +94,8 @@ extern t_Handle cc_out_local[MAX_ETHER_TYPES];
 extern t_Handle cc_in_local[MAX_ETHER_TYPES];
 /* forwarding header manip resources */
 extern t_Handle ob_fwd_hm, ib_fwd_hm;
+/* inbound reassembly */
+extern t_Handle ib_reass;
 
 int fmc_config(void);
 void fmc_cleanup(void);
@@ -110,4 +112,8 @@ int set_cc_miss_fqid(struct fmc_model_t *cmodel, char *fmc_path,
 		     uint32_t fqid);
 struct fmc_model_t *fmc_compile_model(void);
 int fmc_apply_model(void);
+int stats_init(void);
+int show_sa_stats(int argc, char *argv[]);
+int show_eth_stats(int argc, char *argv[]);
+int show_ib_reass_stats(int argc, char *argv[]);
 #endif

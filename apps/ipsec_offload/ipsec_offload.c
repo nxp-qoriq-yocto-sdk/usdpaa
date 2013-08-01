@@ -652,6 +652,14 @@ int ppam_post_tx_init(void)
 		goto err;
 	}
 	TRACE("DPA IPsec offloading initialized\n");
+
+	ret = stats_init();
+	if (ret < 0) {
+		fprintf(stderr, "DPA Stats init failed\n");
+		goto err;
+	}
+	TRACE("DPA Stats initialized\n");
+
 	return 0;
 err:
 	return -1;
@@ -941,5 +949,9 @@ static error_t parse_opts(int key, char *arg, struct argp_state *state)
 }
 
 const struct argp ppam_argp = {argp_opts, parse_opts, 0, ppam_doc};
+
+cli_cmd(sa_stats, show_sa_stats);
+cli_cmd(eth_stats, show_eth_stats);
+cli_cmd(ib_reass_stats, show_ib_reass_stats);
 /* Inline the PPAC machinery */
 #include <ppac.c>

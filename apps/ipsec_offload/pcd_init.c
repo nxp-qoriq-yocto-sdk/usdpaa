@@ -59,6 +59,9 @@ t_Handle cc_in_post_dec[MAX_ETHER_TYPES];
 /* header manipulation handles for ethernet header replacing */
 t_Handle ob_fwd_hm, ib_fwd_hm;
 
+/* Inbound reassembly stats */
+t_Handle ib_reass;
+
 /* cc nodes for local traffic */
 t_Handle cc_out_local[MAX_ETHER_TYPES];
 t_Handle cc_in_local[MAX_ETHER_TYPES];
@@ -284,6 +287,12 @@ int fmc_apply_model(void)
 	sprintf(fmc_path, "fm%d/hdr/ib_replace", app_conf.fm);
 	ib_fwd_hm = fmc_get_handle(&cmodel, fmc_path);
 	if (!ib_fwd_hm)
+		goto err;
+
+	memset(fmc_path, 0, sizeof(fmc_path));
+	sprintf(fmc_path, "fm%d/reasm/ib_post_reass", app_conf.fm);
+	ib_reass = fmc_get_handle(&cmodel, fmc_path);
+	if (!ib_reass)
 		goto err;
 
 	return 0;
