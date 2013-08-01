@@ -119,8 +119,6 @@ extern t_Handle cc_out_post_enc[MAX_ETHER_TYPES];
 extern t_Handle cc_in_post_dec[MAX_ETHER_TYPES];
 /* forwarding header manip resources */
 extern t_Handle ob_fwd_hm, ib_fwd_hm;
-/* outbound pre ipsec fragmentation */
-extern int manip_desc[OUT_TCPUDP_POL_NUM];
 
 int fmc_config(void);
 void fmc_cleanup(void);

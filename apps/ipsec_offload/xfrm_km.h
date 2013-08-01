@@ -55,6 +55,8 @@ struct dpa_pol {
 	int sa_family;
 	/* dpa sa id */
 	int sa_id;
+	/* optional fragmentation manip descriptor */
+	int manip_desc;
 };
 
 struct dpa_sa {

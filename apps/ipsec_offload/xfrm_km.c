@@ -70,7 +70,6 @@ static LIST_HEAD(pending_sp);
 #define DPA_IPSEC_ADDR_T_IPv4 4
 #define DPA_IPSEC_ADDR_T_IPv6 6
 
-
 /* returns fqid of inbound OH port Rx default queue
  frames not passing inbound policy verification are enqueued to it */
 static uint32_t get_policy_miss_fqid(void)
@@ -221,6 +220,7 @@ static int offload_sa(int dpa_ipsec_id,
 			memset(&outer_iphdr, 0, sizeof(outer_iphdr));
 			outer_iphdr.version = IPVERSION;
 			outer_iphdr.ihl = sizeof(outer_iphdr) / sizeof(u32);
+			outer_iphdr.ttl = IPDEFTTL;
 			outer_iphdr.tot_len = sizeof(outer_iphdr);
 			if (encap->encap_sport && encap->encap_dport)
 				outer_iphdr.tot_len += sizeof(udp_hdr);
@@ -322,46 +322,39 @@ static int offload_sa(int dpa_ipsec_id,
 
 static inline int offload_policy(struct dpa_ipsec_policy_params *pol_params,
 				struct xfrm_selector *sel,
-				int sa_id, int dir, int next_table_td)
+				int sa_id, int dir, int next_table_td,
+				int *manip_desc)
 {
 	int ret = 0;
 	struct dpa_cls_tbl_action policy_action;
 
 	memset(pol_params, 0, sizeof(*pol_params));
-	if (dir == XFRM_POLICY_OUT) {
-		if  (app_conf.mtu_pre_enc > 0) {
-			struct dpa_cls_hm_update_params update_params;
-			int frag_desc, fra_cnt, max_frags;
-			memset(&update_params, 0,
-				sizeof(struct dpa_cls_hm_update_params));
-			max_frags = ARRAY_SIZE(manip_desc);
-			frag_desc = DPA_OFFLD_DESC_NONE;
-			update_params.fm_pcd = pcd_dev;
-			update_params.ip_frag_params.df_action =
-					DPA_CLS_HM_DF_ACTION_FRAG_ANYWAY;
-			update_params.ip_frag_params.mtu = app_conf.mtu_pre_enc;
-			update_params.ip_frag_params.scratch_bpid =
-							app_conf.ipf_bpid;
-			ret = dpa_classif_set_update_hm(&update_params,
-						DPA_OFFLD_DESC_NONE,
-						&frag_desc, true,  NULL);
-			if (ret < 0) {
-				fprintf(stderr, "Could not create "
-					"fragmentation manip handle %d\n", ret);
-				return ret;
-			}
-
-			pol_params->dir_params.type =
-					DPA_IPSEC_POL_DIR_PARAMS_MANIP;
-			pol_params->dir_params.manip_desc = frag_desc;
-
-			for (fra_cnt = 0; fra_cnt < max_frags; fra_cnt++)
-				if (manip_desc[fra_cnt] ==
-							DPA_OFFLD_DESC_NONE) {
-					manip_desc[fra_cnt] = frag_desc;
-					break;
-				}
+	if ((dir == XFRM_POLICY_OUT) && (app_conf.mtu_pre_enc > 0)) {
+		struct dpa_cls_hm_update_params update_params;
+		int frag_desc;
+		memset(&update_params, 0,
+		       sizeof(struct dpa_cls_hm_update_params));
+		frag_desc = DPA_OFFLD_DESC_NONE;
+		update_params.fm_pcd = pcd_dev;
+		update_params.ip_frag_params.df_action =
+				DPA_CLS_HM_DF_ACTION_FRAG_ANYWAY;
+		update_params.ip_frag_params.mtu = app_conf.mtu_pre_enc;
+		update_params.ip_frag_params.scratch_bpid =
+						app_conf.ipf_bpid;
+		ret = dpa_classif_set_update_hm(&update_params,
+					DPA_OFFLD_DESC_NONE,
+					&frag_desc, true,  NULL);
+		if (ret < 0) {
+			fprintf(stderr, "Could not create "
+				"fragmentation manip handle %d\n", ret);
+			return ret;
 		}
+
+		*manip_desc = frag_desc;
+		pol_params->dir_params.type =
+				DPA_IPSEC_POL_DIR_PARAMS_MANIP;
+		pol_params->dir_params.manip_desc = frag_desc;
+
 	}
 
 	if (sel->family == AF_INET) {
@@ -508,6 +501,12 @@ static void trace_dpa_policy(struct dpa_pol *dpa_pol)
 	TRACE("\tsa_id %d\n", dpa_pol->sa_id);
 }
 
+static inline void dpa_pol_free_manip(struct dpa_pol *dpa_pol)
+{
+	if (dpa_pol->manip_desc != DPA_OFFLD_INVALID_OBJECT_ID)
+		dpa_classif_free_hm(dpa_pol->manip_desc);
+}
+
 static inline int do_offload(int dpa_ipsec_id,
 			int *sa_id,
 			int post_flow_id_td,
@@ -537,9 +536,11 @@ static inline int do_offload(int dpa_ipsec_id,
 		return ret;
 	ret = offload_policy(&dpa_pol->pol_params,
 			&dpa_pol->xfrm_pol_info.sel, *sa_id,
-			dpa_pol->xfrm_pol_info.dir, post_flow_id_td);
+			dpa_pol->xfrm_pol_info.dir, post_flow_id_td,
+			&dpa_pol->manip_desc);
 	if (ret < 0) {
 		fprintf(stderr, "offload_policy failed, ret %d\n", ret);
+		dpa_pol_free_manip(dpa_pol);
 		return ret;
 	}
 	trace_dpa_policy(dpa_pol);
@@ -733,6 +734,7 @@ static inline int flush_dpa_policies(void)
 			dpa_pol = (struct dpa_pol *)p;
 			assert(dpa_sa->out_sa_id !=
 			      DPA_OFFLD_INVALID_OBJECT_ID);
+			dpa_pol_free_manip(dpa_pol);
 			ret = dpa_ipsec_sa_remove_policy(dpa_sa->out_sa_id,
 				&dpa_pol->pol_params);
 			list_del(&dpa_pol->list);
@@ -1000,6 +1002,8 @@ static void *xfrm_msg_loop(void *data)
 				dpa_pol->sa_daddr = daddr;
 				dpa_pol->sa_family = af;
 				dpa_pol->sa_id = DPA_OFFLD_INVALID_OBJECT_ID;
+				dpa_pol->manip_desc =
+						DPA_OFFLD_INVALID_OBJECT_ID;
 
 				dpa_sa = find_dpa_sa_byaddr(&saddr, &daddr);
 
@@ -1062,6 +1066,7 @@ static void *xfrm_msg_loop(void *data)
 					goto no_remove;
 				assert(sa_id);
 				trace_dpa_policy(dpa_pol);
+				dpa_pol_free_manip(dpa_pol);
 				ret = dpa_ipsec_sa_remove_policy(*sa_id,
 							&dpa_pol->pol_params);
 				if (ret < 0) {
