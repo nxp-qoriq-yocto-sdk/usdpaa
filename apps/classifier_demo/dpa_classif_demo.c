@@ -407,7 +407,7 @@ static int ppac_cli_next_stage(int argc, char *argv[])
 {
 	struct dpa_cls_tbl_entry_mod_params mod_params;
 	struct dpa_stats_cls_member_params mbr_prm;
-	struct dpa_offload_lookup_key key, newKey;
+	struct dpa_offload_lookup_key key, newKey, stats_key;
 	struct dpa_cls_hm_update_params update_hm_params;
 	struct dpa_cls_hm_fwd_params fwd_hm_params;
 	int err, i;
@@ -439,9 +439,10 @@ static int ppac_cli_next_stage(int argc, char *argv[])
 			}
 
 			mbr_prm.type = DPA_STATS_CLS_MEMBER_SINGLE_KEY;
-			mbr_prm.key.byte = NULL;
-			mbr_prm.key.mask = NULL;
-			mbr_prm.key.size = 0;
+			mbr_prm.key = &stats_key;
+			mbr_prm.key->byte = NULL;
+			mbr_prm.key->mask = NULL;
+			mbr_prm.key->size = 0;
 
 			/* Modify DPA Stats class counter to invalidate the
 			 * corresponding lookup key */
@@ -531,13 +532,11 @@ static int ppac_cli_next_stage(int argc, char *argv[])
 			}
 
 			mbr_prm.type = DPA_STATS_CLS_MEMBER_SINGLE_KEY;
-			mbr_prm.key.byte = key_data;
-			mbr_prm.key.mask = mask_data;
-			mbr_prm.key.size = APP_TABLE_KEY_SIZE;
+			mbr_prm.key = &key;
 
-			memcpy(mbr_prm.key.byte,
+			memcpy(mbr_prm.key->byte,
 					new_key[i-1], APP_TABLE_KEY_SIZE);
-			memset(mbr_prm.key.mask, 0xff, APP_TABLE_KEY_SIZE);
+			memset(mbr_prm.key->mask, 0xff, APP_TABLE_KEY_SIZE);
 
 			/* Modify DPA Stats class counter */
 			err = dpa_stats_modify_class_counter(cnt_id,
@@ -852,6 +851,7 @@ static int ppam_cli_parse(int key, char *arg, struct argp_state *state)
 int create_exact_match_table(void)
 {
 	struct dpa_cls_tbl_params	table_params;
+	struct dpa_cls_tbl_action	miss_action;
 	int				err = 0;
 
 	/* Create an Exact Match table */
@@ -869,8 +869,18 @@ int create_exact_match_table(void)
 		error(0, -err, "Failed to create DPA Classifier table");
 		return err;
 	}
-	printf("\nSuccessfully CREATED DPA Classifier "
-			"Exact Match table (td=%d).\n", td);
+	printf("\nSuccessfully CREATED DPA Classifier Exact Match table (td=%d).\n", td);
+
+	memset(&miss_action, 0, sizeof(struct dpa_cls_tbl_action));
+	miss_action.enable_statistics = TRUE;
+	miss_action.type = DPA_CLS_TBL_ACTION_DROP;
+
+	err = dpa_classif_table_modify_miss_action(td, &miss_action);
+	if (err < 0) {
+		error(0, -err, "Failed to modify DPA Classifier table");
+		return err;
+	}
+	printf("\nSuccessfully Modified DPA Classifier Exact Match table (td=%d).\n", td);
 
 	err = create_dpa_stats_counters();
 	if (err < 0) {
@@ -924,13 +934,7 @@ int populate_table(int tbl_desc)
 		}
 
 		params.type = DPA_STATS_CLS_MEMBER_SINGLE_KEY;
-		params.key.byte = key_data;
-		params.key.mask = mask_data;
-		params.key.size = APP_TABLE_KEY_SIZE;
-
-		/* Update lookup key */
-		memcpy(key.byte, conn[i].key, APP_TABLE_KEY_SIZE);
-		memset(key.mask, 0xff, APP_TABLE_KEY_SIZE);
+		params.key = &key;
 
 		/* Modify DPA Stats class counter */
 		err = dpa_stats_modify_class_counter(cnt_id,
@@ -950,6 +954,7 @@ static int create_dpa_stats_counters(void)
 {
 	struct dpa_stats_params stats_params;
 	struct dpa_stats_cls_cnt_params cls_params;
+	struct dpa_offload_lookup_key **cls_keys;
 	int err = 0;
 	uint32_t i = 0;
 
@@ -985,7 +990,8 @@ static int create_dpa_stats_counters(void)
 
 	/* Create Classifier Table class counter */
 	cls_params.type = DPA_STATS_CNT_CLASSIF_TBL;
-	cls_params.class_members = APP_NUM_OF_ENTRIES;
+	/* The last member of the class will provide statistics for miss */
+	cls_params.class_members = APP_NUM_OF_ENTRIES + 1;
 	cls_params.classif_tbl_params.td = td;
 	cls_params.classif_tbl_params.cnt_sel = DPA_STATS_CNT_CLASSIF_BYTES |
 						DPA_STATS_CNT_CLASSIF_PACKETS;
@@ -993,18 +999,26 @@ static int create_dpa_stats_counters(void)
 
 	/* Allocate memory for keys array */
 	cls_params.classif_tbl_params.keys = malloc(
-			cls_params.class_members *
-			sizeof(struct dpa_offload_lookup_key));
+			cls_params.class_members * sizeof(**cls_keys));
 	if (!cls_params.classif_tbl_params.keys) {
 		error(0, -err, "Failed to allocate memory for keys\n");
 		return -1;
 	}
 
-	/* No lookup key is configured in the class */
-	for (i = 0; i < cls_params.class_members; i++) {
-		memset(&cls_params.classif_tbl_params.keys[i],
-				0, sizeof(struct dpa_offload_lookup_key));
+	for (i = 0; i < cls_params.class_members - 1; i++) {
+		cls_params.classif_tbl_params.keys[i] = malloc(
+				sizeof(struct dpa_offload_lookup_key));
+		if (!cls_params.classif_tbl_params.keys[i]) {
+			error(0, -err, "Failed to allocate memory for key\n");
+			return -1;
+		}
+
+		/* No lookup key is configured in the class */
+		memset(cls_params.classif_tbl_params.keys[i], 0,
+		       sizeof(struct dpa_offload_lookup_key));
 	}
+	/* Set it to NULL in order to retrieve statistics for miss */
+	cls_params.classif_tbl_params.keys[cls_params.class_members - 1] = NULL;
 
 	err = dpa_stats_create_class_counter(dpa_stats_id,
 			&cls_params, &cnt_id);
@@ -1013,6 +1027,11 @@ static int create_dpa_stats_counters(void)
 		return err;
 	}
 	printf("Successfully created DPA Stats counter: %d\n", cnt_id);
+
+	/* Counter was created, release the allocated memory */
+	for (i = 0; i < cls_params.class_members - 1; i++)
+		free(cls_params.classif_tbl_params.keys[i]);
+	free(cls_params.classif_tbl_params.keys);
 
 	return 0;
 }
@@ -1030,6 +1049,10 @@ static void print_dpa_stats_cnts(void)
 	for (i = 10; i < APP_NUM_OF_ENTRIES; i++)
 		printf("%d, %5d %5d\n",
 			i, *(stg + i*CLS_MBR_SIZE), *(stg + i*CLS_MBR_SIZE+1));
+	printf("MISS:: BYTES FRAMES\n");
+	printf("%9d %5d\n", *(stg + APP_NUM_OF_ENTRIES*CLS_MBR_SIZE),
+			*(stg + APP_NUM_OF_ENTRIES*CLS_MBR_SIZE+1));
+
 }
 
 void request_done_cb(int dpa_id,
