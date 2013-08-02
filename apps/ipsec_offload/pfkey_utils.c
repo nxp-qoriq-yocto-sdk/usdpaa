@@ -46,6 +46,7 @@
 #include <stdbool.h>
 #include "fsl_fman.h"
 #include "usdpaa/fsl_dpa_ipsec.h"
+#include "usdpaa/fsl_dpa_ipsec_algs.h"
 #include "xfrm_km.h"
 
 #define CALLOC(size, cast) (cast)calloc(1, (size))
@@ -62,29 +63,12 @@
 #define PFKEY_ADDR_SADDR(ext) \
 	((struct sockaddr *)((caddr_t)(ext) + sizeof(struct sadb_address)))
 
-/* Algos lookup table */
-static struct alg_suite {
-	int aalg;
-	const char *aalg_s;
-	int ealg;
-	const char *ealg_s;
-	int dpa_alg;
-} algs[] = {
-	{
-	  .aalg = SADB_AALG_SHA1HMAC,
-	  .aalg_s = "hmac-sha1",
-	  .ealg = SADB_EALG_3DESCBC,
-	  .ealg_s = "3des-cbc",
-	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_3DES_CBC_HMAC_96_SHA_160
-	}
-};
-
 static inline int alg_suite(int aalg, int ealg)
 {
 	int i;
-	for (i = 0; i < (sizeof(algs)/sizeof(algs[0])); i++)
-		if (aalg == algs[i].aalg && ealg == algs[i].ealg)
-			return algs[i].dpa_alg;
+	for (i = 0; i < (sizeof(dpa_algs)/sizeof(dpa_algs[0])); i++)
+		if (aalg == dpa_algs[i].aalg && ealg == dpa_algs[i].ealg)
+			return dpa_algs[i].dpa_alg;
 	return -1;
 }
 
