@@ -797,8 +797,6 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 			TRACE("		  dst=%d.%d.%d.%d\n",
 			      dst[0], dst[1], dst[2], dst[3]);
 	#endif
-			/* switch ethernet src/dest MAC addresses */
-			ether_header_swap(prot_eth);
 			TRACE("Tx: 2fwd	 fqid=%d\n", p->tx_fqid);
 			TRACE("	     phys=0x%"PRIx64", offset=%d, len=%d,"
 					" bpid=%d\n", qm_fd_addr(fd),
@@ -825,8 +823,6 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 			{
 			struct ip6_hdr *ip6_hdr =
 					(typeof(ip6_hdr))(next_header);
-			/* switch ethernet src/dest MAC addresses */
-			ether_header_swap(prot_eth);
 			TRACE("Tx: 2fwd  fqid=%d\n", p->tx_fqid);
 			TRACE("      phys=0x%"PRIx64", offset=%d, len=%d,"
 					" bpid=%d\n", qm_fd_addr(fd),
