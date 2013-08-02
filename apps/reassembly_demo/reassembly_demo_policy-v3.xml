@@ -116,7 +116,7 @@
 			<queue base="0x1775"/>
 			<action statistics="enable"/>
 		</entry>
-		<action condition="on-miss" type="drop"/>
+		<action condition="on-miss" type="drop" statistics="enable"/>
 	</classification>
 
 	<!-- Coarse classification for IPv6 source IP-->
@@ -157,7 +157,7 @@
 			<queue base="0x1777"/>
 			<action statistics="enable"/>
 		</entry>
-		<action condition="on-miss" type="drop"/>
+		<action condition="on-miss" type="drop" statistics="enable"/>
 	</classification>
 
 	<!--Distribution for IPv4 frames reassembly-->

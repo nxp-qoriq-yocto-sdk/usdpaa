@@ -95,7 +95,7 @@ const struct argp ppam_argp = {argp_opts, ppam_cli_parse, 0, ppam_doc};
 struct fmc_model_t cmodel;
 
 int dpa_stats_id;
-int cnt_ids[14];
+int cnt_ids[16];
 void *storage;
 struct qman_fq to_reass_fq;
 
@@ -111,6 +111,74 @@ enum dpa_stats_op {
 const char ppam_pcd_path[] = __stringify(DEF_PCD_PATH);
 const char ppam_cfg_path[] = __stringify(DEF_CFG_PATH);
 const char ppam_pdl_path[] = __stringify(DEF_PDL_PATH);
+
+struct reass_counters
+{
+	uint32_t	reass_frames;
+	uint32_t	valid_frags;
+	uint32_t	total_frags;
+	uint32_t	malformed_frags;
+	uint32_t	discarded_frags;
+	uint32_t	autolearn_busy;
+	uint32_t	exceed_16frags;
+};
+
+struct classif_counters
+{
+	uint32_t	hits0;
+	uint32_t	hits1;
+	uint32_t	hits2;
+	uint32_t	hits3;
+	uint32_t	miss;
+};
+
+struct eth_counters
+{
+	uint32_t	dropped_pkts;
+	uint32_t	bytes;
+	uint32_t	pkts;
+	uint32_t	broadcast_pkts;
+	uint32_t	multicast_pkts;
+	uint32_t	crc_align_err_pkts;
+	uint32_t	undersized_pkts;
+	uint32_t	oversized_pkts;
+	uint32_t	frags;
+	uint32_t	jabbers;
+	uint32_t	pkts_64b;
+	uint32_t	pkts_65_127b;
+	uint32_t	pkts_128_255b;
+	uint32_t	pkts_256_511b;
+	uint32_t	pkts_512_1023b;
+	uint32_t	pkts_1024_1518b;
+	uint32_t	out_pkts;
+	uint32_t	out_drop_pkts;
+	uint32_t	out_bytes;
+	uint32_t	in_errors;
+	uint32_t	out_errors;
+	uint32_t	in_unicast_pkts;
+	uint32_t	out_unicast_pkts;
+};
+
+struct app_counters
+{
+	uint32_t	reass_timeout;
+	uint32_t	reass_rfd_pool_busy;
+	uint32_t	reass_int_buff_busy;
+	uint32_t	reass_ext_buff_busy;
+	uint32_t	reass_sg_frags;
+	uint32_t	reass_dma_sem;
+	uint32_t	reass_ncsp;
+
+	struct reass_counters reass_ipv4;
+	struct reass_counters reass_ipv6;
+
+	struct eth_counters eth;
+
+	struct classif_counters cls1_ipv6;
+	struct classif_counters cls2_ipv6;
+	struct classif_counters cls3_ipv4;
+	struct classif_counters cls4_ipv4;
+};
 
 int ppam_init(void)
 {
@@ -645,6 +713,7 @@ static int create_dpa_stats_counters(void)
 	struct dpa_stats_cls_cnt_params cls_cnt_params;
 	void *reass, *ccNodeIpv6, *ccNodeIpv4;
 	struct dpa_offload_lookup_key keys[20];
+	struct dpa_offload_lookup_key **cls_keys;
 	uint32_t i = 0, cntId = 0, j = 0;
 	char object_name[100];
 	int err = 0;
@@ -775,9 +844,7 @@ static int create_dpa_stats_counters(void)
 		*(uint8_t *)&keys[i].byte[1] = i + 1;
 		*(uint8_t *)&keys[i].byte[6] = i + 1;
 
-		cnt_params.classif_node_params.key.byte = keys[i].byte;
-		cnt_params.classif_node_params.key.mask = keys[i].mask;
-		cnt_params.classif_node_params.key.size = keys[i].size;
+		cnt_params.classif_node_params.key = &keys[i];
 
 		err = dpa_stats_create_counter(dpa_stats_id,
 				&cnt_params, &cnt_ids[cntId++]);
@@ -788,29 +855,46 @@ static int create_dpa_stats_counters(void)
 		TRACE("Successfully created DPA Stats counter: %d\n",
 				cnt_ids[cntId-1]);
 	}
+	/* Create CcNode counter to retrieve IPv6 statistics for miss */
+	cnt_params.classif_node_params.key = NULL;
+	err = dpa_stats_create_counter(dpa_stats_id,
+			&cnt_params, &cnt_ids[cntId++]);
+	if (err < 0) {
+		error(0, -err, "Failed to create DPA Stats counter\n");
+		return err;
+	}
+	TRACE("Successfully created DPA Stats counter: %d\n", cnt_ids[cntId-1]);
 
 	/* Create CcNode class counter to retrieve IPv6 statistics */
 	cls_cnt_params.type = DPA_STATS_CNT_CLASSIF_NODE;
-	cls_cnt_params.class_members = 4;
+	cls_cnt_params.class_members = 5;
 	cls_cnt_params.classif_node_params.cc_node = ccNodeIpv6;
 	cls_cnt_params.classif_node_params.ccnode_type =
 					DPA_STATS_CLASSIF_NODE_EXACT_MATCH;
 	cls_cnt_params.classif_node_params.cnt_sel =
 					DPA_STATS_CNT_CLASSIF_PACKETS;
 
-	cls_cnt_params.classif_node_params.keys = malloc(
-			cls_cnt_params.class_members *
-			sizeof(struct dpa_offload_lookup_key));
-	if (!cls_cnt_params.classif_node_params.keys) {
+	cls_keys = malloc(cls_cnt_params.class_members * sizeof(**cls_keys));
+	if (!cls_keys) {
 		error(0, -err, "Failed to allocate memory\n");
 		return -1;
 	}
 
-	for (i = 0; i < cls_cnt_params.class_members; i++) {
-		cls_cnt_params.classif_node_params.keys[i].byte = keys[i].byte;
-		cls_cnt_params.classif_node_params.keys[i].mask = keys[i].mask;
-		cls_cnt_params.classif_node_params.keys[i].size = keys[i].size;
+	for (i = 0; i < cls_cnt_params.class_members - 1; i++) {
+		cls_keys[i] =  malloc(sizeof(struct dpa_offload_lookup_key));
+		if (!cls_keys[i]) {
+			error(0, -err, "Failed to allocate memory\n");
+			return -1;
+		}
+		cls_keys[i]->byte = keys[i].byte;
+		cls_keys[i]->mask = keys[i].mask;
+		cls_keys[i]->size = keys[i].size;
 	}
+
+	/* The last entry marks that statistics are required for miss */
+	cls_keys[cls_cnt_params.class_members - 1] = NULL;
+
+	cls_cnt_params.classif_node_params.keys = cls_keys;
 
 	err = dpa_stats_create_class_counter(dpa_stats_id,
 			&cls_cnt_params, &cnt_ids[cntId++]);
@@ -819,6 +903,7 @@ static int create_dpa_stats_counters(void)
 		return err;
 	}
 	TRACE("Successfully created DPA Stats counter: %d\n", cnt_ids[cntId-1]);
+
 
 	/* Get Classification node used to perform IPv4 classification */
 	sprintf(object_name, "fm%d/port/1G/%d/ccnode/vlan_ipv4_classif",
@@ -853,9 +938,7 @@ static int create_dpa_stats_counters(void)
 		*(uint8_t *)&keys[i].byte[1] = i-3;
 		*(uint8_t *)&keys[i].byte[5] = i-3;
 
-		cnt_params.classif_node_params.key.byte = keys[i].byte;
-		cnt_params.classif_node_params.key.mask = keys[i].mask;
-		cnt_params.classif_node_params.key.size = keys[i].size;
+		cnt_params.classif_node_params.key = &keys[i];
 
 		err = dpa_stats_create_counter(dpa_stats_id,
 				&cnt_params, &cnt_ids[cntId++]);
@@ -867,29 +950,46 @@ static int create_dpa_stats_counters(void)
 				cnt_ids[cntId-1]);
 	}
 
+	/* Create CcNode counter to retrieve IPv4 statistics for miss */
+	cnt_params.classif_node_params.key = NULL;
+	err = dpa_stats_create_counter(dpa_stats_id,
+				&cnt_params, &cnt_ids[cntId++]);
+	if (err < 0) {
+		error(0, -err, "Failed to create DPA Stats counter\n");
+		return err;
+	}
+	TRACE("Successfully created DPA Stats counter: %d\n", cnt_ids[cntId-1]);
+
 	/* Create CcNode class counter to retrieve IPv4 statistics */
 	cls_cnt_params.type = DPA_STATS_CNT_CLASSIF_NODE;
-	cls_cnt_params.class_members = 4;
+	cls_cnt_params.class_members = 5;
 	cls_cnt_params.classif_node_params.cc_node = ccNodeIpv4;
 	cls_cnt_params.classif_node_params.ccnode_type =
 					DPA_STATS_CLASSIF_NODE_EXACT_MATCH;
 	cls_cnt_params.classif_node_params.cnt_sel =
 					DPA_STATS_CNT_CLASSIF_PACKETS;
 
-	cls_cnt_params.classif_node_params.keys = malloc(
-			cls_cnt_params.class_members *
-			sizeof(struct dpa_offload_lookup_key));
-	if (!cls_cnt_params.classif_node_params.keys) {
+	cls_keys = malloc(cls_cnt_params.class_members * sizeof(**cls_keys));
+	if (!cls_keys) {
 		error(0, -err, "Failed to allocate memory\n");
 		return -1;
 	}
 
 	for (i = 0; i < cls_cnt_params.class_members; i++) {
 		j = i + 4;
-		cls_cnt_params.classif_node_params.keys[i].byte = keys[j].byte;
-		cls_cnt_params.classif_node_params.keys[i].mask = keys[j].mask;
-		cls_cnt_params.classif_node_params.keys[i].size = keys[j].size;
+		cls_keys[i] =  malloc(sizeof(struct dpa_offload_lookup_key));
+		if (!cls_keys[i]) {
+			error(0, -err, "Failed to allocate memory\n");
+			return -1;
+		}
+		cls_keys[i]->byte = keys[j].byte;
+		cls_keys[i]->mask = keys[j].mask;
+		cls_keys[i]->size = keys[j].size;
 	}
+	/* The last entry marks that statistics are required for miss */
+	cls_keys[cls_cnt_params.class_members - 1] = NULL;
+
+	cls_cnt_params.classif_node_params.keys = cls_keys;
 
 	err = dpa_stats_create_class_counter(dpa_stats_id,
 			&cls_cnt_params, &cnt_ids[cntId++]);
@@ -904,59 +1004,75 @@ static int create_dpa_stats_counters(void)
 
 static void print_dpa_stats_cnts(void)
 {
-	uint32_t *stg = (uint32_t *)storage;
+	struct app_counters *cnts = (struct app_counters *)storage;
 
 	printf("\nREASS      : TIMEOUT RFD_POOL_BUSY INT_BUFF_BUSY "
 		"EXT_BUFF_BUSY SG_FRAGS DMA_SEM NCSP\n");
-	printf("%18d %8d %13d %14d %11d %7d %5d\n", *(stg), *(stg + 1),
-		*(stg + 2), *(stg + 3), *(stg + 4), *(stg + 5),
-		*(stg + 6));
+	printf("%18d %8d %13d %14d %11d %7d %5d\n", cnts->reass_timeout,
+		cnts->reass_rfd_pool_busy, cnts->reass_int_buff_busy,
+		cnts->reass_ext_buff_busy, cnts->reass_sg_frags,
+		cnts->reass_dma_sem, cnts->reass_ncsp);
 
 	printf("\nREASS_IPV4 : FRAMES FRAGS_VALID FRAGS_TOTAL FRAGS_MALFORMED"
 			" FRAGS_DISCARDED AUTOLEARN_BUSY EXCEED_16FRAGS\n");
-	printf("%18d %8d %11d %10d %15d %15d %15d\n", *(stg + 7), *(stg + 8),
-		*(stg + 9), *(stg + 10), *(stg + 11), *(stg + 12), *(stg + 13));
+	printf("%18d %8d %11d %10d %15d %15d %15d\n",
+		cnts->reass_ipv4.reass_frames, cnts->reass_ipv4.valid_frags,
+		cnts->reass_ipv4.total_frags, cnts->reass_ipv4.malformed_frags,
+		cnts->reass_ipv4.discarded_frags,
+		cnts->reass_ipv4.autolearn_busy,
+		cnts->reass_ipv4.exceed_16frags);
 
 	printf("\nREASS_IPV6 : FRAMES FRAGS_VALID FRAGS_TOTAL FRAGS_MALFORMED"
 			" FRAGS_DISCARDED AUTOLEARN_BUSY EXCEED_16FRAGS\n");
-	printf("%18d %8d %11d %10d %15d %15d %15d\n", *(stg + 14), *(stg + 15),
-		*(stg + 16), *(stg + 17), *(stg + 18), *(stg + 19),
-		*(stg + 20));
+	printf("%18d %8d %11d %10d %15d %15d %15d\n",
+		cnts->reass_ipv6.reass_frames, cnts->reass_ipv6.valid_frags,
+		cnts->reass_ipv6.total_frags, cnts->reass_ipv6.malformed_frags,
+		cnts->reass_ipv6.discarded_frags,
+		cnts->reass_ipv6.autolearn_busy,
+		cnts->reass_ipv6.exceed_16frags);
 
 	printf("\nETH        : DROP_PKTS  BYTES  PKTS BC_PKTS MC_PKTS "
 			"CRC_ALIGN_ERR UNDERSIZE_PKTS OVERSIZE_PKTS\n");
-	printf("%18d %10d %4d %5d %6d %10d %14d %12d\n", *(stg + 21),
-		*(stg + 22), *(stg + 23), *(stg + 24), *(stg + 25), *(stg + 26),
-		*(stg + 27), *(stg + 28));
+	printf("%18d %10d %4d %5d %6d %10d %14d %12d\n", cnts->eth.dropped_pkts,
+		cnts->eth.bytes, cnts->eth.pkts, cnts->eth.broadcast_pkts,
+		cnts->eth.multicast_pkts, cnts->eth.crc_align_err_pkts,
+		cnts->eth.undersized_pkts, cnts->eth.oversized_pkts);
 
 	printf("\nETH        : FRAGMENTS JABBERS 64BYTE_PKTS 65_127BYTE_PKTS "
 			"128_255BYTE_PKTS 256_511BYTE_PKTS 512_1023BYTE_PKTS "
 			"1024_1518BYTE_PKTS\n");
-	printf("%18d %8d %10d %12d %15d %15d %15d %17d\n", *(stg + 29),
-		*(stg + 30), *(stg + 31), *(stg + 32), *(stg + 33), *(stg + 34),
-		*(stg + 35), *(stg + 36));
+	printf("%18d %8d %10d %12d %15d %15d %15d %17d\n", cnts->eth.frags,
+		cnts->eth.jabbers, cnts->eth.pkts_64b,
+		cnts->eth.pkts_65_127b, cnts->eth.pkts_128_255b,
+		cnts->eth.pkts_256_511b, cnts->eth.pkts_512_1023b,
+		cnts->eth.pkts_1024_1518b);
 
 	printf("\nETH        : OUT_PKTS OUT_DROP_PKTS OUT_BYTES IN_ERRORS "
 			"OUT_ERRORS IN_UNICAST_PKTS OUT_UNICAST_PKTS\n");
-	printf("%18d %9d %11d %10d %11d %11d %12d\n", *(stg + 37), *(stg + 38),
-		*(stg + 39), *(stg + 40), *(stg + 41), *(stg + 42),
-		*(stg + 43));
+	printf("%18d %9d %11d %10d %11d %11d %12d\n", cnts->eth.out_pkts,
+		cnts->eth.out_drop_pkts, cnts->eth.out_bytes,
+		cnts->eth.in_errors, cnts->eth.out_errors,
+		cnts->eth.in_unicast_pkts, cnts->eth.out_unicast_pkts);
 
-	printf("\nCNT_CLASSIF: IPv6_KEY0 IPv6_KEY1 IPv6_KEY2 IPv6_KEY3\n");
-	printf("%18d %9d %9d %9d\n", *(stg + 44), *(stg + 45), *(stg + 46),
-		*(stg + 47));
+	printf("\nCNT_CLASSIF: IPv6_KEY0 IPv6_KEY1 IPv6_KEY2 IPv6_KEY3 MISS\n");
+	printf("%18d %9d %9d %9d %7d\n", cnts->cls1_ipv6.hits0,
+		cnts->cls1_ipv6.hits1, cnts->cls1_ipv6.hits2,
+		cnts->cls1_ipv6.hits3, cnts->cls1_ipv6.miss);
 
-	printf("\nCLS_CLASSIF: IPv6_KEY0 IPv6_KEY1 IPv6_KEY2 IPv6_KEY3\n");
-	printf("%18d %9d %9d %9d\n", *(stg + 48), *(stg + 49), *(stg + 50),
-		*(stg + 51));
+	printf("\nCLS_CLASSIF: IPv6_KEY0 IPv6_KEY1 IPv6_KEY2 IPv6_KEY3 MISS\n");
+	printf("%18d %9d %9d %9d %7d\n", cnts->cls2_ipv6.hits0,
+		cnts->cls2_ipv6.hits1, cnts->cls2_ipv6.hits2,
+		cnts->cls2_ipv6.hits3, cnts->cls2_ipv6.miss);
 
-	printf("\nCNT_CLASSIF: IPv4_KEY0 IPv4_KEY1 IPv4_KEY2 IPv4_KEY3\n");
-	printf("%18d %9d %9d %9d\n", *(stg + 52), *(stg + 53), *(stg + 54),
-		*(stg + 55));
+	printf("\nCNT_CLASSIF: IPv4_KEY0 IPv4_KEY1 IPv4_KEY2 IPv4_KEY3 MISS\n");
+	printf("%18d %9d %9d %9d %7d\n", cnts->cls3_ipv4.hits0,
+		cnts->cls3_ipv4.hits1, cnts->cls3_ipv4.hits2,
+		cnts->cls3_ipv4.hits3, cnts->cls3_ipv4.miss);
 
-	printf("\nCLS_CLASSIF: IPv4_KEY0 IPv4_KEY1 IPv4_KEY2 IPv4_KEY3\n");
-	printf("%18d %9d %9d %9d\n", *(stg + 56), *(stg + 57), *(stg + 58),
-		*(stg + 59));
+	printf("\nCLS_CLASSIF: IPv4_KEY0 IPv4_KEY1 IPv4_KEY2 IPv4_KEY3 MISS\n");
+	printf("%18d %9d %9d %9d %7d\n", cnts->cls4_ipv4.hits0,
+		cnts->cls4_ipv4.hits1, cnts->cls4_ipv4.hits2,
+		cnts->cls4_ipv4.hits3, cnts->cls4_ipv4.miss);
 }
 
 void request_done_cb(int dpa_id,
