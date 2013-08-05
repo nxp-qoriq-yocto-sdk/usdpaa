@@ -127,5 +127,6 @@ int ipsec_offload_cleanup(int dpa_ipsec_id);
 int setup_xfrm_msgloop(int dpa_ipsec_id);
 int setup_neigh_loop(void);
 int create_nl_socket(int protocol, int groups);
-
+int get_dst_addrs(struct in_addr *dst_addr, unsigned char *dst_len,
+		  struct in_addr *gw_addr, unsigned int max_len);
 #endif

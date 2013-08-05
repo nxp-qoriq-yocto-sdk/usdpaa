@@ -39,7 +39,9 @@ AM_CFLAGS := -I$(TOP_LEVEL)/apps/include \
 	     $(FMC_CFLAGS) $(FMLIB_CFLAGS)
 
 ipsec_offload_SOURCES := ipsec_offload.c pcd_init.c \
-			ipsec_init.c xfrm_km.c pfkey_utils.c neigh_utils.c
+			ipsec_init.c xfrm_km.c \
+			pfkey_utils.c neigh_utils.c \
+			route_utils.c
 
 ipsec_offload_LDADD := usdpaa_ppac usdpaa_syscfg usdpaa_qbman usdpaa_fman \
 		      usdpaa_dma_mem usdpaa_of usdpaa_process usdpaa_dpa_offload
