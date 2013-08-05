@@ -49,7 +49,12 @@ struct ppam_interface {
 	* to the interface*/
 	union {
 		int *hhm_td;
+		int *local_td;
 	};
+	/* Macless interface that receives traffic from this interface */
+	int macless_ifindex;
+	/* Statistics counter storage */
+	int stats_cnt;
 };
 struct ppam_rx_error { };
 struct ppam_rx_default {

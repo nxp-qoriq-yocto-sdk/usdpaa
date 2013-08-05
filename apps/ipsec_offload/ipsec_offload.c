@@ -40,6 +40,8 @@
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <linux/if_vlan.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
 
 #include "fmc.h"
 #include "usdpaa/fsl_dpa_ipsec.h"
@@ -108,6 +110,135 @@ static struct bpool {
 struct ppam_arguments ppam_args;
 struct app_conf app_conf;
 static int dpa_ipsec_id;
+static struct fmc_model_t *cmodel;
+
+static int setup_macless_if_tx(struct ppac_interface *i, uint32_t last_fqid,
+			    struct qman_fq *fq, char *macless_name)
+{
+	struct fman_if *__if;
+	int loop;
+	uint32_t tx_start = 0;
+	uint32_t tx_count = 0;
+	struct ether_addr mac;
+
+	memset(&mac, 0, sizeof(mac));
+
+	list_for_each_entry(__if, fman_if_list, node) {
+		if (__if->mac_type != fman_mac_less)
+			continue;
+		get_mac_addr(macless_name, &mac);
+		if (!memcmp(&mac.ether_addr_octet,
+			    &__if->macless_info.peer_mac.ether_addr_octet,
+			    ETH_ALEN)) {
+			__if->macless_info.macless_name = macless_name;
+			tx_start = __if->macless_info.tx_start;
+			tx_count = __if->macless_info.tx_count;
+			break;
+		}
+	}
+
+	if (!tx_start || !tx_count)
+		return -ENODEV;
+
+	free(i->tx_fqs);
+	i->num_tx_fqs = tx_count + 1;
+	i->tx_fqs = malloc(sizeof(*i->tx_fqs) * i->num_tx_fqs);
+	if (!i->tx_fqs) {
+		__dma_mem_free(i);
+		return -ENOMEM;
+	}
+
+	fq = &i->tx_fqs[0];
+	memset(i->tx_fqs, 0, sizeof(*i->tx_fqs) * i->num_tx_fqs);
+	for (loop = 0; loop < i->num_tx_fqs - 1; loop++)
+		fq[loop].fqid = tx_start + loop;
+	fq[tx_count].fqid = last_fqid;
+
+	return 0;
+}
+/* setup_macless_if_tx has to be called first as the macless_name
+ * member is set by it */
+static int setup_macless_if_rx(struct ppac_interface *i,
+				const char *macless_name)
+{
+	struct fman_if *__if;
+	uint32_t rx_start = 0;
+	int ret;
+	char fmc_path[64];
+
+	int idx = if_nametoindex(macless_name);
+	if (!idx)
+		return -ENODEV;
+	i->ppam_data.macless_ifindex = idx;
+
+	list_for_each_entry(__if, fman_if_list, node) {
+		if (__if->mac_type == fman_mac_less &&
+		    !strcmp(__if->macless_info.macless_name, macless_name)) {
+			rx_start = __if->macless_info.rx_start;
+			break;
+		}
+	}
+	if (!rx_start)
+		return -ENODEV;
+
+	if (!strcmp(macless_name, app_conf.vif)) {
+		/* set fqids for vif PCD */
+		memset(fmc_path, 0, sizeof(fmc_path));
+		sprintf(fmc_path, "fm%d/port/1G/%d/dist/"
+			"ib_default_dist",
+			app_conf.fm, app_conf.ib_eth);
+		ret = set_dist_base_fqid(cmodel, fmc_path, rx_start);
+		if (ret < 0)
+			goto err;
+
+		memset(fmc_path, 0, sizeof(fmc_path));
+		sprintf(fmc_path, "fm%d/port/OFFLINE/%d/ccnode/"
+			"ib_post_ip_cc",
+			app_conf.fm, app_conf.ib_oh);
+		ret = set_cc_miss_fqid(cmodel, fmc_path, rx_start);
+		if (ret < 0)
+			goto err;
+		memset(fmc_path, 0, sizeof(fmc_path));
+		sprintf(fmc_path, "fm%d/port/OFFLINE/%d/ccnode/"
+			"ib_post_ip6_cc",
+			app_conf.fm, app_conf.ib_oh);
+		ret = set_cc_miss_fqid(cmodel, fmc_path, rx_start);
+		if (ret < 0)
+			goto err;
+
+	} else if (!strcmp(macless_name, app_conf.vof)) {
+		/* set fqids for vof PCD */
+		memset(fmc_path, 0, sizeof(fmc_path));
+		sprintf(fmc_path, "fm%d/port/1G/%d/dist/"
+			"ob_rx_default_dist",
+			app_conf.fm, app_conf.ob_eth);
+		ret = set_dist_base_fqid(cmodel, fmc_path, rx_start);
+		if (ret < 0)
+			goto err;
+
+		memset(fmc_path, 0, sizeof(fmc_path));
+		sprintf(fmc_path, "fm%d/port/OFFLINE/%d/ccnode/"
+			"ob_post_ip_cc",
+			app_conf.fm, app_conf.ob_oh_post);
+		ret = set_cc_miss_fqid(cmodel, fmc_path, rx_start);
+		if (ret < 0)
+			goto err;
+
+		memset(fmc_path, 0, sizeof(fmc_path));
+		sprintf(fmc_path, "fm%d/port/OFFLINE/%d/ccnode/"
+			"ob_post_ip6_cc",
+			app_conf.fm, app_conf.ob_oh_post);
+		ret = set_cc_miss_fqid(cmodel, fmc_path, rx_start);
+		if (ret < 0)
+			goto err;
+	} else {
+		return -ENODEV;
+	}
+
+	return 0;
+err:
+	return ret;
+}
 
 /* There is no configuration that specifies how many Tx FQs to use
  * per-interface, it's an internal choice for ppac.c and may depend on
@@ -124,34 +255,53 @@ static int ppam_interface_init(struct ppam_interface *p,
 			       unsigned int num_tx_fqs,
 			       uint32_t *flags __maybe_unused)
 {
+	int ret;
 	struct ppac_interface *i =
 		container_of(p, struct ppac_interface, ppam_data);
 	struct qman_fq *fq = &i->tx_fqs[0];
 	if (app_conf.fm == i->port_cfg->fman_if->fman_idx &&
-		i->port_cfg->fman_if->mac_type == fman_offline &&
-		app_conf.ob_oh_post == i->port_cfg->fman_if->mac_idx) {
+	    i->port_cfg->fman_if->mac_type == fman_offline &&
+	    app_conf.ob_oh_post == i->port_cfg->fman_if->mac_idx) {
 		fq->fqid = OB_OH_POST_TX_FQID;
 		*flags |= PPAM_TX_FQ_NO_BUF_DEALLOC;
 	}
 	if (app_conf.fm == i->port_cfg->fman_if->fman_idx &&
-		i->port_cfg->fman_if->mac_type == fman_offline &&
-		app_conf.ob_oh_pre == i->port_cfg->fman_if->mac_idx) {
+	    i->port_cfg->fman_if->mac_type == fman_offline &&
+	    app_conf.ob_oh_pre == i->port_cfg->fman_if->mac_idx) {
 		fq->fqid = OB_OH_PRE_TX_FQID;
 		*flags |= PPAM_TX_FQ_NO_BUF_DEALLOC;
 	}
 	if (app_conf.fm == i->port_cfg->fman_if->fman_idx &&
-		i->port_cfg->fman_if->mac_type == fman_mac_1g &&
-		app_conf.ib_eth == i->port_cfg->fman_if->mac_idx) {
-		fq->fqid = IB_TX_FQID;
+	    i->port_cfg->fman_if->mac_type == fman_mac_1g &&
+	    app_conf.ib_eth == i->port_cfg->fman_if->mac_idx) {
+		ret = setup_macless_if_tx(i, IB_TX_FQID, fq, app_conf.vif);
+		if (ret < 0)
+			goto err;
+		ret = setup_macless_if_rx(i, app_conf.vif);
+		if (ret < 0)
+			goto err;
+		ret = set_mac_addr(app_conf.vif,
+				   &i->port_cfg->fman_if->mac_addr);
+		if (ret < 0)
+			goto err;
 	}
 	if (app_conf.fm == i->port_cfg->fman_if->fman_idx &&
-		i->port_cfg->fman_if->mac_type == fman_mac_1g &&
-		app_conf.ob_eth == i->port_cfg->fman_if->mac_idx) {
-		fq->fqid = OB_TX_FQID;
+	    i->port_cfg->fman_if->mac_type == fman_mac_1g &&
+	    app_conf.ob_eth == i->port_cfg->fman_if->mac_idx) {
+		ret = setup_macless_if_tx(i, OB_TX_FQID, fq, app_conf.vof);
+		if (ret < 0)
+			goto err;
+		ret = setup_macless_if_rx(i, app_conf.vof);
+		if (ret < 0)
+			goto err;
+		ret = set_mac_addr(app_conf.vof,
+				   &i->port_cfg->fman_if->mac_addr);
+		if (ret < 0)
+			goto err;
 	}
 	if (app_conf.fm == i->port_cfg->fman_if->fman_idx &&
-		i->port_cfg->fman_if->mac_type == fman_offline &&
-		app_conf.ib_oh ==  i->port_cfg->fman_if->mac_idx) {
+	    i->port_cfg->fman_if->mac_type == fman_offline &&
+	    app_conf.ib_oh ==  i->port_cfg->fman_if->mac_idx) {
 		fq->fqid = IB_OH_TX_FQID;
 	}
 
@@ -160,6 +310,8 @@ static int ppam_interface_init(struct ppam_interface *p,
 	if (!p->tx_fqids)
 		return -ENOMEM;
 	return 0;
+err:
+	return ret;
 }
 static void ppam_interface_finish(struct ppam_interface *p)
 {
@@ -291,7 +443,7 @@ static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_interface *_if,
 		__if = &eth_if->ppam_data;
 		p->tx_fqid = __if->tx_fqids[idx % __if->num_tx_fqids];
 		TRACE("Mapping Rx FQ %p:%d --> Tx FQID %d\n",
-			p, idx, p->tx_fqid);
+		      p, idx, p->tx_fqid);
 	}
 
 	/* outbound mappings : ethernet Rx - outbound offline Tx*/
@@ -299,7 +451,7 @@ static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_interface *_if,
 		__if = &ob_oh_if->ppam_data;
 		p->tx_fqid = __if->tx_fqids[idx % __if->num_tx_fqids];
 		TRACE("Mapping Rx FQ %p:%d --> Tx FQID %d\n",
-			p, idx, p->tx_fqid);
+		      p, idx, p->tx_fqid);
 	}
 
 	return 0;
@@ -340,7 +492,6 @@ static int init_buffer_pools(void)
 			fprintf(stderr, "error: bpool (%d) init failure\n",
 				bp->bpid);
 			return err;
-
 		}
 		bp++;
 	}
@@ -435,13 +586,14 @@ int ppam_init(void)
 	}
 	TRACE("Buffer pool initialized\n");
 
-	ret = fmc_config();
-	if (ret < 0) {
-		fprintf(stderr, "PCD apply failure (%d)\n", ret);
+	cmodel = fmc_compile_model();
+	if (!cmodel) {
+		fprintf(stderr, "PCD model compile failure\n");
 		goto bp_cleanup;
 	}
 	TRACE("PCD applied\n");
 	return 0;
+
 bp_cleanup:
 	cleanup_buffer_pools();
 err:
@@ -486,6 +638,12 @@ int ppam_post_tx_init(void)
 	if (app_conf.ib_loop) {
 		fman_if_loopback_enable(fif);
 		TRACE("Loopback set on inbound port\n");
+	}
+
+	ret = fmc_apply_model();
+	if (ret < 0) {
+		fprintf(stderr, "PCD model apply failure (%d)\n", ret);
+		goto err;
 	}
 
 	ret = ipsec_offload_init(&dpa_ipsec_id);
@@ -595,9 +753,9 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 	      prot_eth->ether_shost[4], prot_eth->ether_shost[5]);
 	TRACE("	     ether_type=%04x\n", prot_eth->ether_type);
 	/* Eliminate ethernet broadcasts. */
-	if (prot_eth->ether_dhost[0] & 0x01)
+	if (prot_eth->ether_dhost[0] & 0x01) {
 		TRACE("	     -> dropping broadcast packet\n");
-	else {
+	} else {
 	continue_parsing = true;
 	while (continue_parsing) {
 		switch (proto) {
@@ -621,15 +779,15 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 			u8 *src = (void *)&iphdr->saddr;
 			u8 *dst = (void *)&iphdr->daddr;
 			TRACE("		  ver=%d,ihl=%d,tos=%d,len=%d,id=%d\n",
-				iphdr->version, iphdr->ihl, iphdr->tos,
-				iphdr->tot_len, iphdr->id);
+			      iphdr->version, iphdr->ihl, iphdr->tos,
+			      iphdr->tot_len, iphdr->id);
 			TRACE("		  frag_off=%d,ttl=%d,prot=%d,"
-				"csum=0x%04x\n", iphdr->frag_off, iphdr->ttl,
-				iphdr->protocol, iphdr->check);
+			      "csum=0x%04x\n", iphdr->frag_off, iphdr->ttl,
+			      iphdr->protocol, iphdr->check);
 			TRACE("		  src=%d.%d.%d.%d\n",
-				src[0], src[1], src[2], src[3]);
+			      src[0], src[1], src[2], src[3]);
 			TRACE("		  dst=%d.%d.%d.%d\n",
-				dst[0], dst[1], dst[2], dst[3]);
+			      dst[0], dst[1], dst[2], dst[3]);
 	#endif
 			/* switch ethernet src/dest MAC addresses */
 			ether_header_swap(prot_eth);
@@ -642,8 +800,9 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 			if (!p->tx_fqid) {
 				BUG_ON(fd->offset < sizeof(tx_fqid));
 				tx_fqid = *(uint32_t *)annotations;
-			} else
+			} else {
 				tx_fqid = p->tx_fqid;
+			}
 			/* IPv4 frame may contain ESP padding */
 			_fd = *fd;
 #ifndef SEC_5_3
@@ -668,8 +827,9 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 			if (!p->tx_fqid) {
 				BUG_ON(fd->offset < sizeof(tx_fqid));
 				tx_fqid = *(uint32_t *)annotations;
-			} else
+			} else {
 				tx_fqid = p->tx_fqid;
+			}
 			/* IPv6 may contain ESP padding */
 			_fd = *fd;
 #ifndef SEC_5_3
@@ -686,8 +846,8 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 			{
 			struct ether_arp *arp = (typeof(arp))(next_header);
 			TRACE("		  hrd=%d, pro=%d, hln=%d, pln=%d,"
-				" op=%d\n", arp->arp_hrd, arp->arp_pro,
-				arp->arp_hln, arp->arp_pln, arp->arp_op);
+			      " op=%d\n", arp->arp_hrd, arp->arp_pro,
+			      arp->arp_hln, arp->arp_pln, arp->arp_op);
 			}
 	#endif
 			TRACE("		  -> dropping ARP packet\n");
@@ -696,7 +856,7 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 			break;
 		default:
 			TRACE("	       -> it's UNKNOWN (!!) type 0x%04x\n",
-				prot_eth->ether_type);
+			      prot_eth->ether_type);
 			TRACE("		  -> dropping unknown packet\n");
 			ppac_drop_frame(fd);
 			continue_parsing = false;
@@ -704,19 +864,7 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 		}
 	}
 	}
-
-
 }
-
-static inline void ppam_rx_hash_cb_v3(struct ppam_rx_hash *p,
-				   struct qm_dqrr_entry *dqrr)
-{
-	/* Set FCO bit */
-	struct qm_fd *fd = &dqrr->fd;
-	fd->cmd |= 0x80000000;
-	ppam_rx_hash_cb(p, dqrr);
-}
-
 const char ppam_doc[] = "Offloading demo application";
 
 static const struct argp_option argp_opts[] = {

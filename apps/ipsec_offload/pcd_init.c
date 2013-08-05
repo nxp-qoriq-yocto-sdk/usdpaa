@@ -58,6 +58,11 @@ t_Handle cc_in_post_dec[MAX_ETHER_TYPES];
 
 /* header manipulation handles for ethernet header replacing */
 t_Handle ob_fwd_hm, ib_fwd_hm;
+
+/* cc nodes for local traffic */
+t_Handle cc_out_local[MAX_ETHER_TYPES];
+t_Handle cc_in_local[MAX_ETHER_TYPES];
+
 t_Handle pcd_dev;
 
 static struct fmc_model_t cmodel;
@@ -67,10 +72,38 @@ static inline void *get_dev_id(void *node)
 	if (!node)
 		return NULL;
 	else
-		return (void *)((struct t_Device*)node)->id;
+		return (void *)((struct t_Device *)node)->id;
 }
 
-int fmc_config(void)
+int set_dist_base_fqid(struct fmc_model_t *_cmodel, char *fmc_path,
+		       uint32_t fqid)
+{
+	int i = 0;
+	for (i = 0; i < _cmodel->scheme_count; i++) {
+		if (!strcmp(_cmodel->scheme_name[i], fmc_path)) {
+			_cmodel->scheme[i].baseFqid = fqid;
+			return 0;
+		}
+	}
+	return -1;
+}
+
+int set_cc_miss_fqid(struct fmc_model_t *_cmodel, char *fmc_path,
+		     uint32_t fqid)
+{
+	int i = 0;
+	for (i = 0; i < _cmodel->ccnode_count; i++) {
+		if (!strcmp(_cmodel->ccnode_name[i], fmc_path)) {
+			_cmodel->ccnode[i].keysParams.
+			ccNextEngineParamsForMiss.
+			params.enqueueParams.newFqid = fqid;
+			return 0;
+		}
+	}
+	return -1;
+}
+
+struct fmc_model_t *fmc_compile_model(void)
 {
 	t_Error err = E_OK;
 	const char *pcd_path = ppam_pcd_path;
@@ -78,7 +111,6 @@ int fmc_config(void)
 	const char *pdl_path = ppam_pdl_path;
 	const char *swp_path = ppam_swp_path;
 	const char *envp;
-	char fmc_path[64];
 
 	envp = getenv(ppam_pcd_path);
 	if (envp != NULL)
@@ -106,8 +138,15 @@ int fmc_config(void)
 		fprintf(stderr,
 			"error compiling fmc configuration (%d) : %s\n", err,
 			fmc_get_error());
-		return -1;
+		return NULL;
 	}
+
+	return &cmodel;
+}
+int fmc_apply_model(void)
+{
+	t_Error err = E_OK;
+	char fmc_path[64];
 
 	err = fmc_execute(&cmodel);
 	if (err != E_OK) {
@@ -191,7 +230,6 @@ int fmc_config(void)
 							fmc_path);
 	if (!cc_out_post_enc[ETHER_TYPE_IPv6])
 		goto err;
-
 	sprintf(fmc_path,
 		"fm%d/port/OFFLINE/%d/ccnode/ib_post_ip_cc",
 		app_conf.fm, app_conf.ib_oh);
@@ -209,6 +247,34 @@ int fmc_config(void)
 
 	if (!cc_in_post_dec[ETHER_TYPE_IPv6])
 		goto err;
+
+	sprintf(fmc_path,
+		"fm%d/port/1G/%d/ccnode/ob_ip4_local_cc",
+		app_conf.fm, app_conf.ob_eth);
+	cc_out_local[ETHER_TYPE_IPv4] = fmc_get_handle(&cmodel,
+						      fmc_path);
+	if (!cc_out_local[ETHER_TYPE_IPv4])
+		goto err;
+	sprintf(fmc_path,
+		"fm%d/port/1G/%d/ccnode/ob_ip6_local_cc",
+		app_conf.fm, app_conf.ob_eth);
+	cc_out_local[ETHER_TYPE_IPv6] = fmc_get_handle(&cmodel,
+							fmc_path);
+	if (!cc_out_local[ETHER_TYPE_IPv6])
+		goto err;
+
+	sprintf(fmc_path,
+		"fm%d/port/1G/%d/ccnode/ib_ip4_local_cc",
+		app_conf.fm, app_conf.ib_eth);
+	cc_in_local[ETHER_TYPE_IPv4] = fmc_get_handle(&cmodel,
+							fmc_path);
+	if (!cc_in_local[ETHER_TYPE_IPv4])
+		goto err;
+
+	sprintf(fmc_path, "fm%d/port/1G/%d/ccnode/ib_ip6_local_cc",
+		app_conf.fm, app_conf.ib_eth);
+	cc_in_local[ETHER_TYPE_IPv6] = fmc_get_handle(&cmodel,
+							fmc_path);
 
 	sprintf(fmc_path, "fm%d/hdr/ob_replace", app_conf.fm);
 	ob_fwd_hm = fmc_get_handle(&cmodel, fmc_path);
