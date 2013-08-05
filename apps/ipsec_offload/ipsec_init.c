@@ -45,100 +45,10 @@
 
 #include "app_config.h"
 #include "app_common.h"
+#include "ipsec_sizing.h"
 
-#define SETS 0
-#define WAYS 1
-#define IN_SA_PCD_HASH_OFF	0
-#if defined P4080
-#define NUM_SETS        2
-#define NUM_WAYS        8
-#elif defined B4860
-#define NUM_SETS        8
-#define NUM_WAYS        8
-#elif defined B4420
-#define NUM_SETS	8
-#define NUM_WAYS	8
-#else
-#define NUM_SETS	2
-#define NUM_WAYS	8
-#endif
-
-
-/* define the number of entries (ways * sets) for each inbound sa type */
-static int num_entries[DPA_IPSEC_MAX_SA_TYPE][2] = {
-		[DPA_IPSEC_SA_IPV4][SETS] = NUM_SETS,
-		[DPA_IPSEC_SA_IPV4][WAYS] = NUM_WAYS,
-		[DPA_IPSEC_SA_IPV4_NATT][SETS] = NUM_SETS,
-		[DPA_IPSEC_SA_IPV4_NATT][WAYS] = NUM_WAYS,
-		[DPA_IPSEC_SA_IPV6][SETS] = NUM_SETS,
-		[DPA_IPSEC_SA_IPV6][WAYS] = NUM_WAYS,
-};
-#define IPSEC_START_IN_FLOW_ID  0
-
-/* These values must be set according to xml pcd file */
-#define IPSEC_OUT_POL_CC_NODE_KEYS { \
-		16, /* Number of keys for DPA_IPSEC_PROTO_TCP_IPV4 CC Node */ \
-		16, /* Number of keys for DPA_IPSEC_PROTO_TCP_IPV6 CC Node */ \
-		16, /* Number of keys for DPA_IPSEC_PROTO_UDP_IPV4 CC Node */ \
-		16, /* Number of keys for DPA_IPSEC_PROTO_UDP_IPV6 CC Node */ \
-		16, /* Number of keys for DPA_IPSEC_PROTO_ICMP_IPV4 CC Node */ \
-		16, /* Number of keys for DPA_IPSEC_PROTO_ICMP_IPV6 CC Node */ \
-		16, /* Number of keys for DPA_IPSEC_PROTO_SCTP_IPV4 CC Node */ \
-		16, /* Number of keys for DPA_IPSEC_PROTO_SCTP_IPV6 CC Node */ \
-		NUM_SETS * NUM_WAYS, \
-		/* Number of keys for DPA_IPSEC_PROTO_ANY_IPV4 CC Node */ \
-		NUM_SETS * NUM_WAYS, \
-		/* Number of keys for DPA_IPSEC_PROTO_ANY_IPV6 CC Node */ \
-};
-
-#define IPSEC_PRE_DEC_TBL_KEY_SIZE \
-	{ \
-		/* IPV4 SA */ \
-		(DPA_OFFLD_IPv4_ADDR_LEN_BYTES + \
-		 IP_PROTO_FIELD_LEN + \
-		 ESP_SPI_FIELD_LEN), \
-		 /* IPV4 SA w/ NATT*/ \
-		(DPA_OFFLD_IPv4_ADDR_LEN_BYTES + \
-		 IP_PROTO_FIELD_LEN + \
-		 2 * PORT_FIELD_LEN + \
-		 ESP_SPI_FIELD_LEN), \
-		 /* IPV6 SA */ \
-		(DPA_OFFLD_IPv6_ADDR_LEN_BYTES + \
-		 IP_PROTO_FIELD_LEN + \
-		 ESP_SPI_FIELD_LEN) \
-	}
-
-#define IPSEC_OUT_PRE_ENC_TBL_KEY_SIZE \
-	{ \
-		 0,	\
-		 0,	\
-		 0,	\
-		 0,	\
-		 0,	\
-		 0,	\
-		 0,	\
-		 0,	\
-		 (2 * DPA_OFFLD_IPv4_ADDR_LEN_BYTES + \
-		 IP_PROTO_FIELD_LEN + \
-		 2 * PORT_FIELD_LEN), \
-		(2 * DPA_OFFLD_IPv6_ADDR_LEN_BYTES + \
-		 IP_PROTO_FIELD_LEN + \
-		 2 * PORT_FIELD_LEN) \
-	}
-
-#define IPSEC_OUT_POL_KEY_FIELDS	(DPA_IPSEC_KEY_FIELD_SIP |	\
-					 DPA_IPSEC_KEY_FIELD_DIP |	\
-					 DPA_IPSEC_KEY_FIELD_PROTO |	\
-					 DPA_IPSEC_KEY_FIELD_SPORT |	\
-					 DPA_IPSEC_KEY_FIELD_DPORT)
-
-
-int manip_desc[OUT_TCPUDP_POL_NUM];
-static int out_pol_cc_node_keys[] = IPSEC_OUT_POL_CC_NODE_KEYS;
 static int ipsec_initialized;
 static struct dpa_ipsec_params ipsec_params;
-static int inb_key_size[] = IPSEC_PRE_DEC_TBL_KEY_SIZE;
-static int outb_key_size[] = IPSEC_OUT_PRE_ENC_TBL_KEY_SIZE;
 
 int ipsec_offload_init(int *dpa_ipsec_id)
 {
@@ -160,7 +70,6 @@ int ipsec_offload_init(int *dpa_ipsec_id)
 		goto out;
 	}
 
-	memset(manip_desc, DPA_OFFLD_DESC_NONE, sizeof(manip_desc));
 	memset(&ipsec_params, 0, sizeof(ipsec_params));
 	memset(&pcd_params, 0, sizeof(pcd_params));
 
@@ -177,9 +86,9 @@ int ipsec_offload_init(int *dpa_ipsec_id)
 		cls_tbl_params.type = DPA_CLS_TBL_HASH;
 		cls_tbl_params.entry_mgmt = DPA_CLS_TBL_MANAGE_BY_REF;
 		cls_tbl_params.hash_params.hash_offs = IN_SA_PCD_HASH_OFF;
-		cls_tbl_params.hash_params.max_ways = num_entries[i][WAYS];
-		cls_tbl_params.hash_params.num_sets = num_entries[i][SETS];
-		cls_tbl_params.hash_params.key_size = inb_key_size[i];
+		cls_tbl_params.hash_params.max_ways = get_in_sa_hash_ways(i);
+		cls_tbl_params.hash_params.num_sets = get_in_sa_hash_sets(i);
+		cls_tbl_params.hash_params.key_size = get_inb_key_size(i);
 
 		err = dpa_classif_table_create(&cls_tbl_params, &cls_td);
 		if (err < 0) {
@@ -240,9 +149,9 @@ int ipsec_offload_init(int *dpa_ipsec_id)
 			cls_tbl_params.type = DPA_CLS_TBL_EXACT_MATCH;
 			cls_tbl_params.entry_mgmt = DPA_CLS_TBL_MANAGE_BY_REF;
 			cls_tbl_params.exact_match_params.entries_cnt =
-					out_pol_cc_node_keys[i];
+						get_out_pol_num(i);
 			cls_tbl_params.exact_match_params.key_size =
-							outb_key_size[i];
+						get_outb_key_size(i);
 			err = dpa_classif_table_create(&cls_tbl_params,
 							&cls_td);
 			if (err < 0) {
@@ -306,10 +215,6 @@ int ipsec_offload_cleanup(int dpa_ipsec_id)
 			__func__, __LINE__, dpa_ipsec_id);
 		return ret;
 	}
-
-	for (i = 0; i < OUT_TCPUDP_POL_NUM; i++)
-		if (manip_desc[i] != DPA_OFFLD_DESC_NONE)
-			dpa_classif_free_hm(manip_desc[i]);
 
 	for (i = 0; i < DPA_IPSEC_MAX_SA_TYPE; i++)
 		dpa_classif_table_free(ipsec_params.pre_sec_in_params.
