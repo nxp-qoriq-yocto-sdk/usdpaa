@@ -38,6 +38,7 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <error.h>
+#include <netinet/if_ether.h>
 
 #define MAX_BPOOL_PER_PORT	8
 
@@ -181,7 +182,7 @@ static inline int str2mac(const char *macaddr, struct ether_addr *mac)
 }
 
 /* Read mac address of MAC-less interface using ioctl */
-static inline int get_mac_addr(const char *vname, struct ether_addr *src_mac)
+int get_mac_addr(const char *vname, struct ether_addr *src_mac)
 {
 	struct ifreq ifr;
 	int ret = -1;
@@ -196,6 +197,25 @@ static inline int get_mac_addr(const char *vname, struct ether_addr *src_mac)
 	}
 	memcpy(src_mac, &ifr.ifr_hwaddr.sa_data, sizeof(*src_mac));
 	ret = 0;
+
+	return ret;
+}
+
+/* Set mac address of MAC-less interface using ioctl */
+int set_mac_addr(const char *vname, struct ether_addr *mac)
+{
+	int ret;
+	struct ifreq ifr;
+
+	assert(skfd != -1);
+	if (!mac || !vname)
+		return -EINVAL;
+
+	memset(&ifr, 0, sizeof(ifr));
+	strcpy(ifr.ifr_name, vname);
+	ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
+	memcpy(ifr.ifr_hwaddr.sa_data, mac->ether_addr_octet, sizeof(*mac));
+	ret = ioctl(skfd, SIOCSIFHWADDR, &ifr);
 
 	return ret;
 }

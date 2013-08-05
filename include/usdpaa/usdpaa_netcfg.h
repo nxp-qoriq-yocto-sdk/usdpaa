@@ -82,5 +82,16 @@ void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr);
  */
 void usdpaa_netcfg_enable_disable_shared_rx(const struct fman_if *fif,
 					int flag_up);
+
+/* vname : macless interface name
+ * src_mac : source MAC address
+ */
+int get_mac_addr(const char *vname, struct ether_addr *src_mac);
+
+/* ifname : macless interface name
+ * addr : MAC address to be set
+ */
+int set_mac_addr(const char *vname, struct ether_addr *mac);
+
 extern const struct argp netcfg_argp;
 #endif
