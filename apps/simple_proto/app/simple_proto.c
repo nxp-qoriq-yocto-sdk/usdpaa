@@ -1115,10 +1115,21 @@ error_t parse_opt(int opt, char *arg, struct argp_state *state)
 	struct test_param *crypto_info = input->crypto_info;
 	uint32_t *p_cmd_params = input->cmd_params;
 	int i;
+	const struct argp *pr_argp;
 
 	switch (opt) {
 	case ARGP_KEY_INIT:
-		for (i = 0; state->root_argp->children[i].argp; i++)
+		/*
+		 * in case ARGP_NO_HELP flag is not set, glibc adds an
+		 * internal parser as root argp; the struct argp passed by our
+		 * program is copied as the first child of the new root arg.
+		 */
+		if (!(state->flags & ARGP_NO_HELP))
+			pr_argp = state->root_argp->children[0].argp;
+		else
+			pr_argp = state->root_argp;
+
+		for (i = 0; pr_argp->children[i].argp; i++)
 			state->child_inputs[i] = input;
 		break;
 	case 'm':
