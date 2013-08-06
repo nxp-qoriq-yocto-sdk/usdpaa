@@ -303,6 +303,7 @@ static int offload_sa(int dpa_ipsec_id,
 		def_sa_action.type = DPA_CLS_TBL_ACTION_NEXT_TABLE;
 		def_sa_action.enable_statistics = false;
 		def_sa_action.next_table_params.next_td = next_table_td;
+		def_sa_action.next_table_params.hmd = DPA_OFFLD_DESC_NONE;
 		sa_params->sa_in_params.post_ipsec_action = def_sa_action;
 
 		/* miss action */
@@ -387,6 +388,7 @@ static inline int offload_policy(struct dpa_ipsec_policy_params *pol_params,
 		policy_action.type = DPA_CLS_TBL_ACTION_NEXT_TABLE;
 		policy_action.enable_statistics = false;
 		policy_action.next_table_params.next_td = next_table_td;
+		policy_action.next_table_params.hmd = DPA_OFFLD_DESC_NONE;
 		pol_params->dir_params.type = DPA_IPSEC_POL_DIR_PARAMS_ACT;
 		pol_params->dir_params.in_action = policy_action;
 	}
