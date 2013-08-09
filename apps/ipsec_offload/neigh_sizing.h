@@ -39,20 +39,26 @@
 #if defined P4080
 #define IPv4_NUM_KEYS		16
 #define IPv6_NUM_KEYS		16
+#define IPv4_NUM_ADDRS		16
+#define IPv6_NUM_ADDRS		16
 
 #elif defined B4860
 #define IPv4_NUM_KEYS		64
 #define IPv6_NUM_KEYS		64
-#define IPv4_NUM_ADDRS		64
-#define IPv6_NUM_ADDRS		64
+#define IPv4_NUM_ADDRS		16
+#define IPv6_NUM_ADDRS		16
 
 #elif defined B4420
 #define IPv4_NUM_KEYS		64
 #define IPv6_NUM_KEYS		64
+#define IPv4_NUM_ADDRS		16
+#define IPv6_NUM_ADDRS		16
 
 #else
 #define IPv4_NUM_KEYS		16
 #define IPv6_NUM_KEYS		16
+#define IPv4_NUM_ADDRS		16
+#define IPv6_NUM_ADDRS		16
 #endif
 #define NEIGH_TABLES_KEY_SIZE { IPv4_KEY_SIZE, IPv6_KEY_SIZE }
 #define NEIGH_TABLES_NUM_KEYS { IPv4_NUM_KEYS, IPv6_NUM_KEYS }
