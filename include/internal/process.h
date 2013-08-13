@@ -130,6 +130,9 @@ enum usdpaa_portal_type {
 struct usdpaa_ioctl_portal_map {
 	/* Input parameter, is a qman or bman portal required. */
 	enum usdpaa_portal_type type;
+	/* Specifes a specific portal index to map or 0xffffffff
+	   for don't care */
+	uint32_t index;
 
 	/* Return value if the map succeeds, this gives the mapped
 	 * cache-inhibited (cinh) and cache-enabled (cena) addresses. */

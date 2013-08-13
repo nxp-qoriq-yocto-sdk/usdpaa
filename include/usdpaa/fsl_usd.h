@@ -44,9 +44,13 @@ extern "C" {
 
 /* Thread-entry/exit hooks; */
 int qman_thread_init(void);
+int qman_thread_init_idx(uint32_t idx);
 int bman_thread_init(void);
+int bman_thread_init_idx(uint32_t idx);
 int qman_thread_finish(void);
 int bman_thread_finish(void);
+
+#define QBMAN_ANY_PORTAL_IDX 0xffffffff
 
 /* Obtain thread-local UIO file-descriptors */
 int qman_thread_fd(void);

@@ -55,7 +55,7 @@ static __thread struct usdpaa_ioctl_portal_map map = {
 	.type = usdpaa_portal_bman
 };
 
-static int __init fsl_bman_portal_init(void)
+static int __init fsl_bman_portal_init(uint32_t idx)
 {
 	cpu_set_t cpuset;
 	struct bman_portal *portal;
@@ -83,6 +83,7 @@ static int __init fsl_bman_portal_init(void)
 		return -EINVAL;
 	}
 	/* Allocate and map a bman portal */
+	map.index = idx;
 	ret = process_portal_map(&map);
 	if (ret) {
 		error(0, ret, "process_portal_map()");
@@ -92,6 +93,7 @@ static int __init fsl_bman_portal_init(void)
 	pcfg.addr_virt[DPA_PORTAL_CE] = map.addr.cena;
 	pcfg.addr_virt[DPA_PORTAL_CI] = map.addr.cinh;
 	pcfg.public_cfg.is_shared = 0;
+	pcfg.public_cfg.index = map.index;
 	bman_depletion_fill(&pcfg.public_cfg.mask);
 
 	fd = open("/dev/fsl-usdpaa-irq", O_RDONLY);
@@ -136,9 +138,15 @@ int bman_thread_init(void)
 {
 	/* Convert from contiguous/virtual cpu numbering to real cpu when
 	 * calling into the code that is dependent on the device naming */
-	return fsl_bman_portal_init();
+	return fsl_bman_portal_init(QBMAN_ANY_PORTAL_IDX);
 }
 
+int bman_thread_init_idx(uint32_t idx)
+{
+	/* Convert from contiguous/virtual cpu numbering to real cpu when
+	 * calling into the code that is dependent on the device naming */
+	return fsl_bman_portal_init(idx);
+}
 int bman_thread_finish(void)
 {
 	return fsl_bman_portal_finish();

@@ -61,7 +61,7 @@ static __thread struct usdpaa_ioctl_portal_map map = {
 	.type = usdpaa_portal_qman
 };
 
-static int __init fsl_qman_portal_init(void)
+static int __init fsl_qman_portal_init(uint32_t index)
 {
 	cpu_set_t cpuset;
 	struct qman_portal *portal;
@@ -88,9 +88,9 @@ static int __init fsl_qman_portal_init(void)
 		pr_err("Bug in getaffinity handling!\n");
 		return -EINVAL;
 	}
+
 	/* Allocate and map a qman portal */
-
-
+	map.index = index;
 	ret = process_portal_map(&map);
 	if (ret) {
 		error(0, ret, "process_portal_map()");
@@ -98,6 +98,7 @@ static int __init fsl_qman_portal_init(void)
 	}
 	pcfg.public_cfg.channel = map.channel;
 	pcfg.public_cfg.pools = map.pools;
+	pcfg.public_cfg.index = map.index;
 
 	/* Make the portal's cache-[enabled|inhibited] regions */
 	pcfg.addr_virt[DPA_PORTAL_CE] = map.addr.cena;
@@ -147,7 +148,14 @@ int qman_thread_init(void)
 {
 	/* Convert from contiguous/virtual cpu numbering to real cpu when
 	 * calling into the code that is dependent on the device naming */
-	return fsl_qman_portal_init();
+	return fsl_qman_portal_init(QBMAN_ANY_PORTAL_IDX);
+}
+
+int qman_thread_init_idx(uint32_t idx)
+{
+	/* Convert from contiguous/virtual cpu numbering to real cpu when
+	 * calling into the code that is dependent on the device naming */
+	return fsl_qman_portal_init(idx);
 }
 
 int qman_thread_finish(void)
