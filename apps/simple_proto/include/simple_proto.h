@@ -72,8 +72,8 @@
 #define PDCP_UPLANE_TEST_ARRAY_OFFSET(crypto_info)		\
 	(PDCP_UPLANE_OFFSET +					\
 	(crypto_info)->proto_params.pdcp_params.cipher_alg *	\
-	2 * PDCP_DIR_INVALID +					\
-	(crypto_info)->proto_params.pdcp_params.short_sn *	\
+	3 * PDCP_DIR_INVALID +					\
+	(crypto_info)->proto_params.pdcp_params.sn_size *	\
 	PDCP_DIR_INVALID +					\
 	(crypto_info)->proto_params.pdcp_params.downlink)
 
@@ -106,14 +106,14 @@
 						     PDCP */
 #define	BMASK_PDCP_DIR_DL	0x10000000	/**< Downlink selected for
 						     PDCP */
-#define	BMASK_PDCP_SNS		0x08000000	/**< Short sequence number
-						     selected for PDCP */
+#define	BMASK_PDCP_SN_SIZE	0x08000000	/**< SN size selected */
 #define	BMASK_PDCP_HFN_OV_EN	0x04000000	/**< HFN override enabled. */
 
 #define BMASK_PDCP_CPLANE_VALID	(BMASK_PDCP_TYPE | \
 				 BMASK_PDCP_CIPHER | \
 				 BMASK_PDCP_INTEGRITY)
-#define BMASK_PDCP_UPLANE_VALID	(BMASK_PDCP_TYPE | BMASK_PDCP_CIPHER)
+#define BMASK_PDCP_UPLANE_VALID	(BMASK_PDCP_TYPE | BMASK_PDCP_CIPHER | \
+				 BMASK_PDCP_SN_SIZE)
 #define BMASK_PDCP_SHORT_MAC_VALID \
 				(BMASK_PDCP_TYPE | BMASK_PDCP_INTEGRITY)
 
@@ -156,7 +156,7 @@ struct pdcp_params {
 	enum cipher_type_pdcp cipher_alg;
 	enum auth_type_pdcp integrity_alg;
 	bool downlink;
-	bool short_sn;
+	enum pdcp_sn_size sn_size;
 	bool hfn_ov_en;
 	int hfn_ov_val;
 };

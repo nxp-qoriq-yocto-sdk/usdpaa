@@ -577,7 +577,7 @@ static uint8_t wimax_reference_fcs[][WIMAX_FCS_SIZE] = {
  */
 #define PDCP_CPLANE_OFFSET	0
 #define PDCP_UPLANE_OFFSET	32
-#define PDCP_SHORT_MAC_OFFSET	48
+#define PDCP_SHORT_MAC_OFFSET	56
 
 struct pdcp_test_param {
 	uint8_t type;
@@ -805,6 +805,18 @@ static struct pdcp_test_param pdcp_test_params[] = {
 	 },
 	{
 	 .name =
+	 "PDCP User Plane with NULL encryption Uplink with 15 bit sequence number",
+	 .cipher_algorithm = PDCP_CIPHER_TYPE_NULL,
+	 .integrity_algorithm = PDCP_AUTH_TYPE_NULL,
+	 },
+	{
+	 .name =
+	 "PDCP User Plane with NULL encryption Downlink with 15 bit sequence number",
+	 .cipher_algorithm = PDCP_CIPHER_TYPE_NULL,
+	 .integrity_algorithm = PDCP_AUTH_TYPE_NULL,
+	 },
+	{
+	 .name =
 	 "PDCP User Plane with SNOW f8 encryption Uplink with long sequence number",
 	 .cipher_algorithm = PDCP_CIPHER_TYPE_SNOW,
 	 .integrity_algorithm = PDCP_AUTH_TYPE_NULL,
@@ -824,6 +836,18 @@ static struct pdcp_test_param pdcp_test_params[] = {
 	{
 	 .name =
 	 "PDCP User Plane with SNOW f8 encryption Downlink with short sequence number",
+	 .cipher_algorithm = PDCP_CIPHER_TYPE_SNOW,
+	 .integrity_algorithm = PDCP_AUTH_TYPE_NULL,
+	 },
+	{
+	 .name =
+	 "PDCP User Plane with SNOW f8 encryption Uplink with 15 bit sequence number",
+	 .cipher_algorithm = PDCP_CIPHER_TYPE_SNOW,
+	 .integrity_algorithm = PDCP_AUTH_TYPE_NULL,
+	 },
+	{
+	 .name =
+	 "PDCP User Plane with SNOW f8 encryption Downlink with 15 bit sequence number",
 	 .cipher_algorithm = PDCP_CIPHER_TYPE_SNOW,
 	 .integrity_algorithm = PDCP_AUTH_TYPE_NULL,
 	 },
@@ -853,6 +877,18 @@ static struct pdcp_test_param pdcp_test_params[] = {
 	 },
 	{
 	 .name =
+	 "PDCP User Plane with AES CTR encryption Uplink with 15 bit sequence number",
+	 .cipher_algorithm = PDCP_CIPHER_TYPE_AES,
+	 .integrity_algorithm = PDCP_AUTH_TYPE_NULL,
+	 },
+	{
+	 .name =
+	 "PDCP User Plane with AES CTR encryption Downlink with 15 bit sequence number",
+	 .cipher_algorithm = PDCP_CIPHER_TYPE_AES,
+	 .integrity_algorithm = PDCP_AUTH_TYPE_NULL,
+	 },
+	{
+	 .name =
 	 "PDCP User Plane with ZUC encryption Uplink with long sequence number",
 	 .cipher_algorithm = PDCP_CIPHER_TYPE_ZUC,
 	 .integrity_algorithm = PDCP_AUTH_TYPE_NULL,
@@ -872,6 +908,18 @@ static struct pdcp_test_param pdcp_test_params[] = {
 	{
 	 .name =
 	 "PDCP User Plane with ZUC encryption Downlink with short sequence number",
+	 .cipher_algorithm = PDCP_CIPHER_TYPE_ZUC,
+	 .integrity_algorithm = PDCP_AUTH_TYPE_NULL,
+	 },
+	{
+	 .name =
+	 "PDCP User Plane with ZUC encryption Uplink with 15 bit sequence number",
+	 .cipher_algorithm = PDCP_CIPHER_TYPE_ZUC,
+	 .integrity_algorithm = PDCP_AUTH_TYPE_NULL,
+	 },
+	{
+	 .name =
+	 "PDCP User Plane with ZUC encryption Downlink with 15 bit sequence number",
 	 .cipher_algorithm = PDCP_CIPHER_TYPE_ZUC,
 	 .integrity_algorithm = PDCP_AUTH_TYPE_NULL,
 	 },
@@ -970,6 +1018,10 @@ static uint32_t pdcp_test_hfn[] = {
 	0x000fa557,
 	/* User Plane w/NULL enc. DL SHORT SN */
 	0x000fa557,
+	/* User Plane w/NULL enc. UL 15 BIT SN */
+	0x000fa557,
+	/* User Plane w/NULL enc. DL 15 BIT SN */
+	0x000fa557,
 	/* User Plane w/SNOW f8 enc. UL LONG SN */
 	0x000fa557,
 	/* User Plane w/SNOW f8 enc. DL LONG SN */
@@ -977,6 +1029,10 @@ static uint32_t pdcp_test_hfn[] = {
 	/* User Plane w/SNOW f8 enc. UL SHORT SN */
 	0x000fa557,
 	/* User Plane w/SNOW f8 enc. DL SHORT SN */
+	0x000fa557,
+	/* User Plane w/SNOW f8 enc. UL 15 BIT SN */
+	0x000fa557,
+	/* User Plane w/SNOW f8 enc. DL 15 BIT SN */
 	0x000fa557,
 	/* User Plane w/AES CTR enc. UL LONG SN */
 	0x000fa557,
@@ -986,6 +1042,10 @@ static uint32_t pdcp_test_hfn[] = {
 	0x000fa557,
 	/* User Plane w/AES CTR enc. DL SHORT SN */
 	0x000fa557,
+	/* User Plane w/AES CTR enc. UL 15 BIT SN */
+	0x000fa557,
+	/* User Plane w/AES CTR enc. DL 15 BIT SN */
+	0x000fa557,
 	/* User Plane w/ZUC enc. UL LONG SN */
 	0x000fa557,
 	/* User Plane w/ZUC enc. DL LONG SN */
@@ -993,6 +1053,10 @@ static uint32_t pdcp_test_hfn[] = {
 	/* User Plane w/ZUC enc. UL SHORT SN */
 	0x000fa557,
 	/* User Plane w/ZUC enc. DL SHORT SN */
+	0x000fa557,
+	/* User Plane w/ZUC enc. UL 15 BIT SN */
+	0x000fa557,
+	/* User Plane w/ZUC enc. DL 15 BIT SN */
 	0x000fa557,
 	/* Short-MAC w/NULL int. */
 	0x00000000,
@@ -1077,6 +1141,10 @@ static uint32_t pdcp_test_hfn_threshold[] = {
 	0x000fa558,
 	/* User Plane w/NULL enc. DL SHORT SN */
 	0x000fa558,
+	/* User Plane w/NULL enc. UL 15 BIT SN */
+	0x000fa558,
+	/* User Plane w/NULL enc. DL 15 BIT SN */
+	0x000fa558,
 	/* User Plane w/SNOW f8 enc. UL LONG SN */
 	0x000fa558,
 	/* User Plane w/SNOW f8 enc. DL LONG SN */
@@ -1084,6 +1152,10 @@ static uint32_t pdcp_test_hfn_threshold[] = {
 	/* User Plane w/SNOW f8 enc. UL SHORT SN */
 	0x000fa558,
 	/* User Plane w/SNOW f8 enc. DL SHORT SN */
+	0x000fa558,
+	/* User Plane w/SNOW f8 enc. UL 15 BIT SN */
+	0x000fa558,
+	/* User Plane w/SNOW f8 enc. DL 15 BIT SN */
 	0x000fa558,
 	/* User Plane w/AES CTR enc. UL LONG SN */
 	0x000fa558,
@@ -1093,6 +1165,10 @@ static uint32_t pdcp_test_hfn_threshold[] = {
 	0x000fa558,
 	/* User Plane w/AES CTR enc. DL SHORT SN */
 	0x000fa558,
+	/* User Plane w/AES CTR enc. UL 15 BIT SN */
+	0x000fa558,
+	/* User Plane w/AES CTR enc. DL 15 BIT SN */
+	0x000fa558,
 	/* User Plane w/ZUC enc. UL LONG SN */
 	0x000fa558,
 	/* User Plane w/ZUC enc. DL LONG SN */
@@ -1100,6 +1176,10 @@ static uint32_t pdcp_test_hfn_threshold[] = {
 	/* User Plane w/ZUC enc. UL SHORT SN */
 	0x000fa558,
 	/* User Plane w/ZUC enc. DL SHORT SN */
+	0x000fa558,
+	/* User Plane w/ZUC enc. UL 15 BIT SN */
+	0x000fa558,
+	/* User Plane w/ZUC enc. DL 15 BIT SN */
 	0x000fa558,
 	/* Short-MAC w/NULL int. */
 	0x00000000,
@@ -1184,6 +1264,10 @@ static uint8_t pdcp_test_bearer[] = {
 	0x03,
 	/* User Plane w/NULL enc. DL SHORT SN */
 	0x03,
+	/* User Plane w/NULL enc. UL 15 BIT SN */
+	0x03,
+	/* User Plane w/NULL enc. DL 15 BIT SN */
+	0x03,
 	/* User Plane w/SNOW f8 enc. UL LONG SN */
 	0x03,
 	/* User Plane w/SNOW f8 enc. DL LONG SN */
@@ -1191,6 +1275,10 @@ static uint8_t pdcp_test_bearer[] = {
 	/* User Plane w/SNOW f8 enc. UL SHORT SN */
 	0x03,
 	/* User Plane w/SNOW f8 enc. DL SHORT SN */
+	0x03,
+	/* User Plane w/SNOW f8 enc. UL 15 BIT SN */
+	0x03,
+	/* User Plane w/SNOW f8 enc. DL 15 BIT SN */
 	0x03,
 	/* User Plane w/AES CTR enc. UL LONG SN */
 	0x03,
@@ -1200,6 +1288,10 @@ static uint8_t pdcp_test_bearer[] = {
 	0x03,
 	/* User Plane w/AES CTR enc. DL SHORT SN */
 	0x03,
+	/* User Plane w/AES CTR enc. UL 15 BIT SN */
+	0x03,
+	/* User Plane w/AES CTR enc. DL 15 BIT SN */
+	0x03,
 	/* User Plane w/ZUC enc. UL LONG SN */
 	0x03,
 	/* User Plane w/ZUC enc. DL LONG SN */
@@ -1207,6 +1299,10 @@ static uint8_t pdcp_test_bearer[] = {
 	/* User Plane w/ZUC enc. UL SHORT SN */
 	0x03,
 	/* User Plane w/ZUC enc. DL SHORT SN */
+	0x03,
+	/* User Plane w/ZUC enc. UL 15 BIT SN */
+	0x03,
+	/* User Plane w/ZUC enc. DL 15 BIT SN */
 	0x03,
 	/* Short-MAC w/NULL int. */
 	0x00,
@@ -1291,6 +1387,10 @@ static uint8_t pdcp_test_packet_direction[] = {
 	PDCP_DIR_UPLINK,
 	/* User Plane w/NULL enc. DL SHORT SN */
 	PDCP_DIR_DOWNLINK,
+	/* User Plane w/NULL enc. UL 15 BIT SN */
+	PDCP_DIR_UPLINK,
+	/* User Plane w/NULL enc. DL 15 BIT SN */
+	PDCP_DIR_DOWNLINK,
 	/* User Plane w/SNOW f8 enc. UL LONG SN */
 	PDCP_DIR_UPLINK,
 	/* User Plane w/SNOW f8 enc. DL LONG SN */
@@ -1298,6 +1398,10 @@ static uint8_t pdcp_test_packet_direction[] = {
 	/* User Plane w/SNOW f8 enc. UL SHORT SN */
 	PDCP_DIR_UPLINK,
 	/* User Plane w/SNOW f8 enc. DL SHORT SN */
+	PDCP_DIR_DOWNLINK,
+	/* User Plane w/SNOW f8 enc. UL 15 BIT SN */
+	PDCP_DIR_UPLINK,
+	/* User Plane w/SNOW f8 enc. DL 15 BIT SN */
 	PDCP_DIR_DOWNLINK,
 	/* User Plane w/AES CTR enc. UL LONG SN */
 	PDCP_DIR_UPLINK,
@@ -1307,6 +1411,10 @@ static uint8_t pdcp_test_packet_direction[] = {
 	PDCP_DIR_UPLINK,
 	/* User Plane w/AES CTR enc. DL SHORT SN */
 	PDCP_DIR_DOWNLINK,
+	/* User Plane w/AES CTR enc. UL 15 BIT SN */
+	PDCP_DIR_UPLINK,
+	/* User Plane w/AES CTR enc. DL 15 BIT SN */
+	PDCP_DIR_DOWNLINK,
 	/* User Plane w/ZUC enc. UL LONG SN */
 	PDCP_DIR_UPLINK,
 	/* User Plane w/ZUC enc. DL LONG SN */
@@ -1315,9 +1423,13 @@ static uint8_t pdcp_test_packet_direction[] = {
 	PDCP_DIR_UPLINK,
 	/* User Plane w/ZUC enc. DL SHORT SN */
 	PDCP_DIR_DOWNLINK,
+	/* User Plane w/ZUC enc. UL 15 BIT SN */
+	PDCP_DIR_UPLINK,
+	/* User Plane w/ZUC enc. DL 15 BIT SN */
+	PDCP_DIR_DOWNLINK,
 };
 
-static uint8_t pdcp_test_data_sns[] = {
+static enum pdcp_sn_size pdcp_test_data_sn_size[] = {
 	/* Control Plane w/NULL enc. + NULL int. UL */
 	PDCP_SN_SIZE_5,
 	/* Control Plane w/NULL enc. + NULL int. DL */
@@ -1390,6 +1502,10 @@ static uint8_t pdcp_test_data_sns[] = {
 	PDCP_SN_SIZE_7,
 	/* User Plane w/NULL enc. DL SHORT SN */
 	PDCP_SN_SIZE_7,
+	/* User Plane w/NULL enc. UL 15 BIT SN */
+	PDCP_SN_SIZE_15,
+	/* User Plane w/NULL enc. DL 15 BIT SN */
+	PDCP_SN_SIZE_15,
 	/* User Plane w/SNOW f8 enc. UL LONG SN */
 	PDCP_SN_SIZE_12,
 	/* User Plane w/SNOW f8 enc. DL LONG SN */
@@ -1398,6 +1514,10 @@ static uint8_t pdcp_test_data_sns[] = {
 	PDCP_SN_SIZE_7,
 	/* User Plane w/SNOW f8 enc. DL SHORT SN */
 	PDCP_SN_SIZE_7,
+	/* User Plane w/SNOW f8 enc. UL 15 BIT SN */
+	PDCP_SN_SIZE_15,
+	/* User Plane w/SNOW f8 enc. DL 15 BIT SN */
+	PDCP_SN_SIZE_15,
 	/* User Plane w/AES CTR enc. UL LONG SN */
 	PDCP_SN_SIZE_12,
 	/* User Plane w/AES CTR enc. DL LONG SN */
@@ -1406,6 +1526,10 @@ static uint8_t pdcp_test_data_sns[] = {
 	PDCP_SN_SIZE_7,
 	/* User Plane w/AES CTR enc. DL SHORT SN */
 	PDCP_SN_SIZE_7,
+	/* User Plane w/AES CTR enc. UL 15 BIT SN */
+	PDCP_SN_SIZE_15,
+	/* User Plane w/AES CTR enc. DL 15 BIT SN */
+	PDCP_SN_SIZE_15,
 	/* User Plane w/ZUC enc. UL LONG SN */
 	PDCP_SN_SIZE_12,
 	/* User Plane w/ZUC enc. DL LONG SN */
@@ -1414,6 +1538,10 @@ static uint8_t pdcp_test_data_sns[] = {
 	PDCP_SN_SIZE_7,
 	/* User Plane w/ZUC enc. DL SHORT SN */
 	PDCP_SN_SIZE_7,
+	/* User Plane w/ZUC enc. UL 15 BIT SN */
+	PDCP_SN_SIZE_15,
+	/* User Plane w/ZUC enc. DL 15 BIT SN */
+	PDCP_SN_SIZE_15,
 	/* Short-MAC w/NULL int. */
 	PDCP_SN_SIZE_5,
 	/* Short-MAC w/SNOW f9 int. */
@@ -1533,6 +1661,12 @@ static uint8_t *pdcp_test_crypto_key[] = {
 	/* User Plane w/NULL enc. DL SHORT SN */
 	(uint8_t[]){0x5a, 0xcb, 0x1d, 0x64, 0x4c, 0x0d, 0x51, 0x20, 0x4e, 0xa5,
 		    0xf1, 0x45, 0x10, 0x10, 0xd8, 0x52},
+	/* User Plane w/NULL enc. UL 15 BIT SN */
+	(uint8_t[]){0x5a, 0xcb, 0x1d, 0x64, 0x4c, 0x0d, 0x51, 0x20, 0x4e, 0xa5,
+		    0xf1, 0x45, 0x10, 0x10, 0xd8, 0x52},
+	/* User Plane w/NULL enc. DL 15 BIT SN */
+	(uint8_t[]){0x5a, 0xcb, 0x1d, 0x64, 0x4c, 0x0d, 0x51, 0x20, 0x4e, 0xa5,
+		    0xf1, 0x45, 0x10, 0x10, 0xd8, 0x52},
 	/* User Plane w/SNOW f8 enc. UL LONG SN */
 	(uint8_t[]){0x5a, 0xcb, 0x1d, 0x64, 0x4c, 0x0d, 0x51, 0x20, 0x4e, 0xa5,
 		    0xf1, 0x45, 0x10, 0x10, 0xd8, 0x52},
@@ -1543,6 +1677,12 @@ static uint8_t *pdcp_test_crypto_key[] = {
 	(uint8_t[]){0x5a, 0xcb, 0x1d, 0x64, 0x4c, 0x0d, 0x51, 0x20, 0x4e, 0xa5,
 		    0xf1, 0x45, 0x10, 0x10, 0xd8, 0x52},
 	/* User Plane w/SNOW f8 enc. DL SHORT SN */
+	(uint8_t[]){0x5a, 0xcb, 0x1d, 0x64, 0x4c, 0x0d, 0x51, 0x20, 0x4e, 0xa5,
+		    0xf1, 0x45, 0x10, 0x10, 0xd8, 0x52},
+	/* User Plane w/SNOW f8 enc. UL 15 BIT SN */
+	(uint8_t[]){0x5a, 0xcb, 0x1d, 0x64, 0x4c, 0x0d, 0x51, 0x20, 0x4e, 0xa5,
+		    0xf1, 0x45, 0x10, 0x10, 0xd8, 0x52},
+	/* User Plane w/SNOW f8 enc. DL 15 BIT SN */
 	(uint8_t[]){0x5a, 0xcb, 0x1d, 0x64, 0x4c, 0x0d, 0x51, 0x20, 0x4e, 0xa5,
 		    0xf1, 0x45, 0x10, 0x10, 0xd8, 0x52},
 	/* User Plane w/AES CTR enc. UL LONG SN */
@@ -1557,6 +1697,12 @@ static uint8_t *pdcp_test_crypto_key[] = {
 	/* User Plane w/AES CTR enc. DL SHORT SN */
 	(uint8_t[]){0x5a, 0xcb, 0x1d, 0x64, 0x4c, 0x0d, 0x51, 0x20, 0x4e, 0xa5,
 		    0xf1, 0x45, 0x10, 0x10, 0xd8, 0x52},
+	/* User Plane w/AES CTR enc. UL 15 BIT SN */
+	(uint8_t[]){0x5a, 0xcb, 0x1d, 0x64, 0x4c, 0x0d, 0x51, 0x20, 0x4e, 0xa5,
+		    0xf1, 0x45, 0x10, 0x10, 0xd8, 0x52},
+	/* User Plane w/AES CTR enc. DL 15 BIT SN */
+	(uint8_t[]){0x5a, 0xcb, 0x1d, 0x64, 0x4c, 0x0d, 0x51, 0x20, 0x4e, 0xa5,
+		    0xf1, 0x45, 0x10, 0x10, 0xd8, 0x52},
 	/* User Plane w/ZUC enc. UL LONG SN */
 	(uint8_t[]){0x5a, 0xcb, 0x1d, 0x64, 0x4c, 0x0d, 0x51, 0x20, 0x4e, 0xa5,
 		    0xf1, 0x45, 0x10, 0x10, 0xd8, 0x52},
@@ -1567,6 +1713,12 @@ static uint8_t *pdcp_test_crypto_key[] = {
 	(uint8_t[]){0x5a, 0xcb, 0x1d, 0x64, 0x4c, 0x0d, 0x51, 0x20, 0x4e, 0xa5,
 		    0xf1, 0x45, 0x10, 0x10, 0xd8, 0x52},
 	/* User Plane w/ZUC enc. DL SHORT SN */
+	(uint8_t[]){0x5a, 0xcb, 0x1d, 0x64, 0x4c, 0x0d, 0x51, 0x20, 0x4e, 0xa5,
+		    0xf1, 0x45, 0x10, 0x10, 0xd8, 0x52},
+	/* User Plane w/ZUC enc. UL 15 BIT SN */
+	(uint8_t[]){0x5a, 0xcb, 0x1d, 0x64, 0x4c, 0x0d, 0x51, 0x20, 0x4e, 0xa5,
+		    0xf1, 0x45, 0x10, 0x10, 0xd8, 0x52},
+	/* User Plane w/ZUC enc. DL 15 BIT SN */
 	(uint8_t[]){0x5a, 0xcb, 0x1d, 0x64, 0x4c, 0x0d, 0x51, 0x20, 0x4e, 0xa5,
 		    0xf1, 0x45, 0x10, 0x10, 0xd8, 0x52},
 	/* Short-MAC w/NULL int. */
@@ -1684,6 +1836,10 @@ static uint8_t *pdcp_test_auth_key[] = {
 	NULL,
 	/* User Plane w/NULL enc. DL SHORT SN */
 	NULL,
+	/* User Plane w/NULL enc. UL 15 BIT SN */
+	NULL,
+	/* User Plane w/NULL enc. DL 15 BIT SN */
+	NULL,
 	/* User Plane w/SNOW f8 enc. UL LONG SN */
 	NULL,
 	/* User Plane w/SNOW f8 enc. DL LONG SN */
@@ -1691,6 +1847,10 @@ static uint8_t *pdcp_test_auth_key[] = {
 	/* User Plane w/SNOW f8 enc. UL SHORT SN */
 	NULL,
 	/* User Plane w/SNOW f8 enc. DL SHORT SN */
+	NULL,
+	/* User Plane w/SNOW f8 enc. UL 15 BIT SN */
+	NULL,
+	/* User Plane w/SNOW f8 enc. DL 15 BIT SN */
 	NULL,
 	/* User Plane w/AES CTR enc. UL LONG SN */
 	NULL,
@@ -1700,6 +1860,10 @@ static uint8_t *pdcp_test_auth_key[] = {
 	NULL,
 	/* User Plane w/AES CTR enc. DL SHORT SN */
 	NULL,
+	/* User Plane w/AES CTR enc. UL 15 BIT SN */
+	NULL,
+	/* User Plane w/AES CTR enc. DL 15 BIT SN */
+	NULL,
 	/* User Plane w/ZUC enc. UL LONG SN */
 	NULL,
 	/* User Plane w/ZUC enc. DL LONG SN */
@@ -1707,6 +1871,10 @@ static uint8_t *pdcp_test_auth_key[] = {
 	/* User Plane w/ZUC enc. UL SHORT SN */
 	NULL,
 	/* User Plane w/ZUC enc. DL SHORT SN */
+	NULL,
+	/* User Plane w/ZUC enc. UL 15 BIT SN */
+	NULL,
+	/* User Plane w/ZUC enc. DL 15 BIT SN */
 	NULL,
 	/* Short-MAC w/NULL int. */
 	(uint8_t[]){0xc7, 0x36, 0xc6, 0xaa, 0xb2, 0x2b, 0xff, 0xf9, 0x1e, 0x26,
@@ -1831,6 +1999,12 @@ static uint8_t *pdcp_test_data_in[] = {
 	/* User Plane w/NULL enc. DL SHORT SN */
 	(uint8_t[]){0x8b, 0xad, 0x9c, 0x44, 0x1f, 0x89, 0x0b, 0x38, 0xc4, 0x57,
 		    0xa4, 0x9d, 0x42, 0x14, 0x07, 0xe8},
+	/* User Plane w/NULL enc. UL 15 BIT SN */
+	(uint8_t[]){0x8b, 0x26, 0xad, 0x9c, 0x44, 0x1f, 0x89, 0x0b, 0x38, 0xc4,
+		    0x57, 0xa4, 0x9d, 0x42, 0x14, 0x07, 0xe8},
+	/* User Plane w/NULL enc. DL 15 BIT SN */
+	(uint8_t[]){0x8b, 0x26, 0xad, 0x9c, 0x44, 0x1f, 0x89, 0x0b, 0x38, 0xc4,
+		    0x57, 0xa4, 0x9d, 0x42, 0x14, 0x07, 0xe8},
 	/* User Plane w/SNOW f8 enc. UL LONG SN */
 	(uint8_t[]){0x8b, 0x26, 0xad, 0x9c, 0x44, 0x1f, 0x89, 0x0b, 0x38, 0xc4,
 		    0x57, 0xa4, 0x9d, 0x42, 0x14, 0x07, 0xe8},
@@ -1843,6 +2017,12 @@ static uint8_t *pdcp_test_data_in[] = {
 	/* User Plane w/SNOW f8 enc. DL SHORT SN */
 	(uint8_t[]){0x8b, 0xad, 0x9c, 0x44, 0x1f, 0x89, 0x0b, 0x38, 0xc4, 0x57,
 		    0xa4, 0x9d, 0x42, 0x14, 0x07, 0xe8},
+	/* User Plane w/SNOW f8 enc. UL 15 BIT SN */
+	(uint8_t[]){0x8b, 0x26, 0xad, 0x9c, 0x44, 0x1f, 0x89, 0x0b, 0x38, 0xc4,
+		    0x57, 0xa4, 0x9d, 0x42, 0x14, 0x07, 0xe8},
+	/* User Plane w/SNOW f8 enc. DL 15 BIT SN */
+	(uint8_t[]){0x8b, 0x26, 0xad, 0x9c, 0x44, 0x1f, 0x89, 0x0b, 0x38, 0xc4,
+		    0x57, 0xa4, 0x9d, 0x42, 0x14, 0x07, 0xe8},
 	/* User Plane w/AES CTR enc. UL LONG SN */
 	(uint8_t[]){0x8b, 0x26, 0xad, 0x9c, 0x44, 0x1f, 0x89, 0x0b, 0x38, 0xc4,
 		    0x57, 0xa4, 0x9d, 0x42, 0x14, 0x07, 0xe8},
@@ -1855,6 +2035,12 @@ static uint8_t *pdcp_test_data_in[] = {
 	/* User Plane w/AES CTR enc. DL SHORT SN */
 	(uint8_t[]){0x8b, 0xad, 0x9c, 0x44, 0x1f, 0x89, 0x0b, 0x38, 0xc4, 0x57,
 		    0xa4, 0x9d, 0x42, 0x14, 0x07, 0xe8},
+	/* User Plane w/AES CTR enc. UL 15 BIT SN */
+	(uint8_t[]){0x8b, 0x26, 0xad, 0x9c, 0x44, 0x1f, 0x89, 0x0b, 0x38, 0xc4,
+		    0x57, 0xa4, 0x9d, 0x42, 0x14, 0x07, 0xe8},
+	/* User Plane w/AES CTR enc. DL 15 BIT SN */
+	(uint8_t[]){0x8b, 0x26, 0xad, 0x9c, 0x44, 0x1f, 0x89, 0x0b, 0x38, 0xc4,
+		    0x57, 0xa4, 0x9d, 0x42, 0x14, 0x07, 0xe8},
 	/* User Plane w/ZUC enc. UL LONG SN */
 	(uint8_t[]){0x8b, 0x26, 0xad, 0x9c, 0x44, 0x1f, 0x89, 0x0b, 0x38, 0xc4,
 		    0x57, 0xa4, 0x9d, 0x42, 0x14, 0x07, 0xe8},
@@ -1867,6 +2053,12 @@ static uint8_t *pdcp_test_data_in[] = {
 	/* User Plane w/ZUC enc. DL SHORT SN */
 	(uint8_t[]){0x8b, 0xad, 0x9c, 0x44, 0x1f, 0x89, 0x0b, 0x38, 0xc4, 0x57,
 		    0xa4, 0x9d, 0x42, 0x14, 0x07, 0xe8},
+	/* User Plane w/ZUC enc. UL 15 BIT SN */
+	(uint8_t[]){0x8b, 0x26, 0xad, 0x9c, 0x44, 0x1f, 0x89, 0x0b, 0x38, 0xc4,
+		    0x57, 0xa4, 0x9d, 0x42, 0x14, 0x07, 0xe8},
+	/* User Plane w/ZUC enc. DL 15 BIT SN */
+	(uint8_t[]){0x8b, 0x26, 0xad, 0x9c, 0x44, 0x1f, 0x89, 0x0b, 0x38, 0xc4,
+		    0x57, 0xa4, 0x9d, 0x42, 0x14, 0x07, 0xe8},
 	/* Short-MAC w/NULL int. */
 	(uint8_t[]){0x8b, 0xad, 0x9c, 0x44, 0x1f, 0x89, 0x0b, 0x38, 0xc4, 0x57,
 		    0xa4, 0x9d, 0x42, 0x14, 0x07, 0xe8},
@@ -1954,6 +2146,10 @@ static uint32_t pdcp_test_data_in_len[] = {
 	16,
 	/* User Plane w/NULL enc. DL SHORT SN */
 	16,
+	/* User Plane w/NULL enc. UL 15 BIT SN */
+	17,
+	/* User Plane w/NULL enc. DL 15 BIT SN */
+	17,
 	/* User Plane w/SNOW f8 enc. UL LONG SN */
 	17,
 	/* User Plane w/SNOW f8 enc. DL LONG SN */
@@ -1962,6 +2158,10 @@ static uint32_t pdcp_test_data_in_len[] = {
 	16,
 	/* User Plane w/SNOW f8 enc. DL SHORT SN */
 	16,
+	/* User Plane w/SNOW f8 enc. UL 15 BIT SN */
+	17,
+	/* User Plane w/SNOW f8 enc. DL 15 BIT SN */
+	17,
 	/* User Plane w/AES CTR enc. UL LONG SN */
 	17,
 	/* User Plane w/AES CTR enc. DL LONG SN */
@@ -1970,6 +2170,10 @@ static uint32_t pdcp_test_data_in_len[] = {
 	16,
 	/* User Plane w/AES CTR enc. DL SHORT SN */
 	16,
+	/* User Plane w/AES CTR enc. UL 15 BIT SN */
+	17,
+	/* User Plane w/AES CTR enc. DL 15 BIT SN */
+	17,
 	/* User Plane w/ZUC enc. UL LONG SN */
 	17,
 	/* User Plane w/ZUC enc. DL LONG SN */
@@ -1978,6 +2182,10 @@ static uint32_t pdcp_test_data_in_len[] = {
 	16,
 	/* User Plane w/ZUC enc. DL SHORT SN */
 	16,
+	/* User Plane w/ZUC enc. UL 15 BIT SN */
+	17,
+	/* User Plane w/ZUC enc. DL 15 BIT SN */
+	17,
 	/* Short-MAC w/NULL int. */
 	16,
 	/* Short-MAC w/SNOW f9 int. */
@@ -2097,6 +2305,12 @@ static uint8_t *pdcp_test_data_out[] = {
 	/* User Plane w/NULL enc. DL SHORT SN */
 	(uint8_t[]){0x8b, 0xad, 0x9c, 0x44, 0x1f, 0x89, 0x0b, 0x38, 0xc4, 0x57,
 		    0xa4, 0x9d, 0x42, 0x14, 0x07, 0xe8},
+	/* User Plane w/NULL enc. UL 15 BIT SN */
+	(uint8_t[]){0x8b, 0x26, 0xad, 0x9c, 0x44, 0x1f, 0x89, 0x0b, 0x38, 0xc4,
+		    0x57, 0xa4, 0x9d, 0x42, 0x14, 0x07, 0xe8},
+	/* User Plane w/NULL enc. DL 15 BIT SN */
+	(uint8_t[]){0x8b, 0x26, 0xad, 0x9c, 0x44, 0x1f, 0x89, 0x0b, 0x38, 0xc4,
+		    0x57, 0xa4, 0x9d, 0x42, 0x14, 0x07, 0xe8},
 	/* User Plane w/SNOW f8 enc. UL LONG SN */
 	(uint8_t[]){0x8b, 0x26, 0x7a, 0xe0, 0x00, 0x07, 0x2a, 0xa6, 0xef, 0xdc,
 		    0x75, 0xef, 0x2e, 0x27, 0x0f, 0x69, 0x3d},
@@ -2109,6 +2323,12 @@ static uint8_t *pdcp_test_data_out[] = {
 	/* User Plane w/SNOW f8 enc. DL SHORT SN */
 	(uint8_t[]){0x8b, 0xe2, 0x51, 0x58, 0x88, 0xff, 0x1a, 0x00, 0xe4, 0x67,
 		    0x05, 0x46, 0x24, 0x2f, 0x07, 0xb7},
+	/* User Plane w/SNOW f8 enc. UL 15 BIT SN */
+	(uint8_t[]){0x8b, 0x26, 0xbe, 0x72, 0x05, 0x78, 0x92, 0xec, 0xb1, 0x4f,
+		    0xdd, 0x5d, 0xfc, 0x60, 0x2c, 0x9a, 0x85},
+	/* User Plane w/SNOW f8 enc. DL 15 BIT SN */
+	(uint8_t[]){0x8b, 0x26, 0x0b, 0x50, 0xf3, 0xff, 0x37, 0xe3, 0x6b, 0xaf,
+		    0x08, 0xd8, 0xf6, 0x1f, 0xca, 0x6f, 0xbc},
 	/* User Plane w/AES CTR enc. UL LONG SN */
 	(uint8_t[]){0x8b, 0x26, 0xde, 0x0a, 0x59, 0xca, 0x7d, 0x93, 0xa3, 0xb5,
 		    0xd2, 0x88, 0xb3, 0x04, 0xa2, 0x12, 0x09},
@@ -2121,6 +2341,12 @@ static uint8_t *pdcp_test_data_out[] = {
 	/* User Plane w/AES CTR enc. DL SHORT SN */
 	(uint8_t[]){0x8b, 0x00, 0x8d, 0x50, 0x80, 0x30, 0xda, 0xc7, 0x14, 0xc5,
 		    0xe0, 0xc8, 0xfb, 0x83, 0xd0, 0x73},
+	/* User Plane w/AES CTR enc. UL 15 BIT SN */
+	(uint8_t[]){0x8b, 0x26, 0xa1, 0x2e, 0xa3, 0x64, 0xa9, 0x81, 0xbc, 0xd3,
+		    0x6f, 0xef, 0xee, 0x30, 0x71, 0x23, 0x85},
+	/* User Plane w/AES CTR enc. DL 15 BIT SN */
+	(uint8_t[]){0x8b, 0x26, 0xc7, 0xf2, 0x23, 0xb3, 0xbe, 0xc0, 0xdf, 0xc5,
+		    0xed, 0x37, 0x35, 0x7c, 0x66, 0xa3, 0xf9},
 	/* User Plane w/ZUC enc. UL LONG SN */
 	(uint8_t[]){0x8b, 0x26, 0xfb, 0xb6, 0x0e, 0x81, 0xa1, 0x9e, 0xc8, 0xeb,
 		    0x90, 0xa8, 0xc7, 0x0e, 0x27, 0xcb, 0xb0},
@@ -2133,6 +2359,12 @@ static uint8_t *pdcp_test_data_out[] = {
 	/* User Plane w/ZUC enc. DL SHORT SN */
 	(uint8_t[]){0x8b, 0xe9, 0xd2, 0x49, 0x7f, 0xfd, 0x98, 0x9f, 0xc4, 0x6a,
 		    0xcb, 0xe6, 0x4e, 0x21, 0x33, 0xd2},
+	/* User Plane w/ZUC enc. UL 15 BIT SN */
+	(uint8_t[]){0x8b, 0x26, 0x01, 0x0a, 0xba, 0x79, 0xf8, 0xe5, 0x9f, 0x22,
+		    0x37, 0xab, 0x5c, 0x7e, 0xad, 0xd6, 0x6b},
+	/* User Plane w/ZUC enc. DL 15 BIT SN */
+	(uint8_t[]){0x8b, 0x26, 0xa3, 0x1a, 0x1e, 0x22, 0xf7, 0x17, 0x8a, 0xb5,
+		    0x59, 0xd8, 0x2b, 0x13, 0xdd, 0x12, 0x4e},
 	/* Short-MAC w/NULL int. */
 	(uint8_t[]){0x8b, 0xad, 0x9c, 0x44, 0x1f, 0x89, 0x0b, 0x38, 0xc4, 0x57,
 		    0xa4, 0x9d, 0x42, 0x14, 0x07, 0xe8, 0x00, 0x00, 0x00, 0x00},

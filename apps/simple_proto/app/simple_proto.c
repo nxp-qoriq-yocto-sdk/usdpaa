@@ -426,7 +426,7 @@ void init_rtv_pdcp_u_plane(struct test_param *crypto_info)
 	ref_test_vector.pdb.pdcp.hfn = pdcp_test_hfn[proto];
 	ref_test_vector.pdb.pdcp.hfn_threshold =
 			pdcp_test_hfn_threshold[proto];
-	ref_test_vector.pdb.pdcp.sns = pdcp_test_data_sns[proto];
+	ref_test_vector.pdb.pdcp.sns = pdcp_test_data_sn_size[proto];
 
 	if (CIPHER == crypto_info->mode) {
 		ref_test_vector.length =
@@ -1147,8 +1147,8 @@ static error_t pdcp_parse_opts(int key, char *arg, struct argp_state *state)
 		break;
 
 	case 'x':
-		pdcp_params->short_sn = 1;
-		*p_proto_params |= BMASK_PDCP_SNS;
+		pdcp_params->sn_size = atoi(arg);
+		*p_proto_params |= BMASK_PDCP_SN_SIZE;
 		break;
 
 	case 'v':
@@ -1542,7 +1542,7 @@ static int validate_pdcp_opts(uint32_t g_proto_params,
 		}
 	}
 
-	if (g_proto_params & BMASK_PDCP_SNS) {
+	if (g_proto_params & BMASK_PDCP_SN_SIZE) {
 		switch (pdcp_params->type) {
 		case PDCP_DATA_PLANE:
 			break;
@@ -1848,9 +1848,12 @@ struct argp_option pdcp_options[] = {
 	 "OPTIONAL PARAMETER"
 	 "\n\nInput PDU is for downlink direction"
 	 "\n"},
-	{"sns", 'x', 0, 0,
-	 "OPTIONAL PARAMETER"
-	 "\n\nEnable Short Sequence Number for user plane PDUs"
+	{"snlen", 'x', "SNLEN", 0,
+	 "For PDCP User Plane only"
+	 "\n\nSelect PDCP PDU Sequence Number length:"
+	 "\n0 = 12 bit Sequence Number PDU"
+	 "\n1 = 7 bit Sequence Number PDU"
+	 "\n2 = 15 bit Sequence Number PDU"
 	 "\n"},
 	{"hfn_ov", 'v', "HFN_OV_VAL", 0,
 	 "OPTIONAL PARAMETER"
