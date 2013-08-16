@@ -158,7 +158,6 @@ static int		update_hmd[APP_NUM_OF_ENTRIES]	= {
 static int		stage;
 struct fmc_model_t	cmodel;
 
-t_Handle		pcds[2];
 t_Handle		ccnodes[2];
 
 int dpa_stats_id;
@@ -235,15 +234,7 @@ int ppam_init(void)
 
 	printf("dpa_classifier_demo is assuming FMan:%d and port:%d\n",
 		ppam_args.fm, ppam_args.port);
-	/* Get the PCD Handle and the CC Node Handle */
-	sprintf(object_name, "fm%d/pcd", ppam_args.fm);
-	pcds[0] = fmc_get_handle(&cmodel, object_name);
-	if (!pcds[0]) {
-		error(0, EINVAL, "Failed to acquire the PCD handle. Are you "
-			"using the correct parameters for this test and "
-			"platform?");
-		return -EINVAL;
-	}
+	/* Get the CC Node Handle */
 	sprintf(object_name, "fm%d/port/1G/%d/ccnode/fman_3_tuple_classif",
 		ppam_args.fm, ppam_args.port);
 	ccnodes[0] = fmc_get_handle(&cmodel, object_name);
