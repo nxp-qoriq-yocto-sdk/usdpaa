@@ -726,6 +726,7 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 	case MACSEC:
 		cipher_info.key = ref_test_vector.key;
 		cipher_info.keylen = MACSEC_KEY_SIZE;
+		cipher_info.key_enc_flags = 0;
 		cipher_info.algtype =
 			crypto_info->proto_params.macsec_params.cipher_alg;
 		if (ENCRYPT == mode)
@@ -750,6 +751,7 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 	case WIMAX:
 		cipher_info.key = ref_test_vector.key;
 		cipher_info.keylen = WIMAX_KEY_SIZE;
+		cipher_info.key_enc_flags = 0;
 		if (ENCRYPT == mode)
 			cnstr_shdsc_wimax_encap(shared_desc,
 					&shared_desc_len,
@@ -771,10 +773,12 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 		cipher_info.algtype = ref_test_vector.cipher_alg;
 		cipher_info.key = ref_test_vector.dma_addr_key;
 		cipher_info.keylen = ref_test_vector.cipher_keylen;
+		cipher_info.key_enc_flags = 0;
 
 		auth_info.algtype = ref_test_vector.auth_alg;
 		auth_info.key = ref_test_vector.dma_addr_auth_key;
 		auth_info.keylen = ref_test_vector.auth_keylen;
+		auth_info.key_enc_flags = 0;
 
 		sw_hfn_ov = ((rta_sec_era == RTA_SEC_ERA_2) &&
 			(crypto_info->proto_params.pdcp_params.hfn_ov_en));
@@ -867,8 +871,10 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 	case SRTP:
 		cipher_info.key = ref_test_vector.key;
 		cipher_info.keylen = ref_test_vector.cipher_keylen;
+		cipher_info.key_enc_flags = 0;
 		auth_info.key = ref_test_vector.auth_key;
 		auth_info.keylen = ref_test_vector.auth_keylen;
+		auth_info.key_enc_flags = ENC;
 		if (ENCRYPT == mode)
 			cnstr_shdsc_srtp_encap(shared_desc,
 					&shared_desc_len,

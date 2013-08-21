@@ -72,10 +72,12 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 	cipher.algtype = sa->ealg->alg_type;
 	cipher.key = (uintptr_t)sa->ealg->alg_key;
 	cipher.keylen = sa->ealg->alg_key_len;
+	cipher.key_enc_flags = 0;
 
 	auth.algtype = sa->aalg->alg_type;
 	auth.key = (uintptr_t)sa->aalg->alg_key_ptr;
 	auth.keylen = sa->aalg->alg_key_len;
+	auth.key_enc_flags = ENC;
 
 	/* Now construct */
 	cnstr_shdsc_ipsec_encap((uint32_t *) buff_start, &desc_len,
@@ -130,10 +132,12 @@ void
 	cipher.algtype = sa->ealg->alg_type;
 	cipher.key = (uintptr_t)sa->ealg->alg_key;
 	cipher.keylen = sa->ealg->alg_key_len;
+	cipher.key_enc_flags = 0;
 
 	auth.algtype = sa->aalg->alg_type;
 	auth.key = (uintptr_t)sa->aalg->alg_key_ptr;
 	auth.keylen = sa->aalg->alg_key_len;
+	auth.key_enc_flags = ENC;
 
 	/* Now construct */
 	cnstr_shdsc_ipsec_decap((uint32_t *) buff_start,
