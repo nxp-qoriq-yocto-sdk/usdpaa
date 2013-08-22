@@ -683,7 +683,7 @@ static int set_buf_size(struct test_param *crypto_info)
 
 	case SRTP:
 		crypto_info->rt.output_buf_size =
-			   crypto_info->buf_size + SRTP_MAX_ICV_SIZE;
+			crypto_info->buf_size + ref_test_vector.pdb.srtp.n_tag;
 		break;
 	default:
 		fprintf(stderr, "error: %s: protocol not supported\n",
@@ -874,7 +874,7 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 		cipher_info.key_enc_flags = 0;
 		auth_info.key = ref_test_vector.auth_key;
 		auth_info.keylen = ref_test_vector.auth_keylen;
-		auth_info.key_enc_flags = ENC;
+		auth_info.key_enc_flags = 0;
 		if (ENCRYPT == mode)
 			cnstr_shdsc_srtp_encap(shared_desc,
 					&shared_desc_len,
