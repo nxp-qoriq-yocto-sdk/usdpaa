@@ -55,14 +55,6 @@
 static int ppam_cli_parse(int key, char *arg, struct argp_state *state);
 static int create_dpa_stats_counters(void);
 
-static int reass_timeout_fq_init(struct qman_fq *fq, u32 fqid, u16 channel,
-		qman_cb_dqrr cb);
-static void reass_timeout_fq_remove(struct qman_fq *fq);
-static enum qman_cb_dqrr_result cb_drop_timeout(
-		struct qman_portal *qm __always_unused,
-		struct qman_fq *fq __always_unused,
-		const struct qm_dqrr_entry *dqrr);
-
 /* VLAN header definition */
 struct vlan_hdr {
 	__u16 tci;
@@ -97,7 +89,6 @@ struct fmc_model_t cmodel;
 int dpa_stats_id;
 int cnt_ids[16];
 void *storage;
-struct qman_fq to_reass_fq;
 
 enum dpa_stats_op {
 	dpa_stats_get_async = 0,
@@ -187,7 +178,6 @@ int ppam_init(void)
 	const char *pdl_path = ppam_pdl_path;
 	const char *envp;
 	int err = 0;
-	u32 reass_fqid = 0;
 
 	envp = getenv("DEF_PCD_PATH");
 	if (envp != NULL)
@@ -215,9 +205,6 @@ int ppam_init(void)
 		return -err;
 	}
 
-	reass_fqid =
-cmodel.fman[ppam_args.fm].reasm[0].u.reassem.u.ipReassem.fqidForTimeOutFrames;
-
 #if defined(B4860)
 	/* Init vsp */
 	err = vsp_init(ppam_args.fm, ppam_args.port);
@@ -235,13 +222,6 @@ cmodel.fman[ppam_args.fm].reasm[0].u.reassem.u.ipReassem.fqidForTimeOutFrames;
 	}
 
 	TRACE("PCD configuration successfully applied.\n");
-
-	memset(&to_reass_fq, 0, sizeof(struct qman_fq));
-	reass_timeout_fq_init(
-		&to_reass_fq,
-		reass_fqid,
-		get_rxc(),
-		cb_drop_timeout);
 
 	/* Create DPA Stats counters */
 	err = create_dpa_stats_counters();
@@ -283,7 +263,6 @@ void ppam_finish()
 	else
 		TRACE("PCD configuration successfully restored.\n");
 
-	reass_timeout_fq_remove(&to_reass_fq);
 #if defined(B4860)
 	/* Cleanup vsp */
 	err = vsp_clean();
@@ -613,72 +592,6 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 	}
 	}
 	ppac_drop_frame(fd);
-}
-
-static enum qman_cb_dqrr_result cb_drop_timeout(
-		struct qman_portal *qm __always_unused,
-		struct qman_fq *fq __always_unused,
-		const struct qm_dqrr_entry *dqrr)
-{
-	const struct qm_fd *fd = &dqrr->fd;
-	ppac_drop_frame(fd);
-	return qman_cb_dqrr_consume;
-}
-
-static int reass_timeout_fq_init(struct qman_fq *fq, u32 fqid,
-		u16 channel,
-		qman_cb_dqrr cb)
-{
-	struct qm_mcc_initfq opts;
-	int ret;
-
-	fq->cb.dqrr = cb;
-	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_NO_ENQUEUE, fq);
-
-	if (ret)
-		return ret;
-
-	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
-			QM_INITFQ_WE_TDTHRESH;
-	qm_fqd_taildrop_set(&opts.fqd.td, 0, 1);
-	opts.fqd.fq_ctrl = QM_FQCTRL_TDE;
-	opts.fqd.dest.channel = channel;
-	opts.fqd.dest.wq = NET_IF_ADMIN_PRIORITY;
-	return qman_init_fq(fq, QMAN_INITFQ_FLAG_SCHED, &opts);
-}
-
-static void reass_timeout_fq_remove(struct qman_fq *fq)
-{
-	u32 flags;
-	int s = qman_retire_fq(fq, &flags);
-	if (s == 1) {
-		/* Retire is non-blocking, poll for completion */
-		enum qman_fq_state state;
-		do {
-			qman_poll();
-			qman_fq_state(fq, &state, &flags);
-		} while (state != qman_fq_state_retired);
-		if (flags & QMAN_FQ_STATE_NE) {
-			/* FQ isn't empty, drain it */
-			s = qman_volatile_dequeue(fq, 0,
-					QM_VDQCR_NUMFRAMES_TILLEMPTY);
-			if (s) {
-				fprintf(stderr, "Fail: %s: %d\n",
-						"qman_volatile_dequeue()", s);
-				return;
-			}
-			/* Poll for completion */
-			do {
-				qman_poll();
-				qman_fq_state(fq, &state, &flags);
-			} while (flags & QMAN_FQ_STATE_VDQCR);
-		}
-	}
-	s = qman_oos_fq(fq);
-	if (s)
-		fprintf(stderr, "Fail: %s: %d\n", "qman_oos_fq()", s);
-	else
-		qman_destroy_fq(fq, 0);
 }
 
 static int ppam_cli_parse(int key, char *arg, struct argp_state *state)

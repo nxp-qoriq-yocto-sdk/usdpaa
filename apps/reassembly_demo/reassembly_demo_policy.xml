@@ -45,7 +45,7 @@
 			<sgBpid>9</sgBpid>
 			<maxInProcess>1024</maxInProcess>
 			<timeOutMode>fragment</timeOutMode>
-			<fqidForTimeOutFrames>0x66</fqidForTimeOutFrames>
+			<fqidForTimeOutFrames>0</fqidForTimeOutFrames>
 			<numOfFramesPerHashEntry>8</numOfFramesPerHashEntry>
 			<timeoutThreshold>2000</timeoutThreshold>
 			<ipv4minFragSize>0</ipv4minFragSize>
