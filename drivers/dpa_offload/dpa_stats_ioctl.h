@@ -75,11 +75,13 @@ struct ioc_dpa_stats_cnts_reset_params {
 };
 
 struct dpa_stats_event_params {
-	int dpa_stats_id;
-	unsigned int storage_area_offset;
-	unsigned int cnts_written;
-	int bytes_written;
-	dpa_stats_request_cb request_done;
+	int			dpa_stats_id;
+	unsigned int		storage_area_offset;
+	unsigned int		cnts_written;
+	int			bytes_written;
+	int			*us_cnt_ids;
+	unsigned int		cnt_ids_len;
+	dpa_stats_request_cb	request_done;
 };
 
 #ifdef CONFIG_COMPAT
@@ -243,17 +245,18 @@ struct compat_ioc_dpa_stats_cnts_reset_params {
 };
 
 struct compat_dpa_stats_event_params {
-	int		dpa_stats_id;
-	unsigned int	storage_area_offset;
-	unsigned int	cnts_written;
-	int		bytes_written;
-	compat_uptr_t request_done;
+	int			dpa_stats_id;
+	unsigned int		storage_area_offset;
+	unsigned int		cnts_written;
+	int			bytes_written;
+	compat_uptr_t		us_cnt_ids;
+	unsigned int		cnt_ids_len;
+	compat_uptr_t		request_done;
 };
 #endif
-
 #define DPA_STATS_IOC_MAGIC				0xde
 
-#define DPA_STATS_IOC_INIT				\
+#define DPA_STATS_IOC_INIT						\
 	_IOWR(DPA_STATS_IOC_MAGIC, 0, struct ioc_dpa_stats_params)
 
 #ifdef CONFIG_COMPAT
