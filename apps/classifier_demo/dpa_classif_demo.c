@@ -759,56 +759,77 @@ static void ppam_rx_hash_finish(struct ppam_rx_hash	*p,
 static inline void ppam_rx_hash_cb(struct ppam_rx_hash		*p,
 				   const struct qm_dqrr_entry	*dqrr)
 {
-	char			*p_Buf;
-	const struct qm_fd	*fd = &dqrr->fd;
-	struct qm_fd		local_fd;
+	char				*data, *buff;
+	const struct qm_fd		*fd = &dqrr->fd;
+	const struct qm_sg_entry	*sg_entry;
 
-	printf("RX | IPv4 frame | FQID=%d | size=%d bytes\n",
-		dqrr->fqid, fd->length20);
+	data = (char *)__dma_mem_ptov(qm_fd_addr(fd)) + fd->offset;
 
-	p_Buf = (char *)__dma_mem_ptov(qm_fd_addr(fd)) + fd->offset;
+	switch (fd->format) {
+	case qm_fd_contig:
+		printf("RX | IPv4 frame | FQID=%d | size=%d bytes\n",
+		       dqrr->fqid, fd->length20);
+		buff = data;
+		break;
+	case qm_fd_sg:
+		printf("RX | IPv4 frame | FQID=%d | size=%d bytes\n",
+		       dqrr->fqid, fd->length20);
+		sg_entry = (const struct qm_sg_entry *)data;
+		if (sg_entry[0].extension) {
+			pr_err("Unsupported frame format. Skipping frame update.\n");
+			buff = NULL;
+		} else if (sg_entry[0].length < IPv4_DA_OFFSET + 4) {
+			pr_err("ERROR: Buffer size too small. Skipping frame update.\n");
+			buff = NULL;
+		} else {
+			buff = (char *)
+				__dma_mem_ptov(qm_sg_addr(&sg_entry[0])) +
+				+ sg_entry[0].offset;
+		}
+		break;
+	default:
+		printf("RX | IPv4 frame | FQID=%d\n", dqrr->fqid);
+		pr_err("ERROR: Unsupported frame format. Skipping frame update.\n");
+		buff = NULL;
+		break;
+	}
 
-	printf("  MACDA: %02x-%02x-%02x-%02x-%02x-%02x "
-		"MACSA: %02x-%02x-%02x-%02x-%02x-%02x\n", p_Buf[0], p_Buf[1],
-		p_Buf[2], p_Buf[3], p_Buf[4], p_Buf[5], p_Buf[6], p_Buf[7],
-		p_Buf[8], p_Buf[9], p_Buf[10], p_Buf[11]);
-	printf("  IPSA: %d.%d.%d.%d (hex %02x.%02x.%02x.%02x) IPDA: "
-		"%d.%d.%d.%d (hex %02x.%02x.%02x.%02x)\n",
-		p_Buf[IPv4_SA_OFFSET], p_Buf[IPv4_SA_OFFSET + 1],
-		p_Buf[IPv4_SA_OFFSET + 2], p_Buf[IPv4_SA_OFFSET + 3],
-		p_Buf[IPv4_SA_OFFSET], p_Buf[IPv4_SA_OFFSET + 1],
-		p_Buf[IPv4_SA_OFFSET + 2], p_Buf[IPv4_SA_OFFSET + 3],
-		p_Buf[IPv4_SA_OFFSET + 4], p_Buf[IPv4_SA_OFFSET + 5],
-		p_Buf[IPv4_SA_OFFSET + 6], p_Buf[IPv4_SA_OFFSET + 7],
-		p_Buf[IPv4_SA_OFFSET + 4], p_Buf[IPv4_SA_OFFSET + 5],
-		p_Buf[IPv4_SA_OFFSET + 6], p_Buf[IPv4_SA_OFFSET + 7]);
+	if (buff) {
+		u16 *fqid = (u16 *)&buff[IPv4_DA_OFFSET + 2];
+		u16 *cksum = (u16 *)&buff[IPv4_CKSUM_OFFSET];
 
-	/* Send frame to tx */
-	if (p->tx_fqid) {
-		u16 *fqid = (u16*)&p_Buf[IPv4_DA_OFFSET + 2];
-		u16 *cksum = (u16*)&p_Buf[IPv4_CKSUM_OFFSET];
-
-		local_fd = *fd;
+		printf("  MACDA: %02x-%02x-%02x-%02x-%02x-%02x MACSA: %02x-%02x-%02x-%02x-%02x-%02x\n",
+		       buff[0], buff[1], buff[2], buff[3], buff[4], buff[5],
+		       buff[6], buff[7], buff[8], buff[9], buff[10], buff[11]);
+		printf("  IPSA: %d.%d.%d.%d (hex %02x.%02x.%02x.%02x) IPDA: %d.%d.%d.%d (hex %02x.%02x.%02x.%02x)\n",
+		       buff[IPv4_SA_OFFSET], buff[IPv4_SA_OFFSET + 1],
+		       buff[IPv4_SA_OFFSET + 2], buff[IPv4_SA_OFFSET + 3],
+		       buff[IPv4_SA_OFFSET], buff[IPv4_SA_OFFSET + 1],
+		       buff[IPv4_SA_OFFSET + 2], buff[IPv4_SA_OFFSET + 3],
+		       buff[IPv4_SA_OFFSET + 4], buff[IPv4_SA_OFFSET + 5],
+		       buff[IPv4_SA_OFFSET + 6], buff[IPv4_SA_OFFSET + 7],
+		       buff[IPv4_SA_OFFSET + 4], buff[IPv4_SA_OFFSET + 5],
+		       buff[IPv4_SA_OFFSET + 6], buff[IPv4_SA_OFFSET + 7]);
 
 		/*
 		 * Update the IPDA by encoding the frame queue id in the last 2
 		 * bytes.
 		 */
-		p_Buf[IPv4_DA_OFFSET + 1] = 0x78;
+		buff[IPv4_DA_OFFSET + 1] = 0x78;
 		*fqid = (u16)dqrr->fqid;
 
 		/* Recompute header checksum: */
 		*cksum = 0;
-		*cksum = ipv4_cksum((struct iphdr*) &p_Buf[IPv4_OFFSET]);
+		*cksum = ipv4_cksum((struct iphdr *)&buff[IPv4_OFFSET]);
+	}
 
-#ifdef ENABLE_PROMISC
-		/* Remove Ethernet CRC */
-		local_fd.length20 -= 4;
-#endif /* ENABLE_PROMISC */
-
-		ppac_send_frame(p->tx_fqid, &local_fd);
+	/* Send frame to tx */
+	if (p->tx_fqid) {
+		TRACE("  Send frame to Tx --> FQID=%d\n", p->tx_fqid);
+		ppac_send_frame(p->tx_fqid, fd);
 		return;
 	}
+	TRACE("  DROP frame.\n");
 
 	/* Drop the frame */
 	ppac_drop_frame(fd);
