@@ -285,7 +285,7 @@ int ppam_init(void)
 		sprintf(object_name, "fm%d/hdr/update_ipsa%d", ppam_args.fm,
 			i+1);
 		hm_update_ipsa = fmc_get_handle(&cmodel, object_name);
-		printf("	%d) Forwarding 0x%p, IPSA update 0x%p\n", i+1,
+		printf("	%d) Forwarding %p, IPSA update %p\n", i+1,
 			hm_fwd, hm_update_ipsa);
 
 		update_params.update.l3.ipsa.addr.ipv4.word = 0x11223300 + i;
