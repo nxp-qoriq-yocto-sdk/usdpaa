@@ -649,14 +649,17 @@ static inline void ppam_rx_error_cb(struct ppam_rx_error	*p,
 				const struct qm_dqrr_entry	*dqrr)
 {
 	const struct qm_fd	*fd = &dqrr->fd;
-	char			*buf;
-	uint16_t		*etype;
 
-	buf = (char *)__dma_mem_ptov(qm_fd_addr(&dqrr->fd));
-	etype = (uint16_t *) &buf[ETYPE_OFFSET];
-
-	printf("RX ERROR: FQID=%d, frame EType=0x%04x, size=%d bytes\n",
-		dqrr->fqid, *etype, fd->length20);
+	if ((fd->format == qm_fd_contig) || (fd->format == qm_fd_sg))
+		printf("RX ERROR: FQID=%d, frame_format=%d, size=%d bytes, RX status=%#08x\n",
+			dqrr->fqid, fd->format, fd->length20, fd->status);
+	else if ((fd->format == qm_fd_contig_big) ||
+						(fd->format == qm_fd_sg_big))
+		printf("RX ERROR: FQID=%d, frame_format=%d, size=%d bytes, RX status=%#08x\n",
+			dqrr->fqid, fd->format, fd->length29, fd->status);
+	else
+		printf("RX ERROR: FQID=%d, frame_format=%d, RX status=%#08x\n",
+			dqrr->fqid, fd->format, fd->status);
 
 	ppac_drop_frame(fd);
 }
@@ -678,15 +681,18 @@ static inline void ppam_rx_default_cb(struct ppam_rx_default	*p,
 				struct ppam_interface		*_if,
 				const struct qm_dqrr_entry	*dqrr)
 {
-	const struct qm_fd *fd = &dqrr->fd;
-	char			*p_Buf;
-	uint16_t		*etype;
+	const struct qm_fd	*fd = &dqrr->fd;
 
-	p_Buf = (char *)__dma_mem_ptov(qm_fd_addr(&dqrr->fd)) + fd->offset;
-	etype = (uint16_t *) &p_Buf[ETYPE_OFFSET];
-
-	printf("RX DEFAULT: FQID=%d, frame EType=0x%04x, size=%d bytes\n",
-		dqrr->fqid, *etype, fd->length20);
+	if ((fd->format == qm_fd_contig) || (fd->format == qm_fd_sg))
+		printf("RX DEFAULT: FQID=%d, frame_format=%d, size=%d bytes\n",
+			dqrr->fqid, fd->format, fd->length20);
+	else if ((fd->format == qm_fd_contig_big) ||
+						(fd->format == qm_fd_sg_big))
+		printf("RX DEFAULT: FQID=%d, frame_format=%d, size=%d bytes\n",
+			dqrr->fqid, fd->format, fd->length29);
+	else
+		printf("RX DEFAULT: FQID=%d, frame_format=%d\n",
+			dqrr->fqid, fd->format);
 
 	ppac_drop_frame(fd);
 }
@@ -708,14 +714,17 @@ static inline void ppam_tx_error_cb(struct ppam_tx_error	*p,
 				const struct qm_dqrr_entry	*dqrr)
 {
 	const struct qm_fd *fd = &dqrr->fd;
-	char			*p_Buf;
-	uint16_t		*etype;
 
-	p_Buf = (char *)__dma_mem_ptov(qm_fd_addr(&dqrr->fd));
-	etype = (uint16_t *) &p_Buf[ETYPE_OFFSET];
-
-	printf("TX ERROR: FQID=%d, frame EType=0x%04x, size=%d bytes\n",
-		dqrr->fqid, *etype, fd->length20);
+	if ((fd->format == qm_fd_contig) || (fd->format == qm_fd_sg))
+		printf("TX ERROR: FQID=%d, frame_format=%d, size=%d bytes, TX status=%#08x\n",
+			dqrr->fqid, fd->format, fd->length20, fd->status);
+	else if ((fd->format == qm_fd_contig_big) ||
+						(fd->format == qm_fd_sg_big))
+		printf("TX ERROR: FQID=%d, frame_format=%d, size=%d bytes, TX status=%#08x\n",
+			dqrr->fqid, fd->format, fd->length29, fd->status);
+	else
+		printf("TX ERROR: FQID=%d, frame_format=%d, TX status=%#08x\n",
+			dqrr->fqid, fd->format, fd->status);
 
 	ppac_drop_frame(fd);
 }
