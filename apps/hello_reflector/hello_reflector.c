@@ -528,18 +528,21 @@ static int net_if_rx_init(struct net_if *interface,
 	struct net_if_rx *rx = &fqrange->rx[offset];
 	struct qm_mcc_initfq opts;
 	int ret;
+	uint32_t flags = QMAN_FQ_FLAG_NO_ENQUEUE;
 
 	ret = qman_reserve_fqid(fqid);
 	if (ret)
 		return -EINVAL;
 	/* "map" this Rx FQ to one of the interfaces Tx FQID */
-	rx->tx_fqid = interface->tx_fqs[overall % NET_IF_NUM_TX].fqid;
+	if (!short_circuit_mode)
+		rx->tx_fqid = interface->tx_fqs[overall % NET_IF_NUM_TX].fqid;
+	else
+		flags = flags | QMAN_FQ_FLAG_TO_DCPORTAL;
+
 	rx->fq.cb.dqrr = cb_rx;
-	ret = qman_create_fq(fqid, QMAN_FQ_FLAG_NO_ENQUEUE, &rx->fq);
+	ret = qman_create_fq(fqid, flags, &rx->fq);
 	if (ret)
 		return ret;
-	opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
-		       QM_INITFQ_WE_CONTEXTA;
 	/* User may want to run the application in short circuit mode.
 	 * Here packets are dequeued from the interface and received on
 	 * Rx FQs. These packets are then sent out from the QMAN channel
@@ -547,17 +550,31 @@ static int net_if_rx_init(struct net_if *interface,
 	 * of the hardware path for the packet flow by this way without
 	 * any processing by the core on the received packets.
 	 */
-	if (!short_circuit_mode)
+	if (!short_circuit_mode) {
+		opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
+				QM_INITFQ_WE_CONTEXTA;
 		opts.fqd.dest.channel = get_next_rx_channel();
-	else
+		opts.fqd.dest.wq = NET_IF_RX_PRIORITY;
+		opts.fqd.fq_ctrl =
+			QM_FQCTRL_AVOIDBLOCK | QM_FQCTRL_CTXASTASHING |
+			QM_FQCTRL_PREFERINCACHE;
+		opts.fqd.context_a.stashing.exclusive = 0;
+		opts.fqd.context_a.stashing.annotation_cl =
+			NET_IF_RX_ANNOTATION_STASH;
+		opts.fqd.context_a.stashing.data_cl = NET_IF_RX_DATA_STASH;
+		opts.fqd.context_a.stashing.context_cl =
+			NET_IF_RX_CONTEXT_STASH;
+	} else {
+		opts.we_mask = QM_INITFQ_WE_DESTWQ | QM_INITFQ_WE_FQCTRL |
+				QM_INITFQ_WE_CONTEXTB | QM_INITFQ_WE_CONTEXTA;
 		opts.fqd.dest.channel = interface->cfg->fman_if->tx_channel_id;
-	opts.fqd.dest.wq = NET_IF_RX_PRIORITY;
-	opts.fqd.fq_ctrl = QM_FQCTRL_AVOIDBLOCK | QM_FQCTRL_CTXASTASHING |
-			   QM_FQCTRL_PREFERINCACHE;
-	opts.fqd.context_a.stashing.exclusive = 0;
-	opts.fqd.context_a.stashing.annotation_cl = NET_IF_RX_ANNOTATION_STASH;
-	opts.fqd.context_a.stashing.data_cl = NET_IF_RX_DATA_STASH;
-	opts.fqd.context_a.stashing.context_cl = NET_IF_RX_CONTEXT_STASH;
+		opts.fqd.dest.wq = NET_IF_TX_PRIORITY;
+		opts.fqd.fq_ctrl = QM_FQCTRL_PREFERINCACHE;
+		opts.fqd.context_b = 0;
+		/* no tx-confirmation */
+		opts.fqd.context_a.hi = 0x80000000 | fman_dealloc_bufs_mask_hi;
+		opts.fqd.context_a.lo = 0 | fman_dealloc_bufs_mask_lo;
+	}
 	return qman_init_fq(&rx->fq, QMAN_INITFQ_FLAG_SCHED, &opts);
 }
 
@@ -567,18 +584,21 @@ static int net_if_init(struct net_if *interface,
 {
 	const struct fman_if *fif = cfg->fman_if;
 	struct fm_eth_port_fqrange *fq_range;
-	int ret, loop;
+	int ret = 0, loop;
 
 	interface->cfg = cfg;
 
 	/* Initialise Tx FQs */
-	interface->tx_fqs = calloc(NET_IF_NUM_TX, sizeof(interface->tx_fqs[0]));
-	if (!interface->tx_fqs)
-		return -ENOMEM;
-	for (loop = 0; loop < NET_IF_NUM_TX; loop++) {
-		ret = net_if_tx_init(&interface->tx_fqs[loop], fif);
-		if (ret)
-			return ret;
+	if (!short_circuit_mode) {
+		interface->tx_fqs = calloc(NET_IF_NUM_TX,
+					sizeof(interface->tx_fqs[0]));
+		if (!interface->tx_fqs)
+			return -ENOMEM;
+		for (loop = 0; loop < NET_IF_NUM_TX; loop++) {
+			ret = net_if_tx_init(&interface->tx_fqs[loop], fif);
+			if (ret)
+				return ret;
+		}
 	}
 
 	/* Initialise admin FQs */
@@ -696,8 +716,10 @@ static void net_if_finish(struct net_if *interface,
 		teardown_fq(&interface->admin[ADMIN_FQ_TX_CONFIRM].fq);
 
 	/* Cleanup Tx FQs */
-	for (loop = 0; loop < NET_IF_NUM_TX; loop++)
-		teardown_fq(&interface->tx_fqs[loop]);
+	if (!short_circuit_mode) {
+		for (loop = 0; loop < NET_IF_NUM_TX; loop++)
+			teardown_fq(&interface->tx_fqs[loop]);
+	}
 }
 
 static void init_bpid(int bpid, uint64_t count, uint64_t sz)
