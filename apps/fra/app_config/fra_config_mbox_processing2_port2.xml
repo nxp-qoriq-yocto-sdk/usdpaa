@@ -57,6 +57,26 @@
 		 distribution from 0 to 1.
 		-->
 		<!--	xxxxxxxxx RMAN RX distribution xxxxxxxxxx -->
+		<distribution name="rman_from_peer_10gec0">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-10gec0"/>
+		</distribution>
+
+		<distribution name="rman_from_peer_10gec1">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-10gec1"/>
+		</distribution>
+
+		<distribution name="rman_from_peer_10gec2">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-10gec2"/>
+		</distribution>
+
+		<distribution name="rman_from_peer_10gec3">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-10gec3"/>
+		</distribution>
+
 		<distribution name="rman_from_peer_dtsec0">
 			<rio_port number="1" mask="1"/>
 			<transactionref name="mbox-dtsec0"/>
@@ -87,35 +107,114 @@
 			<transactionref name="mbox-dtsec5"/>
 		</distribution>
 
+		<distribution name="rman_from_peer_dtsec8">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-dtsec8"/>
+		</distribution>
+
+		<distribution name="rman_from_peer_dtsec9">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-dtsec9"/>
+		</distribution>
+
+		<distribution name="rman_from_peer_dtsec10">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-dtsec10"/>
+		</distribution>
+
+		<distribution name="rman_from_peer_dtsec11">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-dtsec11"/>
+		</distribution>
+
+		<distribution name="rman_from_peer_dtsec12">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-dtsec12"/>
+		</distribution>
+
+		<distribution name="rman_from_peer_dtsec13">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-dtsec13"/>
+		</distribution>
+
 		<!--	xxxxxxxxx RMAN TX distribution xxxxxxxxxx -->
+		<distribution name="rman_to_peer_10gec0">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-10gec0"/>
+		</distribution>
+
+		<distribution name="rman_to_peer_10gec1">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-10gec1"/>
+		</distribution>
+
+		<distribution name="rman_to_peer_10gec2">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-10gec2"/>
+		</distribution>
+
+		<distribution name="rman_to_peer_10gec3">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-10gec3"/>
+		</distribution>
+
 		<distribution name="rman_to_peer_dtsec0">
-			<rio_port number="1"/>
+			<rio_port number="1" mask="1"/>
 			<transactionref name="mbox-dtsec0"/>
 		</distribution>
 
 		<distribution name="rman_to_peer_dtsec1">
-			<rio_port number="1"/>
+			<rio_port number="1" mask="1"/>
 			<transactionref name="mbox-dtsec1"/>
 		</distribution>
 
 		<distribution name="rman_to_peer_dtsec2">
-			<rio_port number="1"/>
+			<rio_port number="1" mask="1"/>
 			<transactionref name="mbox-dtsec2"/>
 		</distribution>
 
 		<distribution name="rman_to_peer_dtsec3">
-			<rio_port number="1"/>
+			<rio_port number="1" mask="1"/>
 			<transactionref name="mbox-dtsec3"/>
 		</distribution>
 
 		<distribution name="rman_to_peer_dtsec4">
-			<rio_port number="1"/>
+			<rio_port number="1" mask="1"/>
 			<transactionref name="mbox-dtsec4"/>
 		</distribution>
 
 		<distribution name="rman_to_peer_dtsec5">
-			<rio_port number="1"/>
+			<rio_port number="1" mask="1"/>
 			<transactionref name="mbox-dtsec5"/>
+		</distribution>
+
+		<distribution name="rman_to_peer_dtsec8">
+			<transactionref name="mbox-dtsec8"/>
+		</distribution>
+
+		<distribution name="rman_to_peer_dtsec9">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-dtsec9"/>
+		</distribution>
+
+		<distribution name="rman_to_peer_dtsec10">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-dtsec10"/>
+		</distribution>
+
+		<distribution name="rman_to_peer_dtsec11">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-dtsec11"/>
+		</distribution>
+
+		<distribution name="rman_to_peer_dtsec12">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-dtsec12"/>
+		</distribution>
+
+		<distribution name="rman_to_peer_dtsec13">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-dtsec13"/>
 		</distribution>
 	</dists_cfg>
 
