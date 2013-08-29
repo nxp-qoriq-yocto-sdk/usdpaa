@@ -501,7 +501,8 @@ static int init_buffer_pools(void)
 
 void cleanup_buffer_pools(void)
 {
-	 dma_mem_destroy(dma_mem_generic);
+	dma_mem_destroy(dma_mem_generic);
+	bman_release_bpid(app_conf.ipf_bpid);
 }
 
 int ppam_init(void)
