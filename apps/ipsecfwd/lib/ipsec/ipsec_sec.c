@@ -44,7 +44,7 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 {
 	struct ipsec_encap_descriptor_t *preheader_initdesc;
 	unsigned desc_len;
-	struct ipsec_encap_pdb pdb;
+	struct ipsec_encap_pdb *pdb;
 	struct alginfo cipher;
 	struct alginfo auth;
 	unsigned char *buff_start = NULL;
@@ -59,21 +59,27 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 
 	buff_start = (unsigned char *)&preheader_initdesc->descbuf;
 
-	memset(&pdb, 0, sizeof(struct ipsec_encap_pdb));
-	pdb.ip_nh = next_header;
+	pdb = (struct ipsec_encap_pdb *)malloc(sizeof(struct ipsec_encap_pdb) +
+					       sizeof(struct iphdr));
+	if (pdb == NULL) {
+		fprintf(stderr, "error: %s: malloc for ipsec_encap_pdb failed\n",
+			__func__);
+		return NULL;
+	}
+	memset(pdb, 0, sizeof(struct ipsec_encap_pdb) + sizeof(struct iphdr));
+	pdb->ip_nh = next_header;
 	if (sa->is_esn)
-		pdb.seq_num_ext_hi = (uint32_t)(sa->seq_num >> 32);
-	pdb.seq_num = (uint32_t)(sa->seq_num);
-	pdb.spi = sa->spi;
-	pdb.ip_hdr_len = 20;
-
-	pdb.options = PDBOPTS_ESPCBC_TUNNEL | PDBOPTS_ESPCBC_INCIPHDR |
+		pdb->seq_num_ext_hi = (uint32_t)(sa->seq_num >> 32);
+	pdb->seq_num = (uint32_t)(sa->seq_num);
+	pdb->spi = sa->spi;
+	pdb->ip_hdr_len = sizeof(struct iphdr);
+	pdb->options = PDBOPTS_ESPCBC_TUNNEL | PDBOPTS_ESPCBC_INCIPHDR |
 			PDBOPTS_ESPCBC_IPHDRSRC | PDBOPTS_ESPCBC_IVSRC |
 			PDBOPTS_ESPCBC_CKSUM;
 	if (sa->is_esn)
-		pdb.options |= PDBOPTS_ESPCBC_ESN;
-
-	pdb.hmo = PDBHMO_DTTL;
+		pdb->options |= PDBOPTS_ESPCBC_ESN;
+	pdb->hmo = PDBHMO_DTTL;
+	memcpy(pdb->ip_hdr, ip_header, pdb->ip_hdr_len);
 
 	cipher.algtype = sa->ealg->alg_type;
 	cipher.key = (uintptr_t)sa->ealg->alg_key;
@@ -86,8 +92,13 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 	auth.key_enc_flags = ENC;
 
 	/* Now construct */
-	cnstr_shdsc_ipsec_encap((uint32_t *) buff_start, &desc_len,
-				&pdb, (uint8_t *)ip_header, &cipher, &auth);
+/*
+ * Pointer Size parameter is currently hardcoded.
+ * The application doesn't allow for proper retrieval of PS.
+ */
+	cnstr_shdsc_ipsec_encap((uint32_t *)buff_start, &desc_len, 1, pdb,
+				&cipher, &auth);
+	free(pdb);
 
 	pr_debug("Desc len in %s is %x\n", __func__, desc_len);
 
@@ -133,7 +144,7 @@ void
 	if (sa->is_esn)
 		pdb.seq_num_ext_hi = (uint32_t)(sa->seq_num >> 32);
 	pdb.seq_num = (uint32_t)(sa->seq_num);
-	pdb.ip_hdr_len = 20;
+	pdb.ip_hdr_len = sizeof(struct iphdr);
 
 	pdb.options = PDBOPTS_ESPCBC_TUNNEL | PDBOPTS_ESPCBC_OUTFMT |
 			PDBOPTS_ESPCBC_ARSNONE;
@@ -151,8 +162,12 @@ void
 	auth.key_enc_flags = ENC;
 
 	/* Now construct */
-	cnstr_shdsc_ipsec_decap((uint32_t *) buff_start,
-				&desc_len, &pdb, &cipher, &auth);
+/*
+ * Pointer Size parameter is currently hardcoded.
+ * The application doesn't allow for proper retrieval of PS.
+ */
+	cnstr_shdsc_ipsec_decap((uint32_t *)buff_start, &desc_len, 1, &pdb,
+				&cipher, &auth);
 
 	pr_debug("Desc len in %s is %x\n", __func__, desc_len);
 
