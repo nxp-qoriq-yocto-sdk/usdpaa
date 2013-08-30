@@ -58,6 +58,9 @@ int __attribute__((weak)) ppam_post_tx_init(void)
 {
 	return 0;
 }
+void __attribute__((weak)) ppam_post_finish_rx(void)
+{
+}
 void __attribute__((weak)) ppam_finish(void)
 {
 	printf("%s stopping\n", program_invocation_short_name);
@@ -544,6 +547,7 @@ static void do_global_finish(void)
 		 * that the PPAM structs be known too, which is impossible in
 		 * this PPAM-agnostic code. */
 		ppac_interface_finish_rx((struct ppac_interface *)i);
+	ppam_post_finish_rx();
 	list_for_each_safe(i, tmpi, &ifs)
 		/* This loop uses "_safe()" because the list entries delete
 		 * themselves. */
