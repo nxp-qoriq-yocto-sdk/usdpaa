@@ -112,6 +112,20 @@ struct app_conf app_conf;
 static int dpa_ipsec_id;
 static struct fmc_model_t *cmodel;
 
+static void cleanup_macless_config(char *macless_name)
+{
+	int ret;
+	struct fman_if *__if;
+	list_for_each_entry(__if, fman_if_list, node) {
+		if ((__if->mac_type != fman_mac_less) ||
+		   (__if->macless_info.macless_name != macless_name))
+			continue;
+		ret = set_mac_addr(macless_name, &__if->macless_info.peer_mac);
+		if (ret < 0)
+			fprintf(stderr, "Failed to restore %s mac address\n",
+				macless_name);
+	}
+}
 static int setup_macless_if_tx(struct ppac_interface *i, uint32_t last_fqid,
 			       unsigned int *num_tx_fqs, struct qman_fq *fq,
 			       char *macless_name)
@@ -700,6 +714,8 @@ void ppam_finish(void)
 {
 	ipsec_offload_cleanup(dpa_ipsec_id);
 	fmc_cleanup();
+	cleanup_macless_config(app_conf.vif);
+	cleanup_macless_config(app_conf.vof);
 	cleanup_buffer_pools();
 }
 
