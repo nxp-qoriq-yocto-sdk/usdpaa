@@ -113,7 +113,8 @@ static int dpa_ipsec_id;
 static struct fmc_model_t *cmodel;
 
 static int setup_macless_if_tx(struct ppac_interface *i, uint32_t last_fqid,
-			    struct qman_fq *fq, char *macless_name)
+			       unsigned int *num_tx_fqs, struct qman_fq *fq,
+			       char *macless_name)
 {
 	struct fman_if *__if;
 	int loop;
@@ -153,6 +154,7 @@ static int setup_macless_if_tx(struct ppac_interface *i, uint32_t last_fqid,
 	for (loop = 0; loop < i->num_tx_fqs - 1; loop++)
 		fq[loop].fqid = tx_start + loop;
 	fq[tx_count].fqid = last_fqid;
+	*num_tx_fqs = i->num_tx_fqs;
 
 	return 0;
 }
@@ -274,7 +276,8 @@ static int ppam_interface_init(struct ppam_interface *p,
 	if (app_conf.fm == i->port_cfg->fman_if->fman_idx &&
 	    i->port_cfg->fman_if->mac_type == fman_mac_1g &&
 	    app_conf.ib_eth == i->port_cfg->fman_if->mac_idx) {
-		ret = setup_macless_if_tx(i, IB_TX_FQID, fq, app_conf.vif);
+		ret = setup_macless_if_tx(i, IB_TX_FQID, &num_tx_fqs,
+					  fq, app_conf.vif);
 		if (ret < 0)
 			goto err;
 		ret = setup_macless_if_rx(i, app_conf.vif);
@@ -288,7 +291,8 @@ static int ppam_interface_init(struct ppam_interface *p,
 	if (app_conf.fm == i->port_cfg->fman_if->fman_idx &&
 	    i->port_cfg->fman_if->mac_type == fman_mac_1g &&
 	    app_conf.ob_eth == i->port_cfg->fman_if->mac_idx) {
-		ret = setup_macless_if_tx(i, OB_TX_FQID, fq, app_conf.vof);
+		ret = setup_macless_if_tx(i, OB_TX_FQID, &num_tx_fqs,
+					  fq, app_conf.vof);
 		if (ret < 0)
 			goto err;
 		ret = setup_macless_if_rx(i, app_conf.vof);
