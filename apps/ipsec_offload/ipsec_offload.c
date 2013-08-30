@@ -42,6 +42,7 @@
 #include <linux/if_vlan.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+#include <signal.h>
 
 #include "fmc.h"
 #include "usdpaa/fsl_dpa_ipsec.h"
@@ -111,6 +112,7 @@ struct ppam_arguments ppam_args;
 struct app_conf app_conf;
 static int dpa_ipsec_id;
 static struct fmc_model_t *cmodel;
+static pthread_t xfrm_tid, neigh_tid;
 
 static void cleanup_macless_config(char *macless_name)
 {
@@ -691,14 +693,14 @@ int ppam_thread_init(void)
 	if (ran)
 		return 0;
 
-	ret = setup_xfrm_msgloop(dpa_ipsec_id);
+	ret = setup_xfrm_msgloop(dpa_ipsec_id, &xfrm_tid);
 	if (ret < 0) {
 		fprintf(stderr, "XFRM message loop start failure (%d)\n", ret);
 		return ret;
 	}
 	TRACE("Started XFRM messages processing\n");
 
-	ret = setup_neigh_loop();
+	ret = setup_neigh_loop(&neigh_tid);
 	if (ret < 0) {
 		fprintf(stderr, "NEIGH message loop start failure (%d)\n", ret);
 		return ret;
@@ -710,8 +712,19 @@ int ppam_thread_init(void)
 	return 0;
 }
 
+void ppam_post_rx_finish(void)
+{
+	int ret __maybe_unused;
+	ret = pthread_kill(neigh_tid, SIGTERM);
+	TRACE("Finished NEIGH messages processing (%d)\n", ret);
+	pthread_kill(xfrm_tid, SIGTERM);
+	ret = pthread_join(xfrm_tid, NULL);
+	TRACE("Finished XFRM messages processing (%d)\n", ret);
+}
+
 void ppam_finish(void)
 {
+	stats_cleanup();
 	ipsec_offload_cleanup(dpa_ipsec_id);
 	fmc_cleanup();
 	cleanup_macless_config(app_conf.vif);

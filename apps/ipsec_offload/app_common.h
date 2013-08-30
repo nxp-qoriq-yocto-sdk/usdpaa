@@ -99,10 +99,11 @@ extern t_Handle ib_reass;
 
 int fmc_config(void);
 void fmc_cleanup(void);
+void stats_cleanup(void);
 int ipsec_offload_init(int *dpa_ipsec_id);
 int ipsec_offload_cleanup(int dpa_ipsec_id);
-int setup_xfrm_msgloop(int dpa_ipsec_id);
-int setup_neigh_loop(void);
+int setup_xfrm_msgloop(int dpa_ipsec_id, pthread_t *tid);
+int setup_neigh_loop(pthread_t *tid);
 int create_nl_socket(int protocol, int groups);
 int get_dst_addrs(struct in_addr *dst_addr, unsigned char *dst_len,
 		  struct in_addr *gw_addr, unsigned int max_len);

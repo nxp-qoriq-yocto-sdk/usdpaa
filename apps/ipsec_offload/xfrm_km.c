@@ -139,9 +139,12 @@ err:
 	return -1;
 }
 
-int setup_xfrm_msgloop(int dpa_ipsec_id)
+static void sig_handler(int signum)
 {
-	pthread_t tid;
+}
+
+int setup_xfrm_msgloop(int dpa_ipsec_id, pthread_t *tid)
+{
 	int ret;
 	uint32_t policy_miss_fqid;
 	int post_flow_id_td;
@@ -171,7 +174,7 @@ int setup_xfrm_msgloop(int dpa_ipsec_id)
 	data->pol_miss_fqid = policy_miss_fqid;
 	data->post_flow_id_td = post_flow_id_td;
 
-	ret = pthread_create(&tid, NULL, xfrm_msg_loop, data);
+	ret = pthread_create(tid, NULL, xfrm_msg_loop, data);
 	if (ret)
 		fprintf(stderr, "error: failed to create XFRM msg thread\n");
 	return ret;
@@ -770,12 +773,21 @@ static void *xfrm_msg_loop(void *data)
 	uint32_t post_flow_id_td;
 	int dpa_ipsec_id;
 	cpu_set_t cpuset;
+	struct sigaction new_action, old_action;
 
 	/* get ipsec instance we use */
 	struct thread_data *thread_data = (struct thread_data *)data;
 	dpa_ipsec_id = thread_data->dpa_ipsec_id;
 	policy_miss_fqid = thread_data->pol_miss_fqid;
 	post_flow_id_td = thread_data->post_flow_id_td;
+
+	/* install a signal handler for SIGTERM */
+	new_action.sa_handler = sig_handler;
+	sigemptyset(&new_action.sa_mask);
+	new_action.sa_flags = 0;
+	sigaction(SIGTERM, NULL, &old_action);
+	if (old_action.sa_handler != SIG_IGN)
+		sigaction(SIGTERM, &new_action, NULL);
 
 	/* Set this cpu-affinity to CPU 0 */
 	CPU_ZERO(&cpuset);
@@ -808,12 +820,13 @@ static void *xfrm_msg_loop(void *data)
 	/* XFRM notification loop */
 	while (1) {
 		len = recvmsg(xfrm_sd, &msg, 0);
-		if (len < 0) {
+		if (len < 0 && errno != EINTR) {
 			fprintf(stderr,
 				"error receiving from XFRM socket, errno %d\n",
 				errno);
 			break;
-		}
+		} else if (errno == EINTR) /* loop break requested */
+			break;
 		for (nh = (struct nlmsghdr *)buf; NLMSG_OK(nh, len);
 		     nh = NLMSG_NEXT(nh, len)) {
 			if (nh->nlmsg_type == NLMSG_ERROR) {

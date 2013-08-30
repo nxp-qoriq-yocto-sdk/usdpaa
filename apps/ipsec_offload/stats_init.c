@@ -166,6 +166,13 @@ out:
 	return ret;
 }
 
+void stats_cleanup(void)
+{
+	free(storage);
+	dpa_stats_free(dpa_stats_id);
+	dpa_stats_lib_exit();
+}
+
 int show_sa_stats(int argc, char *argv[])
 {
 	struct dpa_ipsec_sa_stats sa_stats;

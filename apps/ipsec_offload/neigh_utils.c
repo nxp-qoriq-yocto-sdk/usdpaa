@@ -45,6 +45,7 @@
 #include <linux/rtnetlink.h>
 #include <net/if.h>
 #include <net/ethernet.h>
+#include <signal.h>
 
 #include "usdpaa/fsl_dpa_classifier.h"
 #include "usdpaa/fsl_dpa_ipsec.h"
@@ -541,15 +542,18 @@ static int process_new_neigh(struct nlmsghdr *nh, int vif_idx, int vof_idx)
 
 static void *neigh_msg_loop(void *);
 
-int setup_neigh_loop(void)
+int setup_neigh_loop(pthread_t *tid)
 {
-	pthread_t tid;
 	int ret;
-	ret = pthread_create(&tid, NULL, neigh_msg_loop, NULL);
+	ret = pthread_create(tid, NULL, neigh_msg_loop, NULL);
 	if (ret)
 		fprintf(stderr, "error: failed to create NEIGH msg thread\n");
 
 	return ret;
+}
+
+static void sig_handler(int signum)
+{
 }
 
 static void *neigh_msg_loop(void *data)
@@ -562,6 +566,7 @@ static void *neigh_msg_loop(void *data)
 	struct sockaddr_nl sa;
 	int vif_idx, vof_idx;
 	int len, ret;
+	struct sigaction new_action, old_action;
 
 	ret = init_neigh_tables(app_conf.fm, app_conf.ob_oh_post,
 				fman_offline, cc_out_post_enc);
@@ -591,6 +596,14 @@ static void *neigh_msg_loop(void *data)
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
 
+	/* install a signal handler for SIGTERM */
+	new_action.sa_handler = sig_handler;
+	sigemptyset(&new_action.sa_mask);
+	new_action.sa_flags = 0;
+	sigaction(SIGTERM, NULL, &old_action);
+	if (old_action.sa_handler != SIG_IGN)
+		sigaction(SIGTERM, &new_action, NULL);
+
 	vif_idx = if_nametoindex(app_conf.vif);
 	if (!vif_idx) {
 		fprintf(stderr, " %s:%d: inbound interface"
@@ -618,12 +631,13 @@ static void *neigh_msg_loop(void *data)
 
 	while (1) {
 		len = recvmsg(rtm_sd, &msg, 0);
-		if (len < 0) {
+		if (len < 0 && errno != EINTR) {
 			fprintf(stderr,
 				"error receiving from RTM socket, errno %d\n",
 					errno);
 			break;
-		}
+		} else if (errno == EINTR) /* loop break requested */
+			break;
 		for (nh = (struct nlmsghdr *)buf; NLMSG_OK(nh, len);
 		     nh = NLMSG_NEXT(nh, len)) {
 			if (nh->nlmsg_type == NLMSG_ERROR) {
