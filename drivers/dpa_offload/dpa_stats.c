@@ -358,8 +358,10 @@ static int init_resources(struct dpa_stats *dpa_stats)
 				"asynchronous request internal structure\n");
 		return -ENOMEM;
 	}
-	for (i = 0; i < DPA_STATS_MAX_NUM_OF_REQUESTS; i++)
+	for (i = 0; i < DPA_STATS_MAX_NUM_OF_REQUESTS; i++) {
+		memset(&async_req[i], 0, sizeof(struct dpa_stats_async_req));
 		list_add_tail(&async_req[i].node, &dpa_stats->async_req_pool);
+	}
 
 	/* Allocate request internal structure */
 	req = malloc(DPA_STATS_MAX_NUM_OF_REQUESTS * sizeof(*req));
@@ -618,8 +620,17 @@ static int process_async_req(struct dpa_stats_event_params *ev)
 		pthread_cond_signal(&async_us_reqs_cond);
 		pthread_mutex_unlock(&async_us_reqs_lock);
 	} else {
-		/* All the counters were treated, return the node in the pool */
+		/*
+		 * All the counters were treated, return the nodes to their
+		 * pools
+		 */
 		pthread_mutex_lock(&async_reqs_pool);
+		free(async_req->req->cnt_off);
+		free(async_req->req->cnt_ids);
+		async_req->req->cnt_off = NULL;
+		async_req->req->cnt_ids = NULL;
+		list_add_tail(&async_req->req->node, &dpa_stats->req_pool);
+		async_req->req = NULL;
 		list_add_tail(&async_req->node,  &dpa_stats->async_req_pool);
 		pthread_mutex_unlock(&async_reqs_pool);
 
@@ -1171,7 +1182,7 @@ int dpa_stats_get_counters(struct dpa_stats_cnt_request_params params,
 		/* Store the request parameters */
 		async_req->req = req;
 
-		if (req->type != US_CNTS_ONLY)
+		if (req->type != US_CNTS_ONLY) {
 			/*
 			 * The request is not only for user-space counters,
 			 * so add it in the list that treats only us requests
@@ -1180,6 +1191,7 @@ int dpa_stats_get_counters(struct dpa_stats_cnt_request_params params,
 			list_add_tail(&async_req->node,
 						&dpa_stats->async_ks_reqs);
 			pthread_mutex_unlock(&async_ks_reqs_lock);
+		}
 	}
 
 	/* If request is 'us' type, then we need to check the parameters*/
@@ -1200,6 +1212,8 @@ int dpa_stats_get_counters(struct dpa_stats_cnt_request_params params,
 			*cnts_len = req->bytes_num;
 
 			/* Return the request structure to the requests pool */
+			free(req->cnt_off);
+			req->cnt_off = NULL;
 			pthread_mutex_lock(&async_reqs_pool);
 			list_add_tail(&req->node, &dpa_stats->req_pool);
 			pthread_mutex_unlock(&async_reqs_pool);
@@ -1225,16 +1239,21 @@ int dpa_stats_get_counters(struct dpa_stats_cnt_request_params params,
 	/* Provide to the user the number of written bytes */
 	*cnts_len = ioc_prm.cnts_len;
 
-	if (!request_done && req->type == MIXED_CNTS) {
-		ret = treat_mixed_cnts_request(dpa_stats, req);
-		if (ret < 0)
-			return ret;
+	if (!request_done) {
+		if (req->type == MIXED_CNTS) {
+			ret = treat_mixed_cnts_request(dpa_stats, req);
+			if (ret < 0)
+				return ret;
+		}
 
 		/* Return the request structure to the free requests pool */
 		pthread_mutex_lock(&async_reqs_pool);
+		free(req->cnt_off);
+		req->cnt_off = NULL;
 		list_add_tail(&req->node, &dpa_stats->req_pool);
 		pthread_mutex_unlock(&async_reqs_pool);
 	}
+
 	return 0;
 }
 
@@ -1401,7 +1420,13 @@ void *dpa_stats_worker_thread(void *arg)
 		ret = treat_mixed_cnts_request(dpa_stats, req);
 
 	/* Return the asynchronous request in the pool */
+	free(async_req->req->cnt_off);
+	free(async_req->req->cnt_ids);
+	async_req->req->cnt_off = NULL;
+	async_req->req->cnt_ids = NULL;
 	pthread_mutex_lock(&async_reqs_pool);
+	list_add_tail(&async_req->req->node,  &dpa_stats->req_pool);
+	async_req->req = NULL;
 	list_add_tail(&async_req->node,  &dpa_stats->async_req_pool);
 	pthread_mutex_unlock(&async_reqs_pool);
 
