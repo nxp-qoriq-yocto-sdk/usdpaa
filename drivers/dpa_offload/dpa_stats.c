@@ -351,41 +351,26 @@ static int init_resources(struct dpa_stats *dpa_stats)
 
 	INIT_LIST_HEAD(&dpa_stats->async_us_reqs);
 
-	for (i = 0; i < DPA_STATS_MAX_NUM_OF_REQUESTS; i++) {
-		/* Allocate an asynchronous request internal structure */
-		async_req = malloc(sizeof(*async_req));
-		if (!async_req) {
-			struct dpa_stats_async_req *tmp;
-			list_for_each_entry_safe(async_req, tmp,
-				&dpa_stats->async_req_pool, node) {
-				list_del(&async_req->node);
-				free(async_req);
-			}
-
-			error(0, ENOMEM, "Cannot allocate memory for "
-			      "asynchronous request internal structure\n");
-			return -ENOMEM;
-		}
-		list_add_tail(&async_req->node, &dpa_stats->async_req_pool);
+	/* Allocate asynchronous request internal structure */
+	async_req = malloc(DPA_STATS_MAX_NUM_OF_REQUESTS* sizeof(*async_req));
+	if (!async_req) {
+		error(0, ENOMEM, "Cannot allocate memory for "
+				"asynchronous request internal structure\n");
+		return -ENOMEM;
 	}
+	for (i = 0; i < DPA_STATS_MAX_NUM_OF_REQUESTS; i++)
+		list_add_tail(&async_req[i].node, &dpa_stats->async_req_pool);
 
+	/* Allocate request internal structure */
+	req = malloc(DPA_STATS_MAX_NUM_OF_REQUESTS * sizeof(*req));
+	if (!req) {
+		error(0, ENOMEM, "Cannot allocate memory for "
+		      "synchronous request internal structure\n");
+		return -ENOMEM;
+	}
 	for (i = 0; i < DPA_STATS_MAX_NUM_OF_REQUESTS; i++) {
-		/* Allocate request internal structure */
-		req = malloc(sizeof(*req));
-		if (!req) {
-			struct dpa_stats_req *tmp;
-			list_for_each_entry_safe(req, tmp,
-					&dpa_stats->req_pool, node) {
-				list_del(&req->node);
-				free(req);
-			}
-
-			error(0, ENOMEM, "Cannot allocate memory for "
-			      "synchronous request internal structure\n");
-			return -ENOMEM;
-		}
-		memset(req, 0, sizeof(*req));
-		list_add_tail(&req->node, &dpa_stats->req_pool);
+		memset(&req[i], 0, sizeof(*req));
+		list_add_tail(&req[i].node, &dpa_stats->req_pool);
 	}
 
 	/* Allocate array to store counters control blocks */
@@ -422,16 +407,17 @@ static int free_resources(void)
 	}
 	dpa_stats = gbl_dpa_stats;
 
-	list_for_each_entry_safe(async_req, tmp,
-			&dpa_stats->async_req_pool, node) {
-		list_del(&async_req->node);
-		free(async_req);
-	}
+	pthread_mutex_lock(&async_reqs_pool);
+	if (!list_empty(&dpa_stats->async_req_pool))
+		list_for_each_entry_safe(async_req, tmp,
+				&dpa_stats->async_req_pool, node)
+			list_del(&async_req->node);
 
-	list_for_each_entry_safe(req, req_tmp, &dpa_stats->req_pool, node) {
-		list_del(&req->node);
-		free(req);
-	}
+	if (!list_empty(&dpa_stats->req_pool))
+		list_for_each_entry_safe(req, req_tmp,
+				&dpa_stats->req_pool, node)
+			list_del(&req->node);
+	pthread_mutex_unlock(&async_reqs_pool);
 
 	free(dpa_stats);
 	gbl_dpa_stats = NULL;
@@ -629,7 +615,7 @@ static int process_async_req(struct dpa_stats_event_params *ev)
 		 */
 		pthread_mutex_lock(&async_us_reqs_lock);
 		list_add_tail(&async_req->us_node, &dpa_stats->async_us_reqs);
-		pthread_cond_signal(&async_reqs_pool);
+		pthread_cond_signal(&async_us_reqs_cond);
 		pthread_mutex_unlock(&async_us_reqs_lock);
 	} else {
 		/* All the counters were treated, return the node in the pool */
@@ -1225,7 +1211,7 @@ int dpa_stats_get_counters(struct dpa_stats_cnt_request_params params,
 			pthread_mutex_lock(&async_us_reqs_lock);
 			list_add_tail(&async_req->us_node,
 				      &dpa_stats->async_us_reqs);
-			pthread_cond_signal(&async_reqs_pool);
+			pthread_cond_signal(&async_us_reqs_cond);
 			pthread_mutex_unlock(&async_us_reqs_lock);
 		}
 		return 0;
