@@ -1129,8 +1129,9 @@ int dpa_stats_remove_counter(int dpa_stats_cnt_id)
 
 	/* Mark the equivalent 'user-space' counter structure as invalid */
 	dpa_stats->cnts_cb[dpa_stats_cnt_id].id = DPA_OFFLD_INVALID_OBJECT_ID;
-	memset(&dpa_stats->cnts_cb[dpa_stats_cnt_id],
-			0, sizeof(struct dpa_stats_cnt_cb));
+	memset(&dpa_stats->cnts_cb[dpa_stats_cnt_id].info, 0,
+		sizeof(struct stats_info));
+
 	return 0;
 }
 
