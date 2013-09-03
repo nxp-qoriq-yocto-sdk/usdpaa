@@ -656,9 +656,11 @@ static int fill_req_params(struct dpa_stats			*dpa_stats,
 		return -EDOM;
 	}
 
+	pthread_mutex_lock(&async_reqs_pool);
 	/* Obtain a free request structure */
 	req = list_entry(dpa_stats->req_pool.next, struct dpa_stats_req, node);
 	list_del(&req->node);
+	pthread_mutex_unlock(&async_reqs_pool);
 
 	/* Save user-provided parameters */
 	req->config.cnts_ids = prm.cnts_ids;
