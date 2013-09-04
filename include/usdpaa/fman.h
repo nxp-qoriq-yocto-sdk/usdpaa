@@ -366,6 +366,9 @@ void fman_finish(void);
 void fman_if_promiscuous_enable(const struct fman_if *);
 void fman_if_promiscuous_disable(const struct fman_if *);
 
+/* Add multicast MAC address on MEMAC */
+int memac_add_hash_mac_addr(const struct fman_if *p, uint8_t *eth);
+
 /* Enable/disable Rx on specific interfaces */
 void fman_if_enable_rx(const struct fman_if *);
 void fman_if_disable_rx(const struct fman_if *);
