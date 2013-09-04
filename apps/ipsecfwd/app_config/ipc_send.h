@@ -123,6 +123,8 @@ static struct argp_option sa_add_options[] = {
 	{"a", 'a', "AKEY", 0, "Authentication Key", 0},
 	{"e", 'e', "EKEY", 0, "Encryption Key", 0},
 	{"spi", 'i', "SPI", 0, "SPI - 32 bit unsigned int", 0},
+	{"is_esn", 'x', "ESN", 0, "Extended Sequence Number support", 0},
+	{"seq_num", 'v', "SEQNUM", 0, "Sequence Number", 0},
 	{"p", 'p', "PROTO", 0, "IPsec Proto type - ESP(0) {Default: 0}", 0},
 	{"t", 't', "ETYPE", 0,
 		"Encryption Type - AES-CBC(0), 3DES-CBC(1) {Default: 0}", 0},

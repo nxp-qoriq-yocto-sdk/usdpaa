@@ -60,8 +60,10 @@ struct ipsec_tunnel_t {
 	uint32_t tunnel_id;
 	/**< FQ Id of the Q towards SEC */
 	struct qman_fq *qm_fq_to_sec;
+	/**< Extended sequence number support */
+	bool is_esn;
 	/**< Starting Sequence number */
-	uint32_t seq_num;
+	uint64_t seq_num;
 	uint8_t type;
 	bool valid;
 	/**< Encryption info */

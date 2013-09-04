@@ -657,6 +657,16 @@ static error_t parse_sa_add_opt(int key, char *arg, struct argp_state *state)
 		g_mndtr_param |= IPC_CTRL_PARAM_BIT_SPI;
 		break;
 
+	case 'x':
+		pr_debug("\nkey = %c; value = %s", key, arg);
+		sa_info->ipsec_info.id.is_esn = atoi(arg);
+		break;
+
+	case 'v':
+		pr_debug("\nkey = %c; value = %s", key, arg);
+		sa_info->ipsec_info.id.seq_num = atoll(arg);
+		break;
+
 	case 't':
 		pr_debug("\nkey = %c; value = %s", key, arg);
 		val = atoi(arg);

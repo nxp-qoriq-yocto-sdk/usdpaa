@@ -52,7 +52,8 @@
  */
 struct ipsec_tunnel_config_entry_t {
 	uint32_t spi;  /**< Security Policy Index */
-	uint32_t seq_num; /**< Sequence Number */
+	bool is_esn;	/**< Extended Sequence Number support */
+	uint64_t seq_num; /**< Sequence Number */
 	uint32_t src_ip; /**< Source IP Address */
 	uint32_t tunnel_src_ip_addr;	/**< Tunnel Source IP Address */
 	uint32_t dst_ip;	/**< Destination IP Address */

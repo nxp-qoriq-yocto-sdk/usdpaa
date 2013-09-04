@@ -133,17 +133,21 @@ int32_t ipsecfwd_create_sa(struct app_ctrl_ipsec_info *ipsec_info,
 	ipsec_tunnel_config_entry->aalg = &ipsec_info->aalg;
 	ipsec_tunnel_config_entry->tunnel_id = g_tunnel_id;
 	ipsec_tunnel_config_entry->spi = ipsec_info->id.spi;
+	ipsec_tunnel_config_entry->is_esn = ipsec_info->id.is_esn;
 
 	if (encryption_mode == ENCRYPT) {
-		ipsec_tunnel_config_entry->seq_num = 0;
+		ipsec_tunnel_config_entry->seq_num =
+				ipsec_info->id.seq_num;
+
 		if (ipsec_tunnel_config_entry->defgw == 0)
 			next_hop_addr =
 				&ipsec_tunnel_config_entry->tunnel_dst_ip_addr;
 		else
 			next_hop_addr = &ipsec_tunnel_config_entry->defgw;
 	} else {
-		/* per generated data for decap */
-		ipsec_tunnel_config_entry->seq_num = 1;
+		ipsec_tunnel_config_entry->seq_num =
+				ipsec_info->id.seq_num + 1;
+
 		if (ipsec_tunnel_config_entry->defgw == 0)
 			next_hop_addr = &ipsec_tunnel_config_entry->dst_ip;
 		else
@@ -190,6 +194,7 @@ int32_t ipsec_tunnel_encap_init(struct ipsec_tunnel_config_entry_t *config,
 	entry->tunnel_saddr = config->tunnel_src_ip_addr;
 	entry->tunnel_daddr = config->tunnel_dst_ip_addr;
 	entry->spi = config->spi;
+	entry->is_esn = config->is_esn;
 	entry->seq_num = config->seq_num;
 	entry->ealg = config->ealg;
 	entry->aalg = config->aalg;
@@ -263,6 +268,7 @@ int32_t ipsec_tunnel_decap_init(struct ipsec_tunnel_config_entry_t *config,
 	entry->tunnel_saddr = config->tunnel_src_ip_addr;
 	entry->tunnel_daddr = config->tunnel_dst_ip_addr;
 	entry->spi = config->spi;
+	entry->is_esn = config->is_esn;
 	entry->seq_num = config->seq_num;
 	entry->ealg = config->ealg;
 	entry->aalg = config->aalg;

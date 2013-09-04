@@ -58,6 +58,8 @@ struct app_ctrl_sa_id {
 	unsigned int saddr;		/**< Src IP of Tunnel end point */
 	unsigned int daddr;		/**< Dest IP of Tunnel end point */
 	unsigned int spi;		/**< SPI */
+	bool is_esn;			/**< Extended Sequence Number */
+	uint64_t seq_num;		/**< Sequence Number */
 	unsigned int defgw;		/**< Default Gateway */
 
 #define IPSEC_PROTO_ESP 50
