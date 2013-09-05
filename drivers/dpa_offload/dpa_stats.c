@@ -421,6 +421,20 @@ static int free_resources(void)
 			list_del(&req->node);
 	pthread_mutex_unlock(&async_reqs_pool);
 
+	pthread_mutex_lock(&async_us_reqs_lock);
+	if (!list_empty(&dpa_stats->async_us_reqs))
+		list_for_each_entry_safe(async_req, tmp,
+				&dpa_stats->async_us_reqs, us_node) {
+			free(async_req->req->cnt_off);
+			free(async_req->req->cnt_ids);
+			async_req->req->cnt_off = NULL;
+			async_req->req->cnt_ids = NULL;
+			list_del(&async_req->req->node);
+			async_req->req = NULL;
+			list_del(&async_req->us_node);
+		}
+	pthread_mutex_unlock(&async_us_reqs_lock);
+
 	free(dpa_stats);
 	gbl_dpa_stats = NULL;
 	return 0;
