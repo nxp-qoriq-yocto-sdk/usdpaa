@@ -341,6 +341,7 @@ static int init_resources(struct dpa_stats *dpa_stats)
 	struct dpa_stats_async_req *async_req;
 	struct dpa_stats_req *req;
 	uint32_t i;
+	int err;
 
 	/* Initialize list of free asynchronous requests structures */
 	INIT_LIST_HEAD(&dpa_stats->async_req_pool);
@@ -352,7 +353,7 @@ static int init_resources(struct dpa_stats *dpa_stats)
 	INIT_LIST_HEAD(&dpa_stats->async_us_reqs);
 
 	/* Allocate asynchronous request internal structure */
-	async_req = malloc(DPA_STATS_MAX_NUM_OF_REQUESTS* sizeof(*async_req));
+	async_req = malloc(DPA_STATS_MAX_NUM_OF_REQUESTS * sizeof(*async_req));
 	if (!async_req) {
 		error(0, ENOMEM, "Cannot allocate memory for "
 				"asynchronous request internal structure\n");
@@ -393,7 +394,12 @@ static int init_resources(struct dpa_stats *dpa_stats)
 		pthread_mutex_init(&dpa_stats->cnts_cb[i].lock, NULL);
 	}
 
-	return 0;
+	/* Initialize mutex required to protect access to scheduled counters */
+	err = pthread_mutex_init(&dpa_stats->sched_cnt_lock, NULL);
+	if (err != 0)
+		error(0, err, "Failed to initialize DPA Stats mutex");
+
+	return err;
 }
 
 static int free_resources(void)
@@ -1117,6 +1123,7 @@ int dpa_stats_modify_class_counter(int dpa_stats_cnt_id,
 int dpa_stats_remove_counter(int dpa_stats_cnt_id)
 {
 	struct dpa_stats *dpa_stats = NULL;
+	struct dpa_stats_cnt_cb *cnt_cb = NULL;
 
 	if (dpa_stats_cnt_id < 0) {
 		error(0, EINVAL, "Invalid input parameter\n");
@@ -1134,6 +1141,13 @@ int dpa_stats_remove_counter(int dpa_stats_cnt_id)
 		return 0;
 	}
 	dpa_stats = gbl_dpa_stats;
+	cnt_cb = &dpa_stats->cnts_cb[dpa_stats_cnt_id];
+
+	if (cnt_cb->id != DPA_OFFLD_INVALID_OBJECT_ID &&
+	    cnt_is_sched(dpa_stats, dpa_stats_cnt_id)) {
+		error(0, EINVAL, "Counter id %d is in use\n", dpa_stats_cnt_id);
+		return 0;
+	}
 
 	if (ioctl(dpa_stats_devfd,
 		  DPA_STATS_IOC_REMOVE_COUNTER, &dpa_stats_cnt_id) < 0) {
@@ -1142,9 +1156,8 @@ int dpa_stats_remove_counter(int dpa_stats_cnt_id)
 	}
 
 	/* Mark the equivalent 'user-space' counter structure as invalid */
-	dpa_stats->cnts_cb[dpa_stats_cnt_id].id = DPA_OFFLD_INVALID_OBJECT_ID;
-	memset(&dpa_stats->cnts_cb[dpa_stats_cnt_id].info, 0,
-		sizeof(struct stats_info));
+	cnt_cb->id = DPA_OFFLD_INVALID_OBJECT_ID;
+	memset(&cnt_cb->info, 0, sizeof(struct stats_info));
 
 	return 0;
 }
@@ -1213,14 +1226,18 @@ int dpa_stats_get_counters(struct dpa_stats_cnt_request_params params,
 
 	/* If request is 'us' type, then we need to check the parameters*/
 	if (req->type == US_CNTS_ONLY) {
+		block_sched_cnts(dpa_stats,
+				params.cnts_ids, params.cnts_ids_len);
+
 		/* Check user-provided parameters */
 		ret = check_us_get_counters_params(dpa_stats, params, cnts_len);
-		if (ret < 0)
+		if (ret < 0) {
+			unblock_sched_cnts(dpa_stats, params.cnts_ids,
+					   params.cnts_ids_len);
 			return ret;
+		}
 
 		if (!request_done) {
-			block_sched_cnts(dpa_stats, params.cnts_ids,
-							params.cnts_ids_len);
 			ret =  treat_us_cnts_request(dpa_stats, req);
 			if (ret < 0)
 				return ret;
@@ -1246,7 +1263,10 @@ int dpa_stats_get_counters(struct dpa_stats_cnt_request_params params,
 			pthread_mutex_unlock(&async_us_reqs_lock);
 		}
 		return 0;
-	}
+	} else if (req->type == MIXED_CNTS)
+		block_sched_cnts(dpa_stats,
+				 params.cnts_ids, params.cnts_ids_len);
+
 
 	if (ioctl(dpa_stats_devfd, DPA_STATS_IOC_GET_COUNTERS, &ioc_prm) < 0) {
 		error(0, errno, "Could not create request\n");
