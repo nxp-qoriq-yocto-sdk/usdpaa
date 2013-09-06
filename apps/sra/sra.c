@@ -52,8 +52,10 @@
 #define TEST_MAX_TIMES		50
 #define ATTR_CMD_NUM		7
 #define OP_CMD_NUM		8
-#define TEST_CMD_NUM		3
+#define TEST_CMD_NUM		7
 #define DMA_TEST_CHAIN_NUM 6
+#define TASK_MAX_NUM	2
+
 struct srio_pool_org {
 	uint8_t write_recv_data[SRIO_POOL_SECT_SIZE]; /* space mapped to
 							 other port win */
@@ -73,6 +75,7 @@ struct srio_port_data {
 	struct srio_pool_org_phys phys;
 	struct srio_pool_org *virt;
 	struct srio_port_info port_info;
+	void *range_virt;
 };
 
 enum srio_io_op {
@@ -102,11 +105,19 @@ enum srio_attr_level2_cmd {
 enum test_cmd {
 	TEST_SRIO = 0,
 	TEST_DMA_CHAIN,
+	TEST_SHOW_PERF,
+	TEST_SHOW_TASK,
+	TEST_FREE_TASK,
+};
+
+enum test_task_type {
+	DMA_TEST,
+	CORE_TEST,
 };
 
 static const uint32_t srio_test_win_attrv[] = {3, 4, 5, 4, 0};
 static const char * const srio_test_win_attrc[] = {"SWRITE", "NWRITE",
-						   "NWRITE_R", "NREAD", "DMA"};
+					"NWRITE_R", "NREAD", "DMA/CORE"};
 static const char * const cmd_name[] = {"-attr", "-op", "-test"};
 static const char * const attr_param[4][9] = { {"port1", "port2"},
 			{"device_id", "target_id", "seg_num", "subseg_num",
@@ -116,10 +127,16 @@ static const char * const attr_param[4][9] = { {"port1", "port2"},
 			{"io_read_home", "nread", "maintr", "atomic_inc",
 			"atomic_dec", "atomic_set", "atomic_clr"} };
 static const char * const op_param[][4] = { {"port1", "port2"},
-					    {"w", "r", "s", "p"} };
-static const char * const test_param[][2] = {{"srio", "dma_chain"} };
+					{"w", "r", "s", "p"} };
+static const char * const test_param[][5] = {{"srio", "dma_chain", "show_perf",
+				"show_task", "free_task"},
+				{"port1", "port2"},
+				{"dma", "core"},
+				{"swrite", "nwrite", "nwrite_r", "nread"} };
 static const char * const sector_name[] = {"map space", "read data space",
-					   "write preparing space", "reserved"};
+					"write preparing space", "reserved"};
+static const char * const perf_str[] = {"length(byte):", "time(us):",
+					"avg Gb/s:", "max Gb/s:"};
 
 enum srio_cmd {
 	SRIO_ATTR,
@@ -141,11 +158,43 @@ struct cmd_port_param {
 };
 
 struct cmd_param_type {
+	struct cmd_port_param *port;
 	uint8_t curr_cmd;
 	uint8_t curr_port_id;
-	struct cmd_port_param *port;
 	uint8_t test_type;
 	uint8_t test_bwc;
+	uint8_t test_task_type;
+	uint8_t test_srio_type;
+	uint8_t test_srio_priority;
+	uint8_t test_data;
+	uint32_t test_num;
+};
+
+struct srio_task_record {
+	const char *task_type;
+	const char *trans_type;
+	uint32_t payload_size;
+	uint32_t port;
+	uint32_t priority;
+	uint32_t data;
+};
+
+struct srio_task_flag {
+	uint64_t show_times;
+	uint32_t show_perf;
+	uint32_t free_task;
+	uint32_t port;
+};
+
+struct task_arg_type {
+	struct srio_dev *sriodev;
+	struct dma_ch *dmadev;
+	uint64_t src_phys;
+	uint64_t dest_phys;
+	void *src_virt;
+	void *dest_virt;
+	uint32_t size;
+	uint32_t port;
 };
 
 enum srio_write_type {
@@ -168,6 +217,10 @@ enum srio_read_type {
 
 static struct cmd_param_type cmd_param;
 static int port_num;
+static struct srio_task_record srio_task[TASK_MAX_NUM];
+static struct srio_task_flag task_flag[TASK_MAX_NUM];
+static struct task_arg_type task_arg;
+static struct dma_ch *dmadev1, *dmadev2;
 
 /* Handle SRIO error interrupt */
 static void *interrupt_handler(void *data)
@@ -357,7 +410,7 @@ static int test_param_trans(int32_t cmd_num, char **cmd_in)
 {
 	int32_t i;
 
-	if (cmd_num != TEST_CMD_NUM)
+	if (cmd_num > TEST_CMD_NUM)
 		return -EINVAL;
 
 	for (i = 0; i < ARRAY_SIZE(test_param[0]) && test_param[0][i]; i++)
@@ -368,6 +421,77 @@ static int test_param_trans(int32_t cmd_num, char **cmd_in)
 		return -EINVAL;
 
 	cmd_param.test_type = i;
+
+	switch (i) {
+	case TEST_SRIO:
+		if (cmd_num != 5 && cmd_num != 7)
+			return -EINVAL;
+
+		for (i = 0;
+			i < ARRAY_SIZE(test_param[1]) && test_param[1][i]; i++)
+			if (!strcmp(cmd_in[3], test_param[1][i]))
+				break;
+
+		if (i == ARRAY_SIZE(test_param[1]) || !test_param[1][i])
+			return -EINVAL;
+		cmd_param.curr_port_id = i;
+
+		for (i = 0;
+			i < ARRAY_SIZE(test_param[2]) && test_param[2][i]; i++)
+			if (!strcmp(cmd_in[4], test_param[2][i]))
+				break;
+
+		if (i == ARRAY_SIZE(test_param[2]) || !test_param[2][i])
+			return -EINVAL;
+		cmd_param.test_task_type = i;
+		cmd_param.test_num = 0;
+
+		if (cmd_num == 7) {
+			for (i = 0;
+			     i < ARRAY_SIZE(test_param[3]) && test_param[3][i];
+			     i++)
+				if (!strcmp(cmd_in[5], test_param[3][i]))
+					break;
+
+			if (i == ARRAY_SIZE(test_param[3]) || !test_param[3][i])
+				return -EINVAL;
+			cmd_param.test_srio_type = i;
+
+			cmd_param.test_num = strtoul(cmd_in[6], NULL, 0);
+		}
+		break;
+	case TEST_DMA_CHAIN:
+	case TEST_SHOW_TASK:
+		if (cmd_num != 3)
+			return -EINVAL;
+		break;
+	case TEST_SHOW_PERF:
+		if (cmd_num != 5)
+			return -EINVAL;
+		for (i = 0;
+			i < ARRAY_SIZE(test_param[1]) && test_param[1][i]; i++)
+			if (!strcmp(cmd_in[3], test_param[1][i]))
+				break;
+
+		if (i == ARRAY_SIZE(test_param[1]) || !test_param[1][i])
+			return -EINVAL;
+		cmd_param.curr_port_id = i;
+
+		cmd_param.test_num = strtoul(cmd_in[4], NULL, 0);
+		break;
+	case TEST_FREE_TASK:
+		if (cmd_num != 4)
+			return -EINVAL;
+		for (i = 0;
+			i < ARRAY_SIZE(test_param[1]) && test_param[1][i]; i++)
+			if (!strcmp(cmd_in[3], test_param[1][i]))
+				break;
+
+		if (i == ARRAY_SIZE(test_param[1]) || !test_param[1][i])
+			return -EINVAL;
+		cmd_param.curr_port_id = i;
+		break;
+	}
 
 	return 0;
 }
@@ -574,8 +698,27 @@ static int srio_perf_test(struct srio_dev *sriodev, struct dma_ch *dmadev,
 {
 	int i, j, k, h, err;
 	uint64_t src_phys, dest_phys;
+	void *src_virt;
+	void *dest_virt;
 	struct atb_clock *atb_clock;
 	uint64_t atb_multiplier = 0;
+	uint8_t port = cmd_param.curr_port_id;
+	uint8_t test_type = cmd_param.test_task_type;
+
+	if (srio_task[port].payload_size) {
+		printf("A running task on port %d!\n", port + 1);
+		printf("First free the runnig task and then create the new!\n");
+		printf("Running task_type:%s; trans:%s; port:%d; size:%d\n",
+		       srio_task[port].task_type, srio_task[port].trans_type,
+		       srio_task[port].port + 1, srio_task[port].payload_size);
+
+		return 0;
+	}
+
+	if (!(fsl_srio_port_connected(sriodev) & (0x1 << port))) {
+		printf("port %d is error or disable!\n", port + 1);
+		return 0;
+	}
 
 	atb_clock = malloc(sizeof(struct atb_clock));
 	if (!atb_clock)
@@ -595,6 +738,72 @@ static int srio_perf_test(struct srio_dev *sriodev, struct dma_ch *dmadev,
 			fsl_srio_set_subseg_num(sriodev, i, 1, 0);
 		}
 
+	if (test_type == CORE_TEST) {
+		printf("===port %d core test===\n", port + 1);
+		for (i = 0; i < ARRAY_SIZE(srio_test_win_attrv); i++) {
+			if (i != 4)
+				printf("\nSRIO %s Test for %d times\n",
+				       srio_test_win_attrc[i], TEST_MAX_TIMES);
+			else
+				printf("\nSRIO CORE Test for %d times\n",
+				       TEST_MAX_TIMES);
+
+			if (i < ARRAY_SIZE(srio_test_win_attrv) - 2)
+				fsl_srio_set_obwin_attr(sriodev, port, 1, 0,
+							srio_test_win_attrv[i]);
+			else if (i == 3)
+				fsl_srio_set_obwin_attr(sriodev, port, 1,
+							srio_test_win_attrv[i],
+							0);
+
+			if (i < ARRAY_SIZE(srio_test_win_attrv) - 2) {
+				src_virt =
+					&port_data[port].virt->write_data_prep;
+				dest_virt = port_data[port].range_virt;
+			} else if (i == ARRAY_SIZE(srio_test_win_attrv) - 2) {
+				src_virt = port_data[port].range_virt;
+				dest_virt =
+					&port_data[port].virt->read_recv_data;
+			} else {
+				src_virt =
+					&port_data[port].virt->write_data_prep;
+				dest_virt =
+					&port_data[port].virt->write_recv_data;
+			}
+
+			/* SRIO test data is from 4 bytes to 1M bytes*/
+			for (j = 2; j < SRIO_TEST_DATA_NUM; j++) {
+				atb_clock_init(atb_clock);
+				atb_clock_reset(atb_clock);
+				for (k = 0; k < TEST_MAX_TIMES; k++) {
+					atb_clock_start(atb_clock);
+					memcpy(dest_virt, src_virt, (1 << j));
+					atb_clock_stop(atb_clock);
+				}
+				printf("%s %-15u %s %-15f %s %-15f %s %-15f\n",
+				       perf_str[0],
+				       (1 << j),
+				       perf_str[1],
+				       atb_to_seconds(
+						atb_clock_total(atb_clock),
+						atb_multiplier) / TEST_MAX_TIMES
+				       * ATB_MHZ,
+				       perf_str[2],
+				       (1 << j) * 8 * TEST_MAX_TIMES /
+				       (atb_to_seconds(
+						atb_clock_total(atb_clock),
+						atb_multiplier) * 1000000000.0),
+				       perf_str[3],
+				       (1 << j) * 8 /
+				       (atb_to_seconds(atb_clock_min(atb_clock),
+					atb_multiplier) * 1000000000.0));
+				atb_clock_finish(atb_clock);
+			}
+		}
+		return 0;
+	}
+
+	printf("===port %d dma test===\n", port + 1);
 	for (h = 0; h < DMA_BWC_NUM; h++) {
 		if (h < DMA_BWC_NUM - 1)
 			/* BWC is from 1 to 1024 */
@@ -608,28 +817,36 @@ static int srio_perf_test(struct srio_dev *sriodev, struct dma_ch *dmadev,
 		fsl_dma_chan_bwc(dmadev, h);
 
 		for (i = 0; i < ARRAY_SIZE(srio_test_win_attrv); i++) {
-			printf("\nSRIO %s Test for %d times\n",
-			       srio_test_win_attrc[i], TEST_MAX_TIMES);
+			if (i != 4)
+				printf("\nSRIO %s Test for %d times\n",
+				       srio_test_win_attrc[i], TEST_MAX_TIMES);
+			else
+				printf("\nSRIO DMA Test for %d times\n",
+				       TEST_MAX_TIMES);
+
 			if (i < ARRAY_SIZE(srio_test_win_attrv) - 2)
-				fsl_srio_set_obwin_attr(sriodev, 0, 1, 0,
-						  srio_test_win_attrv[i]);
+				fsl_srio_set_obwin_attr(sriodev, port, 1, 0,
+							srio_test_win_attrv[i]);
 			else if (i == 3)
-				fsl_srio_set_obwin_attr(sriodev, 0, 1,
-						  srio_test_win_attrv[i], 0);
+				fsl_srio_set_obwin_attr(sriodev, port, 1,
+							srio_test_win_attrv[i],
+							0);
 
 			if (i < ARRAY_SIZE(srio_test_win_attrv) - 2) {
 				src_phys =
-					port_data[0].phys.write_data_prep;
-				dest_phys = port_data[0].port_info.range_start;
-			} else if (i == ARRAY_SIZE(srio_test_win_attrv) - 2) {
-				src_phys = port_data[0].port_info.range_start;
+					port_data[port].phys.write_data_prep;
 				dest_phys =
-					port_data[0].phys.read_recv_data;
+					port_data[port].port_info.range_start;
+			} else if (i == ARRAY_SIZE(srio_test_win_attrv) - 2) {
+				src_phys =
+					port_data[port].port_info.range_start;
+				dest_phys =
+					port_data[port].phys.read_recv_data;
 			} else {
 				src_phys =
-					port_data[0].phys.write_data_prep;
+					port_data[port].phys.write_data_prep;
 				dest_phys =
-					port_data[1].phys.write_data_prep;
+					port_data[port].phys.write_recv_data;
 			}
 
 			/* SRIO test data is from 4 bytes to 1M bytes*/
@@ -639,29 +856,36 @@ static int srio_perf_test(struct srio_dev *sriodev, struct dma_ch *dmadev,
 				for (k = 0; k < TEST_MAX_TIMES; k++) {
 					atb_clock_start(atb_clock);
 					fsl_dma_direct_start(dmadev,
-							     src_phys, dest_phys,
-							     (1 << j));
+							src_phys, dest_phys,
+							(1 << j));
 
 					err = fsl_dma_wait(dmadev);
 					if (err < 0) {
 						error(0, -err,
-						      "SRIO transmission failed");
+						"SRIO transmission failed");
 						fsl_srio_clr_bus_err(sriodev);
+						atb_clock_finish(atb_clock);
 						return err;
 					}
 					atb_clock_stop(atb_clock);
 				}
-				printf("length(byte): %-15u time(us): %-15f"
-				       "avg Gb/s: %-15f max Gb/s: %-15f\n", (1 << j),
-				       atb_to_seconds(atb_clock_total(atb_clock),
-						      atb_multiplier) / TEST_MAX_TIMES
+				printf("%s %-15u %s %-15f %s %-15f %s %-15f\n",
+				       perf_str[0],
+				       (1 << j),
+				       perf_str[1],
+				       atb_to_seconds(
+						atb_clock_total(atb_clock),
+						atb_multiplier) / TEST_MAX_TIMES
 				       * ATB_MHZ,
+				       perf_str[2],
 				       (1 << j) * 8 * TEST_MAX_TIMES /
-				       (atb_to_seconds(atb_clock_total(atb_clock),
-						       atb_multiplier) * 1000000000.0),
+				       (atb_to_seconds(
+						atb_clock_total(atb_clock),
+						atb_multiplier) * 1000000000.0),
+				       perf_str[3],
 				       (1 << j) * 8 /
 				       (atb_to_seconds(atb_clock_min(atb_clock),
-						       atb_multiplier) * 1000000000.0));
+					atb_multiplier) * 1000000000.0));
 				atb_clock_finish(atb_clock);
 			}
 		}
@@ -707,14 +931,369 @@ static int dma_chain_mode_test(struct dma_ch *dmadev,
 	return 0;
 }
 
+static void *t_srio_dma_test(void *arg)
+{
+	struct task_arg_type *args = arg;
+	struct srio_dev *sriodev = args->sriodev;
+	struct dma_ch *dmadev = args->dmadev;
+	uint64_t src_phys = args->src_phys;
+	uint64_t dest_phys = args->dest_phys;
+	uint32_t size = args->size;
+	uint32_t port = args->port;
+	int err = 0;
+	struct atb_clock *atb_clock = NULL;
+	uint64_t atb_multiplier = 0;
+	uint64_t perf_times = ~0;
+
+	while (1) {
+		if (task_flag[port].show_perf) {
+			task_flag[port].show_perf = 0;
+			perf_times = task_flag[port].show_times;
+			atb_clock = malloc(sizeof(struct atb_clock));
+			if (!atb_clock) {
+				printf("port %d: show performance error!\n",
+				       port + 1);
+				task_flag[port].show_times = 0;
+				perf_times = ~0;
+				break;
+			}
+			atb_multiplier = atb_get_multiplier();
+			atb_clock_init(atb_clock);
+			atb_clock_reset(atb_clock);
+		}
+
+		if (perf_times && task_flag[port].show_times &&
+		    !task_flag[port].show_perf)
+			atb_clock_start(atb_clock);
+		fsl_dma_direct_start(dmadev, src_phys, dest_phys, size);
+
+		err = fsl_dma_wait(dmadev);
+		if (perf_times && task_flag[port].show_times &&
+		    !task_flag[port].show_perf)
+			atb_clock_stop(atb_clock);
+		if (err < 0) {
+			printf("port %d: dma task error!\n", port + 1);
+			fsl_srio_clr_bus_err(sriodev);
+			task_flag[port].show_times = 0;
+			perf_times = ~0;
+			break;
+		}
+		if (!perf_times && task_flag[port].show_times) {
+			printf("%s %-15u %s %-15f %s %-15f %s %-15f\n",
+			       perf_str[0], size, perf_str[1],
+				atb_to_seconds(atb_clock_total(atb_clock),
+					       atb_multiplier) /
+				task_flag[port].show_times
+				* ATB_MHZ,
+				perf_str[2],
+				size * 8 * task_flag[port].show_times /
+				(atb_to_seconds(atb_clock_total(atb_clock),
+					atb_multiplier) * 1000000000.0),
+				perf_str[3],
+				size * 8 /
+				(atb_to_seconds(atb_clock_min(atb_clock),
+					atb_multiplier) * 1000000000.0));
+			atb_clock_finish(atb_clock);
+			task_flag[port].show_times = 0;
+			perf_times = ~0;
+		} else if (task_flag[port].show_times) {
+			perf_times--;
+		}
+
+		if (task_flag[port].free_task) {
+			srio_task[port].payload_size = 0;
+			if (perf_times)
+				atb_clock_finish(atb_clock);
+			task_flag[port].free_task = 0;
+			printf("down!\n");
+			break;
+		}
+	}
+	pthread_exit(NULL);
+}
+
+static void *t_srio_core_test(void *arg)
+{
+	struct task_arg_type *args = arg;
+	void *src_virt = args->src_virt;
+	void *dest_virt = args->dest_virt;
+	uint32_t size = args->size;
+	uint32_t port = args->port;
+	struct atb_clock *atb_clock = NULL;
+	uint64_t atb_multiplier = 0;
+	uint64_t perf_times = ~0;
+
+	while (1) {
+		if (task_flag[port].show_perf) {
+			task_flag[port].show_perf = 0;
+			perf_times = task_flag[port].show_times;
+			atb_clock = malloc(sizeof(struct atb_clock));
+			if (!atb_clock) {
+				printf("port %d: show performance error!\n",
+				       port + 1);
+				task_flag[port].show_times = 0;
+				perf_times = ~0;
+				break;
+			}
+			atb_multiplier = atb_get_multiplier();
+			atb_clock_init(atb_clock);
+			atb_clock_reset(atb_clock);
+		}
+
+		if (perf_times && task_flag[port].show_times &&
+		    !task_flag[port].show_perf)
+			atb_clock_start(atb_clock);
+		memcpy(dest_virt, src_virt, size);
+		if (perf_times && task_flag[port].show_times &&
+		    !task_flag[port].show_perf)
+			atb_clock_stop(atb_clock);
+		if (!perf_times && task_flag[port].show_times) {
+			printf("%s %-15u %s %-15f %s %-15f %s %-15f\n",
+			       perf_str[0], size, perf_str[1],
+				atb_to_seconds(atb_clock_total(atb_clock),
+					       atb_multiplier) /
+				task_flag[port].show_times
+				* ATB_MHZ,
+				perf_str[2],
+				size * 8 * task_flag[port].show_times /
+				(atb_to_seconds(atb_clock_total(atb_clock),
+					atb_multiplier) * 1000000000.0),
+				perf_str[3],
+				size * 8 /
+				(atb_to_seconds(atb_clock_min(atb_clock),
+					atb_multiplier) * 1000000000.0));
+			atb_clock_finish(atb_clock);
+			task_flag[port].show_times = 0;
+			perf_times = ~0;
+		} else if (task_flag[port].show_times) {
+			perf_times--;
+		}
+
+		if (task_flag[port].free_task) {
+			srio_task[port].payload_size = 0;
+			if (perf_times)
+				atb_clock_finish(atb_clock);
+			task_flag[port].free_task = 0;
+			printf("down!\n");
+			break;
+		}
+	}
+	pthread_exit(NULL);
+}
+
+static int srio_perf_task(struct srio_dev *sriodev,
+			struct srio_port_data *port_data)
+{
+	int err;
+	uint64_t src_phys, dest_phys;
+	void *src_virt, *dest_virt;
+	uint8_t port = cmd_param.curr_port_id;
+	uint8_t test_type = cmd_param.test_task_type;
+	uint32_t attr_read, attr_write;
+	uint32_t size = cmd_param.test_num;
+	pthread_t srio_task_id;
+
+	if (srio_task[port].payload_size) {
+		printf("A running task on port %d!\n", port + 1);
+		printf("First free the runnig task and then create the new!\n");
+		printf("Running task_type:%s; trans:%s; port:%d; size:%d\n",
+		       srio_task[port].task_type, srio_task[port].trans_type,
+		       srio_task[port].port + 1, srio_task[port].payload_size);
+
+		return 0;
+	}
+
+	attr_read = srio_test_win_attrv[3];
+	attr_write = srio_test_win_attrv[cmd_param.test_srio_type];
+
+	if (size > SRIO_WIN_SIZE) {
+		printf("Max block size is %d\n", SRIO_WIN_SIZE);
+		return -errno;
+	}
+
+	if (fsl_srio_port_connected(sriodev) & (0x1 << port)) {
+		fsl_srio_set_obwin(sriodev, port, 1,
+				   port_data[port].port_info.range_start,
+				   SRIO_SYS_ADDR, LAWAR_SIZE_2M);
+		fsl_srio_set_obwin_attr(sriodev, port, 1,
+					attr_read, attr_write);
+	} else {
+		printf("SRIO port %d error!\n", port + 1);
+		return -errno;
+	}
+
+	if (task_flag[port].port == port)
+		task_flag[port].free_task = 0;
+
+	if (test_type == DMA_TEST) {
+		if (port) {
+			fsl_dma_chan_basic_direct_init(dmadev2);
+			fsl_dma_chan_bwc(dmadev2, DMA_BWC_512);
+			task_arg.dmadev = dmadev2;
+		} else {
+			fsl_dma_chan_basic_direct_init(dmadev1);
+			fsl_dma_chan_bwc(dmadev1, DMA_BWC_512);
+		task_arg.dmadev = dmadev1;
+		}
+
+		if (cmd_param.test_srio_type != 3) {
+			src_phys = port_data[port].phys.write_data_prep;
+			dest_phys = port_data[port].port_info.range_start;
+		} else {
+			src_phys = port_data[port].port_info.range_start;
+			dest_phys = port_data[port].phys.read_recv_data;
+		}
+		memset((void *)&port_data[port].virt->write_data_prep,
+		       0x5a, SRIO_WIN_SIZE);
+
+		task_arg.sriodev = sriodev;
+		task_arg.src_phys = src_phys;
+		task_arg.dest_phys = dest_phys;
+		task_arg.size = size;
+		task_arg.port = port;
+
+		err = pthread_create(&srio_task_id, NULL,
+			t_srio_dma_test, &task_arg);
+		if (err) {
+			printf("Port %d : dma task creating failed!\n",
+			       port + 1);
+			return -errno;
+		} else {
+			printf("Port %d : dma task creating successed!\n",
+			       port + 1);
+			printf(" -- srio_type:%s; payload_size:%d; data:0x5a\n",
+			       srio_test_win_attrc[cmd_param.test_srio_type],
+			       size);
+
+		srio_task[port].task_type = "dma_task";
+		srio_task[port].trans_type =
+			srio_test_win_attrc[cmd_param.test_srio_type];
+		srio_task[port].payload_size = size;
+		srio_task[port].port = port;
+		}
+		return 0;
+	}
+
+	/* core srio task */
+	if (cmd_param.test_task_type != 3) {
+		src_virt = (void *)&(port_data[port].virt->write_data_prep);
+		dest_virt = (void *)port_data[port].range_virt;
+	} else {
+		src_virt = (void *)port_data[port].range_virt;
+		dest_virt = (void *)&(port_data[port].virt->read_recv_data);
+	}
+
+	memset((void *)&port_data[port].virt->write_data_prep,
+	       0x5a, SRIO_WIN_SIZE);
+
+	task_arg.src_virt = src_virt;
+	task_arg.dest_virt = dest_virt;
+	task_arg.size = size;
+	task_arg.port = port;
+
+	err = pthread_create(&srio_task_id, NULL,
+		t_srio_core_test, &task_arg);
+	if (err) {
+		printf("Port %d : core task creating failed!\n",
+		       port + 1);
+		return -errno;
+	} else {
+		printf("Port %d : core task creating successed!\n",
+		       port + 1);
+		printf(" -- srio_type:%s; size:%d; data:0x5a\n",
+		       srio_test_win_attrc[cmd_param.test_srio_type], size);
+
+		srio_task[port].task_type = "core_task";
+		srio_task[port].trans_type =
+			srio_test_win_attrc[cmd_param.test_srio_type];
+		srio_task[port].payload_size = size;
+		srio_task[port].port = port;
+	}
+	return 0;
+}
+
+static int srio_task_perf_show(void)
+{
+	int port = cmd_param.curr_port_id;
+
+	if (!srio_task[port].payload_size) {
+		printf("No running tasks on port %d!\n", port + 1);
+		return 0;
+	}
+	if (!cmd_param.test_num)
+		return 0;
+
+	if (task_flag[port].show_times) {
+		printf("Port %d is working on %"PRIu64" times performance\n",
+		       port + 1, task_flag[port].show_times);
+		return 0;
+	}
+
+	task_flag[port].show_times = cmd_param.test_num;
+	task_flag[port].show_perf = 1;
+	task_flag[port].port = port;
+	printf("Task_type:%s; trans:%s; port:%d; size:%d\n",
+	       srio_task[port].task_type, srio_task[port].trans_type,
+	       srio_task[port].port + 1, srio_task[port].payload_size);
+	printf("Show the performance of the %d transmissions ...\n",
+	       cmd_param.test_num);
+	return 0;
+}
+
+static int srio_task_show(void)
+{
+	int i;
+
+	printf("===================== srio task info ===================\n");
+
+	for (i = 0; i < TASK_MAX_NUM; i++) {
+		if (!srio_task[i].payload_size)
+			continue;
+		printf("== type:%s; trans:%s; port:%d; size:%d\n",
+		       srio_task[i].task_type, srio_task[i].trans_type,
+		       srio_task[i].port + 1, srio_task[i].payload_size);
+	}
+
+	return 0;
+}
+
+static int srio_task_free(void)
+{
+	int port = cmd_param.curr_port_id;
+
+	if (!srio_task[port].payload_size) {
+		printf("No running tasks on port %d!\n", port + 1);
+		return 0;
+	}
+	task_flag[port].free_task = 1;
+	task_flag[port].port = port;
+	printf("Free running tasks on port %d ...\n", port + 1);
+	return 0;
+}
+
 static int test_implement(struct srio_dev *sriodev, struct dma_ch *dmadev,
 			struct srio_port_data  *port_data)
 {
-	if (cmd_param.test_type == TEST_SRIO)
-		srio_perf_test(sriodev, dmadev, port_data);
-	else if (cmd_param.test_type == TEST_DMA_CHAIN)
+	switch (cmd_param.test_type) {
+	case TEST_SRIO:
+		if (cmd_param.test_num)
+			srio_perf_task(sriodev, port_data);
+		else
+			srio_perf_test(sriodev, dmadev, port_data);
+		break;
+	case TEST_DMA_CHAIN:
 		dma_chain_mode_test(dmadev, port_data);
-
+		break;
+	case TEST_SHOW_PERF:
+		srio_task_perf_show();
+		break;
+	case TEST_SHOW_TASK:
+		srio_task_show();
+		break;
+	case TEST_FREE_TASK:
+		srio_task_free();
+		break;
+	}
 	return 0;
 }
 
@@ -809,8 +1388,8 @@ static void cmd_format_print(void)
 	printf("\t[id] for irq: 0 - disable; 1 - enable\n");
 	printf("\t");
 	printf("\t[write_attr]	: swrite/nwrite/nwrite_r\n");
-	printf("\t[read_attr]	: nread/atomic_inc/atomic_dec"
-	       "/atomic_set/atomic_clr\n");
+	printf("\t[read_attr]	:\n"
+	       " nread/atomic_inc/atomic_dec/atomic_set/atomic_clr\n");
 	printf("\nDo sra operation\n");
 	printf("sra -op [port_id] [win_id] [seg_id] [subseg_id] ");
 	printf("[operation] [data_len]\n");
@@ -821,8 +1400,14 @@ static void cmd_format_print(void)
 	printf("\t                data_len should be 1/2/4 for ");
 	printf("ATOMIC operation\n");
 	printf("\nDo SRIO test and print performance result\n");
-	printf("sra -test [case_name]\n");
-	printf("\t[case_name]: should be dma_chain/srio\n");
+	printf("sra -test [case] [port] [task] [srio] [number]\n");
+	printf(" sra -test srio port1/2 dma/core [srio_type] payload_size\n");
+	printf("\t[srio_type] should be swrite/nwrite/nwrite_r/nread\n");
+	printf("\tpayload_size should be less than 2M bytes\n");
+	printf(" sra -test dma_chain\n");
+	printf(" sra -test show_perf port1/2 times\n");
+	printf(" sra -test show_task\n");
+	printf(" sra -test free_task port1/2\n");
 	printf("-----------------------------------------------------\n");
 }
 
@@ -863,7 +1448,8 @@ int main(int argc, char *argv[])
 
 	for (i = 0; i < port_num; i++) {
 		fsl_srio_connection(sriodev, i);
-		fsl_srio_get_port_info(sriodev, i + 1, &port_data[i].port_info);
+		fsl_srio_get_port_info(sriodev, i + 1, &port_data[i].port_info,
+				       &port_data[i].range_virt);
 	}
 
 	err = fsl_srio_port_connected(sriodev);
@@ -887,9 +1473,24 @@ int main(int argc, char *argv[])
 
 		port_data[i].virt = (typeof(port_data[i].virt))
 			(dmapool->dma_virt_base + i * SRIO_POOL_PORT_OFFSET);
+		fsl_srio_set_ibwin(sriodev, i, 1,
+				   port_data[i].phys.write_recv_data,
+				   SRIO_SYS_ADDR, LAWAR_SIZE_2M);
 	}
 
 	err = fsl_dma_chan_init(&dmadev, 0, 0);
+	if (err < 0) {
+		error(0, -err, "%s(): fsl_dma_chan_init()", __func__);
+		goto err_srio_connected;
+	}
+
+	err = fsl_dma_chan_init(&dmadev1, 0, 1);
+	if (err < 0) {
+		error(0, -err, "%s(): fsl_dma_chan_init()", __func__);
+		goto err_srio_connected;
+	}
+
+	err = fsl_dma_chan_init(&dmadev2, 1, 1);
 	if (err < 0) {
 		error(0, -err, "%s(): fsl_dma_chan_init()", __func__);
 		goto err_srio_connected;
@@ -938,6 +1539,8 @@ int main(int argc, char *argv[])
 	free(port_data);
 	free(cmd_param.port);
 	fsl_dma_chan_finish(dmadev);
+	fsl_dma_chan_finish(dmadev1);
+	fsl_dma_chan_finish(dmadev2);
 	dma_pool_finish(dmapool);
 	fsl_srio_uio_finish(sriodev);
 

@@ -230,6 +230,7 @@ int fsl_srio_uio_finish(struct srio_dev *sriodev)
 int fsl_srio_connection(struct srio_dev *sriodev, uint8_t port_id)
 {
 	uint32_t ccsr;
+	uint32_t escsr;
 	struct rio_regs *rio_regs;
 	struct srio_port *port;
 
@@ -239,11 +240,12 @@ int fsl_srio_connection(struct srio_dev *sriodev, uint8_t port_id)
 	port = &sriodev->port[port_id];
 	rio_regs = sriodev->rio_regs;
 	ccsr = in_be32(&rio_regs->lp_serial.port[port_id].ccsr);
+	escsr = in_be32(&rio_regs->lp_serial.port[port_id].escsr);
 
 	/* Checking the port training status */
-	if (in_be32(&rio_regs->lp_serial.port[port_id].escsr) & 1) {
-		fprintf(stderr, "Port is not ready. "
-			"Try to restart connection...\n");
+	if (!(escsr & 0x2)) {
+		fprintf(stderr, "Port %d is not ready.\n"
+			"Try to restart connection...\n", port_id + 1);
 		if (ccsr & SRIO_CCSR_PT) {
 			/* Disable ports */
 			out_be32(&rio_regs->lp_serial.port[port_id].ccsr, 0);
@@ -257,11 +259,12 @@ int fsl_srio_connection(struct srio_dev *sriodev, uint8_t port_id)
 				| SRIO_CCSR_OPE_IPE_EN);
 		}
 		msleep(100);
-		if (in_be32(&rio_regs->lp_serial.port[port_id].escsr) & 1) {
+		escsr = in_be32(&rio_regs->lp_serial.port[port_id].escsr);
+		if (!(escsr & 0x2)) {
 			error(0, EIO, "%s()", __func__);
 			return -EIO;
 		}
-		fprintf(stderr, "Port restart success!\n");
+		fprintf(stderr, "Port %d restart success!\n", port_id + 1);
 	}
 
 	port->enable = 1;
@@ -298,7 +301,7 @@ int fsl_srio_get_port_num(struct srio_dev *sriodev)
 
 /* This function copies the srio port info to user */
 int fsl_srio_get_port_info(struct srio_dev *sriodev, uint8_t port_id,
-			   struct srio_port_info *port)
+			   struct srio_port_info *port, void **range_virt)
 {
 	uint32_t i;
 
@@ -315,6 +318,7 @@ int fsl_srio_get_port_info(struct srio_dev *sriodev, uint8_t port_id,
 
 	port->range.start = sriodev->port[i].win_range.start;
 	port->range.size = sriodev->port[i].win_range.size;
+	*range_virt = sriodev->port[i].mem_win;
 
 	return 0;
 }

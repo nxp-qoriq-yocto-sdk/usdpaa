@@ -94,7 +94,7 @@ int fsl_srio_clr_bus_err(struct srio_dev *sriodev);
 int fsl_srio_port_connected(struct srio_dev *sriodev);
 int fsl_srio_get_port_num(struct srio_dev *sriodev);
 int fsl_srio_get_port_info(struct srio_dev *sriodev, uint8_t port_id,
-			   struct srio_port_info *port);
+			   struct srio_port_info *port, void **range_virt);
 int fsl_srio_enable_accept_all(struct srio_dev *sriodev, uint8_t port_id);
 int fsl_srio_disable_accept_all(struct srio_dev *sriodev, uint8_t port_id);
 int fsl_srio_set_deviceid(struct srio_dev *sriodev, uint8_t port_id,
