@@ -430,14 +430,14 @@ static int free_resources(void)
 	pthread_mutex_lock(&async_us_reqs_lock);
 	if (!list_empty(&dpa_stats->async_us_reqs))
 		list_for_each_entry_safe(async_req, tmp,
-				&dpa_stats->async_us_reqs, us_node) {
+				&dpa_stats->async_us_reqs, node) {
 			free(async_req->req->cnt_off);
 			free(async_req->req->cnt_ids);
 			async_req->req->cnt_off = NULL;
 			async_req->req->cnt_ids = NULL;
 			list_del(&async_req->req->node);
 			async_req->req = NULL;
-			list_del(&async_req->us_node);
+			list_del(&async_req->node);
 		}
 	pthread_mutex_unlock(&async_us_reqs_lock);
 
@@ -636,7 +636,7 @@ static int process_async_req(struct dpa_stats_event_params *ev)
 		 * add it in the user-space list
 		 */
 		pthread_mutex_lock(&async_us_reqs_lock);
-		list_add_tail(&async_req->us_node, &dpa_stats->async_us_reqs);
+		list_add_tail(&async_req->node, &dpa_stats->async_us_reqs);
 		pthread_cond_signal(&async_us_reqs_cond);
 		pthread_mutex_unlock(&async_us_reqs_lock);
 	} else {
@@ -1257,7 +1257,7 @@ int dpa_stats_get_counters(struct dpa_stats_cnt_request_params params,
 			 * it in the list that treats only user-space requests
 			 */
 			pthread_mutex_lock(&async_us_reqs_lock);
-			list_add_tail(&async_req->us_node,
+			list_add_tail(&async_req->node,
 				      &dpa_stats->async_us_reqs);
 			pthread_cond_signal(&async_us_reqs_cond);
 			pthread_mutex_unlock(&async_us_reqs_lock);
@@ -1401,8 +1401,8 @@ void *dpa_stats_control_thread(void *arg)
 
 		/* Get first element of the list */
 		async_req = list_entry(dpa_stats->async_us_reqs.next,
-				       struct dpa_stats_async_req, us_node);
-		list_del(&async_req->us_node);
+				       struct dpa_stats_async_req, node);
+		list_del(&async_req->node);
 
 		pthread_mutex_unlock(&async_us_reqs_lock);
 

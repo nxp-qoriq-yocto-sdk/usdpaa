@@ -84,8 +84,6 @@ struct dpa_stats_req {
 /* DPA Stats asynchronous request control block */
 struct dpa_stats_async_req {
 	struct list_head node; /* Pointer to other async requests in the set */
-	struct list_head us_node;
-				/* Pointer to other async requests in the set */
 	struct dpa_stats_req *req; /* Pointer to a request structure */
 	pthread_t thread; /* Thread used to process this request */
 };
