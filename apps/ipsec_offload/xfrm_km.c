@@ -70,6 +70,15 @@ static LIST_HEAD(pending_sp);
 #define DPA_IPSEC_ADDR_T_IPv4 4
 #define DPA_IPSEC_ADDR_T_IPv6 6
 
+#define NLA_DATA(na) ((void *)((char *)(na) + NLA_HDRLEN))
+#define NLA_NEXT(na, len)	((len) -= NLA_ALIGN((na)->nla_len), \
+				(struct nlattr *)((char *)(na) \
+				+ NLA_ALIGN((na)->nla_len)))
+#define NLA_OK(na, len) ((len) >= (int)sizeof(struct nlattr) && \
+			   (na)->nla_len >= sizeof(struct nlattr) && \
+			   (na)->nla_len <= (len))
+
+
 /* returns fqid of inbound OH port Rx default queue
  frames not passing inbound policy verification are enqueued to it */
 static uint32_t get_policy_miss_fqid(void)
@@ -571,17 +580,17 @@ static inline struct dpa_sa
 			usersa_id->spi &&
 			dpa_sa->xfrm_sa_info.id.daddr.a4 ==
 			usersa_id->daddr.a4) {
-			break;
+			return dpa_sa;
 		} else if (dpa_sa->xfrm_sa_info.family == AF_INET6 &&
 			dpa_sa->xfrm_sa_info.id.spi ==
 			usersa_id->spi &&
 			!memcmp(&dpa_sa->xfrm_sa_info.id.daddr.a6,
 				&usersa_id->daddr.a6,
 				sizeof(dpa_sa->xfrm_sa_info.id.daddr.a6))) {
-			break;
+			return dpa_sa;
 		}
 	}
-	return dpa_sa;
+	return NULL;
 }
 
 static inline struct dpa_sa
@@ -711,6 +720,8 @@ static inline int flush_dpa_sa(void)
 			list_add_tail(&dpa_pol->list, &pending_sp);
 		}
 		list_del(&dpa_sa->list);
+		free(dpa_sa->sa_params.crypto_params.auth_key);
+		free(dpa_sa->sa_params.crypto_params.cipher_key);
 		free(dpa_sa);
 
 	}
@@ -761,6 +772,617 @@ static inline int flush_dpa_policies(void)
 	return ret;
 }
 
+int nl_parse_attrs(struct nlattr *na, int len,
+		struct dpa_ipsec_sa_params *sa_params,
+		struct xfrm_encap_tmpl *encap)
+{
+	struct xfrm_algo *cipher_alg = NULL;
+	struct xfrm_algo *auth_alg = NULL;
+	struct xfrm_encap_tmpl *data = NULL;
+
+	while (NLA_OK(na, len)) {
+		switch (na->nla_type) {
+		case XFRMA_ALG_AUTH:
+			auth_alg = (struct xfrm_algo *)NLA_DATA(na);
+			break;
+		case XFRMA_ALG_CRYPT:
+			cipher_alg = (struct xfrm_algo *)NLA_DATA(na);
+			break;
+		case XFRMA_ENCAP:
+			data = (struct xfrm_encap_tmpl *)NLA_DATA(na);
+			memcpy(encap, data, sizeof(struct xfrm_encap_tmpl));
+			break;
+		  }
+
+		na = NLA_NEXT(na, len);
+	}
+
+	if (cipher_alg && auth_alg) {
+		sa_params->crypto_params.alg_suite =
+					  get_alg_by_name(cipher_alg->alg_name,
+							   auth_alg->alg_name);
+		sa_params->crypto_params.auth_key_len = (uint8_t)
+						    (auth_alg->alg_key_len / 8);
+		sa_params->crypto_params.auth_key = (uint8_t *)
+						     auth_alg->alg_key;
+		sa_params->crypto_params.cipher_key_len = (uint8_t)
+						 (cipher_alg->alg_key_len / 8);
+		sa_params->crypto_params.cipher_key =
+						 (uint8_t *)cipher_alg->alg_key;
+	} else {
+		fprintf(stderr, "%s:%d: Error: Could not fetch auth or cipher "
+			"data. auth_addr: %p cipher_addr: %p\n",
+			__func__, __LINE__, auth_alg->alg_key,
+			cipher_alg->alg_key);
+		return -1;
+	}
+
+	if (unlikely(len))
+		fprintf(stderr, "%s:%d: Warning: An error occured while parsing"
+			" netlink attributes. Length value is %d\n",
+			__func__, __LINE__, len);
+
+	return 0;
+}
+
+static int update_sa(struct dpa_sa *dpa_sa, struct xfrm_usersa_info *sa_info,
+		const struct dpa_ipsec_sa_crypto_params		 *crypto_params,
+		const struct xfrm_encap_tmpl			 *encap,
+		int						 *sa_id)
+{
+	struct iphdr outer_iphdr;
+	struct udphdr	udp_hdr;
+	struct ip6_hdr outer_ip6hdr;
+	struct dpa_ipsec_sa_crypto_params old_crypto_params;
+	struct xfrm_usersa_info old_sa_info;
+	uint32_t old_spi;
+	int new_sa_id;
+	int dir;
+	int ret = 0;
+	uint8_t *tmp;
+	uint8_t old_cipher_key[512];
+	uint8_t old_auth_key[512];
+
+	new_sa_id = DPA_OFFLD_INVALID_OBJECT_ID;
+	dir = dpa_sa->sa_params.sa_dir;
+
+	if (dir == DPA_IPSEC_INBOUND)
+		sa_id = &dpa_sa->in_sa_id;
+	else
+		sa_id = &dpa_sa->out_sa_id;
+
+	/* backup initial values in case that rekey process fails */
+	memcpy(&old_crypto_params, &dpa_sa->sa_params.crypto_params,
+		sizeof(struct dpa_ipsec_sa_crypto_params));
+	memcpy(&old_sa_info, &dpa_sa->xfrm_sa_info,
+		sizeof(struct xfrm_usersa_info));
+	memcpy(&old_cipher_key[0], dpa_sa->sa_params.crypto_params.cipher_key,
+		dpa_sa->sa_params.crypto_params.cipher_key_len);
+	memcpy(&old_auth_key[0], dpa_sa->sa_params.crypto_params.auth_key,
+		dpa_sa->sa_params.crypto_params.auth_key_len);
+	old_spi = dpa_sa->sa_params.spi;
+
+	/*
+	 * the crypto params, spi, xfrm_usersa_info, outer headers
+	 * will be updated for the existing SA in
+	 * dpa_sa_list
+	 */
+	dpa_sa->sa_params.spi = sa_info->id.spi;
+	dpa_sa->xfrm_sa_info = *sa_info;
+	tmp = (uint8_t *)realloc(dpa_sa->sa_params.crypto_params.auth_key,
+				crypto_params->auth_key_len);
+	if (!tmp) {
+		fprintf(stderr, "%s:%d: Cannot reallocate memory for"
+			"auth_key\n", __func__, __LINE__);
+		return -ENOMEM;
+	}
+
+	dpa_sa->sa_params.crypto_params.auth_key = tmp;
+
+	tmp = (uint8_t *)realloc(dpa_sa->sa_params.crypto_params.cipher_key,
+				 crypto_params->cipher_key_len);
+
+	if (!tmp) {
+		fprintf(stderr, "%s:%d: Cannot reallocate memory for"
+			"cipher_key\n", __func__, __LINE__);
+		return -ENOMEM;
+	}
+
+	dpa_sa->sa_params.crypto_params.cipher_key = tmp;
+
+	memcpy(dpa_sa->sa_params.crypto_params.cipher_key,
+		crypto_params->cipher_key, crypto_params->cipher_key_len);
+	memcpy(dpa_sa->sa_params.crypto_params.auth_key,
+		crypto_params->auth_key, crypto_params->auth_key_len);
+
+	if (dir == DPA_IPSEC_OUTBOUND) {
+		if (sa_info->family == AF_INET) {
+			memset(&outer_iphdr, 0, sizeof(outer_iphdr));
+			outer_iphdr.version = IPVERSION;
+			outer_iphdr.ihl = sizeof(outer_iphdr) / sizeof(u32);
+			outer_iphdr.ttl = IPDEFTTL;
+			outer_iphdr.tot_len = sizeof(outer_iphdr);
+			if (encap->encap_sport && encap->encap_dport)
+				outer_iphdr.tot_len += sizeof(udp_hdr);
+			outer_iphdr.tos = app_conf.outer_tos;
+			outer_iphdr.saddr = sa_info->saddr.a4;
+			outer_iphdr.daddr = sa_info->id.daddr.a4;
+			outer_iphdr.protocol = IPPROTO_ESP;
+			dpa_sa->sa_params.sa_out_params.outer_ip_header =
+				&outer_iphdr;
+		} else if (sa_info->family == AF_INET6) {
+			memset(&outer_ip6hdr, 0, sizeof(outer_ip6hdr));
+			memcpy(&outer_ip6hdr.ip6_src, sa_info->saddr.a6,
+				sizeof(sa_info->saddr.a6));
+			memcpy(&outer_ip6hdr.ip6_dst, sa_info->id.daddr.a6,
+				sizeof(sa_info->id.daddr.a6));
+			outer_ip6hdr.ip6_flow = 0x6<<28;
+			outer_ip6hdr.ip6_nxt = IPPROTO_ESP;
+			outer_ip6hdr.ip6_hlim = IPDEFTTL;
+			dpa_sa->sa_params.sa_out_params.outer_ip_header =
+				&outer_ip6hdr;
+		}
+		if (encap->encap_sport && encap->encap_dport) {
+			memset(&udp_hdr, 0, sizeof(udp_hdr));
+			udp_hdr.source = encap->encap_sport;
+			udp_hdr.dest = encap->encap_dport;
+			dpa_sa->sa_params.sa_out_params.outer_udp_header =
+							       (void *)&udp_hdr;
+		} else
+			dpa_sa->sa_params.sa_out_params.outer_udp_header = NULL;
+	} else if (dir == DPA_IPSEC_INBOUND) {
+		if (encap->encap_sport && encap->encap_dport) {
+			dpa_sa->sa_params.sa_in_params.use_udp_encap = true;
+			dpa_sa->sa_params.sa_in_params.src_port =
+							     encap->encap_sport;
+			dpa_sa->sa_params.sa_in_params.dest_port =
+							     encap->encap_dport;
+		}
+	}
+
+
+	ret = dpa_ipsec_sa_rekeying(*sa_id, &dpa_sa->sa_params, NULL, true,
+				    &new_sa_id);
+	if (ret) {
+		fprintf(stderr, "Rekeying SA(%d) failed. Rolling back"
+			"sa params. Error %d\n", *sa_id, ret);
+
+		/* rollback values in case of error */
+		memcpy(&dpa_sa->sa_params.crypto_params, &old_crypto_params,
+			sizeof(struct dpa_ipsec_sa_crypto_params));
+		memcpy(&dpa_sa->xfrm_sa_info, &old_sa_info,
+			sizeof(struct xfrm_usersa_info));
+		memcpy(dpa_sa->sa_params.crypto_params.cipher_key,
+			&old_cipher_key[0],
+			dpa_sa->sa_params.crypto_params.cipher_key_len);
+		memcpy(dpa_sa->sa_params.crypto_params.auth_key,
+			&old_auth_key[0],
+			dpa_sa->sa_params.crypto_params.auth_key_len);
+		dpa_sa->sa_params.spi = old_spi;
+
+	} else
+		*sa_id = new_sa_id;
+
+	return 0;
+}
+
+static inline int alloc_ipsec_algs(struct dpa_sa		*dpa_sa,
+				   struct dpa_ipsec_sa_params	*sa_params)
+{
+
+	dpa_sa->sa_params.crypto_params.auth_key =
+				  malloc(sa_params->crypto_params.auth_key_len *
+					 sizeof(uint8_t));
+	if (!dpa_sa->sa_params.crypto_params.auth_key) {
+		fprintf(stderr, "Cannot allocate memory for auth_key\n");
+		free(dpa_sa);
+		return -ENOMEM;
+	}
+
+	dpa_sa->sa_params.crypto_params.cipher_key =
+				malloc(sa_params->crypto_params.cipher_key_len *
+					sizeof(uint8_t));
+	if (!dpa_sa->sa_params.crypto_params.cipher_key) {
+		fprintf(stderr, "Cannot allocate memory for cipher_key\n");
+		free(dpa_sa->sa_params.crypto_params.cipher_key);
+		free(dpa_sa);
+		return -ENOMEM;
+	}
+
+	memcpy(dpa_sa->sa_params.crypto_params.auth_key,
+		sa_params->crypto_params.auth_key,
+		sa_params->crypto_params.auth_key_len);
+	memcpy(dpa_sa->sa_params.crypto_params.cipher_key,
+		sa_params->crypto_params.cipher_key,
+		sa_params->crypto_params.cipher_key_len);
+
+	return 0;
+}
+
+static int process_notif_sa(const struct nlmsghdr	*nh, int len,
+			   uint32_t			policy_miss_fqid,
+			   uint32_t			post_flow_id_td,
+			   int				dpa_ipsec_id)
+{
+	struct xfrm_usersa_info *sa_info;
+	struct xfrm_encap_tmpl encap;
+	struct dpa_ipsec_sa_params sa_params;
+	struct dpa_sa *dpa_sa;
+	struct list_head *l, *tmp, *pol_list = NULL;
+	struct dpa_pol *dpa_pol;
+	int *sa_id = NULL;
+	struct nlattr *na;
+	int msg_len = 0;
+	int ret = 0;
+
+	if (nh->nlmsg_type == XFRM_MSG_NEWSA)
+		TRACE("XFRM_MSG_NEWSA\n");
+
+	sa_info = (struct xfrm_usersa_info *)
+		NLMSG_DATA(nh);
+	na = (struct nlattr *)(NLMSG_DATA(nh) +
+			NLMSG_ALIGN(sizeof(*sa_info)));
+
+	trace_xfrm_sa_info(sa_info);
+
+	memset(&encap, 0, sizeof(encap));
+	memset(&sa_params, 0, sizeof(sa_params));
+
+	/* get SA */
+	/* attributes total length in the nh buffer */
+	msg_len = len - (int)na + (int)nh;
+	ret = nl_parse_attrs(na, msg_len, &sa_params, &encap);
+	if (ret) {
+		fprintf(stderr, "An error occured while parsing netlink"
+		" attributes. Error: (%d)\n", ret);
+		return ret;
+	}
+
+	dpa_sa = find_dpa_sa_byaddr(&sa_info->saddr, &sa_info->id.daddr);
+	/*
+	 * if sa is not found, it will be created.
+	 * if found, a rekey operation will be performed
+	 */
+	if (dpa_sa) {
+		ret = update_sa(dpa_sa, sa_info, &sa_params.crypto_params,
+				&encap, sa_id);
+		if (ret)
+			fprintf(stderr, "An error occured during update sa. "
+				"Error: (%d)\n", ret);
+		return ret;
+	} else {
+		/* create and store dpa_sa */
+		dpa_sa = malloc(sizeof(*dpa_sa));
+		if (!dpa_sa) {
+			ret = -ENOMEM;
+			fprintf(stderr, "Cannot allocate memory for dpa_sa\n");
+			return ret;
+		}
+
+		dpa_sa->xfrm_sa_info = *sa_info;
+		dpa_sa->sa_params = sa_params;
+
+		ret = alloc_ipsec_algs(dpa_sa, &sa_params);
+
+		if (ret) {
+			fprintf(stderr, "An error occured during"
+				" alloc_ipsec_algs. Error: (%d)\n", ret);
+			return ret;
+		}
+
+		dpa_sa->encap = encap;
+		dpa_sa->in_sa_id = DPA_OFFLD_INVALID_OBJECT_ID;
+		dpa_sa->out_sa_id = DPA_OFFLD_INVALID_OBJECT_ID;
+		INIT_LIST_HEAD(&dpa_sa->list);
+		INIT_LIST_HEAD(&dpa_sa->in_pols);
+		INIT_LIST_HEAD(&dpa_sa->out_pols);
+		list_add_tail(&dpa_sa->list, &dpa_sa_list);
+
+		/*for each matching policy perform offloading*/
+		list_for_each_safe(l, tmp, &pending_sp) {
+			dpa_pol = (struct dpa_pol *)l;
+			if (!match_pol_tmpl(dpa_pol, dpa_sa))
+				continue;
+			/*Policy found,
+			offload SA and add policy*/
+			set_offload_dir(dpa_sa, &sa_id,
+				dpa_pol->xfrm_pol_info.dir, &pol_list);
+			assert(sa_id);
+			assert(pol_list);
+
+			ret = do_offload(dpa_ipsec_id, sa_id, post_flow_id_td,
+					policy_miss_fqid, dpa_sa, dpa_pol);
+			if (ret < 0) {
+				free(dpa_pol);
+				free(dpa_sa->sa_params.
+				     crypto_params.cipher_key);
+				free(dpa_sa->sa_params.
+				     crypto_params.auth_key);
+				free(dpa_sa);
+				return ret;
+			}
+			/* move policy from
+			pending to dpa_sa list */
+			list_del(&dpa_pol->list);
+			list_add_tail(&dpa_pol->list, pol_list);
+		}
+	}
+
+	return 0;
+}
+
+static int process_del_sa(const struct nlmsghdr *nh)
+{
+	struct xfrm_usersa_id *usersa_id;
+	struct dpa_sa *dpa_sa;
+	int sa_id;
+	struct list_head *pols;
+	int ret = 0;
+
+	TRACE("XFRM_MSG_DELSA\n");
+	usersa_id = (struct xfrm_usersa_id *)
+		NLMSG_DATA(nh);
+
+	dpa_sa = find_dpa_sa(usersa_id);
+	if (unlikely(!dpa_sa))
+		goto out_del_sa;
+
+	if (dpa_sa->in_sa_id >= 0) {
+		sa_id = dpa_sa->in_sa_id;
+		pols = &dpa_sa->in_pols;
+	} else {
+		sa_id = dpa_sa->out_sa_id;
+		pols = &dpa_sa->out_pols;
+	}
+	/* remove dpa policies and
+	move all policies on pending */
+	ret = dpa_ipsec_remove_sa(sa_id);
+	if (ret != -EINPROGRESS && ret != 0) {
+		fprintf(stderr, "Failed to remove dpa_sa, ret %d\n", ret);
+		return ret;
+	} else if (ret == -EINPROGRESS && dpa_sa->parent_sa_id !=
+		  DPA_OFFLD_INVALID_OBJECT_ID) {
+		ret = dpa_ipsec_remove_sa(dpa_sa->parent_sa_id);
+		/*
+		 * try to remove parent sa if the sa
+		 * is in rekeying. Then try once again
+		 * to remove the sa.
+		 */
+		if (ret != 0 && ret != -EINVAL) {
+			fprintf(stderr, "%s:%d: Error removing parent"
+				"SA (%d) during XFRM_MSG_DELSA. Error:"
+				" %d\n", __func__, __LINE__,
+				dpa_sa->parent_sa_id, ret);
+			return ret;
+		} else
+			ret = dpa_ipsec_remove_sa(sa_id);
+		if (ret) {
+			fprintf(stderr, "Failed to remove dpa_sa, ret"
+				"%d\n", ret);
+			return ret;
+		}
+
+	}
+
+	move_pols_to_pending(pols);
+	free(dpa_sa->sa_params.
+	      crypto_params.cipher_key);
+	free(dpa_sa->sa_params.
+		crypto_params.auth_key);
+	list_del(&dpa_sa->list);
+	free(dpa_sa);
+
+out_del_sa:
+	return 0;
+}
+
+static int process_flush_sa(void)
+{
+	int ret = 0;
+
+	ret = flush_dpa_sa();
+	if (ret) {
+		fprintf(stderr, "An error occured during sa flushing %d\n",
+			ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int process_new_policy(const struct nlmsghdr	*nh,
+			      uint32_t			policy_miss_fqid,
+			      uint32_t			post_flow_id_td,
+			      int			dpa_ipsec_id)
+{
+
+	struct xfrm_userpolicy_info *pol_info;
+	struct sadb_msg *m;
+	struct list_head *pols;
+	struct dpa_sa *dpa_sa;
+	struct dpa_pol *dpa_pol, *pol;
+	int af;
+	xfrm_address_t saddr, daddr;
+	int *sa_id = NULL;
+	int ret = 0;
+
+	if (nh->nlmsg_type == XFRM_MSG_NEWPOLICY)
+		TRACE("XFRM_MSG_NEWPOLICY\n");
+	pol_info = (struct xfrm_userpolicy_info *)
+		NLMSG_DATA(nh);
+
+	/* we handle only in/out policies */
+	if (pol_info->dir != XFRM_POLICY_OUT && pol_info->dir != XFRM_POLICY_IN)
+		return -1;
+
+	if (nh->nlmsg_type == XFRM_MSG_UPDPOLICY) {
+		/* search policy on all dpa_sa lists */
+		pol = find_dpa_pol_bysel(&pol_info->sel, &sa_id, pol_info->dir);
+		if (pol) {
+			TRACE("policy already offloaded\n");
+			goto out_new_pol;
+		}
+	}
+
+	trace_xfrm_policy_info(pol_info);
+
+	/* get SA tmpl */
+	m = do_spdget(pol_info->index, &saddr, &daddr,
+			&af);
+	if (unlikely(!m)) {
+		fprintf(stderr,
+			"Policy doesn't exist in kernel SPDB\n");
+		goto out_new_pol;
+	}
+
+	/* create dpa pol and fill in fields */
+	dpa_pol = malloc(sizeof(*dpa_pol));
+	if (!dpa_pol) {
+		ret = -ENOMEM;
+		fprintf(stderr, "Cannot allocate memory for dpa_pol\n");
+		return ret;
+	}
+	memset(dpa_pol, 0, sizeof(*dpa_pol));
+	dpa_pol->xfrm_pol_info = *pol_info;
+	INIT_LIST_HEAD(&dpa_pol->list);
+	dpa_pol->sa_saddr = saddr;
+	dpa_pol->sa_daddr = daddr;
+	dpa_pol->sa_family = af;
+	dpa_pol->sa_id = DPA_OFFLD_INVALID_OBJECT_ID;
+	dpa_pol->manip_desc = DPA_OFFLD_INVALID_OBJECT_ID;
+
+	dpa_sa = find_dpa_sa_byaddr(&saddr, &daddr);
+
+	/* SA not found, add pol on pending */
+	if (!dpa_sa) {
+		list_add_tail(&dpa_pol->list, &pending_sp);
+		goto out_new_pol;
+	}
+
+	set_offload_dir(dpa_sa, &sa_id, pol_info->dir, &pols);
+	assert(sa_id);
+
+	ret = do_offload(dpa_ipsec_id, sa_id, post_flow_id_td, policy_miss_fqid,
+			dpa_sa, dpa_pol);
+	if (ret < 0) {
+		free(dpa_sa->sa_params.crypto_params.auth_key);
+		free(dpa_sa->sa_params.crypto_params.cipher_key);
+		free(dpa_sa);
+		free(dpa_pol);
+		return ret;
+	}
+
+	list_add(&dpa_pol->list, pols);
+
+out_new_pol:
+	return 0;
+}
+
+static int process_del_policy(const struct nlmsghdr *nh)
+{
+	struct xfrm_userpolicy_id *pol_id;
+	struct dpa_pol *dpa_pol;
+	int *sa_id = NULL;
+	int ret = 0;
+
+	pol_id = (struct xfrm_userpolicy_id *) NLMSG_DATA(nh);
+	TRACE("XFRM_MSG_DELPOLICY\n");
+
+	/* we handle only in/out policies */
+	if (pol_id->dir != XFRM_POLICY_OUT && pol_id->dir != XFRM_POLICY_IN)
+		return -1;
+
+	/* search policy on all dpa_sa lists */
+	dpa_pol = find_dpa_pol_bysel(&pol_id->sel, &sa_id, pol_id->dir);
+	if (!dpa_pol) {
+		/* search policy on pending */
+		dpa_pol = find_dpa_pol_bysel_list(&pol_id->sel,
+						&pending_sp);
+		assert(dpa_pol);
+		goto out_del_policy;
+	}
+
+	if (dpa_pol->xfrm_pol_info.dir == XFRM_POLICY_IN &&
+	    !app_conf.inb_pol_check)
+		goto out_del_policy;
+
+	assert(sa_id);
+	trace_dpa_policy(dpa_pol);
+	dpa_pol_free_manip(dpa_pol);
+	ret = dpa_ipsec_sa_remove_policy(*sa_id, &dpa_pol->pol_params);
+	if (ret < 0) {
+		fprintf(stderr, "Failed to remove policy index %d sa_id"
+			" %d\n", dpa_pol->xfrm_pol_info.index, *sa_id);
+		return ret;
+	}
+
+out_del_policy:
+	list_del(&dpa_pol->list);
+	free(dpa_pol);
+
+	return 0;
+}
+
+static int process_flush_policy(void)
+{
+	int ret;
+
+	TRACE("XFRM_MSG_FLUSHPOLICY\n");
+	ret = flush_dpa_policies();
+	if (ret < 0) {
+		fprintf(stderr, "An error occured during policies"
+			" flushing %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int resolve_xfrm_notif(const struct nlmsghdr	*nh,
+			       int			len,
+			       uint32_t			policy_miss_fqid,
+			       uint32_t			post_flow_id_td,
+			       int			dpa_ipsec_id)
+{
+	int ret = 0;
+
+
+	switch (nh->nlmsg_type) {
+	case XFRM_MSG_UPDSA:
+		TRACE("XFRM_MSG_UPDSA\n");
+	case XFRM_MSG_NEWSA:
+		ret = process_notif_sa(nh, len, policy_miss_fqid,
+				post_flow_id_td, dpa_ipsec_id);
+		break;
+	case XFRM_MSG_DELSA:
+		ret = process_del_sa(nh);
+		break;
+	case XFRM_MSG_FLUSHSA:
+		TRACE("XFRM_MSG_FLUSHSA\n");
+		ret = process_flush_sa();
+		break;
+	case XFRM_MSG_UPDPOLICY:
+		TRACE("XFRM_MSG_UPDPOLICY\n");
+	case XFRM_MSG_NEWPOLICY:
+		ret = process_new_policy(nh, policy_miss_fqid, post_flow_id_td,
+					dpa_ipsec_id);
+		break;
+	case XFRM_MSG_DELPOLICY:
+		ret = process_del_policy(nh);
+		break;
+	case XFRM_MSG_GETPOLICY:
+		TRACE("XFRM_MSG_GETPOLICY\n");
+		break;
+	case XFRM_MSG_POLEXPIRE:
+		TRACE("XFRM_MSG_POLEXPIRE\n");
+		break;
+	case XFRM_MSG_FLUSHPOLICY:
+		ret = process_flush_policy();
+		break;
+	}
+
+	return ret;
+}
 
 static void *xfrm_msg_loop(void *data)
 {
@@ -846,274 +1468,12 @@ static void *xfrm_msg_loop(void *data)
 				break;
 			}
 
-			switch (nh->nlmsg_type) {
-			case XFRM_MSG_UPDSA:
-				TRACE("XFRM_MSG_UPDSA\n");
-			case XFRM_MSG_NEWSA:
-			{
-				struct xfrm_usersa_info *sa_info;
-				struct xfrm_encap_tmpl encap;
-				struct dpa_ipsec_sa_params sa_params;
-				struct sadb_msg *m;
-				struct dpa_sa *dpa_sa;
-				struct list_head *l, *tmp, *pol_list = NULL;
-				struct dpa_pol *dpa_pol;
-				int *sa_id = NULL;
+			ret = resolve_xfrm_notif(nh, len, policy_miss_fqid,
+					    post_flow_id_td, dpa_ipsec_id);
 
-				if (nh->nlmsg_type == XFRM_MSG_NEWSA)
-					TRACE("XFRM_MSG_NEWSA\n");
-
-				sa_info = (struct xfrm_usersa_info *)
-					NLMSG_DATA(nh);
-				trace_xfrm_sa_info(sa_info);
-
-				memset(&encap, 0, sizeof(encap));
-				memset(&sa_params, 0, sizeof(sa_params));
-				/* get SA */
-				m = do_sadbget(sa_info->id.spi,
-						sa_info->family,
-						sa_info->saddr,
-						sa_info->id.daddr,
-						&sa_params,
-						&encap);
-				if (unlikely(!m)) {
-					fprintf(stderr,
-						"SA doesn't exist "
-						"in kernel SADB\n");
-					break;
-				}
-
-				/* create and store dpa_sa */
-				dpa_sa = malloc(sizeof(*dpa_sa));
-				if (!dpa_sa) {
-					fprintf(stderr,
-						"Cannot allocate memory for dpa_sa\n");
-					break;
-				}
-				dpa_sa->xfrm_sa_info = *sa_info;
-				dpa_sa->sa_params = sa_params;
-				dpa_sa->encap = encap;
-				dpa_sa->in_sa_id = DPA_OFFLD_INVALID_OBJECT_ID;
-				dpa_sa->out_sa_id = DPA_OFFLD_INVALID_OBJECT_ID;
-				INIT_LIST_HEAD(&dpa_sa->list);
-				INIT_LIST_HEAD(&dpa_sa->in_pols);
-				INIT_LIST_HEAD(&dpa_sa->out_pols);
-				list_add_tail(&dpa_sa->list, &dpa_sa_list);
-
-				/*for each matching policy perform offloading*/
-				list_for_each_safe(l, tmp, &pending_sp) {
-					dpa_pol = (struct dpa_pol *)l;
-					if (!match_pol_tmpl(dpa_pol, dpa_sa))
-						continue;
-					/*Policy found,
-					offload SA and add policy*/
-					set_offload_dir(dpa_sa, &sa_id,
-						dpa_pol->xfrm_pol_info.dir,
-						&pol_list);
-					assert(sa_id);
-					assert(pol_list);
-
-					ret = do_offload(dpa_ipsec_id, sa_id,
-							post_flow_id_td,
-							policy_miss_fqid,
-							dpa_sa, dpa_pol);
-					if (ret < 0) {
-						free(dpa_pol);
-						free(dpa_sa);
-						break;
-					}
-					/* move policy from
-					pending to dpa_sa list */
-					list_del(&dpa_pol->list);
-					list_add_tail(&dpa_pol->list, pol_list);
-				}
-				break;
-			}
-			case XFRM_MSG_DELSA:
-			{
-				struct xfrm_usersa_id *usersa_id;
-				struct dpa_sa *dpa_sa;
-
-				TRACE("XFRM_MSG_DELSA\n");
-				usersa_id = (struct xfrm_usersa_id *)
-					NLMSG_DATA(nh);
-
-				dpa_sa = find_dpa_sa(usersa_id);
-				if (unlikely(!dpa_sa))
-					break;
-
-				/* remove dpa policies and
-				move all policies on pending */
-				if (dpa_sa->in_sa_id >= 0)
-					ret = dpa_ipsec_remove_sa(
-						dpa_sa->in_sa_id);
-				if (ret < 0) {
-					/*TODO - handle error */
-					fprintf(stderr,
-						"Failed to remove dpa_sa,"
-						" ret %d\n", ret);
-				} else
-					move_pols_to_pending(&dpa_sa->in_pols);
-
-				if (dpa_sa->out_sa_id >= 0)
-					ret = dpa_ipsec_remove_sa(
-						dpa_sa->out_sa_id);
-				if (ret < 0) {
-					/*TODO - handle error */
-					fprintf(stderr,
-						"Failed to remove dpa_sa,"
-						" ret %d\n", ret);
-				} else {
-					move_pols_to_pending(&dpa_sa->out_pols);
-				}
-
-				list_del(&dpa_sa->list);
-				if (!ret)
-					free(dpa_sa);
-
-				break;
-			}
-			case XFRM_MSG_FLUSHSA:
-				TRACE("XFRM_MSG_FLUSHSA\n");
-				flush_dpa_sa();
-				break;
-			case XFRM_MSG_UPDPOLICY:
-				TRACE("XFRM_MSG_UPDPOLICY\n");
-			case XFRM_MSG_NEWPOLICY:
-			{
-				struct xfrm_userpolicy_info *pol_info;
-				struct sadb_msg *m;
-				struct list_head *pols;
-				struct dpa_sa *dpa_sa;
-				struct dpa_pol *dpa_pol;
-				int af;
-				xfrm_address_t saddr, daddr;
-				int *sa_id = NULL;
-
-				if (nh->nlmsg_type == XFRM_MSG_NEWPOLICY)
-					TRACE("XFRM_MSG_NEWPOLICY\n");
-				pol_info = (struct xfrm_userpolicy_info *)
-					NLMSG_DATA(nh);
-
-				/* we handle only in/out policies */
-				if (pol_info->dir != XFRM_POLICY_OUT &&
-					pol_info->dir != XFRM_POLICY_IN)
-					break;
-				trace_xfrm_policy_info(pol_info);
-
-				/* get SA tmpl */
-				m = do_spdget(pol_info->index, &saddr, &daddr,
-						&af);
-				if (unlikely(!m)) {
-					fprintf(stderr,
-						"Policy doesn't exist in kernel SPDB\n");
-					break;
-				}
-
-				/* create dpa pol and fill in fields */
-				dpa_pol = malloc(sizeof(*dpa_pol));
-				if (!dpa_pol) {
-					fprintf(stderr,
-						"Cannot allocate memory for dpa_pol\n");
-					break;
-				}
-				memset(dpa_pol, 0, sizeof(*dpa_pol));
-				dpa_pol->xfrm_pol_info = *pol_info;
-				INIT_LIST_HEAD(&dpa_pol->list);
-				dpa_pol->sa_saddr = saddr;
-				dpa_pol->sa_daddr = daddr;
-				dpa_pol->sa_family = af;
-				dpa_pol->sa_id = DPA_OFFLD_INVALID_OBJECT_ID;
-				dpa_pol->manip_desc =
-						DPA_OFFLD_INVALID_OBJECT_ID;
-
-				dpa_sa = find_dpa_sa_byaddr(&saddr, &daddr);
-
-				/* SA not found, add pol on pending */
-				if (!dpa_sa) {
-					list_add_tail(&dpa_pol->list,
-						&pending_sp);
-					break;
-				}
-
-				set_offload_dir(dpa_sa, &sa_id,
-						pol_info->dir, &pols);
-				assert(sa_id);
-
-				ret = do_offload(dpa_ipsec_id, sa_id,
-						post_flow_id_td,
-						policy_miss_fqid,
-						dpa_sa, dpa_pol);
-				if (ret < 0) {
-					free(dpa_sa);
-					free(dpa_pol);
-					break;
-				}
-
-				list_add(&dpa_pol->list, pols);
-				break;
-			}
-			case XFRM_MSG_DELPOLICY:
-			{
-				struct xfrm_userpolicy_id *pol_id;
-				struct dpa_pol *dpa_pol;
-				int *sa_id = NULL;
-
-				pol_id = (struct xfrm_userpolicy_id *)
-					NLMSG_DATA(nh);
-				TRACE("XFRM_MSG_DELPOLICY\n");
-
-				/* we handle only in/out policies */
-				if (pol_id->dir != XFRM_POLICY_OUT &&
-					pol_id->dir != XFRM_POLICY_IN)
-					break;
-
-				/* search policy on all dpa_sa lists */
-				dpa_pol = find_dpa_pol_bysel(&pol_id->sel,
-							&sa_id, pol_id->dir);
-				if (!dpa_pol) {
-					/* search policy on pending */
-					dpa_pol = find_dpa_pol_bysel_list(
-								&pol_id->sel,
-								&pending_sp);
-					assert(dpa_pol);
-					list_del(&dpa_pol->list);
-					free(dpa_pol);
-					break;
-				}
-
-				if (dpa_pol->xfrm_pol_info.dir ==
-					XFRM_POLICY_IN &&
-					!app_conf.inb_pol_check)
-					goto no_remove;
-				assert(sa_id);
-				trace_dpa_policy(dpa_pol);
-				dpa_pol_free_manip(dpa_pol);
-				ret = dpa_ipsec_sa_remove_policy(*sa_id,
-							&dpa_pol->pol_params);
-				if (ret < 0) {
-					fprintf(stderr,
-						"Failed to remove policy "
-						"index %d sa_id %d\n",
-						dpa_pol->xfrm_pol_info.index,
-						*sa_id);
-					break;
-				}
-no_remove:
-				list_del(&dpa_pol->list);
-				free(dpa_pol);
-				break;
-
-			}
-			case XFRM_MSG_GETPOLICY:
-				TRACE("XFRM_MSG_GETPOLICY\n");
-				break;
-			case XFRM_MSG_POLEXPIRE:
-				TRACE("XFRM_MSG_POLEXPIRE\n");
-				break;
-			case XFRM_MSG_FLUSHPOLICY:
-				TRACE("XFRM_MSG_FLUSHPOLICY\n");
-				flush_dpa_policies();
+			if (ret) {
+				fprintf(stderr, "Resolve xfrm notification"
+					" error %d\n", ret);
 				break;
 			}
 		}
