@@ -578,8 +578,8 @@ static void *neigh_msg_loop(void *data)
 	if (ret < 0)
 		goto out1;
 
-	ret = init_local_tables(app_conf.fm, app_conf.ob_oh_pre,
-				fman_offline, cc_out_local);
+	ret = init_local_tables(app_conf.fm, app_conf.ob_eth,
+				fman_mac_1g, cc_out_local);
 	if (ret < 0)
 		goto out2;
 
@@ -588,7 +588,10 @@ static void *neigh_msg_loop(void *data)
 	if (ret < 0)
 		goto out3;
 
-	rtm_sd = create_nl_socket(NETLINK_ROUTE, RTMGRP_NEIGH);
+	rtm_sd = create_nl_socket(NETLINK_ROUTE,
+				  RTMGRP_NEIGH |
+				  RTMGRP_IPV4_IFADDR |
+				  RTMGRP_IPV6_IFADDR);
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_name = (void *)&sa;
@@ -673,7 +676,7 @@ static void *neigh_msg_loop(void *data)
 	}
 	cleanup_local_tables(app_conf.fm, app_conf.ib_eth, fman_mac_1g);
 out3:
-	cleanup_local_tables(app_conf.fm, app_conf.ob_oh_pre, fman_offline);
+	cleanup_local_tables(app_conf.fm, app_conf.ob_eth, fman_mac_1g);
 out2:
 	cleanup_neigh_tables(app_conf.fm, app_conf.ib_oh, fman_offline);
 out1:
