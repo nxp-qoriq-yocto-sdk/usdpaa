@@ -47,163 +47,163 @@ struct dpa_alg_suite {
 } dpa_algs[23] = {
 	{
 	  .aalg = SADB_AALG_SHA1HMAC,
-	  .aalg_s = "hmac-sha1",
+	  .aalg_s = "hmac(sha1)",
 	  .ealg = SADB_EALG_3DESCBC,
-	  .ealg_s = "3des-cbc",
+	  .ealg_s = "cbc(des3_ede)",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_3DES_CBC_HMAC_96_SHA_160
 	},
 	{
 	  .aalg = SADB_AALG_MD5HMAC,
-	  .aalg_s = "hmac-md5",
+	  .aalg_s = "hmac(md5)",
 	  .ealg = SADB_EALG_3DESCBC,
-	  .ealg_s = "3des-cbc",
+	  .ealg_s = "cbc(des3_ede)",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_3DES_CBC_HMAC_96_MD5_128
 	},
 	{
 	  .aalg = SADB_X_AALG_SHA2_256HMAC,
-	  .aalg_s = "hmac-sha2-256",
+	  .aalg_s = "hmac(sha256)",
 	  .ealg = SADB_EALG_3DESCBC,
-	  .ealg_s = "3des-cbc",
+	  .ealg_s = "cbc(des3_ede)",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_3DES_CBC_HMAC_SHA_256_128
 	},
 	{
 	  .aalg = SADB_X_AALG_SHA2_384HMAC,
-	  .aalg_s = "hmac-sha2-384",
+	  .aalg_s = "hmac(sha384)",
 	  .ealg = SADB_EALG_3DESCBC,
-	  .ealg_s = "3des-cbc",
+	  .ealg_s = "cbc(des3_ede)",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_3DES_CBC_HMAC_SHA_384_192
 	},
 	{
 	  .aalg = SADB_X_AALG_SHA2_512HMAC,
-	  .aalg_s = "hmac-sha2-512",
+	  .aalg_s = "hmac(sha512)",
 	  .ealg = SADB_EALG_3DESCBC,
-	  .ealg_s = "3des-cbc",
+	  .ealg_s = "cbc(des3_ede)",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_3DES_CBC_HMAC_SHA_512_256
 	},
 	{
 	  .aalg = SADB_AALG_MD5HMAC,
-	  .aalg_s = "hmac-md5",
+	  .aalg_s = "hmac(md5)",
 	  .ealg = SADB_EALG_NULL,
-	  .ealg_s = "null",
+	  .ealg_s = "ecb(cipher_null)",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_NULL_ENC_HMAC_96_MD5_128
 	},
 	{
 	  .aalg = SADB_AALG_SHA1HMAC,
-	  .aalg_s = "hmac-sha1",
+	  .aalg_s = "hmac(sha1)",
 	  .ealg = SADB_EALG_NULL,
-	  .ealg_s = "null",
+	  .ealg_s = "ecb(cipher_null)",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_NULL_ENC_HMAC_96_SHA_160
 	},
 	{
 	  .aalg = SADB_X_AALG_SHA2_256HMAC,
-	  .aalg_s = "hmac-sha2-256",
+	  .aalg_s = "hmac(sha256)",
 	  .ealg = SADB_EALG_NULL,
-	  .ealg_s = "null",
+	  .ealg_s = "ecb(cipher_null)",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_NULL_ENC_HMAC_SHA_256_128
 	},
 	{
 	  .aalg = SADB_X_AALG_SHA2_384HMAC,
-	  .aalg_s = "hmac-sha2-384",
+	  .aalg_s = "hmac(sha384)",
 	  .ealg = SADB_EALG_NULL,
-	  .ealg_s = "null",
+	  .ealg_s = "ecb(cipher_null)",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_NULL_ENC_HMAC_SHA_384_192
 	},
 	{
 	  .aalg = SADB_X_AALG_SHA2_512HMAC,
-	  .aalg_s = "hmac-sha2-512",
+	  .aalg_s = "hmac(sha512)",
 	  .ealg = SADB_EALG_NULL,
-	  .ealg_s = "null",
+	  .ealg_s = "ecb(cipher_null)",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_NULL_ENC_HMAC_SHA_512_256
 	},
 	{
 	  .aalg = SADB_X_AALG_AES_XCBC_MAC,
-	  .aalg_s = "aes-xcbc-mac",
+	  .aalg_s = "xcbc(aes)",
 	  .ealg = SADB_EALG_NULL,
-	  .ealg_s = "null",
+	  .ealg_s = "ecb(cipher_null)",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_NULL_ENC_AES_XCBC_MAC_96
 	},
 	{
 	  .aalg = SADB_AALG_MD5HMAC,
-	  .aalg_s = "hmac-md5",
+	  .aalg_s = "hmac(md5)",
 	  .ealg = SADB_X_EALG_AESCBC,
-	  .ealg_s = "aes-cbc",
+	  .ealg_s = "cbc(aes)",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_AES_CBC_HMAC_96_MD5_128
 	},
 	{
 	  .aalg = SADB_AALG_SHA1HMAC,
-	  .aalg_s = "hmac-sha1",
+	  .aalg_s = "hmac(sha1)",
 	  .ealg = SADB_X_EALG_AESCBC,
-	  .ealg_s = "aes-cbc",
+	  .ealg_s = "cbc(aes)",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_AES_CBC_HMAC_96_SHA_160
 	},
 	{
 	  .aalg = SADB_X_AALG_AES_XCBC_MAC,
-	  .aalg_s = "aes-xcbc-mac",
+	  .aalg_s = "xcbc(aes)",
 	  .ealg = SADB_X_EALG_AESCBC,
-	  .ealg_s = "aes-cbc",
+	  .ealg_s = "cbc(aes)",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_AES_CBC_AES_XCBC_MAC_96
 	},
 	{
 	  .aalg = SADB_X_AALG_SHA2_256HMAC,
-	  .aalg_s = "hmac-sha2-256",
+	  .aalg_s = "hmac(sha256)",
 	  .ealg = SADB_X_EALG_AESCBC,
-	  .ealg_s = "aes-cbc",
+	  .ealg_s = "cbc(aes)",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_AES_CBC_HMAC_SHA_256_128
 	},
 	{
 	  .aalg = SADB_X_AALG_SHA2_384HMAC,
-	  .aalg_s = "hmac-sha2-384",
+	  .aalg_s = "hmac(sha384)",
 	  .ealg = SADB_X_EALG_AESCBC,
-	  .ealg_s = "aes-cbc",
+	  .ealg_s = "cbc(aes)",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_AES_CBC_HMAC_SHA_384_192
 	},
 	{
 	  .aalg = SADB_X_AALG_SHA2_512HMAC,
-	  .aalg_s = "hmac-sha2-512",
+	  .aalg_s = "hmac(sha512)",
 	  .ealg = SADB_X_EALG_AESCBC,
-	  .ealg_s = "aes-cbc",
+	  .ealg_s = "cbc(aes)",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_AES_CBC_HMAC_SHA_512_256
 	},
 	{
 	  .aalg = SADB_AALG_MD5HMAC,
-	  .aalg_s = "hmac-md5",
-	  .ealg = SADB_X_EALG_AESCBC,
-	  .ealg_s = "aes-ctr",
+	  .aalg_s = "hmac(md5)",
+	  .ealg = SADB_X_EALG_AESCTR,
+	  .ealg_s = "rfc3686(ctr(aes))",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_AES_CTR_HMAC_96_MD5_128
 	},
 	{
 	  .aalg = SADB_AALG_SHA1HMAC,
-	  .aalg_s = "hmac-sha1",
+	  .aalg_s = "hmac(sha1)",
 	  .ealg = SADB_X_EALG_AESCTR,
-	  .ealg_s = "aes-ctr",
+	  .ealg_s = "rfc3686(ctr(aes))",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_AES_CTR_HMAC_96_SHA_160
 	},
 	{
 	  .aalg = SADB_X_AALG_AES_XCBC_MAC,
-	  .aalg_s = "aes-xcbc-mac",
+	  .aalg_s = "xcbc(aes)",
 	  .ealg = SADB_X_EALG_AESCTR,
-	  .ealg_s = "aes-ctr",
+	  .ealg_s = "rfc3686(ctr(aes))",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_AES_CTR_AES_XCBC_MAC_96
 	},
 	{
 	  .aalg = SADB_X_AALG_SHA2_256HMAC,
-	  .aalg_s = "hmac-sha2-256",
+	  .aalg_s = "hmac(sha256)",
 	  .ealg = SADB_X_EALG_AESCTR,
-	  .ealg_s = "aes-ctr",
+	  .ealg_s = "rfc3686(ctr(aes))",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_AES_CTR_HMAC_SHA_256_128
 	},
 	{
 	  .aalg = SADB_X_AALG_SHA2_384HMAC,
-	  .aalg_s = "hmac-sha2-384",
+	  .aalg_s = "hmac(sha384)",
 	  .ealg = SADB_X_EALG_AESCTR,
-	  .ealg_s = "aes-ctr",
+	  .ealg_s = "rfc3686(ctr(aes))",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_AES_CTR_HMAC_SHA_384_192
 	},
 	{
 	  .aalg = SADB_X_AALG_SHA2_512HMAC,
-	  .aalg_s = "hmac-sha2-512",
+	  .aalg_s = "hmac(sha512)",
 	  .ealg = SADB_X_EALG_AESCTR,
-	  .ealg_s = "aes-ctr",
+	  .ealg_s = "rfc3686(ctr(aes))",
 	  .dpa_alg = DPA_IPSEC_CIPHER_ALG_AES_CTR_HMAC_SHA_512_256
 	},
 };
