@@ -72,6 +72,18 @@ static inline int alg_suite(int aalg, int ealg)
 	return -1;
 }
 
+int get_algs_by_name(const char *cipher_alg_name, const char *auth_alg_name)
+{
+	int i;
+
+	for (i = 0; i < (sizeof(dpa_algs)/sizeof(dpa_algs[0])); i++)
+		if (!strcmp(cipher_alg_name, dpa_algs[i].ealg_s) &&
+		    !strcmp(auth_alg_name, dpa_algs[i].aalg_s))
+			return dpa_algs[i].dpa_alg;
+
+	return -1;
+}
+
 static inline void get_auth_info(struct sadb_key *m_auth,
 				 struct dpa_ipsec_sa_params *sa_params)
 {
