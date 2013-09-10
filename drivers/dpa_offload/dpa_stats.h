@@ -38,10 +38,12 @@
 
 #include <pthread.h>
 
-#define MAX_NUM_OF_STATS 23
-#define NUM_OF_CNT_TYPES (DPA_STATS_CNT_TRAFFIC_MNG + 1)
-#define MAX_NUM_OF_MEMBERS DPA_STATS_MAX_NUM_OF_CLASS_MEMBERS
-#define DPA_STATS_US_CNT 0x80000000
+
+#define MAX_NUM_OF_STATS	23
+#define NUM_OF_CNT_TYPES	(DPA_STATS_CNT_TRAFFIC_MNG + 1)
+#define MAX_NUM_OF_MEMBERS	DPA_STATS_MAX_NUM_OF_CLASS_MEMBERS
+#define DPA_STATS_US_CNT	0x80000000
+#define MAX_NUM_OF_THREADS	5
 
 
 /* DPA Stats control block */
@@ -85,7 +87,6 @@ struct dpa_stats_req {
 struct dpa_stats_async_req {
 	struct list_head node; /* Pointer to other async requests in the set */
 	struct dpa_stats_req *req; /* Pointer to a request structure */
-	pthread_t thread; /* Thread used to process this request */
 };
 
 /* DPA Stats - statistics information */

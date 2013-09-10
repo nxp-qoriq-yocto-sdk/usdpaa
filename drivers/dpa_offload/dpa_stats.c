@@ -64,10 +64,18 @@ typedef struct t_Device {
 	uint32_t	owners;
 } t_Device;
 
+struct us_thread_data {
+	pthread_t		id;
+	struct list_head	node;
+};
+
 static int dpa_stats_devfd = -1;
 pthread_t event_thread;
 pthread_t control_thread;
 pthread_t wk_thread;
+volatile unsigned int us_threads = 0;
+struct us_thread_data us_thread[MAX_NUM_OF_THREADS];
+struct list_head us_thread_list;
 
 /* Mutex to assure safe access to asynchronous user-space requests list */
 static pthread_mutex_t async_us_reqs_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -75,17 +83,11 @@ static pthread_mutex_t async_us_reqs_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t async_ks_reqs_lock = PTHREAD_MUTEX_INITIALIZER;
 /* Mutex to assure safe access to free asynchronous requests pool */
 static pthread_mutex_t async_reqs_pool = PTHREAD_MUTEX_INITIALIZER;
-/*
- * Pthread Conditional variable used for signaling the control thread when
- * async request is added
- */
-static pthread_cond_t async_us_reqs_cond = PTHREAD_COND_INITIALIZER;
 
 /* Global dpa_stats component */
 struct dpa_stats *gbl_dpa_stats;
 
 void *dpa_stats_event_thread(void *arg);
-void *dpa_stats_control_thread(void *arg);
 void *dpa_stats_worker_thread(void *arg);
 
 int *copy_array(int const *src, size_t len)
@@ -352,6 +354,8 @@ static int init_resources(struct dpa_stats *dpa_stats)
 
 	INIT_LIST_HEAD(&dpa_stats->async_us_reqs);
 
+	INIT_LIST_HEAD(&us_thread_list);
+
 	/* Allocate asynchronous request internal structure */
 	async_req = malloc(DPA_STATS_MAX_NUM_OF_REQUESTS * sizeof(*async_req));
 	if (!async_req) {
@@ -393,6 +397,10 @@ static int init_resources(struct dpa_stats *dpa_stats)
 		dpa_stats->cnts_cb[i].id = DPA_OFFLD_INVALID_OBJECT_ID;
 		pthread_mutex_init(&dpa_stats->cnts_cb[i].lock, NULL);
 	}
+
+	/* Initialize user space worker threads control blocks: */
+	for (i = 0; i < MAX_NUM_OF_THREADS; i++)
+		list_add_tail(&us_thread[i].node, &us_thread_list);
 
 	/* Initialize mutex required to protect access to scheduled counters */
 	err = pthread_mutex_init(&dpa_stats->sched_cnt_lock, NULL);
@@ -440,6 +448,9 @@ static int free_resources(void)
 			list_del(&async_req->node);
 		}
 	pthread_mutex_unlock(&async_us_reqs_lock);
+
+	/* Wait until all async request processing threads die: */
+	while (us_threads) {};
 
 	free(dpa_stats);
 	gbl_dpa_stats = NULL;
@@ -599,7 +610,9 @@ static int process_async_req(struct dpa_stats_event_params *ev)
 	struct dpa_stats *dpa_stats = NULL;
 	struct dpa_stats_async_req *async_req = NULL;
 	struct list_head *pos;
+	struct us_thread_data *new_us_thread;
 	bool found = false;
+	int err;
 
 	/* Sanity check */
 	if (!gbl_dpa_stats) {
@@ -637,7 +650,24 @@ static int process_async_req(struct dpa_stats_event_params *ev)
 		 */
 		pthread_mutex_lock(&async_us_reqs_lock);
 		list_add_tail(&async_req->node, &dpa_stats->async_us_reqs);
-		pthread_cond_signal(&async_us_reqs_cond);
+
+		/* If we can still create worker threads... */
+		if (us_threads < MAX_NUM_OF_THREADS) {
+			/* Create a new thread and pass the request to it */
+			new_us_thread = list_entry(us_thread_list.next,
+					struct us_thread_data, node);
+			list_del(&new_us_thread->node);
+			err = pthread_create(&new_us_thread->id,
+					NULL, dpa_stats_worker_thread,
+					new_us_thread);
+			if (err != 0) {
+				pthread_mutex_unlock(&async_us_reqs_lock);
+				error(0, err,
+					"Cannot create new worker thread\n");
+				return err;
+			}
+			us_threads++;
+		}
 		pthread_mutex_unlock(&async_us_reqs_lock);
 	} else {
 		/*
@@ -876,14 +906,6 @@ int dpa_stats_init(const struct dpa_stats_params *params, int *dpa_stats_id)
 	}
 
 	gbl_dpa_stats = dpa_stats;
-
-	/* Initialize the thread for reading events */
-	err = pthread_create(&control_thread, NULL,
-			dpa_stats_control_thread, dpa_stats);
-	if (err != 0) {
-		error(0, err, "Cannot create new control thread\n");
-		return err;
-	}
 
 	return 0;
 }
@@ -1170,7 +1192,8 @@ int dpa_stats_get_counters(struct dpa_stats_cnt_request_params params,
 	struct dpa_stats *dpa_stats = NULL;
 	struct dpa_stats_async_req *async_req = NULL;
 	struct dpa_stats_req *req = NULL;
-	int ret;
+	struct us_thread_data *new_us_thread;
+	int ret = 0;
 
 	if (dpa_stats_devfd < 0) {
 		error(0, ENODEV, "DPA Stats library is not initialized\n");
@@ -1259,7 +1282,24 @@ int dpa_stats_get_counters(struct dpa_stats_cnt_request_params params,
 			pthread_mutex_lock(&async_us_reqs_lock);
 			list_add_tail(&async_req->node,
 				      &dpa_stats->async_us_reqs);
-			pthread_cond_signal(&async_us_reqs_cond);
+
+			/* If we can still create worker threads... */
+			if (us_threads < MAX_NUM_OF_THREADS) {
+				/* Create a new thread and pass the request to it */
+				new_us_thread = list_entry(us_thread_list.next,
+						struct us_thread_data, node);
+				list_del(&new_us_thread->node);
+				ret = pthread_create(&new_us_thread->id,
+						NULL, dpa_stats_worker_thread,
+						new_us_thread);
+				if (ret != 0) {
+					pthread_mutex_unlock(&async_us_reqs_lock);
+					error(0, ret,
+						"Cannot create new worker thread\n");
+					return ret;
+				}
+				us_threads++;
+			}
 			pthread_mutex_unlock(&async_us_reqs_lock);
 		}
 		return 0;
@@ -1383,45 +1423,12 @@ void *dpa_stats_event_thread(void *arg)
 	} while (1);
 }
 
-void *dpa_stats_control_thread(void *arg)
-{
-	struct dpa_stats *dpa_stats = (struct dpa_stats *)arg;
-	struct dpa_stats_async_req *async_req = NULL;
-	int err = 0;
-
-	while (1) {
-		pthread_mutex_lock(&async_us_reqs_lock);
-		err = pthread_cond_wait(&async_us_reqs_cond,
-							&async_us_reqs_lock);
-		if (err) {
-			error(0, err, "Pthread condition error\n");
-			pthread_mutex_unlock(&async_us_reqs_lock);
-			return NULL;
-		}
-
-		/* Get first element of the list */
-		async_req = list_entry(dpa_stats->async_us_reqs.next,
-				       struct dpa_stats_async_req, node);
-		list_del(&async_req->node);
-
-		pthread_mutex_unlock(&async_us_reqs_lock);
-
-		/* Create a new thread and pass the request to it */
-		err = pthread_create(&async_req->thread,
-				NULL, dpa_stats_worker_thread, async_req);
-		if (err != 0) {
-			error(0, err, "Cannot create new worker thread\n");
-			return NULL;
-		}
-	}
-}
-
 void *dpa_stats_worker_thread(void *arg)
 {
-	struct dpa_stats_async_req *async_req =
-					(struct dpa_stats_async_req *)arg;
-	struct dpa_stats_req *req = async_req->req;
-	struct dpa_stats *dpa_stats = NULL;
+	struct us_thread_data *this_thread = (struct us_thread_data *)arg;
+	struct dpa_stats *dpa_stats;
+	struct dpa_stats_async_req *async_req;
+	struct dpa_stats_req *req;
 	cpu_set_t cpuset;
 	int ret;
 	int cpu = 0;
@@ -1437,7 +1444,7 @@ void *dpa_stats_worker_thread(void *arg)
 	CPU_SET(cpu, &cpuset);
 
 	ret = pthread_setaffinity_np(
-			async_req->thread, sizeof(cpu_set_t), &cpuset);
+			this_thread->id, sizeof(cpu_set_t), &cpuset);
 	if (ret) {
 		error(0, -ret, "(%d): Fail: pthread_setaffinity_np()\n", cpu);
 		return NULL;
@@ -1449,34 +1456,57 @@ void *dpa_stats_worker_thread(void *arg)
 		return NULL;
 	}
 
-	if (req->type == US_CNTS_ONLY)
-		/* Treat every counter from the request */
-		ret = treat_us_cnts_request(dpa_stats, req);
-	else
-		/* Treat only user-space counters */
-		ret = treat_mixed_cnts_request(dpa_stats, req);
+	pthread_mutex_lock(&async_us_reqs_lock);
+	while (!list_empty(&dpa_stats->async_us_reqs)) {
+		/* Get first element of the list */
+		async_req = list_entry(dpa_stats->async_us_reqs.next,
+				       struct dpa_stats_async_req, node);
+		list_del(&async_req->node);
+		pthread_mutex_unlock(&async_us_reqs_lock);
 
-	/* Return the asynchronous request in the pool */
-	free(async_req->req->cnt_off);
-	free(async_req->req->cnt_ids);
-	async_req->req->cnt_off = NULL;
-	async_req->req->cnt_ids = NULL;
-	pthread_mutex_lock(&async_reqs_pool);
-	list_add_tail(&async_req->req->node,  &dpa_stats->req_pool);
-	async_req->req = NULL;
-	list_add_tail(&async_req->node,  &dpa_stats->async_req_pool);
-	pthread_mutex_unlock(&async_reqs_pool);
+		req = async_req->req;
+		if (req->type == US_CNTS_ONLY)
+			/* Treat every counter from the request */
+			ret = treat_us_cnts_request(dpa_stats, req);
+		else
+			/* Treat only user-space counters */
+			ret = treat_mixed_cnts_request(dpa_stats, req);
+		if (ret < 0) {
+			error(0, EINVAL, "Cannot obtain counter values "
+					"in asynchronous mode\n");
+			req->bytes_num = ret;
+		}
 
-	if (ret < 0) {
-		error(0, EINVAL, "Cannot obtain counter values "
-				"in asynchronous mode\n");
-		req->bytes_num = ret;
+		/* Return the asynchronous request in the pool */
+		free(async_req->req->cnt_off);
+		free(async_req->req->cnt_ids);
+		async_req->req->cnt_off = NULL;
+		async_req->req->cnt_ids = NULL;
+		pthread_mutex_lock(&async_reqs_pool);
+		list_add_tail(&async_req->req->node,  &dpa_stats->req_pool);
+		async_req->req = NULL;
+		list_add_tail(&async_req->node,  &dpa_stats->async_req_pool);
+		pthread_mutex_unlock(&async_reqs_pool);
+
+		/* Call user-provided callback */
+		req->request_done(0,
+				req->config.storage_area_offset,
+				req->cnts_num,
+				req->bytes_num);
+
+		/* Lock again the us_reqs queue to check for remaining work: */
+		pthread_mutex_lock(&async_us_reqs_lock);
 	}
 
-	/* Call user-provided callback */
-	req->request_done(0,
-			req->config.storage_area_offset,
-			req->cnts_num,
-			req->bytes_num);
+	/* Die and put back the thread id to the pool */
+	us_threads--;
+	list_add_tail(&this_thread->node, &us_thread_list);
+	pthread_mutex_unlock(&async_us_reqs_lock);
+
+	ret = qman_thread_finish();
+	if (ret)
+		error(0, ret, "Failed to shut down QMan thread");
+	pthread_exit(NULL);
+
 	return NULL;
 }
