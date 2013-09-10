@@ -115,7 +115,6 @@ error_t parse_opt(int opt, char *arg, struct argp_state *state);
 int test_enc_match(void *params, struct qm_fd fd[]);
 int test_dec_match(void *params, struct qm_fd fd[]);
 static int validate_params(uint32_t cmd_args, struct test_param crypto_info);
-static int validate_sec_era_version(void);
 static int validate_test_set(struct test_param crypto_info);
 
 /* helper routines */

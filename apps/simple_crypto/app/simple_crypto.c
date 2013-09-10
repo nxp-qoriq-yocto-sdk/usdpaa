@@ -48,9 +48,9 @@ long ncpus;
 
 pthread_barrier_t app_barrier;
 
-int32_t set_user_sec_era = -1;
-
-enum rta_sec_era rta_sec_era = RTA_SEC_ERA_2;
+enum rta_sec_era rta_sec_era;
+int32_t user_sec_era = -1;
+int32_t hw_sec_era = -1;
 
 /*
  * brief	Initialises the reference test vector for aes-cbc
@@ -910,10 +910,8 @@ error_t parse_opt(int key, char *arg, struct argp_state *state)
 		break;
 
 	case 'e':
-		/* enum rta_sec_era starts from 0 */
-		rta_sec_era = atoi(arg) - 1;
-		set_user_sec_era = 1;
-		printf("SEC Era version = %d\n", USER_SEC_ERA(rta_sec_era));
+		user_sec_era = atoi(arg);
+		printf("User SEC Era version = %d\n", user_sec_era);
 		break;
 
 	default:
@@ -987,31 +985,6 @@ err:
 	return -EINVAL;
 }
 
-/**
- * @brief	Verifies if SEC Era version set by user is valid; in case the user
- *		didn't specify any era, the application with run w/ a default
- *		value
- * @return	0 on success, otherwise -1 value
- */
-static int validate_sec_era_version()
-{
-	if (set_user_sec_era < 0) {
-		printf("WARNING: Running with default SEC Era version 2!\n");
-	} else {
-		if ((rta_sec_era < RTA_SEC_ERA_1) ||
-		    (rta_sec_era > MAX_SEC_ERA)) {
-			fprintf(stderr,
-				"error: Unsupported SEC Era version by RTA\n");
-			return -1;
-		}
-		if (rta_sec_era < RTA_SEC_ERA_2) {
-			printf("WARNING: Unsupported SEC Era version by"
-			       " USDPAA\n");
-		}
-	}
-	return 0;
-}
-
 /*
  * brief	Check SEC 4.0 parameters provided by user whether valid or not
  * param[in]	g_cmd_params - Bit mask of all parameters provided by user
@@ -1069,7 +1042,7 @@ static int validate_params(uint32_t g_cmd_params, struct test_param crypto_info)
 		return -EINVAL;
 	}
 
-	if (validate_sec_era_version())
+	if (validate_sec_era_version(user_sec_era, hw_sec_era))
 		return -EINVAL;
 
 	switch (crypto_info.algo) {
@@ -1222,10 +1195,6 @@ int main(int argc, char *argv[])
 	/* Parse and check input arguments */
 	argp_parse(&argp, argc, argv, 0, 0, &input);
 
-	err = validate_params(g_cmd_params, crypto_info);
-	if (err)
-		error(err, err, "error: validate_params failed!");
-
 	/* Get the number of cores */
 	if (ncpus < 1 || ncpus > num_online_cpus) {
 		fprintf(stderr, "error: Invalid Parameters: Number of cpu's"
@@ -1238,6 +1207,12 @@ int main(int argc, char *argv[])
 	err = of_init();
 	if (err)
 		error(err, err, "error: of_init() failed");
+
+	hw_sec_era = sec_get_of_era();
+
+	err = validate_params(g_cmd_params, crypto_info);
+	if (err)
+		error(err, err, "error: validate_params failed!");
 
 	/* map DMA memory */
 	dma_mem_generic = dma_mem_create(DMA_MAP_FLAG_ALLOC, NULL, 0x1000000);

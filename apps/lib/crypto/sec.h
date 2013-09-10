@@ -32,6 +32,8 @@
 #define __CRYPTO_SEC_H
 
 #include <usdpaa/dma_mem.h>
+#include <flib/rta.h>
+#include <fsl_sec/sec.h>
 #include "common.h"
 
 #define MAX_DESCRIPTOR_SIZE      64
@@ -63,10 +65,57 @@ struct preheader_s {
 	} __packed lo;
 } __packed;
 
+extern enum rta_sec_era rta_sec_era;
+
 struct sec_descriptor_t {
 	struct preheader_s prehdr;
 	uint32_t descbuf[MAX_DESCRIPTOR_SIZE];
 };
+
+/**
+ * @brief	Verifies if SEC Era version set by user is valid; in case the
+ *		user didn't specify a SEC ERA, the application with run w/ a
+ *		default value (SEC ERA 2)
+ * @param[in]	user_sec_era - the SEC ERA the user requested
+ * @param[in]	hw_sec_era - the SEC ERA as it was read from HW
+ * @return	0 on success, otherwise -1 value
+ */
+static inline int validate_sec_era_version(int32_t user_sec_era,
+					   int32_t hw_sec_era)
+{
+	int ret;
+
+	if (user_sec_era < 0) {
+		if (hw_sec_era < 0) {
+			printf("WARNING: Running with default SEC Era version 2!\n");
+			rta_set_sec_era(RTA_SEC_ERA_2);
+		} else {
+			printf("Using SEC Era version = %d read from HW\n",
+			       hw_sec_era);
+			ret = rta_set_sec_era(INTL_SEC_ERA(hw_sec_era));
+			if (ret)
+				goto err;
+		}
+	} else {
+		ret = rta_set_sec_era(INTL_SEC_ERA(user_sec_era));
+		if (ret)
+			goto err;
+
+		if (!(hw_sec_era < 0) && (user_sec_era != hw_sec_era)) {
+			printf("WARNING: Requested SEC Era version %d, but SEC Era read from HW is %d\n",
+			       user_sec_era,
+			       hw_sec_era);
+		}
+	}
+
+	pr_debug("Running with SEC ERA %d\n", USER_SEC_ERA(rta_get_sec_era()));
+
+	return 0;
+
+err:
+	fprintf(stderr, "error: Unsupported SEC Era version by RTA\n");
+	return -1;
+}
 
 
 #endif /* __CRYPTO_SEC_H */

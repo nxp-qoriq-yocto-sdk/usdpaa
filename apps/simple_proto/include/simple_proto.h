@@ -230,7 +230,6 @@ void set_dec_buf(void *params, struct qm_fd fd[]);
 
 /* validate test routines */
 static int validate_test_set(struct test_param *crypto_info);
-static int validate_sec_era_version(void);
 static int validate_params(uint32_t cmd_args, uint32_t proto_args,
 			   struct test_param *crypto_info);
 static int validate_macsec_opts(uint32_t g_proto_params,
