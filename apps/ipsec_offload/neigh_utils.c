@@ -182,6 +182,56 @@ static int table_insert_entry(int td, u8 *key, u8 *mask,
 	}
 	return ret;
 }
+static int table_lookup_entry(int td, u8 *key, u8 *mask, int key_size)
+{
+	int ret;
+	struct dpa_offload_lookup_key dpa_key;
+	struct dpa_cls_tbl_action action;
+
+	dpa_key.byte = key;
+	dpa_key.mask = mask;
+	dpa_key.size = key_size;
+	memset(&action, 0 , sizeof(action));
+	ret = dpa_classif_table_lookup_by_key(td, &dpa_key, &action);
+	return ret;
+}
+
+int neigh_lookup_entry(struct fman_if *__if, int af, u8 *key, int prefixlen)
+{
+	struct ppac_interface *ppac_if;
+	u8 mask[MAX_IP_KEY_SIZE];
+	int td, ret, key_size;
+
+	ppac_if = get_ppac_if(__if->fman_idx,
+			      __if->mac_idx, __if->mac_type);
+	if (af == AF_INET) {
+		key_size = IPv4_KEY_SIZE;
+		td = ppac_if->ppam_data.hhm_td[ETHER_TYPE_IPv4];
+	} else if (af == AF_INET6) {
+		key_size = IPv6_KEY_SIZE;
+		td = ppac_if->ppam_data.hhm_td[ETHER_TYPE_IPv6];
+	} else {
+		return -ENOTSUP;
+	}
+	if (prefixlen) {
+		memset(mask, 0, sizeof(mask));
+		make_bitmask(mask, sizeof(mask), prefixlen);
+		ret = table_lookup_entry(td, key, mask, key_size);
+	} else {
+		ret = table_lookup_entry(td, key, NULL, key_size);
+	}
+	return ret;
+}
+
+int lookup_ib_neigh_entry(int af, u8 *key, u8 prefixlen)
+{
+	return neigh_lookup_entry(ob_oh_post, af, key, prefixlen);
+}
+
+int lookup_ob_neigh_entry(int af, u8 *key, u8 prefixlen)
+{
+	return neigh_lookup_entry(ib_oh, af, key, prefixlen);
+}
 
 static int table_delete_entry(int td, u8 *key, u8 *mask, int key_size)
 {
@@ -540,6 +590,54 @@ static int process_new_neigh(struct nlmsghdr *nh, int vif_idx, int vof_idx)
 	return ret;
 }
 
+static int process_del_route(struct nlmsghdr *nh, int vif_idx, int vof_idx)
+{
+	struct rtmsg *rtm;
+	struct nlattr *na;
+	int oif, rtm_dst_len, af;
+	uint32_t *dst;
+	int ret = 0;
+	rtm = (struct rtmsg *)NLMSG_DATA(nh);
+
+	na = (struct nlattr *)(NLMSG_DATA(nh) +
+		NLMSG_ALIGN(sizeof(*rtm)));
+	if (na->nla_type != RTA_TABLE)
+		return -1;
+	NLA_NEXT(na);
+	if (na->nla_type != RTA_DST)
+		return -1;
+
+	af = rtm->rtm_family;
+	dst = (uint32_t *)NLA_DATA(na);
+	rtm_dst_len = rtm->rtm_dst_len;
+
+	for ( ; na && (na->nla_type != RTA_OIF); na = NLA_NEXT(na))
+		;
+	if (!na)
+		return -1;
+	oif = *((uint32_t *)NLA_DATA(na));
+
+	if (oif != vif_idx && oif != vof_idx)
+		return 0;
+	/* check only for network prefixes */
+	if (rtm->rtm_family == AF_INET && (rtm_dst_len == 32))
+		return 0;
+	if (rtm->rtm_family == AF_INET6 && (rtm_dst_len == 128))
+		return 0;
+
+	if (oif == vof_idx) {
+		ret = lookup_ob_neigh_entry(af, dst, rtm_dst_len);
+		if (!ret)
+			ret = remove_ib_neigh_entry(af, dst, rtm_dst_len);
+	} else {
+		ret = lookup_ib_neigh_entry(af, dst, rtm_dst_len);
+		if (!ret)
+			ret = remove_ib_neigh_entry(af, dst, rtm_dst_len);
+	}
+
+	return ret;
+}
+
 static void *neigh_msg_loop(void *);
 
 int setup_neigh_loop(pthread_t *tid)
@@ -591,7 +689,9 @@ static void *neigh_msg_loop(void *data)
 	rtm_sd = create_nl_socket(NETLINK_ROUTE,
 				  RTMGRP_NEIGH |
 				  RTMGRP_IPV4_IFADDR |
-				  RTMGRP_IPV6_IFADDR);
+				  RTMGRP_IPV6_IFADDR |
+				  RTMGRP_IPV4_ROUTE |
+				  RTMGRP_IPV6_ROUTE);
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_name = (void *)&sa;
@@ -668,6 +768,9 @@ static void *neigh_msg_loop(void *data)
 			case RTM_NEWADDR:
 			case RTM_DELADDR:
 				process_add_del_addr(nh, vif_idx, vof_idx);
+				break;
+			case RTM_DELROUTE:
+				process_del_route(nh, vif_idx, vof_idx);
 				break;
 			default:
 				break;
