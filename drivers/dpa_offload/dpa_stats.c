@@ -1216,6 +1216,7 @@ int dpa_stats_get_counters(struct dpa_stats_cnt_request_params params,
 		if (list_empty(&dpa_stats->async_req_pool)) {
 			error(0, EDOM, "Reached maximum supported number of "
 			      "simultaneous asynchronous requests\n");
+			list_add_tail(&req->node, &dpa_stats->req_pool);
 			pthread_mutex_unlock(&async_reqs_pool);
 			return -EDOM;
 		}
