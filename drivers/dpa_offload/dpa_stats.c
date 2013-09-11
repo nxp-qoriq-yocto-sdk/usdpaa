@@ -1249,18 +1249,14 @@ int dpa_stats_get_counters(struct dpa_stats_cnt_request_params params,
 
 	/* If request is 'us' type, then we need to check the parameters*/
 	if (req->type == US_CNTS_ONLY) {
-		block_sched_cnts(dpa_stats,
-				params.cnts_ids, params.cnts_ids_len);
-
 		/* Check user-provided parameters */
 		ret = check_us_get_counters_params(dpa_stats, params, cnts_len);
-		if (ret < 0) {
-			unblock_sched_cnts(dpa_stats, params.cnts_ids,
-					   params.cnts_ids_len);
+		if (ret < 0)
 			return ret;
-		}
 
-		if (!request_done) {
+		if (!request_done) { /* Synchronous request */
+			block_sched_cnts(dpa_stats, params.cnts_ids,
+				params.cnts_ids_len);
 			ret =  treat_us_cnts_request(dpa_stats, req);
 			if (ret < 0)
 				return ret;
@@ -1303,10 +1299,7 @@ int dpa_stats_get_counters(struct dpa_stats_cnt_request_params params,
 			pthread_mutex_unlock(&async_us_reqs_lock);
 		}
 		return 0;
-	} else if (req->type == MIXED_CNTS)
-		block_sched_cnts(dpa_stats,
-				 params.cnts_ids, params.cnts_ids_len);
-
+	}
 
 	if (ioctl(dpa_stats_devfd, DPA_STATS_IOC_GET_COUNTERS, &ioc_prm) < 0) {
 		error(0, errno, "Could not create request\n");
