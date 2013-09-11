@@ -1145,7 +1145,6 @@ int dpa_stats_modify_class_counter(int dpa_stats_cnt_id,
 int dpa_stats_remove_counter(int dpa_stats_cnt_id)
 {
 	struct dpa_stats *dpa_stats = NULL;
-	struct dpa_stats_cnt_cb *cnt_cb = NULL;
 
 	if (dpa_stats_cnt_id < 0) {
 		error(0, EINVAL, "Invalid input parameter\n");
@@ -1163,13 +1162,6 @@ int dpa_stats_remove_counter(int dpa_stats_cnt_id)
 		return 0;
 	}
 	dpa_stats = gbl_dpa_stats;
-	cnt_cb = &dpa_stats->cnts_cb[dpa_stats_cnt_id];
-
-	if (cnt_cb->id != DPA_OFFLD_INVALID_OBJECT_ID &&
-	    cnt_is_sched(dpa_stats, dpa_stats_cnt_id)) {
-		error(0, EINVAL, "Counter id %d is in use\n", dpa_stats_cnt_id);
-		return 0;
-	}
 
 	if (ioctl(dpa_stats_devfd,
 		  DPA_STATS_IOC_REMOVE_COUNTER, &dpa_stats_cnt_id) < 0) {
@@ -1178,8 +1170,9 @@ int dpa_stats_remove_counter(int dpa_stats_cnt_id)
 	}
 
 	/* Mark the equivalent 'user-space' counter structure as invalid */
-	cnt_cb->id = DPA_OFFLD_INVALID_OBJECT_ID;
-	memset(&cnt_cb->info, 0, sizeof(struct stats_info));
+	dpa_stats->cnts_cb[dpa_stats_cnt_id].id = DPA_OFFLD_INVALID_OBJECT_ID;
+	memset(&dpa_stats->cnts_cb[dpa_stats_cnt_id].info, 0,
+		sizeof(struct stats_info));
 
 	return 0;
 }
