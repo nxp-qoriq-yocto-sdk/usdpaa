@@ -1465,6 +1465,12 @@ void *dpa_stats_worker_thread(void *arg)
 			req->bytes_num = ret;
 		}
 
+		/* Call user-provided callback */
+		req->request_done(0,
+				req->config.storage_area_offset,
+				req->cnts_num,
+				req->bytes_num);
+
 		/* Return the asynchronous request in the pool */
 		free(async_req->req->cnt_off);
 		free(async_req->req->cnt_ids);
@@ -1475,12 +1481,6 @@ void *dpa_stats_worker_thread(void *arg)
 		async_req->req = NULL;
 		list_add_tail(&async_req->node,  &dpa_stats->async_req_pool);
 		pthread_mutex_unlock(&async_reqs_pool);
-
-		/* Call user-provided callback */
-		req->request_done(0,
-				req->config.storage_area_offset,
-				req->cnts_num,
-				req->bytes_num);
 
 		/* Lock again the us_reqs queue to check for remaining work: */
 		pthread_mutex_lock(&async_us_reqs_lock);
