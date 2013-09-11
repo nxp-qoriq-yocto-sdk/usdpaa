@@ -1398,8 +1398,6 @@ void *dpa_stats_event_thread(void *arg)
 	ssize_t buff_sz = 0;
 	int err;
 
-	event_prm  = (struct dpa_stats_event_params *)buffer;
-
 	/*
 	* Read NUM_EVENTS_IN_READ from the advanced config interface.
 	* This call is blocking and will put the thread to sleep if
@@ -1410,6 +1408,8 @@ void *dpa_stats_event_thread(void *arg)
 		buff_sz = read(dpa_stats_devfd, buffer, (NUM_EVENTS_IN_READ *
 				sizeof(*event_prm)));
 
+		event_prm  = (struct dpa_stats_event_params *)buffer;
+
 		/* Dispatch events */
 		while (buff_sz >= sizeof(struct dpa_stats_event_params)) {
 			err = process_async_req(event_prm);
@@ -1418,6 +1418,7 @@ void *dpa_stats_event_thread(void *arg)
 					"asynchronous request\n");
 				return NULL;
 			}
+			event_prm++;
 			buff_sz -= sizeof(struct dpa_stats_event_params);
 		}
 	} while (1);
