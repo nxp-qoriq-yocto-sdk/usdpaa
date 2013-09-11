@@ -648,6 +648,8 @@ static int process_async_req(struct dpa_stats_event_params *ev)
 		 * treated, remove the request from the kernel-space list and
 		 * add it in the user-space list
 		 */
+		async_req->req->cnts_num = ev->cnts_written;
+		async_req->req->bytes_num = ev->bytes_written;
 		pthread_mutex_lock(&async_us_reqs_lock);
 		list_add_tail(&async_req->node, &dpa_stats->async_us_reqs);
 
