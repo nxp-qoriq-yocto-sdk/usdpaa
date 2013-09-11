@@ -1303,7 +1303,7 @@ int dpa_stats_get_counters(struct dpa_stats_cnt_request_params params,
 
 	if (ioctl(dpa_stats_devfd, DPA_STATS_IOC_GET_COUNTERS, &ioc_prm) < 0) {
 		error(0, errno, "Could not create request\n");
-		return -errno;
+		ret = -errno;
 	}
 
 	/* Provide to the user the number of written bytes */
@@ -1324,7 +1324,7 @@ int dpa_stats_get_counters(struct dpa_stats_cnt_request_params params,
 		pthread_mutex_unlock(&async_reqs_pool);
 	}
 
-	return 0;
+	return ret;
 }
 
 int dpa_stats_reset_counters(int *cnts_ids, unsigned int cnts_ids_len)
