@@ -712,7 +712,8 @@ static int fill_req_params(struct dpa_stats			*dpa_stats,
 	list_del(&req->node);
 	pthread_mutex_unlock(&async_reqs_pool);
 
-	/* Save user-provided parameters */
+	/* Initialize and save user-provided parameters */
+	memset(req, 0, sizeof(*req));
 	req->config.cnts_ids = prm.cnts_ids;
 	req->config.reset_cnts = prm.reset_cnts;
 	req->config.storage_area_offset = prm.storage_area_offset;
