@@ -243,7 +243,7 @@ void set_enc_buf_cb_pdcp(struct qm_fd *fd, uint8_t *buf,
 			 struct test_param *crypto_info)
 {
 	int i;
-	uint8_t plain_data = 0;
+	static uint8_t plain_data = 0;
 	uint8_t offset = 0;
 	uint32_t fd_cmd;
 
