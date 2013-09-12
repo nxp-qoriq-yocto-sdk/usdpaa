@@ -702,13 +702,14 @@ static int fill_req_params(struct dpa_stats			*dpa_stats,
 {
 	struct dpa_stats_req *req = NULL;
 
+	pthread_mutex_lock(&async_reqs_pool);
 	if (list_empty(&dpa_stats->req_pool)) {
 		error(0, EDOM, "Reached maximum supported number of "
 		      "simultaneous requests\n");
+		pthread_mutex_unlock(&async_reqs_pool);
 		return -EDOM;
 	}
 
-	pthread_mutex_lock(&async_reqs_pool);
 	/* Obtain a free request structure */
 	req = list_entry(dpa_stats->req_pool.next, struct dpa_stats_req, node);
 	list_del(&req->node);
