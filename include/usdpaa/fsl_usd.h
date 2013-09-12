@@ -34,6 +34,8 @@
 #define FSL_USD_H
 
 #include <usdpaa/compat.h>
+#include <usdpaa/fsl_qman.h>
+#include <usdpaa/fsl_bman.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,6 +51,22 @@ int bman_thread_init(void);
 int bman_thread_init_idx(uint32_t idx);
 int qman_thread_finish(void);
 int bman_thread_finish(void);
+
+#ifdef CONFIG_FSL_DPA_PORTAL_SHARE
+
+int qman_thread_init_slave(const struct qman_portal_config *cfg);
+int qman_thread_init_shared(void);
+int qman_thread_init_shared_idx(uint32_t idx);
+int qman_thread_finish_slave(void);
+
+
+int bman_thread_init_slave(const struct bman_portal_config *cfg);
+int bman_thread_init_shared(void);
+int bman_thread_init_shared_idx(uint32_t idx);
+int bman_thread_finish_slave(void);
+
+
+#endif
 
 #define QBMAN_ANY_PORTAL_IDX 0xffffffff
 

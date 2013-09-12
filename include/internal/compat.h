@@ -400,6 +400,11 @@ static inline void copy_bytes(void *dest, const void *src, size_t sz)
 #define spin_lock_irqsave(x,f)	do { spin_lock_irq(x); } while (0)
 #define spin_unlock_irqrestore(x,f) do { spin_unlock_irq(x); } while (0)
 
+#define raw_spinlock_t				spinlock_t
+#define raw_spin_lock_init(x)			spin_lock_init(x)
+#define raw_spin_lock_irqsave(x, f)		spin_lock(x)
+#define raw_spin_unlock_irqrestore(x, f)	spin_unlock(x)
+
 /* Waitqueue stuff */
 typedef struct { }		wait_queue_head_t;
 #define DECLARE_WAIT_QUEUE_HEAD(x) int dummy_##x __always_unused

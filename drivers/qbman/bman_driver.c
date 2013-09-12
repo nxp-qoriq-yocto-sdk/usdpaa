@@ -55,12 +55,28 @@ static __thread struct usdpaa_ioctl_portal_map map = {
 	.type = usdpaa_portal_bman
 };
 
-static int __init fsl_bman_portal_init(uint32_t idx)
+#ifdef CONFIG_FSL_DPA_PORTAL_SHARE
+static LIST_HEAD(master_list);
+static pthread_mutex_t master_list_lock = PTHREAD_MUTEX_INITIALIZER;
+
+struct bman_master {
+	struct list_head node;
+	u32 index;
+	struct bman_portal *portal;
+	unsigned int slave_refs;
+};
+#endif /* CONFIG_FSL_DPA_PORTAL_SHARE */
+
+static int __init fsl_bman_portal_init(uint32_t idx, int is_shared)
 {
 	cpu_set_t cpuset;
 	struct bman_portal *portal;
 	int loop, ret;
 	struct usdpaa_ioctl_irq_map irq_map;
+
+#ifdef CONFIG_FSL_DPA_PORTAL_SHARE
+	struct bman_master *master;
+#endif
 
 	/* Verify the thread's cpu-affinity */
 	ret = pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t),
@@ -92,7 +108,7 @@ static int __init fsl_bman_portal_init(uint32_t idx)
 	/* Make the portal's cache-[enabled|inhibited] regions */
 	pcfg.addr_virt[DPA_PORTAL_CE] = map.addr.cena;
 	pcfg.addr_virt[DPA_PORTAL_CI] = map.addr.cinh;
-	pcfg.public_cfg.is_shared = 0;
+	pcfg.public_cfg.is_shared = is_shared;
 	pcfg.public_cfg.index = map.index;
 	bman_depletion_fill(&pcfg.public_cfg.mask);
 
@@ -112,6 +128,26 @@ static int __init fsl_bman_portal_init(uint32_t idx)
 		process_portal_unmap(&map.addr);
 		return -EBUSY;
 	}
+
+#ifdef CONFIG_FSL_DPA_PORTAL_SHARE
+	master = calloc(1, sizeof(struct bman_master));
+	if (!master) {
+		pr_err("Memory allocation failed for bman master\n");
+		bman_destroy_affine_portal();
+		close(fd);
+		process_portal_unmap(&map.addr);
+		return -ENOMEM;
+	}
+
+	master->portal = portal;
+	master->index = bman_get_portal_config()->index;
+	master->slave_refs = 0;
+
+	pthread_mutex_lock(&master_list_lock);
+	list_add(&master->node, &master_list);
+	pthread_mutex_unlock(&master_list_lock);
+#endif
+
 	/* Set the IRQ number */
 	irq_map.type = usdpaa_portal_bman;
 	irq_map.portal_cinh = map.addr.cinh;
@@ -123,6 +159,32 @@ static int fsl_bman_portal_finish(void)
 {
 	__maybe_unused const struct bm_portal_config *cfg;
 	int ret;
+
+#ifdef CONFIG_FSL_DPA_PORTAL_SHARE
+	struct bman_master *master;
+	__maybe_unused struct bman_portal *redirect = NULL;
+	const struct bman_portal_config *portal_cfg;
+	portal_cfg = bman_get_portal_config();
+
+	pthread_mutex_lock(&master_list_lock);
+
+	list_for_each_entry(master, &master_list, node) {
+		if (master->index == portal_cfg->index) {
+			redirect = master->portal;
+			break;
+		}
+	}
+
+	BUG_ON(!redirect);
+	if (master->slave_refs) {
+		pthread_mutex_unlock(&master_list_lock);
+		return -EBUSY;
+	}
+
+	list_del(&master->node);
+	pthread_mutex_unlock(&master_list_lock);
+	free(master);
+#endif
 
 	process_portal_irq_unmap(fd);
 
@@ -138,15 +200,103 @@ int bman_thread_init(void)
 {
 	/* Convert from contiguous/virtual cpu numbering to real cpu when
 	 * calling into the code that is dependent on the device naming */
-	return fsl_bman_portal_init(QBMAN_ANY_PORTAL_IDX);
+	return fsl_bman_portal_init(QBMAN_ANY_PORTAL_IDX, 0);
 }
 
 int bman_thread_init_idx(uint32_t idx)
 {
 	/* Convert from contiguous/virtual cpu numbering to real cpu when
 	 * calling into the code that is dependent on the device naming */
-	return fsl_bman_portal_init(idx);
+	return fsl_bman_portal_init(idx, 0);
 }
+
+int bman_thread_init_shared_idx(uint32_t idx)
+{
+	/* Convert from contiguous/virtual cpu numbering to real cpu when
+	 * calling into the code that is dependent on the device naming */
+	return fsl_bman_portal_init(idx, 1);
+}
+
+#ifdef CONFIG_FSL_DPA_PORTAL_SHARE
+
+static int fsl_bman_slave_portal_init(const struct bman_portal_config *cfg)
+{
+	struct bman_portal *redirect = NULL;
+	struct bman_master *master;
+	struct bman_portal *p;
+
+	pthread_mutex_lock(&master_list_lock);
+
+	list_for_each_entry(master, &master_list, node) {
+		if (master->index == cfg->index) {
+			redirect = master->portal;
+			break;
+		}
+	}
+
+	if (!redirect) {
+		pr_err("Given portal not found in master list: %p\n", cfg);
+		pthread_mutex_unlock(&master_list_lock);
+		return -ENODEV;
+	}
+
+	master->slave_refs++;
+	pthread_mutex_unlock(&master_list_lock);
+
+	p = bman_create_affine_slave(redirect);
+	if (!p) {
+		pr_err("Bman slave init failure for portal: %u\n", cfg->index);
+		pthread_mutex_lock(&master_list_lock);
+		master->slave_refs--;
+		pthread_mutex_unlock(&master_list_lock);
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
+int bman_thread_init_shared(void)
+{
+	/* Convert from contiguous/virtual cpu numbering to real cpu when
+	 * calling into the code that is dependent on the device naming */
+	return fsl_bman_portal_init(QBMAN_ANY_PORTAL_IDX, 1);
+}
+
+
+int bman_thread_init_slave(const struct bman_portal_config *cfg)
+{
+	/* Convert from contiguous/virtual cpu numbering to real cpu when
+	 * calling into the code that is dependent on the device naming */
+	return fsl_bman_slave_portal_init(cfg);
+}
+
+int bman_thread_finish_slave(void)
+{
+	struct bman_master *master;
+	__maybe_unused struct bman_portal *redirect = NULL;
+	int ret = 0;
+	u32 index = bman_get_portal_config()->index;
+
+	bman_destroy_affine_portal();
+
+	pthread_mutex_lock(&master_list_lock);
+
+	list_for_each_entry(master, &master_list, node) {
+		if (master->index == index) {
+			redirect = master->portal;
+			break;
+		}
+	}
+
+	BUG_ON(!redirect);
+	master->slave_refs--;
+	pthread_mutex_unlock(&master_list_lock);
+
+	return ret;
+}
+
+#endif /* CONFIG_FSL_DPA_PORTAL_SHARE */
+
 int bman_thread_finish(void)
 {
 	return fsl_bman_portal_finish();
