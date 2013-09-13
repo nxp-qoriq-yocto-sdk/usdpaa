@@ -32,6 +32,7 @@
 #ifndef THREAD_PRIV_H
 #define THREAD_PRIV_H
 
+#include <signal.h>
 #include <usdpaa/dma_mem.h>
 #include <usdpaa/fman.h>
 #include <usdpaa/fsl_usd.h>

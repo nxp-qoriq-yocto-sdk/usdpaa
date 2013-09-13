@@ -1332,6 +1332,16 @@ int get_num_of_iterations(void *params)
 	return crypto_info.itr_num;
 }
 
+/**
+ * @brief	Sets the number of executed iterations for a test
+ * @param[in]	params - test parameters
+ * @return	Number of iterations executed for the test
+ */
+void set_num_of_iterations(void *params, unsigned int itr_num)
+{
+	((struct test_param *)params)->itr_num = itr_num;
+}
+
 /*
  * brief	Returns number of buffers for test
  * param[in]	params - test parameters
@@ -1407,6 +1417,7 @@ void set_crypto_cbs(struct test_cb *crypto_cb, struct test_param crypto_info)
 		crypto_cb->set_dec_buf = NULL;
 
 	crypto_cb->get_num_of_iterations = get_num_of_iterations;
+	crypto_cb->set_num_of_iterations = set_num_of_iterations;
 	crypto_cb->get_num_of_buffers = get_num_of_buffers;
 	crypto_cb->get_test_mode = get_test_mode;
 	crypto_cb->get_num_of_cpus = get_num_of_cpus;

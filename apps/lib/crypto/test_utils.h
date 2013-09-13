@@ -65,6 +65,16 @@ enum test_mode {
 	CIPHER
 };
 
+/*
+ * Structure used for passing required information to the cleanup handler.
+ */
+struct cleanup_params {
+	uint8_t authnct;
+	uint32_t cpu_index;
+	unsigned int executed_iterations;
+	void *crypto_param;
+	struct test_cb *crypto_cb;
+};
 int test_vector_match(uint32_t *left, uint32_t *right, uint32_t bitlen);
 void validate_test(unsigned int itr_num, unsigned int buf_num,
 		   unsigned int buf_size);

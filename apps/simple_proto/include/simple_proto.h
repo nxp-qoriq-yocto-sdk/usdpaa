@@ -258,6 +258,7 @@ int (*validate_proto_opts[])(uint32_t, struct test_param*) = {
 /* helper routines */
 static void set_crypto_cbs(struct test_cb *crypto_cb);
 int get_num_of_iterations(void *params);
+void set_num_of_iterations(void *params, unsigned int itr_num);
 inline int get_num_of_buffers(void *params);
 inline enum test_mode get_test_mode(void *params);
 inline uint8_t requires_authentication(void);

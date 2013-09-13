@@ -35,6 +35,9 @@
 static pthread_barrier_t barr;
 static __thread struct thread_data *__my_thread_data;
 
+static struct thread_data *g_ctxs;
+static int g_num_ctxs;
+
 struct thread_data *my_thread_data(void)
 {
 	return __my_thread_data;
@@ -73,15 +76,40 @@ end:
 	return NULL;
 }
 
-int start_threads_custom(struct thread_data *ctxs, int num_ctxs)
+void sigint(int signo)
 {
 	int i;
+	(void)signo;
+
+	for (i = 0; i < g_num_ctxs; i++)
+		pthread_cancel(g_ctxs[i].id);
+}
+
+int start_threads_custom(struct thread_data *ctxs, int num_ctxs)
+{
+	int i, err;
 	struct thread_data *ctx;
+	sigset_t sigset, oldset;
+	struct sigaction s;
+
+	/*
+	 * Remove SIGINT handling from this thread: the worker threads will
+	 * inherit the signal mask and it's not desirable to have the worker
+	 * threads handle SIGINT themselves, so this will avoid them catching
+	 * the signal instead of this thread.
+	 */
+	sigemptyset(&sigset);
+	sigaddset(&sigset, SIGINT);
+	err = pthread_sigmask(SIG_BLOCK, &sigset, &oldset);
+	if (err) {
+		perror("clear SIGINT on main thread failed: ");
+		return err;
+	}
+
 	/* Create the barrier used for qman_fqalloc_init() */
 	i = pthread_barrier_init(&barr, NULL, num_ctxs + 1);
 	/* Create the threads */
 	for (i = 0, ctx = &ctxs[0]; i < num_ctxs; i++, ctx++) {
-		int err;
 		/* Create+start the thread */
 		err = pthread_create(&ctx->id, NULL, thread_wrapper, ctx);
 		if (err != 0) {
@@ -90,6 +118,31 @@ int start_threads_custom(struct thread_data *ctxs, int num_ctxs)
 			return err;
 		}
 	}
+
+	g_num_ctxs = num_ctxs;
+	g_ctxs = &ctxs[0];
+
+	/*
+	 * Install the signal handler for SIGINT.
+	 */
+	s.sa_handler = sigint;
+	sigemptyset(&s.sa_mask);
+	err = sigaction(SIGINT, &s, NULL);
+	if (err) {
+		perror("failed to install SIGINT handler: ");
+		return err;
+	}
+
+	/*
+	 *  Restore the signal mask for this thread, thus making sure it is the
+	 *  only one receiving SIGINT and acting upon it.
+	 */
+	err = pthread_sigmask(SIG_SETMASK, &oldset, NULL);
+	if (err) {
+		perror("failed to restore signal mask for main thread: ");
+		return err;
+	}
+
 	/* Wait till threads have initialised thread-local qman/bman */
 	pthread_barrier_wait(&barr);
 	/* Release threads to start processing again */

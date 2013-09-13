@@ -35,6 +35,34 @@ uint64_t enc_delta, dec_delta;
 
 static bool ctrl_error;
 
+static void cleanup_handler(void *arg)
+{
+	int calm_down = 16; /* Chosen through testing */
+	struct cleanup_params *param = (struct cleanup_params *)arg;
+
+	if (unlikely(free_sec_fq(param->authnct) != 0)) {
+		fprintf(stderr, "error: %s: free_sec_fq failed\n", __func__);
+		abort();
+	}
+
+	/* Update the number of executed iterations (could be less than the
+	 * # of requested iterations because of Ctrl-C.
+	 */
+	param->crypto_cb->set_num_of_iterations(param->crypto_param,
+						param->executed_iterations);
+
+	while (calm_down--) {
+		qman_poll_slow();
+		/* Take one DQRR @ once */
+		qman_poll_dqrr(16);
+	}
+	qman_thread_finish();
+
+	pr_debug("Leaving thread on cpu %d\n", param->cpu_index);
+
+	free(param);
+}
+
 /* This is not actually necessary, the threads can just start up without any
  * ordering requirement. The first cpu will initialise the interfaces before
  * enabling the MACs, and cpus/portals can come online in any order. On
@@ -49,32 +77,50 @@ int worker_fn(struct thread_data *tdata)
 	/* Counters to record time */
 	uint64_t atb_start_enc = 0;
 	uint64_t atb_start_dec = 0;
-	int calm_down = 16, i = 1;
+	int i = 1;
 	int iterations = 0, itr_num;
 	int buf_num;
 	enum test_mode mode;
 	static pthread_barrier_t app_barrier;
-	uint8_t authnct;
 	long ncpus;
 	struct test_cb crypto_cb = *((struct test_cb *)tdata->test_cb);
 	void *crypto_param = tdata->test_param;
 	struct qm_fd *fd = get_fd_base();
+	struct cleanup_params *cleanup_params;
 
 	itr_num = crypto_cb.get_num_of_iterations(crypto_param);
 	iterations = itr_num;
 	buf_num = crypto_cb.get_num_of_buffers(crypto_param);
 	mode = crypto_cb.get_test_mode(crypto_param);
-	authnct = crypto_cb.requires_authentication();
 	ncpus = crypto_cb.get_num_of_cpus();
 	app_barrier = crypto_cb.get_thread_barrier();
 
 	cpu_index = tdata->index;
+
+	cleanup_params = calloc(1, sizeof(struct cleanup_params));
+	if (!cleanup_params) {
+		perror("allocating cleanup parameters: ");
+		abort();
+	}
+	cleanup_params->cpu_index = tdata->index;
+	cleanup_params->crypto_param = crypto_param;
+	cleanup_params->crypto_cb = tdata->test_cb;
+	cleanup_params->executed_iterations = 0;
+	cleanup_params->authnct = crypto_cb.requires_authentication();
+
 	pr_debug("\nThis is the thread on cpu %d\n", cpu_index);
 
 	if (unlikely(init_sec_fq(cpu_index, crypto_param, crypto_cb) != 0)) {
 		fprintf(stderr, "error: %s: init_sec_fq() failure\n", __func__);
 		abort();
 	}
+
+	/*
+	 * Set the function to be called in case SIGINT is received by
+	 * the main thread.
+	 */
+	pthread_cleanup_push(cleanup_handler, (void *)cleanup_params);
+	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
 	get_pkts_to_sec(buf_num, cpu_index, ncpus);
 
@@ -102,6 +148,10 @@ int worker_fn(struct thread_data *tdata)
 		if (!cpu_index)
 			/* encrypt mode: start time */
 			atb_start_enc = mfatb();
+
+		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+		pthread_testcancel(); /* A cancellation point */
+		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
 		/* Send data to SEC40 for encryption/authentication */
 		do_enqueues(ENCRYPT, cpu_index, ncpus, buf_num);
@@ -160,6 +210,10 @@ error2:
 
 		if (crypto_cb.requires_authentication())
 			goto result;
+
+		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+		pthread_testcancel(); /* A cancellation point */
+		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
 		if (!cpu_index)
 			/* decrypt mode: start time */
@@ -222,22 +276,17 @@ result:
 		}
 
 		iterations--;
+		cleanup_params->executed_iterations++;
 		i++;
+
+		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+		pthread_testcancel(); /* A cancellation point */
+		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 	}
 
 err_free_fq:
-	if (unlikely(free_sec_fq(authnct) != 0)) {
-		fprintf(stderr, "error: %s: free_sec_fq failed\n", __func__);
-		abort();
-	}
+	pthread_cleanup_pop(1);
 
-	while (calm_down--) {
-		qman_poll_slow();
-		qman_poll_dqrr(16);
-	}
-	qman_thread_finish();
-
-	pr_debug("Leaving thread on cpu %d\n", cpu_index);
 	return 0;
 }
 

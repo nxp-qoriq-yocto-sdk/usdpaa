@@ -51,6 +51,7 @@ struct test_cb {
 	void (*set_enc_buf) (void *, struct qm_fd fd[]);
 	void (*set_dec_buf) (void *, struct qm_fd fd[]);
 	int (*get_num_of_iterations) (void *);
+	void (*set_num_of_iterations) (void *, unsigned int);
 	int (*get_num_of_buffers) (void *);
 	long (*get_num_of_cpus) (void);
 	enum test_mode (*get_test_mode) (void *);
