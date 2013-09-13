@@ -37,7 +37,7 @@ __PERCPU uint32_t enc_pkts_from_sec;
 /* number of decrypted frame(s) returned from SEC4.0 per core*/
 __PERCPU uint32_t dec_pkts_from_sec;
 
-struct qm_fd fd[BUFF_NUM];	/* storage for frame descriptor */
+struct qm_fd *fd;	/* storage for frame descriptor */
 
 static __PERCPU struct fqs_t enc_fqs;
 

@@ -34,10 +34,15 @@
 #include <internal/compat.h>
 #include <usdpaa/fsl_qman.h>
 
-#define BUFF_NUM	       6400 /**< Maximum number of buffers can be
-					 provided by user */
-#define BUFF_SIZE	       6400 /**< Maximum buffer size that can be
-					 provided by user */
+#define BUFF_SIZE	9600 /**< Maximum buffer size that can be
+					  provided by user */
+
+#define DMAMEM_SIZE	0x1000000	/**< The size of the DMAable memory zone
+					 * It is shared across all the existing
+					 * processors in the system (i.e. one
+					 * zone from which each processor
+					 * allocates its structures
+					 */
 
 struct test_cb {
 	void *(*set_sec_descriptor) (bool, void *);

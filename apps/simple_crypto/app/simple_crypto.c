@@ -274,6 +274,16 @@ void (*init_ref_test_vector[]) (struct test_param crypto_info) = {
 int prepare_test_frames(struct test_param *crypto_info)
 {
 	int err = 0;
+	extern struct qm_fd *fd;
+
+	/*
+	 * Allocate FD array
+	 */
+	fd = calloc(crypto_info->buf_num, sizeof(struct qm_fd));
+	if (!fd) {
+		error(err, err, "error: allocating FD array");
+		return -ENOMEM;
+	}
 
 	if (PERF == crypto_info->mode) {
 		strcpy(mode_type, "PERF");
@@ -308,6 +318,45 @@ int prepare_test_frames(struct test_param *crypto_info)
 	return err;
 }
 
+/**
+ * @brief	Get the total buffer size used for input & output frames
+ *		for a specific protocol
+ * @param[in]	crypto_info - test parameters
+ * @return	Size necessary for storing both the input and the output
+ *		buffers
+ */
+static int get_buf_size(struct test_param *crypto_info)
+{
+	unsigned int total_size = crypto_info->buf_size;
+
+	switch (crypto_info->algo) {
+	case AES_CBC:
+	case TDES_CBC:
+	case SNOW_F8:
+	case KASUMI_F8:
+		total_size += crypto_info->buf_size;
+		break;
+	case SNOW_F9:
+		total_size += SNOW_F9_DIGEST_SIZE;
+		break;
+	case KASUMI_F9:
+		total_size += KASUMI_F9_DIGEST_SIZE;
+		break;
+	case CRC:
+		total_size += CRC_DIGEST_SIZE;
+		break;
+	case HMAC_SHA1:
+		total_size += HMAC_SHA1_DIGEST_SIZE;
+		break;
+	case SNOW_F8_F9:
+		total_size += crypto_info->buf_size + SNOW_F9_DIGEST_SIZE +
+				MAX(SNOW_JDESC_ENC_F8_F9_LEN,
+				    SNOW_JDESC_DEC_F8_F9_LEN);
+		break;
+	}
+
+	return total_size;
+}
 /*
  * brief	Set buffer sizes for input/output frames
  * param[in]	crypto_info - test parameters
@@ -811,14 +860,11 @@ static struct argp_option options[] = {
 	{"itrnum", 'l', "ITERATIONS", 0,
 	 "\n\r\tNumber of iteration to repeat\n"},
 	{"bufnum", 'n', "TOTAL BUFFERS", 0,
-	 "\n\r\tTotal number of buffers(1-6400)"
-		"\n\r\t\t Note: Both of Buffer size and buffer number"
-		"\n\r\t\t cannot be greater than 3200 at the same time\n"},
-	{"bufsize", 's', "BUFFER SIZE", 0,
-	 "\n\r\tOPTION IS VALID ONLY IN PERF MODE"
-		"\n\r\t\t Buffer size (64, 128 ...upto 6400)"
-		"\n\r\t\t Note: Both of Buffer size and buffer number"
-		"\n\r\t\t cannot be greater than 3200 at the same time\n"},
+	 "Total number of buffers (depends on protocol & buffer size)."
+	 "\n"},
+	 {"bufsize", 's', "BUFSIZE", 0,
+	 "OPTION IS VALID ONLY IN PERF MODE"
+	 "\n\nBuffer size (64, 128 ... up to 9600)."},
 	{"ncpus", 'c', "CPUS", 0,
 	 "\n\r\tOPTIONAL PARAMETER\n"
 		"\n\r\tNumber of cpus to work for the"
@@ -993,6 +1039,8 @@ err:
  */
 static int validate_params(uint32_t g_cmd_params, struct test_param crypto_info)
 {
+	unsigned int total_size, max_num_buf;
+
 	if ((PERF == crypto_info.mode)
 	    && BMASK_SEC_PERF_MODE == g_cmd_params) {
 		/* do nothing */
@@ -1010,30 +1058,44 @@ static int validate_params(uint32_t g_cmd_params, struct test_param crypto_info)
 		return -EINVAL;
 	}
 
-	if (crypto_info.buf_num == 0 || crypto_info.buf_num > BUFF_NUM) {
-		fprintf(stderr, "error: Invalid Parameters: Invalid number of"
-			" buffers\nsee --help option\n");
-		return -EINVAL;
-	}
-
 	if (PERF == crypto_info.mode && (crypto_info.buf_size == 0 ||
 					 crypto_info.buf_size %
 					 L1_CACHE_BYTES != 0
 					 || crypto_info.buf_size > BUFF_SIZE)) {
 		fprintf(stderr,
-			"error: Invalid Parameters: Invalid number of"
-			" buffers\nsee --help option\n");
+			"error: Invalid Parameters: Invalid buffer size\n"
+			"see --help option\n");
 		return -EINVAL;
 	}
 
-	if (PERF == crypto_info.mode && (crypto_info.buf_num > BUFF_NUM / 2
-					 && crypto_info.buf_size >
-					 BUFF_SIZE / 2)) {
-		fprintf(stderr,
-			"error: Both of number of buffers and buffer"
-			" size\ncannot be more than 3200 at the same time\n"
-			"see --help option\n");
-		return -EINVAL;
+	total_size = sizeof(struct sg_entry_priv_t) +
+			get_buf_size(&crypto_info);
+	/*
+	 * The total usdpaa_mem space required for processing the frames
+	 * is split as follows:
+	 * - SEC descriptors: one per each FQ multiplied by the # of FQs per
+	 *		      core (the "from SEC" FQ doesn't have a descriptor)
+	 * - QMan FQ structures: two per each FQ, multiplied by the # of FQs
+	 *		       per core
+	 * - I/O buffers & S/G entries multiplied by # of buffers
+	 */
+	max_num_buf = (DMAMEM_SIZE -
+			FQ_PER_CORE * (SEC_DESCRIPTORS_SIZE + QMAN_FQS_SIZE)) /
+			ALIGN(total_size, L1_CACHE_BYTES);
+
+	/*
+	 * Because the usdpaa_mem allocator is using some memory as well, at
+	 * the end of the USDPAA reserved memory zone, just to be sure that in
+	 * the worst case scenario (many small unaligned buffers) there's no
+	 * issue, subtract 1 buffer from the calculated number
+	 */
+	max_num_buf--;
+
+	if (crypto_info.buf_num == 0 || crypto_info.buf_num > max_num_buf) {
+		fprintf(stderr, "error: Invalid Parameters: Invalid number of buffers:\n"
+				"Maximum number of buffers for the selected frame size is %d\n"
+				"see --help option\n", max_num_buf);
+			return -EINVAL;
 	}
 
 	if (SNOW_F8_F9 == crypto_info.algo && PERF == crypto_info.mode) {
@@ -1215,7 +1277,7 @@ int main(int argc, char *argv[])
 		error(err, err, "error: validate_params failed!");
 
 	/* map DMA memory */
-	dma_mem_generic = dma_mem_create(DMA_MAP_FLAG_ALLOC, NULL, 0x1000000);
+	dma_mem_generic = dma_mem_create(DMA_MAP_FLAG_ALLOC, NULL, DMAMEM_SIZE);
 	if (!dma_mem_generic) {
 		pr_err("DMA memory initialization failed\n");
 		exit(EXIT_FAILURE);

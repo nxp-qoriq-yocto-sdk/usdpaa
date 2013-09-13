@@ -587,6 +587,16 @@ void (*init_ref_test_vector[]) (struct test_param *crypto_info) = {
 int prepare_test_frames(struct test_param *crypto_info)
 {
 	int err = 0;
+	extern struct qm_fd *fd;
+
+	/*
+	 * Allocate FD array
+	 */
+	fd = calloc(crypto_info->buf_num, sizeof(struct qm_fd));
+	if (!fd) {
+		error(err, err, "error: allocating FD array");
+		return -ENOMEM;
+	}
 
 	if (PERF == crypto_info->mode) {
 		strcpy(mode_type, "PERF");
@@ -618,6 +628,58 @@ int prepare_test_frames(struct test_param *crypto_info)
 	printf("\nStarting threads for %ld cpus\n", ncpus);
 
 	return err;
+}
+
+/**
+ * @brief	Get the total buffer size used for input & output frames
+ *		for a specific protocol
+ * @param[in]	crypto_info - test parameters
+ * @return	Size necessary for storing both the input and the output
+ *		buffers
+ */
+static int get_buf_size(struct test_param *crypto_info)
+{
+	unsigned int total_size = crypto_info->buf_size;
+
+	switch (crypto_info->proto) {
+	case MACSEC:
+		total_size += crypto_info->buf_size  + MACSEC_ICV_SIZE +
+				MACSEC_SECTAG_SIZE;
+		break;
+
+	case WIMAX:
+		total_size += crypto_info->buf_size + WIMAX_PN_SIZE;
+		if ((CIPHER == crypto_info->mode) ||
+		    crypto_info->proto_params.wimax_params.fcs)
+			total_size += WIMAX_FCS_SIZE;
+		break;
+
+	case PDCP:
+		switch (crypto_info->proto_params.pdcp_params.type) {
+		case PDCP_CONTROL_PLANE:
+		case PDCP_SHORT_MAC:
+			total_size +=
+				crypto_info->buf_size + PDCP_MAC_I_LEN;
+			break;
+
+		case PDCP_DATA_PLANE:
+			total_size += crypto_info->buf_size;
+			break;
+		}
+
+		if (crypto_info->proto_params.pdcp_params.hfn_ov_en &&
+		    rta_sec_era == RTA_SEC_ERA_2) {
+			/* The input and output buffer are 4 bytes longer */
+			total_size += 2 * PDCP_P4080REV2_HFN_OV_BUFLEN;
+		}
+		break;
+
+	case SRTP:
+		total_size += crypto_info->buf_size + SRTP_MAX_ICV_SIZE;
+		break;
+	}
+
+	return total_size;
 }
 
 /**
@@ -1032,15 +1094,11 @@ struct argp_option options[] = {
 	"Number of iterations to repeat"
 	"\n"},
 	{"bufnum", 'n', "TOTAL BUFFERS", 0,
-	"Total number of buffers (1-6400)."
-	" Both of Buffer size and buffer number"
-	" cannot be greater than 3200 at the same time."
+	"Total number of buffers (depends on protocol & buffer size)."
 	"\n"},
 	{"bufsize", 's', "BUFSIZE", 0,
 	"OPTION IS VALID ONLY IN PERF MODE"
-	"\n\nBuffer size (64, 128 ... up to 6400)."
-	" Note: Both of Buffer size and buffer number"
-	" cannot be greater than 3200 at the same time."
+	"\n\nBuffer size (64, 128 ... up to 9600)."
 	"\nThe WiMAX frame size, including the FCS if"
 	" present, must be shorter than 2048 bytes."
 	"\n"},
@@ -1594,6 +1652,8 @@ static int validate_srtp_opts(uint32_t g_proto_params,
 static int validate_params(uint32_t g_cmd_params, uint32_t g_proto_params,
 			   struct test_param *crypto_info)
 {
+	unsigned int total_size, max_num_buf;
+
 	if ((PERF == crypto_info->mode) &&
 	    BMASK_SEC_PERF_MODE == g_cmd_params) {
 		/* do nothing */
@@ -1612,29 +1672,42 @@ static int validate_params(uint32_t g_cmd_params, uint32_t g_proto_params,
 		return -EINVAL;
 	}
 
-	if (crypto_info->buf_num == 0 || crypto_info->buf_num > BUFF_NUM) {
-		fprintf(stderr,
-			"error: Invalid Parameters: Invalid number of buffers\n"
-			"see --help option\n");
-		return -EINVAL;
-	}
-
-	if (PERF == crypto_info->mode && (crypto_info->buf_size == 0 ||
-					  crypto_info->buf_size %
-					  L1_CACHE_BYTES != 0 ||
-					  crypto_info->buf_size > BUFF_SIZE)) {
+	if ((PERF == crypto_info->mode) &&
+	    (crypto_info->buf_size == 0 ||
+	     crypto_info->buf_size % L1_CACHE_BYTES != 0 ||
+	     crypto_info->buf_size > BUFF_SIZE)) {
 		fprintf(stderr,
 			"error: Invalid Parameters: Invalid number of buffers\nsee --help option\n");
 		return -EINVAL;
 	}
 
-	if (PERF == crypto_info->mode &&
-	    (crypto_info->buf_num > BUFF_NUM / 2 &&
-	     crypto_info->buf_size > BUFF_SIZE / 2)) {
-		fprintf(stderr,
-			"error: Both of number of buffers and buffer size cannot be more than 3200 at the same time\n"
-			"see --help option\n");
-		return -EINVAL;
+	total_size = sizeof(struct sg_entry_priv_t) + get_buf_size(crypto_info);
+	/*
+	 * The total usdpaa_mem space required for processing the frames
+	 * is split as follows:
+	 * - SEC descriptors: one per each FQ multiplied by the # of FQs per
+	 *		      core (the "from SEC" FQ doesn't have a descriptor)
+	 * - QMan FQ structures: two per each FQ, multiplied by the # of FQs
+	 *		       per core
+	 * - I/O buffers & S/G entries multiplied by # of buffers
+	 */
+	max_num_buf = (DMAMEM_SIZE -
+			FQ_PER_CORE * (SEC_DESCRIPTORS_SIZE + QMAN_FQS_SIZE)) /
+			ALIGN(total_size, L1_CACHE_BYTES);
+
+	/*
+	 * Because the usdpaa_mem allocator is using some memory as well, at
+	 * the end of the USDPAA reserved memory zone, just to be sure that in
+	 * the worst case scenario (many small unaligned buffers) there's no
+	 * issue, subtract 1 buffer from the calculated number
+	 */
+	max_num_buf--;
+
+	if (crypto_info->buf_num == 0 || crypto_info->buf_num > max_num_buf) {
+		fprintf(stderr, "error: Invalid Parameters: Invalid number of buffers:\n"
+				"Maximum number of buffers for the selected frame size is %d\n"
+				"see --help option\n", max_num_buf);
+			return -EINVAL;
 	}
 
 	if (validate_sec_era_version(user_sec_era, hw_sec_era))
@@ -1908,7 +1981,7 @@ int main(int argc, char *argv[])
 		error(err, err, "error: validate_params failed!");
 
 	/* map DMA memory */
-	dma_mem_generic = dma_mem_create(DMA_MAP_FLAG_ALLOC, NULL, 0x1000000);
+	dma_mem_generic = dma_mem_create(DMA_MAP_FLAG_ALLOC, NULL, DMAMEM_SIZE);
 	if (!dma_mem_generic) {
 		pr_err("DMA memory initialization failed\n");
 		exit(EXIT_FAILURE);
