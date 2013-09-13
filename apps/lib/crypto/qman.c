@@ -428,28 +428,7 @@ void cb_ern(struct qman_portal *qm, struct qman_fq *fq,
 void cb_fqs(struct qman_portal *qm, struct qman_fq *fq,
 	    const struct qm_mr_entry *msg)
 {
-	uint32_t fqid;
-	uint32_t rem, offset;
-
-	fqid = fq->fqid;
-
-	if ((fqid >= enc_fqs.base)
-	    && (fqid < enc_fqs.base + 2 * FQ_PER_CORE)) {
-		offset = fqid - enc_fqs.base;
-		rem = offset % 2;
-		if (!rem)
-			enc_fqs.from_sec_retire[offset / 2] = true;
-		else
-			enc_fqs.to_sec_retire[offset / 2] = true;
-	} else if ((fqid >= dec_fqs.base)
-		   && (fqid < (dec_fqs.base + 2 * FQ_PER_CORE))) {
-		offset = fqid - dec_fqs.base;
-		rem = offset % 2;
-		if (!rem)
-			dec_fqs.from_sec_retire[offset / 2] = true;
-		else
-			dec_fqs.to_sec_retire[offset / 2] = true;
-	}
+	pr_debug("%s called for FQ %d\n", fq->fqid);
 }
 
 /*
@@ -475,34 +454,47 @@ int check_fd_status(unsigned int buf_num)
 /*
  * brief	Free memory allocated for frame descriptors
  * param[in]	fq - sec frame queues
- * param[in]	fq_retire_flag
  * return	0 - if status is correct (i.e. 0)
  *		-1 - if SEC returned an error status (i.e. non 0)
  */
-int free_sec_frame_queues(struct qman_fq *fq[], bool fq_retire_flag[])
+int free_sec_frame_queues(struct qman_fq *fq[])
 {
 	int res, i;
 	uint32_t flags;
 
 	for (i = 0; i < FQ_PER_CORE; i++) {
 		res = qman_retire_fq(fq[i], &flags);
-		if (0 > res) {
-			fprintf(stderr, "error: qman_retire_fq failed for"
-				" fq %d\n", i);
-			return -EINVAL;
-		}
+		if (res == 1) {
+			/* Retire is non-blocking, poll for completion */
+			enum qman_fq_state state;
+			do {
+				qman_poll();
+				qman_fq_state(fq[i], &state, &flags);
+			} while (state != qman_fq_state_retired);
 
-		while (!fq_retire_flag[i])
-			qman_poll();
+			if (flags & QMAN_FQ_STATE_NE) {
+				/* FQ isn't empty, drain it */
+				res = qman_volatile_dequeue(fq[i], 0,
+						QM_VDQCR_NUMFRAMES_TILLEMPTY);
+				if (res) {
+					fprintf(stderr,
+						"error: qman_volatile_dequeue failed for fq %d\n",
+						i);
+					return -EINVAL;
+				}
 
-		if (flags & QMAN_FQ_STATE_BLOCKOOS) {
-			fprintf(stderr, "error: leaking frames for"
-				" fq %d\n", i);
-			return -1;
+				/* Poll for completion */
+				do {
+					qman_poll();
+					qman_fq_state(fq[i], &state, &flags);
+				} while (flags & QMAN_FQ_STATE_VDQCR);
+			}
 		}
-		if (qman_oos_fq(fq[i])) {
-			fprintf(stderr, "error: qman_oos_fq failed for"
-				" fq %d\n", i);
+		res = qman_oos_fq(fq[i]);
+		if (res) {
+			fprintf(stderr,
+				"error: qman_oos_fq failed for fq %d\n",
+				i);
 			return -EINVAL;
 		}
 		qman_destroy_fq(fq[i], 0);
@@ -518,33 +510,27 @@ int free_sec_frame_queues(struct qman_fq *fq[], bool fq_retire_flag[])
  */
 int free_sec_fq(uint8_t authnct)
 {
-	if (unlikely(free_sec_frame_queues(enc_fqs.from_sec,
-					   enc_fqs.from_sec_retire) != 0)) {
+	if (unlikely(free_sec_frame_queues(enc_fqs.from_sec) != 0)) {
 		fprintf(stderr, "error: free_sec_frame_queues failed for"
 			" enc_fq_from_sec\n");
 		return -1;
 	}
 
-	if (unlikely(free_sec_frame_queues(enc_fqs.to_sec,
-					   enc_fqs.to_sec_retire) != 0)) {
+	if (unlikely(free_sec_frame_queues(enc_fqs.to_sec) != 0)) {
 		fprintf(stderr, "error: free_sec_frame_queues failed for"
 			" enc_fq_to_sec\n");
 		return -1;
 	}
 
 	if (!authnct) {
-		if (unlikely(free_sec_frame_queues(dec_fqs.from_sec,
-						   dec_fqs.from_sec_retire) !=
-			     0)) {
+		if (unlikely(free_sec_frame_queues(dec_fqs.from_sec) != 0)) {
 			fprintf(stderr,
 				"error: free_sec_frame_queues failed"
 				" for dec_fq_from_sec\n");
 			return -1;
 		}
 
-		if (unlikely(free_sec_frame_queues(dec_fqs.to_sec,
-						   dec_fqs.to_sec_retire) !=
-			     0)) {
+		if (unlikely(free_sec_frame_queues(dec_fqs.to_sec) != 0)) {
 			fprintf(stderr,
 				"error: free_sec_frame_queues failed"
 				" for dec_fq_to_sec\n");

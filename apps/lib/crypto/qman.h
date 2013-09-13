@@ -50,8 +50,6 @@ struct fqs_t {
 	uint32_t base;
 	struct qman_fq *from_sec[FQ_PER_CORE];
 	struct qman_fq *to_sec[FQ_PER_CORE];
-	bool from_sec_retire[FQ_PER_CORE];
-	bool to_sec_retire[FQ_PER_CORE];
 };
 
 struct sg_entry_priv_t {
@@ -95,7 +93,7 @@ struct qm_fd *get_fd_base(void);
 
 /* Free routines */
 int free_sec_fq(uint8_t authnct);
-int free_sec_frame_queues(struct qman_fq *fq[], bool fq_retire_flag[]);
+int free_sec_frame_queues(struct qman_fq *fq[]);
 void free_fd(unsigned int buf_num);
 
 /* Debug routines */
