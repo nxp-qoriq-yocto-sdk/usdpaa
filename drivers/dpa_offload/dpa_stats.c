@@ -357,25 +357,23 @@ static int init_resources(struct dpa_stats *dpa_stats)
 	INIT_LIST_HEAD(&us_thread_list);
 
 	/* Allocate asynchronous request internal structure */
-	async_req = malloc(DPA_STATS_MAX_NUM_OF_REQUESTS * sizeof(*async_req));
+	async_req = malloc((DPA_STATS_MAX_NUM_OF_REQUESTS-1) * sizeof(*async_req));
 	if (!async_req) {
 		error(0, ENOMEM, "Cannot allocate memory for "
 				"asynchronous request internal structure\n");
 		return -ENOMEM;
 	}
-	for (i = 0; i < DPA_STATS_MAX_NUM_OF_REQUESTS; i++) {
-		memset(&async_req[i], 0, sizeof(struct dpa_stats_async_req));
-		list_add_tail(&async_req[i].node, &dpa_stats->async_req_pool);
-	}
-
 	/* Allocate request internal structure */
-	req = malloc(DPA_STATS_MAX_NUM_OF_REQUESTS * sizeof(*req));
+	req = malloc((DPA_STATS_MAX_NUM_OF_REQUESTS-1) * sizeof(*req));
 	if (!req) {
 		error(0, ENOMEM, "Cannot allocate memory for "
 		      "synchronous request internal structure\n");
 		return -ENOMEM;
 	}
-	for (i = 0; i < DPA_STATS_MAX_NUM_OF_REQUESTS; i++) {
+
+	for (i = 0; i < (DPA_STATS_MAX_NUM_OF_REQUESTS-1); i++) {
+		memset(&async_req[i], 0, sizeof(struct dpa_stats_async_req));
+		list_add_tail(&async_req[i].node, &dpa_stats->async_req_pool);
 		memset(&req[i], 0, sizeof(*req));
 		list_add_tail(&req[i].node, &dpa_stats->req_pool);
 	}
