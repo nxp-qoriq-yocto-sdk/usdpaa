@@ -48,9 +48,6 @@
 #include <usdpaa/usdpaa_netcfg.h>
 #include <usdpaa/dma_mem.h>
 
-/* Internal conf defines buffer pool IDs, buffer sizes, and numbers. */
-#include <internal/conf.h>
-
 /* Define "stringify" macro to avoid needing internal/compat.h */
 #define __stringify_1(x) #x
 #define __stringify(x)	__stringify_1(x)
