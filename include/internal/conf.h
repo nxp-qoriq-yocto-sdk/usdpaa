@@ -73,9 +73,6 @@ extern "C" {
 /* disable support for run-time parameter checking, assertions, etc */
 #undef CONFIG_FSL_DPA_CHECKING
 
-/* USDPAA has no concept of portal-sharing, so don't build it */
-#undef CONFIG_FSL_DPA_PORTAL_SHARE
-
 /* workarounds for errata and missing features in p4080 rev1 */
 #define CONFIG_FSL_QMAN_BUG_AND_FEATURE_REV1
 
