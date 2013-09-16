@@ -251,7 +251,7 @@ void set_enc_buf_cb_pdcp(struct qm_fd *fd, uint8_t *buf,
 			 struct test_param *crypto_info)
 {
 	int i;
-	uint8_t plain_data = 0;
+	static uint8_t plain_data = 0;
 	uint8_t offset = 0;
 	uint32_t fd_cmd;
 
@@ -1523,6 +1523,16 @@ static int validate_pdcp_opts(uint32_t g_proto_params,
 	}
 
 	if (g_proto_params & BMASK_PDCP_INTEGRITY) {
+		switch (pdcp_params->type) {
+		case PDCP_CONTROL_PLANE:
+		case PDCP_SHORT_MAC:
+			break;
+		case PDCP_DATA_PLANE:
+			fprintf(stderr, "error: PDCP Invalid Parameters: Invalid integrity setting for type\n"
+					"see --help option\n");
+			return -EINVAL;
+		}
+
 		switch (pdcp_params->integrity_alg) {
 		case PDCP_AUTH_TYPE_NULL:
 		case PDCP_AUTH_TYPE_SNOW:

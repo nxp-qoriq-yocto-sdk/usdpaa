@@ -53,6 +53,7 @@ board2soc()
 {
        case $1 in
                [pP]1023*) echo p1023;;
+               [pP]2041*) echo p2041;;
                [pP]3041*) echo p3041;;
                [pP]4080*) echo p4080;;
                [pP]5020*) echo p5020;;
@@ -66,6 +67,7 @@ board2cpu()
 {
        case $1 in
                [pP]1023*) echo e500v2;;
+               [pP]2041*) echo e500mc;;
                [pP]3041*) echo e500mc;;
                [pP]4080*) echo e500mc;;
                [pP]5020*-64b) echo 64e5500;;
@@ -86,7 +88,7 @@ do
 	case $flags in
 		m)
 			case $OPTARG in
-				p1023ds | p3041ds | p4080ds | p5020ds | p5020ds-64b | p5040ds-64b | b4860qds | b4860qds-64b | t4240qds | t4240qds-64b)
+				p1023ds | p2041rdb | p3041ds | p4080ds | p5020ds | p5020ds-64b | p5040ds-64b | b4860qds | b4860qds-64b | t4240qds | t4240qds-64b)
 					board=$OPTARG
 					;;
 				*)
@@ -110,6 +112,7 @@ fi
 sysroot="${SDK_ROOT}/build_${board}_release/tmp/sysroots"
 if [[ -d "${sysroot}" ]]
 then
+	export PATH="${sysroot}/`uname -m`-linux/usr/bin:$PATH"
 	export PATH="${sysroot}/`uname -m`-linux/usr/bin/ppc$(board2cpu $board)-fsl_networking-linux/:$PATH"
 
 	export PKG_CONFIG_SYSROOT_DIR="${sysroot}/$board"
