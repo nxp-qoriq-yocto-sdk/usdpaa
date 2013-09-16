@@ -363,8 +363,7 @@ void init_rtv_pdcp(struct test_param *crypto_info)
 		break;
 
 	default:
-		fprintf(stderr, "Unknown PDCP PDU type %d"
-			"(should never reach here)\n",
+		fprintf(stderr, "Unknown PDCP PDU type %d (should never reach here)\n",
 			pdcp_params->type);
 		assert(0);
 		return;
@@ -661,8 +660,7 @@ static int set_buf_size(struct test_param *crypto_info)
 			break;
 
 		default:
-			fprintf(stderr, "error: %s: PDCP protocol type %d not"
-				"supported\n",
+			fprintf(stderr, "error: %s: PDCP protocol type %d not supported\n",
 				__func__,
 				crypto_info->proto_params.pdcp_params.type);
 			return -EINVAL;
@@ -1341,10 +1339,9 @@ static int validate_sec_era_version()
 				"error: Unsupported SEC Era version by RTA\n");
 			return -1;
 		}
-		if (rta_sec_era < RTA_SEC_ERA_2) {
-			printf("WARNING: Unsupported SEC Era version by"
-			       " USDPAA\n");
-		}
+
+		if (rta_sec_era < RTA_SEC_ERA_2)
+			printf("WARNING: Unsupported SEC Era version by USDPAA\n");
 	}
 	return 0;
 }
@@ -1391,8 +1388,7 @@ static int validate_wimax_opts(uint32_t g_proto_params,
 	if ((CIPHER == crypto_info->mode) &&
 	    ((g_proto_params & BMASK_WIMAX_AR_EN) != g_proto_params)) {
 		fprintf(stderr,
-			"error: WiMAX Invalid Parameters: only anti-replay is"
-			" allowed in CIPHER mode\n"
+			"error: WiMAX Invalid Parameters: only anti-replay is allowed in CIPHER mode\n"
 			"see --help option\n");
 			return -EINVAL;
 	}
@@ -1413,16 +1409,14 @@ static int validate_wimax_opts(uint32_t g_proto_params,
 	 */
 	if (CIPHER == crypto_info->mode && crypto_info->itr_num != 1) {
 		crypto_info->itr_num = 1;
-		printf("WARNING: Running WiMAX in CIPHER mode"
-		       " with only one iteration\n");
+		printf("WARNING: Running WiMAX in CIPHER mode with only one iteration\n");
 	}
 
 	if (g_proto_params & BMASK_WIMAX_AR_EN) {
 		ar_len = crypto_info->proto_params.wimax_params.ar_len;
 		if ((ar_len > 64) || (ar_len < 0)) {
 			fprintf(stderr,
-				"error: WiMAX Anti-Replay window length cannot"
-				" be greater than 64 packets\n"
+				"error: WiMAX Anti-Replay window length cannot be greater than 64 packets\n"
 				"see --help option\n");
 			return -EINVAL;
 		}
@@ -1506,8 +1500,7 @@ static int validate_pdcp_opts(uint32_t g_proto_params,
 		case PDCP_CIPHER_TYPE_ZUC:
 			if (rta_sec_era < RTA_SEC_ERA_5) {
 				fprintf(stderr,
-					"error: PDCP Invalid Parameters: "
-					"Invalid cipher algorithm\n"
+					"error: PDCP Invalid Parameters: Invalid cipher algorithm\n"
 					"see --help option\n");
 				return -EINVAL;
 			}
@@ -1515,8 +1508,7 @@ static int validate_pdcp_opts(uint32_t g_proto_params,
 
 		default:
 			fprintf(stderr,
-				"error: PDCP Invalid Parameters: "
-				"Invalid cipher algorithm\n"
+				"error: PDCP Invalid Parameters: Invalid cipher algorithm\n"
 				"see --help option\n");
 			return -EINVAL;
 		}
@@ -1542,8 +1534,7 @@ static int validate_pdcp_opts(uint32_t g_proto_params,
 		case PDCP_AUTH_TYPE_ZUC:
 			if (rta_sec_era < RTA_SEC_ERA_5) {
 				fprintf(stderr,
-					"error: PDCP Invalid Parameters: "
-					"Invalid integrity algorithm\n"
+					"error: PDCP Invalid Parameters: Invalid integrity algorithm\n"
 					"see --help option\n");
 				return -EINVAL;
 			}
@@ -1551,8 +1542,7 @@ static int validate_pdcp_opts(uint32_t g_proto_params,
 
 		default:
 			fprintf(stderr,
-				"error: PDCP Invalid Parameters: "
-				"Invalid integrity algorithm\n"
+				"error: PDCP Invalid Parameters: Invalid integrity algorithm\n"
 				"see --help option\n");
 			return -EINVAL;
 		}
@@ -1565,8 +1555,7 @@ static int validate_pdcp_opts(uint32_t g_proto_params,
 
 		default:
 			fprintf(stderr,
-				"error: PDCP Invalid Parameters: "
-				"Invalid sequence number for type\n"
+				"error: PDCP Invalid Parameters: Invalid sequence number for type\n"
 				"see --help option\n");
 			return -EINVAL;
 		}
@@ -1580,8 +1569,7 @@ static int validate_pdcp_opts(uint32_t g_proto_params,
 
 		default:
 			fprintf(stderr,
-				"error: PDCP Invalid Parameters: "
-				"Invalid HFN override for type\n"
+				"error: PDCP Invalid Parameters: Invalid HFN override for type\n"
 				"see --help option\n");
 			return -EINVAL;
 		}
@@ -1645,16 +1633,15 @@ static int validate_params(uint32_t g_cmd_params, uint32_t g_proto_params,
 		}
 	} else {
 		fprintf(stderr,
-			"error: Invalid Parameters: provide a valid"
-			" mode for testing (CIPHER or PERF)\n"
+			"error: Invalid Parameters: provide a valid mode for testing (CIPHER or PERF)\n"
 			"see --help option\n");
 		return -EINVAL;
 	}
 
 	if (crypto_info->buf_num == 0 || crypto_info->buf_num > BUFF_NUM) {
 		fprintf(stderr,
-			"error: Invalid Parameters: Invalid number of buffers"
-			"\nsee --help option\n");
+			"error: Invalid Parameters: Invalid number of buffers\n"
+			"see --help option\n");
 		return -EINVAL;
 	}
 
@@ -1663,8 +1650,7 @@ static int validate_params(uint32_t g_cmd_params, uint32_t g_proto_params,
 					  L1_CACHE_BYTES != 0 ||
 					  crypto_info->buf_size > BUFF_SIZE)) {
 		fprintf(stderr,
-			"error: Invalid Parameters: Invalid number of"
-			" buffers\nsee --help option\n");
+			"error: Invalid Parameters: Invalid number of buffers\nsee --help option\n");
 		return -EINVAL;
 	}
 
@@ -1672,8 +1658,7 @@ static int validate_params(uint32_t g_cmd_params, uint32_t g_proto_params,
 	    (crypto_info->buf_num > BUFF_NUM / 2 &&
 	     crypto_info->buf_size > BUFF_SIZE / 2)) {
 		fprintf(stderr,
-			"error: Both of number of buffers and buffer"
-			" size\ncannot be more than 3200 at the same time\n"
+			"error: Both of number of buffers and buffer size cannot be more than 3200 at the same time\n"
 			"see --help option\n");
 		return -EINVAL;
 	}
@@ -1690,8 +1675,8 @@ static int validate_params(uint32_t g_cmd_params, uint32_t g_proto_params,
 					(g_proto_params, crypto_info);
 	default:
 		fprintf(stderr,
-			"error: Invalid Parameters: SEC protocol not"
-			" supported\nsee --help option\n");
+			"error: Invalid Parameters: SEC protocol not supported\n"
+			"see --help option\n");
 		return -EINVAL;
 	}
 }
@@ -1738,8 +1723,7 @@ int test_enc_match(void *params, struct qm_fd fd[])
 
 err:
 	fprintf(stderr,
-		"error: %s: Encapsulated frame %d"
-		" doesn't match with test vector\n",
+		"error: %s: Encapsulated frame %d doesn't match with test vector\n",
 		__func__, ind + 1);
 
 	return -1;
@@ -1801,14 +1785,11 @@ int test_dec_match(void *params, struct qm_fd fd[])
 err:
 	if (CIPHER == crypto_info->mode)
 		fprintf(stderr,
-			"error: %s: Decapsulated frame"
-			" %d doesn't match with"
-			" test vector\n",
+			"error: %s: Decapsulated frame %d doesn't match with test vector\n",
 			__func__, ind + 1);
 	else
 		fprintf(stderr,
-			"error: %s: %s decrypted frame"
-			" %d doesn't match!\n",
+			"error: %s: %s decrypted frame %d doesn't match!\n",
 			 __func__, protocol, ind + 1);
 
 	print_frame_desc(&fd[ind]);
@@ -1940,8 +1921,7 @@ int main(int argc, char *argv[])
 	/* Get the number of cores */
 	if (ncpus < 1 || ncpus > num_online_cpus) {
 		fprintf(stderr,
-			"error: Invalid Parameters: Number of cpu's given in"
-			" argument is more than the active cpu's\n");
+			"error: Invalid Parameters: Number of cpu's given in argument is more than the active cpu's\n");
 		exit(-EINVAL);
 	}
 
