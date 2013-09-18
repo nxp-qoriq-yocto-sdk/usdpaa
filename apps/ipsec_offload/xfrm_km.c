@@ -212,6 +212,7 @@ static int offload_sa(int dpa_ipsec_id,
 
 	sa_params->spi = sa_info->id.spi;
 	sa_params->sa_bpid = IF_BPID;
+	sa_params->sa_bufsize = DMA_MEM_IF_SIZE;
 	sa_params->enable_stats = 1;
 	sa_params->l2_hdr_size = ETH_HLEN;
 	sa_params->hdr_upd_flags = 0;
