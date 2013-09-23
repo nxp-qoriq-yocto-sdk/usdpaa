@@ -39,20 +39,30 @@ __PERCPU uint32_t dec_pkts_from_sec;
 
 struct qm_fd *fd;	/* storage for frame descriptor */
 
-static __PERCPU struct fqs_t enc_fqs;
+static __PERCPU struct fq_ctx enc_fqs;
 
-static __PERCPU struct fqs_t dec_fqs;
+static __PERCPU struct fq_ctx dec_fqs;
 
-/* callback handler for dequeued frames and fq's(from SEC40) state change */
-const struct qman_fq_cb sec40_rx_cb = {
-	.dqrr = cb_dqrr,
-	.fqs = cb_fqs
+/*
+ * Callback handler for dequeued ENCRYPTED frames.
+ */
+const struct qman_fq_cb sec_enc_rx_cb = {
+	.dqrr = cb_enc_dqrr,
+	.fqs = cb_fq_change_state
 };
 
-/* callback handler for fq's(to SEC40) state change */
-const struct qman_fq_cb sec40_tx_cb = {
+/*
+ * Callback handler for dequeued DECRYPTED frames.
+ */
+const struct qman_fq_cb sec_dec_rx_cb = {
+	.dqrr = cb_dec_dqrr,
+	.fqs = cb_fq_change_state
+};
+
+/* Callback handler for fq's pumping data to SEC */
+const struct qman_fq_cb sec_tx_cb = {
 	.ern = cb_ern,
-	.fqs = cb_fqs
+	.fqs = cb_fq_change_state
 };
 
 /*
@@ -121,13 +131,13 @@ int create_compound_fd(unsigned int buf_num, uint32_t output_buf_size,
 
 /*
  * brief	Create SEC frame queues
- * param[in]	fq_id - frame queue id
+ * param[in]	mode - FQ purpose: to ENCRYPT or DECRYPT frames
  * param[in]	ctxt_a_addr - context A pointer
  * param[in]	ctx_b - context B
  * return	struct qman_fq * - pointer to frame queue structure
  */
-struct qman_fq *create_sec_frame_queue(uint32_t fq_id,
-				       dma_addr_t ctxt_a_addr, uint32_t ctx_b)
+struct qman_fq *create_sec_frame_queue(enum SEC_MODE mode,
+		dma_addr_t ctxt_a_addr, uint32_t ctx_b)
 {
 	struct qm_mcc_initfq fq_opts;
 	struct qman_fq *fq;
@@ -139,23 +149,22 @@ struct qman_fq *create_sec_frame_queue(uint32_t fq_id,
 	fq = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(struct qman_fq));
 
 	if (unlikely(NULL == fq)) {
-		fprintf(stderr, "error: dma_mem_memalign failed in create_fqs"
-			" for FQ ID:%u\n", fq_id);
+		pr_err("dma_mem_memalign failed in %s\n", __func__);
 		return NULL;
 	}
 	memset(fq, 0, sizeof(struct qman_fq));
 
+	flags = QMAN_FQ_FLAG_LOCKED | QMAN_FQ_FLAG_DYNAMIC_FQID;
 	if (ctxt_a_addr) {
-		flags = QMAN_FQ_FLAG_LOCKED | QMAN_FQ_FLAG_TO_DCPORTAL;
-		fq->cb = sec40_tx_cb;
+		flags |= QMAN_FQ_FLAG_TO_DCPORTAL;
+		fq->cb = sec_tx_cb;
 	} else {
-		flags = QMAN_FQ_FLAG_LOCKED | QMAN_FQ_FLAG_NO_ENQUEUE;
-		fq->cb = sec40_rx_cb;
+		flags |= QMAN_FQ_FLAG_NO_ENQUEUE;
+		fq->cb = mode == DECRYPT ? sec_dec_rx_cb : sec_enc_rx_cb;
 	}
 
-	if (unlikely(qman_create_fq(fq_id, flags, fq) != 0)) {
-		fprintf(stderr, "error: qman_create_fq failed for FQ ID: %u\n",
-			fq_id);
+	if (unlikely(qman_create_fq(0, flags, fq) != 0)) {
+		pr_err("qman_create_fq failed in %s\n", __func__);
 		return NULL;
 	}
 
@@ -179,11 +188,12 @@ struct qman_fq *create_sec_frame_queue(uint32_t fq_id,
 	}
 
 	if (unlikely(qman_init_fq(fq, flags, &fq_opts) != 0)) {
-		fprintf(stderr, "error: qm_init_fq failed for fq_id: %u\n",
-			fq_id);
+		pr_err("qm_init_fq failed in %s\n", __func__);
 		return NULL;
 	}
 
+	pr_debug("Created FQ %d for %s\n", fq->fqid,
+		 mode == DECRYPT ? "DECRYPT" : "ENCRYPT");
 	return fq;
 }
 
@@ -196,17 +206,14 @@ struct qman_fq *create_sec_frame_queue(uint32_t fq_id,
  * return	0 - if status is correct (i.e. 0)
  *		-1 - if SEC returned an error status (i.e. non 0)
  */
-int init_sec_frame_queues(enum SEC_MODE mode, struct fqs_t *fqs,
+int init_sec_frame_queues(enum SEC_MODE mode, struct fq_ctx *fqs,
 			  void *crypto_param, struct test_cb crypto_cb)
 {
-	uint32_t frame_q_base;
-	uint32_t fq_from_sec, fq_to_sec;
 	struct qman_fq **fq_from_sec_ptr, **fq_to_sec_ptr;
 	void *ctxt_a;
 	dma_addr_t addr;
 	int i;
 
-	frame_q_base = fqs->base;
 	fq_from_sec_ptr = fqs->from_sec;
 	fq_to_sec_ptr = fqs->to_sec;
 
@@ -219,23 +226,27 @@ int init_sec_frame_queues(enum SEC_MODE mode, struct fqs_t *fqs,
 		}
 		addr = __dma_mem_vtop(ctxt_a);
 
-		fq_from_sec = frame_q_base + 2 * i;
-		fq_to_sec = fq_from_sec + 1;
-
-		fq_from_sec_ptr[i] = create_sec_frame_queue(fq_from_sec, 0, 0);
+		/*
+		 * Create the FQ from SEC first, since it'll be needed when
+		 * creating the FQ to SEC for setting context B of the FQ
+		 * to the FQID of the "from SEC FQ".
+		 */
+		fq_from_sec_ptr[i] = create_sec_frame_queue(mode, 0, 0);
 		if (!fq_from_sec_ptr[i]) {
-			fprintf(stderr, "error: %s : Encrypt FQ(from SEC)"
-				" couldn't be allocated, ID = %d\n", __func__,
-				fq_from_sec);
+			pr_err("%s : Encrypt FQ(from SEC) couldn't be allocated\n",
+			       __func__);
 			return -1;
 		}
 
-		fq_to_sec_ptr[i] =
-		    create_sec_frame_queue(fq_to_sec, addr, fq_from_sec);
+		/*
+		 * Now, since the FQ from SEC is created, one can also create
+		 * the FQ to SEC.
+		 */
+		fq_to_sec_ptr[i] = create_sec_frame_queue(mode, addr,
+					fq_from_sec_ptr[i]->fqid);
 		if (!fq_to_sec_ptr[i]) {
-			fprintf(stderr, "error: %s : Encrypt FQ(to SEC)"
-				" couldn't be allocated, ID = %d\n",
-				__func__, fq_to_sec);
+			pr_err("%s : Encrypt FQ(to SEC) couldn't be allocated\n",
+			       __func__);
 			return -1;
 		}
 	}
@@ -253,14 +264,6 @@ int init_sec_frame_queues(enum SEC_MODE mode, struct fqs_t *fqs,
 int init_sec_fq(uint32_t cpu_index, void *crypto_param,
 		struct test_cb crypto_cb)
 {
-	enc_fqs.base = SEC40_FQ_BASE;
-	dec_fqs.base =
-	    SEC40_FQ_BASE + 2 * FQ_PER_CORE * sysconf(_SC_NPROCESSORS_ONLN);
-
-	/* Each core now has its own FQ base id for encrypt and decrypt */
-	enc_fqs.base += 2 * cpu_index * FQ_PER_CORE;
-	dec_fqs.base += 2 * cpu_index * FQ_PER_CORE;
-
 	if (init_sec_frame_queues(ENCRYPT, &enc_fqs, crypto_param, crypto_cb)) {
 		fprintf(stderr, "error: %s: couldn't Initialize SEC 4.0 Encrypt"
 			" Queues\n", __func__);
@@ -366,34 +369,16 @@ void dec_qman_poll(void)
 }
 
 /*
- * brief	Callback handler for dequeued frames; Counts number of
- *		dequeued packets returned by SEC 4.0 on Encrypt/Decrypt FQ's
- * param[in]	mode - Encrypt/Decrypt
- * return	None
+ * @brief	Callback handler for dequeued ENCRYPTED frames; Counts number of
+ *		dequeued packets returned by SEC on ENCRYPT FQs
  */
-enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
-				 const struct qm_dqrr_entry *dqrr)
+enum qman_cb_dqrr_result cb_enc_dqrr(struct qman_portal *qm, struct qman_fq *fq,
+				const struct qm_dqrr_entry *dqrr)
 {
-	enum SEC_MODE mode __maybe_unused;
 	struct sg_entry_priv_t *sgentry_priv;
 	dma_addr_t addr;
 
-	if ((dqrr->fqid >= enc_fqs.base)
-	    && (dqrr->fqid < enc_fqs.base + 2 * FQ_PER_CORE)) {
-		enc_pkts_from_sec++;
-		mode = ENCRYPT;
-	} else if ((dqrr->fqid >= dec_fqs.base)
-		   && (dqrr->fqid < dec_fqs.base + 2 * FQ_PER_CORE)) {
-		dec_pkts_from_sec++;
-		mode = DECRYPT;
-	} else {
-		fprintf(stderr, "error: %s: Invalid Frame Queue ID Returned"
-			" by SEC = %d\n", __func__, dqrr->fqid);
-		abort();
-	}
-
-	pr_debug("%s mode: Packet dequeued ->%d\n", mode ? "Encrypt" :
-		 "Decrypt", mode ? enc_pkts_from_sec : dec_pkts_from_sec);
+	pr_debug("Encrypt mode: Packet dequeued ->%d\n", ++enc_pkts_from_sec);
 
 	addr = qm_fd_addr_get64(&(dqrr->fd));
 	sgentry_priv = __dma_mem_ptov(addr);
@@ -402,6 +387,24 @@ enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 	return qman_cb_dqrr_consume;
 }
 
+/*
+ * @brief	Callback handler for dequeued DECRYPTED frames.
+ *		Counts number of dequeued packets returned by SEC on DECRYPT FQs
+ */
+enum qman_cb_dqrr_result cb_dec_dqrr(struct qman_portal *qm, struct qman_fq *fq,
+				const struct qm_dqrr_entry *dqrr)
+{
+	struct sg_entry_priv_t *sgentry_priv;
+	dma_addr_t addr;
+
+	pr_debug("Decrypt mode: Packet dequeued ->%d\n", ++dec_pkts_from_sec);
+
+	addr = qm_fd_addr_get64(&(dqrr->fd));
+	sgentry_priv = __dma_mem_ptov(addr);
+	fd[sgentry_priv->index].status = dqrr->fd.status;
+
+	return qman_cb_dqrr_consume;
+}
 /*
  * brief	Enqueue Rejection Notification Handler for SEC Tx FQ
  * param[in]	struct qm_mr_entry * - Message Ring entry to be processed
@@ -425,10 +428,10 @@ void cb_ern(struct qman_portal *qm, struct qman_fq *fq,
  * param[in]	struct qman_fq * - Pointer to the Frame Descriptor
  * param[out]	None
  */
-void cb_fqs(struct qman_portal *qm, struct qman_fq *fq,
+void cb_fq_change_state(struct qman_portal *qm, struct qman_fq *fq,
 	    const struct qm_mr_entry *msg)
 {
-	pr_debug("%s called for FQ %d\n", fq->fqid);
+	pr_debug("%s called for FQ %d\n", __func__, fq->fqid);
 }
 
 /*

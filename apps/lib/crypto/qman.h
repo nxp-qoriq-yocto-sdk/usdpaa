@@ -37,7 +37,6 @@
 #include <usdpaa/of.h>
 #include <usdpaa/dma_mem.h>
 
-#define SEC40_FQ_BASE	       9000 /* start of FQ number for encryption FQ */
 #define FQ_PER_CORE		  5 /* Number of flows for encryption as well
 				       as decryption */
 #define QMAN_WAIT_CYCLES       1000
@@ -45,9 +44,11 @@
 enum SEC_MODE { DECRYPT, ENCRYPT }; /* enum to differentiate allocated memory
 				       between fqs for encrypt/decryption */
 
-/* storage and retire flags for FQ's(from SEC4.0 to software portal) object*/
-struct fqs_t {
-	uint32_t base;
+/*
+ * Structure used for keeping track of the enqueue and dequeue FQs used
+ * by a core.
+ */
+struct fq_ctx {
 	struct qman_fq *from_sec[FQ_PER_CORE];
 	struct qman_fq *to_sec[FQ_PER_CORE];
 };
@@ -61,9 +62,9 @@ struct sg_entry_priv_t {
 /* Create/Init routines */
 int create_compound_fd(unsigned int buf_num, uint32_t output_buf_size,
 		       uint32_t input_buf_capacity, uint32_t input_buf_length);
-struct qman_fq *create_sec_frame_queue(uint32_t fq_id, dma_addr_t ctxt_a_addr,
-				       uint32_t ctx_b);
-int init_sec_frame_queues(enum SEC_MODE mode, struct fqs_t *fqs,
+struct qman_fq *create_sec_frame_queue(enum SEC_MODE mode,
+		dma_addr_t ctxt_a_addr, uint32_t ctx_b);
+int init_sec_frame_queues(enum SEC_MODE mode, struct fq_ctx *fqs,
 			  void *crypto_param, struct test_cb crypto_cb);
 int init_sec_fq(uint32_t cpu_index, void *crypto_param,
 		struct test_cb crypto_cb);
@@ -76,11 +77,13 @@ void do_enqueues(enum SEC_MODE mode, uint32_t cpu_index, long ncpus,
 int check_fd_status(unsigned int buf_num);
 
 /* Handlers routines */
-enum qman_cb_dqrr_result cb_dqrr(struct qman_portal *qm, struct qman_fq *fq,
+enum qman_cb_dqrr_result cb_enc_dqrr(struct qman_portal *qm, struct qman_fq *fq,
+				 const struct qm_dqrr_entry *dqrr);
+enum qman_cb_dqrr_result cb_dec_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 				 const struct qm_dqrr_entry *dqrr);
 void cb_ern(struct qman_portal *qm, struct qman_fq *fq,
 	    const struct qm_mr_entry *msg);
-void cb_fqs(struct qman_portal *qm, struct qman_fq *fq,
+void cb_fq_change_state(struct qman_portal *qm, struct qman_fq *fq,
 	    const struct qm_mr_entry *msg);
 
 /* Get/Set routines */
