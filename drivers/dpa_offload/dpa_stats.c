@@ -338,6 +338,65 @@ static inline int cnt_is_sched(struct dpa_stats *dpa_stats, int cnt_id)
 	return ret;
 }
 
+
+static int alloc_cnt_cb(struct dpa_stats *dpa_stats,
+			struct dpa_stats_cnt_cb *cnt_cb)
+{
+	int i = 0;
+
+	/* Initialize counter lock */
+	pthread_mutex_init(&cnt_cb->lock, NULL);
+	/* Store dpa_stats instance */
+	cnt_cb->dpa_stats = dpa_stats;
+	/* Mark the counter as being 'kernel-space' counter */
+	cnt_cb->id = DPA_OFFLD_INVALID_OBJECT_ID;
+
+	/* Allocate array of statistics offsets */
+	cnt_cb->info.stats_off = malloc(MAX_NUM_OF_STATS *
+					sizeof(*cnt_cb->info.stats_off));
+	if (!cnt_cb->info.stats_off) {
+		error(0, ENOMEM, "Cannot allocate memory to store array of "
+			"statistics offsets\n");
+		return -ENOMEM;
+	}
+	/* Allocate array of currently read statistics */
+	cnt_cb->info.stats = calloc(MAX_NUM_OF_MEMBERS, sizeof(uint64_t *));
+	if (!cnt_cb->info.stats) {
+		error(0, ENOMEM, "Cannot allocate memory to store array of "
+			"statistics for all members\n");
+		return -ENOMEM;
+	}
+	for (i = 0; i < MAX_NUM_OF_MEMBERS; i++) {
+		cnt_cb->info.stats[i] = calloc(MAX_NUM_OF_STATS,
+					       sizeof(uint64_t));
+		if (!cnt_cb->info.stats[i]) {
+			error(0, ENOMEM, "Cannot allocate memory to store "
+				"array of statistics for %d member\n", i);
+			return -ENOMEM;
+		}
+	}
+
+	/* Allocate array of previously read statistics */
+	cnt_cb->info.last_stats = calloc(MAX_NUM_OF_MEMBERS,
+					 sizeof(uint64_t *));
+	if (!cnt_cb->info.last_stats) {
+		error(0, ENOMEM, "Cannot allocate memory to store array of "
+			"previous read statistics for all members\n");
+		return -ENOMEM;
+	}
+	for (i = 0; i < MAX_NUM_OF_MEMBERS; i++) {
+		cnt_cb->info.last_stats[i] = calloc(MAX_NUM_OF_STATS,
+						    sizeof(uint64_t));
+		if (!cnt_cb->info.last_stats[i]) {
+			error(0, ENOMEM, "Cannot allocate memory to store array "
+			     "of previous read statistics for %d member\n", i);
+			return -ENOMEM;
+		}
+	}
+
+	return 0;
+}
+
 static int init_resources(struct dpa_stats *dpa_stats)
 {
 	struct dpa_stats_async_req *async_req;
@@ -378,22 +437,31 @@ static int init_resources(struct dpa_stats *dpa_stats)
 		list_add_tail(&req[i].node, &dpa_stats->req_pool);
 	}
 
+	/* Allocate array to store counter ids that are scheduled for retrieve*/
+	dpa_stats->sched_cnt_ids = calloc(dpa_stats->config.max_counters,
+					  sizeof(bool));
+	if (!dpa_stats->sched_cnt_ids) {
+		error(0, ENOMEM, "Cannot allocate memory to store %d scheduled "
+			"counter ids\n", dpa_stats->config.max_counters);
+		return -ENOMEM;
+	}
+
 	/* Allocate array to store counters control blocks */
-	dpa_stats->cnts_cb = malloc(DPA_STATS_MAX_NUM_OF_COUNTERS *
+	dpa_stats->cnts_cb = malloc(dpa_stats->config.max_counters *
 				    sizeof(struct dpa_stats_cnt_cb));
 	if (!dpa_stats->cnts_cb) {
 		error(0, ENOMEM, "Cannot allocate memory to store %d internal "
-		      "counter structures\n", DPA_STATS_MAX_NUM_OF_COUNTERS);
+		      "counter structures\n", dpa_stats->config.max_counters);
 		return -ENOMEM;
 	}
-	memset(dpa_stats->cnts_cb, 0,
-	      DPA_STATS_MAX_NUM_OF_COUNTERS * sizeof(struct dpa_stats_cnt_cb));
+	memset(dpa_stats->cnts_cb, 0, dpa_stats->config.max_counters *
+			sizeof(struct dpa_stats_cnt_cb));
 
 	/* Mark all the counters as being 'kernel-space' counters */
-	for (i = 0; i < DPA_STATS_MAX_NUM_OF_COUNTERS; i++) {
-		dpa_stats->cnts_cb[i].dpa_stats = dpa_stats;
-		dpa_stats->cnts_cb[i].id = DPA_OFFLD_INVALID_OBJECT_ID;
-		pthread_mutex_init(&dpa_stats->cnts_cb[i].lock, NULL);
+	for (i = 0; i < dpa_stats->config.max_counters; i++) {
+		err = alloc_cnt_cb(dpa_stats, &dpa_stats->cnts_cb[i]);
+		if (err < 0)
+			return err;
 	}
 
 	/* Initialize user space worker threads control blocks: */
@@ -413,6 +481,7 @@ static int free_resources(void)
 	struct dpa_stats_async_req *async_req, *tmp;
 	struct dpa_stats_req *req, *req_tmp;
 	struct dpa_stats *dpa_stats;
+	uint32_t i, j;
 
 	/* Sanity check */
 	if (!gbl_dpa_stats) {
@@ -420,6 +489,18 @@ static int free_resources(void)
 		return 0;
 	}
 	dpa_stats = gbl_dpa_stats;
+
+	free(dpa_stats->sched_cnt_ids);
+
+	for (i = 0; i < dpa_stats->config.max_counters; i++) {
+		for (j = 0; j < MAX_NUM_OF_MEMBERS; j++) {
+			free(dpa_stats->cnts_cb[i].info.stats[j]);
+			free(dpa_stats->cnts_cb[i].info.last_stats[j]);
+		}
+		free(dpa_stats->cnts_cb[i].info.stats_off);
+		free(dpa_stats->cnts_cb[i].info.stats);
+		free(dpa_stats->cnts_cb[i].info.last_stats);
+	}
 
 	pthread_mutex_lock(&async_reqs_pool);
 	if (!list_empty(&dpa_stats->async_req_pool))
@@ -1147,6 +1228,8 @@ int dpa_stats_modify_class_counter(int dpa_stats_cnt_id,
 int dpa_stats_remove_counter(int dpa_stats_cnt_id)
 {
 	struct dpa_stats *dpa_stats = NULL;
+	struct dpa_stats_cnt_cb *cnt_cb = NULL;
+	uint32_t i;
 
 	if (dpa_stats_cnt_id < 0) {
 		error(0, EINVAL, "Invalid input parameter\n");
@@ -1164,6 +1247,7 @@ int dpa_stats_remove_counter(int dpa_stats_cnt_id)
 		return 0;
 	}
 	dpa_stats = gbl_dpa_stats;
+	cnt_cb = &dpa_stats->cnts_cb[dpa_stats_cnt_id];
 
 	if (ioctl(dpa_stats_devfd,
 		  DPA_STATS_IOC_REMOVE_COUNTER, &dpa_stats_cnt_id) < 0) {
@@ -1172,10 +1256,16 @@ int dpa_stats_remove_counter(int dpa_stats_cnt_id)
 	}
 
 	/* Mark the equivalent 'user-space' counter structure as invalid */
-	dpa_stats->cnts_cb[dpa_stats_cnt_id].id = DPA_OFFLD_INVALID_OBJECT_ID;
-	memset(&dpa_stats->cnts_cb[dpa_stats_cnt_id].info, 0,
-		sizeof(struct stats_info));
-
+	cnt_cb->id = DPA_OFFLD_INVALID_OBJECT_ID;
+	/* Reset all statistics information */
+	memset(cnt_cb->info.stats_off, 0,
+			MAX_NUM_OF_STATS * sizeof(*cnt_cb->info.stats_off));
+	for (i = 0; i < MAX_NUM_OF_MEMBERS; i++) {
+		memset(cnt_cb->info.stats[i], 0,
+				MAX_NUM_OF_STATS * sizeof(uint64_t));
+		memset(cnt_cb->info.last_stats[i], 0,
+				MAX_NUM_OF_STATS * sizeof(uint64_t));
+	}
 	return 0;
 }
 
@@ -1328,7 +1418,7 @@ int dpa_stats_reset_counters(int *cnts_ids, unsigned int cnts_ids_len)
 	struct ioc_dpa_stats_cnts_reset_params ioc_prm;
 	struct dpa_stats *dpa_stats = NULL;
 	struct dpa_stats_cnt_cb *cnt_cb = NULL;
-	uint32_t i;
+	uint32_t i, j;
 	int ret;
 
 	if (dpa_stats_devfd < 0) {
@@ -1371,8 +1461,10 @@ int dpa_stats_reset_counters(int *cnts_ids, unsigned int cnts_ids_len)
 			pthread_mutex_unlock(&cnt_cb->lock);
 			continue;
 		}
-		memset(&cnt_cb->info.stats, 0, (MAX_NUM_OF_MEMBERS *
-				MAX_NUM_OF_STATS * sizeof(uint64_t)));
+		/* Reset stored statistics values */
+		for (j = 0; j < MAX_NUM_OF_MEMBERS; j++)
+			memset(cnt_cb->info.stats[j], 0,
+					MAX_NUM_OF_STATS * sizeof(uint64_t));
 		pthread_mutex_unlock(&cnt_cb->lock);
 	}
 	unblock_sched_cnts(dpa_stats, cnts_ids, cnts_ids_len);
