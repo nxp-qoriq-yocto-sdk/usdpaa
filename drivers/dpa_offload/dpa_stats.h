@@ -56,7 +56,7 @@ struct dpa_stats {
 	struct list_head async_us_reqs;
 		/* List of request that need to be treated in 'user-space' */
 	void *storage_area; /* Storage area provided by application */
-	bool sched_cnt_ids[DPA_STATS_MAX_NUM_OF_COUNTERS];
+	bool *sched_cnt_ids; /* Counters scheduled for a retrieve operation */
 	pthread_mutex_t sched_cnt_lock;
 };
 
@@ -95,12 +95,10 @@ struct stats_info {
 	  * Array of statistics offsets relative to
 	  * corresponding statistics area
 	  */
-	unsigned int stats_off[MAX_NUM_OF_STATS];
+	unsigned int *stats_off;
 	unsigned int stats_num; /* Number of statistics to retrieve */
-	uint64_t stats[MAX_NUM_OF_MEMBERS][MAX_NUM_OF_STATS];
-				/* Array to store statistics values */
-	uint64_t last_stats[MAX_NUM_OF_MEMBERS][MAX_NUM_OF_STATS];
-				/* Array to store previous statistics values */
+	uint64_t **stats; /* Array to store statistics values */
+	uint64_t **last_stats;/* Array to store previous statistics values */
 	bool reset; /* Reset counter's statistics */
 };
 
