@@ -360,6 +360,26 @@ int dpa_ipsec_sa_get_stats(int sa_id, struct dpa_ipsec_sa_stats *sa_stats)
 	return 0;
 }
 
+int dpa_ipsec_get_stats(struct dpa_ipsec_stats *stats)
+{
+	if (dpa_ipsec_devfd < 0) {
+		error(0, ENODEV, "DPA IPSec library is not initialized\n");
+		return -EAGAIN;
+	}
+
+	if (!stats) {
+		error(0, EINVAL, "Invalid IPSec stats handle\n");
+		return -EINVAL;
+	}
+
+	if (ioctl(dpa_ipsec_devfd, DPA_IPSEC_IOC_GET_STATS, stats) < 0) {
+		error(0, errno, "Could not get IPSec global statistics.\n");
+		return -errno;
+	}
+
+	return 0;
+}
+
 int dpa_ipsec_sa_modify(int sa_id,
 			struct dpa_ipsec_sa_modify_prm *modify_prm)
 {
