@@ -194,6 +194,25 @@ int show_sa_stats(int argc, char *argv[])
 	return 0;
 }
 
+int show_ipsec_stats(int argc, char *argv[])
+{
+	struct dpa_ipsec_stats ipsec_stats;
+	int err;
+
+	err = dpa_ipsec_get_stats(&ipsec_stats);
+	if (err == 0) {
+		printf("\nIPSec global statistics:\n");
+		printf("    - SA Lookup Miss on INBOUND : %u packets (i.e. %u "
+			"bytes)\n", ipsec_stats.inbound_miss_pkts,
+			ipsec_stats.inbound_miss_bytes);
+		printf("    - Policy Miss on OUTBOUND   : %u packets (i.e. %u "
+			"bytes)\n\n", ipsec_stats.outbound_miss_pkts,
+			ipsec_stats.outbound_miss_bytes);
+	} else
+		error(0, err, "Failed to acquire IPSec global statistics");
+
+	return 0;
+}
 
 static void print_dpa_stats_cnts(unsigned int storage_area_offset,
 				 unsigned int cnts_written,

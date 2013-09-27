@@ -983,5 +983,7 @@ const struct argp ppam_argp = {argp_opts, parse_opts, 0, ppam_doc};
 cli_cmd(sa_stats, show_sa_stats);
 cli_cmd(eth_stats, show_eth_stats);
 cli_cmd(ib_reass_stats, show_ib_reass_stats);
+cli_cmd(ipsec_stats, show_ipsec_stats);
+
 /* Inline the PPAC machinery */
 #include <ppac.c>

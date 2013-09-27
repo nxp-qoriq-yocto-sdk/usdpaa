@@ -115,17 +115,17 @@
 	</policy>
 
 	<!-- ob-oh-pre -->
-	<classification name="tcpudp_cc" max="16" masks="yes">
+	<classification name="tcpudp_cc" max="16" masks="yes" statistics="frame">
 		<key>
 			<nonheader source="key" action="exact_match" offset="0" size="13"/>
 		</key>
-		<action condition="on-miss" type="classification" name="ob_ip4_local_cc"/>
+		<action condition="on-miss" type="classification" name="ob_ip4_local_cc" statistics="enable"/>
 	</classification>
-        <classification name="tcpudp6_cc" max="16" masks="yes">
+        <classification name="tcpudp6_cc" max="16" masks="yes" statistics="frame">
                 <key>
                         <nonheader source="key" action="exact_match" offset="0" size="37"/>
                 </key>
-		<action condition="on-miss" type="classification" name="ob_ip6_local_cc"/>
+		<action condition="on-miss" type="classification" name="ob_ip6_local_cc" statistics="enable"/>
         </classification>
 	<distribution name="ob_pre_tcp_dist">
 		<protocols>
@@ -417,20 +417,23 @@
 	</policy>
 
 	<!-- ib-eth -->
-	<classification name="esp_udp_cc" max="16">
+	<classification name="esp_udp_cc" max="16" statistics="frame">
                 <key>
                       <hashtable mask="0x10" hashshift="0" keysize="13"/>
                 </key>
+		<action condition="on-miss" type="drop" statistics="enable"/>
         </classification>
-       	<classification name="esp6_cc" max="16">
+       	<classification name="esp6_cc" max="16" statistics="frame">
 		<key>
 		      <hashtable mask="0x10" hashshift="0" keysize="21"/>
 		</key>
+		<action condition="on-miss" type="drop" statistics="enable"/>
 	</classification>
-	<classification name="esp_cc" max="16">
+	<classification name="esp_cc" max="16" statistics="frame">
                 <key>
                       <hashtable mask="0x10" hashshift="0" keysize="9"/>
                 </key>
+		<action condition="on-miss" type="drop" statistics="enable"/>
         </classification>
         <classification name="ib_ip4_local_cc" max="16" masks="no">
         	<key>
