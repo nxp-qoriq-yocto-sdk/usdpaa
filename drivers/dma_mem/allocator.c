@@ -66,8 +66,6 @@ struct bufinfo {
 	uint32_t len;
 };
 
-static pthread_mutex_t alloc_lock = PTHREAD_MUTEX_INITIALIZER;
-
 /* Return a pointer to <numbufs> */
 static inline uint32_t *get_numbufs(struct dma_mem *map)
 {
@@ -184,12 +182,12 @@ static inline int map_lock(struct dma_mem *map)
 			return -ENODEV;
 		}
 	}
-	pthread_mutex_lock(&alloc_lock);
+	pthread_mutex_lock(&map->alloc_lock);
 	return 0;
 }
 static inline int map_unlock(struct dma_mem *map)
 {
-	pthread_mutex_unlock(&alloc_lock);
+	pthread_mutex_unlock(&map->alloc_lock);
 	if (map->has_locking) {
 		int ret = process_dma_unlock(map->addr.virt);
 		if (ret) {

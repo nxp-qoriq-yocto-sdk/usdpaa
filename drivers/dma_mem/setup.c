@@ -110,6 +110,13 @@ struct dma_mem *dma_mem_create(uint32_t flags, const char *map_name,
 	map->sz = params.len;
 	map->flags = flags;
 	map->has_locking = params.has_locking;
+	ret = pthread_mutex_init(&map->alloc_lock, NULL);
+	if (ret) {
+		perror("pthread_mutex_init failed");
+		process_dma_unmap(map->addr.virt);
+		free(map);
+		return NULL;
+	}
 	strncpy(map->name, params.name, USDPAA_DMA_NAME_MAX);
 	if (params.did_create && (flags & DMA_MAP_FLAG_ALLOC))
 		dma_mem_allocator_init(map);

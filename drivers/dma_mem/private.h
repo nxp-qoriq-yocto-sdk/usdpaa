@@ -38,6 +38,7 @@ struct dma_mem {
 	size_t sz;
 	uint32_t flags;
 	int has_locking;
+	pthread_mutex_t alloc_lock;
 	char name[USDPAA_DMA_NAME_MAX];
 };
 
