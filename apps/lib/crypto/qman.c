@@ -378,7 +378,8 @@ enum qman_cb_dqrr_result cb_enc_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 	struct sg_entry_priv_t *sgentry_priv;
 	dma_addr_t addr;
 
-	pr_debug("Encrypt mode: Packet dequeued ->%d\n", ++enc_pkts_from_sec);
+	pr_debug("Encrypt mode: Packet dequeued ->%d\n", enc_pkts_from_sec);
+	enc_pkts_from_sec++;
 
 	addr = qm_fd_addr_get64(&(dqrr->fd));
 	sgentry_priv = __dma_mem_ptov(addr);
@@ -397,7 +398,8 @@ enum qman_cb_dqrr_result cb_dec_dqrr(struct qman_portal *qm, struct qman_fq *fq,
 	struct sg_entry_priv_t *sgentry_priv;
 	dma_addr_t addr;
 
-	pr_debug("Decrypt mode: Packet dequeued ->%d\n", ++dec_pkts_from_sec);
+	pr_debug("Decrypt mode: Packet dequeued ->%d\n", dec_pkts_from_sec);
+	dec_pkts_from_sec++;
 
 	addr = qm_fd_addr_get64(&(dqrr->fd));
 	sgentry_priv = __dma_mem_ptov(addr);
