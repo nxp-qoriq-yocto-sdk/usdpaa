@@ -378,11 +378,18 @@ static inline void copy_bytes(void *dest, const void *src, size_t sz)
 
 /* Spinlock stuff */
 #define spinlock_t		pthread_mutex_t
-#define __SPIN_LOCK_UNLOCKED(x)	PTHREAD_MUTEX_INITIALIZER
+#define __SPIN_LOCK_UNLOCKED(x)	PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP
 #define DEFINE_SPINLOCK(x)	spinlock_t x = __SPIN_LOCK_UNLOCKED(x)
 #define spin_lock_init(x) \
 	do { \
-		__maybe_unused int __foo = pthread_mutex_init(x, NULL); \
+		__maybe_unused int __foo;	\
+		pthread_mutexattr_t __foo_attr;       \
+		__foo = pthread_mutexattr_init(&__foo_attr);	\
+		BUG_ON(__foo);	\
+		__foo = pthread_mutexattr_settype(&__foo_attr,	\
+						  PTHREAD_MUTEX_ADAPTIVE_NP); \
+		BUG_ON(__foo);	\
+		__foo = pthread_mutex_init(x, &__foo_attr); \
 		BUG_ON(__foo); \
 	} while (0)
 #define spin_lock(x) \
