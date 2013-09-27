@@ -176,7 +176,7 @@ void stats_cleanup(void)
 int show_sa_stats(int argc, char *argv[])
 {
 	struct dpa_ipsec_sa_stats sa_stats;
-	int sa_id = 0;
+	int err, sa_id = 0;
 
 	memset(&sa_stats, 0, sizeof(sa_stats));
 	if (argc != 2)
@@ -188,9 +188,17 @@ int show_sa_stats(int argc, char *argv[])
 	}
 
 	sa_id = atoi(argv[1]);
-	if (dpa_ipsec_sa_get_stats(sa_id, &sa_stats) == 0)
-		printf("\nSA(%d) packets:%u bytes:%u\n",
-		       sa_id, sa_stats.packets_count, sa_stats.bytes_count);
+	err = dpa_ipsec_sa_get_stats(sa_id, &sa_stats);
+	if (err == 0) {
+		printf("\nSA(%d) statistics:\n", sa_id);
+		printf("    - Encrypted/Decrypted OK : %u packets (i.e. %u "
+			"bytes)\n", sa_stats.packets_count,
+			sa_stats.bytes_count);
+		printf("    - Total input            : %u packets\n\n",
+			sa_stats.input_packets);
+	} else
+		error (0, err, "Failed to acquire SA=%d statistics", sa_id);
+
 	return 0;
 }
 
