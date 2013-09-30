@@ -448,7 +448,7 @@ int qman_global_init(void)
 	}
 	if (of_device_is_compatible(dt_node, "fsl,qman-portal-1.0") ||
 		of_device_is_compatible(dt_node, "fsl,qman-portal-1.0.0"))
-		qman_ip_rev = QMAN_REV10;
+		pr_err("QMan rev1.0 on P4080 rev1 is not supported!\n");
 	else if (of_device_is_compatible(dt_node, "fsl,qman-portal-1.1") ||
 		of_device_is_compatible(dt_node, "fsl,qman-portal-1.1.0"))
 		qman_ip_rev = QMAN_REV11;

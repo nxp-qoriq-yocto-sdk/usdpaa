@@ -73,9 +73,6 @@ extern "C" {
 /* disable support for run-time parameter checking, assertions, etc */
 #undef CONFIG_FSL_DPA_CHECKING
 
-/* workarounds for errata and missing features in p4080 rev1 */
-#define CONFIG_FSL_QMAN_BUG_AND_FEATURE_REV1
-
 /* Interrupt-gating settings */
 #define CONFIG_FSL_QMAN_PIRQ_DQRR_ITHRESH 0
 #define CONFIG_FSL_QMAN_PIRQ_MR_ITHRESH 0
