@@ -561,6 +561,7 @@ static void do_global_finish(void)
 	for (loop = 0; loop < ARRAY_SIZE(pool); loop++) {
 		if (pool[loop]) {
 			bman_free_pool(pool[loop]);
+			bman_release_bpid(loop);
 			pool[loop] = NULL;
 		}
 	}
