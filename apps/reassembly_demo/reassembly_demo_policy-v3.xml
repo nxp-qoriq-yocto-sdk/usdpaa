@@ -56,7 +56,7 @@
 		</reassembly>
 	</manipulations>
 
-	<classification name="ipv4_udp">
+	<classification name="ipv4_udp" statistics="frame">
 		<key>
 			<fieldref name="udp.dport" />
 		</key>
