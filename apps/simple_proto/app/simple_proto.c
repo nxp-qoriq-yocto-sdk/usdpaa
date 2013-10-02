@@ -344,18 +344,6 @@ int test_dec_match_cb_pdcp(int fd_ind, uint8_t *dec_buf,
 	return 0;
 }
 
-int test_enc_match_cb_wifi(int fd_ind, uint8_t *enc_buf,
-			    struct test_param *crypto_info)
-{
-	if (!fd_ind &&
-	    test_vector_match((uint32_t *)enc_buf,
-			      (uint32_t *)ref_test_vector.ciphertext,
-			      crypto_info->rt.output_buf_size * BITS_PER_BYTE))
-		return -1;
-
-	return 0;
-}
-
 void init_rtv_pdcp(struct test_param *crypto_info)
 {
 	struct pdcp_params *pdcp_params =
@@ -504,32 +492,6 @@ void init_rtv_srtp(struct test_param *crypto_info)
 	}
 }
 
-void init_rtv_wifi_ccmp(struct test_param *crypto_info)
-{
-	strcpy(protocol, "WiFi");
-	ref_test_vector.key =
-		(uintptr_t)wifi_reference_key[crypto_info->test_set - 1];
-
-	/* set the WiFi pdb params for test */
-	ref_test_vector.pdb.wifi.mac_hdr_len =
-	    wifi_reference_mac_hdr_len[crypto_info->test_set - 1];
-	ref_test_vector.pdb.wifi.pn =
-	    wifi_reference_pn[crypto_info->test_set - 1];
-	ref_test_vector.pdb.wifi.priority =
-	    wifi_reference_pri[crypto_info->test_set - 1];
-	ref_test_vector.pdb.wifi.key_id =
-	    wifi_reference_key_id[crypto_info->test_set - 1];
-
-	if (CIPHER == crypto_info->mode) {
-		ref_test_vector.length =
-		    wifi_reference_length[crypto_info->test_set - 1];
-		ref_test_vector.plaintext =
-		    wifi_reference_plaintext[crypto_info->test_set - 1];
-		ref_test_vector.ciphertext =
-		    wifi_reference_ciphertext[crypto_info->test_set - 1];
-	}
-}
-
 /**
  * @brief	Set PN constant in MACsec shared descriptor
  * @details	Inside this routine, context is erased, PN is read from
@@ -614,8 +576,7 @@ void (*init_ref_test_vector[]) (struct test_param *crypto_info) = {
 	init_rtv_macsec,
 	init_rtv_wimax_aes_ccm_128,
 	init_rtv_pdcp,
-	init_rtv_srtp,
-	init_rtv_wifi_ccmp
+	init_rtv_srtp
 };
 
 /**
@@ -784,12 +745,6 @@ static int set_buf_size(struct test_param *crypto_info)
 		crypto_info->rt.output_buf_size =
 			crypto_info->buf_size + ref_test_vector.pdb.srtp.n_tag;
 		break;
-
-	case WIFI:
-			crypto_info->rt.output_buf_size =
-			    crypto_info->buf_size + WIFI_CCM_HDR_SIZE +
-			    WIFI_ICV_SIZE;
-			break;
 	default:
 		fprintf(stderr, "error: %s: protocol not supported\n",
 			__func__);
@@ -998,39 +953,6 @@ static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
 					ref_test_vector.pdb.srtp.seqnum,
 					ref_test_vector.pdb.srtp.cipher_salt);
 		break;
-
-	case WIFI:
-		cipher_info.key = ref_test_vector.key;
-		cipher_info.keylen = WIFI_KEY_SIZE;
-		cipher_info.key_enc_flags = 0;
-
-		if (ENCRYPT == mode)
-			cnstr_shdsc_wifi_encap(shared_desc,
-					&shared_desc_len,
-/*
- * This is currently hardcoded. The application doesn't allow for
- * proper retrieval of PS.
-*/
-					0,
-					ref_test_vector.pdb.wifi.mac_hdr_len,
-					ref_test_vector.pdb.wifi.pn,
-					ref_test_vector.pdb.wifi.priority,
-					ref_test_vector.pdb.wifi.key_id,
-					&cipher_info);
-		else
-			cnstr_shdsc_wifi_decap(shared_desc,
-					&shared_desc_len,
-/*
- * This is currently hardcoded. The application doesn't allow for
- * proper retrieval of PS.
-*/
-					0,
-					ref_test_vector.pdb.wifi.mac_hdr_len,
-					ref_test_vector.pdb.wifi.pn,
-					ref_test_vector.pdb.wifi.priority,
-					&cipher_info);
-		break;
-
 	default:
 		fprintf(stderr, "error: %s: protocol not supported\n",
 			__func__);
@@ -1167,7 +1089,6 @@ struct argp_option options[] = {
 	"\n 2 for WiMAX"
 	"\n 3 for PDCP"
 	"\n 4 for SRTP"
-	"\n 5 for WiFi"
 	"\n"},
 	{"itrnum", 'l', "ITERATIONS", 0,
 	"Number of iterations to repeat"
@@ -1446,11 +1367,6 @@ static int validate_test_set(struct test_param *crypto_info)
 			return 0;
 		goto err;
 
-	case WIFI:
-		if ((crypto_info->test_set > 0) && (crypto_info->test_set < 3))
-			return 0;
-		goto err;
-
 	default:
 		fprintf(stderr,
 			"error: Invalid Parameters: Invalid SEC protocol\n");
@@ -1726,33 +1642,6 @@ static int validate_srtp_opts(uint32_t g_proto_params,
 }
 
 /**
- * @brief	Check SEC parameters provided by user for WiFi are valid
- *		or not.
- * @param[in]	g_proto_params - Bit mask of the optional parameters provided
- *		by user
- * @param[in]	crypto_info - test parameters
- * @return	0 on success, otherwise -EINVAL value
- */
-static int validate_wifi_opts(uint32_t g_proto_params,
-				struct test_param *crypto_info)
-{
-	/*
-	 * For WiFi in CIPHER mode only the first frame
-	 * from the first iteration can be verified if it is matching
-	 * with the corresponding test vector, due to
-	 * the PN incrementation by SEC for each frame processed.
-	 */
-	if (CIPHER == crypto_info->mode && crypto_info->itr_num != 1) {
-		crypto_info->itr_num = 1;
-		printf("WARNING: Running WiFi in CIPHER mode with only one iteration\n");
-	}
-
-	crypto_info->test_enc_match_cb = test_enc_match_cb_wifi;
-
-	return 0;
-}
-
-/**
  * @brief	Check SEC parameters provided by user whether valid or not
  * @param[in]	g_cmd_params - Bit mask of all parameters provided by user
  * @param[in]	g_proto_params - Bit mask of protocol specific parameters, as
@@ -1829,7 +1718,6 @@ static int validate_params(uint32_t g_cmd_params, uint32_t g_proto_params,
 	case WIMAX:
 	case PDCP:
 	case SRTP:
-	case WIFI:
 		return validate_proto_opts[crypto_info->proto]
 					(g_proto_params, crypto_info);
 	default:

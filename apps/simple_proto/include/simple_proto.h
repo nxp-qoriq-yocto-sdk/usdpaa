@@ -125,8 +125,7 @@ enum sec_proto {
 	MACSEC = 1,
 	WIMAX,
 	PDCP,
-	SRTP,
-	WIFI
+	SRTP
 };
 
 /**
@@ -216,7 +215,6 @@ void init_rtv_pdcp(struct test_param *crypto_info);
 void init_rtv_pdcp_c_plane(struct test_param *crypto_info);
 void init_rtv_pdcp_u_plane(struct test_param *crypto_info);
 void init_rtv_pdcp_short_mac(struct test_param *crypto_info);
-void init_rtv_wifi_ccmp(struct test_param *crypto_info);
 
 /* test cleanup routines */
 void test_cleanup_wimax(struct test_param *crypto_info);
@@ -242,24 +240,19 @@ static int validate_pdcp_opts(uint32_t g_proto_params,
 				struct test_param *crypto_info);
 static int validate_srtp_opts(uint32_t g_proto_params,
 			      struct test_param *crypto_info);
-static int validate_wifi_opts(uint32_t g_proto_params,
-			      struct test_param *crypto_info);
 int test_enc_match(void *params, struct qm_fd fd[]);
 int test_dec_match(void *params, struct qm_fd fd[]);
 int test_enc_match_cb_wimax(int fd_ind, uint8_t *enc_buf,
 			    struct test_param *crypto_info);
 int test_dec_match_cb_wimax(int fd_ind, uint8_t *enc_buf,
 			    struct test_param *crypto_info);
-int test_enc_match_cb_wifi(int fd_ind, uint8_t *enc_buf,
-			   struct test_param *crypto_info);
 error_t parse_opt(int opt, char *arg, struct argp_state *state);
 int (*validate_proto_opts[])(uint32_t, struct test_param*) = {
 		NULL,
 		validate_macsec_opts,
 		validate_wimax_opts,
 		validate_pdcp_opts,
-		validate_srtp_opts,
-		validate_wifi_opts
+		validate_srtp_opts
 };
 
 /* helper routines */
