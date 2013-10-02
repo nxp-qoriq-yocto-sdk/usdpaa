@@ -54,10 +54,11 @@
 #define MACSEC_KEY_SIZE     16
 #define MACSEC_GMAC_TEST_ID 4
 
-#define MAX_TEST_PLAIN_PACKET_SIZE	79
-#define MAX_TEST_ENCRYPT_PACKET_SIZE    (MAX_TEST_PLAIN_PACKET_SIZE +\
-					MACSEC_ICV_SIZE +\
-					MACSEC_SECTAG_SIZE)
+#define MACSEC_MAX_TEST_PLAIN_PACKET_SIZE	79
+#define MACSEC_MAX_TEST_ENCRYPT_PACKET_SIZE	\
+					(MACSEC_MAX_TEST_PLAIN_PACKET_SIZE +\
+					 MACSEC_ICV_SIZE +\
+					 MACSEC_SECTAG_SIZE)
 
 #define PDCP_MAX_KEY_LEN	16 /* bytes */
 
@@ -250,7 +251,7 @@ static uint32_t macsec_reference_length[] = {
 	432, 480, 488, 600, 432, 480, 520, 632
 };
 
-static uint8_t macsec_reference_plaintext[][MAX_TEST_PLAIN_PACKET_SIZE] = {
+static uint8_t macsec_reference_plaintext[][MACSEC_MAX_TEST_PLAIN_PACKET_SIZE] = {
 	/* gcm - encryption and authentication */
 	/* 54 bytes */
 	{0xE2, 0x01, 0x06, 0xD7, 0xCD, 0x0D, 0xF0, 0x76, 0x1E, 0x8D, 0xCD, 0x3D,
@@ -311,7 +312,7 @@ static uint8_t macsec_reference_plaintext[][MAX_TEST_PLAIN_PACKET_SIZE] = {
 	 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x00, 0x07}
 };
 
-static uint8_t macsec_reference_ciphertext[][MAX_TEST_ENCRYPT_PACKET_SIZE] = {
+static uint8_t macsec_reference_ciphertext[][MACSEC_MAX_TEST_ENCRYPT_PACKET_SIZE] = {
 	/* gcm - encryption and authentication */
 	/* 54 bytes */
 	{0xE2, 0x01, 0x06, 0xD7, 0xCD, 0x0D, 0xF0, 0x76, 0x1E, 0x8D, 0xCD, 0x3D,
