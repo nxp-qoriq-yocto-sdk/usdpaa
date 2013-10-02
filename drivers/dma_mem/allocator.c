@@ -88,16 +88,18 @@ static inline struct bufinfo *get_bufinfo(struct dma_mem *map, int idx)
 #ifdef ALLOC_DEBUG
 #define DPRINT		printf
 #define DUMP(x)		dma_mem_print(x)
+#define DUMP_LOCK(x)	dma_mem_print_lock(x)
 #else
 #define DPRINT(x...)	do { ; } while(0)
 #define DUMP(x)		do { ; } while(0)
+#define DUMP_LOCK(x)	do { ; } while(0)
 #endif
 
 void dma_mem_allocator_init(struct dma_mem *map)
 {
 	*get_numbufs(map) = 0;
 	DPRINT("%s\n", __func__);
-	DUMP(map);
+	DUMP_LOCK(map);
 }
 
 /* These internal local_*() functions don't need to worry about locking */
@@ -234,8 +236,6 @@ void dma_mem_print(struct dma_mem *map)
 	struct bufinfo *buf;
 	unsigned int idx;
 
-	map_lock(map);
-
 	p_numbufs = get_numbufs(map);
 	numbufs = *p_numbufs;
 	buf = get_bufinfo(map, numbufs - 1);
@@ -244,7 +244,12 @@ void dma_mem_print(struct dma_mem *map)
 	for (idx = 0, buf = get_bufinfo(map, idx); idx < numbufs; buf--, idx++)
 		printf("  [0x%x-0x%x] len=0x%x, bufinfo=%p\n",
 		       buf->offset, buf->offset + buf->len, buf->len, buf);
+}
 
+void dma_mem_print_lock(struct dma_mem *map)
+{
+	map_lock(map);
+	dma_mem_print(map);
 	map_unlock(map);
 }
 
