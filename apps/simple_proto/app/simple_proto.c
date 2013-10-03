@@ -716,6 +716,11 @@ static int get_buf_size(struct test_param *crypto_info)
 	case SRTP:
 		total_size += crypto_info->buf_size + SRTP_MAX_ICV_SIZE;
 		break;
+
+	case WIFI:
+		total_size += crypto_info->buf_size + WIFI_CCM_SIZE +
+				WIFI_ICV_SIZE + WIFI_FCS_SIZE;
+		break;
 	}
 
 	return total_size;
