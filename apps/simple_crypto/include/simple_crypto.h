@@ -77,6 +77,7 @@ struct test_param {
 	enum sec_algo algo;		/**< SEC operation to perform */
 	struct runtime_param rt; /**< runtime parameter */
 	bool valid_params;		/**< valid parameters flag*/
+	uint8_t authnct;	/* processing authentication algorithm */
 };
 
 struct parse_input_t {
@@ -123,7 +124,7 @@ inline int get_num_of_iterations(void *stuff);
 void set_num_of_iterations(void *stuff, unsigned int itr_num);
 inline int get_num_of_buffers(void *stuff);
 inline enum test_mode get_test_mode(void *stuff);
-inline uint8_t requires_authentication(void);
+inline uint8_t requires_authentication(void *);
 inline long get_num_of_cpus(void);
 inline pthread_barrier_t get_thread_barrier(void);
 

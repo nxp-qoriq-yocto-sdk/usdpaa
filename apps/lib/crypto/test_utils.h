@@ -66,6 +66,17 @@ enum test_mode {
 };
 
 /*
+ * Wrapper over strncpy which ensures that the destination is null terminated
+ * after strncpy returns (this handles the case in which the source is longer
+ * than the destination, case in which strncpy will copy up to the last byte
+ * of destination, but it will not add the null-terminating character.
+ */
+#define SAFE_STRNCPY(d, s, sz)			\
+	do {					\
+		strncpy((d), (s), (sz));	\
+		(d)[(sz)-1] = '\0';		\
+	} while (0)
+/*
  * Structure used for passing required information to the cleanup handler.
  */
 struct cleanup_params {

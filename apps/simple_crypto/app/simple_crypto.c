@@ -38,9 +38,6 @@
 
 #include "simple_crypto.h"
 
-/* processing authentication algorithm */
-uint8_t authnct;
-
 struct ref_vector_s ref_test_vector;
 
 /* Number of active cpus */
@@ -143,7 +140,7 @@ void init_rtv_snow_f9(struct test_param crypto_info)
 	ref_test_vector.ciphertext = NULL;
 	ref_test_vector.digest =
 	    snow_f9_reference_digest[crypto_info.test_set - 1];
-	authnct = 1;
+	crypto_info.authnct = 1;
 }
 
 /*
@@ -195,7 +192,7 @@ void init_rtv_kasumi_f9(struct test_param crypto_info)
 	ref_test_vector.ciphertext = NULL;
 	ref_test_vector.digest =
 	    kasumi_f9_reference_digest[crypto_info.test_set - 1];
-	authnct = 1;
+	crypto_info.authnct = 1;
 }
 
 /*
@@ -212,7 +209,7 @@ void init_rtv_crc(struct test_param crypto_info)
 	    crc_reference_plaintext[crypto_info.test_set - 1];
 	ref_test_vector.ciphertext = NULL;
 	ref_test_vector.digest = crc_reference_digest[crypto_info.test_set - 1];
-	authnct = 1;
+	crypto_info.authnct = 1;
 }
 
 /*
@@ -233,7 +230,7 @@ void init_rtv_hmac_sha1(struct test_param crypto_info)
 	ref_test_vector.ciphertext = NULL;
 	ref_test_vector.digest =
 	    hamc_sha1_reference_digest[crypto_info.test_set - 1];
-	authnct = 1;
+	crypto_info.authnct = 1;
 }
 
 /*
@@ -1141,6 +1138,7 @@ int test_enc_match(void *params, struct qm_fd fd[])
 	uint8_t *enc_buf;
 	dma_addr_t addr;
 	uint32_t ind;
+	uint8_t authnct = crypto_info.authnct;
 
 	for (ind = 0; ind < crypto_info.buf_num; ind++) {
 		addr = qm_fd_addr_get64(&fd[ind]);
@@ -1371,9 +1369,9 @@ inline enum test_mode get_test_mode(void *params)
  * param[in]	params - test parameters
  * return	0 - doesn't require authentication/1 - requires authentication
  */
-inline uint8_t requires_authentication(void)
+inline uint8_t requires_authentication(void *params)
 {
-	return authnct;
+	return ((struct test_param *)params)->authnct;
 }
 
 /*
@@ -1411,7 +1409,7 @@ void set_crypto_cbs(struct test_cb *crypto_cb, struct test_param crypto_info)
 	/* Set decryption buffer */
 	if (SNOW_F8_F9 == crypto_info.algo)
 		crypto_cb->set_dec_buf = set_dec_auth_buf;
-	else if (!authnct)
+	else if (!crypto_info.authnct)
 		crypto_cb->set_dec_buf = set_dec_buf;
 	else
 		crypto_cb->set_dec_buf = NULL;

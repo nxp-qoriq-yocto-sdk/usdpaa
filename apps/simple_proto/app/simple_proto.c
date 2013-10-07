@@ -32,591 +32,28 @@
 
 pthread_barrier_t app_barrier;
 
-struct ref_vector_s ref_test_vector;
-
 long ncpus;
+
+struct protocol_info *proto;
+struct ref_vector_s *ref_test_vector;
 
 enum rta_sec_era rta_sec_era;
 int32_t user_sec_era = -1;
 int32_t hw_sec_era = -1;
 
-static unsigned authnct = 0; /**< By default, do both encrypt & decrypt */
+/*
+ * Array of pointers to various protocol informations. Each registered protocol
+ * will allocate a structure that will be referenced from this array
+ * by using this variable
+ */
+static struct protocol_info **protocols;
+
+/*
+ * The total number of registered protocols
+ */
+static int proto_num;
 
 /***********************************************/
-
-/**
- * @brief	Initializes the reference test vector for MACsec
- * @details	Initializes key, length and other variables for the protocol
- * @param[in]	crypto_info - test parameters
- * @return	None
- */
-void init_rtv_macsec(struct test_param *crypto_info)
-{
-	struct macsec_params *macsec_params;
-
-	macsec_params = &crypto_info->proto_params.macsec_params;
-	if (macsec_params->cipher_alg == MACSEC_CIPHER_TYPE_GMAC) {
-		crypto_info->test_set += MACSEC_GMAC_TEST_ID;
-		authnct = 1;
-	}
-
-	strcpy(protocol, "MACsec");
-	ref_test_vector.key =
-		(uintptr_t)macsec_reference_key[crypto_info->test_set - 1];
-
-	/* set the MACsec pdb params for test */
-	ref_test_vector.pdb.macsec.ethertype =
-	    macsec_reference_sectag_etype[crypto_info->test_set - 1];
-	ref_test_vector.pdb.macsec.tci_an =
-	    macsec_reference_sectag_tcian[crypto_info->test_set - 1];
-	ref_test_vector.pdb.macsec.pn =
-	    macsec_reference_iv_pn[crypto_info->test_set - 1];
-	ref_test_vector.pdb.macsec.sci =
-	    macsec_reference_iv_sci[crypto_info->test_set - 1];
-
-	if (CIPHER == crypto_info->mode) {
-		ref_test_vector.length =
-		    macsec_reference_length[crypto_info->test_set - 1];
-		ref_test_vector.plaintext =
-		    macsec_reference_plaintext[crypto_info->test_set - 1];
-		ref_test_vector.ciphertext =
-		    macsec_reference_ciphertext[crypto_info->test_set - 1];
-	}
-}
-
-void init_rtv_wimax_aes_ccm_128(struct test_param *crypto_info)
-{
-	strcpy(protocol, "WIMAX");
-	ref_test_vector.key = (uintptr_t)malloc(WIMAX_KEY_SIZE);
-	memcpy((uint8_t *)(uintptr_t)ref_test_vector.key,
-	       wimax_reference_key[crypto_info->test_set - 1],
-	       WIMAX_KEY_SIZE);
-
-	if (CIPHER == crypto_info->mode)
-		init_rtv_wimax_cipher(crypto_info->test_set);
-
-	/* set the WiMAX PDB for test */
-	memcpy(&ref_test_vector.pdb.wimax.pn,
-	       &wimax_reference_pn[crypto_info->test_set - 1],
-	       WIMAX_PN_SIZE);
-
-	if (crypto_info->proto_params.wimax_params.ar) {
-		ref_test_vector.pdb.wimax.decap_opts = WIMAX_PDBOPTS_AR;
-		ref_test_vector.pdb.wimax.ar_len =
-			crypto_info->proto_params.wimax_params.ar_len;
-	}
-
-	if (PERF == crypto_info->mode) {
-		if (crypto_info->proto_params.wimax_params.ofdma)
-			ref_test_vector.flags.wimax.protinfo =
-				OP_PCL_WIMAX_OFDMA;
-		else
-			ref_test_vector.flags.wimax.protinfo =
-				OP_PCL_WIMAX_OFDM;
-
-		if (crypto_info->proto_params.wimax_params.fcs) {
-			ref_test_vector.pdb.wimax.encap_opts =
-				WIMAX_PDBOPTS_FCS;
-
-			ref_test_vector.pdb.wimax.decap_opts |=
-				WIMAX_PDBOPTS_FCS;
-		}
-	} else {
-		ref_test_vector.pdb.wimax.encap_opts =
-			wimax_reference_pdb_opts[crypto_info->test_set - 1];
-		ref_test_vector.pdb.wimax.decap_opts |=
-			wimax_reference_pdb_opts[crypto_info->test_set - 1];
-		ref_test_vector.flags.wimax.protinfo =
-			wimax_reference_protinfo[crypto_info->test_set - 1];
-	}
-}
-
-void init_rtv_wimax_cipher(unsigned test_set)
-{
-	ref_test_vector.length =
-	    wimax_reference_length[test_set - 1];
-
-	ref_test_vector.plaintext =
-		(uint8_t *)malloc(NO_OF_BYTES(ref_test_vector.length));
-	memcpy(ref_test_vector.plaintext,
-	       wimax_reference_gmh[test_set - 1],
-	       WIMAX_GMH_SIZE);
-	memcpy(ref_test_vector.plaintext + WIMAX_GMH_SIZE,
-	       wimax_reference_payload[test_set - 1],
-	       NO_OF_BYTES(ref_test_vector.length) - WIMAX_GMH_SIZE);
-
-	ref_test_vector.ciphertext =
-		(uint8_t *)malloc(NO_OF_BYTES(ref_test_vector.length) +
-				  WIMAX_PN_SIZE +
-				  WIMAX_ICV_SIZE +
-				  WIMAX_FCS_SIZE);
-	memcpy(ref_test_vector.ciphertext,
-	       wimax_reference_enc_gmh[test_set - 1],
-	       WIMAX_GMH_SIZE);
-	memcpy(ref_test_vector.ciphertext + WIMAX_GMH_SIZE,
-	       wimax_reference_enc_pn[test_set - 1],
-	       WIMAX_PN_SIZE);
-	memcpy(ref_test_vector.ciphertext + WIMAX_GMH_SIZE + WIMAX_PN_SIZE,
-	       wimax_reference_enc_payload[test_set - 1],
-	       NO_OF_BYTES(ref_test_vector.length) - WIMAX_GMH_SIZE);
-	memcpy(ref_test_vector.ciphertext + WIMAX_PN_SIZE +
-			NO_OF_BYTES(ref_test_vector.length),
-	       wimax_reference_enc_icv[test_set - 1],
-	       WIMAX_ICV_SIZE);
-	memcpy(ref_test_vector.ciphertext +
-	       WIMAX_PN_SIZE + NO_OF_BYTES(ref_test_vector.length) +
-			WIMAX_ICV_SIZE,
-	       wimax_reference_fcs[test_set - 1],
-	       WIMAX_FCS_SIZE);
-}
-
-void test_cleanup_wimax(struct test_param *crypto_info)
-{
-	if (CIPHER == crypto_info->mode) {
-		free(ref_test_vector.ciphertext);
-		free(ref_test_vector.plaintext);
-	}
-	free((void *)ref_test_vector.key);
-}
-
-void set_enc_buf_cb_wimax(struct qm_fd *fd, uint8_t *buf,
-			  struct test_param *crypto_info)
-{
-	uint8_t plain_data = 0;
-	int i;
-
-	/*
-	 * Copy the input plain-text data.
-	 * For WiMAX in PERF mode set the input plain-text data
-	 * as GMH aware frames.
-	 */
-	if (CIPHER == crypto_info->mode) {
-		memcpy(buf, ref_test_vector.plaintext, crypto_info->buf_size);
-	} else {
-		/* GMH Header Type bit shall be set to zero. */
-		buf[0] &= 0x7f;
-		/*
-		 * Set CRC indicator bit to value one if FCS
-		 * is included in the PDU.
-		 */
-		if (crypto_info->proto_params.wimax_params.fcs)
-			buf[1] |= 0x40;
-		/* Set the input frame length */
-		buf[1] &= ~0x7;
-		buf[1] |= (crypto_info->buf_size >> 8) & 0x7;
-		buf[2] = crypto_info->buf_size & 0xFF;
-
-		for (i = WIMAX_GMH_SIZE; i < crypto_info->buf_size; i++)
-			buf[i] = plain_data++;
-	}
-}
-
-int test_enc_match_cb_wimax(int fd_ind, uint8_t *enc_buf,
-			    struct test_param *crypto_info)
-{
-	if ((fd_ind == 0) &&
-	    (test_vector_match((uint32_t *)enc_buf,
-			(uint32_t *)ref_test_vector.ciphertext,
-			crypto_info->rt.output_buf_size * BITS_PER_BYTE) != 0))
-		return -1;
-
-	return 0;
-}
-
-int test_dec_match_cb_wimax(int fd_ind, uint8_t *dec_buf,
-			    struct test_param *crypto_info)
-{
-	uint8_t plain_data = 0;
-	int i;
-
-	if (CIPHER == crypto_info->mode) {
-		if ((fd_ind == 0) &&
-		    (test_vector_match((uint32_t *)dec_buf,
-				       (uint32_t *)ref_test_vector.plaintext,
-				       ref_test_vector.length) != 0))
-			return -1;
-	} else
-		for (i = WIMAX_GMH_SIZE; i < crypto_info->buf_size; i++)
-			if (dec_buf[i] != plain_data++)
-				return -1;
-
-	return 0;
-}
-
-/*
- * NOTE: this function will be called iff HFN override is enabled; thus
- * no need to check if hfn_ov_en is true.
- */
-void set_enc_buf_cb_pdcp(struct qm_fd *fd, uint8_t *buf,
-			 struct test_param *crypto_info)
-{
-	int i;
-	static uint8_t plain_data = 0;
-	uint8_t offset = 0;
-	uint32_t fd_cmd;
-
-	if (CIPHER == crypto_info->mode) {
-		fd_cmd = PDCP_DPOVRD_HFN_OV_EN | ref_test_vector.pdb.pdcp.hfn;
-		if (rta_sec_era > RTA_SEC_ERA_2)
-			fd->status = fd_cmd;
-		else {
-			*(uint32_t *)buf = fd_cmd;
-			offset = PDCP_P4080REV2_HFN_OV_BUFLEN;
-		}
-		memcpy(buf + offset, ref_test_vector.plaintext,
-		       crypto_info->buf_size);
-	} else {
-		fd_cmd = PDCP_DPOVRD_HFN_OV_EN |
-			 crypto_info->proto_params.pdcp_params.hfn_ov_val;
-		if (rta_sec_era > RTA_SEC_ERA_2)
-			fd->status = fd_cmd;
-		else {
-			*(uint32_t *)buf = fd_cmd;
-			offset = PDCP_P4080REV2_HFN_OV_BUFLEN;
-		}
-		for (i = offset; i < crypto_info->buf_size; i++)
-			buf[i] = plain_data++;
-	}
-}
-
-/*
- * NOTE: this function will be called iff HFN override is enabled; thus
- * no need to check if hfn_ov_en is true.
- */
-void set_dec_buf_cb_pdcp(struct qm_fd *fd, uint8_t *buf,
-			 struct test_param *crypto_info)
-{
-	uint32_t fd_cmd;
-	if (CIPHER == crypto_info->mode) {
-		fd_cmd = PDCP_DPOVRD_HFN_OV_EN | ref_test_vector.pdb.pdcp.hfn;
-		if (rta_sec_era > RTA_SEC_ERA_2)
-			fd->status = fd_cmd;
-		else
-			*(uint32_t *)buf = fd_cmd;
-	} else {
-		fd_cmd = PDCP_DPOVRD_HFN_OV_EN |
-			 crypto_info->proto_params.pdcp_params.hfn_ov_val;
-		if (rta_sec_era > RTA_SEC_ERA_2)
-			fd->status = fd_cmd;
-		else
-			*(uint32_t *)buf = fd_cmd;
-	}
-}
-
-/*
- * NOTE: This function is called iff SEC ERA is 2 AND HFN override
- * is enabled.
- */
-int test_enc_match_cb_pdcp(int fd_ind, uint8_t *enc_buf,
-			    struct test_param *crypto_info)
-{
-	return test_vector_match((uint32_t *)(enc_buf +
-					PDCP_P4080REV2_HFN_OV_BUFLEN),
-				 (uint32_t *)ref_test_vector.ciphertext,
-				 (crypto_info->rt.output_buf_size -
-					PDCP_P4080REV2_HFN_OV_BUFLEN) *
-				 BITS_PER_BYTE);
-}
-
-/*
- * NOTE: This function is called iff SEC ERA is 2 AND HFN override
- * is enabled.
- */
-int test_dec_match_cb_pdcp(int fd_ind, uint8_t *dec_buf,
-			    struct test_param *crypto_info)
-{
-	uint8_t plain_data = 0;
-	int i;
-
-	if (CIPHER == crypto_info->mode)
-		return  test_vector_match(
-				  (uint32_t *)(dec_buf +
-					PDCP_P4080REV2_HFN_OV_BUFLEN),
-				  (uint32_t *)ref_test_vector.plaintext,
-				  ref_test_vector.length);
-	else
-		for (i = PDCP_P4080REV2_HFN_OV_BUFLEN;
-		     i < crypto_info->buf_size;
-		     i++)
-			if (dec_buf[i] != plain_data++)
-				return -1;
-
-	return 0;
-}
-
-int test_enc_match_cb_wifi(int fd_ind, uint8_t *enc_buf,
-			    struct test_param *crypto_info)
-{
-	if (!fd_ind &&
-	    test_vector_match((uint32_t *)enc_buf,
-			      (uint32_t *)ref_test_vector.ciphertext,
-			      crypto_info->rt.output_buf_size * BITS_PER_BYTE))
-		return -1;
-
-	return 0;
-}
-
-void init_rtv_pdcp(struct test_param *crypto_info)
-{
-	struct pdcp_params *pdcp_params =
-			&crypto_info->proto_params.pdcp_params;
-
-	switch (pdcp_params->type) {
-	case PDCP_CONTROL_PLANE:
-		init_rtv_pdcp_c_plane(crypto_info);
-		break;
-
-	case PDCP_DATA_PLANE:
-		init_rtv_pdcp_u_plane(crypto_info);
-		break;
-
-	case PDCP_SHORT_MAC:
-		init_rtv_pdcp_short_mac(crypto_info);
-		break;
-
-	default:
-		fprintf(stderr, "Unknown PDCP PDU type %d (should never reach here)\n",
-			pdcp_params->type);
-		assert(0);
-		return;
-	}
-}
-void init_rtv_pdcp_c_plane(struct test_param *crypto_info)
-{
-	const int proto = PDCP_CPLANE_TEST_ARRAY_OFFSET(crypto_info);
-	uint8_t *cipherkey, *authkey;
-
-	strcpy(protocol, pdcp_test_params[proto].name);
-
-	cipherkey = __dma_mem_memalign(L1_CACHE_BYTES, PDCP_MAX_KEY_LEN);
-	memcpy(cipherkey, pdcp_test_crypto_key[proto], PDCP_MAX_KEY_LEN);
-
-	authkey = __dma_mem_memalign(L1_CACHE_BYTES, PDCP_MAX_KEY_LEN);
-	memcpy(authkey, pdcp_test_auth_key[proto], PDCP_MAX_KEY_LEN);
-
-	ref_test_vector.cipher_alg = pdcp_test_params[proto].cipher_algorithm;
-	ref_test_vector.dma_addr_key = __dma_mem_vtop(cipherkey);
-	ref_test_vector.cipher_keylen = PDCP_MAX_KEY_LEN;
-
-	ref_test_vector.auth_alg = pdcp_test_params[proto].integrity_algorithm;
-	ref_test_vector.dma_addr_auth_key = __dma_mem_vtop(authkey);
-	ref_test_vector.auth_keylen = PDCP_MAX_KEY_LEN;
-
-	ref_test_vector.pdb.pdcp.bearer = pdcp_test_bearer[proto];
-	ref_test_vector.pdb.pdcp.direction =
-			pdcp_test_packet_direction[proto];
-
-	ref_test_vector.pdb.pdcp.hfn = pdcp_test_hfn[proto];
-	ref_test_vector.pdb.pdcp.hfn_threshold =
-			pdcp_test_hfn_threshold[proto];
-
-	if (CIPHER == crypto_info->mode) {
-		ref_test_vector.length =
-				NO_OF_BITS(pdcp_test_data_in_len[proto]);
-		ref_test_vector.plaintext = pdcp_test_data_in[proto];
-		ref_test_vector.ciphertext = pdcp_test_data_out[proto];
-	}
-}
-
-void init_rtv_pdcp_u_plane(struct test_param *crypto_info)
-{
-	const int proto = PDCP_UPLANE_TEST_ARRAY_OFFSET(crypto_info);
-	uint8_t *cipherkey;
-	strcpy(protocol, pdcp_test_params[proto].name);
-
-	cipherkey = __dma_mem_memalign(L1_CACHE_BYTES, PDCP_MAX_KEY_LEN);
-	memcpy(cipherkey, pdcp_test_crypto_key[proto], PDCP_MAX_KEY_LEN);
-
-	ref_test_vector.cipher_alg = pdcp_test_params[proto].cipher_algorithm;
-	ref_test_vector.dma_addr_key = __dma_mem_vtop(cipherkey);
-	ref_test_vector.cipher_keylen = PDCP_MAX_KEY_LEN;
-
-	ref_test_vector.pdb.pdcp.bearer = pdcp_test_bearer[proto];
-	ref_test_vector.pdb.pdcp.direction =
-			pdcp_test_packet_direction[proto];
-	ref_test_vector.pdb.pdcp.hfn = pdcp_test_hfn[proto];
-	ref_test_vector.pdb.pdcp.hfn_threshold =
-			pdcp_test_hfn_threshold[proto];
-	ref_test_vector.pdb.pdcp.sns = pdcp_test_data_sn_size[proto];
-
-	if (CIPHER == crypto_info->mode) {
-		ref_test_vector.length =
-				NO_OF_BITS(pdcp_test_data_in_len[proto]);
-		ref_test_vector.plaintext = pdcp_test_data_in[proto];
-		ref_test_vector.ciphertext = pdcp_test_data_out[proto];
-	}
-}
-
-void init_rtv_pdcp_short_mac(struct test_param *crypto_info)
-{
-	const int proto = PDCP_SHORT_MAC_TEST_ARRAY_OFFSET(crypto_info);
-	uint8_t *authkey;
-	strcpy(protocol, pdcp_test_params[proto].name);
-
-	authkey = __dma_mem_memalign(L1_CACHE_BYTES, PDCP_MAX_KEY_LEN);
-
-	memcpy(authkey, pdcp_test_auth_key[proto], PDCP_MAX_KEY_LEN);
-
-	ref_test_vector.auth_alg = pdcp_test_params[proto].integrity_algorithm;
-
-	ref_test_vector.dma_addr_auth_key = __dma_mem_vtop(authkey);
-	ref_test_vector.auth_keylen = PDCP_MAX_KEY_LEN;
-
-	if (CIPHER == crypto_info->mode) {
-		ref_test_vector.length =
-				NO_OF_BITS(pdcp_test_data_in_len[proto]);
-		ref_test_vector.plaintext = pdcp_test_data_in[proto];
-		ref_test_vector.ciphertext = pdcp_test_data_out[proto];
-	}
-
-	authnct = 1;
-}
-
-void init_rtv_srtp(struct test_param *crypto_info)
-{
-	strcpy(protocol, "SRTP");
-	ref_test_vector.auth_key =
-	    (uintptr_t)srtp_reference_auth_key[crypto_info->test_set - 1];
-	ref_test_vector.auth_keylen =
-	    srtp_reference_auth_keylen[crypto_info->test_set - 1];
-
-	ref_test_vector.key =
-	    (uintptr_t)srtp_reference_cipher_key[crypto_info->test_set - 1];
-	ref_test_vector.cipher_keylen =
-	    srtp_reference_cipher_keylen[crypto_info->test_set - 1];
-
-	ref_test_vector.pdb.srtp.cipher_salt =
-	    srtp_reference_cipher_salt[crypto_info->test_set - 1];
-	ref_test_vector.pdb.srtp.n_tag =
-	    srtp_reference_n_tag[crypto_info->test_set - 1];
-	ref_test_vector.pdb.srtp.roc =
-	    srtp_reference_roc[crypto_info->test_set - 1];
-	ref_test_vector.pdb.srtp.seqnum =
-	    srtp_reference_seq_num[crypto_info->test_set - 1];
-
-	if (CIPHER == crypto_info->mode) {
-		ref_test_vector.length =
-		    srtp_reference_length[crypto_info->test_set - 1];
-		ref_test_vector.plaintext =
-		    srtp_reference_plaintext[crypto_info->test_set - 1];
-		ref_test_vector.ciphertext =
-		    srtp_reference_ciphertext[crypto_info->test_set - 1];
-	}
-}
-
-void init_rtv_wifi_ccmp(struct test_param *crypto_info)
-{
-	strcpy(protocol, "WiFi");
-	ref_test_vector.key =
-		(uintptr_t)wifi_reference_key[crypto_info->test_set - 1];
-
-	/* set the WiFi pdb params for test */
-	ref_test_vector.pdb.wifi.mac_hdr_len =
-	    wifi_reference_mac_hdr_len[crypto_info->test_set - 1];
-	ref_test_vector.pdb.wifi.pn =
-	    wifi_reference_pn[crypto_info->test_set - 1];
-	ref_test_vector.pdb.wifi.priority =
-	    wifi_reference_pri[crypto_info->test_set - 1];
-	ref_test_vector.pdb.wifi.key_id =
-	    wifi_reference_key_id[crypto_info->test_set - 1];
-
-	if (CIPHER == crypto_info->mode) {
-		ref_test_vector.length =
-		    wifi_reference_length[crypto_info->test_set - 1];
-		ref_test_vector.plaintext =
-		    wifi_reference_plaintext[crypto_info->test_set - 1];
-		ref_test_vector.ciphertext =
-		    wifi_reference_ciphertext[crypto_info->test_set - 1];
-	}
-}
-
-/**
- * @brief	Set PN constant in MACsec shared descriptor
- * @details	Inside this routine, context is erased, PN is read from
- *		descriptor buffer before operation is performed, and after the
- *		operation is updated in descriptor buffer and also saved in
- *		memory.The SEC automatically increments the PN inside the
- *		descriptor buffer after executing the MACsec PROTOCOL command,
- *		so the next packet that will be processed by SEC will be
- *		encapsulated/decapsulated with an incremented PN. This routine
- *		is needed for MACsec's tests using a single golden pattern
- *		packet reinjected for multiple times.
- * @param[in]	shared_desc - pointer to descriptor buffer
- * @param[in]	shared_desc_len - shared descriptor length
- * @return	None
- */
-void macsec_set_pn_constant(uint32_t *shared_desc, unsigned *shared_desc_len)
-{
-	struct program prg;
-	struct program *program = &prg;
-	uint32_t op_line, tmp;
-	uint32_t tmp_buf[64];
-	int i, op_idx = 0, save_lines = 0;
-	unsigned extra_instr = 4;
-
-	/* to mute compiler warnings */
-	prg.current_instruction = 0;
-
-	for (i = 0; i < *shared_desc_len; i++) {
-		tmp = shared_desc[i];
-		if ((tmp & CMD_MASK) == CMD_OPERATION)
-			op_idx = i;
-	}
-
-	if (!op_idx)
-		/* there isn't an operation instruction in descbuf */
-		return;
-
-	if ((*shared_desc_len + extra_instr) > MAX_DESCRIPTOR_SIZE)
-		/* we can't modify this descriptor; it will overflow */
-		return;
-
-	if (op_idx < *shared_desc_len - 1) {
-		/* operation is not the last instruction in descbuf */
-		save_lines = *shared_desc_len - 1 - op_idx;
-		for (i = 0; i < save_lines; i++)
-			tmp_buf[i] = shared_desc[op_idx + 1 + i];
-	}
-
-	/* save operation instruction */
-	op_line = shared_desc[op_idx];
-
-	/* RTA snippet code to update shared descriptor */
-	program->buffer = shared_desc;
-	program->current_pc = op_idx;
-
-	/*
-	 * Use CONTEXT2 to save the current value of PN. CONTEXT2 _should_ be
-	 * unused by MACSEC protocol.
-	 */
-	MOVE(DESCBUF, 5 * 4, CONTEXT2, 0, IMM(4), WITH(0));
-	program->buffer[program->current_pc++] = op_line;
-	MOVE(CONTEXT2, 0, DESCBUF, 5 * 4, IMM(4), WITH(WAITCOMP));
-	STORE(SHAREDESCBUF, 5 * 4, NONE, 4, 0);
-	/* Wait for all bus transactions to finish before stopping. */
-	JUMP(IMM(0), HALT_STATUS, ALL_TRUE, WITH(CALM));
-
-	/* erase context in shared desc header */
-	*shared_desc &= ~HDR_SAVECTX;
-
-	/* update length in shared desc header */
-	*shared_desc_len += extra_instr;
-	*shared_desc &= ~HDR_SD_LENGTH_MASK;
-	*shared_desc |= *shared_desc_len & HDR_SD_LENGTH_MASK;
-
-	/* copy the rest of the instructions in buffer */
-	for (i = 0; i < save_lines; i++)
-		shared_desc[program->current_pc + i] = tmp_buf[i];
-}
-
-/* Function pointer to reference test vector for supported protocols */
-void (*init_ref_test_vector[]) (struct test_param *crypto_info) = {
-	init_rtv_macsec,
-	init_rtv_wimax_aes_ccm_128,
-	init_rtv_pdcp,
-	init_rtv_srtp,
-	init_rtv_wifi_ccmp
-};
 
 /**
  * @brief	Calculates output buffer size and creates compound FDs
@@ -627,6 +64,7 @@ int prepare_test_frames(struct test_param *crypto_info)
 {
 	int err = 0;
 	extern struct qm_fd *fd;
+	char mode_type[20];
 
 	/*
 	 * Allocate FD array
@@ -638,18 +76,28 @@ int prepare_test_frames(struct test_param *crypto_info)
 	}
 
 	if (PERF == crypto_info->mode) {
-		strcpy(mode_type, "PERF");
+		strncpy(mode_type, "PERF", sizeof(mode_type));
 		crypto_info->test_set = 1;
 	}
 
-	init_ref_test_vector[crypto_info->proto - 1] (crypto_info);
+	err = proto->init_ref_test_vector(crypto_info);
+	if (unlikely(err)) {
+		error(err, err, "error: initializing test vector");
+		return err;
+	}
+
+	/*
+	 * Set the global reference test vector variable to point to the
+	 * reference test vector, as selected by the protocol.
+	 */
+	ref_test_vector = proto->proto_vector;
 
 	if (CIPHER == crypto_info->mode) {
 		strcpy(mode_type, "CIPHER");
-		crypto_info->buf_size = NO_OF_BYTES(ref_test_vector.length);
+		crypto_info->buf_size = NO_OF_BYTES(ref_test_vector->length);
 	}
 
-	err = set_buf_size(crypto_info);
+	err = proto->set_buf_size(crypto_info);
 	if (err)
 		error(err, err, "error: set output buffer size");
 
@@ -660,407 +108,14 @@ int prepare_test_frames(struct test_param *crypto_info)
 	if (err)
 		error(err, err, "error: create_compound_fd() failed");
 
-	printf("Processing %s for %d Frames\n", protocol, crypto_info->buf_num);
+	printf("Processing %s for %d Frames\n", proto->name,
+	       crypto_info->buf_num);
 	printf("%s mode, buffer length = %d\n", mode_type,
 	       crypto_info->buf_size);
 	printf("Number of iterations = %d\n", crypto_info->itr_num);
 	printf("\nStarting threads for %ld cpus\n", ncpus);
 
 	return err;
-}
-
-/**
- * @brief	Get the total buffer size used for input & output frames
- *		for a specific protocol
- * @param[in]	crypto_info - test parameters
- * @return	Size necessary for storing both the input and the output
- *		buffers
- */
-static int get_buf_size(struct test_param *crypto_info)
-{
-	unsigned int total_size = crypto_info->buf_size;
-
-	switch (crypto_info->proto) {
-	case MACSEC:
-		total_size += crypto_info->buf_size  + MACSEC_ICV_SIZE +
-				MACSEC_SECTAG_SIZE;
-		break;
-
-	case WIMAX:
-		total_size += crypto_info->buf_size + WIMAX_PN_SIZE;
-		if ((CIPHER == crypto_info->mode) ||
-		    crypto_info->proto_params.wimax_params.fcs)
-			total_size += WIMAX_FCS_SIZE;
-		break;
-
-	case PDCP:
-		switch (crypto_info->proto_params.pdcp_params.type) {
-		case PDCP_CONTROL_PLANE:
-		case PDCP_SHORT_MAC:
-			total_size +=
-				crypto_info->buf_size + PDCP_MAC_I_LEN;
-			break;
-
-		case PDCP_DATA_PLANE:
-			total_size += crypto_info->buf_size;
-			break;
-		}
-
-		if (crypto_info->proto_params.pdcp_params.hfn_ov_en &&
-		    rta_sec_era == RTA_SEC_ERA_2) {
-			/* The input and output buffer are 4 bytes longer */
-			total_size += 2 * PDCP_P4080REV2_HFN_OV_BUFLEN;
-		}
-		break;
-
-	case SRTP:
-		total_size += crypto_info->buf_size + SRTP_MAX_ICV_SIZE;
-		break;
-
-	case WIFI:
-		total_size += crypto_info->buf_size + WIFI_CCM_SIZE +
-				WIFI_ICV_SIZE + WIFI_FCS_SIZE;
-		break;
-	}
-
-	return total_size;
-}
-
-/**
- * @brief	Set buffer sizes for input/output frames
- * @param[in]	crypto_info - test parameters
- * @return	0 on success, otherwise -EINVAL value
- */
-static int set_buf_size(struct test_param *crypto_info)
-{
-	struct runtime_param *p_rt = &(crypto_info->rt);
-
-	p_rt->input_buf_capacity = crypto_info->buf_size;
-	p_rt->input_buf_length = crypto_info->buf_size;
-
-	switch (crypto_info->proto) {
-	case MACSEC:
-		crypto_info->rt.output_buf_size =
-		    crypto_info->buf_size + MACSEC_ICV_SIZE +
-		    MACSEC_SECTAG_SIZE;
-		break;
-	case WIMAX:
-		crypto_info->rt.output_buf_size = crypto_info->buf_size +
-						WIMAX_PN_SIZE +
-						WIMAX_ICV_SIZE;
-		if ((CIPHER == crypto_info->mode) ||
-		    crypto_info->proto_params.wimax_params.fcs)
-			crypto_info->rt.output_buf_size += WIMAX_FCS_SIZE;
-		break;
-
-	case PDCP:
-		switch (crypto_info->proto_params.pdcp_params.type) {
-		case PDCP_CONTROL_PLANE:
-		case PDCP_SHORT_MAC:
-			crypto_info->rt.output_buf_size =
-				crypto_info->buf_size + PDCP_MAC_I_LEN;
-			break;
-
-		case PDCP_DATA_PLANE:
-			crypto_info->rt.output_buf_size = crypto_info->buf_size;
-			break;
-
-		default:
-			fprintf(stderr, "error: %s: PDCP protocol type %d not supported\n",
-				__func__,
-				crypto_info->proto_params.pdcp_params.type);
-			return -EINVAL;
-		}
-
-		if (crypto_info->proto_params.pdcp_params.hfn_ov_en &&
-			rta_sec_era == RTA_SEC_ERA_2) {
-			/* The input buffer is 4 bytes longer */
-			p_rt->input_buf_capacity +=
-					PDCP_P4080REV2_HFN_OV_BUFLEN;
-			p_rt->input_buf_length += PDCP_P4080REV2_HFN_OV_BUFLEN;
-
-			crypto_info->rt.output_buf_size +=
-					PDCP_P4080REV2_HFN_OV_BUFLEN;
-		}
-
-		break;
-
-	case SRTP:
-		crypto_info->rt.output_buf_size =
-			crypto_info->buf_size + ref_test_vector.pdb.srtp.n_tag;
-		break;
-
-	case WIFI:
-			crypto_info->rt.output_buf_size =
-			    crypto_info->buf_size + WIFI_CCM_HDR_SIZE +
-			    WIFI_ICV_SIZE;
-			break;
-	default:
-		fprintf(stderr, "error: %s: protocol not supported\n",
-			__func__);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-/**
- * @brief	Create SEC shared descriptor
- * @param[in]	mode -	To check whether descriptor is for encryption or
- *		decryption
- * @param[in]	crypto_info - test parameters
- * @return	Shared descriptor pointer on success, otherwise NULL
- */
-static void *setup_init_descriptor(bool mode, struct test_param *crypto_info)
-{
-	struct sec_descriptor_t *prehdr_desc;
-	struct alginfo cipher_info, auth_info;
-	uint32_t *shared_desc = NULL;
-	unsigned shared_desc_len;
-	unsigned sw_hfn_ov = 0;
-	int i, hfn_val;
-
-	prehdr_desc = __dma_mem_memalign(L1_CACHE_BYTES,
-					 sizeof(struct sec_descriptor_t));
-	if (unlikely(!prehdr_desc)) {
-		fprintf(stderr,
-			"error: %s: dma_mem_memalign failed for preheader\n",
-			__func__);
-		return NULL;
-	}
-
-	memset(prehdr_desc, 0, sizeof(struct sec_descriptor_t));
-	shared_desc = (typeof(shared_desc))&prehdr_desc->descbuf;
-
-	switch (crypto_info->proto) {
-	case MACSEC:
-		cipher_info.key = ref_test_vector.key;
-		cipher_info.keylen = MACSEC_KEY_SIZE;
-		cipher_info.key_enc_flags = 0;
-		cipher_info.algtype =
-			crypto_info->proto_params.macsec_params.cipher_alg;
-		if (ENCRYPT == mode)
-			cnstr_shdsc_macsec_encap(shared_desc,
-						 &shared_desc_len,
-						 &cipher_info,
-						 ref_test_vector.pdb.macsec.sci,
-						 ref_test_vector.pdb.macsec.
-						 ethertype,
-						 ref_test_vector.pdb.macsec.
-						 tci_an,
-						 ref_test_vector.pdb.macsec.pn);
-
-		else
-			cnstr_shdsc_macsec_decap(shared_desc,
-						 &shared_desc_len,
-						 &cipher_info,
-						 ref_test_vector.pdb.macsec.sci,
-						 ref_test_vector.pdb.macsec.pn);
-		macsec_set_pn_constant(shared_desc, &shared_desc_len);
-		break;
-	case WIMAX:
-		cipher_info.key = ref_test_vector.key;
-		cipher_info.keylen = WIMAX_KEY_SIZE;
-		cipher_info.key_enc_flags = 0;
-		if (ENCRYPT == mode)
-			cnstr_shdsc_wimax_encap(shared_desc,
-					&shared_desc_len,
-					ref_test_vector.pdb.wimax.encap_opts,
-					ref_test_vector.pdb.wimax.pn,
-					ref_test_vector.flags.wimax.protinfo,
-					&cipher_info);
-		else
-			cnstr_shdsc_wimax_decap(shared_desc,
-					&shared_desc_len,
-					ref_test_vector.pdb.wimax.decap_opts,
-					ref_test_vector.pdb.wimax.pn,
-					ref_test_vector.pdb.wimax.ar_len,
-					ref_test_vector.flags.wimax.protinfo,
-					&cipher_info);
-		break;
-
-	case PDCP:
-		cipher_info.algtype = ref_test_vector.cipher_alg;
-		cipher_info.key = ref_test_vector.dma_addr_key;
-		cipher_info.keylen = ref_test_vector.cipher_keylen;
-		cipher_info.key_enc_flags = 0;
-
-		auth_info.algtype = ref_test_vector.auth_alg;
-		auth_info.key = ref_test_vector.dma_addr_auth_key;
-		auth_info.keylen = ref_test_vector.auth_keylen;
-		auth_info.key_enc_flags = 0;
-
-		sw_hfn_ov = ((rta_sec_era == RTA_SEC_ERA_2) &&
-			(crypto_info->proto_params.pdcp_params.hfn_ov_en));
-		hfn_val = crypto_info->proto_params.pdcp_params.hfn_ov_en ?
-			  crypto_info->proto_params.pdcp_params.hfn_ov_val :
-			  ref_test_vector.pdb.pdcp.hfn;
-
-		switch (crypto_info->proto_params.pdcp_params.type) {
-		case PDCP_CONTROL_PLANE:
-			if (ENCRYPT == mode)
-				cnstr_shdsc_pdcp_c_plane_encap(shared_desc,
-					&shared_desc_len,
-/*
- * This is currently hardcoded. The application doesn't allow for
- * proper retrieval of PS.
- */
-					1,
-					hfn_val,
-					ref_test_vector.pdb.pdcp.bearer,
-					ref_test_vector.pdb.pdcp.direction,
-					ref_test_vector.pdb.pdcp.hfn_threshold,
-					&cipher_info,
-					&auth_info,
-					sw_hfn_ov);
-			else
-				cnstr_shdsc_pdcp_c_plane_decap(shared_desc,
-					&shared_desc_len,
-/*
- * This is currently hardcoded. The application doesn't allow for
- * proper retrieval of PS.
- */
-					1,
-					hfn_val,
-					ref_test_vector.pdb.pdcp.bearer,
-					ref_test_vector.pdb.pdcp.direction,
-					ref_test_vector.pdb.pdcp.hfn_threshold,
-					&cipher_info,
-					&auth_info,
-					sw_hfn_ov);
-			break;
-
-		case PDCP_DATA_PLANE:
-
-			if (ENCRYPT == mode)
-				cnstr_shdsc_pdcp_u_plane_encap(shared_desc,
-					&shared_desc_len,
-/*
-* This is currently hardcoded. The application doesn't allow for
-* proper retrieval of PS.
-*/
-					1,
-					ref_test_vector.pdb.pdcp.sns,
-					hfn_val,
-					ref_test_vector.pdb.pdcp.bearer,
-					ref_test_vector.pdb.pdcp.direction,
-					ref_test_vector.pdb.pdcp.hfn_threshold,
-					&cipher_info,
-					sw_hfn_ov);
-			else
-				cnstr_shdsc_pdcp_u_plane_decap(shared_desc,
-					&shared_desc_len,
-/*
- * This is currently hardcoded. The application doesn't allow for
- * proper retrieval of PS.
-*/
-					1,
-					ref_test_vector.pdb.pdcp.sns,
-					hfn_val,
-					ref_test_vector.pdb.pdcp.bearer,
-					ref_test_vector.pdb.pdcp.direction,
-					ref_test_vector.pdb.pdcp.hfn_threshold,
-					&cipher_info,
-					sw_hfn_ov);
-			break;
-
-		case PDCP_SHORT_MAC:
-			if (ENCRYPT == mode)
-				cnstr_shdsc_pdcp_short_mac(shared_desc,
-					&shared_desc_len,
-/*
- * This is currently hardcoded. The application doesn't allow for
- * proper retrieval of PS.
- */
-					1,
-					&auth_info);
-			break;
-		}
-		break;
-
-	case SRTP:
-		cipher_info.key = ref_test_vector.key;
-		cipher_info.keylen = ref_test_vector.cipher_keylen;
-		cipher_info.key_enc_flags = 0;
-		auth_info.key = ref_test_vector.auth_key;
-		auth_info.keylen = ref_test_vector.auth_keylen;
-		auth_info.key_enc_flags = 0;
-		if (ENCRYPT == mode)
-			cnstr_shdsc_srtp_encap(shared_desc,
-					&shared_desc_len,
-					&auth_info,
-					&cipher_info,
-					ref_test_vector.pdb.srtp.n_tag,
-					ref_test_vector.pdb.srtp.roc,
-					ref_test_vector.pdb.srtp.cipher_salt);
-		else
-			cnstr_shdsc_srtp_decap(shared_desc,
-					&shared_desc_len,
-					&auth_info,
-					&cipher_info,
-					ref_test_vector.pdb.srtp.n_tag,
-					ref_test_vector.pdb.srtp.roc,
-					ref_test_vector.pdb.srtp.seqnum,
-					ref_test_vector.pdb.srtp.cipher_salt);
-		break;
-
-	case WIFI:
-		cipher_info.key = ref_test_vector.key;
-		cipher_info.keylen = WIFI_KEY_SIZE;
-		cipher_info.key_enc_flags = 0;
-
-		if (ENCRYPT == mode)
-			cnstr_shdsc_wifi_encap(shared_desc,
-					&shared_desc_len,
-/*
- * This is currently hardcoded. The application doesn't allow for
- * proper retrieval of PS.
-*/
-					0,
-					ref_test_vector.pdb.wifi.mac_hdr_len,
-					ref_test_vector.pdb.wifi.pn,
-					ref_test_vector.pdb.wifi.priority,
-					ref_test_vector.pdb.wifi.key_id,
-					&cipher_info);
-		else
-			cnstr_shdsc_wifi_decap(shared_desc,
-					&shared_desc_len,
-/*
- * This is currently hardcoded. The application doesn't allow for
- * proper retrieval of PS.
-*/
-					0,
-					ref_test_vector.pdb.wifi.mac_hdr_len,
-					ref_test_vector.pdb.wifi.pn,
-					ref_test_vector.pdb.wifi.priority,
-					&cipher_info);
-		break;
-
-	default:
-		fprintf(stderr, "error: %s: protocol not supported\n",
-			__func__);
-		return NULL;
-	}
-
-	prehdr_desc->prehdr.hi.word = shared_desc_len & SEC_PREHDR_SDLEN_MASK;
-
-	pr_debug("SEC %s shared descriptor:\n", protocol);
-
-	for (i = 0; i < shared_desc_len; i++)
-		pr_debug("0x%x\n", *shared_desc++);
-
-	return prehdr_desc;
-}
-
-/**
- * @brief	Set parameters for descriptor init
- * @param[in]	mode - Encrypt/Decrypt
- * @param[in]	params - pointer to test parameters
- * @return	Shared descriptor pointer on success, otherwise NULL
- */
-static void *setup_sec_descriptor(bool mode, void *params)
-{
-	return setup_init_descriptor(mode, (struct test_param *)params);
 }
 
 /**
@@ -1098,11 +153,11 @@ void set_enc_buf(void *params, struct qm_fd fd[])
 
 		buf = __dma_mem_ptov(in_buf);
 
-		if (crypto_info->set_enc_buf_cb)
-			crypto_info->set_enc_buf_cb(&fd[ind], buf, crypto_info);
+		if (proto->set_enc_buf_cb)
+			proto->set_enc_buf_cb(&fd[ind], buf, crypto_info);
 		else
 			if (CIPHER == crypto_info->mode)
-				memcpy(buf, ref_test_vector.plaintext,
+				memcpy(buf, ref_test_vector->plaintext,
 				       crypto_info->buf_size);
 			else
 				for (i = 0; i < crypto_info->buf_size; i++)
@@ -1145,17 +200,18 @@ void set_dec_buf(void *params, struct qm_fd fd[])
 
 		qm_sg_entry_set64(sg_in, addr);
 		sg_in->length = length;
-		sg_in->offset = offset;
-		sg_in->bpid = bpid;
+		sg_in->offset = offset;		sg_in->bpid = bpid;
 
-		if (crypto_info->set_dec_buf_cb) {
+		if (proto->set_dec_buf_cb) {
 			uint8_t *buf =  __dma_mem_ptov(addr);
-			crypto_info->set_dec_buf_cb(&fd[ind], buf, crypto_info);
+			proto->set_dec_buf_cb(&fd[ind], buf, crypto_info);
 		}
 	}
 }
 
 /*****************************************************************************/
+char protocol_string[1024] = "Cryptographic operation to perform by SEC:\n";
+
 struct argp_option options[] = {
 	{"mode", 'm', "TEST MODE", 0,
 	"Test mode:"
@@ -1166,14 +222,7 @@ struct argp_option options[] = {
 	"\n-m 1 -s <buf_size> -n <buf_num_per_core> -p <proto> -l <itr_num>"
 	"\n-m 2 -t <test_set> -n <buf_num_per_core> -p <proto> -l <itr_num>"
 	"\n"},
-	{"proto", 'p', "PROTOCOL", 0,
-	"Cryptographic operation to perform by SEC:"
-	"\n 1 for MACsec"
-	"\n 2 for WiMAX"
-	"\n 3 for PDCP"
-	"\n 4 for SRTP"
-	"\n 5 for WiFi"
-	"\n"},
+	{"proto", 'p', "PROTOCOL", 0, protocol_string},
 	{"itrnum", 'l', "ITERATIONS", 0,
 	"Number of iterations to repeat"
 	"\n"},
@@ -1183,8 +232,6 @@ struct argp_option options[] = {
 	{"bufsize", 's', "BUFSIZE", 0,
 	"OPTION IS VALID ONLY IN PERF MODE"
 	"\n\nBuffer size (64, 128 ... up to 9600)."
-	"\nThe WiMAX frame size, including the FCS if"
-	" present, must be shorter than 2048 bytes."
 	"\n"},
 	{"ncpus", 'c', "CPUS", 0,
 	"OPTIONAL PARAMETER"
@@ -1199,115 +246,6 @@ struct argp_option options[] = {
 	"\n"},
 	{0}
 };
-
-/**
- * @brief	Parse MACSEC related command line options
- *
- */
-static error_t macsec_parse_opts(int key, char *arg, struct argp_state *state)
-{
-	struct parse_input_t *input = state->input;
-	struct test_param *crypto_info = input->crypto_info;
-	struct macsec_params *macsec_params;
-
-	macsec_params =  &crypto_info->proto_params.macsec_params;
-	switch (key) {
-	case 'o':
-		macsec_params->cipher_alg = atoi(arg);
-		printf("MACSEC processing = %d\n", macsec_params->cipher_alg);
-		break;
-
-	default:
-		return ARGP_ERR_UNKNOWN;
-	}
-
-	return 0;
-}
-
-/**
- * @brief	Parse WiMAX related command line options
- *
- */
-static error_t wimax_parse_opts(int key, char *arg, struct argp_state *state)
-{
-	struct parse_input_t *input = state->input;
-	uint32_t *p_proto_params = input->proto_params;
-	struct test_param *crypto_info = input->crypto_info;
-
-	switch (key) {
-	case 'a':
-		*p_proto_params |= BMASK_WIMAX_OFDMA_EN;
-		fprintf(stdout, "WiMAX OFDMa selected\n");
-		break;
-
-	case 'f':
-		*p_proto_params |= BMASK_WIMAX_FCS_EN;
-		fprintf(stdout, "WiMAX FCS enabled\n");
-		break;
-
-	case 'w':
-		*p_proto_params |= BMASK_WIMAX_AR_EN;
-		crypto_info->proto_params.wimax_params.ar_len = atoi(arg);
-		fprintf(stdout, "Anti-Replay Length = %d\n", atoi(arg));
-		break;
-
-	default:
-		return ARGP_ERR_UNKNOWN;
-	}
-
-	return 0;
-}
-
-/**
- * @brief	Parse PDCP related command line options
- *
- */
-static error_t pdcp_parse_opts(int key, char *arg, struct argp_state *state)
-{
-	struct parse_input_t *input = state->input;
-	struct test_param *crypto_info = input->crypto_info;
-	struct pdcp_params *pdcp_params;
-	uint32_t *p_proto_params = input->proto_params;
-
-	pdcp_params = &crypto_info->proto_params.pdcp_params;
-	switch (key) {
-	case 'y':
-		pdcp_params->type = atoi(arg);
-		*p_proto_params |= BMASK_PDCP_TYPE;
-		fprintf(stdout, "PDCP type = %d\n", pdcp_params->type);
-		break;
-
-	case 'r':
-		pdcp_params->cipher_alg = atoi(arg);
-		*p_proto_params |= BMASK_PDCP_CIPHER;
-		break;
-
-	case 'i':
-		pdcp_params->integrity_alg = atoi(arg);
-		*p_proto_params |= BMASK_PDCP_INTEGRITY;
-		break;
-
-	case 'd':
-		pdcp_params->downlink = 1;
-		*p_proto_params |= BMASK_PDCP_DIR_DL;
-		break;
-
-	case 'x':
-		pdcp_params->sn_size = atoi(arg);
-		*p_proto_params |= BMASK_PDCP_SN_SIZE;
-		break;
-
-	case 'v':
-		pdcp_params->hfn_ov_val = atoi(arg);
-		*p_proto_params |= BMASK_PDCP_HFN_OV_EN;
-		break;
-
-	default:
-		return ARGP_ERR_UNKNOWN;
-	}
-
-	return 0;
-}
 
 /**
  * @brief	The OPTIONS field contains a pointer to a vector of struct
@@ -1399,8 +337,9 @@ error_t parse_opt(int opt, char *arg, struct argp_state *state)
 		break;
 
 	case 'p':
-		crypto_info->proto = atoi(arg);
+		crypto_info->sel_proto = atoi(arg) - 1;
 		*p_cmd_params |= BMASK_SEC_ALG;
+		crypto_info->proto = protocols[crypto_info->sel_proto];
 		printf("SEC cryptographic operation = %s\n", arg);
 		break;
 
@@ -1428,336 +367,6 @@ error_t parse_opt(int opt, char *arg, struct argp_state *state)
 }
 
 /**
- * @brief	Verifies if user gave a correct test set
- * @param[in]	crypto_info - test parameters
- * @return	0 on success, otherwise -EINVAL value
- */
-static int validate_test_set(struct test_param *crypto_info)
-{
-	switch (crypto_info->proto) {
-	case MACSEC:
-		if ((crypto_info->test_set > 0) && (crypto_info->test_set < 5))
-			return 0;
-		goto err;
-	case WIMAX:
-		if ((crypto_info->test_set > 0) && (crypto_info->test_set < 5))
-			return 0;
-		else
-			goto err;
-
-	case PDCP:
-	case SRTP:
-		if (crypto_info->test_set == 1)
-			return 0;
-		goto err;
-
-	case WIFI:
-		if ((crypto_info->test_set > 0) && (crypto_info->test_set < 3))
-			return 0;
-		goto err;
-
-	default:
-		fprintf(stderr,
-			"error: Invalid Parameters: Invalid SEC protocol\n");
-		return -EINVAL;
-	}
-err:
-	fprintf(stderr,
-		"error: Invalid Parameters: Test set number is invalid\n");
-	return -EINVAL;
-}
-
-/*
- * @brief	Check SEC parameters provided by user for MACSEC are valid
- *		or not.
- * @param[in]	g_proto_params - Bit mask of the optional parameters provided
- *		by user
- * @param[in]	crypto_info - test parameters
- * @return	0 on success, otherwise -EINVAL value
- */
-static int validate_macsec_opts(uint32_t g_proto_params,
-				struct test_param *crypto_info)
-{
-	struct macsec_params *macsec_params;
-
-	macsec_params = &crypto_info->proto_params.macsec_params;
-
-	if ((macsec_params->cipher_alg == MACSEC_CIPHER_TYPE_GMAC) &&
-	    (rta_sec_era < RTA_SEC_ERA_5)) {
-		fprintf(stderr,
-			"error: Unsupported MACsec algorithm for SEC ERAs 2-4\n");
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-/**
- * @brief	Check SEC parameters provided by user for WiMAX are valid
- *		or not.
- * @param[in]	g_proto_params - Bit mask of the optional parameters provided
- *		by user
- * @param[in]	crypto_info - test parameters
- * @return	0 on success, otherwise -EINVAL value
- */
-static int validate_wimax_opts(uint32_t g_proto_params,
-				struct test_param *crypto_info)
-{
-	unsigned int ar_len;
-
-	/* Only anti-replay is allowed CIPHER mode */
-	if ((CIPHER == crypto_info->mode) &&
-	    ((g_proto_params & BMASK_WIMAX_AR_EN) != g_proto_params)) {
-		fprintf(stderr,
-			"error: WiMAX Invalid Parameters: only anti-replay is allowed in CIPHER mode\n"
-			"see --help option\n");
-			return -EINVAL;
-	}
-
-	if ((PERF == crypto_info->mode) &&
-	    (crypto_info->buf_size > WIMAX_MAX_FRAME_SIZE)) {
-		fprintf(stderr,
-			"error: WiMAX Invalid Parameters: Invalid buffer size\n"
-			"see --help option\n");
-		return -EINVAL;
-	}
-
-	/*
-	 * For WiMAX in CIPHER mode only the first frame
-	 * from the first iteration can be verified if it is matching
-	 * with the corresponding test vector, due to
-	 * the PN incrementation by SEC for each frame processed.
-	 */
-	if (CIPHER == crypto_info->mode && crypto_info->itr_num != 1) {
-		crypto_info->itr_num = 1;
-		printf("WARNING: Running WiMAX in CIPHER mode with only one iteration\n");
-	}
-
-	if (g_proto_params & BMASK_WIMAX_AR_EN) {
-		ar_len = crypto_info->proto_params.wimax_params.ar_len;
-		if ((ar_len > 64) || (ar_len < 0)) {
-			fprintf(stderr,
-				"error: WiMAX Anti-Replay window length cannot be greater than 64 packets\n"
-				"see --help option\n");
-			return -EINVAL;
-		}
-	}
-
-	/* Copy the params to the relevant structure */
-	crypto_info->proto_params.wimax_params.ofdma =
-			g_proto_params & BMASK_WIMAX_OFDMA_EN ? 1 : 0;
-	crypto_info->proto_params.wimax_params.fcs =
-			g_proto_params & BMASK_WIMAX_FCS_EN ? 1 : 0;
-	crypto_info->proto_params.wimax_params.ar =
-			g_proto_params & BMASK_WIMAX_AR_EN ? 1 : 0;
-
-	/* Set the WiMAX cleanup callback */
-	crypto_info->test_cleanup = test_cleanup_wimax;
-
-	/* Set the WiMAX encap callback */
-	crypto_info->set_enc_buf_cb = set_enc_buf_cb_wimax;
-
-	/* Set the WiMAX test callbacks */
-	crypto_info->test_enc_match_cb = test_enc_match_cb_wimax;
-	crypto_info->test_dec_match_cb = test_dec_match_cb_wimax;
-
-	return 0;
-}
-
-/**
- * @brief	Check SEC parameters provided by user for PDCP are valid
- *		or not.
- * @param[in]	g_proto_params - Bit mask of the optional parameters provided
- *		by user
- * @param[in]	crypto_info - test parameters
- * @return	0 on success, otherwise -EINVAL value
- */
-static int validate_pdcp_opts(uint32_t g_proto_params,
-				struct test_param *crypto_info)
-{
-	struct pdcp_params *pdcp_params;
-	int invalid = 0;
-
-	pdcp_params = &crypto_info->proto_params.pdcp_params;
-
-	switch (pdcp_params->type) {
-	case PDCP_CONTROL_PLANE:
-		if ((BMASK_PDCP_CPLANE_VALID & g_proto_params) !=
-		     BMASK_PDCP_CPLANE_VALID)
-			invalid = 1;
-		break;
-
-	case PDCP_DATA_PLANE:
-		if ((BMASK_PDCP_UPLANE_VALID & g_proto_params) !=
-		     BMASK_PDCP_UPLANE_VALID)
-			invalid = 1;
-		break;
-
-	case PDCP_SHORT_MAC:
-		if ((BMASK_PDCP_SHORT_MAC_VALID & g_proto_params) !=
-		     BMASK_PDCP_SHORT_MAC_VALID)
-			invalid = 1;
-		break;
-
-	default:
-		invalid = 1;
-		break;
-	}
-
-	if (invalid) {
-		fprintf(stderr,
-			"error: PDCP Invalid Parameters: Invalid type\n"
-			"see --help option\n");
-		return -EINVAL;
-	}
-
-	if (g_proto_params & BMASK_PDCP_CIPHER) {
-		switch (pdcp_params->cipher_alg) {
-		case PDCP_CIPHER_TYPE_NULL:
-		case PDCP_CIPHER_TYPE_SNOW:
-		case PDCP_CIPHER_TYPE_AES:
-			break;
-
-		case PDCP_CIPHER_TYPE_ZUC:
-			if (rta_sec_era < RTA_SEC_ERA_5) {
-				fprintf(stderr,
-					"error: PDCP Invalid Parameters: Invalid cipher algorithm\n"
-					"see --help option\n");
-				return -EINVAL;
-			}
-			break;
-
-		default:
-			fprintf(stderr,
-				"error: PDCP Invalid Parameters: Invalid cipher algorithm\n"
-				"see --help option\n");
-			return -EINVAL;
-		}
-	}
-
-	if (g_proto_params & BMASK_PDCP_INTEGRITY) {
-		switch (pdcp_params->type) {
-		case PDCP_CONTROL_PLANE:
-		case PDCP_SHORT_MAC:
-			break;
-		case PDCP_DATA_PLANE:
-			fprintf(stderr, "error: PDCP Invalid Parameters: Invalid integrity setting for type\n"
-					"see --help option\n");
-			return -EINVAL;
-		}
-
-		switch (pdcp_params->integrity_alg) {
-		case PDCP_AUTH_TYPE_NULL:
-		case PDCP_AUTH_TYPE_SNOW:
-		case PDCP_AUTH_TYPE_AES:
-			break;
-
-		case PDCP_AUTH_TYPE_ZUC:
-			if (rta_sec_era < RTA_SEC_ERA_5) {
-				fprintf(stderr,
-					"error: PDCP Invalid Parameters: Invalid integrity algorithm\n"
-					"see --help option\n");
-				return -EINVAL;
-			}
-			break;
-
-		default:
-			fprintf(stderr,
-				"error: PDCP Invalid Parameters: Invalid integrity algorithm\n"
-				"see --help option\n");
-			return -EINVAL;
-		}
-	}
-
-	if (g_proto_params & BMASK_PDCP_SN_SIZE) {
-		switch (pdcp_params->type) {
-		case PDCP_DATA_PLANE:
-			break;
-
-		default:
-			fprintf(stderr,
-				"error: PDCP Invalid Parameters: Invalid sequence number for type\n"
-				"see --help option\n");
-			return -EINVAL;
-		}
-	}
-
-	if (g_proto_params & BMASK_PDCP_HFN_OV_EN) {
-		switch (pdcp_params->type) {
-		case PDCP_CONTROL_PLANE:
-		case PDCP_DATA_PLANE:
-			break;
-
-		default:
-			fprintf(stderr,
-				"error: PDCP Invalid Parameters: Invalid HFN override for type\n"
-				"see --help option\n");
-			return -EINVAL;
-		}
-		pdcp_params->hfn_ov_en = 1;
-
-		/* Set the PDCP encap/decap callbacks, for modifying the FD */
-		crypto_info->set_enc_buf_cb = set_enc_buf_cb_pdcp;
-		crypto_info->set_dec_buf_cb = set_dec_buf_cb_pdcp;
-
-		/*
-		 * For ERA2, the in/out frames are not identical with the test
-		 * vector. Override the callbacks here.
-		 */
-		if (rta_sec_era == RTA_SEC_ERA_2) {
-			crypto_info->test_enc_match_cb = test_enc_match_cb_pdcp;
-			crypto_info->test_dec_match_cb = test_dec_match_cb_pdcp;
-		}
-	} else {
-		pdcp_params->hfn_ov_en = 0;
-	}
-
-	return 0;
-}
-
-/**
- * @brief	Check SEC parameters provided by user for SRTP are valid
- *		or not.
- * @param[in]	g_proto_params - Bit mask of the optional parameters provided
- *		by user
- * @param[in]	crypto_info - test parameters
- * @return	0 on success, otherwise -EINVAL value
- */
-static int validate_srtp_opts(uint32_t g_proto_params,
-			      struct test_param *crypto_info)
-{
-	/* TODO - for future implementation of extension options and MKI */
-	return 0;
-}
-
-/**
- * @brief	Check SEC parameters provided by user for WiFi are valid
- *		or not.
- * @param[in]	g_proto_params - Bit mask of the optional parameters provided
- *		by user
- * @param[in]	crypto_info - test parameters
- * @return	0 on success, otherwise -EINVAL value
- */
-static int validate_wifi_opts(uint32_t g_proto_params,
-				struct test_param *crypto_info)
-{
-	/*
-	 * For WiFi in CIPHER mode only the first frame
-	 * from the first iteration can be verified if it is matching
-	 * with the corresponding test vector, due to
-	 * the PN incrementation by SEC for each frame processed.
-	 */
-	if (CIPHER == crypto_info->mode && crypto_info->itr_num != 1) {
-		crypto_info->itr_num = 1;
-		printf("WARNING: Running WiFi in CIPHER mode with only one iteration\n");
-	}
-
-	crypto_info->test_enc_match_cb = test_enc_match_cb_wifi;
-
-	return 0;
-}
-
-/**
  * @brief	Check SEC parameters provided by user whether valid or not
  * @param[in]	g_cmd_params - Bit mask of all parameters provided by user
  * @param[in]	g_proto_params - Bit mask of protocol specific parameters, as
@@ -1770,12 +379,31 @@ static int validate_params(uint32_t g_cmd_params, uint32_t g_proto_params,
 {
 	unsigned int total_size, max_num_buf;
 
+
+	if (crypto_info->sel_proto > proto_num) {
+		fprintf(stderr,
+			"error: Invalid Parameters: SEC protocol not supported\n"
+			"see --help option\n");
+			return -EINVAL;
+	}
+
+	/*
+	 * For speedier access, use a local variable to access the selected
+	 * protocol info and also store it in the test parameters.
+	 */
+	proto = crypto_info->proto;
+
+	if (!proto) {
+		pr_err("Invalid protocol selected");
+		return -EINVAL;
+	}
+
 	if ((PERF == crypto_info->mode) &&
 	    BMASK_SEC_PERF_MODE == g_cmd_params) {
 		/* do nothing */
 	} else if ((CIPHER == crypto_info->mode) &&
 		    g_cmd_params == BMASK_SEC_CIPHER_MODE) {
-		if (validate_test_set(crypto_info) != 0) {
+		if (proto->validate_test_set(crypto_info) != 0) {
 			fprintf(stderr,
 				"error: Invalid Parameters: Invalid test set\n"
 				"see --help option\n");
@@ -1797,7 +425,8 @@ static int validate_params(uint32_t g_cmd_params, uint32_t g_proto_params,
 		return -EINVAL;
 	}
 
-	total_size = sizeof(struct sg_entry_priv_t) + get_buf_size(crypto_info);
+	total_size = sizeof(struct sg_entry_priv_t) +
+			proto->get_buf_size(crypto_info);
 	/*
 	 * The total usdpaa_mem space required for processing the frames
 	 * is split as follows:
@@ -1829,20 +458,10 @@ static int validate_params(uint32_t g_cmd_params, uint32_t g_proto_params,
 	if (validate_sec_era_version(user_sec_era, hw_sec_era))
 		return -EINVAL;
 
-	switch (crypto_info->proto) {
-	case MACSEC:
-	case WIMAX:
-	case PDCP:
-	case SRTP:
-	case WIFI:
-		return validate_proto_opts[crypto_info->proto]
-					(g_proto_params, crypto_info);
-	default:
-		fprintf(stderr,
-			"error: Invalid Parameters: SEC protocol not supported\n"
-			"see --help option\n");
-		return -EINVAL;
-	}
+	if (proto->validate_opts)
+		return proto->validate_opts(g_proto_params, crypto_info);
+
+	return 0;
 }
 
 /**
@@ -1867,13 +486,12 @@ int test_enc_match(void *params, struct qm_fd fd[])
 		addr = qm_sg_entry_get64(sgentry);
 		enc_buf = __dma_mem_ptov(addr);
 
-		if (crypto_info->test_enc_match_cb) {
-			if (crypto_info->test_enc_match_cb(ind, enc_buf,
-							   crypto_info))
+		if (proto->test_enc_match_cb) {
+			if (proto->test_enc_match_cb(ind, enc_buf, crypto_info))
 				goto err;
 		} else {
 			if (test_vector_match((uint32_t *)enc_buf,
-					(uint32_t *)ref_test_vector.ciphertext,
+					(uint32_t *)ref_test_vector->ciphertext,
 					crypto_info->rt.output_buf_size *
 						BITS_PER_BYTE) != 0)
 				goto err;
@@ -1881,7 +499,7 @@ int test_enc_match(void *params, struct qm_fd fd[])
 	}
 
 	printf("All %s encrypted frame match found with cipher text\n",
-	       protocol);
+		proto->name);
 
 	return 0;
 
@@ -1922,16 +540,16 @@ int test_dec_match(void *params, struct qm_fd fd[])
 		addr = qm_sg_entry_get64(sgentry);
 		dec_buf = __dma_mem_ptov(addr);
 
-		if (crypto_info->test_dec_match_cb) {
-			if (crypto_info->test_dec_match_cb(ind,
-							   dec_buf,
-							   crypto_info))
+		if (proto->test_dec_match_cb) {
+			if (proto->test_dec_match_cb(ind,
+						     dec_buf,
+						     crypto_info))
 				goto err;
 		} else {
 			if (CIPHER == crypto_info->mode) {
 				if (test_vector_match((uint32_t *)dec_buf,
-					(uint32_t *)ref_test_vector.plaintext,
-					ref_test_vector.length) != 0)
+					(uint32_t *)ref_test_vector->plaintext,
+					ref_test_vector->length) != 0)
 					goto err;
 			} else {
 				for (i = 0; i < crypto_info->buf_size; i++) {
@@ -1942,7 +560,8 @@ int test_dec_match(void *params, struct qm_fd fd[])
 			}
 		}
 	}
-	printf("All %s decrypted frame matches initial text\n", protocol);
+	printf("All %s decrypted frame matches initial text\n",
+	       proto->name);
 
 	return 0;
 
@@ -1954,104 +573,21 @@ err:
 	else
 		fprintf(stderr,
 			"error: %s: %s decrypted frame %d doesn't match!\n",
-			 __func__, protocol, ind + 1);
+			 __func__, proto->name, ind + 1);
 
 	print_frame_desc(&fd[ind]);
 	return -1;
 }
 
-struct argp_option macsec_options[] = {
-	{"algo", 'o', "CIPHER TYPE",  0,
-	 "OPTIONAL PARAMETER"
-	 "\n\nSelect between GCM/GMAC processing (default: GCM)"
-	 "\n0 = GCM"
-	 "\n1 = GMAC"
-	 "\n"},
-	{0}
-};
-
-struct argp_option wimax_options[] = {
-	{"ofdma", 'a', 0, 0,
-	 "OPTIONAL PARAMETER"
-	 "\n\nEnable OFDMa processing (default: OFDM)\n"},
-	{"fcs", 'f', 0, 0,
-	 "OPTIONAL PARAMETER"
-	 "\n\nEnable FCS calculation (default: off)\n"},
-	{"ar_len", 'w', "ARWIN", 0,
-	 "OPTIONAL PARAMETER"
-	 "\nSet anti-replay window length\n"},
-	{0}
-};
-
-struct argp_option pdcp_options[] = {
-	{"type", 'y', "TYPE",  0,
-	 "Select PDCP PDU type:"
-	 "\n\t 0 = Control Plane"
-	 "\n\t 1 = User Plane"
-	 "\n\t 2 = Short MAC"
-	 "\n"},
-	{"cipher", 'r', "CIPHER",  0,
-	 "Ciphering algorithm:"
-	 "\n0 = NULL     (EEA0)"
-	 "\n1 = SNOW f8  (EEA1)"
-	 "\n2 = AES-CTR  (EEA2)"
-	 "\n3 = ZUC-E    (EEA3) (ERA >= 5)"
-	 "\n"},
-	{"integrity", 'i', "INTEGRITY",  0,
-	"For PDCP Control Plane & Short MAC only"
-	"\n\nSelect PDCP integrity algorithm:"
-	 "\n0 = NULL     (EIA0)"
-	 "\n1 = SNOW f9  (EIA1)"
-	 "\n2 = AES-CMAC (EIA2)"
-	 "\n3 = ZUC-I    (EIA3) (ERA >= 5)"
-	 "\n"},
-	{"direction", 'd', 0, 0,
-	 "OPTIONAL PARAMETER"
-	 "\n\nInput PDU is for downlink direction"
-	 "\n"},
-	{"snlen", 'x', "SNLEN", 0,
-	 "For PDCP User Plane only"
-	 "\n\nSelect PDCP PDU Sequence Number length:"
-	 "\n0 = 12 bit Sequence Number PDU"
-	 "\n1 = 7 bit Sequence Number PDU"
-	 "\n2 = 15 bit Sequence Number PDU"
-	 "\n"},
-	{"hfn_ov", 'v', "HFN_OV_VAL", 0,
-	 "OPTIONAL PARAMETER"
-	 "\n\nEnable HFN override mechanism (only for Control & Data Plane)"
-	 "\n"},
-	{0}
-};
-
-/* Parser for MACsec command line options */
-static struct argp macsec_argp = {
-	macsec_options, macsec_parse_opts
-};
-
-/* Parser for WiMAX command line options */
-static struct argp wimax_argp = {
-	wimax_options, wimax_parse_opts
-};
-
-/* Parser for PDCP command line options */
-static struct argp pdcp_argp = {
-	pdcp_options, pdcp_parse_opts
-};
-
 /*
  * "Children" structure for splitting the command line options on a
  * per-protocol basis
  */
-static struct argp_child argp_children[] = {
-	{ &wimax_argp, 0, "WiMAX protocol options", 1},
-	{ &pdcp_argp , 0, "PDCP protocol options", 2},
-	{ &macsec_argp, 0, "MACsec protocol options", 3},
-	{ 0 }
-};
+static struct argp_child *argp_children;
 
 /* argp structure itself of argp parser */
 static struct argp argp = { options, parse_opt, NULL, NULL,
-				argp_children, NULL, NULL };
+				NULL, NULL, NULL };
 
 /**
  * @brief	Main function of SEC Test Application
@@ -2070,6 +606,12 @@ int main(int argc, char *argv[])
 
 	ncpus = num_online_cpus;
 
+	/* Register available protocol modules */
+	if (unlikely(register_modules())) {
+		pr_err("module registration failed");
+		exit(-EINVAL);
+	}
+
 	memset(&crypto_info, 0x00, sizeof(struct test_param));
 	input.cmd_params = &g_cmd_params;
 	input.proto_params = &g_proto_params;
@@ -2084,8 +626,6 @@ int main(int argc, char *argv[])
 			"error: Invalid Parameters: Number of cpu's given in argument is more than the active cpu's\n");
 		exit(-EINVAL);
 	}
-
-	printf("\nWelcome to FSL SEC application!\n");
 
 	err = of_init();
 	if (err)
@@ -2136,10 +676,13 @@ int main(int argc, char *argv[])
 	validate_test(crypto_info.itr_num, crypto_info.buf_num,
 		      crypto_info.buf_size);
 
-	if (crypto_info.test_cleanup)
-		crypto_info.test_cleanup(&crypto_info);
-
 	free_fd(crypto_info.buf_num);
+
+	/*
+	 * Unregister modules
+	 */
+	unregister_modules();
+
 	of_finish();
 	exit(EXIT_SUCCESS);
 }
@@ -2189,10 +732,11 @@ inline enum test_mode get_test_mode(void *params)
  * @param[in]	params - test parameters
  * @return	0 - doesn't require authentication/1 - requires authentication
  */
-inline uint8_t requires_authentication(void)
+inline uint8_t requires_authentication(void *params)
 {
-	return authnct;
+	return ((struct test_param *)params)->authnct;
 }
+
 
 /**
  * @brief	Returns number of cpus for test
@@ -2221,7 +765,7 @@ inline pthread_barrier_t get_thread_barrier(void)
  */
 static void set_crypto_cbs(struct test_cb *crypto_cb)
 {
-	crypto_cb->set_sec_descriptor = setup_sec_descriptor;
+	crypto_cb->set_sec_descriptor = proto->setup_sec_descriptor;
 	crypto_cb->is_enc_match = test_enc_match;
 	crypto_cb->is_dec_match = test_dec_match;
 	crypto_cb->set_enc_buf = set_enc_buf;
@@ -2233,4 +777,81 @@ static void set_crypto_cbs(struct test_cb *crypto_cb)
 	crypto_cb->get_num_of_cpus = get_num_of_cpus;
 	crypto_cb->requires_authentication = requires_authentication;
 	crypto_cb->get_thread_barrier = get_thread_barrier;
+}
+
+int register_modules()
+{
+	int argp_idx;
+	struct protocol_info *cur_proto;
+	char proto_help_str[40];
+
+	/* Allocate space for children parsers and options.
+	 * Note: this might not be completely filled */
+	argp_children = calloc(ARRAY_SIZE(register_protocol),
+			       sizeof(*argp_children));
+	if (unlikely(!argp_children)) {
+		pr_err("Failed to allocate argp_children");
+		return -ENOMEM;
+	}
+
+	protocols = calloc(ARRAY_SIZE(register_protocol),
+			   sizeof(*cur_proto));
+	if (unlikely(!protocols)) {
+		pr_err("Failed to allocate protocols structure");
+		free(argp_children);
+		return -ENOMEM;
+	}
+
+	for (proto_num = 0, argp_idx = 0;
+	     proto_num < ARRAY_SIZE(register_protocol);
+	     proto_num++) {
+		cur_proto = register_protocol[proto_num]();
+		if (unlikely(!cur_proto)) {
+			pr_err("failed to register protocol");
+			free(protocols);
+			free(argp_children);
+			return -EINVAL;
+		}
+
+		if (likely(cur_proto->argp_children)) {
+			/* Copy the argp parser options for this protocol. */
+			memcpy(&argp_children[argp_idx],
+			       cur_proto->argp_children,
+			       sizeof(*argp_children));
+
+			/* Update the group so every protocol has its
+			 * unique group
+			 */
+			argp_children[argp_idx].group = argp_idx;
+
+			argp_idx++;
+		}
+
+		/*
+		 * Update the "protocol" parameter help message to reflect the
+		 * protocol being added.
+		 */
+		snprintf(proto_help_str, sizeof(proto_help_str),
+			 " %d for %s\n", proto_num + 1, cur_proto->name);
+
+		strncat(protocol_string, proto_help_str,
+			sizeof(protocol_string));
+
+		protocols[proto_num] = cur_proto;
+	}
+
+	argp.children = argp_children;
+
+	return 0;
+}
+
+void unregister_modules()
+{
+	int i;
+
+	for (i = 0; i < proto_num; i++)
+		protocols[i]->unregister(protocols[i]);
+
+	free(protocols);
+	free(argp_children);
 }

@@ -106,7 +106,8 @@ int worker_fn(struct thread_data *tdata)
 	cleanup_params->crypto_param = crypto_param;
 	cleanup_params->crypto_cb = tdata->test_cb;
 	cleanup_params->executed_iterations = 0;
-	cleanup_params->authnct = crypto_cb.requires_authentication();
+	cleanup_params->authnct =
+			crypto_cb.requires_authentication(crypto_param);
 
 	pr_debug("\nThis is the thread on cpu %d\n", cpu_index);
 
@@ -208,7 +209,7 @@ error2:
 		if (ctrl_error)
 			goto err_free_fq;
 
-		if (crypto_cb.requires_authentication())
+		if (crypto_cb.requires_authentication(crypto_param))
 			goto result;
 
 		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);

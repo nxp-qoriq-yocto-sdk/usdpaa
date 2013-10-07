@@ -270,7 +270,7 @@ int init_sec_fq(uint32_t cpu_index, void *crypto_param,
 		return -1;
 	}
 
-	if (!crypto_cb.requires_authentication())
+	if (!crypto_cb.requires_authentication(crypto_param))
 		if (init_sec_frame_queues
 		    (DECRYPT, &dec_fqs, crypto_param, crypto_cb)) {
 			fprintf(stderr,
