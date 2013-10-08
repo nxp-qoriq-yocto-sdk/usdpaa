@@ -1,5 +1,4 @@
-/* Copyright (c) 2011-2012 Freescale Semiconductor, Inc.
- * All rights reserved.
+/* Copyright 2013 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,76 +25,34 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
  * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _FRA_H
-#define _FRA_H
 
-#include <fra_common.h>
-#include <fra_cfg_parser.h>
-#include <usdpaa/usdpaa_netcfg.h>
-#include <rman_interface.h>
-#include <fra_fman_port.h>
-#include <app_conf.h>
+#ifndef APP_CONF_H_
+#define APP_CONF_H_
 
-struct rman_tx_list {
-	struct list_head node;
-	struct rman_tx *rman_tx;
-};
+/* The contiguous memory map for 'dma_mem' uses the DMA_MEM_*** constants. The
+ * first part of the memory map is used to seed buffer pools, as indicated by
+ * these constants, and the ad-hoc buffer allocation will be confined to the
+ * area following that range, which will be limited only be the size of the DMA
+ * memory region allocated by the kernel. Note, we include the BPID here too
+ * (even though it has nothing to do with the DMA driver), because it means the
+ * app code has all the definitions it needs for seeding buffer pools.
+ */
+#define DMA_MEM_BP1_BPID	7
+#define DMA_MEM_BP1_SIZE	320
+#define DMA_MEM_BP1_NUM		0 /* 0*320==0 (0MB) */
+#define DMA_MEM_BP2_BPID	8
+#define DMA_MEM_BP2_SIZE	704
+#define DMA_MEM_BP2_NUM		0 /* 0*704==0 (0MB) */
+#define DMA_MEM_BP3_BPID	9
+#define DMA_MEM_BP3_SIZE	1728
+#define DMA_MEM_BP3_NUM		0x2000 /* 0x2000*1728==13.5MB */
+#define DMA_MEM_BPOOL \
+	(DMA_MEM_BP1_SIZE * DMA_MEM_BP1_NUM + \
+	DMA_MEM_BP2_SIZE * DMA_MEM_BP2_NUM + \
+	DMA_MEM_BP3_SIZE * DMA_MEM_BP3_NUM) /* 13.5MB */
 
-struct fman_to_rman {
-	struct fra_fman_port *fman_port;
-	struct list_head f2r_tx_list;
-};
-
-struct rman_to_fman {
-	struct rman_rx *rman_rx;
-	struct fra_fman_port *fman_port;
-};
-
-struct distribution {
-	struct distribution *next;
-	struct dist_cfg *cfg;
-	enum handler_status (*handler)(struct distribution *dist,
-				       struct hash_opt *opt,
-				       const struct qm_fd *fd);
-	union {
-		struct rman_rx *rman_rx;
-		struct rman_tx *rman_tx;
-		struct fra_fman_port *fman_rx;
-		struct fra_fman_port *fman_tx;
-		struct fman_to_rman *fman_to_rman;
-		struct rman_to_fman *rman_to_fman;
-	};
-} ____cacheline_aligned;
-
-struct dist_order {
-	struct list_head node;
-	struct distribution *dist;
-};
-
-struct fra {
-	struct list_head dist_order_list;
-	const struct fra_cfg *cfg;
-};
-
-enum handler_status {
-	HANDLER_DONE,
-	HANDLER_CONTINUE,
-	HANDLER_ERROR
-};
-
-extern struct fra *fra;
-
-int fra_init(const struct usdpaa_netcfg_info *netcfg,
-	     const struct fra_cfg *fra_cfg);
-
-void fra_reset(void);
-
-int msg_do_reset(void);
-
-void fra_finish(void);
-
-#endif /* _FRA_H */
+#endif /* APP_CONF_H_ */

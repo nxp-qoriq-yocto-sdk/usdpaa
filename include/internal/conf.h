@@ -45,28 +45,6 @@ extern "C" {
  * for portals, which use one UIO device each.) */
 #define PROCESS_PATH		"/dev/fsl-usdpaa"
 
-/* The contiguous memory map for 'dma_mem' uses the DMA_MEM_*** constants. The
- * first part of the memory map is used to seed buffer pools, as indicated by
- * these constants, and the ad-hoc buffer allocation will be confined to the
- * area following that range, which will be limited only be the size of the DMA
- * memory region allocated by the kernel. Note, we include the BPID here too
- * (even though it has nothing to do with the DMA driver), because it means the
- * app code has all the definitions it needs for seeding buffer pools.
- */
-#define DMA_MEM_BP1_BPID	7
-#define DMA_MEM_BP1_SIZE	320
-#define DMA_MEM_BP1_NUM		0 /* 0*320==0 (0MB) */
-#define DMA_MEM_BP2_BPID	8
-#define DMA_MEM_BP2_SIZE	704
-#define DMA_MEM_BP2_NUM		0 /* 0*704==0 (0MB) */
-#define DMA_MEM_BP3_BPID	9
-#define DMA_MEM_BP3_SIZE	1728
-#define DMA_MEM_BP3_NUM		0x2000 /* 0x2000*1728==13.5MB */
-#define DMA_MEM_BPOOL \
-	(DMA_MEM_BP1_SIZE * DMA_MEM_BP1_NUM + \
-	DMA_MEM_BP2_SIZE * DMA_MEM_BP2_NUM + \
-	DMA_MEM_BP3_SIZE * DMA_MEM_BP3_NUM) /* 13.5MB */
-
 /* When copying aligned words or shorts, try to avoid memcpy() */
 #define CONFIG_TRY_BETTER_MEMCPY
 

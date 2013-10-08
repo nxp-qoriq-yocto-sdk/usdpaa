@@ -88,21 +88,13 @@ typedef uint32_t	phandle;
 #define GFP_KERNEL	0
 #define __KERNEL__
 #define __init
-#define panic(x) \
-do { \
-	printf("panic: %s", x); \
-	abort(); \
-} while(0)
 #define __raw_readb(p)	*(const volatile unsigned char *)(p)
 #define __raw_readl(p)	*(const volatile unsigned int *)(p)
 #define __raw_writel(v, p) \
 do { \
 	*(volatile unsigned int *)(p) = (v); \
 } while (0)
-#ifdef ARRAY_SIZE
-#undef ARRAY_SIZE
-#endif
-#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+
 #if defined(__powerpc64__)
 #define CONFIG_PPC64
 #endif
@@ -175,99 +167,6 @@ static inline void hexdump(const void *ptr, size_t sz)
 	__hexdump(start, end, p, sz, c);
 }
 
-/* I/O operations */
-static inline u32 in_be32(volatile void *__p)
-{
-	volatile u32 *p = __p;
-	return *p;
-}
-static inline void out_be32(volatile void *__p, u32 val)
-{
-	volatile u32 *p = __p;
-	*p = val;
-}
-#define hwsync __sync_synchronize
-#define dcbt_ro(p) __builtin_prefetch(p, 0)
-#define dcbt_rw(p) __builtin_prefetch(p, 1)
-#define lwsync() \
-	do { \
-		asm volatile ("lwsync" : : : "memory"); \
-	} while(0)
-#define dcbf(p) \
-	do { \
-		asm volatile ("dcbf 0,%0" : : "r" (p)); \
-	} while(0)
-#define dcbi(p) dcbf(p)
-#ifdef CONFIG_PPC_E500MC
-#define dcbzl(p) \
-	do { \
-		__asm__ __volatile__ ("dcbzl 0,%0" : : "r" (p)); \
-	} while (0)
-#define dcbz_64(p) \
-	do { \
-		dcbzl(p); \
-	} while (0)
-#define dcbf_64(p) \
-	do { \
-		dcbf(p); \
-	} while (0)
-/* Commonly used combo */
-#define dcbit_ro(p) \
-	do { \
-		dcbi(p); \
-		dcbt_ro(p); \
-	} while (0)
-#else
-#define dcbz(p) \
-	do { \
-		__asm__ __volatile__ ("dcbz 0,%0" : : "r" (p)); \
-	} while (0)
-#define dcbz_64(p) \
-	do { \
-		dcbz((u32)p + 32);	\
-		dcbz(p);	\
-	} while (0)
-#define dcbf_64(p) \
-	do { \
-		dcbf((u32)p + 32); \
-		dcbf(p); \
-	} while (0)
-/* Commonly used combo */
-#define dcbit_ro(p) \
-	do { \
-		dcbi(p); \
-		dcbi((u32)p + 32); \
-		dcbt_ro(p); \
-		dcbt_ro((u32)p + 32); \
-	} while (0)
-#endif /* CONFIG_PPC_E500MC */
-#define barrier() \
-	do { \
-		asm volatile ("" : : : "memory"); \
-	} while(0)
-#define cpu_relax barrier
-
-/* SMP stuff */
-static inline int cpumask_test_cpu(int cpu, cpumask_t *mask)
-{
-	return CPU_ISSET(cpu, mask);
-}
-static inline void cpumask_set_cpu(int cpu, cpumask_t *mask)
-{
-	CPU_SET(cpu, mask);
-}
-static inline void cpumask_clear_cpu(int cpu, cpumask_t *mask)
-{
-	CPU_CLR(cpu, mask);
-}
-#define DEFINE_PER_CPU(t,x)	__thread t per_cpu__##x
-#define per_cpu(x,c)		per_cpu__##x
-#define get_cpu_var(x)		per_cpu__##x
-#define __get_cpu_var(x)	per_cpu__##x
-#define put_cpu_var(x)		do { ; } while(0)
-#define __PERCPU		__thread
-/* to be used as an upper-limit only */
-#define NR_CPUS			64
 
 /* Interrupt stuff */
 typedef uint32_t	irqreturn_t;
@@ -285,59 +184,6 @@ typedef uint32_t	irqreturn_t;
 	qbman_free_irq(irq, portal)
 #define irq_can_set_affinity(x)	0
 #define irq_set_affinity(x,y)	0
-
-/* Atomic stuff */
-typedef struct {
-       volatile long v;
-} atomic_t;
-/* NB: __atomic_*() functions copied and twiddled from lwe_atomic.h */
-static inline int atomic_read(const atomic_t *v)
-{
-	return v->v;
-}
-static inline void atomic_set(atomic_t *v, int i)
-{
-	v->v = i;
-}
-static inline long
-__atomic_add(long *ptr, long val)
-{
-       long ret;
-
-	/* FIXME 64-bit */
-	asm volatile("1: lwarx %0, %y1;"
-		     "add %0, %0, %2;"
-		     "stwcx. %0, %y1;"
-		     "bne 1b;" :
-		     "=&r" (ret), "+Z" (*ptr) :
-		     "r" (val) :
-		     "memory", "cc");
-
-       return ret;
-}
-static inline void atomic_inc(atomic_t *v)
-{
-	__atomic_add((long *)&v->v, 1);
-}
-static inline int atomic_dec_and_test(atomic_t *v)
-{
-	return __atomic_add((long *)&v->v, -1) == 0;
-}
-static inline void atomic_dec(atomic_t *v)
-{
-	__atomic_add((long *)&v->v, -1);
-}
-
-/* new variants not present in LWE */
-static inline int atomic_inc_and_test(atomic_t *v)
-{
-	return __atomic_add((long *)&v->v, 1) == 0;
-}
-
-static inline int atomic_inc_return(atomic_t *v)
-{
-	return	__atomic_add((long *)&v->v, 1);
-}
 
 /* memcpy() stuff - when you know alignments in advance */
 #ifdef CONFIG_TRY_BETTER_MEMCPY
@@ -375,61 +221,6 @@ static inline void copy_bytes(void *dest, const void *src, size_t sz)
 #define copy_shorts memcpy
 #define copy_bytes memcpy
 #endif
-
-/* Spinlock stuff */
-#define spinlock_t		pthread_mutex_t
-#define __SPIN_LOCK_UNLOCKED(x)	PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP
-#define DEFINE_SPINLOCK(x)	spinlock_t x = __SPIN_LOCK_UNLOCKED(x)
-#define spin_lock_init(x) \
-	do { \
-		__maybe_unused int __foo;	\
-		pthread_mutexattr_t __foo_attr;       \
-		__foo = pthread_mutexattr_init(&__foo_attr);	\
-		BUG_ON(__foo);	\
-		__foo = pthread_mutexattr_settype(&__foo_attr,	\
-						  PTHREAD_MUTEX_ADAPTIVE_NP); \
-		BUG_ON(__foo);	\
-		__foo = pthread_mutex_init(x, &__foo_attr); \
-		BUG_ON(__foo); \
-	} while (0)
-#define spin_lock(x) \
-	do { \
-		__maybe_unused int __foo = pthread_mutex_lock(x); \
-		BUG_ON(__foo); \
-	} while (0)
-#define spin_unlock(x) \
-	do { \
-		__maybe_unused int __foo = pthread_mutex_unlock(x); \
-		BUG_ON(__foo); \
-	} while (0)
-#define spin_lock_irq(x)	do { local_irq_disable(); spin_lock(x); } while(0)
-#define spin_unlock_irq(x)	do { spin_unlock(x); local_irq_enable(); } while(0)
-#define spin_lock_irqsave(x,f)	do { spin_lock_irq(x); } while (0)
-#define spin_unlock_irqrestore(x,f) do { spin_unlock_irq(x); } while (0)
-
-#define raw_spinlock_t				spinlock_t
-#define raw_spin_lock_init(x)			spin_lock_init(x)
-#define raw_spin_lock_irqsave(x, f)		spin_lock(x)
-#define raw_spin_unlock_irqrestore(x, f)	spin_unlock(x)
-
-/* Waitqueue stuff */
-typedef struct { }		wait_queue_head_t;
-#define DECLARE_WAIT_QUEUE_HEAD(x) int dummy_##x __always_unused
-#define might_sleep()		do { ; } while(0)
-#define init_waitqueue_head(x)	do { ; } while(0)
-#define wake_up(x)		do { ; } while(0)
-#define wait_event(x, c) \
-do { \
-	while (!(c)) { \
-		bman_poll(); \
-		qman_poll(); \
-	} \
-} while(0)
-#define wait_event_interruptible(x, c) \
-({ \
-	wait_event(x, c); \
-	0; \
-})
 
 /* Completion stuff */
 #define DECLARE_COMPLETION(n) int n = 0;
