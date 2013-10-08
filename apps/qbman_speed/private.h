@@ -36,7 +36,11 @@
 #include <usdpaa/fsl_bman.h>
 #include <usdpaa/dma_mem.h>
 
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
+
+#include <stdio.h>
+#include <unistd.h>
+#include <limits.h>
 
 struct worker {
 	int cpu, do_global_init;
