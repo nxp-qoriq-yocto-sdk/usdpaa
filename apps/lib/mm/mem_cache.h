@@ -31,6 +31,7 @@
 #include <usdpaa/compat.h>
 
 #include <stdbool.h>
+#include <stdio.h>
 
 /*!
  We assume that our caches cannot ever grow or shrink in size, so the

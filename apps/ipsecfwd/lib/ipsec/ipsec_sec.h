@@ -36,7 +36,6 @@
 #include <flib/desc.h>
 #include <app_conf.h>
 
-
 /* BPID for use by SEC in case simple FD mode is used */
 extern u32 sec_bpid;
 extern bool simple_fd_mode;

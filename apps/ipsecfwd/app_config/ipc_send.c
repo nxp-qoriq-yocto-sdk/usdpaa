@@ -27,7 +27,7 @@
  */
 
 #include <usdpaa/of.h>
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
 #include <flib/desc.h>
 
 #include "ipc_send.h"

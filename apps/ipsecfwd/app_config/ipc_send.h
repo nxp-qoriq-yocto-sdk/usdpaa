@@ -27,6 +27,7 @@
  */
 
 #include <argp.h>
+#include <assert.h>
 
 const char *argp_program_version = "argex 1.0";
 

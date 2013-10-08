@@ -29,6 +29,7 @@
 #define LIB_IP_APPCONF_H
 
 #include <netinet/in.h>
+#include <stdbool.h>
 
 /**
  \brief	Structure for configuring an Interface

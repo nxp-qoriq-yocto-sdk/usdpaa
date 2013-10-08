@@ -33,6 +33,8 @@
 #include "net/neigh.h"
 #include "ip_hooks.h"
 
+#include <assert.h>
+
 #ifdef NOT_USDPAA
 void arp_retransmit_cb(uint32_t timer_id, void *p_data)
 {

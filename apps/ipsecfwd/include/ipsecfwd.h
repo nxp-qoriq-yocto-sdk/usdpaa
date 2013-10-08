@@ -39,6 +39,8 @@
 #include "ipsec/ipsec_decap.h"
 #include "ipsec/ipsec_common.h"
 
+#include <unistd.h>
+
 #define ETHERNET_ADDR_MAGIC	0x0200
 #define LINKLOCAL_NODES_2EXP	10
 #define IFACE_COUNT		12
