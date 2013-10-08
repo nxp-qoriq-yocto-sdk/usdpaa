@@ -33,6 +33,9 @@
 #include "fra_bpool.h"
 #include <usdpaa/conf.h>
 
+#include <assert.h>
+#include <stdio.h>
+
 struct bpool_node bpool_array[POOL_MAX];
 
 #ifdef BPOOL_DEPLETION

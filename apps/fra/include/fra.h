@@ -38,6 +38,7 @@
 #include <usdpaa/usdpaa_netcfg.h>
 #include <rman_interface.h>
 #include <fra_fman_port.h>
+#include <unistd.h>
 #include <app_conf.h>
 
 struct rman_tx_list {

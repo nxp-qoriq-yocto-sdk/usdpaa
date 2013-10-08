@@ -35,7 +35,7 @@
 
 #include <fra_common.h>
 #include <usdpaa/fsl_rman.h>
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
 
 #define MAX_LENGTH_OF_NAME 32
 

@@ -34,6 +34,8 @@
 #include <fra_fq_interface.h>
 #include <rman_interface.h>
 
+#include <stdio.h>
+
 #define FRA_MAX_NUM_OF_IB 4
 
 /* This struct holds the default stashing opts for Rx FQ configuration. */

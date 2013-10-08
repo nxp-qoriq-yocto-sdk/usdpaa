@@ -34,7 +34,8 @@
 #define _FRA_FQ_INTERFACE_H
 
 #include <fra_common.h>
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
+#include <stdio.h>
 
 /* sanity check the application options for basic conflicts */
 #if defined(FRA_HOLDACTIVE) && defined(FRA_AVOIDBLOCK)
