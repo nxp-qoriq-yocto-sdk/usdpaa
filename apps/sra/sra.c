@@ -30,7 +30,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
 #include <usdpaa/of.h>
 #include <usdpaa/dma_mem.h>
 #include <usdpaa/fsl_dma.h>
@@ -38,6 +38,9 @@
 #include <error.h>
 #include <atb_clock.h>
 #include <readline.h>
+#include <assert.h>
+#include <inttypes.h>
+#include <unistd.h>
 
 #define SRIO_SYS_ADDR		0x10000000	/* used for srio system addr */
 #define SRIO_WIN_SIZE		0x200000
