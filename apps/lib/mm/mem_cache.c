@@ -28,7 +28,7 @@
 #include <usdpaa/compat.h>
 #include <usdpaa/dma_mem.h>
 
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
 
 #include "mem_cache.h"
 #include "app_common.h"

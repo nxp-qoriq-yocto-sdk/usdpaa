@@ -37,6 +37,10 @@
 #include <usdpaa/of.h>
 #include <usdpaa/dma_mem.h>
 
+#include <stdio.h>
+#include <inttypes.h>
+#include <unistd.h>
+
 #define FQ_PER_CORE		  5 /* Number of flows for encryption as well
 				       as decryption */
 #define QMAN_WAIT_CYCLES       1000

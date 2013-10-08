@@ -33,7 +33,10 @@
 #include "ipfwd/statistics.h"
 #include "app_common.h"
 
-#include <internal/compat.h>	/* L1_CACHE_BYTES */
+#include <usdpaa/compat.h>	/* L1_CACHE_BYTES */
+
+#include <stdio.h>
+
 #ifdef ONE_MILLION_ROUTE_SUPPORT
 #define RC_BUCKETS					(1024*1024)
 /**< Number of Route cache Buckets */

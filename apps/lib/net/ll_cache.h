@@ -29,7 +29,7 @@
 #ifndef __LL_CACHE_H
 #define __LL_CACHE_H
 
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
 #include "net/net.h"
 
 /**

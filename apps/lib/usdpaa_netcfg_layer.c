@@ -34,11 +34,14 @@
 #include "fmc_netcfg_parser.h"
 
 #include <inttypes.h>
-#include <internal/of.h>
+#include <usdpaa/of.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <error.h>
 #include <netinet/if_ether.h>
+
+#include <assert.h>
+#include <unistd.h>
 
 #define MAX_BPOOL_PER_PORT	8
 

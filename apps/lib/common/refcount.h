@@ -30,10 +30,12 @@
 
 #include <usdpaa/compat.h>
 
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
 
 #include "ipfwd/statistics.h"
 #include "bigatomic.h"
+
+#include <stdbool.h>
 
 typedef stat32_t refcount_t;
 

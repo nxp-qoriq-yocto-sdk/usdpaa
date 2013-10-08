@@ -32,7 +32,7 @@
 
 #include "ipfwd/statistics.h"
 
-#include <internal/compat.h>	/* L1_CACHE_BYTES */
+#include <usdpaa/compat.h>	/* L1_CACHE_BYTES */
 
 /**
 \brief Status values

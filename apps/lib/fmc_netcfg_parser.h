@@ -35,7 +35,7 @@
 
 #include <usdpaa/fsl_usd.h>
 #include <usdpaa/usdpaa_netcfg.h>
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
 #include <libxml/parser.h>
 
 /* Range of frame queues specified for PCD and Default RX */

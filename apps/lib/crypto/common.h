@@ -31,8 +31,9 @@
 #ifndef __CRYPTO_COMMON_H
 #define __CRYPTO_COMMON_H
 
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
 #include <usdpaa/fsl_qman.h>
+#include <stdbool.h>
 
 #define BUFF_SIZE	9600 /**< Maximum buffer size that can be
 					  provided by user */

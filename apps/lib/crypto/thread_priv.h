@@ -36,8 +36,11 @@
 #include <usdpaa/dma_mem.h>
 #include <usdpaa/fman.h>
 #include <usdpaa/fsl_usd.h>
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
 #include <net/if_arp.h>
+
+#include <unistd.h>
+#include <stdio.h>
 
 /* Per-thread data, including the pthread id */
 struct thread_data {

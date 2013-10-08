@@ -34,7 +34,7 @@
 #include "ipfwd/statistics.h"
 #include "app_common.h"
 
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
 
 #include <stdbool.h>
 

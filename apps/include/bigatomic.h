@@ -33,7 +33,7 @@
 #ifndef BIGATOMIC_H
 #define BIGATOMIC_H
 
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
 
 /* 64-bit atomics */
 struct bigatomic {
