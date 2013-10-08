@@ -36,4 +36,4 @@ AM_CFLAGS += $(LIBRTA_CFLAGS) -DDEBUG
 simple_proto_SOURCES := simple_proto.c
 
 simple_proto_LDADD := usdpaa_qbman usdpaa_dma_mem usdpaa_of usdpaa_process \
-                      crypto
+                      fslcrypto
