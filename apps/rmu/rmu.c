@@ -30,13 +30,15 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
 #include <usdpaa/of.h>
 #include <usdpaa/dma_mem.h>
 #include <usdpaa/fsl_rmu.h>
 #include <error.h>
 #include <atb_clock.h>
 #include <readline.h>
+#include <unistd.h>
+#include <inttypes.h>
 
 #define RMU_CMD_MIN_NUM	2
 #define MSG_TEST_MAX_SIZE	12 /* power of 2, 4096 bytes (max message) */
