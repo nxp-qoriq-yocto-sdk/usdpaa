@@ -35,6 +35,9 @@
 
 #include "ip/ip_common.h"	/* ip_statistics_t */
 
+#include <assert.h>
+#include <unistd.h>
+
 #define ETHERNET_ADDR_MAGIC	0x0200
 #ifdef STATS_TBD
 extern struct ip_statistics_t *ipfwd_stats_init(void);

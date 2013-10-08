@@ -26,7 +26,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
 #include "hash.h"
 
 /* get a new entry from the pool to use.

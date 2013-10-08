@@ -30,6 +30,7 @@
 #define _HASH_H_
 
 #include <usdpaa/compat.h>
+#include <stdio.h>
 
 #define MAX_HASH_KEY_SIZE	16
 #define CLASSIFY_HASHTAB_SIZE	(128*1024)
