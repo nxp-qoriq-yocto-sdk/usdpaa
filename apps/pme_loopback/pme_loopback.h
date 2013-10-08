@@ -33,6 +33,7 @@
 #ifndef _PME_LOOPBACK_H
 #define _PME_LOOPBACK_H
 
+#warning "Fix below (should be #include <usdpaa/compat.h>"
 #include <internal/compat.h>
 #include <argp.h>
 
