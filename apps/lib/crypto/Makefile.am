@@ -1,4 +1,4 @@
 
-lib_LIBRARIES = crypto
+lib_LIBRARIES = fslcrypto
 
-crypto_SOURCES := qman.c test_utils.c thread_priv.c
+fslcrypto_SOURCES := qman.c test_utils.c thread_priv.c
