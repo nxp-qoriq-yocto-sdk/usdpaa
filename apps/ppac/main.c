@@ -37,7 +37,7 @@
 #include <readline.h>  /* libedit */
 #include <error.h>
 
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
 
 /*
  * PPAM global startup/teardown
