@@ -35,6 +35,8 @@
 
 #include "ip/ip_common.h"	/* ip_statistics_t */
 
+#include <unistd.h>
+
 #define ETHERNET_ADDR_MAGIC	0x0200
 #define LINKLOCAL_NODES_2EXP	10
 #define IFACE_COUNT		12

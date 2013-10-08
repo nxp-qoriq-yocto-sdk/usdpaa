@@ -28,7 +28,7 @@
 
 #include <usdpaa/of.h>
 
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
 
 #include "ipc_send.h"
 #include "ip/ip_appconf.h"
@@ -37,6 +37,8 @@
 #include <mqueue.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+
+#include <assert.h>
 
 unsigned int g_mndtr_param;
 error_t g_parse_error;
