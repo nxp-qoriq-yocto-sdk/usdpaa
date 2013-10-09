@@ -34,6 +34,7 @@
 
 #include "common/refcount.h"
 #include <fsl_fman.h>
+#include <mutex.h>
 
 #define NEIGH_STATE_UNKNOWN	0x00
 /**< Entry State - Unknown*/
@@ -113,7 +114,7 @@ struct neigh_t {
 	/* Structs - 32B */
 	struct neigh_t *next;
 	/**< Pointer to the next node in th eLinked List*/
-	spinlock_t wlock;
+	mutex_t wlock;
 	/**< Lock for accessing the Entry*/
 	struct neigh_table_t *nt;
 	/**< Pointer to the Neighbour table*/
@@ -156,8 +157,8 @@ struct __neigh_func_combo_t {
  \brief Neighbour Table Bucket
  */
 struct neigh_bucket_t {
-	uint32_t id;				/**< Bucket Id*/
-	spinlock_t wlock;		/**< Lock to access th eHead of the Link List in the Bucket*/
+	uint32_t id;			/**< Bucket Id*/
+	mutex_t wlock;			/**< Lock to access th eHead of the Link List in the Bucket*/
 	struct neigh_t *head;		/**< Head of the List of Neighbour Entries*/
 };
 

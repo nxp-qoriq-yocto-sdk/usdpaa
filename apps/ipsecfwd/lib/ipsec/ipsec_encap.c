@@ -66,7 +66,7 @@ enum IP_STATUS ipsec_encap_send(const struct ppam_rx_hash *ctxt,
 	decorated_notify_inc_32(&(ctxt->stats->encap_pre_sec));
 #endif
 	if (unlikely(entry->fq_state == PARKED)) {
-		spin_lock(&entry->tlock);
+		mutex_lock(&entry->tlock);
 		if (entry->fq_state == PARKED) {
 			if (init_sec_fqs(entry, ENCRYPT, entry->ctxtA,
 					entry->tunnel_id)) {
@@ -77,7 +77,7 @@ enum IP_STATUS ipsec_encap_send(const struct ppam_rx_hash *ctxt,
 			}
 			entry->fq_state = SCHEDULED;
 		}
-		spin_unlock(&entry->tlock);
+		mutex_unlock(&entry->tlock);
 	}
 
 loop:

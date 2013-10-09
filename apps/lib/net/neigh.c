@@ -94,7 +94,7 @@ int neigh_table_init(struct neigh_table_t *table)
 		bucket = table->buckets + i;
 		bucket->head = NULL;
 		bucket->id = i;
-		spin_lock_init(&bucket->wlock);
+		mutex_init(&bucket->wlock);
 	}
 
 	return 0;
@@ -143,7 +143,7 @@ struct neigh_t *neigh_init(struct neigh_table_t *nt, struct neigh_t *n,
 	nt->constructor(n);
 	n->next = NULL;
 	n->nt = nt;
-	spin_lock_init(&n->wlock);
+	mutex_init(&n->wlock);
 	n->dev = dev;
 	n->funcs->full_output = NULL;
 	n->funcs->reachable_output = &neigh_reachable_output;
@@ -167,14 +167,14 @@ struct neigh_t *neigh_update(struct neigh_t *n,
 	struct ppac_interface *i;
 	struct ether_header eth_hdr;
 
-	spin_lock(&n->wlock);
+	mutex_lock(&n->wlock);
 	if (n->neigh_state == NEIGH_STATE_UNKNOWN) {
 		i = n->dev;
 		memcpy(&n->neigh_addr, lladdr, sizeof(n->neigh_addr));
 
 		n->ll_cache = ll_cache_create();
 		if (n->ll_cache == NULL) {
-			spin_unlock(&n->wlock);
+			mutex_unlock(&n->wlock);
 			return NULL;
 		}
 		memcpy(eth_hdr.ether_dhost, lladdr,
@@ -185,10 +185,10 @@ struct neigh_t *neigh_update(struct neigh_t *n,
 		n->output = n->funcs->reachable_output;
 		n->neigh_state = state;
 	} else {
-		spin_unlock(&n->wlock);
+		mutex_unlock(&n->wlock);
 		return NULL;
 	}
-	spin_unlock(&n->wlock);
+	mutex_unlock(&n->wlock);
 
 	return n;
 }
@@ -212,14 +212,14 @@ bool neigh_add(struct neigh_table_t *nt, struct neigh_t *new_n)
 #ifdef NEIGH_RCU_ENABLE
 	rcu_read_lock();
 #endif
-	spin_lock(&(bucket->wlock));
+	mutex_lock(&(bucket->wlock));
 	cur_ptr = __neigh_find(bucket, key, keylen);
 	if (unlikely(cur_ptr == NULL)) {
-		spin_unlock(&(bucket->wlock));
+		mutex_unlock(&(bucket->wlock));
 		return false;
 	}
 	retval = __neigh_add(nt, cur_ptr, new_n, false);
-	spin_unlock(&(bucket->wlock));
+	mutex_unlock(&(bucket->wlock));
 #ifdef NEIGH_RCU_ENABLE
 	rcu_read_unlock();
 #endif
@@ -242,14 +242,14 @@ bool neigh_replace(struct neigh_table_t *nt, struct neigh_t *new_n)
 #ifdef NEIGH_RCU_ENABLE
 	rcu_read_lock();
 #endif
-	spin_lock(&(bucket->wlock));
+	mutex_lock(&(bucket->wlock));
 	cur_ptr = __neigh_find(bucket, key, keylen);
 	if (unlikely(cur_ptr == NULL)) {
-		spin_unlock(&(bucket->wlock));
+		mutex_unlock(&(bucket->wlock));
 		return false;
 	}
 	retval = __neigh_add(nt, cur_ptr, new_n, true);
-	spin_unlock(&(bucket->wlock));
+	mutex_unlock(&(bucket->wlock));
 #ifdef NEIGH_RCU_ENABLE
 	rcu_read_unlock();
 #endif
@@ -269,14 +269,14 @@ bool neigh_remove(struct neigh_table_t *nt, uint32_t key, uint32_t keylen)
 #ifdef NEIGH_RCU_ENABLE
 	rcu_read_lock();
 #endif
-	spin_lock(&(bucket->wlock));
+	mutex_lock(&(bucket->wlock));
 	cur_ptr = __neigh_find(bucket, key, keylen);
 	if (unlikely(cur_ptr == NULL)) {
-		spin_unlock(&(bucket->wlock));
+		mutex_unlock(&(bucket->wlock));
 		return false;
 	}
 	retval = __neigh_delete(nt, cur_ptr);
-	spin_unlock(&(bucket->wlock));
+	mutex_unlock(&(bucket->wlock));
 #ifdef NEIGH_RCU_ENABLE
 	rcu_read_unlock();
 #endif

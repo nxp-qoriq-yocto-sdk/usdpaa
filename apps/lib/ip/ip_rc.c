@@ -286,7 +286,7 @@ struct rc_t *rc_init(uint32_t expire_jiffies, uint32_t proto_len)
 	for (i = 0; i < ARRAY_SIZE(rc->buckets); i++) {
 		bucket = &(rc->buckets[i]);
 		bucket->head_entry = NULL;
-		spin_lock_init(&bucket->wlock);
+		mutex_init(&bucket->wlock);
 	}
 
 	return rc;
@@ -383,7 +383,7 @@ bool rc_add_entry(struct rc_t *rc, struct rc_entry_t *new_entry)
 #ifdef IP_RCU_ENABLE
 		rcu_read_lock();
 #endif
-		spin_lock(&(bucket->wlock));
+		mutex_lock(&(bucket->wlock));
 		entry_ptr = __rc_find_entry(rc, bucket,
 					    new_entry->saddr, new_entry->daddr);
 #ifdef IP_RCU_ENABLE
@@ -401,7 +401,7 @@ bool rc_add_entry(struct rc_t *rc, struct rc_entry_t *new_entry)
 #endif
 			success = true;
 		}
-		spin_unlock(&(bucket->wlock));
+		mutex_unlock(&(bucket->wlock));
 #ifdef IP_RCU_ENABLE
 		rcu_read_unlock();
 #endif
@@ -435,7 +435,7 @@ bool rc_add_update_entry(struct rc_t *rc, struct rc_entry_t *new_entry)
 #ifdef IP_RCU_ENABLE
 		rcu_read_lock();
 #endif
-		spin_lock(&(bucket->wlock));
+		mutex_lock(&(bucket->wlock));
 		entry_ptr = __rc_find_entry(rc, bucket,
 					    new_entry->saddr, new_entry->daddr);
 #ifdef IP_RCU_ENABLE
@@ -455,7 +455,7 @@ bool rc_add_update_entry(struct rc_t *rc, struct rc_entry_t *new_entry)
 		} else {
 			prev_entry->dest = new_entry->dest;
 		}
-		spin_unlock(&(bucket->wlock));
+		mutex_unlock(&(bucket->wlock));
 #ifdef IP_RCU_ENABLE
 		rcu_read_unlock();
 #endif
@@ -483,7 +483,7 @@ bool rc_remove_entry(struct rc_t *rc,
 #ifdef IP_RCU_ENABLE
 	rcu_read_lock();
 #endif
-	spin_lock(&(bucket->wlock));
+	mutex_lock(&(bucket->wlock));
 	entry_ptr = __rc_find_entry(rc, bucket, saddr, daddr);
 #ifdef IP_RCU_ENABLE
 	entry = rcu_dereference(*entry_ptr);
@@ -498,7 +498,7 @@ bool rc_remove_entry(struct rc_t *rc,
 		*entry_ptr = entry->next;
 #endif
 	}
-	spin_unlock(&(bucket->wlock));
+	mutex_unlock(&(bucket->wlock));
 #ifdef IP_RCU_ENABLE
 	rcu_read_unlock();
 #endif

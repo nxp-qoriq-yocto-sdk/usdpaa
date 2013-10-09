@@ -30,6 +30,8 @@
 
 #include <usdpaa/compat.h>
 
+#include <mutex.h>
+
 #include "mem_cache.h"
 #include "app_common.h"
 
@@ -106,7 +108,7 @@ struct mem_cache_t *mem_cache_create(size_t objsize, uint32_t capacity)
 	cachep->ptr_stack = parray_mem;
 	cachep->next_free = 0;
 	cachep->obj_allocated = 0;
-	spin_lock_init(&(cachep->mmlock));
+	mutex_init(&(cachep->mmlock));
 
 	return cachep;
 }
@@ -119,7 +121,7 @@ void *mem_cache_alloc(struct mem_cache_t *cachep)
 	int32_t idx;
 	void *retval;
 
-	spin_lock(&(cachep->mmlock));
+	mutex_lock(&(cachep->mmlock));
 	idx = cachep->next_free - 1;
 	if (likely(idx >= 0)) {
 		retval = cachep->ptr_stack[idx];
@@ -128,7 +130,7 @@ void *mem_cache_alloc(struct mem_cache_t *cachep)
 	} else {
 		retval = NULL;
 	}
-	spin_unlock(&(cachep->mmlock));
+	mutex_unlock(&(cachep->mmlock));
 
 	return retval;
 }
@@ -140,7 +142,7 @@ int32_t mem_cache_free(struct mem_cache_t *cachep, void *objp)
 {
 	int32_t idx, retval;
 
-	spin_lock(&(cachep->mmlock));
+	mutex_lock(&(cachep->mmlock));
 	idx = cachep->next_free;
 	if (likely(idx < (int32_t) cachep->free_limit)) {
 		cachep->ptr_stack[idx] = objp;
@@ -150,7 +152,7 @@ int32_t mem_cache_free(struct mem_cache_t *cachep, void *objp)
 	} else {
 		retval = -1;
 	}
-	spin_unlock(&(cachep->mmlock));
+	mutex_unlock(&(cachep->mmlock));
 
 	return retval;
 }
@@ -170,7 +172,7 @@ int32_t mem_cache_refill(struct mem_cache_t *cachep, uint32_t count)
 	void *mem;
 	uint32_t retval, max_objs;
 
-	spin_lock(&(cachep->mmlock));
+	mutex_lock(&(cachep->mmlock));
 
 	max_objs = cachep->obj_allocated + cachep->next_free + count;
 	if (max_objs > cachep->free_limit) {
@@ -188,7 +190,7 @@ int32_t mem_cache_refill(struct mem_cache_t *cachep, uint32_t count)
 	}
 
 drop:
-	spin_unlock(&(cachep->mmlock));
+	mutex_unlock(&(cachep->mmlock));
 
 	return retval;
 }
@@ -233,7 +235,7 @@ static struct mem_cache_t *__mem_cache_create(size_t objsize,
 		cachep->free_limit = objcount;
 		cachep->ptr_stack = ptr_array_mem;
 		cachep->next_free = 0;
-		spin_lock_init(&(cachep->mmlock));
+		mutex_init(&(cachep->mmlock));
 		cachep->obj_allocated = 0;
 	}
 	return cachep;

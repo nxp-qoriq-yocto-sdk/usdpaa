@@ -83,7 +83,7 @@ int ipsec_tunnel_table_create(struct ipsec_tunnel_table_t *itt)
 		bucket = &(itt->buckets[ctr]);
 		bucket->head_entry = NULL;
 		bucket->id = ctr;
-		spin_lock_init(&(bucket->wlock));
+		mutex_init(&(bucket->wlock));
 	}
 	return 0;
 }
@@ -170,7 +170,7 @@ bool ipsec_add_tunnel_entry(struct ipsec_tunnel_table_t *itt,
 #ifdef IPSEC_RCU_ENABLE
 		rcu_read_lock();
 #endif
-		spin_lock(&(bucket->wlock));
+		mutex_lock(&(bucket->wlock));
 		entry_ptr =
 		    __ipsec_find_entry(bucket, new_entry->tunnel_saddr,
 				       new_entry->tunnel_daddr,
@@ -192,7 +192,7 @@ bool ipsec_add_tunnel_entry(struct ipsec_tunnel_table_t *itt,
 #endif
 			rc = true;
 		}
-		spin_unlock(&(bucket->wlock));
+		mutex_unlock(&(bucket->wlock));
 #ifdef IPSEC_RCU_ENABLE
 		rcu_read_unlock();
 #endif
@@ -227,7 +227,7 @@ bool ipsec_remove_tunnel_entry(struct ipsec_tunnel_table_t *itt,
 #ifdef IPSEC_RCU_ENABLE
 	rcu_read_lock();
 #endif
-	spin_lock(&(bucket->wlock));
+	mutex_lock(&(bucket->wlock));
 	entry_ptr =
 	    __ipsec_find_entry(bucket, tunnel_src_ip, tunnel_dst_ip, spi);
 #ifdef IPSEC_RCU_ENABLE
@@ -242,7 +242,7 @@ bool ipsec_remove_tunnel_entry(struct ipsec_tunnel_table_t *itt,
 		*entry_ptr = entry->next;
 #endif
 	}
-	spin_unlock(&(bucket->wlock));
+	mutex_unlock(&(bucket->wlock));
 #ifdef IPSEC_RCU_ENABLE
 	rcu_read_unlock();
 #endif

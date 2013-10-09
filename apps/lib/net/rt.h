@@ -35,6 +35,7 @@
 #include "app_common.h"
 
 #include <usdpaa/compat.h>
+#include <mutex.h>
 
 #include <stdbool.h>
 

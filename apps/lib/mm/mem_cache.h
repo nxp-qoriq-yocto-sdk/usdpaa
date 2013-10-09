@@ -30,6 +30,8 @@
 
 #include <usdpaa/compat.h>
 
+#include <mutex.h>
+
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -44,7 +46,7 @@
  \brief Mem Cache Structure
  */
 struct mem_cache_t {
-	spinlock_t mmlock;	/**< Lock for accesing the Mem Cache structure*/
+	mutex_t mmlock;		/**< Lock for accesing the Mem Cache structure*/
 	uint32_t objsize;	/**< Size of the Object*/
 	uint32_t obj_allocated;	/**< Number of Allocated Objects*/
 	uint32_t free_limit;	/**< Max Number of Free Objects*/

@@ -45,7 +45,7 @@ int ip_hooks_init(struct ip_hooks_t *hooks)
 	for (i = 0; i < ARRAY_SIZE(hooks->chains); i++) {
 		hooks->chains[i].head = NULL;
 		hooks->chains[i].func_count = 0;
-		spin_lock_init(&hooks->chains[i].wlock);
+		mutex_init(&hooks->chains[i].wlock);
 	}
 	return 0;
 }
@@ -62,9 +62,9 @@ bool ip_hook_add_func(struct ip_hooks_t *hooks, enum IP_HOOK hook,
 	rcu_read_lock();
 #endif
 	chain = &(hooks->chains[hook]);
-	spin_lock(&(chain->wlock));
+	mutex_lock(&(chain->wlock));
 	if (chain->func_count >= IP_HOOK_MAX_FUNCS_PER_HOOK) {
-		spin_unlock(&(chain->wlock));
+		mutex_unlock(&(chain->wlock));
 #ifdef IP_RCU_ENABLE
 		rcu_read_unlock();
 #endif
@@ -73,7 +73,7 @@ bool ip_hook_add_func(struct ip_hooks_t *hooks, enum IP_HOOK hook,
 
 	new_entry = mem_cache_alloc(hooks->free_entries);
 	if (new_entry == NULL) {
-		spin_unlock(&(chain->wlock));
+		mutex_unlock(&(chain->wlock));
 #ifdef IP_RCU_ENABLE
 		rcu_read_unlock();
 #endif
@@ -111,7 +111,7 @@ bool ip_hook_add_func(struct ip_hooks_t *hooks, enum IP_HOOK hook,
 	}
 	++chain->func_count;
 
-	spin_unlock(&(chain->wlock));
+	mutex_unlock(&(chain->wlock));
 #ifdef IP_RCU_ENABLE
 	rcu_read_unlock();
 #endif
@@ -124,8 +124,8 @@ uint32_t ip_hook_count(struct ip_hooks_t *hooks, enum IP_HOOK hook)
 	uint32_t count;
 
 	chain = &(hooks->chains[hook]);
-	spin_lock(&(chain->wlock));
+	mutex_lock(&(chain->wlock));
 	count = chain->func_count;
-	spin_unlock(&(chain->wlock));
+	mutex_unlock(&(chain->wlock));
 	return count;
 }

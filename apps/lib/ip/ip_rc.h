@@ -30,6 +30,7 @@
 
 #include "ip/ip.h"
 #include <fsl_fman.h>
+#include <mutex.h>
 #include "ipfwd/statistics.h"
 #include "app_common.h"
 
@@ -105,8 +106,9 @@ struct rc_entry_t {
  of Route Cache Entries
 */
 struct rc_bucket_t {
-	spinlock_t wlock;			/**< Lock to guard the bucket */
-	struct rc_entry_t *head_entry;		/**< Pointer to the linked list of route cache entries */
+	mutex_t wlock;			/**< Lock to guard the bucket */
+	struct rc_entry_t *head_entry;	/**< Pointer to the linked list of
+					     route cache entries route */
 };
 
 /**

@@ -31,6 +31,8 @@
 #include "ip/ip_rc.h"
 #include "ip/ip_common.h"
 
+#include <mutex.h>
+
 #define IPSEC_TUNNEL_ENTRIES 1024
 #define IPSEC_HASH_MASK (IPSEC_TUNNEL_ENTRIES - 1)
 

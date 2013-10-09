@@ -177,48 +177,6 @@ static inline int atomic_inc_return(atomic_t *v)
 	return	__atomic_add((long *)&v->v, 1);
 }
 
-/* Spinlock stuff */
-#define spinlock_t		pthread_mutex_t
-#define __SPIN_LOCK_UNLOCKED(x)	PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP
-#define DEFINE_SPINLOCK(x)	spinlock_t x = __SPIN_LOCK_UNLOCKED(x)
-#define spin_lock_init(x) \
-	do { \
-		__maybe_unused int __foo;	\
-		pthread_mutexattr_t __foo_attr;	\
-		__foo = pthread_mutexattr_init(&__foo_attr);	\
-		BUG_ON(__foo);	\
-		__foo = pthread_mutexattr_settype(&__foo_attr,	\
-						  PTHREAD_MUTEX_ADAPTIVE_NP); \
-		BUG_ON(__foo);	\
-		__foo = pthread_mutex_init(x, &__foo_attr); \
-		BUG_ON(__foo); \
-	} while (0)
-#define spin_lock(x) \
-	do { \
-		__maybe_unused int __foo = pthread_mutex_lock(x); \
-		BUG_ON(__foo); \
-	} while (0)
-#define spin_unlock(x) \
-	do { \
-		__maybe_unused int __foo = pthread_mutex_unlock(x); \
-		BUG_ON(__foo); \
-	} while (0)
-#define spin_lock_irq(x)	do {				\
-					local_irq_disable();	\
-					spin_lock(x);		\
-				} while (0)
-#define spin_unlock_irq(x)	do {				\
-					spin_unlock(x);		\
-					local_irq_enable();	\
-				} while (0)
-#define spin_lock_irqsave(x, f)	do { spin_lock_irq(x); } while (0)
-#define spin_unlock_irqrestore(x, f) do { spin_unlock_irq(x); } while (0)
-
-#define raw_spinlock_t				spinlock_t
-#define raw_spin_lock_init(x)			spin_lock_init(x)
-#define raw_spin_lock_irqsave(x, f)		spin_lock(x)
-#define raw_spin_unlock_irqrestore(x, f)	spin_unlock(x)
-
 /* Waitqueue stuff */
 typedef struct { }		wait_queue_head_t;
 #define DECLARE_WAIT_QUEUE_HEAD(x) int dummy_##x __always_unused
