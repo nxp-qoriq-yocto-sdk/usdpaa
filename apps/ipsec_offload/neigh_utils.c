@@ -410,6 +410,7 @@ int create_local_entry(int ifindex, int af, u8 *key)
 	/* get macless rx fqs */
 	list_for_each_entry(__if, fman_if_list, node) {
 		if (__if->mac_type == fman_mac_less &&
+		    __if->macless_info.macless_name &&
 		    !strcmp(macless_name, __if->macless_info.macless_name)) {
 			rx_start = __if->macless_info.rx_start;
 			break;

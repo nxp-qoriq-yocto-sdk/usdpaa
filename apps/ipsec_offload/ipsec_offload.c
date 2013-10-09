@@ -183,6 +183,7 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 	uint32_t rx_start = 0;
 	int ret;
 	char fmc_path[64];
+	const char *port_type;
 
 	int idx = if_nametoindex(macless_name);
 	if (!idx)
@@ -191,6 +192,7 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 
 	list_for_each_entry(__if, fman_if_list, node) {
 		if (__if->mac_type == fman_mac_less &&
+		    __if->macless_info.macless_name &&
 		    !strcmp(__if->macless_info.macless_name, macless_name)) {
 			rx_start = __if->macless_info.rx_start;
 			break;
@@ -202,9 +204,10 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 	if (!strcmp(macless_name, app_conf.vif)) {
 		/* set fqids for vif PCD */
 		memset(fmc_path, 0, sizeof(fmc_path));
-		sprintf(fmc_path, "fm%d/port/1G/%d/dist/"
+		port_type = get_port_type(app_conf.ib_eth);
+		sprintf(fmc_path, "fm%d/port/%s/%d/dist/"
 			"ib_default_dist",
-			app_conf.fm, app_conf.ib_eth->mac_idx);
+			app_conf.fm, port_type, app_conf.ib_eth->mac_idx);
 		ret = set_dist_base_fqid(cmodel, fmc_path, rx_start);
 		if (ret < 0)
 			goto err;
@@ -227,9 +230,10 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 	} else if (!strcmp(macless_name, app_conf.vof)) {
 		/* set fqids for vof PCD */
 		memset(fmc_path, 0, sizeof(fmc_path));
-		sprintf(fmc_path, "fm%d/port/1G/%d/dist/"
+		port_type = get_port_type(app_conf.ob_eth);
+		sprintf(fmc_path, "fm%d/port/%s/%d/dist/"
 			"ob_rx_default_dist",
-			app_conf.fm, app_conf.ob_eth->mac_idx);
+			app_conf.fm, port_type, app_conf.ob_eth->mac_idx);
 		ret = set_dist_base_fqid(cmodel, fmc_path, rx_start);
 		if (ret < 0)
 			goto err;

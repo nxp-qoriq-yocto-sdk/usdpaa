@@ -74,6 +74,21 @@ enum ether_types {
 	MAX_ETHER_TYPES
 };
 
+static const char *fmc_1g = "1G";
+static const char *fmc_10g = "10G";
+static const char *fmc_offline = "OFFLINE";
+
+static inline const char *get_port_type(struct fman_if *__if) {
+	if (__if->mac_type == fman_mac_1g)
+		return fmc_1g;
+	else if (__if->mac_type == fman_mac_10g)
+		return fmc_10g;
+	else if (__if->mac_type == fman_offline)
+		return fmc_offline;
+	else
+		return NULL;
+}
+
 extern t_Handle pcd_dev;
 /* inbound SA lookup */
 extern t_Handle cc_in_rx[DPA_IPSEC_MAX_SA_TYPE];
