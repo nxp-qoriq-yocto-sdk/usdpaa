@@ -611,7 +611,7 @@ static int process_del_route(struct nlmsghdr *nh, int vif_idx, int vof_idx)
 	dst = (uint32_t *)NLA_DATA(na);
 	rtm_dst_len = rtm->rtm_dst_len;
 
-	for ( ; na && (na->nla_type != RTA_OIF); na = NLA_NEXT(na))
+	for (; na && (na->nla_type != RTA_OIF); NLA_NEXT(na))
 		;
 	if (!na)
 		return -1;
@@ -626,13 +626,13 @@ static int process_del_route(struct nlmsghdr *nh, int vif_idx, int vof_idx)
 		return 0;
 
 	if (oif == vof_idx) {
-		ret = lookup_ob_neigh_entry(af, dst, rtm_dst_len);
+		ret = lookup_ob_neigh_entry(af, (u8 *)dst, rtm_dst_len);
 		if (!ret)
-			ret = remove_ib_neigh_entry(af, dst, rtm_dst_len);
+			ret = remove_ib_neigh_entry(af, (u8 *)dst, rtm_dst_len);
 	} else {
-		ret = lookup_ib_neigh_entry(af, dst, rtm_dst_len);
+		ret = lookup_ib_neigh_entry(af, (u8 *)dst, rtm_dst_len);
 		if (!ret)
-			ret = remove_ib_neigh_entry(af, dst, rtm_dst_len);
+			ret = remove_ib_neigh_entry(af, (u8 *)dst, rtm_dst_len);
 	}
 
 	return ret;
