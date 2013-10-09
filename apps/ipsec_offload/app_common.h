@@ -40,25 +40,23 @@ static inline struct fman_if *get_fif(int fm,
 				      int port_idx,
 				      enum fman_mac_type type)
 {
-	struct ppac_interface *ppac_if;
-	list_for_each_entry(ppac_if, &ifs, node) {
-		if ((fm == ppac_if->port_cfg->fman_if->fman_idx) &&
-		    (type == ppac_if->port_cfg->fman_if->mac_type) &&
-		    (port_idx == ppac_if->port_cfg->fman_if->mac_idx))
-			return ppac_if->port_cfg->fman_if;
+	int idx;
+	struct fm_eth_port_cfg *port_cfg;
+	for (idx = 0; idx < netcfg->num_ethports; idx++) {
+		port_cfg = &netcfg->port_cfg[idx];
+		if ((fm == port_cfg->fman_if->fman_idx) &&
+		    (type == port_cfg->fman_if->mac_type) &&
+		    (port_idx == port_cfg->fman_if->mac_idx))
+			return port_cfg->fman_if;
 	}
 	return NULL;
 }
 
-static inline struct ppac_interface *get_ppac_if(int fm,
-						 int port_idx,
-						 enum fman_mac_type type)
+static inline struct ppac_interface *get_ppac_if(struct fman_if *__if)
 {
 	struct ppac_interface *ppac_if;
 	list_for_each_entry(ppac_if, &ifs, node) {
-		if ((fm == ppac_if->port_cfg->fman_if->fman_idx) &&
-		    (type == ppac_if->port_cfg->fman_if->mac_type) &&
-		    (port_idx == ppac_if->port_cfg->fman_if->mac_idx))
+		if (ppac_if->port_cfg->fman_if == __if)
 			return ppac_if;
 	}
 	return NULL;

@@ -4,13 +4,13 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
+ *	 notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
+ *	 notice, this list of conditions and the following disclaimer in the
+ *	 documentation and/or other materials provided with the distribution.
  *     * Neither the name of Freescale Semiconductor nor the
- *       names of its contributors may be used to endorse or promote products
- *       derived from this software without specific prior written permission.
+ *	 names of its contributors may be used to endorse or promote products
+ *	 derived from this software without specific prior written permission.
  *
  *
  * ALTERNATIVELY, this software may be distributed under the terms of the
@@ -101,7 +101,7 @@ int create_dpa_stats_counters(int num_cnt)
 }
 
 
-int create_eth_stats_counter(int port_idx)
+int create_eth_stats_counter(struct fman_if *__if)
 {
 	struct dpa_stats_cnt_params cnt_params;
 	struct ppac_interface *ppac_if;
@@ -109,19 +109,19 @@ int create_eth_stats_counter(int port_idx)
 
 	cnt_params.type = DPA_STATS_CNT_ETH;
 	cnt_params.eth_params.src.engine_id = app_conf.fm;
-	cnt_params.eth_params.src.eth_id = port_idx;
+	cnt_params.eth_params.src.eth_id = __if->mac_idx;
 	cnt_params.eth_params.cnt_sel = (DPA_STATS_CNT_ETH_ALL - 1) &
 		(~(DPA_STATS_CNT_ETH_IN_UNICAST_PKTS |
 		DPA_STATS_CNT_ETH_OUT_UNICAST_PKTS));
 
-	ppac_if = get_ppac_if(app_conf.fm, port_idx, fman_mac_1g);
+	ppac_if = get_ppac_if(__if);
 
 	err = dpa_stats_create_counter(dpa_stats_id,
 			&cnt_params, &ppac_if->ppam_data.stats_cnt);
 	if (err < 0)
 		fprintf(stderr, "Failed to create stats counter"
-				" - all statistics for port %d (%d)\n",
-				port_idx, err);
+				" - all statistics for port %d,%d (%d)\n",
+				__if->mac_idx, __if->mac_type, err);
 	return err;
 }
 
@@ -275,9 +275,10 @@ int show_eth_stats(int argc, char *argv[])
 {
 	struct dpa_stats_cnt_request_params req_params;
 	struct ppac_interface *ppac_if;
-	int port_idx, cnts_len, err;
+	struct fman_if *__if;
+	int port_idx, port_type, cnts_len, err;
 
-	if (argc != 2)
+	if (argc != 3)
 		return -EINVAL;
 
 	if (!isdigit(*argv[1])) {
@@ -285,7 +286,15 @@ int show_eth_stats(int argc, char *argv[])
 		return -EINVAL;
 	}
 	port_idx = atoi(argv[1]);
-	ppac_if = get_ppac_if(app_conf.fm, port_idx, fman_mac_1g);
+
+	if (!isdigit(*argv[2])) {
+		printf("\n.Port type must be of type int.\n");
+		return -EINVAL;
+	}
+	port_type = atoi(argv[2]);
+
+	__if = get_fif(app_conf.fm, port_idx, port_type);
+	ppac_if = get_ppac_if(__if);
 	req_params.cnts_ids = &ppac_if->ppam_data.stats_cnt;
 	req_params.cnts_ids_len = 1;
 	req_params.reset_cnts = false;

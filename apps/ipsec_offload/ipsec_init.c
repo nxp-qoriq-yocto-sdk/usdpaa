@@ -56,7 +56,6 @@ int ipsec_offload_init(int *dpa_ipsec_id)
 	struct dpa_cls_tbl_params cls_tbl_params;
 	int err;
 	t_FmPcdParams pcd_params;
-	struct fman_if *fif;
 
 	err = dpa_classif_lib_init();
 	if (err < 0) {
@@ -104,13 +103,8 @@ int ipsec_offload_init(int *dpa_ipsec_id)
 	ipsec_params.post_sec_in_params.data_off = SEC_DATA_OFF_BURST;
 	ipsec_params.post_sec_in_params.base_flow_id = IPSEC_START_IN_FLOW_ID;
 	ipsec_params.post_sec_in_params.use_ipv6_pol = false;
-	fif = get_fif(app_conf.fm, app_conf.ib_oh, fman_offline);
-	if (!fif) {
-		fprintf(stderr, "Could not get inbound offline port"
-			" for retrieving Qm channel, err %d\n", err);
-		goto out_inb_post_sec;
-	}
-	ipsec_params.post_sec_in_params.qm_tx_ch = fif->tx_channel_id;
+	ipsec_params.post_sec_in_params.qm_tx_ch =
+					app_conf.ib_oh->tx_channel_id;
 
 	memset(&cls_tbl_params, 0, sizeof(cls_tbl_params));
 	cls_tbl_params.cc_node = cc_flow_id;
@@ -133,13 +127,8 @@ int ipsec_offload_init(int *dpa_ipsec_id)
 						DPA_IPSEC_KEY_FIELD_DPORT;
 	/* OUTB/UL post SEC params */
 	ipsec_params.post_sec_out_params.data_off = SEC_DATA_OFF_BURST;
-	fif = get_fif(app_conf.fm, app_conf.ob_oh_post, fman_offline);
-	if (!fif) {
-		fprintf(stderr, "Could not get outbound offline port"
-			" for retrieving Qm channel, err %d\n", err);
-		goto out_inb_post_sec;
-	}
-	ipsec_params.post_sec_out_params.qm_tx_ch = fif->tx_channel_id;
+	ipsec_params.post_sec_out_params.qm_tx_ch =
+					app_conf.ob_oh_post->tx_channel_id;
 
 	/* OUTB/UL pre SEC params */
 	for (i = 0; i < DPA_IPSEC_MAX_SUPPORTED_PROTOS; i++) {

@@ -76,13 +76,8 @@ static uint32_t get_policy_miss_fqid(void)
 {
 	struct ppac_interface *ppac_if;
 	list_for_each_entry(ppac_if, &ifs, node) {
-		if ((app_conf.fm == ppac_if->port_cfg->fman_if->fman_idx) &&
-			(ppac_if->port_cfg->fman_if->mac_type ==
-			fman_offline) &&
-			(app_conf.ib_oh ==
-			ppac_if->port_cfg->fman_if->mac_idx)) {
-				return qman_fq_fqid(&ppac_if->rx_default[0].fq);
-			}
+		if (app_conf.ib_oh == ppac_if->port_cfg->fman_if)
+			return qman_fq_fqid(&ppac_if->rx_default[0].fq);
 	}
 	return 0;
 }

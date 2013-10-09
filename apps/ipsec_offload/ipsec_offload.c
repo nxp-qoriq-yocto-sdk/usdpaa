@@ -120,7 +120,7 @@ static void cleanup_macless_config(char *macless_name)
 	struct fman_if *__if;
 	list_for_each_entry(__if, fman_if_list, node) {
 		if ((__if->mac_type != fman_mac_less) ||
-		   (__if->macless_info.macless_name != macless_name))
+		    (__if->macless_info.macless_name != macless_name))
 			continue;
 		ret = set_mac_addr(macless_name, &__if->macless_info.peer_mac);
 		if (ret < 0)
@@ -204,7 +204,7 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 		memset(fmc_path, 0, sizeof(fmc_path));
 		sprintf(fmc_path, "fm%d/port/1G/%d/dist/"
 			"ib_default_dist",
-			app_conf.fm, app_conf.ib_eth);
+			app_conf.fm, app_conf.ib_eth->mac_idx);
 		ret = set_dist_base_fqid(cmodel, fmc_path, rx_start);
 		if (ret < 0)
 			goto err;
@@ -212,14 +212,14 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 		memset(fmc_path, 0, sizeof(fmc_path));
 		sprintf(fmc_path, "fm%d/port/OFFLINE/%d/ccnode/"
 			"ib_post_ip_cc",
-			app_conf.fm, app_conf.ib_oh);
+			app_conf.fm, app_conf.ib_oh->mac_idx);
 		ret = set_cc_miss_fqid(cmodel, fmc_path, rx_start);
 		if (ret < 0)
 			goto err;
 		memset(fmc_path, 0, sizeof(fmc_path));
 		sprintf(fmc_path, "fm%d/port/OFFLINE/%d/ccnode/"
 			"ib_post_ip6_cc",
-			app_conf.fm, app_conf.ib_oh);
+			app_conf.fm, app_conf.ib_oh->mac_idx);
 		ret = set_cc_miss_fqid(cmodel, fmc_path, rx_start);
 		if (ret < 0)
 			goto err;
@@ -229,7 +229,7 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 		memset(fmc_path, 0, sizeof(fmc_path));
 		sprintf(fmc_path, "fm%d/port/1G/%d/dist/"
 			"ob_rx_default_dist",
-			app_conf.fm, app_conf.ob_eth);
+			app_conf.fm, app_conf.ob_eth->mac_idx);
 		ret = set_dist_base_fqid(cmodel, fmc_path, rx_start);
 		if (ret < 0)
 			goto err;
@@ -237,7 +237,7 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 		memset(fmc_path, 0, sizeof(fmc_path));
 		sprintf(fmc_path, "fm%d/port/OFFLINE/%d/ccnode/"
 			"ob_post_ip_cc",
-			app_conf.fm, app_conf.ob_oh_post);
+			app_conf.fm, app_conf.ob_oh_post->mac_idx);
 		ret = set_cc_miss_fqid(cmodel, fmc_path, rx_start);
 		if (ret < 0)
 			goto err;
@@ -245,7 +245,7 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 		memset(fmc_path, 0, sizeof(fmc_path));
 		sprintf(fmc_path, "fm%d/port/OFFLINE/%d/ccnode/"
 			"ob_post_ip6_cc",
-			app_conf.fm, app_conf.ob_oh_post);
+			app_conf.fm, app_conf.ob_oh_post->mac_idx);
 		ret = set_cc_miss_fqid(cmodel, fmc_path, rx_start);
 		if (ret < 0)
 			goto err;
@@ -277,21 +277,15 @@ static int ppam_interface_init(struct ppam_interface *p,
 	struct ppac_interface *i =
 		container_of(p, struct ppac_interface, ppam_data);
 	struct qman_fq *fq = &i->tx_fqs[0];
-	if (app_conf.fm == i->port_cfg->fman_if->fman_idx &&
-	    i->port_cfg->fman_if->mac_type == fman_offline &&
-	    app_conf.ob_oh_post == i->port_cfg->fman_if->mac_idx) {
+	if (app_conf.ob_oh_post == i->port_cfg->fman_if) {
 		fq->fqid = OB_OH_POST_TX_FQID;
 		*flags |= PPAM_TX_FQ_NO_BUF_DEALLOC;
 	}
-	if (app_conf.fm == i->port_cfg->fman_if->fman_idx &&
-	    i->port_cfg->fman_if->mac_type == fman_offline &&
-	    app_conf.ob_oh_pre == i->port_cfg->fman_if->mac_idx) {
+	if (app_conf.ob_oh_pre == i->port_cfg->fman_if) {
 		fq->fqid = OB_OH_PRE_TX_FQID;
 		*flags |= PPAM_TX_FQ_NO_BUF_DEALLOC;
 	}
-	if (app_conf.fm == i->port_cfg->fman_if->fman_idx &&
-	    i->port_cfg->fman_if->mac_type == fman_mac_1g &&
-	    app_conf.ib_eth == i->port_cfg->fman_if->mac_idx) {
+	if (app_conf.ib_eth == i->port_cfg->fman_if) {
 		ret = setup_macless_if_tx(i, IB_TX_FQID, &num_tx_fqs,
 					  fq, app_conf.vif);
 		if (ret < 0)
@@ -304,9 +298,7 @@ static int ppam_interface_init(struct ppam_interface *p,
 		if (ret < 0)
 			goto err;
 	}
-	if (app_conf.fm == i->port_cfg->fman_if->fman_idx &&
-	    i->port_cfg->fman_if->mac_type == fman_mac_1g &&
-	    app_conf.ob_eth == i->port_cfg->fman_if->mac_idx) {
+	if (app_conf.ob_eth == i->port_cfg->fman_if) {
 		ret = setup_macless_if_tx(i, OB_TX_FQID, &num_tx_fqs,
 					  fq, app_conf.vof);
 		if (ret < 0)
@@ -319,9 +311,7 @@ static int ppam_interface_init(struct ppam_interface *p,
 		if (ret < 0)
 			goto err;
 	}
-	if (app_conf.fm == i->port_cfg->fman_if->fman_idx &&
-	    i->port_cfg->fman_if->mac_type == fman_offline &&
-	    app_conf.ib_oh ==  i->port_cfg->fman_if->mac_idx) {
+	if (app_conf.ib_oh ==  i->port_cfg->fman_if) {
 		fq->fqid = IB_OH_TX_FQID;
 	}
 
@@ -438,10 +428,10 @@ static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_interface *_if,
 			if (ppac_if->port_cfg->fman_if->mac_type ==
 				fman_offline) {
 				if (fman_idx == app_conf.fm &&
-				    mac_idx == app_conf.ib_oh)
+				    mac_idx == app_conf.ib_oh->mac_idx)
 					ib_oh_if = ppac_if;
 				else if (fman_idx == app_conf.fm &&
-					 mac_idx == app_conf.ob_oh_pre)
+					 mac_idx == app_conf.ob_oh_pre->mac_idx)
 					ob_oh_if = ppac_if;
 			}
 
@@ -449,7 +439,7 @@ static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_interface *_if,
 			if (ppac_if->port_cfg->fman_if->mac_type !=
 				fman_offline &&
 				ppac_if->port_cfg->fman_if->mac_idx ==
-				app_conf.ob_eth)
+				app_conf.ob_eth->mac_idx)
 				eth_if = ppac_if;
 		}
 	}
@@ -525,6 +515,26 @@ void cleanup_buffer_pools(void)
 	bman_release_bpid(app_conf.ipf_bpid);
 }
 
+static struct fman_if *parse_eth_portarg(const char *p, int fm_idx)
+{
+	char *pch;
+	int port_idx, port_type;
+	pch = strtok((char *)p, ",");
+	port_idx = atoi(pch);
+	pch = strtok(NULL, ",");
+	if (!pch)
+		return NULL;
+	port_type = atoi(pch);
+	return get_fif(fm_idx, port_idx, port_type);
+}
+
+static struct fman_if *parse_offline_portarg(const char *p, int fm_idx)
+{
+	int port_idx;
+	port_idx = atoi(p);
+	return get_fif(fm_idx, port_idx, fman_offline);
+}
+
 int ppam_init(void)
 {
 	int ret;
@@ -541,32 +551,66 @@ int ppam_init(void)
 		fprintf(stderr, "Error : ob_eth arg not set\n");
 		goto err;
 	}
-	app_conf.ob_eth = atoi(ppam_args.ob_eth);
+	app_conf.ob_eth = parse_eth_portarg(ppam_args.ob_eth,
+					    app_conf.fm);
+	if (!app_conf.ob_eth) {
+		fprintf(stderr, "Error : ob_eth %s invalid\n",
+			ppam_args.ob_eth);
+		goto err;
+	}
+
 	/* inbound offline port */
 	if (!ppam_args.ib_oh) {
 		fprintf(stderr, "Error : ib_oh arg not set\n");
 		goto err;
 	}
-	app_conf.ib_oh = atoi(ppam_args.ib_oh);
+	app_conf.ib_oh = parse_offline_portarg(ppam_args.ib_oh,
+					       app_conf.fm);
+	if (!app_conf.ib_oh) {
+		fprintf(stderr, "Error : ib_eth %s invalid\n",
+			ppam_args.ib_oh);
+		goto err;
+	}
+
 	/* outbound pre SEC offline port */
 	if (!ppam_args.ob_oh_pre) {
 		fprintf(stderr, "Error : ib_oh_pre arg not set\n");
 		goto err;
 	}
-	app_conf.ob_oh_pre = atoi(ppam_args.ob_oh_pre);
+	app_conf.ob_oh_pre = parse_offline_portarg(ppam_args.ob_oh_pre,
+						   app_conf.fm);
+	if (!app_conf.ob_oh_pre) {
+		fprintf(stderr, "Error : ob_oh_pre %s invalid\n",
+			ppam_args.ob_oh_pre);
+		goto err;
+	}
 
 	/* inbound eth port */
 	if (!ppam_args.ib_eth) {
 		fprintf(stderr, "Error : ib_eth arg not set\n");
 		goto err;
 	}
-	app_conf.ib_eth = atoi(ppam_args.ib_eth);
+	app_conf.ib_eth = parse_eth_portarg(ppam_args.ib_eth,
+					    app_conf.fm);
+	if (!app_conf.ib_eth) {
+		fprintf(stderr, "Error : ib_eth %s invalid\n",
+			ppam_args.ib_eth);
+		goto err;
+	}
+
 	/* outbound post SEC offline port */
 	if (!ppam_args.ob_oh_post) {
 		fprintf(stderr, "Error : ib_oh_post arg not set\n");
 		goto err;
 	}
-	app_conf.ob_oh_post = atoi(ppam_args.ob_oh_post);
+	app_conf.ob_oh_post = parse_offline_portarg(ppam_args.ob_oh_post,
+						     app_conf.fm);
+	if (!app_conf.ob_oh_post) {
+		fprintf(stderr, "Error : ob_oh_post %s invalid\n",
+			ppam_args.ob_oh_post);
+		goto err;
+	}
+
 	/* max sa pairs */
 	if (!ppam_args.max_sa) {
 		fprintf(stderr, "Error : max-sa arg not set\n");
@@ -624,40 +668,8 @@ err:
 int ppam_post_tx_init(void)
 {
 	int ret;
-	struct fman_if *fif;
-
-	fif = get_fif(app_conf.fm, app_conf.ob_eth, fman_mac_1g);
-	if (!fif) {
-		fprintf(stderr, "Error : invalid fm %d ob_eth %d\n",
-			app_conf.ob_eth, app_conf.fm);
-		goto err;
-	}
-	fif = get_fif(app_conf.fm, app_conf.ib_oh, fman_offline);
-	if (!fif) {
-		fprintf(stderr, "Error : invalid fm %d ib_oh %d\n",
-			app_conf.fm, app_conf.ib_oh);
-		goto err;
-	}
-	fif = get_fif(app_conf.fm, app_conf.ob_oh_pre, fman_offline);
-	if (!fif) {
-		fprintf(stderr, "Error : invalid fm %d ob_oh_pre %d\n",
-			app_conf.fm, app_conf.ob_oh_pre);
-		goto err;
-	}
-	fif = get_fif(app_conf.fm, app_conf.ob_oh_post, fman_offline);
-	if (!fif) {
-		fprintf(stderr, "Error : invalid fm %d ob_oh_post %d\n",
-			app_conf.fm, app_conf.ob_oh_post);
-		goto err;
-	}
-	fif = get_fif(app_conf.fm, app_conf.ib_eth, fman_mac_1g);
-	if (!fif) {
-		fprintf(stderr, "Error : invalid fm %d ib_eth %d\n",
-			app_conf.fm, app_conf.ib_eth);
-		goto err;
-	}
 	if (app_conf.ib_loop) {
-		fman_if_loopback_enable(fif);
+		fman_if_loopback_enable(app_conf.ib_eth);
 		TRACE("Loopback set on inbound port\n");
 	}
 
@@ -712,7 +724,7 @@ int ppam_thread_init(void)
 	return 0;
 }
 
-void ppam_post_rx_finish(void)
+void ppam_post_finish_rx(void)
 {
 	int ret __maybe_unused;
 	ret = pthread_kill(neigh_tid, SIGTERM);
@@ -907,8 +919,8 @@ const char ppam_doc[] = "Offloading demo application";
 
 static const struct argp_option argp_opts[] = {
 	{"fm", 'f', "INT", 0, "FMAN index"},
-	{"ob_eth", 'e',	"INT", 0, "Outbound Ethernet port index"},
-	{"ib_eth", 't',	"INT", 0, "Inbound Ethernet port index"},
+	{"ob_eth", 'e',	"FILE", 0, "Outbound Ethernet port index"},
+	{"ib_eth", 't',	"FILE", 0, "Inbound Ethernet port index"},
 	{"ib-oh", 'i', "INT", 0, "Inbound offline port index" },
 	{"ob-oh-pre", 'o', "INT", 0, "Outbound pre IPsec offline port index"},
 	{"ob-oh-post", 's', "INT", 0, "Outbound post IPsec offline port index"},

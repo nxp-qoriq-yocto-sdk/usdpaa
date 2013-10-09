@@ -166,21 +166,21 @@ int fmc_apply_model(void)
 
 	memset(fmc_path, 0, sizeof(fmc_path));
 	sprintf(fmc_path, "fm%d/port/1G/%d/ccnode/"
-		"esp_cc", app_conf.fm, app_conf.ib_eth);
+		"esp_cc", app_conf.fm, app_conf.ib_eth->mac_idx);
 	cc_in_rx[DPA_IPSEC_SA_IPV4] = fmc_get_handle(&cmodel, fmc_path);
 	if (!cc_in_rx[DPA_IPSEC_SA_IPV4])
 		goto err;
 
 	memset(fmc_path, 0, sizeof(fmc_path));
 	sprintf(fmc_path, "fm%d/port/1G/%d/ccnode/"
-		"esp_udp_cc", app_conf.fm, app_conf.ib_eth);
+		"esp_udp_cc", app_conf.fm, app_conf.ib_eth->mac_idx);
 	cc_in_rx[DPA_IPSEC_SA_IPV4_NATT] = fmc_get_handle(&cmodel, fmc_path);
 	if (!cc_in_rx[DPA_IPSEC_SA_IPV4_NATT])
 		goto err;
 
 	memset(fmc_path, 0, sizeof(fmc_path));
 	sprintf(fmc_path, "fm%d/port/1G/%d/ccnode/"
-		"esp6_cc", app_conf.fm, app_conf.ib_eth);
+		"esp6_cc", app_conf.fm, app_conf.ib_eth->mac_idx);
 	cc_in_rx[DPA_IPSEC_SA_IPV6] = fmc_get_handle(&cmodel, fmc_path);
 	if (!cc_in_rx[DPA_IPSEC_SA_IPV6])
 		goto err;
@@ -188,7 +188,7 @@ int fmc_apply_model(void)
 	memset(fmc_path, 0, sizeof(fmc_path));
 	sprintf(fmc_path,
 		"fm%d/port/OFFLINE/%d/ccnode/flow_id_cc",
-		app_conf.fm, app_conf.ib_oh);
+		app_conf.fm, app_conf.ib_oh->mac_idx);
 	cc_flow_id = fmc_get_handle(&cmodel, fmc_path);
 	if (!cc_flow_id)
 		goto err;
@@ -196,7 +196,7 @@ int fmc_apply_model(void)
 	memset(fmc_path, 0, sizeof(fmc_path));
 	sprintf(fmc_path,
 		"fm%d/port/OFFLINE/%d/ccnode/post_flow_id_cc",
-		app_conf.fm, app_conf.ib_oh);
+		app_conf.fm, app_conf.ib_oh->mac_idx);
 	cc_post_flow_id = fmc_get_handle(&cmodel, fmc_path);
 	if (!cc_post_flow_id)
 		goto err;
@@ -204,7 +204,7 @@ int fmc_apply_model(void)
 	memset(fmc_path, 0, sizeof(fmc_path));
 	sprintf(fmc_path,
 		"fm%d/port/OFFLINE/%d/ccnode/tcpudp_cc",
-		app_conf.fm, app_conf.ob_oh_pre);
+		app_conf.fm, app_conf.ob_oh_pre->mac_idx);
 	cc_out_pre_enc[DPA_IPSEC_PROTO_ANY_IPV4] = fmc_get_handle(&cmodel,
 						   fmc_path);
 	if (!cc_out_pre_enc[DPA_IPSEC_PROTO_ANY_IPV4])
@@ -212,7 +212,7 @@ int fmc_apply_model(void)
 
 	sprintf(fmc_path,
 		"fm%d/port/OFFLINE/%d/ccnode/tcpudp6_cc",
-		app_conf.fm, app_conf.ob_oh_pre);
+		app_conf.fm, app_conf.ob_oh_pre->mac_idx);
 	cc_out_pre_enc[DPA_IPSEC_PROTO_ANY_IPV6] = fmc_get_handle(&cmodel,
 								  fmc_path);
 	if (!cc_out_pre_enc[DPA_IPSEC_PROTO_ANY_IPV6])
@@ -220,7 +220,7 @@ int fmc_apply_model(void)
 
 	sprintf(fmc_path,
 		"fm%d/port/OFFLINE/%d/ccnode/ob_post_ip_cc",
-		app_conf.fm, app_conf.ob_oh_post);
+		app_conf.fm, app_conf.ob_oh_post->mac_idx);
 	cc_out_post_enc[ETHER_TYPE_IPv4] = fmc_get_handle(&cmodel,
 							     fmc_path);
 	if (!cc_out_post_enc[ETHER_TYPE_IPv4])
@@ -228,14 +228,14 @@ int fmc_apply_model(void)
 
 	sprintf(fmc_path,
 		"fm%d/port/OFFLINE/%d/ccnode/ob_post_ip6_cc",
-		app_conf.fm, app_conf.ob_oh_post);
+		app_conf.fm, app_conf.ob_oh_post->mac_idx);
 	cc_out_post_enc[ETHER_TYPE_IPv6] = fmc_get_handle(&cmodel,
 							fmc_path);
 	if (!cc_out_post_enc[ETHER_TYPE_IPv6])
 		goto err;
 	sprintf(fmc_path,
 		"fm%d/port/OFFLINE/%d/ccnode/ib_post_ip_cc",
-		app_conf.fm, app_conf.ib_oh);
+		app_conf.fm, app_conf.ib_oh->mac_idx);
 	cc_in_post_dec[ETHER_TYPE_IPv4] = fmc_get_handle(&cmodel,
 							fmc_path);
 
@@ -244,7 +244,7 @@ int fmc_apply_model(void)
 
 	sprintf(fmc_path,
 		"fm%d/port/OFFLINE/%d/ccnode/ib_post_ip6_cc",
-		app_conf.fm, app_conf.ib_oh);
+		app_conf.fm, app_conf.ib_oh->mac_idx);
 	cc_in_post_dec[ETHER_TYPE_IPv6] = fmc_get_handle(&cmodel,
 							fmc_path);
 
@@ -253,14 +253,14 @@ int fmc_apply_model(void)
 
 	sprintf(fmc_path,
 		"fm%d/port/1G/%d/ccnode/ob_ip4_local_cc",
-		app_conf.fm, app_conf.ob_eth);
+		app_conf.fm, app_conf.ob_eth->mac_idx);
 	cc_out_local[ETHER_TYPE_IPv4] = fmc_get_handle(&cmodel,
 						      fmc_path);
 	if (!cc_out_local[ETHER_TYPE_IPv4])
 		goto err;
 	sprintf(fmc_path,
 		"fm%d/port/1G/%d/ccnode/ob_ip6_local_cc",
-		app_conf.fm, app_conf.ob_eth);
+		app_conf.fm, app_conf.ob_eth->mac_idx);
 	cc_out_local[ETHER_TYPE_IPv6] = fmc_get_handle(&cmodel,
 							fmc_path);
 	if (!cc_out_local[ETHER_TYPE_IPv6])
@@ -268,14 +268,14 @@ int fmc_apply_model(void)
 
 	sprintf(fmc_path,
 		"fm%d/port/1G/%d/ccnode/ib_ip4_local_cc",
-		app_conf.fm, app_conf.ib_eth);
+		app_conf.fm, app_conf.ib_eth->mac_idx);
 	cc_in_local[ETHER_TYPE_IPv4] = fmc_get_handle(&cmodel,
 							fmc_path);
 	if (!cc_in_local[ETHER_TYPE_IPv4])
 		goto err;
 
 	sprintf(fmc_path, "fm%d/port/1G/%d/ccnode/ib_ip6_local_cc",
-		app_conf.fm, app_conf.ib_eth);
+		app_conf.fm, app_conf.ib_eth->mac_idx);
 	cc_in_local[ETHER_TYPE_IPv6] = fmc_get_handle(&cmodel,
 							fmc_path);
 

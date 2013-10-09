@@ -64,8 +64,6 @@ static int neigh_cc_key_size[] = NEIGH_TABLES_KEY_SIZE;
 static int local_cc_num_keys[] = LOCAL_TABLES_NUM_KEYS;
 static int local_cc_key_size[] = LOCAL_TABLES_KEY_SIZE;
 
-static struct fman_if *ib_eth, *ob_eth, *ob_oh_post, *ib_oh;
-
 static void make_bitmask(u8 *mask, int size, int prefixlen)
 {
 	int nbytes, nbits;
@@ -117,45 +115,44 @@ static int init_tables(t_Handle *cc_nodes, int *num_keys,
 	return 0;
 }
 
-static int init_neigh_tables(int fm, int port_idx, int port_type,
-			     t_Handle *cc_nodes)
+static int init_neigh_tables(struct fman_if *__if, t_Handle *cc_nodes)
 {
 	int ret;
-	struct ppac_interface *ppac_if = get_ppac_if(fm, port_idx, port_type);
+	struct ppac_interface *ppac_if = get_ppac_if(__if);
 	ret = init_tables(cc_nodes, neigh_cc_num_keys, neigh_cc_key_size,
 			&ppac_if->ppam_data.hhm_td);
 	return ret;
 }
 
-static void cleanup_neigh_tables(int fm, int port_idx, int port_type)
+static void cleanup_neigh_tables(struct fman_if *__if)
 {
 	int i, td;
-	struct ppac_interface *ppac_if = get_ppac_if(fm, port_idx, port_type);
+	struct ppac_interface *ppac_if = get_ppac_if(__if);
 	for (i = 0; i < MAX_ETHER_TYPES; i++) {
 		td = (ppac_if->ppam_data.hhm_td)[i];
 		dpa_classif_table_free(td);
 	}
 }
 
-static int init_local_tables(int fm, int port_idx, int port_type,
-			t_Handle *cc_nodes)
+static int init_local_tables(struct fman_if *__if, t_Handle *cc_nodes)
 {
 	int ret;
-	struct ppac_interface *ppac_if = get_ppac_if(fm, port_idx, port_type);
+	struct ppac_interface *ppac_if = get_ppac_if(__if);
 	ret = init_tables(cc_nodes, local_cc_num_keys, local_cc_key_size,
 			&ppac_if->ppam_data.local_td);
 	return ret;
 }
 
-static void cleanup_local_tables(int fm, int port_idx, int port_type)
+static void cleanup_local_tables(struct fman_if *__if)
 {
 	int i, td;
-	struct ppac_interface *ppac_if = get_ppac_if(fm, port_idx, port_type);
+	struct ppac_interface *ppac_if = get_ppac_if(__if);
 	for (i = 0; i < MAX_ETHER_TYPES; i++) {
 		td = (ppac_if->ppam_data.local_td)[i];
 		dpa_classif_table_free(td);
 	}
 }
+
 
 static int table_insert_entry(int td, u8 *key, u8 *mask,
 			      int key_size, int hmd, uint32_t fqid)
@@ -202,8 +199,7 @@ int neigh_lookup_entry(struct fman_if *__if, int af, u8 *key, int prefixlen)
 	u8 mask[MAX_IP_KEY_SIZE];
 	int td, ret, key_size;
 
-	ppac_if = get_ppac_if(__if->fman_idx,
-			      __if->mac_idx, __if->mac_type);
+	ppac_if = get_ppac_if(__if);
 	if (af == AF_INET) {
 		key_size = IPv4_KEY_SIZE;
 		td = ppac_if->ppam_data.hhm_td[ETHER_TYPE_IPv4];
@@ -225,12 +221,12 @@ int neigh_lookup_entry(struct fman_if *__if, int af, u8 *key, int prefixlen)
 
 int lookup_ib_neigh_entry(int af, u8 *key, u8 prefixlen)
 {
-	return neigh_lookup_entry(ob_oh_post, af, key, prefixlen);
+	return neigh_lookup_entry(app_conf.ob_oh_post, af, key, prefixlen);
 }
 
 int lookup_ob_neigh_entry(int af, u8 *key, u8 prefixlen)
 {
-	return neigh_lookup_entry(ib_oh, af, key, prefixlen);
+	return neigh_lookup_entry(app_conf.ib_oh, af, key, prefixlen);
 }
 
 static int table_delete_entry(int td, u8 *key, u8 *mask, int key_size)
@@ -301,10 +297,8 @@ int create_neigh_entry(struct fman_if *__if,
 	if (ret < 0)
 		return ret;
 
-	ppac_oif = get_ppac_if(__oif->fman_idx,
-				__oif->mac_idx, __oif->mac_type);
-	ppac_if = get_ppac_if(__if->fman_idx,
-				__if->mac_idx, __if->mac_type);
+	ppac_oif = get_ppac_if(__oif);
+	ppac_if = get_ppac_if(__if);
 	assert(ppac_if);
 
 	if (af == AF_INET) {
@@ -337,16 +331,16 @@ int create_neigh_entry(struct fman_if *__if,
 int create_ib_neigh_entry(struct ether_addr *dst_addr,
 			  int af, u8 *key, u8 prefixlen)
 {
-	return create_neigh_entry(ob_oh_post,
-			   ib_eth, ob_fwd_hm,
+	return create_neigh_entry(app_conf.ob_oh_post,
+			   app_conf.ib_eth, ob_fwd_hm,
 			   dst_addr, af, key, prefixlen);
 }
 
 int create_ob_neigh_entry(struct ether_addr *dst_addr,
 			  int af, u8 *key, u8 prefixlen)
 {
-	return create_neigh_entry(ib_oh,
-				  ob_eth, ib_fwd_hm,
+	return create_neigh_entry(app_conf.ib_oh,
+				  app_conf.ob_eth, ib_fwd_hm,
 				  dst_addr, af, key, prefixlen);
 }
 
@@ -356,7 +350,7 @@ int remove_neigh_entry(struct fman_if *__if, int af, u8 *key, u8 prefixlen)
 	u8 mask[MAX_IP_KEY_SIZE];
 	int td, ret, key_size;
 
-	ppac_if = get_ppac_if(__if->fman_idx, __if->mac_idx, __if->mac_type);
+	ppac_if = get_ppac_if(__if);
 	assert(ppac_if);
 
 	if (af == AF_INET) {
@@ -382,12 +376,12 @@ int remove_neigh_entry(struct fman_if *__if, int af, u8 *key, u8 prefixlen)
 
 int remove_ib_neigh_entry(int af, u8 *key, u8 prefixlen)
 {
-	return remove_neigh_entry(ob_oh_post, af, key, prefixlen);
+	return remove_neigh_entry(app_conf.ob_oh_post, af, key, prefixlen);
 }
 
 int remove_ob_neigh_entry(int af, u8 *key, u8 prefixlen)
 {
-	return remove_neigh_entry(ib_oh, af, key, prefixlen);
+	return remove_neigh_entry(app_conf.ib_oh, af, key, prefixlen);
 }
 
 /* ifindex - macless interface index. Traffic matching this entry
@@ -412,7 +406,6 @@ int create_local_entry(int ifindex, int af, u8 *key)
 		if (ppac_if->ppam_data.macless_ifindex == ifindex)
 			break;
 	}
-	assert(ppac_if->port_cfg->fman_if->mac_type == fman_mac_1g);
 
 	/* get macless rx fqs */
 	list_for_each_entry(__if, fman_if_list, node) {
@@ -666,23 +659,19 @@ static void *neigh_msg_loop(void *data)
 	int len, ret;
 	struct sigaction new_action, old_action;
 
-	ret = init_neigh_tables(app_conf.fm, app_conf.ob_oh_post,
-				fman_offline, cc_out_post_enc);
+	ret = init_neigh_tables(app_conf.ob_oh_post, cc_out_post_enc);
 	if (ret < 0)
 		goto out;
 
-	ret = init_neigh_tables(app_conf.fm, app_conf.ib_oh,
-				fman_offline, cc_in_post_dec);
+	ret = init_neigh_tables(app_conf.ib_oh, cc_in_post_dec);
 	if (ret < 0)
 		goto out1;
 
-	ret = init_local_tables(app_conf.fm, app_conf.ob_eth,
-				fman_mac_1g, cc_out_local);
+	ret = init_local_tables(app_conf.ob_eth, cc_out_local);
 	if (ret < 0)
 		goto out2;
 
-	ret = init_local_tables(app_conf.fm, app_conf.ib_eth,
-				 fman_mac_1g, cc_in_local);
+	ret = init_local_tables(app_conf.ib_eth, cc_in_local);
 	if (ret < 0)
 		goto out3;
 
@@ -722,15 +711,6 @@ static void *neigh_msg_loop(void *data)
 				__func__, __LINE__, app_conf.vof);
 		pthread_exit(NULL);
 	}
-
-	ib_eth = get_fif(app_conf.fm,
-			app_conf.ib_eth, fman_mac_1g);
-	ob_oh_post = get_fif(app_conf.fm,
-			app_conf.ob_oh_post, fman_offline);
-	ob_eth = get_fif(app_conf.fm,
-			app_conf.ob_eth, fman_mac_1g);
-	ib_oh = get_fif(app_conf.fm,
-			app_conf.ib_oh, fman_offline);
 
 	while (1) {
 		len = recvmsg(rtm_sd, &msg, 0);
@@ -777,13 +757,13 @@ static void *neigh_msg_loop(void *data)
 			}
 		}
 	}
-	cleanup_local_tables(app_conf.fm, app_conf.ib_eth, fman_mac_1g);
+	cleanup_local_tables(app_conf.ib_eth);
 out3:
-	cleanup_local_tables(app_conf.fm, app_conf.ob_eth, fman_mac_1g);
+	cleanup_local_tables(app_conf.ob_eth);
 out2:
-	cleanup_neigh_tables(app_conf.fm, app_conf.ib_oh, fman_offline);
+	cleanup_neigh_tables(app_conf.ib_oh);
 out1:
-	cleanup_neigh_tables(app_conf.fm, app_conf.ob_oh_post, fman_offline);
+	cleanup_neigh_tables(app_conf.ob_oh_post);
 out:
 	pthread_exit(NULL);
 }
