@@ -184,8 +184,13 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 	int ret;
 	char fmc_path[64];
 	const char *port_type;
+	int idx;
 
-	int idx = if_nametoindex(macless_name);
+	if (strcmp(macless_name, app_conf.vif) &&
+	    strcmp(macless_name, app_conf.vof))
+		return -ENODEV;
+
+	idx = if_nametoindex(macless_name);
 	if (!idx)
 		return -ENODEV;
 	i->ppam_data.macless_ifindex = idx;
@@ -227,7 +232,8 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 		if (ret < 0)
 			goto err;
 
-	} else if (!strcmp(macless_name, app_conf.vof)) {
+	}
+	if (!strcmp(macless_name, app_conf.vof)) {
 		/* set fqids for vof PCD */
 		memset(fmc_path, 0, sizeof(fmc_path));
 		port_type = get_port_type(app_conf.ob_eth);
@@ -253,8 +259,6 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 		ret = set_cc_miss_fqid(cmodel, fmc_path, rx_start);
 		if (ret < 0)
 			goto err;
-	} else {
-		return -ENODEV;
 	}
 
 	return 0;
@@ -302,7 +306,8 @@ static int ppam_interface_init(struct ppam_interface *p,
 		if (ret < 0)
 			goto err;
 	}
-	if (app_conf.ob_eth == i->port_cfg->fman_if) {
+	if ((app_conf.ob_eth != app_conf.ib_eth) &&
+	    (app_conf.ob_eth == i->port_cfg->fman_if)) {
 		ret = setup_macless_if_tx(i, OB_TX_FQID, &num_tx_fqs,
 					  fq, app_conf.vof);
 		if (ret < 0)
@@ -627,6 +632,13 @@ int ppam_init(void)
 
 	if (ppam_args.vof)
 		strncpy(app_conf.vof, ppam_args.vof, sizeof(app_conf.vof));
+
+	if (app_conf.ib_eth == app_conf.ob_eth &&
+	    strcmp(app_conf.vif, app_conf.vof)) {
+		strncpy(app_conf.vof, app_conf.vif, sizeof(app_conf.vif));
+		printf("WARNING: using %s virtual interface for 1-port conf\n",
+		       app_conf.vif);
+	}
 
 	/* mtu pre enc */
 	if (ppam_args.mtu_pre_enc)

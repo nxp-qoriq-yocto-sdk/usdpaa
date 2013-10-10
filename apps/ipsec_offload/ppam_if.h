@@ -47,12 +47,14 @@ struct ppam_interface {
 	uint32_t *tx_fqids;
 	/* Table descriptors for header manipulations that may be attached
 	* to the interface*/
-	union {
-		int *hhm_td;
-		int *local_td;
-	};
+	int *hhm_td;
+	int *local_td_ib;
+	int *local_td_ob;
+
 	/* Macless interface that receives traffic from this interface */
 	int macless_ifindex;
+	/* Number of macless interfaces */
+	int macless_count;
 	/* Statistics counter storage */
 	int stats_cnt;
 };

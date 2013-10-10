@@ -134,21 +134,41 @@ static void cleanup_neigh_tables(struct fman_if *__if)
 	}
 }
 
-static int init_local_tables(struct fman_if *__if, t_Handle *cc_nodes)
+static int init_local_tables_ob(struct fman_if *__if, t_Handle *cc_nodes)
 {
 	int ret;
 	struct ppac_interface *ppac_if = get_ppac_if(__if);
 	ret = init_tables(cc_nodes, local_cc_num_keys, local_cc_key_size,
-			&ppac_if->ppam_data.local_td);
+			&ppac_if->ppam_data.local_td_ob);
+	return ret;
+
+}
+
+static int init_local_tables_ib(struct fman_if *__if, t_Handle *cc_nodes)
+{
+	int ret;
+	struct ppac_interface *ppac_if = get_ppac_if(__if);
+	ret = init_tables(cc_nodes, local_cc_num_keys, local_cc_key_size,
+			&ppac_if->ppam_data.local_td_ib);
 	return ret;
 }
 
-static void cleanup_local_tables(struct fman_if *__if)
+static void cleanup_local_tables_ob(struct fman_if *__if)
 {
 	int i, td;
 	struct ppac_interface *ppac_if = get_ppac_if(__if);
 	for (i = 0; i < MAX_ETHER_TYPES; i++) {
-		td = (ppac_if->ppam_data.local_td)[i];
+		td = (ppac_if->ppam_data.local_td_ob)[i];
+		dpa_classif_table_free(td);
+	}
+}
+
+static void cleanup_local_tables_ib(struct fman_if *__if)
+{
+	int i, td;
+	struct ppac_interface *ppac_if = get_ppac_if(__if);
+	for (i = 0; i < MAX_ETHER_TYPES; i++) {
+		td = (ppac_if->ppam_data.local_td_ib)[i];
 		dpa_classif_table_free(td);
 	}
 }
@@ -397,15 +417,21 @@ int create_local_entry(int ifindex, int af, u8 *key)
 	struct ppac_interface *ppac_if;
 	int td;
 	int key_size;
+	int *local_td;
+	int ppac_if_found = 0;
 
 	if (!if_indextoname(ifindex, macless_name))
 		return -ENODEV;
 
 	/* get port that sends traffic to macless rx */
 	list_for_each_entry(ppac_if, &ifs, node) {
-		if (ppac_if->ppam_data.macless_ifindex == ifindex)
+		if (ppac_if->ppam_data.macless_ifindex == ifindex) {
+			ppac_if_found = 1;
 			break;
+		}
 	}
+	if (!ppac_if_found)
+		return -ENODEV;
 
 	/* get macless rx fqs */
 	list_for_each_entry(__if, fman_if_list, node) {
@@ -417,12 +443,18 @@ int create_local_entry(int ifindex, int af, u8 *key)
 		}
 	}
 
+	/* get direction */
+	if (!strcmp(macless_name, app_conf.vif))
+		local_td =  ppac_if->ppam_data.local_td_ib;
+	else if (!strcmp(macless_name, app_conf.vof))
+		local_td =  ppac_if->ppam_data.local_td_ob;
+
 	/* add in the corresponding table for af the entry */
 	if (af == AF_INET) {
-		td = ppac_if->ppam_data.local_td[ETHER_TYPE_IPv4];
+		td = local_td[ETHER_TYPE_IPv4];
 		key_size = IPv4_KEY_SIZE;
 	} else if (af == AF_INET6) {
-		td = ppac_if->ppam_data.local_td[ETHER_TYPE_IPv6];
+		td = local_td[ETHER_TYPE_IPv6];
 		key_size = IPv6_KEY_SIZE;
 	} else {
 		return -ENOTSUP;
@@ -437,16 +469,33 @@ int remove_local_entry(int ifindex, int af, u8 *key)
 	int td, ret = 0;
 	int key_size;
 	struct ppac_interface *ppac_if;
+	int *local_td;
+	char macless_name[IF_NAMESIZE];
+	int ppac_if_found = 0;
 
 	list_for_each_entry(ppac_if, &ifs, node) {
-		if (ppac_if->ppam_data.macless_ifindex == ifindex)
+		if (ppac_if->ppam_data.macless_ifindex == ifindex) {
+			ppac_if_found = 1;
 			break;
+		}
 	}
+	if (!ppac_if_found)
+		return -ENODEV;
+
+	if (!if_indextoname(ifindex, macless_name))
+		return -ENODEV;
+
+	/* get direction */
+	if (!strcmp(macless_name, app_conf.vif))
+		local_td =  ppac_if->ppam_data.local_td_ib;
+	else if (!strcmp(macless_name, app_conf.vof))
+		local_td =  ppac_if->ppam_data.local_td_ob;
+
 	if (af == AF_INET) {
-		td = ppac_if->ppam_data.local_td[ETHER_TYPE_IPv4];
+		td = local_td[ETHER_TYPE_IPv4];
 		key_size = IPv4_KEY_SIZE;
 	} else if (af == AF_INET6) {
-		td = ppac_if->ppam_data.local_td[ETHER_TYPE_IPv6];
+		td = local_td[ETHER_TYPE_IPv6];
 		key_size = IPv6_KEY_SIZE;
 	} else {
 		return -ENOTSUP;
@@ -514,7 +563,8 @@ static int process_del_neigh(struct nlmsghdr *nh, int vif_idx, int vof_idx)
 						    (u8 *)&dst[i].s_addr,
 						    dst_len[i]);
 
-	} else if (ndm->ndm_ifindex == vof_idx &&
+	}
+	if (ndm->ndm_ifindex == vof_idx &&
 		ndm->ndm_state & (NUD_STALE|NUD_FAILED)) {
 		TRACE("RTM_DELNEIGH vof ifindex %d state %02x\n",
 		      ndm->ndm_ifindex, ndm->ndm_state);
@@ -568,7 +618,8 @@ static int process_new_neigh(struct nlmsghdr *nh, int vif_idx, int vof_idx)
 		for (i = 0; i < num_keys; i++)
 			ret = create_ib_neigh_entry(lladdr, ndm->ndm_family,
 					    (u8 *)&dst[i].s_addr, dst_len[i]);
-	} else if (ndm->ndm_ifindex == vof_idx &&
+	}
+	if (ndm->ndm_ifindex == vof_idx &&
 		(ndm->ndm_state & (NUD_PERMANENT|NUD_REACHABLE))) {
 		TRACE("RTM_NEWNEIGH vof ifindex %d state %02x\n",
 		      ndm->ndm_ifindex, ndm->ndm_state);
@@ -623,7 +674,8 @@ static int process_del_route(struct nlmsghdr *nh, int vif_idx, int vof_idx)
 		ret = lookup_ob_neigh_entry(af, (u8 *)dst, rtm_dst_len);
 		if (!ret)
 			ret = remove_ib_neigh_entry(af, (u8 *)dst, rtm_dst_len);
-	} else {
+	}
+	if (oif == vif_idx) {
 		ret = lookup_ib_neigh_entry(af, (u8 *)dst, rtm_dst_len);
 		if (!ret)
 			ret = remove_ib_neigh_entry(af, (u8 *)dst, rtm_dst_len);
@@ -668,11 +720,11 @@ static void *neigh_msg_loop(void *data)
 	if (ret < 0)
 		goto out1;
 
-	ret = init_local_tables(app_conf.ob_eth, cc_out_local);
+	ret = init_local_tables_ob(app_conf.ob_eth, cc_out_local);
 	if (ret < 0)
 		goto out2;
 
-	ret = init_local_tables(app_conf.ib_eth, cc_in_local);
+	ret = init_local_tables_ib(app_conf.ib_eth, cc_in_local);
 	if (ret < 0)
 		goto out3;
 
@@ -758,9 +810,9 @@ static void *neigh_msg_loop(void *data)
 			}
 		}
 	}
-	cleanup_local_tables(app_conf.ib_eth);
+	cleanup_local_tables_ib(app_conf.ib_eth);
 out3:
-	cleanup_local_tables(app_conf.ob_eth);
+	cleanup_local_tables_ob(app_conf.ob_eth);
 out2:
 	cleanup_neigh_tables(app_conf.ib_oh);
 out1:
