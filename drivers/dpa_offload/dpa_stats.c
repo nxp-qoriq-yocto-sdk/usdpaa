@@ -734,12 +734,19 @@ static int process_async_req(struct dpa_stats_event_params *ev)
 
 		/* If we can still create worker threads... */
 		if (us_threads < MAX_NUM_OF_THREADS) {
+			pthread_attr_t	worker_thread_attributes;
+
 			/* Create a new thread and pass the request to it */
 			new_us_thread = list_entry(us_thread_list.next,
 					struct us_thread_data, node);
 			list_del(&new_us_thread->node);
+			/* Set worker thread as "detached". */
+			pthread_attr_init(&worker_thread_attributes);
+			pthread_attr_setdetachstate(&worker_thread_attributes,
+						PTHREAD_CREATE_DETACHED);
 			err = pthread_create(&new_us_thread->id,
-					NULL, dpa_stats_worker_thread,
+					&worker_thread_attributes,
+					dpa_stats_worker_thread,
 					new_us_thread);
 			if (err != 0) {
 				pthread_mutex_unlock(&async_us_reqs_lock);
@@ -1367,12 +1374,19 @@ int dpa_stats_get_counters(struct dpa_stats_cnt_request_params params,
 
 			/* If we can still create worker threads... */
 			if (us_threads < MAX_NUM_OF_THREADS) {
+				pthread_attr_t	worker_thread_attributes;
+
 				/* Create a new thread and pass the request to it */
 				new_us_thread = list_entry(us_thread_list.next,
 						struct us_thread_data, node);
 				list_del(&new_us_thread->node);
+				/* Set worker thread as "detached". */
+				pthread_attr_init(&worker_thread_attributes);
+				pthread_attr_setdetachstate(&worker_thread_attributes,
+							PTHREAD_CREATE_DETACHED);
 				ret = pthread_create(&new_us_thread->id,
-						NULL, dpa_stats_worker_thread,
+						&worker_thread_attributes,
+						dpa_stats_worker_thread,
 						new_us_thread);
 				if (ret != 0) {
 					pthread_mutex_unlock(&async_us_reqs_lock);
