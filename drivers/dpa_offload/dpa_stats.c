@@ -732,7 +732,7 @@ static int process_async_req(struct dpa_stats_event_params *ev)
 	/* Sanity check */
 	if (!gbl_dpa_stats) {
 		error(0, EINVAL, "DPA Stats library is not initialized\n");
-		return 0;
+		return -EINVAL;
 	}
 	dpa_stats = gbl_dpa_stats;
 
@@ -1114,7 +1114,7 @@ int dpa_stats_create_counter(int dpa_stats_id,
 	/* Sanity check */
 	if (!gbl_dpa_stats) {
 		error(0, EINVAL, "DPA Stats library is not initialized\n");
-		return 0;
+		return -EINVAL;
 	}
 	dpa_stats = gbl_dpa_stats;
 
@@ -1201,7 +1201,7 @@ int dpa_stats_create_class_counter(int dpa_stats_id,
 	/* Sanity check */
 	if (!gbl_dpa_stats) {
 		error(0, EINVAL, "DPA Stats library is not initialized\n");
-		return 0;
+		return -EINVAL;
 	}
 	dpa_stats = gbl_dpa_stats;
 
@@ -1321,7 +1321,7 @@ int dpa_stats_remove_counter(int dpa_stats_cnt_id)
 	/* Sanity check */
 	if (!gbl_dpa_stats) {
 		error(0, EINVAL, "DPA Stats library is not initialized\n");
-		return 0;
+		return -EINVAL;
 	}
 	dpa_stats = gbl_dpa_stats;
 	cnt_cb = &dpa_stats->cnts_cb[dpa_stats_cnt_id];
@@ -1381,7 +1381,7 @@ int dpa_stats_get_counters(struct dpa_stats_cnt_request_params params,
 	/* Sanity check */
 	if (!gbl_dpa_stats) {
 		error(0, EINVAL, "DPA Stats library is not initialized\n");
-		return 0;
+		return -EINVAL;
 	}
 	dpa_stats = gbl_dpa_stats;
 
@@ -1557,7 +1557,7 @@ int dpa_stats_reset_counters(int *cnts_ids, unsigned int cnts_ids_len)
 	/* Sanity check */
 	if (!gbl_dpa_stats) {
 		error(0, EINVAL, "DPA Stats library is not initialized\n");
-		return 0;
+		return -EINVAL;
 	}
 	dpa_stats = gbl_dpa_stats;
 
