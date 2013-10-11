@@ -399,8 +399,6 @@ static int alloc_cnt_cb(struct dpa_stats *dpa_stats,
 
 static int init_resources(struct dpa_stats *dpa_stats)
 {
-	struct dpa_stats_async_req *async_req;
-	struct dpa_stats_req *req;
 	uint32_t i;
 	int err;
 
@@ -416,25 +414,28 @@ static int init_resources(struct dpa_stats *dpa_stats)
 	INIT_LIST_HEAD(&us_thread_list);
 
 	/* Allocate asynchronous request internal structure */
-	async_req = malloc((DPA_STATS_MAX_NUM_OF_REQUESTS-1) * sizeof(*async_req));
-	if (!async_req) {
+	dpa_stats->async_req = calloc(DPA_STATS_MAX_NUM_OF_REQUESTS - 1,
+				      sizeof(*dpa_stats->async_req));
+	if (!dpa_stats->async_req) {
 		error(0, ENOMEM, "Cannot allocate memory for "
-				"asynchronous request internal structure\n");
-		return -ENOMEM;
-	}
-	/* Allocate request internal structure */
-	req = malloc((DPA_STATS_MAX_NUM_OF_REQUESTS-1) * sizeof(*req));
-	if (!req) {
-		error(0, ENOMEM, "Cannot allocate memory for "
-		      "synchronous request internal structure\n");
+				 "asynchronous request internal structure\n");
 		return -ENOMEM;
 	}
 
-	for (i = 0; i < (DPA_STATS_MAX_NUM_OF_REQUESTS-1); i++) {
-		memset(&async_req[i], 0, sizeof(struct dpa_stats_async_req));
-		list_add_tail(&async_req[i].node, &dpa_stats->async_req_pool);
-		memset(&req[i], 0, sizeof(*req));
-		list_add_tail(&req[i].node, &dpa_stats->req_pool);
+	/* Allocate request internal structure */
+	dpa_stats->req = calloc(DPA_STATS_MAX_NUM_OF_REQUESTS - 1,
+				sizeof(*dpa_stats->req));
+	if (!dpa_stats->req) {
+		error(0, ENOMEM, "Cannot allocate memory for "
+				 "synchronous request internal structure\n");
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < DPA_STATS_MAX_NUM_OF_REQUESTS - 1; i++) {
+		list_add_tail(&dpa_stats->async_req[i].node,
+			      &dpa_stats->async_req_pool);
+		list_add_tail(&dpa_stats->req[i].node,
+			      &dpa_stats->req_pool);
 	}
 
 	/* Allocate array to store counter ids that are scheduled for retrieve*/
@@ -447,15 +448,13 @@ static int init_resources(struct dpa_stats *dpa_stats)
 	}
 
 	/* Allocate array to store counters control blocks */
-	dpa_stats->cnts_cb = malloc(dpa_stats->config.max_counters *
+	dpa_stats->cnts_cb = calloc(dpa_stats->config.max_counters,
 				    sizeof(struct dpa_stats_cnt_cb));
 	if (!dpa_stats->cnts_cb) {
 		error(0, ENOMEM, "Cannot allocate memory to store %d internal "
 		      "counter structures\n", dpa_stats->config.max_counters);
 		return -ENOMEM;
 	}
-	memset(dpa_stats->cnts_cb, 0, dpa_stats->config.max_counters *
-			sizeof(struct dpa_stats_cnt_cb));
 
 	/* Mark all the counters as being 'kernel-space' counters */
 	for (i = 0; i < dpa_stats->config.max_counters; i++) {
@@ -476,30 +475,23 @@ static int init_resources(struct dpa_stats *dpa_stats)
 	return err;
 }
 
-static int free_resources(void)
+static int free_resources(struct dpa_stats *dpa_stats)
 {
 	struct dpa_stats_async_req *async_req, *tmp;
 	struct dpa_stats_req *req, *req_tmp;
-	struct dpa_stats *dpa_stats;
 	uint32_t i, j;
+	int err;
 
-	/* Sanity check */
-	if (!gbl_dpa_stats) {
-		error(0, EINVAL, "DPA Stats library is not initialized\n");
-		return 0;
-	}
-	dpa_stats = gbl_dpa_stats;
-
-	free(dpa_stats->sched_cnt_ids);
-
-	for (i = 0; i < dpa_stats->config.max_counters; i++) {
-		for (j = 0; j < MAX_NUM_OF_MEMBERS; j++) {
-			free(dpa_stats->cnts_cb[i].info.stats[j]);
-			free(dpa_stats->cnts_cb[i].info.last_stats[j]);
+	if (dpa_stats->cnts_cb) {
+		for (i = 0; i < dpa_stats->config.max_counters; i++) {
+			for (j = 0; j < MAX_NUM_OF_MEMBERS; j++) {
+				free(dpa_stats->cnts_cb[i].info.stats[j]);
+				free(dpa_stats->cnts_cb[i].info.last_stats[j]);
+			}
+			free(dpa_stats->cnts_cb[i].info.stats_off);
+			free(dpa_stats->cnts_cb[i].info.stats);
+			free(dpa_stats->cnts_cb[i].info.last_stats);
 		}
-		free(dpa_stats->cnts_cb[i].info.stats_off);
-		free(dpa_stats->cnts_cb[i].info.stats);
-		free(dpa_stats->cnts_cb[i].info.last_stats);
 	}
 
 	pthread_mutex_lock(&async_reqs_pool);
@@ -527,6 +519,20 @@ static int free_resources(void)
 			list_del(&async_req->node);
 		}
 	pthread_mutex_unlock(&async_us_reqs_lock);
+
+	if (dpa_stats->async_req)
+		free(dpa_stats->async_req);
+
+	if (dpa_stats->req)
+		free(dpa_stats->req);
+
+	if (dpa_stats->sched_cnt_ids)
+		free(dpa_stats->sched_cnt_ids);
+
+	/* Destroy mutex required to protect access to scheduled counters */
+	err = pthread_mutex_destroy(&dpa_stats->sched_cnt_lock);
+	if (err != 0)
+		error(0, err, "Failed to destroy DPA Stats mutex");
 
 	/* Wait until all async request processing threads die: */
 	while (us_threads) {};
@@ -972,26 +978,28 @@ int dpa_stats_init(const struct dpa_stats_params *params, int *dpa_stats_id)
 	prm.storage_area_len = params->storage_area_len;
 
 	/* Allocate dpa stats internal structure */
-	dpa_stats = malloc(sizeof(struct dpa_stats));
+	dpa_stats = malloc(sizeof(*dpa_stats));
 	if (!dpa_stats) {
 		error(0, ENOMEM, "Cannot allocate memory for internal DPA "
 		     "Stats structure.\n");
 		return -ENOMEM;
 	}
-	dpa_stats->storage_area = params->storage_area;
+	memset(dpa_stats, 0, sizeof(*dpa_stats));
 
-	/* Store parameters */
+	/* Save storage-area and config parameters */
+	dpa_stats->storage_area = params->storage_area;
 	dpa_stats->config = *params;
 
 	/* Allocate and initialize internal structures */
 	err = init_resources(dpa_stats);
 	if (err < 0) {
-		free_resources();
+		free_resources(dpa_stats);
 		return err;
 	}
 
 	if (ioctl(dpa_stats_devfd, DPA_STATS_IOC_INIT, prm) < 0) {
 		error(0, errno, "Couldn't initialize the DPA Stats instance\n");
+		free_resources(dpa_stats);
 		return -errno;
 	}
 
@@ -1002,6 +1010,8 @@ int dpa_stats_init(const struct dpa_stats_params *params, int *dpa_stats_id)
 
 int dpa_stats_free(int dpa_stats_id)
 {
+	struct dpa_stats *dpa_stats = NULL;
+
 	if (dpa_stats_devfd < 0) {
 		error(0, ENODEV, "DPA Stats library is not initialized\n");
 		return -ENODEV;
@@ -1017,9 +1027,14 @@ int dpa_stats_free(int dpa_stats_id)
 		return -errno;
 	}
 
-	free_resources();
+	/* Sanity check */
+	if (!gbl_dpa_stats) {
+		error(0, EINVAL, "DPA Stats library is not initialized\n");
+		return -EINVAL;
+	}
+	dpa_stats = gbl_dpa_stats;
 
-	return 0;
+	return free_resources(dpa_stats);
 }
 
 int dpa_stats_create_counter(int dpa_stats_id,

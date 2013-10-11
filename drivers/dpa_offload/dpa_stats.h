@@ -58,6 +58,8 @@ struct dpa_stats {
 	void *storage_area; /* Storage area provided by application */
 	bool *sched_cnt_ids; /* Counters scheduled for a retrieve operation */
 	pthread_mutex_t sched_cnt_lock;
+	struct dpa_stats_async_req *async_req;/* Asynchronous requests */
+	struct dpa_stats_req *req; /* Array of counters requests */
 };
 
 /* DPA Stats type of request */
