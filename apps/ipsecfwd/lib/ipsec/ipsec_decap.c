@@ -106,6 +106,7 @@ enum IP_STATUS ipsec_decap_send(const struct ppam_rx_hash *ctxt,
 				fprintf(stderr, "error: %s: Failed to Init"
 					" encap Context\n", __func__);
 				return IP_STATUS_DROP;
+				spin_unlock(&entry->tlock);
 			}
 			entry->fq_state = SCHEDULED;
 		}
