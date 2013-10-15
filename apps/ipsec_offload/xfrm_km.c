@@ -842,7 +842,9 @@ static int update_sa(struct dpa_sa *dpa_sa, struct xfrm_usersa_info *sa_info,
 	uint8_t *tmp;
 	uint8_t old_cipher_key[512];
 	uint8_t old_auth_key[512];
+	struct dpa_ipsec_sa_stats sa_stats;
 
+	memset(&sa_stats, 0, sizeof(sa_stats));
 	new_sa_id = DPA_OFFLD_INVALID_OBJECT_ID;
 	dir = dpa_sa->sa_params.sa_dir;
 
@@ -850,6 +852,48 @@ static int update_sa(struct dpa_sa *dpa_sa, struct xfrm_usersa_info *sa_info,
 		sa_id = &dpa_sa->in_sa_id;
 	else
 		sa_id = &dpa_sa->out_sa_id;
+
+	/* on inbound direction the rekey porcess terminates only if traffic
+	 * was received on the newly created sa (child sa) */
+	if (dpa_sa->parent_sa_id != DPA_OFFLD_INVALID_OBJECT_ID &&
+	    dir == DPA_IPSEC_INBOUND) {
+		ret = dpa_ipsec_sa_get_stats(*sa_id, &sa_stats);
+		if (ret)
+			printf("Warning: statistics could not be fetched\n");
+
+		/*
+		 * if no traffic is received for the child sa, and another rekey
+		 * was initiated, the parent sa of the child must be removed
+		 * in order to rekey an SA which is already in rekey process.
+		 * If traffic was received, then the parent SA was removed
+		 * by the DPAA driver and the child sa is no longer in rekey.
+		 * There is no problem if bytes_count is 0 and in the meantime
+		 * the child sa receives traffic. In this situation the
+		 * parent removal will fail with EINVAL (it has already been
+		 * removed) and the rekey will continue.
+		 *
+		 */
+		if (!sa_stats.bytes_count) {
+
+			TRACE("Child SA (%d) in rekey process will be updated"
+				" by a new SA\n", *sa_id);
+			TRACE("Removing parent SA (%d)\n",
+			      dpa_sa->parent_sa_id);
+
+			ret = dpa_ipsec_remove_sa(dpa_sa->parent_sa_id);
+			if (ret == -EINVAL)
+				fprintf(stderr, "Parent SA (%d) was already"
+					"removed during rekeyprocess\n",
+				       dpa_sa->parent_sa_id);
+			else if (ret) {
+				fprintf(stderr, "%s:%d: Error removing parent"
+					" SA (%d). Error: %d\n", __func__,
+					__LINE__, dpa_sa->parent_sa_id, ret);
+				return ret;
+
+			}
+		}
+	}
 
 	/* backup initial values in case that rekey process fails */
 	memcpy(&old_crypto_params, &dpa_sa->sa_params.crypto_params,
@@ -959,9 +1003,12 @@ static int update_sa(struct dpa_sa *dpa_sa, struct xfrm_usersa_info *sa_info,
 			&old_auth_key[0],
 			dpa_sa->sa_params.crypto_params.auth_key_len);
 		dpa_sa->sa_params.spi = old_spi;
+		return ret;
 
-	} else
+	} else {
+		dpa_sa->parent_sa_id = *sa_id;
 		*sa_id = new_sa_id;
+	}
 
 	return 0;
 }

@@ -76,6 +76,8 @@ struct dpa_sa {
 	struct list_head in_pols;
 	/* policies list for outbound dpa_ipsec sa */
 	struct list_head out_pols;
+	/* parent sa id used in rekeying process */
+	int parent_sa_id;
 };
 
 struct sadb_msg *do_sadbget(
