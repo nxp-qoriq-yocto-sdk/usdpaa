@@ -77,7 +77,7 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 		       PDBOPTS_ESP_IPHDRSRC | PDBOPTS_ESP_IVSRC |
 		       PDBOPTS_ESP_UPDATE_CSUM;
 	if (sa->is_esn)
-		pdb->options |= PDBOPTS_ESPCBC_ESN;
+		pdb->options |= PDBOPTS_ESP_ESN;
 	pdb->hmo = PDBHMO_ESP_ENCAP_DTTL;
 	memcpy(pdb->ip_hdr, ip_header, pdb->ip_hdr_len);
 
@@ -149,7 +149,7 @@ void
 	pdb.options = PDBOPTS_ESP_TUNNEL | PDBOPTS_ESP_OUTFMT |
 		      PDBOPTS_ESP_ARSNONE;
 	if (sa->is_esn)
-		pdb.options |= PDBOPTS_ESPCBC_ESN;
+		pdb.options |= PDBOPTS_ESP_ESN;
 
 	cipher.algtype = sa->ealg->alg_type;
 	cipher.key = (uintptr_t)sa->ealg->alg_key;
