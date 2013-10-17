@@ -985,7 +985,7 @@ static int create_dpa_stats_counters(void)
 	if (err < 0) {
 		error(0, -err, "Failed to initialize the"
 				" DPA Stats user space library");
-		return -err;
+		return err;
 	}
 
 	printf("DPA Stats library successfully initialized\n");
@@ -995,8 +995,8 @@ static int create_dpa_stats_counters(void)
 
 	stats_params.storage_area = malloc(stats_params.storage_area_len);
 	if (!stats_params.storage_area) {
-		printf("cannot allocate storage area\n");
-		return -1;
+		printf("cannot allocate storage area");
+		return -ENOMEM;
 	}
 
 	/* Save storage area pointer */
@@ -1023,15 +1023,15 @@ static int create_dpa_stats_counters(void)
 	cls_params.classif_tbl_params.keys = malloc(
 			cls_params.class_members * sizeof(**cls_keys));
 	if (!cls_params.classif_tbl_params.keys) {
-		error(0, -err, "Failed to allocate memory for keys\n");
-		return -1;
+		error(0, ENOMEM, "Failed to allocate memory for keys");
+		return -ENOMEM;
 	}
 
 	for (i = 0; i < cls_params.class_members - 1; i++) {
 		cls_params.classif_tbl_params.keys[i] = malloc(
 				sizeof(struct dpa_offload_lookup_key));
 		if (!cls_params.classif_tbl_params.keys[i]) {
-			error(0, ENOMEM, "Failed to allocate memory for key\n");
+			error(0, ENOMEM, "Failed to allocate memory for key");
 			for (j = 0; j < i; j++)
 				free(cls_params.classif_tbl_params.keys[j]);
 			free(cls_params.classif_tbl_params.keys);
