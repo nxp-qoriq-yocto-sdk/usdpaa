@@ -639,7 +639,7 @@ static int create_dpa_stats_counters(void)
 	if (err < 0) {
 		error(0, -err, "Failed to initialize the"
 				" DPA Stats user space library");
-		return -err;
+		return err;
 	}
 
 	TRACE("DPA Stats library successfully initialized\n");
@@ -649,7 +649,7 @@ static int create_dpa_stats_counters(void)
 	stats_params.storage_area = malloc(stats_params.storage_area_len);
 	if (!stats_params.storage_area) {
 		error(0, -err, "Failed to allocate storage area\n");
-		return -err;
+		return err;
 	}
 
 	err = dpa_stats_init(&stats_params, &dpa_stats_id);
@@ -740,13 +740,13 @@ static int create_dpa_stats_counters(void)
 		keys[i].byte = malloc(keys[i].size);
 		if (!keys[i].byte) {
 			error(0, -err, "Failed to allocate memory\n");
-			return -1;
+			return -ENOMEM;
 		}
 
 		keys[i].mask = malloc(keys[i].size);
 		if (!keys[i].byte) {
 			error(0, -err, "Failed to allocate memory\n");
-			return -1;
+			return -ENOMEM;
 		}
 		memset(keys[i].mask, 0xFF, keys[i].size);
 
@@ -789,8 +789,8 @@ static int create_dpa_stats_counters(void)
 
 	cls_keys = malloc(cls_cnt_params.class_members * sizeof(**cls_keys));
 	if (!cls_keys) {
-		error(0, -err, "Failed to allocate memory\n");
-		return -1;
+		error(0, ENOMEM, "Failed to allocate memory\n");
+		return -ENOMEM;
 	}
 
 	for (i = 0; i < cls_cnt_params.class_members - 1; i++) {
@@ -837,14 +837,14 @@ static int create_dpa_stats_counters(void)
 
 		keys[i].byte = malloc(keys[i].size);
 		if (!keys[i].byte) {
-			error(0, -err, "Failed to allocate memory\n");
-			return -1;
+			error(0, ENOMEM, "Failed to allocate memory\n");
+			return -ENOMEM;
 		}
 
 		keys[i].mask = malloc(keys[i].size);
 		if (!keys[i].byte) {
-			error(0, -err, "Failed to allocate memory\n");
-			return -1;
+			error(0, ENOMEM, "Failed to allocate memory\n");
+			return -ENOMEM;
 		}
 		memset(keys[i].mask, 0xFF, keys[i].size);
 
@@ -887,8 +887,8 @@ static int create_dpa_stats_counters(void)
 
 	cls_keys = malloc(cls_cnt_params.class_members * sizeof(**cls_keys));
 	if (!cls_keys) {
-		error(0, -err, "Failed to allocate memory\n");
-		return -1;
+		error(0, ENOMEM, "Failed to allocate memory\n");
+		return -ENOMEM;
 	}
 
 	for (i = 0; i < cls_cnt_params.class_members; i++) {
