@@ -978,6 +978,7 @@ static int create_dpa_stats_counters(void)
 	struct dpa_offload_lookup_key **cls_keys;
 	int err = 0;
 	uint32_t i = 0;
+	uint32_t j = 0;
 
 	/* Attempt to initialize the DPA Stats user space library */
 	err = dpa_stats_lib_init();
@@ -1030,8 +1031,11 @@ static int create_dpa_stats_counters(void)
 		cls_params.classif_tbl_params.keys[i] = malloc(
 				sizeof(struct dpa_offload_lookup_key));
 		if (!cls_params.classif_tbl_params.keys[i]) {
-			error(0, -err, "Failed to allocate memory for key\n");
-			return -1;
+			error(0, ENOMEM, "Failed to allocate memory for key\n");
+			for (j = 0; j < i; j++)
+				free(cls_params.classif_tbl_params.keys[j]);
+			free(cls_params.classif_tbl_params.keys);
+			return -ENOMEM;
 		}
 
 		/* No lookup key is configured in the class */
