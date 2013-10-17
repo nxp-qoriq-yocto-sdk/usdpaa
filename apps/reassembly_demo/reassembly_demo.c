@@ -796,8 +796,11 @@ static int create_dpa_stats_counters(void)
 	for (i = 0; i < cls_cnt_params.class_members - 1; i++) {
 		cls_keys[i] =  malloc(sizeof(struct dpa_offload_lookup_key));
 		if (!cls_keys[i]) {
-			error(0, -err, "Failed to allocate memory\n");
-			return -1;
+			error(0, ENOMEM, "Failed to allocate memory\n");
+			for (j = 0; j < i; j++)
+				free(cls_keys[j]);
+			free(cls_keys);
+			return -ENOMEM;
 		}
 		cls_keys[i]->byte = keys[i].byte;
 		cls_keys[i]->mask = keys[i].mask;
@@ -892,8 +895,11 @@ static int create_dpa_stats_counters(void)
 		j = i + 4;
 		cls_keys[i] =  malloc(sizeof(struct dpa_offload_lookup_key));
 		if (!cls_keys[i]) {
-			error(0, -err, "Failed to allocate memory\n");
-			return -1;
+			error(0, ENOMEM, "Failed to allocate memory\n");
+			for (j = 0; j < i; j++)
+				free(cls_keys[j]);
+			free(cls_keys);
+			return -ENOMEM;
 		}
 		cls_keys[i]->byte = keys[j].byte;
 		cls_keys[i]->mask = keys[j].mask;
