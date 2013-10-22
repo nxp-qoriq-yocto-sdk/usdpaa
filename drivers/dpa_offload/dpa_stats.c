@@ -567,12 +567,9 @@ static int check_us_get_counters_params(struct dpa_stats *dpa_stats,
 	*cnts_len = 0;
 
 	for (i = 0; i < prm.cnts_ids_len; i++) {
-		if (prm.cnts_ids[i] == DPA_OFFLD_INVALID_OBJECT_ID ||
-		    prm.cnts_ids[i] > dpa_stats->config.max_counters) {
-			error(0, EINVAL, "Counter id (cnt_ids[%d]) %d is not "
-				"initialized or is greater than maximum counters"
-				" %d\n", i, prm.cnts_ids[i],
-				dpa_stats->config.max_counters);
+		if (prm.cnts_ids[i] == DPA_OFFLD_INVALID_OBJECT_ID) {
+			error(0, EINVAL, "Counter id (cnt_ids[%d]) %d is not initialized\n",
+					i, prm.cnts_ids[i]);
 			return -EINVAL;
 		}
 	}
@@ -840,6 +837,7 @@ static int fill_req_params(struct dpa_stats			*dpa_stats,
 {
 	struct dpa_stats_req *req = NULL;
 	int ret = 0;
+	uint32_t i = 0;
 
 	ret = pthread_mutex_lock(&async_reqs_pool);
 	if (ret < 0)
@@ -872,6 +870,12 @@ static int fill_req_params(struct dpa_stats			*dpa_stats,
 	/* Set memory area where the request should write */
 	req->request_area = dpa_stats->storage_area + prm.storage_area_offset;
 
+	for(i = 0; i < prm.cnts_ids_len; i++)
+		if(prm.cnts_ids[i] >= dpa_stats->config.max_counters) {
+			error(0, EINVAL, "Counter id (cnt_ids[%d]) %d is greater than maximum counters %d\n",
+			i, prm.cnts_ids[i], dpa_stats->config.max_counters);
+			return -EINVAL;
+		}
 	/* Synchronous request: store the provided pointer to array of ids */
 	if (!request_done)
 		req->cnt_ids = prm.cnts_ids;
