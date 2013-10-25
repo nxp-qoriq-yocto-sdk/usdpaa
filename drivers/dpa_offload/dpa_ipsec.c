@@ -405,3 +405,47 @@ int dpa_ipsec_sa_modify(int sa_id,
 
 	return 0;
 }
+
+int dpa_ipsec_sa_request_seq_number(int sa_id)
+{
+	if (dpa_ipsec_devfd < 0) {
+		error(0, ENODEV, "DPA IPSec library is not initialized\n");
+		return -EAGAIN;
+	}
+
+	if (ioctl(dpa_ipsec_devfd, DPA_IPSEC_IOC_SA_REQUEST_SEQ_NUMBER,
+		  &sa_id) < 0) {
+		error(0, errno, "Could not make a SEQ request SA %d\n", sa_id);
+		return -errno;
+	}
+
+	return 0;
+}
+
+int dpa_ipsec_sa_get_seq_number(int sa_id, uint64_t *seq)
+{
+	struct ioc_dpa_ipsec_sa_get_seq_num ioc_prm;
+
+	if (dpa_ipsec_devfd < 0) {
+		error(0, ENODEV, "DPA IPSec library is not initialized\n");
+		return -EAGAIN;
+	}
+
+	if (!seq) {
+		error(0, EINVAL, "Invalid SA modify handle\n");
+		return -EINVAL;
+	}
+
+	ioc_prm.sa_id = sa_id;
+	ioc_prm.seq = 0;
+
+	if (ioctl(dpa_ipsec_devfd, DPA_IPSEC_IOC_SA_GET_SEQ_NUMBER,
+		  &ioc_prm) < 0) {
+		error(0, errno, "Could not get SEQ NUM for SA %d\n", sa_id);
+		return -errno;
+	}
+
+	*seq = ioc_prm.seq;
+
+	return 0;
+}
