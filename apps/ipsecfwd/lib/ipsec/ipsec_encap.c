@@ -72,7 +72,7 @@ enum IP_STATUS ipsec_encap_send(const struct ppam_rx_hash *ctxt,
 					entry->tunnel_id)) {
 				fprintf(stderr, "error: %s: Failed to Init"
 					" encap Context\n", __func__);
-				spin_unlock(&entry->tlock);
+				mutex_unlock(&entry->tlock);
 				return IP_STATUS_DROP;
 			}
 			entry->fq_state = SCHEDULED;
