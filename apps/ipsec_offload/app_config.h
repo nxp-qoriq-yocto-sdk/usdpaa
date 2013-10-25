@@ -102,6 +102,8 @@ struct app_conf {
 	char vif[IFNAMSIZ];
 	/* Virtual outbound interface name */
 	char vof[IFNAMSIZ];
+	/* IPsec interface name */
+	char vipsec[IFNAMSIZ];
 };
 extern struct app_conf app_conf;
 #endif

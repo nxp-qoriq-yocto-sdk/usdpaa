@@ -93,6 +93,7 @@ struct ppam_arguments {
 	int ib_loop;
 	const char *vif;
 	const char *vof;
+	const char *vipsec;
 };
 
 /* Buffer pools */
@@ -290,8 +291,15 @@ static int ppam_interface_init(struct ppam_interface *p,
 		*flags |= PPAM_TX_FQ_NO_BUF_DEALLOC;
 	}
 	if (app_conf.ob_oh_pre == i->port_cfg->fman_if) {
-		fq->fqid = OB_OH_PRE_TX_FQID;
 		*flags |= PPAM_TX_FQ_NO_BUF_DEALLOC;
+		ret = setup_macless_if_tx(i, OB_OH_PRE_TX_FQID, &num_tx_fqs,
+					  fq, app_conf.vipsec);
+		if (ret < 0)
+			goto err;
+		ret = set_mac_addr(app_conf.vipsec,
+				   &app_conf.ib_eth->mac_addr);
+		if (ret < 0)
+			goto err;
 	}
 	if (app_conf.ib_eth == i->port_cfg->fman_if) {
 		ret = setup_macless_if_tx(i, IB_TX_FQID, &num_tx_fqs,
@@ -640,6 +648,9 @@ int ppam_init(void)
 		       app_conf.vif);
 	}
 
+	if (ppam_args.vipsec)
+		strncpy(app_conf.vipsec, ppam_args.vipsec, sizeof(app_conf.vipsec));
+
 	/* mtu pre enc */
 	if (ppam_args.mtu_pre_enc)
 		app_conf.mtu_pre_enc = atoi(ppam_args.mtu_pre_enc);
@@ -949,6 +960,7 @@ static const struct argp_option argp_opts[] = {
 	{"ib-loop", 'l', 0, 0, "Loopback on inbound Ethernet port"},
 	{"vif", 'v', "FILE", 0 , "Virtual inbound interface name"},
 	{"vof", 'w', "FILE", 0 , "Virtual outbound interface name"},
+	{"vipsec", 'u', "FILE", 0 , "IPsec interface name"},
 	{}
 };
 
@@ -999,6 +1011,9 @@ static error_t parse_opts(int key, char *arg, struct argp_state *state)
 		break;
 	case 'w':
 		ppam_args.vof = arg;
+		break;
+	 case 'u':
+		ppam_args.vipsec = arg;
 		break;
 	default:
 		return ARGP_ERR_UNKNOWN;

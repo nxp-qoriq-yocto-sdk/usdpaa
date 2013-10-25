@@ -530,7 +530,8 @@ static int process_add_del_addr(struct nlmsghdr *nh, int vif_idx, int vof_idx)
 	return ret;
 }
 
-static int process_del_neigh(struct nlmsghdr *nh, int vif_idx, int vof_idx)
+static int process_del_neigh(struct nlmsghdr *nh, int rtm_sd, int vipsec_idx,
+			     int vif_idx, int vof_idx)
 {
 	struct ndmsg *ndm;
 	struct nlattr *na;
@@ -541,7 +542,8 @@ static int process_del_neigh(struct nlmsghdr *nh, int vif_idx, int vof_idx)
 
 	ndm = (struct ndmsg *)NLMSG_DATA(nh);
 	if (ndm->ndm_ifindex != vif_idx &&
-	    ndm->ndm_ifindex != vof_idx)
+	    ndm->ndm_ifindex != vof_idx &&
+	    ndm->ndm_ifindex != vipsec_idx)
 		return -1;
 	na = (struct nlattr *)(NLMSG_DATA(nh) +
 		NLMSG_ALIGN(sizeof(*ndm)));
@@ -549,21 +551,6 @@ static int process_del_neigh(struct nlmsghdr *nh, int vif_idx, int vof_idx)
 		return -1;
 	key = NLA_DATA(na);
 
-	if (ndm->ndm_ifindex == vif_idx &&
-	    ndm->ndm_state & (NUD_STALE|NUD_FAILED)) {
-		TRACE("RTM_DELNEIGH vif ifindex %d state %02x\n",
-		      ndm->ndm_ifindex, ndm->ndm_state);
-
-		ret = remove_ib_neigh_entry(ndm->ndm_family, key, 0);
-		num_keys = get_dst_addrs(dst, dst_len,
-			(struct in_addr *)key,
-			IPv4_NUM_KEYS);
-		for (i = 0; i < num_keys; i++)
-			ret = remove_ib_neigh_entry(ndm->ndm_family,
-						    (u8 *)&dst[i].s_addr,
-						    dst_len[i]);
-
-	}
 	if (ndm->ndm_ifindex == vof_idx &&
 		ndm->ndm_state & (NUD_STALE|NUD_FAILED)) {
 		TRACE("RTM_DELNEIGH vof ifindex %d state %02x\n",
@@ -578,10 +565,34 @@ static int process_del_neigh(struct nlmsghdr *nh, int vif_idx, int vof_idx)
 						    (u8 *)&dst[i].s_addr,
 						    dst_len[i]);
 	}
+	if (ndm->ndm_ifindex == vif_idx &&
+	    ndm->ndm_state & (NUD_STALE|NUD_FAILED)) {
+		TRACE("RTM_DELNEIGH vif ifindex %d state %02x\n",
+		      ndm->ndm_ifindex, ndm->ndm_state);
+
+		ret = remove_ib_neigh_entry(ndm->ndm_family, key, 0);
+		num_keys = get_dst_addrs(dst, dst_len,
+			(struct in_addr *)key,
+			IPv4_NUM_KEYS);
+		for (i = 0; i < num_keys; i++)
+			ret = remove_ib_neigh_entry(ndm->ndm_family,
+						    (u8 *)&dst[i].s_addr,
+						    dst_len[i]);
+		 /* reuse message to remove PERMANENT entry on vipsec */
+		nh->nlmsg_seq = 0;
+		nh->nlmsg_pid = getpid();
+		nh->nlmsg_flags = NLM_F_REQUEST | NLM_F_REPLACE;
+		ndm->ndm_ifindex = vipsec_idx;
+		ret = send(rtm_sd, nh, nh->nlmsg_len, 0);
+		if (ret < 0)
+			fprintf(stderr, "Failed to send RTM_DELNEIGH"
+				"to ipsec interface (%d)\n", errno);
+	}
 	return ret;
 }
 
-static int process_new_neigh(struct nlmsghdr *nh, int vif_idx, int vof_idx)
+static int process_new_neigh(struct nlmsghdr *nh, int rtm_sd, int vipsec_idx,
+			     int vif_idx, int vof_idx)
 {
 	struct ndmsg *ndm;
 	struct nlattr *na;
@@ -620,7 +631,7 @@ static int process_new_neigh(struct nlmsghdr *nh, int vif_idx, int vof_idx)
 					    (u8 *)&dst[i].s_addr, dst_len[i]);
 	}
 	if (ndm->ndm_ifindex == vof_idx &&
-		(ndm->ndm_state & (NUD_PERMANENT|NUD_REACHABLE))) {
+	    (ndm->ndm_state & (NUD_PERMANENT|NUD_REACHABLE))) {
 		TRACE("RTM_NEWNEIGH vof ifindex %d state %02x\n",
 		      ndm->ndm_ifindex, ndm->ndm_state);
 		ret = create_ob_neigh_entry(lladdr, ndm->ndm_family, key, 0);
@@ -632,6 +643,21 @@ static int process_new_neigh(struct nlmsghdr *nh, int vif_idx, int vof_idx)
 			ret = create_ob_neigh_entry(lladdr, ndm->ndm_family,
 					    (u8 *)&dst[i].s_addr, dst_len[i]);
 	}
+	/* reuse message to set a PERMANENT entry on vipsec */
+	if (ndm->ndm_ifindex == vif_idx &&
+	    ndm->ndm_state == NUD_REACHABLE) {
+		nh->nlmsg_seq = 0;
+		nh->nlmsg_pid = getpid();
+		nh->nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE;
+		ndm->ndm_ifindex = vipsec_idx;
+		ndm->ndm_state = NUD_PERMANENT;
+		TRACE("Sending RTM_NEWNEIGH to vipsec ifindex %d\n", vipsec_idx);
+		ret = send(rtm_sd, nh, nh->nlmsg_len, 0);
+		if (ret < 0)
+			fprintf(stderr, "Failed to send RTM_NEWNEIGH"
+				"to ipsec interface (%d)\n", errno);
+	}
+
 	return ret;
 }
 
@@ -708,7 +734,7 @@ static void *neigh_msg_loop(void *data)
 	struct msghdr msg;
 	struct nlmsghdr *nh;
 	struct sockaddr_nl sa;
-	int vif_idx, vof_idx;
+	int vif_idx, vof_idx, vipsec_idx;
 	int len, ret;
 	struct sigaction new_action, old_action;
 
@@ -764,6 +790,13 @@ static void *neigh_msg_loop(void *data)
 				__func__, __LINE__, app_conf.vof);
 		pthread_exit(NULL);
 	}
+	vipsec_idx = if_nametoindex(app_conf.vipsec);
+	if (!vipsec_idx) {
+		fprintf(stderr, " %s:%d: ipsec virtual interface"
+			"%s not available\n",
+			__func__, __LINE__, app_conf.vipsec);
+		pthread_exit(NULL);
+	}
 
 	while (1) {
 		len = recvmsg(rtm_sd, &msg, 0);
@@ -793,10 +826,12 @@ static void *neigh_msg_loop(void *data)
 
 			switch (nh->nlmsg_type) {
 			case RTM_NEWNEIGH:
-				process_new_neigh(nh, vif_idx, vof_idx);
+				process_new_neigh(nh, rtm_sd, vipsec_idx,
+						  vif_idx, vof_idx);
 				break;
 			case RTM_DELNEIGH:
-				process_del_neigh(nh, vif_idx, vof_idx);
+				process_del_neigh(nh, rtm_sd, vipsec_idx,
+						  vif_idx, vof_idx);
 				break;
 			case RTM_NEWADDR:
 			case RTM_DELADDR:
