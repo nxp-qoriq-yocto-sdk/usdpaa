@@ -34,6 +34,7 @@ bin_PROGRAMS = fragmentation_demo
 dist_DATA =  fragmentation_demo_config-p4080.xml \
 		fragmentation_demo_config-b4860.xml \
 		fragmentation_demo_config-b4420.xml \
+		fragmentation_demo_config-p2041.xml \
 		fragmentation_demo_policy.xml
 
 fragmentation_demo_CFLAGS := -I$(TOP_LEVEL)/apps/include \
