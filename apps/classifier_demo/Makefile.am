@@ -34,6 +34,7 @@ bin_PROGRAMS = classifier_demo
 dist_DATA = classifier_demo_config-p4080.xml \
 	    classifier_demo_config-b4860.xml \
 	    classifier_demo_config-b4420.xml \
+	    classifier_demo_config-p2041.xml \
 	    classifier_demo_policy.xml
 
 classifier_demo_CFLAGS := -I$(TOP_LEVEL)/apps/include \
