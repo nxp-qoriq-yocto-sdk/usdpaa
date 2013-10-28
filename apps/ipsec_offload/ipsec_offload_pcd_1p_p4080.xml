@@ -120,9 +120,19 @@
 			<nonheader source="key" action="exact_match" offset="0" size="13"/>
 		</key>
 	</classification>
+	<classification name="icmp_cc" max="16" masks="yes" statistics="frame">
+		<key>
+			 <nonheader source="key" action="exact_match" offset="0" size="9"/>
+		</key>
+	</classification>
 	<classification name="tcpudp6_cc" max="16" masks="yes" statistics="frame">
 		<key>
 			<nonheader source="key" action="exact_match" offset="0" size="37"/>
+		</key>
+	</classification>
+	<classification name="icmp6_cc" max="16" masks="yes" statistics="frame">
+		<key>
+			<nonheader source="key" action="exact_match" offset="0" size="33"/>
 		</key>
 	</classification>
 	<distribution name="ob_pre_tcp_dist">
@@ -185,6 +195,30 @@
 		</key>
 		<action type="classification" name="tcpudp6_cc"/>
 	</distribution>
+	<distribution name="ob_pre_ip4_icmp">
+		<protocols>
+			<protocolref name="ipv4"/>
+		</protocols>
+		<queue count="1" base="0x3e82"/>
+		<key>
+			 <fieldref name="ipv4.src"/>
+			 <fieldref name="ipv4.dst"/>
+			 <fieldref name="ipv4.nextp"/>
+		</key>
+		<action type="classification" name="icmp_cc"/>
+	</distribution>
+	<distribution name="ob_pre_ip6_icmp">
+		<protocols>
+			<protocolref name="ipv6"/>
+		</protocols>
+		<queue count="1" base="0x3e82"/>
+		<key>
+			 <fieldref name="ipv6.src"/>
+			 <fieldref name="ipv6.dst"/>
+			 <fieldref name="ipv6.nexthdr"/>
+		</key>
+		<action type="classification" name="icmp6_cc"/>
+	</distribution>
 	<distribution name="ob_pre_default_dist">
 		<queue count="1" base="0x3e82"/>
 	</distribution>
@@ -194,6 +228,8 @@
 			<distributionref name="ob_pre_tcp6_dist"/>
 			<distributionref name="ob_pre_udp_dist"/>
 			<distributionref name="ob_pre_udp6_dist"/>
+			<distributionref name="ob_pre_ip4_icmp"/>
+			<distributionref name="ob_pre_ip6_icmp"/>
 			<distributionref name="ob_pre_default_dist"/>
 		</dist_order>
 	</policy>

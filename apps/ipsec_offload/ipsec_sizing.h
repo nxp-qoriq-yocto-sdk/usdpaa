@@ -4,13 +4,13 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
+ *	 notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
+ *	 notice, this list of conditions and the following disclaimer in the
+ *	 documentation and/or other materials provided with the distribution.
  *     * Neither the name of Freescale Semiconductor nor the
- *       names of its contributors may be used to endorse or promote products
- *       derived from this software without specific prior written permission.
+ *	 names of its contributors may be used to endorse or promote products
+ *	 derived from this software without specific prior written permission.
  *
  *
  * ALTERNATIVELY, this software may be distributed under the terms of the
@@ -73,8 +73,10 @@
 	0, /* DPA_IPSEC_PROTO_TCP_IPV6 */ \
 	0, /* DPA_IPSEC_PROTO_UDP_IPV4 */ \
 	0, /* DPA_IPSEC_PROTO_UDP_IPV6 */ \
-	0, /* DPA_IPSEC_PROTO_ICMP_IPV4 */ \
-	0, /* DPA_IPSEC_PROTO_ICMP_IPV6 */ \
+	NUM_SETS * NUM_WAYS, \
+	/* DPA_IPSEC_PROTO_ICMP_IPV4 */ \
+	NUM_SETS * NUM_WAYS, \
+	/* DPA_IPSEC_PROTO_ICMP_IPV6 */ \
 	0, /* DPA_IPSEC_PROTO_SCTP_IPV4 */ \
 	0, /* DPA_IPSEC_PROTO_SCTP_IPV6 */ \
 	NUM_SETS * NUM_WAYS, \
@@ -109,8 +111,10 @@
 	0,     \
 	0,     \
 	0,     \
-	0,     \
-	0,     \
+	(2 * DPA_OFFLD_IPv4_ADDR_LEN_BYTES +	 \
+	IP_PROTO_FIELD_LEN), \
+	(2 * DPA_OFFLD_IPv6_ADDR_LEN_BYTES +	 \
+	IP_PROTO_FIELD_LEN), \
 	0,     \
 	0,     \
 	(2 * DPA_OFFLD_IPv4_ADDR_LEN_BYTES + \
@@ -122,12 +126,17 @@
 	}
 
 /* Packet fields for outbound pre-sec traffic selector */
-#define IPSEC_OUT_POL_KEY_FIELDS \
+#define IPSEC_OUT_POL_TCPUDP_KEY_FIELDS \
 	(DPA_IPSEC_KEY_FIELD_SIP | \
 	DPA_IPSEC_KEY_FIELD_DIP | \
 	DPA_IPSEC_KEY_FIELD_PROTO | \
 	DPA_IPSEC_KEY_FIELD_SPORT | \
 	DPA_IPSEC_KEY_FIELD_DPORT)
+
+#define IPSEC_OUT_POL_ICMP_KEY_FIELDS \
+	(DPA_IPSEC_KEY_FIELD_SIP | \
+	DPA_IPSEC_KEY_FIELD_DIP | \
+	DPA_IPSEC_KEY_FIELD_PROTO)
 
 static inline int get_out_pol_num(int dpa_ipsec_proto)
 {

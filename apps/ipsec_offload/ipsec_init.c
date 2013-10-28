@@ -151,9 +151,16 @@ int ipsec_offload_init(int *dpa_ipsec_id)
 
 			ipsec_params.pre_sec_out_params.
 				table[i].dpa_cls_td = cls_td;
-			ipsec_params.pre_sec_out_params.
-				table[i].key_fields = IPSEC_OUT_POL_KEY_FIELDS;
-
+			if (i == DPA_IPSEC_PROTO_ANY_IPV4 ||
+			    i == DPA_IPSEC_PROTO_ANY_IPV6)
+				ipsec_params.pre_sec_out_params.
+					table[i].key_fields =
+					IPSEC_OUT_POL_TCPUDP_KEY_FIELDS;
+			else if (i == DPA_IPSEC_PROTO_ICMP_IPV4 ||
+				 i == DPA_IPSEC_PROTO_ICMP_IPV6)
+				ipsec_params.pre_sec_out_params.
+					table[i].key_fields =
+					IPSEC_OUT_POL_ICMP_KEY_FIELDS;
 		} else
 			ipsec_params.pre_sec_out_params.table[i].dpa_cls_td =
 							DPA_OFFLD_DESC_NONE;

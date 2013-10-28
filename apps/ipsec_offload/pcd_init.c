@@ -221,6 +221,22 @@ int fmc_apply_model(void)
 		goto err;
 
 	sprintf(fmc_path,
+		"fm%d/port/OFFLINE/%d/ccnode/icmp_cc",
+		app_conf.fm, app_conf.ob_oh_pre->mac_idx);
+	cc_out_pre_enc[DPA_IPSEC_PROTO_ICMP_IPV4] = fmc_get_handle(&cmodel,
+								   fmc_path);
+	if (!cc_out_pre_enc[DPA_IPSEC_PROTO_ICMP_IPV4])
+		goto err;
+
+	sprintf(fmc_path,
+		"fm%d/port/OFFLINE/%d/ccnode/icmp6_cc",
+		app_conf.fm, app_conf.ob_oh_pre->mac_idx);
+	cc_out_pre_enc[DPA_IPSEC_PROTO_ICMP_IPV6] = fmc_get_handle(&cmodel,
+								   fmc_path);
+	if (!cc_out_pre_enc[DPA_IPSEC_PROTO_ICMP_IPV6])
+		goto err;
+
+	sprintf(fmc_path,
 		"fm%d/port/OFFLINE/%d/ccnode/ob_post_ip_cc",
 		app_conf.fm, app_conf.ob_oh_post->mac_idx);
 	cc_out_post_enc[ETHER_TYPE_IPv4] = fmc_get_handle(&cmodel,

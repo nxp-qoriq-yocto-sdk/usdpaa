@@ -375,10 +375,16 @@ static inline int offload_policy(struct dpa_ipsec_policy_params *pol_params,
 	pol_params->src_prefix_len = sel->prefixlen_s;
 	pol_params->dest_prefix_len = sel->prefixlen_d;
 	pol_params->protocol = sel->proto;
-	pol_params->l4.src_port = sel->sport;
-	pol_params->l4.src_port_mask = sel->sport_mask;
-	pol_params->l4.dest_port = sel->dport;
-	pol_params->l4.dest_port_mask = sel->dport_mask;
+	if (pol_params->protocol == IPPROTO_UDP ||
+	    pol_params->protocol == IPPROTO_TCP) {
+		pol_params->l4.src_port = sel->sport;
+		pol_params->l4.src_port_mask = sel->sport_mask;
+		pol_params->l4.dest_port = sel->dport;
+		pol_params->l4.dest_port_mask = sel->dport_mask;
+	} else if (pol_params->protocol == IPPROTO_ICMP) {
+		/* we do not handle icmp code/type */
+		memset(&pol_params->icmp, 0, sizeof(pol_params->icmp));
+	}
 
 	if (sel->proto == IPPROTO_IP)
 		pol_params->masked_proto = true;

@@ -52,15 +52,15 @@
 		      <ipv4minFragSize>0</ipv4minFragSize>
 		      <ipv6minFragSize>256</ipv6minFragSize>
 		</reassembly>
-               <header name="ib_replace">
-                  <insert>
-                        <size>12</size>
-                        <offset>0</offset>
-                        <data>0xaabbccddeeffaabbccddeeff</data>
-                        <replace>yes</replace>
-                  </insert>
-               </header>
-               <header name="ob_replace">
+	       <header name="ib_replace">
+		  <insert>
+			<size>12</size>
+			<offset>0</offset>
+			<data>0xaabbccddeeffaabbccddeeff</data>
+			<replace>yes</replace>
+		  </insert>
+	       </header>
+	       <header name="ob_replace">
 		<insert>
 			<size>12</size>
 			<offset>0</offset>
@@ -72,40 +72,40 @@
 
 	<!-- ob-oh-post -->
 	<classification name="ob_post_ip_cc" max="16" masks="yes">
-                <key>
-                        <nonheader source="key" action="exact_match" offset="0" size="4"/>
-                </key>
-                <queue base="0xabcd"/> <!-- 0x1388 -->
+		<key>
+			<nonheader source="key" action="exact_match" offset="0" size="4"/>
+		</key>
+		<queue base="0xabcd"/> <!-- 0x1388 -->
 	</classification>
-        <classification name="ob_post_ip6_cc" max="16" masks="no">
-                <key>
-                        <nonheader source="key" action="exact_match" offset="0" size="16"/>
-                </key>
-                <queue  base="0xabcd"/> <!-- 0x1388 -->
-        </classification>
+	<classification name="ob_post_ip6_cc" max="16" masks="no">
+		<key>
+			<nonheader source="key" action="exact_match" offset="0" size="16"/>
+		</key>
+		<queue	base="0xabcd"/> <!-- 0x1388 -->
+	</classification>
 	<distribution name="ob_post_ip_dist">
-	        <protocols>
-                        <protcolref name="ipv4"/>
-                </protocols>
+		<protocols>
+			<protcolref name="ipv4"/>
+		</protocols>
 		<queue count="1" base="0x3e83"/>
-                <key>
-                        <fieldref name="ipv4.dst"/> <!-- ipv4.dst -->
-                </key>
+		<key>
+			<fieldref name="ipv4.dst"/> <!-- ipv4.dst -->
+		</key>
 		<action type="classification" name="ob_post_ip_cc"/>
 	</distribution>
 	<distribution name="ob_post_ip6_dist">
-                <protocols>
-                        <protcolref name="ipv6"/>
-                </protocols>
-                <queue count="1" base="0x3e83"/>
-                <key>
-                        <fieldref name="ipv6.dst"/>
-                </key>
-                <action type="classification" name="ob_post_ip6_cc"/>
-        </distribution>
- 	<distribution name="ob_post_default_dist">
-                <queue count="1" base="0x3e83"/>
-        </distribution>
+		<protocols>
+			<protcolref name="ipv6"/>
+		</protocols>
+		<queue count="1" base="0x3e83"/>
+		<key>
+			<fieldref name="ipv6.dst"/>
+		</key>
+		<action type="classification" name="ob_post_ip6_cc"/>
+	</distribution>
+	<distribution name="ob_post_default_dist">
+		<queue count="1" base="0x3e83"/>
+	</distribution>
 	<policy name="ob_oh_post_policy">
 		<dist_order>
 			<distributionref name="ob_post_ip_dist"/>
@@ -121,12 +121,24 @@
 		</key>
 		<action condition="on-miss" type="classification" name="ob_ip4_local_cc" statistics="enable"/>
 	</classification>
-        <classification name="tcpudp6_cc" max="16" masks="yes" statistics="frame">
-                <key>
-                        <nonheader source="key" action="exact_match" offset="0" size="37"/>
-                </key>
+	<classification name="icmp_cc" max="16" masks="yes" statistics="frame">
+		<key>
+			<nonheader source="key" action="exact_match" offset="0" size="9"/>
+		</key>
+		<action condition="on-miss" type="classification" name="ob_ip4_local_cc" statistics="enable"/>
+	</classification>
+	<classification name="tcpudp6_cc" max="16" masks="yes" statistics="frame">
+		<key>
+			<nonheader source="key" action="exact_match" offset="0" size="37"/>
+		</key>
 		<action condition="on-miss" type="classification" name="ob_ip6_local_cc" statistics="enable"/>
-        </classification>
+	</classification>
+	<classification name="icmp6_cc" max="16" masks="yes" statistics="frame">
+		<key>
+			<nonheader source="key" action="exact_match" offset="0" size="33"/>
+		</key>
+		<action condition="on-miss" type="classification" name="ob_ip6_local_cc" statistics="enable"/>
+	</classification>
 	<distribution name="ob_pre_tcp_dist">
 		<protocols>
 			<protcolref name="ipv4"/>
@@ -187,6 +199,30 @@
 		</key>
 		<action type="classification" name="tcpudp6_cc"/>
 	</distribution>
+	<distribution name="ob_pre_ip4_icmp">
+		<protocols>
+			<protocolref name="ipv4"/>
+		</protocols>
+		<queue count="1" base="0x3e82"/>
+		<key>
+			<fieldref name="ipv4.src"/>
+			<fieldref name="ipv4.dst"/>
+			<fieldref name="ipv4.nextp"/>
+		</key>
+		<action type="classification" name="icmp_cc"/>
+	</distribution>
+	<distribution name="ob_pre_ip6_icmp">
+		<protocols>
+			<protocolref name="ipv6"/>
+		</protocols>
+		<queue count="1" base="0x3e82"/>
+		<key>
+			<fieldref name="ipv6.src"/>
+			<fieldref name="ipv6.dst"/>
+			<fieldref name="ipv6.nexthdr"/>
+		</key>
+		<action type="classification" name="icmp6_cc"/>
+	</distribution>
 	<distribution name="ob_pre_default_dist">
 		<queue count="1" base="0x3e82"/>
 	</distribution>
@@ -196,6 +232,8 @@
 			<distributionref name="ob_pre_tcp6_dist"/>
 			<distributionref name="ob_pre_udp_dist"/>
 			<distributionref name="ob_pre_udp6_dist"/>
+			<distributionref name="ob_pre_ip4_icmp"/>
+			<distributionref name="ob_pre_ip6_icmp"/>
 			<distributionref name="ob_pre_default_dist"/>
 		</dist_order>
 	</policy>
@@ -260,30 +298,30 @@
 		</may-use>
 	</classification>
 	<classification name="ib_post_ip_cc" max="16" masks="no">
-                <key>
-                	<nonheader source="key" action="exact_match" offset="0" size="4"/>
-                </key>
+		<key>
+			<nonheader source="key" action="exact_match" offset="0" size="4"/>
+		</key>
 		<queue base="0xcdab"/> <!-- 0x0FA0 -->
 	</classification>
-        <classification name="ib_post_ip6_cc" max="16" masks="no">
-                <key>
-                	<nonheader source="key" action="exact_match" offset="0" size="16"/>
-                </key>
+	<classification name="ib_post_ip6_cc" max="16" masks="no">
+		<key>
+			<nonheader source="key" action="exact_match" offset="0" size="16"/>
+		</key>
 		<queue base="0xcdab"/> <!-- 0x0FA0 -->
-        </classification>
-        <classification name="ib_post_np_cc">
-        	<key>
-        		<fieldref name="ethernet.type"/>
-        	</key>
-        	<entry>
-        		<data>0x0800</data>
-        		<action type="classification" name="ib_post_ip_cc"/>
-        	</entry>
-        	<entry>
-        		<data>0x86DD</data>
-        		<action type="classification" name="ib_post_ip6_cc"/>
-        	</entry>
-        </classification>
+	</classification>
+	<classification name="ib_post_np_cc">
+		<key>
+			<fieldref name="ethernet.type"/>
+		</key>
+		<entry>
+			<data>0x0800</data>
+			<action type="classification" name="ib_post_ip_cc"/>
+		</entry>
+		<entry>
+			<data>0x86DD</data>
+			<action type="classification" name="ib_post_ip6_cc"/>
+		</entry>
+	</classification>
 	<classification name="post_flow_id_cc">
 		<key>
 			<fieldref name="udp.dport"/>
@@ -351,61 +389,61 @@
 			<nonheader source="key" action="exact_match" offset="0" size="16"/>
 		</key>
 	</classification>
-        <classification name="ob_rx_udp_cc">
-        	<key>
-        		<fieldref name="udp.dport"/>
-        	</key>
-        	<entry>
-        		<data>0x868</data>
-        		<queue base="0x3e00"/>
-        	</entry>
-        </classification>
+	<classification name="ob_rx_udp_cc">
+		<key>
+			<fieldref name="udp.dport"/>
+		</key>
+		<entry>
+			<data>0x868</data>
+			<queue base="0x3e00"/>
+		</entry>
+	</classification>
 	<distribution name="ob_rx_dist_udp">
-	        <protocols>
-	                <protocolref name="ipv4"/>
-                        <protocolref name="udp"/>
-                </protocols>
+		<protocols>
+			<protocolref name="ipv4"/>
+			<protocolref name="udp"/>
+		</protocols>
 		<queue count="1" base="0x3e81"/>
 		<key>
-		        <fieldref name="ipv4.dst"/>
-                        <fieldref name="udp.dport"/>
-                </key>
+			<fieldref name="ipv4.dst"/>
+			<fieldref name="udp.dport"/>
+		</key>
 		<action type="classification" name="ob_rx_udp_cc"/>
 	</distribution>
 	<distribution name="ob_rx_dist_tcp">
-	        <protocols>
-	                <protocolref name="ipv4"/>
-                        <protocolref name="tcp"/>
-                </protocols>
+		<protocols>
+			<protocolref name="ipv4"/>
+			<protocolref name="tcp"/>
+		</protocols>
 		<key>
-		        <fieldref name="ipv4.dst"/>
-                        <fieldref name="tcp.dport"/>
-                </key>
+			<fieldref name="ipv4.dst"/>
+			<fieldref name="tcp.dport"/>
+		</key>
 		<queue count="1" base="0x3e81"/>
 	</distribution>
-        <distribution name="ob_rx_ip4_dist">
-        	<protocols>
-        		<protocolref name="ipv4"/>
-        	</protocols>
-        	<key>
-        		<fieldref name="ipv4.dst"/>
-        	</key>
-                <queue count="1" base="0x3e81"/>
+	<distribution name="ob_rx_ip4_dist">
+		<protocols>
+			<protocolref name="ipv4"/>
+		</protocols>
+		<key>
+			<fieldref name="ipv4.dst"/>
+		</key>
+		<queue count="1" base="0x3e81"/>
 		<action type="classification" name="ob_ip4_local_cc"/>
-        </distribution>
-        <distribution name="ob_rx_ip6_dist">
-        	<protocols>
-        		<protocolref name="ipv6"/>
-        	</protocols>
-        	<key>
-        		<fieldref name="ipv6.dst"/>
-        	</key>
-        	<queue count="1" base="0x3e81"/>
-        	<action type="classification" name="ob_ip6_local_cc"/>
-        </distribution>
-        <distribution name="ob_rx_default_dist">
-        	<queue count="1" base="0xabcd"/> <!-- 0x1388 -->
-        </distribution>
+	</distribution>
+	<distribution name="ob_rx_ip6_dist">
+		<protocols>
+			<protocolref name="ipv6"/>
+		</protocols>
+		<key>
+			<fieldref name="ipv6.dst"/>
+		</key>
+		<queue count="1" base="0x3e81"/>
+		<action type="classification" name="ob_ip6_local_cc"/>
+	</distribution>
+	<distribution name="ob_rx_default_dist">
+		<queue count="1" base="0xabcd"/> <!-- 0x1388 -->
+	</distribution>
 	<policy name="ob_rx_policy">
 		<dist_order>
 			<distributionref name="ob_rx_dist_udp"/>
@@ -418,33 +456,33 @@
 
 	<!-- ib-eth -->
 	<classification name="esp_udp_cc" max="16" statistics="frame">
-                <key>
-                      <hashtable mask="0x10" hashshift="0" keysize="13"/>
-                </key>
+		<key>
+		      <hashtable mask="0x10" hashshift="0" keysize="13"/>
+		</key>
 		<action condition="on-miss" type="drop" statistics="enable"/>
-        </classification>
-       	<classification name="esp6_cc" max="16" statistics="frame">
+	</classification>
+	<classification name="esp6_cc" max="16" statistics="frame">
 		<key>
 		      <hashtable mask="0x10" hashshift="0" keysize="21"/>
 		</key>
 		<action condition="on-miss" type="drop" statistics="enable"/>
 	</classification>
 	<classification name="esp_cc" max="16" statistics="frame">
-                <key>
-                      <hashtable mask="0x10" hashshift="0" keysize="9"/>
-                </key>
+		<key>
+		      <hashtable mask="0x10" hashshift="0" keysize="9"/>
+		</key>
 		<action condition="on-miss" type="drop" statistics="enable"/>
-        </classification>
-        <classification name="ib_ip4_local_cc" max="16" masks="no">
-        	<key>
-        		<nonheader source="key" action="exact_match" offset="0" size="4"/>
-        	</key>
-        </classification>
+	</classification>
+	<classification name="ib_ip4_local_cc" max="16" masks="no">
+		<key>
+			<nonheader source="key" action="exact_match" offset="0" size="4"/>
+		</key>
+	</classification>
 	<classification name="ib_ip6_local_cc" max="16" masks="no">
-        	<key>
+		<key>
 			<nonheader source="key" action="exact_match" offset="0" size="16"/>
-        	</key>
-        </classification>
+		</key>
+	</classification>
 	<distribution name="ib_default_dist">
 		<queue count="8" base="0xcdab"/> <!-- 0x0FA0 -->
 	</distribution>
