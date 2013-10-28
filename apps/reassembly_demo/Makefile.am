@@ -34,6 +34,7 @@ bin_PROGRAMS = reassembly_demo
 dist_DATA = reassembly_demo_config-p4080.xml \
 		reassembly_demo_config-b4860.xml \
 		reassembly_demo_config-b4420.xml \
+		reassembly_demo_config-p2041.xml \
 		reassembly_demo_policy.xml \
 		reassembly_demo_policy-v3.xml
 
