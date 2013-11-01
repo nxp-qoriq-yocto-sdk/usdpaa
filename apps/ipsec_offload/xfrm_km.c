@@ -799,7 +799,7 @@ int nl_parse_attrs(struct nlattr *na, int len,
 
 	if (cipher_alg && auth_alg) {
 		sa_params->crypto_params.alg_suite =
-					  get_alg_by_name(cipher_alg->alg_name,
+					  get_algs_by_name(cipher_alg->alg_name,
 							   auth_alg->alg_name);
 		sa_params->crypto_params.auth_key_len = (uint8_t)
 						    (auth_alg->alg_key_len / 8);
@@ -1245,7 +1245,7 @@ static int process_new_policy(const struct nlmsghdr	*nh,
 
 	struct xfrm_userpolicy_info *pol_info;
 	struct sadb_msg *m;
-	struct list_head *pols;
+	struct list_head *pols = NULL;
 	struct dpa_sa *dpa_sa;
 	struct dpa_pol *dpa_pol, *pol;
 	int af;
