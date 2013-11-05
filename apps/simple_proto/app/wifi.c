@@ -203,7 +203,7 @@ static void *create_descriptor(bool mode, void *params)
 
 	prehdr_desc->prehdr.hi.word = shared_desc_len & SEC_PREHDR_SDLEN_MASK;
 
-	pr_debug("SEC %s shared descriptor:\n", protocol);
+	pr_debug("SEC %s shared descriptor:\n", proto->name);
 
 	for (i = 0; i < shared_desc_len; i++)
 		pr_debug("0x%x\n", *shared_desc++);
