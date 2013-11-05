@@ -28,58 +28,32 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef __SIMPLE_PROTO_H
-#define __SIMPLE_PROTO_H
+
+
+#ifndef RSA_H_
+#define RSA_H_
 
 #include <argp.h>
 #include <inttypes.h>
 
+#include <flib/rta.h>
+#include <flib/desc.h>
+#include <flib/protoshared.h>
+
+#include <usdpaa/compat.h>
+
 #include <crypto/test_utils.h>
-#include <crypto/sec.h>
-#include <crypto/thread_priv.h>
-#include <crypto/qman.h>
 
-#include "test_vector.h"
 #include "common.h"
-#include "macsec.h"
-#include "wimax.h"
-#include "pdcp.h"
-#include "srtp.h"
-#include "wifi.h"
-#include "rsa.h"
 
-/* prepare test buffers, fqs, fds routines */
-int prepare_test_frames(struct test_param *crypto_info);
-void set_enc_buf(void *params, struct qm_fd fd[]);
-void set_dec_buf(void *params, struct qm_fd fd[]);
+/**
+ * RSA parameter options specific defines
+ */
 
-/* validate test routines */
-static int validate_params(uint32_t cmd_args, uint32_t proto_args,
-			   struct test_param *crypto_info);
-int test_enc_match(void *params, struct qm_fd fd[]);
-int test_dec_match(void *params, struct qm_fd fd[]);
-
-error_t parse_opt(int opt, char *arg, struct argp_state *state);
-
-struct protocol_info *(*register_protocol[])(void) = {
-		register_macsec,
-		register_wimax,
-		register_pdcp,
-		register_srtp,
-		register_wifi,
-		register_rsa
+struct rsa_params {
+	enum rsa_decrypt_form form;
 };
 
-/* helper routines */
-static void set_crypto_cbs(struct test_cb *crypto_cb);
-int get_num_of_iterations(void *params);
-void set_num_of_iterations(void *params, unsigned int itr_num);
-inline int get_num_of_buffers(void *params);
-inline enum test_mode get_test_mode(void *params);
-inline uint8_t requires_authentication(void *);
-inline long get_num_of_cpus(void);
-inline pthread_barrier_t get_thread_barrier(void);
-int register_modules(void);
-void unregister_modules(void);
+struct protocol_info *register_rsa(void);
 
-#endif /* __SIMPLE_PROTO_H */
+#endif /* RSA_H_ */

@@ -33,7 +33,8 @@ bin_PROGRAMS = simple_proto
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/simple_proto/include -I$(TOP_LEVEL)/apps/lib
 AM_CFLAGS += $(LIBRTA_CFLAGS) -DRTA_DEBUG
 
-simple_proto_SOURCES := simple_proto.c macsec.c wimax.c pdcp.c srtp.c wifi.c
+simple_proto_SOURCES := simple_proto.c macsec.c wimax.c pdcp.c srtp.c wifi.c \
+			rsa.c
 
 simple_proto_LDADD := usdpaa_qbman usdpaa_dma_mem usdpaa_of usdpaa_process \
 		      fslcrypto
