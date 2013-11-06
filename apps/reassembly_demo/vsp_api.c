@@ -54,7 +54,7 @@ struct bpools bpool[] = {
 		{-1, VSP_BP_SIZE, VSP_BP_NUM}
 };
 
-static t_Handle			*vsp;
+static t_Handle			vsp[NUM_VSP];
 static t_Handle			fm_obj;
 
 int vsp_init(int fman_id, int fm_port_number)
@@ -92,7 +92,7 @@ int vsp_init(int fman_id, int fm_port_number)
 	fmBufferPrefixContent.passAllOtherPCDInfo = FALSE;
 	fmBufferPrefixContent.dataAlign = 64;
 
-	vsp = malloc(NUM_VSP);
+	memset(vsp, 0, NUM_VSP * sizeof(t_Handle));
 	for (i = 0; i < NUM_VSP; i++) {
 		fmVspParams.relativeProfileId = i;
 		fmVspParams.extBufPools.extBufPool[0].id = bpool[i].bpid;
@@ -160,18 +160,15 @@ int vsp_clean(void)
 {
 	int err = E_OK;
 	int i = 0;
-	if (vsp) {
-		for (i = 0; i < NUM_VSP; i++)
-			if (vsp[i]) {
-				err = FM_VSP_Free(vsp[i]);
-				if (err != E_OK) {
-					error(0, -err, "Error FM_VSP_Free: %d"
-							, err);
-					return err;
-				}
+
+	for (i = 0; i < NUM_VSP; i++)
+		if (vsp[i]) {
+			err = FM_VSP_Free(vsp[i]);
+			if (err != E_OK) {
+				error(0, -err, "Error FM_VSP_Free: %d", err);
+				return err;
 			}
-		free(vsp);
-	}
+		}
 	FM_Close(fm_obj);
 
 	for (i = 0; i < NUM_VSP; i++)
