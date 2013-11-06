@@ -173,6 +173,10 @@ int vsp_clean(void)
 		free(vsp);
 	}
 	FM_Close(fm_obj);
+
+	for (i = 0; i < NUM_VSP; i++)
+		bman_release_bpid(bpool[i].bpid);
+
 	return E_OK;
 }
 
