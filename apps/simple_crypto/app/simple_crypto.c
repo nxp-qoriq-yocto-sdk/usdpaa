@@ -55,19 +55,19 @@ int32_t hw_sec_era = -1;
  * param[in]	crypto_info - test parameters
  * return	None
  */
-void init_rtv_aes_cbc(struct test_param crypto_info)
+void init_rtv_aes_cbc(struct test_param *crypto_info)
 {
 	strcpy(algorithm, "AES_CBC");
 	ref_test_vector.key =
-		(uintptr_t)aes_cbc_reference_key[crypto_info.test_set - 1];
+		(uintptr_t)aes_cbc_reference_key[crypto_info->test_set - 1];
 	ref_test_vector.iv.init_vec =
-	    aes_cbc_reference_iv[crypto_info.test_set - 1];
+	    aes_cbc_reference_iv[crypto_info->test_set - 1];
 	ref_test_vector.length =
-	    aes_cbc_reference_length[crypto_info.test_set - 1];
+	    aes_cbc_reference_length[crypto_info->test_set - 1];
 	ref_test_vector.plaintext =
-	    aes_cbc_reference_plaintext[crypto_info.test_set - 1];
+	    aes_cbc_reference_plaintext[crypto_info->test_set - 1];
 	ref_test_vector.ciphertext =
-	    aes_cbc_reference_ciphertext[crypto_info.test_set - 1];
+	    aes_cbc_reference_ciphertext[crypto_info->test_set - 1];
 }
 
 /*
@@ -76,19 +76,19 @@ void init_rtv_aes_cbc(struct test_param crypto_info)
  * param[in]	crypto_info - test parameters
  * return	None
  */
-void init_rtv_tdes_cbc(struct test_param crypto_info)
+void init_rtv_tdes_cbc(struct test_param *crypto_info)
 {
 	strcpy(algorithm, "TDES_CBC");
 	ref_test_vector.key =
-		(uintptr_t)tdes_cbc_reference_key[crypto_info.test_set - 1];
+		(uintptr_t)tdes_cbc_reference_key[crypto_info->test_set - 1];
 	ref_test_vector.iv.init_vec =
-	    tdes_cbc_reference_iv[crypto_info.test_set - 1];
+	    tdes_cbc_reference_iv[crypto_info->test_set - 1];
 	ref_test_vector.length =
-	    tdes_cbc_reference_length[crypto_info.test_set - 1];
+	    tdes_cbc_reference_length[crypto_info->test_set - 1];
 	ref_test_vector.plaintext =
-	    tdes_cbc_reference_plaintext[crypto_info.test_set - 1];
+	    tdes_cbc_reference_plaintext[crypto_info->test_set - 1];
 	ref_test_vector.ciphertext =
-	    tdes_cbc_reference_ciphertext[crypto_info.test_set - 1];
+	    tdes_cbc_reference_ciphertext[crypto_info->test_set - 1];
 }
 
 /*
@@ -97,23 +97,23 @@ void init_rtv_tdes_cbc(struct test_param crypto_info)
  * param[in]	crypto_info - test parameters
  * return	None
  */
-void init_rtv_snow_f8(struct test_param crypto_info)
+void init_rtv_snow_f8(struct test_param *crypto_info)
 {
 	strcpy(algorithm, "SNOW_F8");
 	ref_test_vector.key =
-		(uintptr_t)snow_f8_reference_key[crypto_info.test_set - 1];
+		(uintptr_t)snow_f8_reference_key[crypto_info->test_set - 1];
 	ref_test_vector.iv.f8.count =
-	    snow_f8_reference_count[crypto_info.test_set - 1];
+	    snow_f8_reference_count[crypto_info->test_set - 1];
 	ref_test_vector.iv.f8.bearer =
-	    snow_f8_reference_bearer[crypto_info.test_set - 1];
+	    snow_f8_reference_bearer[crypto_info->test_set - 1];
 	ref_test_vector.iv.f8.direction =
-	    snow_f8_reference_dir[crypto_info.test_set - 1];
+	    snow_f8_reference_dir[crypto_info->test_set - 1];
 	ref_test_vector.length =
-	    snow_f8_reference_length[crypto_info.test_set - 1];
+	    snow_f8_reference_length[crypto_info->test_set - 1];
 	ref_test_vector.plaintext =
-	    snow_f8_reference_plaintext[crypto_info.test_set - 1];
+	    snow_f8_reference_plaintext[crypto_info->test_set - 1];
 	ref_test_vector.ciphertext =
-	    snow_f8_reference_ciphertext[crypto_info.test_set - 1];
+	    snow_f8_reference_ciphertext[crypto_info->test_set - 1];
 }
 
 /*
@@ -122,25 +122,25 @@ void init_rtv_snow_f8(struct test_param crypto_info)
  * param[in]	crypto_info - test parameters
  * return	None
  */
-void init_rtv_snow_f9(struct test_param crypto_info)
+void init_rtv_snow_f9(struct test_param *crypto_info)
 {
 	strcpy(algorithm, "SNOW_F9");
 	ref_test_vector.key =
-		(uintptr_t)snow_f9_reference_key[crypto_info.test_set - 1];
+		(uintptr_t)snow_f9_reference_key[crypto_info->test_set - 1];
 	ref_test_vector.iv.f9.count =
-	    snow_f9_reference_count[crypto_info.test_set - 1];
+	    snow_f9_reference_count[crypto_info->test_set - 1];
 	ref_test_vector.iv.f9.fresh =
-	    snow_f9_reference_fresh[crypto_info.test_set - 1];
+	    snow_f9_reference_fresh[crypto_info->test_set - 1];
 	ref_test_vector.iv.f9.direction =
-	    snow_f9_reference_dir[crypto_info.test_set - 1];
+	    snow_f9_reference_dir[crypto_info->test_set - 1];
 	ref_test_vector.length =
-	    snow_f9_reference_length[crypto_info.test_set - 1];
+	    snow_f9_reference_length[crypto_info->test_set - 1];
 	ref_test_vector.plaintext =
-	    snow_f9_reference_plaintext[crypto_info.test_set - 1];
+	    snow_f9_reference_plaintext[crypto_info->test_set - 1];
 	ref_test_vector.ciphertext = NULL;
 	ref_test_vector.digest =
-	    snow_f9_reference_digest[crypto_info.test_set - 1];
-	crypto_info.authnct = 1;
+	    snow_f9_reference_digest[crypto_info->test_set - 1];
+	crypto_info->authnct = 1;
 }
 
 /*
@@ -149,23 +149,23 @@ void init_rtv_snow_f9(struct test_param crypto_info)
  * param[in]	crypto_info - test parameters
  * return	None
  */
-void init_rtv_kasumi_f8(struct test_param crypto_info)
+void init_rtv_kasumi_f8(struct test_param *crypto_info)
 {
 	strcpy(algorithm, "KASUMI_F8");
 	ref_test_vector.key =
-		(uintptr_t)kasumi_f8_reference_key[crypto_info.test_set - 1];
+		(uintptr_t)kasumi_f8_reference_key[crypto_info->test_set - 1];
 	ref_test_vector.iv.f8.count =
-	    kasumi_f8_reference_count[crypto_info.test_set - 1];
+	    kasumi_f8_reference_count[crypto_info->test_set - 1];
 	ref_test_vector.iv.f8.bearer =
-	    kasumi_f8_reference_bearer[crypto_info.test_set - 1];
+	    kasumi_f8_reference_bearer[crypto_info->test_set - 1];
 	ref_test_vector.iv.f8.direction =
-	    kasumi_f8_reference_dir[crypto_info.test_set - 1];
+	    kasumi_f8_reference_dir[crypto_info->test_set - 1];
 	ref_test_vector.length =
-	    kasumi_f8_reference_length[crypto_info.test_set - 1];
+	    kasumi_f8_reference_length[crypto_info->test_set - 1];
 	ref_test_vector.plaintext =
-	    kasumi_f8_reference_plaintext[crypto_info.test_set - 1];
+	    kasumi_f8_reference_plaintext[crypto_info->test_set - 1];
 	ref_test_vector.ciphertext =
-	    kasumi_f8_reference_ciphertext[crypto_info.test_set - 1];
+	    kasumi_f8_reference_ciphertext[crypto_info->test_set - 1];
 }
 
 /*
@@ -174,25 +174,25 @@ void init_rtv_kasumi_f8(struct test_param crypto_info)
  * param[in]	crypto_info - test parameters
  * return	None
  */
-void init_rtv_kasumi_f9(struct test_param crypto_info)
+void init_rtv_kasumi_f9(struct test_param *crypto_info)
 {
 	strcpy(algorithm, "KASUMI_F9");
 	ref_test_vector.key =
-		(uintptr_t)kasumi_f9_reference_key[crypto_info.test_set - 1];
+		(uintptr_t)kasumi_f9_reference_key[crypto_info->test_set - 1];
 	ref_test_vector.iv.f9.count =
-	    kasumi_f9_reference_count[crypto_info.test_set - 1];
+	    kasumi_f9_reference_count[crypto_info->test_set - 1];
 	ref_test_vector.iv.f9.fresh =
-	    kasumi_f9_reference_fresh[crypto_info.test_set - 1];
+	    kasumi_f9_reference_fresh[crypto_info->test_set - 1];
 	ref_test_vector.iv.f9.direction =
-	    kasumi_f9_reference_dir[crypto_info.test_set - 1];
+	    kasumi_f9_reference_dir[crypto_info->test_set - 1];
 	ref_test_vector.length =
-	    kasumi_f9_reference_length[crypto_info.test_set - 1];
+	    kasumi_f9_reference_length[crypto_info->test_set - 1];
 	ref_test_vector.plaintext =
-	    kasumi_f9_reference_plaintext[crypto_info.test_set - 1];
+	    kasumi_f9_reference_plaintext[crypto_info->test_set - 1];
 	ref_test_vector.ciphertext = NULL;
 	ref_test_vector.digest =
-	    kasumi_f9_reference_digest[crypto_info.test_set - 1];
-	crypto_info.authnct = 1;
+	    kasumi_f9_reference_digest[crypto_info->test_set - 1];
+	crypto_info->authnct = 1;
 }
 
 /*
@@ -201,15 +201,17 @@ void init_rtv_kasumi_f9(struct test_param crypto_info)
  * param[in]	crypto_info - test parameters
  * return	None
  */
-void init_rtv_crc(struct test_param crypto_info)
+void init_rtv_crc(struct test_param *crypto_info)
 {
 	strcpy(algorithm, "CRC");
-	ref_test_vector.length = crc_reference_length[crypto_info.test_set - 1];
+	ref_test_vector.length =
+			crc_reference_length[crypto_info->test_set - 1];
 	ref_test_vector.plaintext =
-	    crc_reference_plaintext[crypto_info.test_set - 1];
+	    crc_reference_plaintext[crypto_info->test_set - 1];
 	ref_test_vector.ciphertext = NULL;
-	ref_test_vector.digest = crc_reference_digest[crypto_info.test_set - 1];
-	crypto_info.authnct = 1;
+	ref_test_vector.digest =
+			crc_reference_digest[crypto_info->test_set - 1];
+	crypto_info->authnct = 1;
 }
 
 /*
@@ -218,19 +220,19 @@ void init_rtv_crc(struct test_param crypto_info)
  * param[in]	crypto_info - test parameters
  * return	None
  */
-void init_rtv_hmac_sha1(struct test_param crypto_info)
+void init_rtv_hmac_sha1(struct test_param *crypto_info)
 {
 	strcpy(algorithm, "HMAC_SHA1");
 	ref_test_vector.key =
-		(uintptr_t)hmac_sha1_reference_key[crypto_info.test_set - 1];
+		(uintptr_t)hmac_sha1_reference_key[crypto_info->test_set - 1];
 	ref_test_vector.length =
-	    hamc_sha1_reference_length[crypto_info.test_set - 1];
+	    hamc_sha1_reference_length[crypto_info->test_set - 1];
 	ref_test_vector.plaintext =
-	    hmac_sha1_reference_plaintext[crypto_info.test_set - 1];
+	    hmac_sha1_reference_plaintext[crypto_info->test_set - 1];
 	ref_test_vector.ciphertext = NULL;
 	ref_test_vector.digest =
-	    hamc_sha1_reference_digest[crypto_info.test_set - 1];
-	crypto_info.authnct = 1;
+	    hamc_sha1_reference_digest[crypto_info->test_set - 1];
+	crypto_info->authnct = 1;
 }
 
 /*
@@ -239,19 +241,19 @@ void init_rtv_hmac_sha1(struct test_param crypto_info)
  * param[in]	crypto_info - test parameters
  * return	None
  */
-void init_rtv_snow_f8_f9(struct test_param crypto_info)
+void init_rtv_snow_f8_f9(struct test_param *crypto_info)
 {
 	strcpy(algorithm, "SNOW_F8_F9");
 	ref_test_vector.length =
-	    snow_enc_f8_f9_reference_length[crypto_info.test_set - 1];
+	    snow_enc_f8_f9_reference_length[crypto_info->test_set - 1];
 	ref_test_vector.plaintext =
-	    snow_enc_f8_f9_reference_plaintext[crypto_info.test_set - 1];
+	    snow_enc_f8_f9_reference_plaintext[crypto_info->test_set - 1];
 	ref_test_vector.ciphertext =
-	    snow_enc_f8_f9_reference_ciphertext[crypto_info.test_set - 1];
+	    snow_enc_f8_f9_reference_ciphertext[crypto_info->test_set - 1];
 }
 
 /* Function pointer to reference test vector for suported algos */
-void (*init_ref_test_vector[]) (struct test_param crypto_info) = {
+void (*init_ref_test_vector[]) (struct test_param *crypto_info) = {
 	    init_rtv_aes_cbc,
 	    init_rtv_tdes_cbc,
 	    init_rtv_snow_f8,
@@ -287,7 +289,7 @@ int prepare_test_frames(struct test_param *crypto_info)
 		crypto_info->test_set = 1;
 	}
 
-	init_ref_test_vector[crypto_info->algo - 1] (*crypto_info);
+	init_ref_test_vector[crypto_info->algo - 1] (crypto_info);
 
 	if (CIPHER == crypto_info->mode) {
 		strcpy(mode_type, "CIPHER");
@@ -1248,6 +1250,7 @@ int main(int argc, char *argv[])
 	struct test_cb crypto_cb;
 
 	ncpus = num_online_cpus;
+	memset(&crypto_info, 0, sizeof(struct test_param));
 
 	input.cmd_params = &g_cmd_params;
 	input.crypto_info = &crypto_info;

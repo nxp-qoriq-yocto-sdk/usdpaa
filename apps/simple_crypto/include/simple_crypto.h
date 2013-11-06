@@ -89,15 +89,15 @@ char mode_type[20];		/* string corresponding to integral value */
 char algorithm[20];		/* string corresponding to integral value */
 
 /* init reference test vector routines */
-void init_rtv_aes_cbc(struct test_param crypto_info);
-void init_rtv_tdes_cbc(struct test_param crypto_info);
-void init_rtv_snow_f8(struct test_param crypto_info);
-void init_rtv_snow_f9(struct test_param crypto_info);
-void init_rtv_kasumi_f8(struct test_param crypto_info);
-void init_rtv_kasumi_f9(struct test_param crypto_info);
-void init_rtv_crc(struct test_param crypto_info);
-void init_rtv_hmac_sha1(struct test_param crypto_info);
-void init_rtv_snow_f8_f9(struct test_param crypto_info);
+void init_rtv_aes_cbc(struct test_param *crypto_info);
+void init_rtv_tdes_cbc(struct test_param *crypto_info);
+void init_rtv_snow_f8(struct test_param *crypto_info);
+void init_rtv_snow_f9(struct test_param *crypto_info);
+void init_rtv_kasumi_f8(struct test_param *crypto_info);
+void init_rtv_kasumi_f9(struct test_param *crypto_info);
+void init_rtv_crc(struct test_param *crypto_info);
+void init_rtv_hmac_sha1(struct test_param *crypto_info);
+void init_rtv_snow_f8_f9(struct test_param *crypto_info);
 
 /* prepare test buffers, fqs, fds routines */
 int prepare_test_frames(struct test_param *crypto_info);
