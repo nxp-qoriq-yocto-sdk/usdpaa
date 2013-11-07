@@ -83,10 +83,16 @@ static int ppam_interface_init(struct ppam_interface *p,
 			       unsigned int num_tx_fqs,
 			       uint32_t *flags __maybe_unused)
 {
+	struct ppac_interface *c_if = container_of(p, struct ppac_interface,
+						   ppam_data);
+
 	p->num_tx_fqids = num_tx_fqs;
 	p->tx_fqids = malloc(p->num_tx_fqids * sizeof(*p->tx_fqids));
 	if (!p->tx_fqids)
 		return -ENOMEM;
+
+	if (ppac_interface_type(c_if) == fman_offline)
+		*flags = PPAM_TX_FQ_NO_BUF_DEALLOC;
 	return 0;
 }
 static void ppam_interface_finish(struct ppam_interface *p)
