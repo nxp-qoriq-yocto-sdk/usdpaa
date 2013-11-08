@@ -47,6 +47,7 @@
 #include "srtp.h"
 #include "wifi.h"
 #include "rsa.h"
+#include "tls.h"
 
 /* prepare test buffers, fqs, fds routines */
 int prepare_test_frames(struct test_param *crypto_info);
@@ -67,7 +68,8 @@ struct protocol_info *(*register_protocol[])(void) = {
 		register_pdcp,
 		register_srtp,
 		register_wifi,
-		register_rsa
+		register_rsa,
+		register_tls
 };
 
 /* helper routines */

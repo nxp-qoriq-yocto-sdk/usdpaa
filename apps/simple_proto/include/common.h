@@ -37,12 +37,18 @@
 
 #include <usdpaa/fsl_qman.h>
 
+#define AES_BLOCK_SIZE		16
+#define SHA1_DIGEST_SIZE	20
+
 /**< Integer number of 32-bit items */
 #define NO_OF_WORDS(bitlen) \
 	(((bitlen) >> 5) + ((31 + ((bitlen) & 0x1F)) >> 5))
 
 /**< Integer number of 8-bit items */
 #define NO_OF_BYTES(bitlen) (((bitlen) >> 3) + !!((bitlen) & 0x7))
+
+/**< Integer number of bits in given bytes  */
+#define NO_OF_BITS(bytelen)	(bytelen << 3)
 
 /**
  * @struct	runtime_param
