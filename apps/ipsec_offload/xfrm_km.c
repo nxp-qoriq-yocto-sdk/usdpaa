@@ -207,7 +207,7 @@ static int offload_sa(int dpa_ipsec_id,
 	hexdump(sa_params->crypto_params.auth_key,
 		sa_params->crypto_params.auth_key_len);
 	if (dir != XFRM_POLICY_OUT && dir != XFRM_POLICY_IN)
-		return -1;
+		return -EBADMSG;
 	if (sa_params->crypto_params.alg_suite < 0) {
 		TRACE("Invalid algo suite selector %d\n",
 			sa_params->crypto_params.alg_suite);
@@ -1260,7 +1260,7 @@ static int process_new_policy(const struct nlmsghdr	*nh,
 
 	/* we handle only in/out policies */
 	if (pol_info->dir != XFRM_POLICY_OUT && pol_info->dir != XFRM_POLICY_IN)
-		return -1;
+		return -EBADMSG;
 
 	if (nh->nlmsg_type == XFRM_MSG_UPDPOLICY) {
 		/* search policy on all dpa_sa lists */
@@ -1337,7 +1337,7 @@ static int process_del_policy(const struct nlmsghdr *nh)
 
 	/* we handle only in/out policies */
 	if (pol_id->dir != XFRM_POLICY_OUT && pol_id->dir != XFRM_POLICY_IN)
-		return -1;
+		return -EBADMSG;
 
 	/* search policy on all dpa_sa lists */
 	dpa_pol = find_dpa_pol_bysel(&pol_id->sel, &sa_id, pol_id->dir);
@@ -1518,7 +1518,7 @@ static void *xfrm_msg_loop(void *data)
 			ret = resolve_xfrm_notif(nh, len, policy_miss_fqid,
 					    post_flow_id_td, dpa_ipsec_id);
 
-			if (ret) {
+			if (ret != 0 && ret != -EBADMSG) {
 				fprintf(stderr, "Resolve xfrm notification"
 					" error %d\n", ret);
 				break;
