@@ -173,16 +173,15 @@ static int test_enc_match_cb(int fd_ind, uint8_t *enc_buf,
 }
 
 /*
- * NOTE: This function is called iff SEC ERA is 2 AND HFN override
- * is enabled.
+ * NOTE: This function is called iff HFN override is enabled.
  */
 static int test_dec_match_cb(int fd_ind, uint8_t *dec_buf,
 			     struct test_param *crypto_info)
 {
 	struct protocol_info *proto = crypto_info->proto;
 	struct pdcp_ref_vector_s *ref_test_vector = proto->proto_vector;
-	uint8_t plain_data = 0;
-	int i;
+	static uint8_t plain_data = 0;
+	int i = rta_sec_era > RTA_SEC_ERA_2 ? 0 : PDCP_P4080REV2_HFN_OV_BUFLEN;
 
 	if (CIPHER == crypto_info->mode)
 		return  test_vector_match(
@@ -191,7 +190,7 @@ static int test_dec_match_cb(int fd_ind, uint8_t *dec_buf,
 				  (uint32_t *)ref_test_vector->plaintext,
 				  ref_test_vector->length);
 	else
-		for (i = PDCP_P4080REV2_HFN_OV_BUFLEN;
+		for (;
 		     i < crypto_info->buf_size;
 		     i++)
 			if (dec_buf[i] != plain_data++)
@@ -670,10 +669,9 @@ static int validate_opts(uint32_t g_proto_params,
 		 * For ERA2, the in/out frames are not identical with the test
 		 * vector. Override the callbacks here.
 		 */
-		if (rta_sec_era == RTA_SEC_ERA_2) {
+		if (rta_sec_era == RTA_SEC_ERA_2)
 			proto->test_enc_match_cb = test_enc_match_cb;
-			proto->test_dec_match_cb = test_dec_match_cb;
-		}
+		proto->test_dec_match_cb = test_dec_match_cb;
 	} else {
 		pdcp_params->hfn_ov_en = 0;
 	}
