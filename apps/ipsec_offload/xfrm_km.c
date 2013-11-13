@@ -1035,7 +1035,7 @@ static inline int alloc_ipsec_algs(struct dpa_sa		*dpa_sa,
 					sizeof(uint8_t));
 	if (!dpa_sa->sa_params.crypto_params.cipher_key) {
 		fprintf(stderr, "Cannot allocate memory for cipher_key\n");
-		free(dpa_sa->sa_params.crypto_params.cipher_key);
+		free(dpa_sa->sa_params.crypto_params.auth_key);
 		free(dpa_sa);
 		return -ENOMEM;
 	}
