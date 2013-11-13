@@ -208,11 +208,6 @@ static int offload_sa(int dpa_ipsec_id,
 		sa_params->crypto_params.auth_key_len);
 	if (dir != XFRM_POLICY_OUT && dir != XFRM_POLICY_IN)
 		return -EBADMSG;
-	if (sa_params->crypto_params.alg_suite < 0) {
-		TRACE("Invalid algo suite selector %d\n",
-			sa_params->crypto_params.alg_suite);
-		return -EINVAL;
-	}
 
 	sa_params->spi = sa_info->id.spi;
 	sa_params->sa_bpid = IF_BPID;
@@ -779,6 +774,7 @@ int nl_parse_attrs(struct nlattr *na, int len,
 	struct xfrm_algo *cipher_alg = NULL;
 	struct xfrm_algo *auth_alg = NULL;
 	struct xfrm_encap_tmpl *data = NULL;
+	int alg_id = -1;
 
 	while (NLA_OK(na, len)) {
 		switch (na->nla_type) {
@@ -798,9 +794,17 @@ int nl_parse_attrs(struct nlattr *na, int len,
 	}
 
 	if (cipher_alg && auth_alg) {
-		sa_params->crypto_params.alg_suite =
-					  get_algs_by_name(cipher_alg->alg_name,
-							   auth_alg->alg_name);
+		alg_id = get_algs_by_name(cipher_alg->alg_name,
+					  auth_alg->alg_name);
+		if (alg_id < 0) {
+			fprintf(stderr, "%s:%d: Error getting algorithm. "
+				"(cipher name: %s auth name: %s)\n",
+				__func__, __LINE__, cipher_alg->alg_name,
+				auth_alg->alg_name);
+			return -EINVAL;
+		}
+
+		sa_params->crypto_params.alg_suite = alg_id;
 		sa_params->crypto_params.auth_key_len = (uint8_t)
 						    (auth_alg->alg_key_len / 8);
 		sa_params->crypto_params.auth_key = (uint8_t *)
@@ -814,7 +818,7 @@ int nl_parse_attrs(struct nlattr *na, int len,
 			"data. auth_addr: %p cipher_addr: %p\n",
 			__func__, __LINE__, auth_alg->alg_key,
 			cipher_alg->alg_key);
-		return -1;
+		return -EINVAL;
 	}
 
 	if (unlikely(len))
