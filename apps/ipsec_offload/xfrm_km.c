@@ -1191,8 +1191,10 @@ static int process_del_sa(const struct nlmsghdr *nh)
 	if (ret != -EINPROGRESS && ret != 0) {
 		fprintf(stderr, "Failed to remove dpa_sa, ret %d\n", ret);
 		return ret;
-	} else if (ret == -EINPROGRESS && dpa_sa->parent_sa_id !=
-		  DPA_OFFLD_INVALID_OBJECT_ID) {
+	}
+
+	if (ret == -EINPROGRESS && dpa_sa->parent_sa_id !=
+	     DPA_OFFLD_INVALID_OBJECT_ID) {
 		ret = dpa_ipsec_remove_sa(dpa_sa->parent_sa_id);
 		/*
 		 * try to remove parent sa if the sa
@@ -1205,8 +1207,10 @@ static int process_del_sa(const struct nlmsghdr *nh)
 				" %d\n", __func__, __LINE__,
 				dpa_sa->parent_sa_id, ret);
 			return ret;
-		} else
-			ret = dpa_ipsec_remove_sa(sa_id);
+		}
+
+		ret = dpa_ipsec_remove_sa(sa_id);
+
 		if (ret) {
 			fprintf(stderr, "Failed to remove dpa_sa, ret"
 				"%d\n", ret);
