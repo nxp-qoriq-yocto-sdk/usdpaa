@@ -1124,6 +1124,7 @@ static int process_notif_sa(const struct nlmsghdr	*nh, int len,
 		dpa_sa->encap = encap;
 		dpa_sa->in_sa_id = DPA_OFFLD_INVALID_OBJECT_ID;
 		dpa_sa->out_sa_id = DPA_OFFLD_INVALID_OBJECT_ID;
+		dpa_sa->parent_sa_id = DPA_OFFLD_INVALID_OBJECT_ID;
 		INIT_LIST_HEAD(&dpa_sa->list);
 		INIT_LIST_HEAD(&dpa_sa->in_pols);
 		INIT_LIST_HEAD(&dpa_sa->out_pols);
