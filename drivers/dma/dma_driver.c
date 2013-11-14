@@ -33,82 +33,63 @@
 #include <internal/of.h>
 #include <usdpaa/of.h>
 #include "dma_driver.h"
-#include <error.h>
 
 /* This function maps DMA registers by channels */
 int fsl_dma_chan_init(struct dma_ch **dma_ch, uint8_t dma_id, uint8_t ch_id)
 {
 	int err = 0;
 	struct dma_ch *dma_uio;
-	char dma_uio_name[PATH_MAX];
-	const struct device_node *dma_node, *child;
-	const uint32_t *cell_index;
-	const uint32_t *regs_addr;
-	uint64_t phys_addr = 0;
-	uint64_t regs_size;
+	char dma_uio_name[PATH_MAX], dma_uio_path[PATH_MAX];
+	char dma_sys_path[PATH_MAX], *uio_name;
+	char dma_sys_buff[16];
+	int dma_uio_fd;
+	uint32_t regs_size;
 	uint32_t offset;
-	size_t lenp;
+	size_t len;
 
-	for_each_compatible_node(dma_node, NULL, "fsl,eloplus-dma") {
-		cell_index = (typeof(cell_index))of_get_property(dma_node,
-							"cell-index", &lenp);
-		if (!cell_index) {
-			err = -ENODEV;
-			error(0, err, "%s(): cell-index", __func__);
-			return err;
-		}
-
-		if (*cell_index != dma_id)
-			continue;
-
-		/* Get DMA channel node register physical address */
-		for_each_child_node(dma_node, child) {
-			cell_index = of_get_property(child, "cell-index", NULL);
-			if (!cell_index) {
-				err = -ENODEV;
-				error(0, -err, "%s(): of_get_property()",
-				      __func__);
-				return err;
-			}
-
-			if (*cell_index == ch_id) {
-				regs_addr = of_get_address(child, 0,
-							   &regs_size, NULL);
-				if (!regs_addr) {
-					err = -ENODEV;
-					error(0, -err, "%s(): of_get_address()",
-					      __func__);
-					return err;
-				}
-				phys_addr = of_translate_address(child,
-								 regs_addr);
-				if (!phys_addr) {
-					err = -ENODEV;
-					error(0, -err,
-					      "%s(): of_translate_address()",
-					      __func__);
-					return err;
-				}
-				break;
-			} else
-				continue;
-		}
-
-		break;
+	/* DMA uio name */
+	snprintf(dma_uio_name, PATH_MAX - 1, "/dev/dma-uio%d-%d",
+		 dma_id, ch_id);
+	len = readlink(dma_uio_name, dma_uio_path, PATH_MAX);
+	if (len < 0) {
+		error(0, errno, "No dma_uio_path for device\n");
+		return -errno;
 	}
+	dma_uio_path[len] = 0;
+	uio_name = basename(dma_uio_path);
 
-	/* Calculate DMA channel offset in a page */
-	offset =  phys_addr & PAGE_MASK;
+	snprintf(dma_sys_path, PATH_MAX - 1,
+		 "/sys/class/uio/%s/maps/map0/offset",
+		 uio_name);
+	dma_uio_fd = open(dma_sys_path, O_RDONLY);
+	if (dma_uio_fd < 0) {
+		error(0, errno, "Failed to open %s\n", dma_sys_path);
+		return -errno;
+	}
+	read(dma_uio_fd, dma_sys_buff, sizeof(dma_sys_buff));
+	offset = (uint32_t)strtoul(dma_sys_buff, NULL, 0);
+	close(dma_uio_fd);
+
+	snprintf(dma_sys_path, PATH_MAX - 1,
+		 "/sys/class/uio/%s/maps/map0/size",
+		 uio_name);
+	dma_uio_fd = open(dma_sys_path, O_RDONLY);
+	if (dma_uio_fd < 0) {
+		error(0, errno, "Failed to open %s\n", dma_sys_path);
+		return 0;
+	}
+	read(dma_uio_fd, dma_sys_buff, sizeof(dma_sys_buff));
+	regs_size = (uint32_t)strtoul(dma_sys_buff, NULL, 0);
+	close(dma_uio_fd);
+
+	pr_debug("Get %s: offset = 0x%x; regs_size = 0x%x\n",
+		 dma_uio_name, offset, regs_size);
 
 	dma_uio = (typeof(dma_uio))malloc(sizeof(struct dma_ch));
 	if (!dma_uio)
 		return -errno;
 
 	memset(dma_uio, 0, sizeof(*dma_uio));
-
-	/* DMA uio name is dma-uio[0~1]-[0~4] */
-	snprintf(dma_uio_name, PATH_MAX - 1, "/dev/dma-uio%d-%d",
-			dma_id, ch_id);
 
 	dma_uio->fd = open(dma_uio_name, O_RDWR);
 	if (dma_uio->fd < 0) {
