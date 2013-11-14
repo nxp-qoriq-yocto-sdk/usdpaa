@@ -1,4 +1,4 @@
-# Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
+# Copyright (c) 2013 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -29,10 +29,6 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = common crypto fifo_queue
+lib_LIBRARIES = fifo_queue
 
-lib_LIBRARIES = usdpaa_syscfg
-
-AM_CFLAGS := $(LIBXML2_CFLAGS)
-
-usdpaa_syscfg_SOURCES := fmc_netcfg_parser.c usdpaa_netcfg_layer.c
+fifo_queue_SOURCES := fifo_queue.c
