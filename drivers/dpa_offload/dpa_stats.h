@@ -37,6 +37,7 @@
 #define __DPA_STATS_H
 
 #include <pthread.h>
+#include "fifo_queue.h"
 
 
 #define MAX_NUM_OF_STATS	23
@@ -44,21 +45,18 @@
 #define MAX_NUM_OF_MEMBERS	DPA_STATS_MAX_NUM_OF_CLASS_MEMBERS
 #define DPA_STATS_US_CNT	0x80000000
 #define MAX_NUM_OF_THREADS	5
-
+#define REQUESTS_THRESHOLD	50
 
 /* DPA Stats control block */
 struct dpa_stats {
 	struct dpa_stats_params config;	/* Configuration parameters */
 	struct dpa_stats_cnt_cb *cnts_cb; /* Array of counters control blocks */
-	struct list_head async_req_pool; /* List of free async request nodes */
 	struct list_head async_ks_reqs; /* List of 'in-process' async requests*/
-	struct list_head req_pool; /* List of free request nodes */
-	struct list_head async_us_reqs;
-		/* List of request that need to be treated in 'user-space' */
+	struct fifo_q req_queue; /* Available requests FIFO */
+	struct fifo_q async_us_req_queue; /* User space requests FIFO */
 	void *storage_area; /* Storage area provided by application */
 	bool *sched_cnt_ids; /* Counters scheduled for a retrieve operation */
 	pthread_mutex_t sched_cnt_lock;
-	struct dpa_stats_async_req *async_req;/* Asynchronous requests */
 	struct dpa_stats_req *req; /* Array of counters requests */
 };
 
@@ -83,12 +81,6 @@ struct dpa_stats_req {
 	uint32_t cnts_num; /* Number of counters written by this request */
 	enum req_type type; /* Type of request */
 	struct list_head node; /* Pointer to other requests in the current set*/
-};
-
-/* DPA Stats asynchronous request control block */
-struct dpa_stats_async_req {
-	struct list_head node; /* Pointer to other async requests in the set */
-	struct dpa_stats_req *req; /* Pointer to a request structure */
 };
 
 /* DPA Stats - statistics information */

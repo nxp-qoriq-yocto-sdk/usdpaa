@@ -31,4 +31,6 @@
 
 lib_LIBRARIES = usdpaa_dpa_offload
 
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/lib/fifo_queue
+
 usdpaa_dpa_offload_SOURCES := dpa_classifier.c dpa_ipsec.c dpa_ipsec_algs.c dpa_stats.c

@@ -47,4 +47,5 @@ classifier_demo_LDFLAGS := $(LIBXML2_LDFLAGS) $(LIBEDIT_LDFLAGS) \
 			   -T $(TOP_LEVEL)/apps/ppac/ppac.lds
 
 classifier_demo_LDADD := usdpaa_dpa_offload usdpaa_qbman usdpaa_of usdpaa_dma_mem \
-			 usdpaa_ppac usdpaa_fman usdpaa_syscfg usdpaa_process
+			 usdpaa_ppac usdpaa_fman usdpaa_syscfg usdpaa_process \
+			 fifo_queue

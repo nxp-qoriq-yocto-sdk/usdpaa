@@ -49,7 +49,8 @@ ipsec_offload_SOURCES := ipsec_offload.c pcd_init.c \
 			route_utils.c stats_init.c
 
 ipsec_offload_LDADD := usdpaa_ppac usdpaa_syscfg usdpaa_qbman usdpaa_fman \
-		      usdpaa_dma_mem usdpaa_of usdpaa_process usdpaa_dpa_offload
+		      usdpaa_dma_mem usdpaa_of usdpaa_process \
+		      usdpaa_dpa_offload fifo_queue
 
 ipsec_offload_LDFLAGS := $(LIBXML2_LDFLAGS) $(LIBEDIT_LDFLAGS) \
 			$(FMC_LDFLAGS) $(FMLIB_LDFLAGS) \

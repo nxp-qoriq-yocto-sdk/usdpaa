@@ -47,4 +47,5 @@ fragmentation_demo_LDFLAGS := $(LIBXML2_LDFLAGS) $(LIBEDIT_LDFLAGS) \
 			      -T $(TOP_LEVEL)/apps/ppac/ppac.lds
 
 fragmentation_demo_LDADD := usdpaa_ppac usdpaa_syscfg usdpaa_qbman usdpaa_fman \
-			    usdpaa_dma_mem usdpaa_of usdpaa_process usdpaa_dpa_offload
+			    usdpaa_dma_mem usdpaa_of usdpaa_process \
+			    usdpaa_dpa_offload fifo_queue
