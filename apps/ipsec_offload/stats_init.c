@@ -294,7 +294,18 @@ int show_eth_stats(int argc, char *argv[])
 	port_type = atoi(argv[2]);
 
 	__if = get_fif(app_conf.fm, port_idx, port_type);
+
+	if (!__if) {
+		printf("\nInvalid port id or type.\n");
+		return -EINVAL;
+	}
+
 	ppac_if = get_ppac_if(__if);
+	if (!ppac_if) {
+		printf("\n.ppac interface could not be found.\n");
+		return -EINVAL;
+	}
+
 	req_params.cnts_ids = &ppac_if->ppam_data.stats_cnt;
 	req_params.cnts_ids_len = 1;
 	req_params.reset_cnts = false;
