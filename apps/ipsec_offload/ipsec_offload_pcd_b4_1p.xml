@@ -43,7 +43,7 @@
 
 	<manipulations>
 		 <reassembly name="ib_post_reass">
-		      <sgBpid>5</sgBpid>
+		      <sgBpid>16</sgBpid>
 		      <maxInProcess>1024</maxInProcess>
 		      <timeOutMode>fragment</timeOutMode>
 		      <fqidForTimeOutFrames>0x64</fqidForTimeOutFrames>
