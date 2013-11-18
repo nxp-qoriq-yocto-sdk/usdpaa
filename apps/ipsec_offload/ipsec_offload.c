@@ -434,7 +434,6 @@ static inline void ppam_tx_confirm_cb(struct ppam_tx_confirm *p,
 static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_interface *_if,
 			     unsigned idx, struct qm_fqd_stashing *stash_opts)
 {
-	int fman_idx, mac_idx;
 	struct ppac_interface *ppac_if;
 	static struct ppac_interface *ib_oh_if,
 			*ob_oh_if, *eth_if;
@@ -443,25 +442,17 @@ static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_interface *_if,
 	/* loop over ppac interfaces and get the ports */
 	if (!ib_oh_if && !ob_oh_if && !eth_if) {
 		list_for_each_entry(ppac_if, &ifs, node) {
-			fman_idx = ppac_if->port_cfg->fman_if->fman_idx;
-			mac_idx = ppac_if->port_cfg->fman_if->mac_idx;
-
 			/* offline ports */
-			if (ppac_if->port_cfg->fman_if->mac_type ==
-				fman_offline) {
-				if (fman_idx == app_conf.fm &&
-				    mac_idx == app_conf.ib_oh->mac_idx)
-					ib_oh_if = ppac_if;
-				else if (fman_idx == app_conf.fm &&
-					 mac_idx == app_conf.ob_oh_pre->mac_idx)
-					ob_oh_if = ppac_if;
-			}
+			if (ppac_if->port_cfg->fman_if ==
+			    app_conf.ib_oh)
+				ib_oh_if = ppac_if;
+			else if (ppac_if->port_cfg->fman_if ==
+				 app_conf.ob_oh_pre)
+				ob_oh_if = ppac_if;
 
 			/* ethernet port */
-			if (ppac_if->port_cfg->fman_if->mac_type !=
-				fman_offline &&
-				ppac_if->port_cfg->fman_if->mac_idx ==
-				app_conf.ob_eth->mac_idx)
+			if (ppac_if->port_cfg->fman_if ==
+			    app_conf.ob_eth)
 				eth_if = ppac_if;
 		}
 	}
