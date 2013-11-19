@@ -752,9 +752,9 @@ static inline int flush_dpa_policies(void)
 			dpa_pol = (struct dpa_pol *)p;
 			assert(dpa_sa->out_sa_id !=
 			      DPA_OFFLD_INVALID_OBJECT_ID);
-			dpa_pol_free_manip(dpa_pol);
 			ret = dpa_ipsec_sa_remove_policy(dpa_sa->out_sa_id,
 				&dpa_pol->pol_params);
+			dpa_pol_free_manip(dpa_pol);
 			list_del(&dpa_pol->list);
 			free(dpa_pol);
 		}
@@ -1364,13 +1364,14 @@ static int process_del_policy(const struct nlmsghdr *nh)
 
 	assert(sa_id);
 	trace_dpa_policy(dpa_pol);
-	dpa_pol_free_manip(dpa_pol);
 	ret = dpa_ipsec_sa_remove_policy(*sa_id, &dpa_pol->pol_params);
 	if (ret < 0) {
 		fprintf(stderr, "Failed to remove policy index %d sa_id"
 			" %d\n", dpa_pol->xfrm_pol_info.index, *sa_id);
 		return ret;
 	}
+
+	dpa_pol_free_manip(dpa_pol);
 
 out_del_policy:
 	list_del(&dpa_pol->list);
