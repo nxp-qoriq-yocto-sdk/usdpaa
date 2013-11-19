@@ -34,6 +34,7 @@
 #include "ppam_if.h"
 #include <ppac_interface.h>
 #include <usdpaa/fman.h>
+#include <fsl_sec/sec.h>
 
 #include <inttypes.h>
 #include <netinet/if_ether.h>
@@ -365,6 +366,10 @@ static inline void ppam_rx_error_cb(struct ppam_rx_error *p,
 				    const struct qm_dqrr_entry *dqrr)
 {
 	const struct qm_fd *fd = &dqrr->fd;
+	/* don't drop BPDERR SEC errored fds */
+	if (fd->status & SEC_QI_ERR_MASK == SEC_QI_ERR_BITS &&
+	    fd->status & SEC_QI_STA_MASK == SEC_QI_ERR_BPD)
+		return;
 	ppac_drop_frame(fd);
 }
 

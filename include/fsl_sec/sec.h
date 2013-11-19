@@ -34,6 +34,15 @@
 #include <internal/of.h>
 
 /**
+ * SEC QI error codes
+ *
+ */
+#define SEC_QI_ERR_BITS         0x50000000
+#define SEC_QI_ERR_MASK         0xff000000
+#define SEC_QI_STA_MASK         0x000000ff
+#define SEC_QI_ERR_BPD          0x00000008
+
+/**
  * @brief	Reads the SEC ERA from DTS by using the of library
  * @returns	-1 if the SEC ERA could not be read (i.e. the property does
  *		not exist in DTS), the SEC ERA otherwise
