@@ -430,6 +430,7 @@ void ppac_interface_disable_shared_rx(const struct ppac_interface *i)
 void ppac_interface_finish(struct ppac_interface *i)
 {
 	int loop;
+	const struct fman_if *fif = i->port_cfg->fman_if;
 
 	/* Cleanup in the opposite order of ppac_interface_init() */
 	list_del(&i->node);
@@ -440,8 +441,9 @@ void ppac_interface_finish(struct ppac_interface *i)
 		return;
 	}
 
-	/* Offline ports don't have Tx Error or Confirm FQs */
-	if (ppac_interface_type(i) != fman_offline) {
+	/* Offline and shared-mac ports don't have Tx Error or Confirm FQs */
+	if (ppac_interface_type(i) != fman_offline &&
+	    fif->shared_mac_info.is_shared_mac != 1) {
 		ppam_tx_confirm_finish(&i->tx_confirm.s, &i->ppam_data);
 		teardown_fq(&i->tx_confirm.fq);
 		ppam_tx_error_finish(&i->tx_error.s, &i->ppam_data);
@@ -476,11 +478,21 @@ void ppac_interface_finish_rx(struct ppac_interface *i)
 	/* Cleanup in the opposite order of ppac_interface_init_rx() */
 	if (fif->shared_mac_info.is_shared_mac == 1)
 		ppac_interface_disable_shared_rx(i);
-	ppac_interface_disable_rx(i);
-	ppam_rx_default_finish(&i->rx_default[0].s, &i->ppam_data);
-	teardown_fq(&i->rx_default[0].fq);
-	ppam_rx_error_finish(&i->rx_error.s, &i->ppam_data);
-	teardown_fq(&i->rx_error.fq);
+	else
+		ppac_interface_disable_rx(i);
+
+	/* Cleanup if default Rx FQ is non-zero */
+	if (qman_fq_fqid(&i->rx_default[0].fq)) {
+		ppam_rx_default_finish(&i->rx_default[0].s, &i->ppam_data);
+		teardown_fq(&i->rx_default[0].fq);
+	}
+
+	/* In case of shared-mac, error FQ is owned by Linux */
+	if (fif->shared_mac_info.is_shared_mac != 1) {
+		ppam_rx_error_finish(&i->rx_error.s, &i->ppam_data);
+		teardown_fq(&i->rx_error.fq);
+	}
+
 	list_for_each_entry(pcd_range, &i->list, list) {
 		for (loop = 0; loop < pcd_range->count; loop++) {
 			ppam_rx_hash_finish(&pcd_range->rx_hash[loop].s,
