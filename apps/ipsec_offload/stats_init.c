@@ -108,8 +108,18 @@ int create_eth_stats_counter(struct fman_if *__if)
 	int err;
 
 	cnt_params.type = DPA_STATS_CNT_ETH;
+	if (__if->mac_type == fman_mac_10g) {
+		TRACE("create stats counter for 10G interface %d\n",
+		      __if->mac_idx);
+		cnt_params.eth_params.src.eth_id = DPA_STATS_ETH_10G_PORT0 +
+						__if->mac_idx;
+	} else if (__if->mac_type == fman_mac_1g) {
+		TRACE("create stats counter for 1G interface %d\n",
+		     __if->mac_idx);
+		cnt_params.eth_params.src.eth_id = __if->mac_idx;
+	}
+
 	cnt_params.eth_params.src.engine_id = app_conf.fm;
-	cnt_params.eth_params.src.eth_id = __if->mac_idx;
 	cnt_params.eth_params.cnt_sel = (DPA_STATS_CNT_ETH_ALL - 1) &
 		(~(DPA_STATS_CNT_ETH_IN_UNICAST_PKTS |
 		DPA_STATS_CNT_ETH_OUT_UNICAST_PKTS));
