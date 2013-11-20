@@ -45,7 +45,7 @@
 #define SRIO_SYS_ADDR		0x10000000	/* used for srio system addr */
 #define SRIO_WIN_SIZE		0x200000
 #define SRIO_INPUT_CMD_NUM	6
-#define SRIO_CMD_MIN_NUM	2
+#define SRIO_CMD_MIN_NUM	3
 #define SRIO_TEST_DATA_NUM	21
 #define SRIO_POOL_PORT_SECT_NUM	4
 #define SRIO_POOL_PORT_OFFSET\
@@ -53,7 +53,8 @@
 #define SRIO_POOL_SECT_SIZE	SRIO_WIN_SIZE
 #define SRIO_POOL_SIZE	0x1000000
 #define TEST_MAX_TIMES		50
-#define ATTR_CMD_NUM		7
+#define ATTR_CMD_MAX_NUM	7
+#define ATTR_CMD_MIN_NUM	5
 #define OP_CMD_NUM		8
 #define TEST_CMD_NUM		7
 #define DMA_TEST_CHAIN_NUM 6
@@ -322,7 +323,7 @@ static int attr_param_trans(int32_t cmd_num, char **cmd_in)
 	uint8_t rd_attr = 0;
 	uint8_t wr_attr = 0;
 
-	if (cmd_num > ATTR_CMD_NUM)
+	if (cmd_num > ATTR_CMD_MAX_NUM || cmd_num < ATTR_CMD_MIN_NUM)
 		return -EINVAL;
 
 	for (j = 0, k = 2; j < ARRAY_SIZE(attr_param); j++, k++) {
@@ -379,6 +380,9 @@ static int op_param_trans(int32_t cmd_num, char **cmd_in)
 {
 	int32_t i;
 	uint8_t port_id;
+
+	if (cmd_num != OP_CMD_NUM)
+		return -EINVAL;
 
 	for (i = 0; i < ARRAY_SIZE(op_param[0]) && op_param[0][i]; i++)
 		if (!strcmp(cmd_in[2], op_param[0][i]))
