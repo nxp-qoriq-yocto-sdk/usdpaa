@@ -37,6 +37,7 @@
 
 #include <usdpaa/fsl_qman.h>
 
+#define DES_BLOCK_SIZE		8
 #define AES_BLOCK_SIZE		16
 #define SHA1_DIGEST_SIZE	20
 
