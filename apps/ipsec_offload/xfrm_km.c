@@ -538,8 +538,13 @@ static inline int do_offload(int dpa_ipsec_id,
 				sa_id, &dpa_sa->encap);
 		if (ret < 0) {
 			fprintf(stderr, "offload_sa failed , ret %d\n", ret);
+			free(dpa_sa->sa_params.crypto_params.cipher_key);
+			free(dpa_sa->sa_params.crypto_params.auth_key);
+			list_del(&dpa_sa->list);
+			free(dpa_sa);
 			return ret;
 		}
+
 		TRACE("dpa sa id %d dir %s\n", *sa_id,
 			(dpa_pol->xfrm_pol_info.dir ==
 			XFRM_POLICY_OUT) ? "OUT" : "IN");
@@ -557,6 +562,8 @@ static inline int do_offload(int dpa_ipsec_id,
 	if (ret < 0) {
 		fprintf(stderr, "offload_policy failed, ret %d\n", ret);
 		dpa_pol_free_manip(dpa_pol);
+		list_del(&dpa_pol->list);
+		free(dpa_pol);
 		return ret;
 	}
 	trace_dpa_policy(dpa_pol);
@@ -1144,15 +1151,9 @@ static int process_notif_sa(const struct nlmsghdr	*nh, int len,
 
 			ret = do_offload(dpa_ipsec_id, sa_id, post_flow_id_td,
 					policy_miss_fqid, dpa_sa, dpa_pol);
-			if (ret < 0) {
-				free(dpa_pol);
-				free(dpa_sa->sa_params.
-				     crypto_params.cipher_key);
-				free(dpa_sa->sa_params.
-				     crypto_params.auth_key);
-				free(dpa_sa);
+			if (ret < 0)
 				return ret;
-			}
+
 			/* move policy from
 			pending to dpa_sa list */
 			list_del(&dpa_pol->list);
@@ -1320,13 +1321,8 @@ static int process_new_policy(const struct nlmsghdr	*nh,
 
 	ret = do_offload(dpa_ipsec_id, sa_id, post_flow_id_td, policy_miss_fqid,
 			dpa_sa, dpa_pol);
-	if (ret < 0) {
-		free(dpa_sa->sa_params.crypto_params.auth_key);
-		free(dpa_sa->sa_params.crypto_params.cipher_key);
-		free(dpa_sa);
-		free(dpa_pol);
+	if (ret < 0)
 		return ret;
-	}
 
 	list_add(&dpa_pol->list, pols);
 
