@@ -762,6 +762,7 @@ void ppam_finish(void)
 	stats_cleanup();
 	ipsec_offload_cleanup(dpa_ipsec_id);
 	fmc_cleanup();
+	cleanup_macless_config(app_conf.vipsec);
 	cleanup_macless_config(app_conf.vif);
 	cleanup_macless_config(app_conf.vof);
 	cleanup_buffer_pools();
