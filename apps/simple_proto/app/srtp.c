@@ -71,6 +71,54 @@ int init_ref_test_vector(struct test_param *crypto_info)
 	return 0;
 }
 
+static void set_enc_buf_cb(struct qm_fd *fd, uint8_t *buf,
+			  struct test_param *crypto_info)
+{
+	struct protocol_info *proto = crypto_info->proto;
+	struct srtp_ref_vector_s *ref_test_vector = proto->proto_vector;
+	static uint8_t plain_data;
+	int i;
+
+	if (CIPHER == crypto_info->mode) {
+		memcpy(buf, ref_test_vector->plaintext, crypto_info->buf_size);
+	} else {
+		/*
+		 * Packets computed by SEC need to be RTP aware.
+		 * For PERF mode, copy the RTP Header from the test vector.
+		 */
+		memcpy(buf, srtp_reference_plaintext[0], RTP_HEADER_LENGTH);
+		for (i = RTP_HEADER_LENGTH; i < crypto_info->buf_size; i++)
+			buf[i] = plain_data++;
+	}
+}
+
+static int test_dec_match_cb(int fd_ind, uint8_t *dec_buf,
+			    struct test_param *crypto_info)
+{
+	struct srtp_ref_vector_s *ref_test_vector =
+				crypto_info->proto->proto_vector;
+	static uint8_t plain_data;
+	int i;
+
+	if (CIPHER == crypto_info->mode) {
+		if ((!fd_ind) &&
+		    (test_vector_match((uint32_t *)dec_buf,
+				       (uint32_t *)ref_test_vector->plaintext,
+				       ref_test_vector->length) != 0))
+			return -1;
+	} else {
+		if (memcmp(dec_buf,
+			   srtp_reference_plaintext[0],
+			   RTP_HEADER_LENGTH))
+			return -1;
+		for (i = RTP_HEADER_LENGTH; i < crypto_info->buf_size; i++)
+			if (dec_buf[i] != plain_data++)
+				return -1;
+	}
+
+	return 0;
+}
+
 static void *create_descriptor(bool mode, void *params)
 {
 	struct test_param *crypto_info = (struct test_param *)params;
@@ -205,6 +253,8 @@ struct protocol_info *register_srtp(void)
 	SAFE_STRNCPY(proto_info->name, "SRTP", sizeof(proto_info->name));
 	proto_info->unregister = unregister_srtp;
 	proto_info->init_ref_test_vector = init_ref_test_vector;
+	proto_info->set_enc_buf_cb = set_enc_buf_cb;
+	proto_info->test_dec_match_cb = test_dec_match_cb;
 	proto_info->setup_sec_descriptor = create_descriptor;
 	proto_info->get_buf_size = get_buf_size;
 	proto_info->set_buf_size = set_buf_size;

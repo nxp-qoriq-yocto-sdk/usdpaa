@@ -41,6 +41,7 @@
 #define SRTP_AUTH_KEY_SIZE	40
 #define SRTP_CIPHER_KEY_SIZE	16
 #define SRTP_MAX_BUF_SIZE	130
+#define RTP_HEADER_LENGTH	4
 
 /**
  * Structure which defines a SRTP test vector.
