@@ -851,6 +851,13 @@ static int ppam_interface_init(struct ppam_interface *p,
 
 	eth_setup(p);
 
+	if (fif->mac_type == fman_mac_1g)
+		printf("Configured 1G port @ FMAN:%d, MAC:%d as IF_IDX:%d\n",
+			fif->fman_idx, fif->mac_idx, p->ifnum);
+	if (fif->mac_type == fman_mac_10g)
+		printf("Configured 10G port @ FMAN:%d, MAC:%d as IF_IDX:%d\n",
+			fif->fman_idx, fif->mac_idx, p->ifnum);
+
 	return 0;
 }
 static void ppam_interface_finish(struct ppam_interface *p)
