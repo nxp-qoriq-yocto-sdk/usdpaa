@@ -74,6 +74,7 @@ board2cpu()
                [pP]5020*-64b) echo 64e5500;;
                [pP]5020*) echo e5500;;
                [pP]5040*-64b) echo 64e5500;;
+               [pP]5040*) echo e5500;;
                [bB]4860*-64b) echo 64e6500;;
                [bB]4860*) echo e6500;;
                [tT]4240*-64b) echo 64e6500;;
@@ -91,7 +92,7 @@ do
 	case $flags in
 		m)
 			case $OPTARG in
-				p1023ds | p2041rdb | p3041ds | p4080ds | p5020ds | p5020ds-64b | p5040ds-64b | b4860qds | b4860qds-64b | t4240qds | t4240qds-64b | t2080qds | t2080qds-64b)
+				p1023ds | p2041rdb | p3041ds | p4080ds | p5020ds | p5020ds-64b | p5040ds | p5040ds-64b | b4860qds | b4860qds-64b | t4240qds | t4240qds-64b | t2080qds | t2080qds-64b)
 					board=$OPTARG
 					;;
 				*)
