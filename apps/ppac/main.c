@@ -790,7 +790,7 @@ static void *worker_fn(void *__worker)
 {
 	struct worker *worker = __worker;
 	cpu_set_t cpuset;
-	int s;
+	int s, ret;
 	int calm_down = 16, slowpoll = 0;
 #ifdef PPAC_IDLE_IRQ
 	int fd_qman, fd_bman, nfds;
@@ -913,7 +913,9 @@ static void *worker_fn(void *__worker)
 #endif
 		/* non-IRQ mode */
 		if (!(slowpoll--)) {
-			if (qman_poll_slow() || bman_poll_slow()) {
+			ret = qman_poll_slow();
+			ret |= bman_poll_slow();
+			if (ret) {
 				slowpoll = WORKER_SLOWPOLL_BUSY;
 #ifdef PPAC_IDLE_IRQ
 				fastpoll = 0;
