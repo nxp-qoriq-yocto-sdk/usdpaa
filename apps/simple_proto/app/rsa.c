@@ -39,9 +39,9 @@ static void unregister_rsa(struct protocol_info *);
 struct argp_option rsa_options[] = {
 	{"form", 'b', "FORM",  0,
 	 "Select RSA Decrypt Private Key form:"
-	 "\n\t 1 = Form 1"
-	 "\n\t 2 = Form 2 (not supported)"
-	 "\n\t 3 = Form 3 (not supported)"
+	 "\n\t 1 = Form 1 (default)"
+	 "\n\t 2 = Form 2"
+	 "\n\t 3 = Form 3"
 	 "\n"},
 	{0}
 };
@@ -54,101 +54,360 @@ static struct argp rsa_argp = {
 static struct argp_child argp_children = {
 		&rsa_argp, 0, "RSA protocol options", 4};
 
-int init_rtv_rsa_decrypt_form1(struct test_param *crypto_info)
+static void free_rsa_rtv(struct rsa_ref_vector_s *rtv)
+{
+	if (rtv->f)
+		__dma_mem_free(rtv->f);
+	if (rtv->g)
+		__dma_mem_free(rtv->g);
+	if (rtv->e)
+		__dma_mem_free(rtv->e);
+	if (rtv->n)
+		__dma_mem_free(rtv->n);
+	if (rtv->d)
+		__dma_mem_free(rtv->d);
+	if (rtv->c)
+		__dma_mem_free(rtv->c);
+	if (rtv->p)
+		__dma_mem_free(rtv->p);
+	if (rtv->q)
+		__dma_mem_free(rtv->q);
+	if (rtv->dp)
+		__dma_mem_free(rtv->dp);
+	if (rtv->dq)
+		__dma_mem_free(rtv->dq);
+	if (rtv->tmp1)
+		__dma_mem_free(rtv->tmp1);
+	if (rtv->tmp2)
+		__dma_mem_free(rtv->tmp2);
+	free(rtv->e_pdb);
+	free(rtv->d_pdb);
+}
+
+static int init_rsa_enc_pdb(struct test_param *crypto_info, int mode)
 {
 	struct protocol_info *proto = crypto_info->proto;
-	struct rsa_ref_vector_s *ref_test_vector = proto->proto_vector;
+	struct rsa_ref_vector_s *rtv = proto->proto_vector;
 
-	ref_test_vector->d_len =
-		rsa_ref_private_exp_len[crypto_info->test_set - 1];
-
-	ref_test_vector->n_ref =
-		__dma_mem_memalign(L1_CACHE_BYTES, ref_test_vector->n_len);
-	if (!ref_test_vector->n_ref)
+	memcpy(rtv->f, rsa_ref_input[crypto_info->test_set - 1], rtv->f_len);
+	rtv->n = __dma_mem_memalign(L1_CACHE_BYTES, rtv->n_len);
+	if (!rtv->n)
 		return -ENOMEM;
-	memcpy(ref_test_vector->n_ref,
-	       rsa_ref_modulus[crypto_info->test_set - 1],
-	       ref_test_vector->n_len);
-
-	ref_test_vector->d_ref =
-		__dma_mem_memalign(L1_CACHE_BYTES, ref_test_vector->d_len);
-	if (!ref_test_vector->d_ref)
+	memcpy(rtv->n, rsa_ref_modulus[crypto_info->test_set - 1], rtv->n_len);
+	rtv->e = __dma_mem_memalign(L1_CACHE_BYTES, rtv->e_len);
+	if (!rtv->e)
 		return -ENOMEM;
-	memcpy(ref_test_vector->d_ref,
-	       rsa_ref_private_exponent[crypto_info->test_set - 1],
-	       ref_test_vector->d_len);
+	memcpy(rtv->e, rsa_ref_pub_exp[crypto_info->test_set - 1], rtv->e_len);
+
+	if (mode == RSA_MODE_64B) {
+		struct rsa_encrypt_pdb_64b rsa_enc;
+		rtv->e_pdb = malloc(sizeof(struct rsa_encrypt_pdb_64b));
+		if (!rtv->e_pdb)
+			return -ENOMEM;
+		rsa_enc.header = (rtv->sgf << RSA_ENC_SGF_SHIFT) |
+		      (rtv->e_len << RSA_ENC_E_LEN_SHIFT) |
+		      (rtv->n_len);
+		rsa_enc.f_ref_high = high_32b(__dma_mem_vtop(rtv->f));
+		rsa_enc.f_ref_low = low_32b(__dma_mem_vtop(rtv->f));
+		rsa_enc.g_ref_high = high_32b(__dma_mem_vtop(rtv->g));
+		rsa_enc.g_ref_low = low_32b(__dma_mem_vtop(rtv->g));
+		rsa_enc.e_ref_high = high_32b(__dma_mem_vtop(rtv->e));
+		rsa_enc.e_ref_low = low_32b(__dma_mem_vtop(rtv->e));
+		rsa_enc.n_ref_high = high_32b(__dma_mem_vtop(rtv->n));
+		rsa_enc.n_ref_low = low_32b(__dma_mem_vtop(rtv->n));
+		rsa_enc.f_len = rtv->f_len;
+		memcpy(rtv->e_pdb, &rsa_enc,
+		       sizeof(struct rsa_encrypt_pdb_64b));
+		rtv->e_pdb_size = sizeof(struct rsa_encrypt_pdb_64b);
+	} else {
+		struct rsa_encrypt_pdb rsa_enc;
+		rtv->e_pdb = malloc(sizeof(struct rsa_encrypt_pdb));
+		if (!rtv->e_pdb)
+			return -ENOMEM;
+		rsa_enc.header = (rtv->sgf << RSA_ENC_SGF_SHIFT) |
+			      (rtv->e_len << RSA_ENC_E_LEN_SHIFT) |
+			      (rtv->n_len);
+		rsa_enc.f_ref = low_32b(__dma_mem_vtop(rtv->f));
+		rsa_enc.g_ref = low_32b(__dma_mem_vtop(rtv->g));
+		rsa_enc.e_ref = low_32b(__dma_mem_vtop(rtv->e));
+		rsa_enc.n_ref = low_32b(__dma_mem_vtop(rtv->n));
+		rsa_enc.f_len = rtv->f_len;
+		memcpy(rtv->e_pdb, &rsa_enc, sizeof(struct rsa_encrypt_pdb));
+		rtv->e_pdb_size = sizeof(struct rsa_encrypt_pdb);
+	}
+
 	return 0;
 }
 
-static void free_rsa_rtv(struct rsa_ref_vector_s *ref_test_vector)
+static int init_rsa_dec_form1_pdb(struct test_param *crypto_info, int mode)
 {
-	__dma_mem_free(ref_test_vector->f_ref);
-	__dma_mem_free(ref_test_vector->g_ref);
-	__dma_mem_free(ref_test_vector->e_ref);
-	__dma_mem_free(ref_test_vector->n_ref);
-	__dma_mem_free(ref_test_vector->d_ref);
+	struct protocol_info *proto = crypto_info->proto;
+	struct rsa_ref_vector_s *rtv = proto->proto_vector;
+
+	rtv->d_len =  rsa_ref_private_exp_len[crypto_info->test_set - 1];
+	memcpy(rtv->g, rsa_ref_result[crypto_info->test_set - 1], rtv->n_len);
+	rtv->n = __dma_mem_memalign(L1_CACHE_BYTES, rtv->n_len);
+	if (!rtv->n)
+		return -ENOMEM;
+	memcpy(rtv->n, rsa_ref_modulus[crypto_info->test_set - 1], rtv->n_len);
+	rtv->d = __dma_mem_memalign(L1_CACHE_BYTES, rtv->d_len);
+	if (!rtv->d)
+		return -ENOMEM;
+	memcpy(rtv->d, rsa_ref_priv_exp[crypto_info->test_set - 1], rtv->d_len);
+
+	if (mode == RSA_MODE_64B) {
+		struct rsa_dec_pdb_form1_64b rsa_dec;
+		rtv->d_pdb = malloc(sizeof(struct rsa_dec_pdb_form1_64b));
+		if (!rtv->d_pdb)
+			return -ENOMEM;
+		rsa_dec.header = (rtv->sgf << RSA_DEC1_SGF_SHIFT) |
+		      (rtv->d_len << RSA_DEC1_D_LEN_SHIFT) |
+		      (rtv->n_len);
+		rsa_dec.f_ref_high = high_32b(__dma_mem_vtop(rtv->f));
+		rsa_dec.f_ref_low = low_32b(__dma_mem_vtop(rtv->f));
+		rsa_dec.g_ref_high = high_32b(__dma_mem_vtop(rtv->g));
+		rsa_dec.g_ref_low = low_32b(__dma_mem_vtop(rtv->g));
+		rsa_dec.d_ref_high = high_32b(__dma_mem_vtop(rtv->d));
+		rsa_dec.d_ref_low = low_32b(__dma_mem_vtop(rtv->d));
+		rsa_dec.n_ref_high = high_32b(__dma_mem_vtop(rtv->n));
+		rsa_dec.n_ref_low = low_32b(__dma_mem_vtop(rtv->n));
+		memcpy(rtv->d_pdb, &rsa_dec,
+		       sizeof(struct rsa_dec_pdb_form1_64b));
+		rtv->d_pdb_size = sizeof(struct rsa_dec_pdb_form1_64b);
+	} else {
+		struct rsa_dec_pdb_form1 rsa_dec;
+		rtv->d_pdb = malloc(sizeof(struct rsa_dec_pdb_form1));
+		if (!rtv->d_pdb)
+			return -ENOMEM;
+		rsa_dec.header = (rtv->sgf << RSA_DEC1_SGF_SHIFT) |
+			      (rtv->d_len << RSA_DEC1_D_LEN_SHIFT) |
+			      (rtv->n_len);
+		rsa_dec.f_ref = low_32b(__dma_mem_vtop(rtv->f));
+		rsa_dec.g_ref = low_32b(__dma_mem_vtop(rtv->g));
+		rsa_dec.d_ref = low_32b(__dma_mem_vtop(rtv->d));
+		rsa_dec.n_ref = low_32b(__dma_mem_vtop(rtv->n));
+		memcpy(rtv->d_pdb, &rsa_dec, sizeof(struct rsa_dec_pdb_form1));
+		rtv->d_pdb_size = sizeof(struct rsa_dec_pdb_form1);
+	}
+
+	return 0;
+}
+
+static int init_rsa_dec_form2_pdb(struct test_param *crypto_info, int mode)
+{
+	struct protocol_info *proto = crypto_info->proto;
+	struct rsa_ref_vector_s *rtv = proto->proto_vector;
+
+	rtv->d_len =  rsa_ref_private_exp_len[crypto_info->test_set - 1];
+	rtv->p_len = rsa_ref_p_len[crypto_info->test_set - 1];
+	rtv->q_len = rsa_ref_q_len[crypto_info->test_set - 1];
+	memcpy(rtv->g, rsa_ref_result[crypto_info->test_set - 1], rtv->n_len);
+	rtv->d = __dma_mem_memalign(L1_CACHE_BYTES, rtv->d_len);
+	if (!rtv->d)
+		return -ENOMEM;
+	memcpy(rtv->d, rsa_ref_priv_exp[crypto_info->test_set - 1], rtv->d_len);
+	rtv->p = __dma_mem_memalign(L1_CACHE_BYTES, rtv->p_len);
+	if (!rtv->p)
+		return -ENOMEM;
+	memcpy(rtv->p, rsa_ref_p[crypto_info->test_set - 1], rtv->p_len);
+	rtv->q = __dma_mem_memalign(L1_CACHE_BYTES, rtv->q_len);
+	if (!rtv->q)
+		return -ENOMEM;
+	memcpy(rtv->q, rsa_ref_q[crypto_info->test_set - 1], rtv->q_len);
+	rtv->tmp1 = __dma_mem_memalign(L1_CACHE_BYTES, rtv->p_len);
+	if (!rtv->tmp1)
+		return -ENOMEM;
+	rtv->tmp2 = __dma_mem_memalign(L1_CACHE_BYTES, rtv->q_len);
+	if (!rtv->tmp2)
+		return -ENOMEM;
+
+	if (mode == RSA_MODE_64B) {
+		struct rsa_dec_pdb_form2_64b rsa_dec;
+		rtv->d_pdb = malloc(sizeof(struct rsa_dec_pdb_form2_64b));
+		if (!rtv->d_pdb)
+			return -ENOMEM;
+		rsa_dec.header = (rtv->sgf << RSA_DEC2_SGF_SHIFT) |
+		      (rtv->d_len << RSA_DEC2_D_LEN_SHIFT) |
+		      (rtv->n_len);
+		rsa_dec.f_ref_high = high_32b(__dma_mem_vtop(rtv->f));
+		rsa_dec.f_ref_low = low_32b(__dma_mem_vtop(rtv->f));
+		rsa_dec.g_ref_high = high_32b(__dma_mem_vtop(rtv->g));
+		rsa_dec.g_ref_low = low_32b(__dma_mem_vtop(rtv->g));
+		rsa_dec.d_ref_high = high_32b(__dma_mem_vtop(rtv->d));
+		rsa_dec.d_ref_low = low_32b(__dma_mem_vtop(rtv->d));
+		rsa_dec.p_ref_high = high_32b(__dma_mem_vtop(rtv->p));
+		rsa_dec.p_ref_low = low_32b(__dma_mem_vtop(rtv->p));
+		rsa_dec.q_ref_high = high_32b(__dma_mem_vtop(rtv->q));
+		rsa_dec.q_ref_low = low_32b(__dma_mem_vtop(rtv->q));
+		rsa_dec.tmp1_ref_high = high_32b(__dma_mem_vtop(rtv->tmp1));
+		rsa_dec.tmp1_ref_low = low_32b(__dma_mem_vtop(rtv->tmp1));
+		rsa_dec.tmp2_ref_high = high_32b(__dma_mem_vtop(rtv->tmp2));
+		rsa_dec.tmp2_ref_low = low_32b(__dma_mem_vtop(rtv->tmp2));
+		rsa_dec.trailer = (rtv->q_len << RSA_DEC2_Q_LEN_SHIFT) |
+				  (rtv->p_len);
+		memcpy(rtv->d_pdb, &rsa_dec,
+		       sizeof(struct rsa_dec_pdb_form2_64b));
+		rtv->d_pdb_size = sizeof(struct rsa_dec_pdb_form2_64b);
+	} else {
+		struct rsa_dec_pdb_form2 rsa_dec;
+		rtv->d_pdb = malloc(sizeof(struct rsa_dec_pdb_form2));
+		if (!rtv->d_pdb)
+			return -ENOMEM;
+		rsa_dec.header = (rtv->sgf << RSA_DEC2_SGF_SHIFT) |
+			      (rtv->e_len << RSA_DEC2_D_LEN_SHIFT) |
+			      (rtv->n_len);
+		rsa_dec.f_ref = low_32b(__dma_mem_vtop(rtv->f));
+		rsa_dec.g_ref = low_32b(__dma_mem_vtop(rtv->g));
+		rsa_dec.d_ref = low_32b(__dma_mem_vtop(rtv->d));
+		rsa_dec.p_ref = low_32b(__dma_mem_vtop(rtv->p));
+		rsa_dec.q_ref = low_32b(__dma_mem_vtop(rtv->q));
+		rsa_dec.tmp1_ref = low_32b(__dma_mem_vtop(rtv->tmp1));
+		rsa_dec.tmp2_ref = low_32b(__dma_mem_vtop(rtv->tmp2));
+		rsa_dec.trailer = (rtv->q_len << RSA_DEC2_Q_LEN_SHIFT) |
+				  (rtv->p_len);
+		memcpy(rtv->d_pdb, &rsa_dec, sizeof(struct rsa_dec_pdb_form2));
+		rtv->d_pdb_size = sizeof(struct rsa_dec_pdb_form2);
+	}
+
+	return 0;
+}
+
+static int init_rsa_dec_form3_pdb(struct test_param *crypto_info, int mode)
+{
+	struct protocol_info *proto = crypto_info->proto;
+	struct rsa_ref_vector_s *rtv = proto->proto_vector;
+
+	rtv->p_len = rsa_ref_p_len[crypto_info->test_set - 1];
+	rtv->q_len = rsa_ref_q_len[crypto_info->test_set - 1];
+	memcpy(rtv->g, rsa_ref_result[crypto_info->test_set - 1], rtv->n_len);
+	rtv->c = __dma_mem_memalign(L1_CACHE_BYTES, rtv->p_len);
+	if (!rtv->c)
+		return -ENOMEM;
+	memcpy(rtv->c, rsa_ref_qinv[crypto_info->test_set - 1], rtv->p_len);
+	rtv->p = __dma_mem_memalign(L1_CACHE_BYTES, rtv->p_len);
+	if (!rtv->p)
+		return -ENOMEM;
+	memcpy(rtv->p, rsa_ref_p[crypto_info->test_set - 1], rtv->p_len);
+	rtv->q = __dma_mem_memalign(L1_CACHE_BYTES, rtv->q_len);
+	if (!rtv->q)
+		return -ENOMEM;
+	memcpy(rtv->q, rsa_ref_q[crypto_info->test_set - 1], rtv->q_len);
+	rtv->dp = __dma_mem_memalign(L1_CACHE_BYTES, rtv->p_len);
+	if (!rtv->dp)
+		return -ENOMEM;
+	memcpy(rtv->dp, rsa_ref_dp[crypto_info->test_set - 1], rtv->p_len);
+	rtv->dq = __dma_mem_memalign(L1_CACHE_BYTES, rtv->q_len);
+	if (!rtv->dq)
+		return -ENOMEM;
+	memcpy(rtv->dq, rsa_ref_dq[crypto_info->test_set - 1], rtv->q_len);
+	rtv->tmp1 = __dma_mem_memalign(L1_CACHE_BYTES, rtv->p_len);
+	if (!rtv->tmp1)
+		return -ENOMEM;
+	rtv->tmp2 = __dma_mem_memalign(L1_CACHE_BYTES, rtv->q_len);
+	if (!rtv->tmp2)
+		return -ENOMEM;
+
+	if (mode == RSA_MODE_64B) {
+		struct rsa_dec_pdb_form3_64b rsa_dec;
+		rtv->d_pdb = malloc(sizeof(struct rsa_dec_pdb_form3_64b));
+		if (!rtv->d_pdb)
+			return -ENOMEM;
+		rsa_dec.header = (rtv->sgf << RSA_DEC3_SGF_SHIFT) |
+		      (rtv->n_len);
+		rsa_dec.f_ref_high = high_32b(__dma_mem_vtop(rtv->f));
+		rsa_dec.f_ref_low = low_32b(__dma_mem_vtop(rtv->f));
+		rsa_dec.g_ref_high = high_32b(__dma_mem_vtop(rtv->g));
+		rsa_dec.g_ref_low = low_32b(__dma_mem_vtop(rtv->g));
+		rsa_dec.c_ref_high = high_32b(__dma_mem_vtop(rtv->c));
+		rsa_dec.c_ref_low = low_32b(__dma_mem_vtop(rtv->c));
+		rsa_dec.p_ref_high = high_32b(__dma_mem_vtop(rtv->p));
+		rsa_dec.p_ref_low = low_32b(__dma_mem_vtop(rtv->p));
+		rsa_dec.q_ref_high = high_32b(__dma_mem_vtop(rtv->q));
+		rsa_dec.q_ref_low = low_32b(__dma_mem_vtop(rtv->q));
+		rsa_dec.dp_ref_high = high_32b(__dma_mem_vtop(rtv->dp));
+		rsa_dec.dp_ref_low = low_32b(__dma_mem_vtop(rtv->dp));
+		rsa_dec.dq_ref_high = high_32b(__dma_mem_vtop(rtv->dq));
+		rsa_dec.dq_ref_low = low_32b(__dma_mem_vtop(rtv->dq));
+		rsa_dec.tmp1_ref_high = high_32b(__dma_mem_vtop(rtv->tmp1));
+		rsa_dec.tmp1_ref_low = low_32b(__dma_mem_vtop(rtv->tmp1));
+		rsa_dec.tmp2_ref_high = high_32b(__dma_mem_vtop(rtv->tmp2));
+		rsa_dec.tmp2_ref_low = low_32b(__dma_mem_vtop(rtv->tmp2));
+		rsa_dec.trailer = (rtv->q_len << RSA_DEC3_Q_LEN_SHIFT) |
+				  (rtv->p_len);
+		memcpy(rtv->d_pdb, &rsa_dec,
+		       sizeof(struct rsa_dec_pdb_form3_64b));
+		rtv->d_pdb_size = sizeof(struct rsa_dec_pdb_form3_64b);
+	} else {
+		struct rsa_dec_pdb_form3 rsa_dec;
+		rtv->d_pdb = malloc(sizeof(struct rsa_dec_pdb_form3));
+		if (!rtv->d_pdb)
+			return -ENOMEM;
+		rsa_dec.header = (rtv->sgf << RSA_DEC2_SGF_SHIFT) |
+			      (rtv->e_len << RSA_DEC2_D_LEN_SHIFT) |
+			      (rtv->n_len);
+		rsa_dec.f_ref = low_32b(__dma_mem_vtop(rtv->f));
+		rsa_dec.g_ref = low_32b(__dma_mem_vtop(rtv->g));
+		rsa_dec.c_ref = low_32b(__dma_mem_vtop(rtv->c));
+		rsa_dec.p_ref = low_32b(__dma_mem_vtop(rtv->p));
+		rsa_dec.q_ref = low_32b(__dma_mem_vtop(rtv->q));
+		rsa_dec.dp_ref = low_32b(__dma_mem_vtop(rtv->dp));
+		rsa_dec.dq_ref = low_32b(__dma_mem_vtop(rtv->dq));
+		rsa_dec.tmp1_ref = low_32b(__dma_mem_vtop(rtv->tmp1));
+		rsa_dec.tmp2_ref = low_32b(__dma_mem_vtop(rtv->tmp2));
+		rsa_dec.trailer = (rtv->q_len << RSA_DEC3_Q_LEN_SHIFT) |
+				  (rtv->p_len);
+		memcpy(rtv->d_pdb, &rsa_dec, sizeof(struct rsa_dec_pdb_form3));
+		rtv->d_pdb_size = sizeof(struct rsa_dec_pdb_form3);
+	}
+
+	return 0;
 }
 
 static int init_ref_test_vector_rsa(struct test_param *crypto_info)
 {
 	struct protocol_info *proto = crypto_info->proto;
-	struct rsa_ref_vector_s *ref_test_vector = proto->proto_vector;
+	struct rsa_ref_vector_s *rtv = proto->proto_vector;
 	struct rsa_params *rsa_params = proto->proto_params;
 
-	ref_test_vector->e_len =
-		rsa_ref_exponent_len[crypto_info->test_set - 1];
-	ref_test_vector->f_len =
-		rsa_ref_input_len[crypto_info->test_set - 1];
-	ref_test_vector->n_len =
-		rsa_ref_modulus_len[crypto_info->test_set - 1];
+	rtv->e_len = rsa_ref_exponent_len[crypto_info->test_set - 1];
+	rtv->f_len = rsa_ref_input_len[crypto_info->test_set - 1];
+	rtv->n_len = rsa_ref_modulus_len[crypto_info->test_set - 1];
+	rtv->f = __dma_mem_memalign(L1_CACHE_BYTES, rtv->n_len);
+	if (!rtv->f)
+		return -ENOMEM;
+	rtv->g = __dma_mem_memalign(L1_CACHE_BYTES, rtv->n_len);
+	if (!rtv->g)
+		return -ENOMEM;
 
-	ref_test_vector->f_ref =
-		__dma_mem_memalign(L1_CACHE_BYTES, ref_test_vector->n_len);
-	if (!ref_test_vector->f_ref)
+	if (init_rsa_enc_pdb(crypto_info, RSA_MODE_64B))
 		goto err;
-
-	memcpy(ref_test_vector->f_ref,
-	       rsa_ref_input[crypto_info->test_set - 1],
-	       ref_test_vector->f_len);
-
-	ref_test_vector->g_ref =
-		__dma_mem_memalign(L1_CACHE_BYTES, ref_test_vector->n_len);
-	if (!ref_test_vector->g_ref)
-		goto err;
-
-	ref_test_vector->e_ref =
-		__dma_mem_memalign(L1_CACHE_BYTES, ref_test_vector->e_len);
-	if (!ref_test_vector->e_ref)
-		goto err;
-	memcpy(ref_test_vector->e_ref,
-	       rsa_ref_public_exponent[crypto_info->test_set - 1],
-	       ref_test_vector->e_len);
-
-	ref_test_vector->length = rsa_ref_length[crypto_info->test_set - 1];
-	ref_test_vector->plaintext = ref_test_vector->f_ref;
-	ref_test_vector->ciphertext = ref_test_vector->g_ref;
-
 	switch (rsa_params->form) {
 	case RSA_DECRYPT_FORM1:
-		if (init_rtv_rsa_decrypt_form1(crypto_info))
+		if (init_rsa_dec_form1_pdb(crypto_info, RSA_MODE_64B))
 			goto err;
 		break;
-
 	case RSA_DECRYPT_FORM2:
+		if (init_rsa_dec_form2_pdb(crypto_info, RSA_MODE_64B))
+			goto err;
+		break;
 	case RSA_DECRYPT_FORM3:
-		fprintf(stderr, "RSA Decrypt form %d not supported\n",
-			rsa_params->form);
-		return -EINVAL;
-
+		if (init_rsa_dec_form3_pdb(crypto_info, RSA_MODE_64B))
+			goto err;
+		break;
 	default:
 		fprintf(stderr, "Unknown RSA Decrypt Private Key form %d (should never reach here)\n",
 			rsa_params->form);
 		return -EINVAL;
 	}
+
+	rtv->length = rsa_ref_length[crypto_info->test_set - 1];
+	rtv->plaintext = rtv->f;
+	rtv->ciphertext = rtv->g;
+
 	return 0;
 err:
 	fprintf(stderr, "Not enough memory\n");
-	free_rsa_rtv(ref_test_vector);
+	free_rsa_rtv(rtv);
 	return -ENOMEM;
 }
 
@@ -156,7 +415,8 @@ static void *create_descriptor(bool mode, void *params)
 {
 	struct test_param *crypto_info = (struct test_param *)params;
 	struct protocol_info *proto = crypto_info->proto;
-	struct rsa_ref_vector_s *ref_test_vector = proto->proto_vector;
+	struct rsa_ref_vector_s *rtv = proto->proto_vector;
+	struct rsa_params *rsa_params = proto->proto_params;
 	struct sec_descriptor_t *prehdr_desc;
 	uint32_t *shared_desc = NULL;
 	unsigned shared_desc_len = 0;
@@ -179,37 +439,44 @@ static void *create_descriptor(bool mode, void *params)
 	memset(prehdr_desc, 0, sizeof(struct sec_descriptor_t));
 	shared_desc = (typeof(shared_desc))&prehdr_desc->descbuf;
 
-	if (ENCRYPT == mode)
-		cnstr_shdsc_rsa_encrypt(shared_desc,
-					&shared_desc_len,
+	rtv->protocmd.optype = OP_TYPE_UNI_PROTOCOL;
+	if (ENCRYPT == mode) {
+		rtv->protocmd.protid = OP_PCLID_RSAENCRYPT;
+		rtv->protocmd.protinfo = OP_PCL_RSAPROT_OP_ENC_F_IN;
+		cnstr_shdsc_rsa(shared_desc,
+				&shared_desc_len,
 /*
  * This is currently hardcoded. The application doesn't allow for
  * proper retrieval of PS.
  */
-					1,
-					0, /* sgf */
-					ref_test_vector->e_len,
-					ref_test_vector->n_len,
-					__dma_mem_vtop(ref_test_vector->f_ref),
-					__dma_mem_vtop(ref_test_vector->g_ref),
-					__dma_mem_vtop(ref_test_vector->n_ref),
-					__dma_mem_vtop(ref_test_vector->e_ref),
-					ref_test_vector->f_len);
-	else
-		cnstr_shdsc_rsa_decrypt_form1(shared_desc,
-					&shared_desc_len,
+				1,
+				rtv->e_pdb,
+				rtv->e_pdb_size,
+				&rtv->protocmd);
+	} else {
+		rtv->protocmd.protid = OP_PCLID_RSADECRYPT;
+		switch (rsa_params->form) {
+		case RSA_DECRYPT_FORM1:
+			rtv->protocmd.protinfo = OP_PCL_RSAPROT_OP_DEC_ND;
+			break;
+		case RSA_DECRYPT_FORM2:
+			rtv->protocmd.protinfo = OP_PCL_RSAPROT_OP_DEC_PQD;
+			break;
+		case RSA_DECRYPT_FORM3:
+			rtv->protocmd.protinfo = OP_PCL_RSAPROT_OP_DEC_PQDPDQC;
+			break;
+		}
+		cnstr_shdsc_rsa(shared_desc,
+				&shared_desc_len,
 /*
  * This is currently hardcoded. The application doesn't allow for
  * proper retrieval of PS.
  */
-					1,
-					0, /* sgf */
-					ref_test_vector->d_len,
-					ref_test_vector->n_len,
-					__dma_mem_vtop(ref_test_vector->g_ref),
-					__dma_mem_vtop(ref_test_vector->f_ref),
-					__dma_mem_vtop(ref_test_vector->n_ref),
-					__dma_mem_vtop(ref_test_vector->d_ref));
+				1,
+				rtv->d_pdb,
+				rtv->d_pdb_size,
+				&rtv->protocmd);
+	}
 
 	prehdr_desc->prehdr.hi.word = shared_desc_len & SEC_PREHDR_SDLEN_MASK;
 
@@ -372,6 +639,8 @@ struct protocol_info *register_rsa(void)
 		       __FILE__);
 		goto err;
 	}
+	/* If decrypt form is not specified, use form 1 */
+	((struct rsa_params *)proto_info->proto_params)->form = 1;
 	proto_info->proto_vector =
 		calloc(1, sizeof(struct rsa_ref_vector_s));
 	if (!proto_info->proto_vector) {
