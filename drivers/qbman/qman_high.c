@@ -1090,7 +1090,7 @@ u16 qman_affine_channel(int cpu)
 }
 EXPORT_SYMBOL(qman_affine_channel);
 
-int qman_p_poll_dqrr(struct qman_portal *p, unsigned int limit)
+inline int qman_p_poll_dqrr(struct qman_portal *p, unsigned int limit)
 {
 	int ret;
 
