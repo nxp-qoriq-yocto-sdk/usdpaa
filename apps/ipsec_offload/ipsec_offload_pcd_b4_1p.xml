@@ -443,7 +443,7 @@
 			<action type="classification" name="post_flow_id_cc"/>
 		</may-use>
 	</classification>
-	<classification name="ib_post_ip_cc" max="64" masks="no">
+	<classification name="ib_post_ip_cc" max="64" masks="yes">
 		<key>
 			<nonheader source="key" action="exact_match" offset="0" size="4"/>
 		</key>
