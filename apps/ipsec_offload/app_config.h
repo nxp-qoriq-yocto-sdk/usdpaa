@@ -101,6 +101,11 @@ struct app_conf {
 	char vof[IFNAMSIZ];
 	/* IPsec interface name */
 	char vipsec[IFNAMSIZ];
+	/* Aggregate inbound tunnels. Inbound decrypted traffic from multiple SAs
+	 * will be enqueued to oh_pre_sec port, encrypted on one SA and sent
+	 * to Tx port.(single port case)
+	 */
+	bool ib_aggreg;
 };
 extern struct app_conf app_conf;
 #endif

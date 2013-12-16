@@ -108,9 +108,22 @@ int ipsec_offload_init(int *dpa_ipsec_id)
 				SEC_ERA_5_DATA_OFF_BURST;
 	ipsec_params.post_sec_in_params.base_flow_id = IPSEC_START_IN_FLOW_ID;
 	ipsec_params.post_sec_in_params.use_ipv6_pol = false;
-	ipsec_params.post_sec_in_params.qm_tx_ch =
-					app_conf.ib_oh->tx_channel_id;
-
+	/*
+	 * If aggregation is enabled, decrypted
+	 * traffic from multiple SAs on inbound direction, will be sent
+	 * on outbound O/H port pre encryption, encrypted through one SA
+	 * and sent to the TX port. This is accomplished by assigning the
+	 * outbound pre SEC offline port Tx channel to the inbound post
+	 * SEC queues.(traffic from those queues will be enqueued to outbound
+	 * O/H pre SEC port)
+	 * Simple schema of aggregation: OB_SA1 = IB_SA1 + IB_SA2 + IB_SA3
+	 */
+	if (app_conf.ib_aggreg == true)
+		ipsec_params.post_sec_in_params.qm_tx_ch =
+					      app_conf.ob_oh_pre->tx_channel_id;
+	else
+		ipsec_params.post_sec_in_params.qm_tx_ch =
+						  app_conf.ib_oh->tx_channel_id;
 	memset(&cls_tbl_params, 0, sizeof(cls_tbl_params));
 	cls_tbl_params.cc_node = cc_flow_id;
 	cls_tbl_params.type = DPA_CLS_TBL_INDEXED;

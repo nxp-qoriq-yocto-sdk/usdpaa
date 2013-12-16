@@ -95,6 +95,7 @@ struct ppam_arguments {
 	const char *vif;
 	const char *vof;
 	const char *vipsec;
+	int ib_aggreg;
 };
 
 /* Buffer pools */
@@ -673,6 +674,9 @@ int ppam_init(void)
 	if (ppam_args.ib_loop)
 		app_conf.ib_loop = true;
 
+	if (ppam_args.ib_aggreg)
+		app_conf.ib_aggreg = true;
+
 	ret = init_buffer_pools();
 	if (ret < 0) {
 		fprintf(stderr, "Buffer pool init failed\n");
@@ -941,6 +945,7 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 const char ppam_doc[] = "Offloading demo application";
 
 static const struct argp_option argp_opts[] = {
+	{"aggreg", 'a', 0, 0, "Aggregate inbound tunnels"},
 	{"fm", 'f', "INT", 0, "FMAN index"},
 	{"ob_eth", 'e',	"FILE", 0, "Outbound Ethernet port index"},
 	{"ib_eth", 't',	"FILE", 0, "Inbound Ethernet port index"},
@@ -963,6 +968,9 @@ static const struct argp_option argp_opts[] = {
 static error_t parse_opts(int key, char *arg, struct argp_state *state)
 {
 	switch (key) {
+	case 'a':
+		ppam_args.ib_aggreg = 1;
+		break;
 	case 'f':
 		ppam_args.fm = arg;
 		break;
