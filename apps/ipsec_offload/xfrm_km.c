@@ -434,10 +434,10 @@ static void trace_xfrm_sa_info(struct xfrm_usersa_info *sa_info)
 	} else
 		return;
 
-	TRACE("xfrm sa spi %x", sa_info->id.spi);
-	TRACE(" saddr %s", inet_ntop(sa_info->family,
+	printf("xfrm sa spi %x", sa_info->id.spi);
+	printf(" saddr %s", inet_ntop(sa_info->family,
 				saddr, dst, sizeof(dst)));
-	TRACE(" daddr %s\n", inet_ntop(sa_info->family,
+	printf(" daddr %s\n", inet_ntop(sa_info->family,
 				daddr, dst, sizeof(dst)));
 }
 
@@ -1244,6 +1244,26 @@ static int process_flush_sa(void)
 		return ret;
 	}
 
+	return 0;
+}
+
+int list_dpa_sa(int argc, char *argv[])
+{
+	struct list_head *l;
+	struct dpa_sa *dpa_sa;
+
+	list_for_each(l, &dpa_sa_list) {
+		dpa_sa = (struct dpa_sa *)l;
+		if (dpa_sa->out_sa_id != DPA_OFFLD_INVALID_OBJECT_ID) {
+			printf("sa id %d dir OUT\n", dpa_sa->out_sa_id);
+			trace_xfrm_sa_info(&dpa_sa->xfrm_sa_info);
+		}
+
+		if (dpa_sa->in_sa_id != DPA_OFFLD_INVALID_OBJECT_ID) {
+			printf("sa id %d dir IN\n", dpa_sa->in_sa_id);
+			trace_xfrm_sa_info(&dpa_sa->xfrm_sa_info);
+		}
+	}
 	return 0;
 }
 

@@ -130,6 +130,7 @@ int fmc_apply_model(void);
 int stats_init(void);
 int show_sa_stats(int argc, char *argv[]);
 int show_ipsec_stats(int argc, char *argv[]);
+int list_dpa_sa(int argc, char *argv[]);
 int show_eth_stats(int argc, char *argv[]);
 int show_ib_reass_stats(int argc, char *argv[]);
 #endif
