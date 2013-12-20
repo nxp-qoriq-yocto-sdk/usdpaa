@@ -327,7 +327,10 @@ static int check_compatible(const struct dt_file *f, const char *compatible)
 		len = strlen(c);
 		if (!strcmp(c, compatible))
 			return 1;
-		assert(remains >= (len + 1));
+
+		if (remains < len + 1)
+			break;
+
 		c += (len + 1);
 		remains -= (len + 1);
 	}
