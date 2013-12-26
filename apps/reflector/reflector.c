@@ -160,24 +160,6 @@ static void ppam_rx_default_finish(struct ppam_rx_default *p,
 				   struct ppam_interface *_if)
 {
 }
-static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
-				      struct ppam_interface *_if,
-				      const struct qm_dqrr_entry *dqrr)
-{
-	const struct qm_fd *fd = &dqrr->fd;
-
-	if (!p->am_offline_port) {
-		/* Only forward to Offline port if it's turned on */
-		if (fwd_offline && (p->regular.offline_fqid)) {
-			uint32_t *annotations = __dma_mem_ptov(qm_fd_addr(fd));
-			*annotations = _if->tx_fqids[0];
-			BUG_ON(!*annotations);
-			ppac_send_frame(p->regular.offline_fqid, fd);
-			return;
-		}
-	}
-	ppac_drop_frame(fd);
-}
 
 static int ppam_tx_error_init(struct ppam_tx_error *p,
 			      struct ppam_interface *_if,
@@ -336,6 +318,39 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 		TRACE("	       -> it's UNKNOWN (!!) type 0x%04x\n",
 			prot_eth->ether_type);
 		TRACE("		  -> dropping unknown packet\n");
+	}
+	ppac_drop_frame(fd);
+}
+
+static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
+				      struct ppam_interface *_if,
+				      const struct qm_dqrr_entry *dqrr)
+{
+	const struct qm_fd *fd = &dqrr->fd;
+	struct ppac_interface *c_if = container_of(p,
+						   struct ppac_interface,
+						   ppam_data);
+
+	const struct fm_eth_port_cfg *pcfg = ppac_interface_pcfg(c_if);
+
+	if (!p->am_offline_port) {
+		/* Only forward to Offline port if it's turned on */
+		if (fwd_offline && (p->regular.offline_fqid)) {
+			uint32_t *annotations = __dma_mem_ptov(qm_fd_addr(fd));
+			*annotations = _if->tx_fqids[0];
+			BUG_ON(!*annotations);
+			ppac_send_frame(p->regular.offline_fqid, fd);
+			return;
+		}
+
+		if (fman_mac_less == pcfg->fman_if->mac_type) {
+			struct ppam_rx_hash rx_hash;
+
+			/* Forward the frame to first Tx FQ of the interface*/
+			rx_hash.tx_fqid = _if->tx_fqids[0];
+			ppam_rx_hash_cb(&rx_hash, dqrr);
+			return;
+		}
 	}
 	ppac_drop_frame(fd);
 }
