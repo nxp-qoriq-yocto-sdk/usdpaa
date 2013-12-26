@@ -117,7 +117,7 @@ sysroot="${SDK_ROOT}/build_${board}_release/tmp/sysroots"
 if [[ -d "${sysroot}" ]]
 then
 	export PATH="${sysroot}/`uname -m`-linux/usr/bin:$PATH"
-	export PATH="${sysroot}/`uname -m`-linux/usr/bin/ppc$(board2cpu $board)-fsl_networking-linux/:$PATH"
+	export PATH="${sysroot}/`uname -m`-linux/usr/bin/ppc$(board2cpu $board)-fsl-linux/:$PATH"
 
 	export PKG_CONFIG_SYSROOT_DIR="${sysroot}/$board"
 	export PKG_CONFIG_PATH="${PKG_CONFIG_PATH}:${PKG_CONFIG_SYSROOT_DIR}/usr/lib${prefix}/pkgconfig"
@@ -136,7 +136,7 @@ else
 fi
 
 export ARCH=powerpc${prefix}
-export CROSS_COMPILE=powerpc${prefix}-fsl_networking-linux-
+export CROSS_COMPILE=powerpc${prefix}-fsl-linux-
 export LIBXML2_CFLAGS=$(pkg-config --cflags libxml-2.0)
 export LIBXML2_LDFLAGS=$(pkg-config --libs --static libxml-2.0)
 export LIBEDIT_CFLAGS=$(pkg-config --cflags libedit)
