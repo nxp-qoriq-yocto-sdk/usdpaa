@@ -315,8 +315,6 @@ static void check_fman_enabled_interfaces(void)
 					&cli_info->mac_addr, ETHER_ADDR_LEN);
 				memcpy(&__if->mac_addr,
 					&cli_info->mac_addr, ETHER_ADDR_LEN);
-				__if->macless_info.macless_name =
-					cli_info->name;
 				netcfg_interface->numof_fman_enabled_macless++;
 				idx++;
 				break;
@@ -349,9 +347,6 @@ static void check_fman_enabled_interfaces(void)
 					val != __if->mac_type)
 					continue;
 			}
-			if (__if->shared_mac_info.is_shared_mac)
-				__if->shared_mac_info.shared_mac_name =
-							cli_info->name;
 			cli_info->fman_enabled_mac_interface = 1;
 			break;
 		}

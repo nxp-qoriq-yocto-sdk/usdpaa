@@ -33,6 +33,7 @@
 #ifndef __FMAN_H
 #define __FMAN_H
 
+#include <net/if.h>
 #include <usdpaa/compat.h>
 #include <usdpaa/fsl_qman.h>
 
@@ -297,7 +298,7 @@ struct dtsec_regs {
 
 /* information for macless comes from device tree */
 struct macless_port_cfg {
-	char *macless_name;
+	char macless_name[IFNAMSIZ];
 	uint32_t rx_start;
 	uint32_t rx_count;
 	uint32_t tx_start;
@@ -309,7 +310,7 @@ struct macless_port_cfg {
 struct shared_mac_cfg {
 	/* is this interface a shared interface or not */
 	int is_shared_mac;
-	char *shared_mac_name;
+	char shared_mac_name[IFNAMSIZ];
 };
 
 /* This struct exports parameters about an Fman network interface, determined

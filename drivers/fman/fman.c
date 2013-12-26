@@ -30,6 +30,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <sys/types.h>
+#include <sys/ioctl.h>
+#include <ifaddrs.h>
+
 /* This header declares the driver interface we implement */
 #include <usdpaa/fman.h>
 
@@ -130,6 +134,46 @@ static int fman_get_ip_rev(const struct device_node *fman_node)
 		pr_err("munmap() of FMan ccsr failed \n");
 
 	return 0;
+}
+
+static int find_mac_name(struct ether_addr *mac_addr, char *name)
+{
+	int sock, _errno = -1;
+	struct ifaddrs *ifa, *inf;
+	struct ifreq ifr;
+
+	sock = socket(AF_INET, SOCK_DGRAM, 0);
+	if (-1 == sock) {
+		my_log(errno, "socket open failed\n");
+		return errno;
+	}
+
+	if (getifaddrs(&ifa)) {
+		my_log(errno, "Getting list of interfaces failed");
+		close(sock);
+		return errno;
+	}
+
+	for (inf = ifa; inf; inf = inf->ifa_next) {
+		if (inf->ifa_flags & IFF_LOOPBACK)
+			continue;
+
+		strcpy(&ifr.ifr_name[0], inf->ifa_name);
+
+		_errno = ioctl(sock, SIOCGIFHWADDR, &ifr);
+		my_err(_errno, errno, "Retrieving mac failed for: %s\n",
+		       inf->ifa_name);
+
+		if (!memcmp(&ifr.ifr_hwaddr.sa_data, mac_addr, ETH_ALEN)) {
+			strcpy(name, inf->ifa_name);
+			_errno = 0;
+			break;
+		}
+	}
+err:
+	freeifaddrs(ifa);
+	close(sock);
+	return _errno;
 }
 
 static int fman_if_init(const struct device_node *dpa_node, int is_macless)
@@ -264,6 +308,13 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 		my_err(!mac_addr, -EINVAL, "%s: no local-mac-address\n",
 			mname);
 		memcpy(&__if->__if.macless_info.peer_mac, mac_addr, ETH_ALEN);
+
+		_errno = find_mac_name(&__if->__if.macless_info.peer_mac,
+				&__if->__if.macless_info.macless_name[0]);
+
+		my_err(_errno, -EINVAL, "Get device name failed for: %s\n",
+		       mname);
+
 	} else if (is_offline) {
 		/* Extract the channel ID (from mac) */
 		tx_channel_id = of_get_property(mac_node, "fsl,qman-channel-id",
@@ -277,7 +328,7 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 		my_err(!mac_addr, -EINVAL, "%s: no local-mac-address\n",
 			mname);
 		memcpy(&__if->__if.mac_addr, mac_addr, ETH_ALEN);
-	
+
 		/* Extract the Tx port (it's the second of the two port handles)
 		 * and get its channel ID */
 		ports_phandle = of_get_property(mac_node, "fsl,port-handles",
@@ -293,6 +344,16 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 		my_err(!tx_channel_id, -EINVAL, "%s: no fsl-qman-channel-id\n",
 			tx_node->full_name);
 	}
+
+	/* For shared mac case, also fill the shared_mac_name */
+	if (is_shared) {
+		struct fman_if *fif = &__if->__if;
+		_errno = find_mac_name(&fif->mac_addr,
+				&fif->shared_mac_info.shared_mac_name[0]);
+		my_err(_errno, -EINVAL, "Get device name failed for: %s\n",
+		       mname);
+	}
+
 	/* No channel ID for MAC-less */
 	if (!is_macless) {
 		assert(lenp == sizeof(*tx_channel_id));
