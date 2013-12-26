@@ -1489,6 +1489,12 @@ static int ppac_cli_promisc(int argc, char *argv[])
 	return ret;
 }
 
+static int ppac_cli_ifconfig(int argc, char *argv[])
+{
+	dump_usdpaa_netcfg(netcfg);
+	return 0;
+}
+
 cli_cmd(help, ppac_cli_help);
 cli_cmd(add, ppac_cli_add);
 #ifdef PPAC_CGR
@@ -1498,6 +1504,8 @@ cli_cmd(list, ppac_cli_list);
 cli_cmd(macs, ppac_cli_macs);
 cli_cmd(rm, ppac_cli_rm);
 cli_cmd(promisc, ppac_cli_promisc);
+cli_cmd(ifconfig, ppac_cli_ifconfig);
+
 
 const char ppam_prompt[] __attribute__((weak)) = "> ";
 
