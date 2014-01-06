@@ -139,6 +139,10 @@ int worker_fn(struct thread_data *tdata)
 		}
 		set_enc_pkts_from_sec();
 
+		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+		pthread_testcancel(); /* A cancellation point */
+		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+
 		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
 			fprintf(stderr, "error: Encrypt mode:"
 				" pthread_barrier_wait failed"
@@ -150,9 +154,6 @@ int worker_fn(struct thread_data *tdata)
 			/* encrypt mode: start time */
 			atb_start_enc = mfatb();
 
-		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-		pthread_testcancel(); /* A cancellation point */
-		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
 		/* Send data to SEC40 for encryption/authentication */
 		do_enqueues(ENCRYPT, cpu_index, ncpus, buf_num);

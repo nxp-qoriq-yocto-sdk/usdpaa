@@ -313,8 +313,6 @@ void do_enqueues(enum SEC_MODE mode, uint32_t cpu_index, long ncpus,
 			 "Decrypt\n", fd_ind);
 
 loop:
-		pthread_testcancel(); /* A cancellation point */
-
 		ret = qman_enqueue(fq_to_sec, (struct qm_fd *)&fd[fd_ind], 0);
 		if (unlikely(ret)) {
 			uint64_t now, then = mfatb();
