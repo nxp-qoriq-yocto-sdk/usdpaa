@@ -368,8 +368,8 @@ static inline void ppam_rx_error_cb(struct ppam_rx_error *p,
 {
 	const struct qm_fd *fd = &dqrr->fd;
 	/* don't drop BPDERR SEC errored fds */
-	if (fd->status & SEC_QI_ERR_MASK == SEC_QI_ERR_BITS &&
-	    fd->status & SEC_QI_STA_MASK == SEC_QI_ERR_BPD)
+	if ((fd->status & SEC_QI_ERR_MASK) == SEC_QI_ERR_BITS &&
+	    (fd->status & SEC_QI_STA_MASK) == SEC_QI_ERR_BPD)
 		return;
 	ppac_drop_frame(fd);
 }
