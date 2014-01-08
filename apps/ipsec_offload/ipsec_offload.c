@@ -149,7 +149,8 @@ static int setup_macless_if_tx(struct ppac_interface *i, uint32_t last_fqid,
 		if (!memcmp(&mac.ether_addr_octet,
 			    &__if->macless_info.peer_mac.ether_addr_octet,
 			    ETH_ALEN)) {
-			__if->macless_info.macless_name = macless_name;
+			strncpy(__if->macless_info.macless_name, macless_name, IFNAMSIZ);
+			__if->macless_info.macless_name[IFNAMSIZ-1] = 0;
 			tx_start = __if->macless_info.tx_start;
 			tx_count = __if->macless_info.tx_count;
 			break;
