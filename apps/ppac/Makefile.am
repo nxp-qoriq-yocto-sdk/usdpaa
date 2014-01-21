@@ -45,6 +45,7 @@ dist_DATA =						\
 	usdpaa_config_t4_serdes_1_1_6_6.xml		\
 	usdpaa_config_t2_serdes_66_16.xml		\
 	usdpaa_config_t2_serdes_66_16_22g.xml		\
+	usdpaa_config_t1_serdes_0x66.xml		\
 	usdpaa_policy_hash_ipv4.xml			\
 	usdpaa_policy_hash_ipv4_arp_coarse_classify.xml \
 	usdpaa_policy_hash_shared_mac_ipv4.xml		\
