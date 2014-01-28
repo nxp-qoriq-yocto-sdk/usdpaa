@@ -44,6 +44,24 @@ net=0
 }
 
 case $(basename $0 .sh) in
+  lpm_ipfwd_7G)
+     lpm_ipfwd_config -P $pid -F -a 192.168.50.1 -i 0
+     lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 1
+     lpm_ipfwd_config -P $pid -F -a 192.168.140.1 -i 3
+     lpm_ipfwd_config -P $pid -F -a 192.168.150.1 -i 4
+
+     lpm_ipfwd_config -P $pid -G -s 192.168.50.2 -m 02:00:c0:a8:3c:02 -r true
+     lpm_ipfwd_config -P $pid -G -s 192.168.60.2 -m 02:00:c0:a8:82:02 -r true
+     lpm_ipfwd_config -P $pid -G -s 192.168.140.2 -m 02:00:c0:a8:8c:02 -r true
+     lpm_ipfwd_config -P $pid -G -s 192.168.150.2 -m 02:00:c0:a8:a0:02 -r true
+
+     # 1024
+     net_pair_routes 190 1 16 50 255	# 256
+     net_pair_routes 191 1 16 60 255	# 256
+     net_pair_routes 192 1 16 140 255	# 256
+     net_pair_routes 193 1 16 150 255	# 256
+     ;;
+
   lpm_ipfwd_22G)
      lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 8
      lpm_ipfwd_config -P $pid -F -a 192.168.130.1 -i 12
