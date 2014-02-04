@@ -34,6 +34,7 @@
 #include <internal/conf.h>
 
 #include <sys/ioctl.h>
+#include <usdpaa/fsl_usd.h>
 
 /* As higher-level drivers will be built on top of this (dma_mem, qbman, ...),
  * it's preferable that the process driver itself not provide any exported API.
@@ -289,4 +290,123 @@ int process_query_dma_mem(uint64_t *free_bytes, uint64_t *total_bytes)
 	if (total_bytes)
 		*total_bytes = result.total_bytes;
 	return 0;
+}
+
+struct usdpaa_ioctl_raw_portal {
+	/* inputs */
+	enum usdpaa_portal_type type; /* Type of portal to allocate */
+
+
+	uint8_t enable_stash; /* set to non zero to turn on stashing */
+	/* Stashing attributes for the portal */
+	uint32_t cpu;
+	uint32_t cache;
+	uint32_t window;
+	/* Specifies the stash request queue this portal should use */
+	uint8_t sdest;
+
+	/* Specifes a specific portal index to map or QBMAN_ANY_PORTAL_IDX
+	   for don't care.  The portal index will be populated by the
+	   driver when the ioctl() successfully completes */
+	uint32_t index;
+
+	/* outputs */
+	uint64_t cinh;
+	uint64_t cena;
+};
+
+#define USDPAA_IOCTL_ALLOC_RAW_PORTAL \
+	_IOWR(USDPAA_IOCTL_MAGIC, 0x0C, struct usdpaa_ioctl_raw_portal)
+
+#define USDPAA_IOCTL_FREE_RAW_PORTAL \
+	_IOR(USDPAA_IOCTL_MAGIC, 0x0D, struct usdpaa_ioctl_raw_portal)
+
+int process_portal_allocate(struct usdpaa_ioctl_raw_portal *portal)
+{
+	int ret = check_fd();
+	if (ret)
+		return ret;
+
+	ret = ioctl(fd, USDPAA_IOCTL_ALLOC_RAW_PORTAL, portal);
+	if (ret) {
+		perror("ioctl(USDPAA_IOCTL_ALLOC_RAW_PORTAL)");
+		return ret;
+	}
+	return 0;
+}
+
+int process_portal_free(struct usdpaa_ioctl_raw_portal *portal)
+{
+	int ret = check_fd();
+	if (ret)
+		return ret;
+
+	ret = ioctl(fd, USDPAA_IOCTL_FREE_RAW_PORTAL, portal);
+	if (ret) {
+		perror("ioctl(USDPAA_IOCTL_FREE_RAW_PORTAL)");
+		return ret;
+	}
+	return 0;
+}
+
+int qman_allocate_raw_portal(struct usdpaa_raw_portal *portal)
+{
+	struct usdpaa_ioctl_raw_portal input;
+	int ret;
+
+	input.type = usdpaa_portal_qman;
+	input.index = portal->index;
+	input.enable_stash = portal->enable_stash;
+	input.cpu = portal->cpu;
+	input.cache = portal->cache;
+	input.window = portal->window;
+	input.sdest = portal->sdest;
+
+	ret =  process_portal_allocate(&input);
+	if (ret)
+		return ret;
+	portal->index = input.index;
+	portal->cinh = input.cinh;
+	portal->cena  = input.cena;
+	return 0;
+}
+
+int qman_free_raw_portal(struct usdpaa_raw_portal *portal)
+{
+	struct usdpaa_ioctl_raw_portal input;
+	input.type = usdpaa_portal_qman;
+	input.index = portal->index;
+	input.cinh = portal->cinh;
+	input.cena = portal->cena;
+
+	return process_portal_free(&input);
+}
+
+int bman_allocate_raw_portal(struct usdpaa_raw_portal *portal)
+{
+	struct usdpaa_ioctl_raw_portal input;
+	int ret;
+
+	input.type = usdpaa_portal_bman;
+	input.index = portal->index;
+	input.enable_stash = 0;
+
+	ret =  process_portal_allocate(&input);
+	if (ret)
+		return ret;
+	portal->index = input.index;
+	portal->cinh = input.cinh;
+	portal->cena  = input.cena;
+	return 0;
+}
+
+int bman_free_raw_portal(struct usdpaa_raw_portal *portal)
+{
+	struct usdpaa_ioctl_raw_portal input;
+	input.type = usdpaa_portal_bman;
+	input.index = portal->index;
+	input.cinh = portal->cinh;
+	input.cena = portal->cena;
+
+	return process_portal_free(&input);
 }

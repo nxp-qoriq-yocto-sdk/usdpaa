@@ -70,6 +70,38 @@ int bman_thread_finish_slave(void);
 
 #define QBMAN_ANY_PORTAL_IDX 0xffffffff
 
+/* Obtain and free raw (unitialized) portals */
+
+struct usdpaa_raw_portal {
+	/* inputs */
+
+	/* set to non zero to turn on stashing */
+	uint8_t enable_stash;
+	/* Stashing attributes for the portal */
+	uint32_t cpu;
+	uint32_t cache;
+	uint32_t window;
+
+	/* Specifies the stash request queue this portal should use */
+	uint8_t sdest;
+
+	/* Specifes a specific portal index to map or QBMAN_ANY_PORTAL_IDX
+	 * for don't care.  The portal index will be populated by the
+	 * driver when the ioctl() successfully completes */
+	uint32_t index;
+
+	/* outputs */
+	uint64_t cinh;
+	uint64_t cena;
+};
+
+int qman_allocate_raw_portal(struct usdpaa_raw_portal *portal);
+int qman_free_raw_portal(struct usdpaa_raw_portal *portal);
+
+int bman_allocate_raw_portal(struct usdpaa_raw_portal *portal);
+int bman_free_raw_portal(struct usdpaa_raw_portal *portal);
+
+
 /* Obtain thread-local UIO file-descriptors */
 int qman_thread_fd(void);
 int bman_thread_fd(void);
