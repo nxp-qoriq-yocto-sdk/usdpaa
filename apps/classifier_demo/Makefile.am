@@ -39,10 +39,10 @@ dist_DATA = classifier_demo_config-p4080.xml \
 	    classifier_demo_config-t4240.xml \
 	    classifier_demo_policy.xml
 
-classifier_demo_CFLAGS := -I$(TOP_LEVEL)/apps/include \
+classifier_demo_CFLAGS := -I$(TOP_LEVEL)/apps/include -I$(TOP_LEVEL)/apps/lib/hash_table \
 			  $(FMC_CFLAGS) $(FMLIB_CFLAGS) \
 
-classifier_demo_SOURCES := dpa_classif_demo.c
+classifier_demo_SOURCES := ceetm_api.c dpa_classif_demo.c
 
 classifier_demo_LDFLAGS := $(LIBXML2_LDFLAGS) $(LIBEDIT_LDFLAGS) \
 			   $(FMC_LDFLAGS) $(FMLIB_LDFLAGS) \
@@ -50,4 +50,4 @@ classifier_demo_LDFLAGS := $(LIBXML2_LDFLAGS) $(LIBEDIT_LDFLAGS) \
 
 classifier_demo_LDADD := usdpaa_dpa_offload usdpaa_qbman usdpaa_of usdpaa_dma_mem \
 			 usdpaa_ppac usdpaa_fman usdpaa_syscfg usdpaa_process \
-			 fifo_queue
+			 fifo_queue hash_table

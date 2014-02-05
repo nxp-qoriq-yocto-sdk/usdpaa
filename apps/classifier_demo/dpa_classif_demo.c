@@ -29,8 +29,10 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 #include "fmc.h"
+#include "ceetm_api.h"
+#include "hash_table.h"
+#include "jhash_func.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -44,81 +46,45 @@
 #include <usdpaa/fsl_qman.h>
 #include <usdpaa/dma_mem.h>
 #include <ppac.h>
+#include <fsl_fman.h>
+
+#include <inttypes.h>
+#include <netinet/if_ether.h>
+#include <netinet/ip.h>
+#include <netinet/ip6.h>
+#include <arpa/inet.h>
+
+#include <linux/if_vlan.h>
 
 #include "ppam_if.h"
+#include <ppac_interface.h>
 #include "dpa_classif_demo.h"
-
-
-#define IPv4_OFFSET				14
-#define IPv4_SA_OFFSET				26
-#define IPv4_DA_OFFSET				30
-#define IPv4_CKSUM_OFFSET			24
-#define ETYPE_OFFSET				12
-#define APP_TABLE_KEY_SIZE_IPv4			9
-#define CLS_MBR_SIZE				2
-
-#define ENABLE_PROMISC
-
-
-static int		ppac_cli_next_stage(int argc, char *argv[]);
 
 static int		ppam_cli_parse(int		key,
 				char			*arg,
 				struct argp_state	*state);
 
-static u16		ipv4_cksum(const struct iphdr *iphdr);
+static const uint8_t dscp_key[MAX_NUM_OF_DSCP_KEYS][APP_DSCP_TABLE_KEY_SIZE] = {
+	{ 0x28 >> 2 }, /* AF11 */
+	{ 0x30 >> 2 }, /* AF12 */     /* Channel 1 */
+	{ 0x38 >> 2 }, /* AF13 */
 
+	{ 0x48 >> 2 }, /* AF21 */
+	{ 0x50 >> 2 }, /* AF22 */     /* Channel 2 */
+	{ 0x58 >> 2 }, /* AF23 */
 
-static struct dpa_classif_connection	conn[APP_NUM_OF_ENTRIES] = {
-	/* Lookup Key (IPSA, IPDA, IPPROTO)		     Frame    Entry */
-	/*						     Queue Id	Id  */
-	{{ 0xc0, 0xa8, 0x01, 0x01, 0xc0, 0xa8, 0x0a, 0x0a, 6 },	 6020,	0 },
-	{{ 0xc0, 0xa8, 0x01, 0x01, 0xc0, 0xa8, 0x0a, 0x0a, 17 }, 6021,	0 },
-	{{ 0xc0, 0xa8, 0x01, 0x01, 0xc0, 0xa8, 0x0a, 0x0b, 6 },	 6022,	0 },
-	{{ 0xc0, 0xa8, 0x01, 0x01, 0xc0, 0xa8, 0x0a, 0x0b, 17 }, 6023,	0 },
-	{{ 0xc0, 0xa8, 0x01, 0x02, 0xc0, 0xa8, 0x0a, 0x0a, 6 },	 6024,	0 },
-	{{ 0xc0, 0xa8, 0x01, 0x02, 0xc0, 0xa8, 0x0a, 0x0a, 17 }, 6025,	0 },
-	{{ 0xc0, 0xa8, 0x01, 0x02, 0xc0, 0xa8, 0x0a, 0x0b, 6 },	 6026,	0 },
-	{{ 0xc0, 0xa8, 0x01, 0x02, 0xc0, 0xa8, 0x0a, 0x0b, 17 }, 6027,	0 },
-	{{ 0xc0, 0xa8, 0x01, 0x03, 0xc0, 0xa8, 0x0a, 0x0a, 6 },	 6028,	0 },
-	{{ 0xc0, 0xa8, 0x01, 0x03, 0xc0, 0xa8, 0x0a, 0x0a, 17 }, 6029,	0 },
-	{{ 0xc0, 0xa8, 0x01, 0x03, 0xc0, 0xa8, 0x0a, 0x0b, 6 },	 6030,	0 },
-	{{ 0xc0, 0xa8, 0x01, 0x03, 0xc0, 0xa8, 0x0a, 0x0b, 17 }, 6031,	0 },
-	{{ 0xc0, 0xa8, 0x01, 0x04, 0xc0, 0xa8, 0x0a, 0x0a, 6 },	 6032,	0 },
-	{{ 0xc0, 0xa8, 0x01, 0x04, 0xc0, 0xa8, 0x0a, 0x0a, 17 }, 6033,	0 },
-	{{ 0xc0, 0xa8, 0x01, 0x04, 0xc0, 0xa8, 0x0a, 0x0b, 6 },	 6034,	0 },
-	{{ 0xc0, 0xa8, 0x01, 0x04, 0xc0, 0xa8, 0x0a, 0x0b, 17 }, 6035,	0 },
-	{{ 0xc0, 0xa8, 0x01, 0x05, 0xc0, 0xa8, 0x0a, 0x0a, 6 },	 6036,	0 },
-	{{ 0xc0, 0xa8, 0x01, 0x05, 0xc0, 0xa8, 0x0a, 0x0a, 17 }, 6037,	0 },
-	{{ 0xc0, 0xa8, 0x01, 0x05, 0xc0, 0xa8, 0x0a, 0x0b, 6 },	 6038,	0 },
-	{{ 0xc0, 0xa8, 0x01, 0x05, 0xc0, 0xa8, 0x0a, 0x0b, 17 }, 6039,	0 }
-};
+	{ 0x68 >> 2 }, /* AF31 */
+	{ 0x70 >> 2 }, /* AF32 */     /* Channel 3 */
+	{ 0x78 >> 2 }, /* AF33 */
 
-static const uint8_t
-	static_entry_key[APP_NUM_OF_STATIC_ENTRIES][APP_TABLE_KEY_SIZE] = {
-	{ 0xc0, 0xa8, 0x01, 0x06, 0xc0, 0xa8, 0x0a, 0x0a, 6 },
-	{ 0xc0, 0xa8, 0x01, 0x06, 0xc0, 0xa8, 0x0a, 0x0a, 17 },
-	{ 0xc0, 0xa8, 0x01, 0x06, 0xc0, 0xa8, 0x0a, 0x0b, 6 },
-	{ 0xc0, 0xa8, 0x01, 0x06, 0xc0, 0xa8, 0x0a, 0x0b, 17 }
-};
-
-static const uint8_t new_key[APP_NUM_ENTRIES_TO_UPDATE][APP_TABLE_KEY_SIZE] = {
-	{ 0xc0, 0xa8, 0x21, 0x01, 0xd2, 0xa8, 0x0a, 0x0a, 6 },
-	{ 0xc0, 0xa8, 0x21, 0x01, 0xd2, 0xa8, 0x0a, 0x0a, 17 },
-	{ 0xc0, 0xa8, 0x21, 0x01, 0xd2, 0xa8, 0x0a, 0x0b, 6 },
-	{ 0xc0, 0xa8, 0x21, 0x01, 0xd2, 0xa8, 0x0a, 0x0b, 17 },
-	{ 0xc0, 0xa8, 0x21, 0x02, 0xd2, 0xa8, 0x0a, 0x0a, 6 }
-};
-
-static const uint8_t new_static_entry_key[APP_NUM_STATIC_ENTRIES_TO_UPDATE]
-							[APP_TABLE_KEY_SIZE] = {
-	{ 0xc0, 0xa8, 0x01, 0x12, 0xc0, 0xa8, 0x0a, 0x0b, 6 },
-	{ 0xc0, 0xa8, 0x01, 0x12, 0xc0, 0xa8, 0x0a, 0x0b, 17 }
+	{ 0x88 >> 2 }, /* AF41 */
+	{ 0x90 >> 2 }, /* AF42 */     /* Channel 4 */
+	{ 0x98 >> 2 }  /* AF43 */
 };
 
 struct ppam_arguments ppam_args = {
-	.fm	= 1,
-	.port	= 0
+	.fm		= 1,
+	.port		= 0
 };
 
 const char ppam_doc[] = "DPA Classifier use case";
@@ -131,78 +97,221 @@ static const struct argp_option argp_opts[] = {
 
 const struct argp ppam_argp = {argp_opts, ppam_cli_parse, 0, ppam_doc};
 
-/* Register the "next_stage" PPAC CLI command */
-cli_cmd(next_stage, ppac_cli_next_stage);
+struct fmc_model_t		cmodel;
 
-static int create_dpa_stats_counters(void);
+t_Handle			ccnodes[3];
 
-static int		td				= DPA_OFFLD_DESC_NONE;
-static int		fwd_hmd[APP_NUM_OF_ENTRIES]	= {
-	DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE,
-	DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE,
-	DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE,
-	DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE,
-	DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE,
-	DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE,
-	DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE
-};
-static int		update_hmd[APP_NUM_OF_ENTRIES]	= {
-	DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE,
-	DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE,
-	DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE,
-	DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE,
-	DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE,
-	DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE,
-	DPA_OFFLD_DESC_NONE, DPA_OFFLD_DESC_NONE
-};
-static int		stage;
-struct fmc_model_t	cmodel;
+static struct hash_table	*hash_ipv4, *hash_ipv6;
 
-t_Handle		ccnodes[2];
+LIST_HEAD(avail_ipv4_counters);
+LIST_HEAD(avail_ipv6_counters);
 
-int dpa_stats_id;
-int cnt_id;
-void *storage;
+struct counter_data		ipv4_counter[MAX_NUM_OF_IPv4_KEYS];
+struct counter_data		ipv6_counter[MAX_NUM_OF_IPv6_KEYS];
 
-enum dpa_stats_op {
-	dpa_stats_get_async = 0,
-	dpa_stats_get_sync,
-	dpa_stats_reset
-};
+static int			ipv4_td = DPA_OFFLD_DESC_NONE;
+static int			ipv6_td = DPA_OFFLD_DESC_NONE;
+static int			dscp_td = DPA_OFFLD_DESC_NONE;
+
+static int			fwd_hmd_ipv4[MAX_NUM_OF_IPv4_KEYS];
+static int			fwd_hmd_ipv6[MAX_NUM_OF_IPv6_KEYS];
+
+static bool			populate_dscp;
+
+static int			dpa_stats_id;
+static int			em4_cnt_id = DPA_OFFLD_INVALID_OBJECT_ID;
+static int			em6_cnt_id = DPA_OFFLD_INVALID_OBJECT_ID;
+static int			emd_cnt_id = DPA_OFFLD_INVALID_OBJECT_ID;
+static int			eth_cnt_id = DPA_OFFLD_INVALID_OBJECT_ID;
+extern int			tmg_cnt_id;
+extern int			cng_cnt_id;
+
+static uint32_t			txfq;
+
+static int			inserted_ipv4_keys;
+static int			inserted_ipv6_keys;
+
+static void			*storage;
+
+#if defined(B4860)
+extern struct interface		intf;
+#endif
+
+
+void clean_up(void)
+{
+	int err, i;
+
+	/* Remove the DPA Stats counters */
+	if (em4_cnt_id != DPA_OFFLD_INVALID_OBJECT_ID)
+		dpa_stats_remove_counter(em4_cnt_id);
+	if (em6_cnt_id != DPA_OFFLD_INVALID_OBJECT_ID)
+		dpa_stats_remove_counter(em6_cnt_id);
+	if (emd_cnt_id != DPA_OFFLD_INVALID_OBJECT_ID)
+		dpa_stats_remove_counter(emd_cnt_id);
+	if (eth_cnt_id != DPA_OFFLD_INVALID_OBJECT_ID)
+		dpa_stats_remove_counter(eth_cnt_id);
+	if (tmg_cnt_id != DPA_OFFLD_INVALID_OBJECT_ID)
+		dpa_stats_remove_counter(tmg_cnt_id);
+	if (cng_cnt_id != DPA_OFFLD_INVALID_OBJECT_ID)
+		dpa_stats_remove_counter(cng_cnt_id);
+
+	err = dpa_stats_free(dpa_stats_id);
+	if (err < 0)
+		error(0, -err, "Failed to release DPA Stats instance\n");
+	else
+		printf("DPA Stats instance successfully released\n");
+
+	/* Release DPA Stats instance */
+	dpa_stats_lib_exit();
+
+	printf("DPA Stats library successfully released\n");
+
+	if (dscp_td != DPA_OFFLD_DESC_NONE) {
+		/* Flush DSCP DPA Classifier table */
+		err = dpa_classif_table_flush(dscp_td);
+		if (err < 0)
+			error(0, -err, "DPA Classifier DSCP table flush failed");
+	}
+
+	if (ipv4_td != DPA_OFFLD_DESC_NONE) {
+		/* Flush IPv4 DPA Classifier table */
+		err = dpa_classif_table_flush(ipv4_td);
+		if (err < 0)
+			error(0, -err, "DPA Classifier IPv4 table flush failed");
+		else
+			printf("DPA Classifier IPv4 table flushed.\n");
+	}
+
+	if (ipv6_td != DPA_OFFLD_DESC_NONE) {
+		/* Flush IPv6 DPA Classifier table */
+		err = dpa_classif_table_flush(ipv6_td);
+		if (err < 0)
+			error(0, -err, "DPA Classifier IPv6 table flush failed");
+		else
+			printf("DPA Classifier IPv6 table flushed.\n");
+	}
+
+	/* Free header manipulation operations */
+	for (i = 0; i < MAX_NUM_OF_IPv4_KEYS; i++)
+		if (fwd_hmd_ipv4[i] != DPA_OFFLD_DESC_NONE)
+			dpa_classif_free_hm(fwd_hmd_ipv4[i]);
+
+	for (i = 0; i < MAX_NUM_OF_IPv6_KEYS; i++)
+		if (fwd_hmd_ipv6[i] != DPA_OFFLD_DESC_NONE)
+			dpa_classif_free_hm(fwd_hmd_ipv6[i]);
+
+	if (dscp_td != DPA_OFFLD_DESC_NONE) {
+		/* Free DSCP DPA Classifier table */
+		err = dpa_classif_table_free(dscp_td);
+		if (err < 0)
+			error(0, -err, "Failed to free DPA Classifier DSCP table (td=%d)",
+					dscp_td);
+		else
+			printf("INFO: DPA Classifier DSCP table resources released\n");
+	}
+
+	if (ipv4_td != DPA_OFFLD_DESC_NONE) {
+		/* Free IPv4 DPA Classifier table */
+		err = dpa_classif_table_free(ipv4_td);
+		if (err < 0)
+			error(0, -err, "Failed to free DPA Classifier IPv4 table (td=%d)",
+					ipv4_td);
+		else
+			printf("INFO: DPA Classifier IPv4 table resources released.\n");
+	}
+
+	if (ipv6_td != DPA_OFFLD_DESC_NONE) {
+		/* Free IPv6 DPA Classifier table */
+		err = dpa_classif_table_free(ipv6_td);
+		if (err < 0)
+			error(0, -err, "Failed to free DPA Classifier IPv6 table (td=%d)",
+					ipv6_td);
+		else
+			printf("INFO: DPA Classifier IPv6 table resources released.\n");
+	}
+
+	/* Release DPA Classifier library */
+	dpa_classif_lib_exit();
+
+	/* Clean-up the FMC model */
+	err = fmc_clean(&cmodel);
+	if (err != 0)
+		error(0, EBUSY, "Failed to clean-up PCD configuration");
+	else
+		printf("INFO: PCD configuration successfully restored.\n");
+
+	/* Release the resources of hash tables used */
+	hash_table_destroy(hash_ipv4);
+	hash_ipv4 = NULL;
+	hash_table_destroy(hash_ipv6);
+	hash_ipv6 = NULL;
+}
+
+int create_exact_match_table(int *td, t_Handle ccnode, uint8_t key_size,
+		unsigned int num_of_keys)
+{
+	struct dpa_cls_tbl_params	table_params;
+	struct dpa_cls_tbl_action	miss_action;
+	int				err = 0;
+
+	/* Create an Exact Match table */
+	memset(&table_params, 0, sizeof(table_params));
+	table_params.type	= DPA_CLS_TBL_EXACT_MATCH;
+	table_params.cc_node	= ccnode;
+	table_params.entry_mgmt	= DPA_CLS_TBL_MANAGE_BY_KEY;
+	table_params.prefilled_entries = 0;
+
+	table_params.exact_match_params.key_size = key_size;
+	table_params.exact_match_params.entries_cnt = num_of_keys;
+
+	err = dpa_classif_table_create(&table_params, td);
+	if (err < 0) {
+		error(0, -err, "Failed to create DPA Classifier table");
+		return err;
+	}
+	printf("Successfully CREATED DPA Classifier Exact Match table (td=%d).\n",
+			*td);
+
+	memset(&miss_action, 0, sizeof(struct dpa_cls_tbl_action));
+	miss_action.enable_statistics = TRUE;
+	miss_action.type = DPA_CLS_TBL_ACTION_DROP;
+
+	err = dpa_classif_table_modify_miss_action(*td, &miss_action);
+	if (err < 0) {
+		error(0, -err, "Failed to modify DPA Classifier table");
+		return err;
+	}
+	printf("Successfully Modified Miss Action for DPA Classifier Exact Match table (td=%d).\n",
+			*td);
+
+	return err;
+}
 
 int ppam_init(void)
 {
-	int				err, i;
-	char				object_name[100];
-	struct dpa_cls_hm_update_params	update_params;
-	struct dpa_cls_hm_update_resources update_hm_res;
-	struct dpa_cls_hm_fwd_params	fwd_params;
-	struct dpa_cls_hm_fwd_resources fwd_hm_res;
-	const char			*pcd_path;
-	const char			*cfg_path;
-	const char			*pdl_path;
-	t_Handle			hm_fwd;
-	t_Handle			hm_update_ipsa;
+	int					err, i;
+	char					object_name[100];
+	const char				*pcd_path;
+	const char				*cfg_path;
+	const char				*pdl_path;
 
 	pcd_path = getenv("DEF_PCD_PATH");
 	if (pcd_path == NULL) {
-		error(0, EINVAL, "$DEF_PCD_PATH environment variable not"
-			" defined");
-		return EINVAL;
+		error(0, EINVAL, "$DEF_PCD_PATH environment variable not defined");
+		return -EINVAL;
 	}
 
 	cfg_path = getenv("DEF_CFG_PATH");
 	if (cfg_path == NULL) {
-		error(0, EINVAL, "$DEF_CFG_PATH environment variable not"
-			" defined");
-		return EINVAL;
+		error(0, EINVAL, "$DEF_CFG_PATH environment variable not defined");
+		return -EINVAL;
 	}
 
 	pdl_path = getenv("DEF_PDL_PATH");
 	if (pdl_path == NULL) {
-		error(0, EINVAL, "$DEF_PDL_PATH environment variable not"
-			" defined");
-		return EINVAL;
+		error(0, EINVAL, "$DEF_PDL_PATH environment variable not defined");
+		return -EINVAL;
 	}
 
 	printf("dpa_classifier_demo: using the following config file: %s\n",
@@ -221,115 +330,84 @@ int ppam_init(void)
 			0,
 			NULL);
 	if (err != 0) {
-		error(0, EBUSY, "Failed to create the FMC Model");
+		error(0, -err, "Failed to create the FMC Model");
 		return err;
 	}
 
 	/* Execute the obtained FMC Model */
 	err = fmc_execute(&cmodel);
 	if (err != 0) {
-		error(0, err, "Failed to execute the FMC Model");
+		error(0, -err, "Failed to execute the FMC Model");
 		return err;
 	}
 
 	printf("dpa_classifier_demo is assuming FMan:%d and port:%d\n",
 		ppam_args.fm, ppam_args.port);
 	/* Get the CC Node Handle */
-	sprintf(object_name, "fm%d/port/1G/%d/ccnode/fman_3_tuple_classif",
+	sprintf(object_name, "fm%d/port/1G/%d/ccnode/3_tuple_ipv4_classif",
 		ppam_args.fm, ppam_args.port);
 	ccnodes[0] = fmc_get_handle(&cmodel, object_name);
 	if (!ccnodes[0]) {
-		error(0, EINVAL, "Failed to acquire the CC node handle. Are "
-			"you using the correct parameters for this test and "
-			"platform?");
+		error(0, EINVAL, "Failed to acquire the IPv4 CC node handle. Are you using the correct parameters for this test and platform?");
+		return -EINVAL;
+	}
+
+	sprintf(object_name, "fm%d/port/1G/%d/ccnode/3_tuple_ipv6_classif",
+			ppam_args.fm, ppam_args.port);
+	ccnodes[1] = fmc_get_handle(&cmodel, object_name);
+	if (!ccnodes[1]) {
+		error(0, EINVAL, "Failed to acquire the IPv6 CC node handle. Are you using the correct parameters for this test and platform?");
+		return -EINVAL;
+	}
+
+	sprintf(object_name, "fm%d/port/1G/%d/ccnode/dscp_classif",
+			ppam_args.fm, ppam_args.port);
+	ccnodes[2] = fmc_get_handle(&cmodel, object_name);
+	if (!ccnodes[2]) {
+		error(0, EINVAL, "Failed to acquire the DSCP CC node handle. Are you using the correct parameters for this test and platform?");
 		return -EINVAL;
 	}
 
 	/* Attempt to initialize the DPA Classifier user space library */
 	err = dpa_classif_lib_init();
 	if (err < 0) {
-		error(0, -err, "Failed to initialize the DPA Classifier user "
-			"space library");
-		return -err;
+		error(0, -err, "Failed to initialize the DPA Classifier user space library");
+		return err;
 	}
 
-	printf("Header manipulations:\n");
-
-	memset(&update_params, 0, sizeof(update_params));
-	update_params.op_flags = DPA_CLS_HM_UPDATE_IPv4_UPDATE;
-	update_params.update.l3.field_flags = DPA_CLS_HM_IP_UPDATE_IPSA;
-	update_params.update.l3.ipsa.version = 4;
-
-	memset(&update_hm_res, 0, sizeof(update_hm_res));
-
-	memset(&fwd_params, 0, sizeof(fwd_params));
-	fwd_params.out_if_type = DPA_CLS_HM_IF_TYPE_ETHERNET;
-	fwd_params.eth.macsa[0] = 0x00;
-	fwd_params.eth.macsa[1] = 0x10;
-	fwd_params.eth.macsa[2] = 0x63;
-	fwd_params.eth.macsa[3] = 0x88;
-	fwd_params.eth.macsa[4] = 0x88;
-	fwd_params.eth.macsa[5] = 0x88;
-	fwd_params.eth.macda[0] = 0x00;
-	fwd_params.eth.macda[1] = 0x20;
-	fwd_params.eth.macda[2] = 0x63;
-	fwd_params.eth.macda[3] = 0xaa;
-	fwd_params.eth.macda[4] = 0xaa;
-	fwd_params.eth.macda[5] = 0xaa;
-
-	memset(&fwd_hm_res, 0, sizeof(fwd_hm_res));
-
-	for (i = 0; i < APP_NUM_OF_ENTRIES; i++) {
-		sprintf(object_name, "fm%d/hdr/fwd%d", ppam_args.fm, i+1);
-		hm_fwd = fmc_get_handle(&cmodel, object_name);
-		sprintf(object_name, "fm%d/hdr/update_ipsa%d", ppam_args.fm,
-			i+1);
-		hm_update_ipsa = fmc_get_handle(&cmodel, object_name);
-		printf("	%d) Forwarding %p, IPSA update %p\n", i+1,
-			hm_fwd, hm_update_ipsa);
-
-		update_params.update.l3.ipsa.addr.ipv4.word = 0x11223300 + i;
-
-		update_hm_res.update_node = hm_update_ipsa;
-
-		err = dpa_classif_set_update_hm(&update_params,
-			DPA_OFFLD_DESC_NONE, &update_hmd[i], false,
-			&update_hm_res);
-		if (err < 0) {
-			error(0, -err, "Failed to set up \"update\" header "
-				"manipulation #%d.\n", i+1);
-			goto main_error;
-		}
-
-		fwd_params.eth.macsa[5] = i;
-		fwd_params.eth.macda[5] = i;
-
-		fwd_hm_res.fwd_node = hm_fwd;
-
-		err = dpa_classif_set_fwd_hm(&fwd_params, update_hmd[i],
-			&fwd_hmd[i], true, &fwd_hm_res);
-		if (err < 0) {
-			error(0, -err, "Failed to set up forwarding header "
-				"manipulation #%d.\n", i+1);
-			goto main_error;
-		}
+	for (i = 0; i < MAX_NUM_OF_IPv4_KEYS; i++) {
+		fwd_hmd_ipv4[i] = DPA_OFFLD_DESC_NONE;
+		/*
+		 * Add the counters control blocks to the available IPv4
+		 * counters list.
+		 */
+		list_add(&ipv4_counter[i].node, &avail_ipv4_counters);
 	}
 
-	/* Create the DPA Classifier table */
-	err = create_exact_match_table();
-	if (err < 0)
-		goto main_error;
+	for (i = 0; i < MAX_NUM_OF_IPv6_KEYS; i++) {
+		fwd_hmd_ipv6[i] = DPA_OFFLD_DESC_NONE;
+		/*
+		 * Add the counters control blocks to the available IPv6
+		 * counters list.
+		 */
+		list_add(&ipv6_counter[i].node, &avail_ipv6_counters);
+	}
 
-	printf("Stage #1 is ready - Created & populated table.\n");
-	printf("When ready to go to the next test stage, type "
-		"\"next_stage\"\n");
+	hash_ipv4 = hash_table_create(APP_TABLE_KEY_SIZE_IPv4, NUM_HASH_BUCKETS,
+					MAX_NUM_OF_IPv4_KEYS, lookup);
+	if (!hash_ipv4) {
+		error(0, EINVAL, "Cannot create IPv4 application internal hash table");
+		return -EINVAL;
+	}
+
+	hash_ipv6 = hash_table_create(APP_TABLE_KEY_SIZE_IPv6, NUM_HASH_BUCKETS,
+					MAX_NUM_OF_IPv6_KEYS, lookup);
+	if (!hash_ipv6) {
+		error(0, EINVAL, "Cannot create IPv6 application internal hash table");
+		return -EINVAL;
+	}
 
 	return 0;
-
-main_error:
-	clean_up();
-
-	return -err;
 }
 
 void ppam_finish(void)
@@ -337,267 +415,295 @@ void ppam_finish(void)
 	clean_up();
 }
 
-void clean_up(void)
+static int create_dscp_table(void)
 {
-	int err, i;
+	struct dpa_cls_tbl_params	table_params;
+	int				err = 0;
 
-	if (td >= 0) {
-		/* Flush DPA Classifier table */
-		err = dpa_classif_table_flush(td);
-		if (err < 0)
-			error(0, -err, "DPA Classifier table flush failed");
-		else
-			printf("DPA Classifier table flushed.\n");
+	/* Create an Exact Match table */
+	memset(&table_params, 0, sizeof(table_params));
+	table_params.type	= DPA_CLS_TBL_EXACT_MATCH;
+	table_params.cc_node	= ccnodes[2];
+	table_params.entry_mgmt	= DPA_CLS_TBL_MANAGE_BY_KEY;
 
-		/* Free DPA Classifier table */
-		err = dpa_classif_table_free(td);
-		if (err < 0) {
-			error(0, -err, "Failed to free DPA Classifier table "
-				"(td=%d)", td);
-		} else
-			printf("INFO: DPA Classifier table resources "
-				"released.\n");
+	table_params.exact_match_params.entries_cnt = MAX_NUM_OF_DSCP_KEYS;
+	table_params.exact_match_params.key_size = APP_DSCP_TABLE_KEY_SIZE;
+
+	err = dpa_classif_table_create(&table_params, &dscp_td);
+	if (err < 0) {
+		error(0, -err, "Failed to create DPA Classifier DSCP table");
+		return err;
 	}
-
-	/* Free header manipulation operations */
-	for (i = 0; i < APP_NUM_OF_ENTRIES; i++) {
-		if (update_hmd[i] != DPA_OFFLD_DESC_NONE)
-			dpa_classif_free_hm(update_hmd[i]);
-
-		if (fwd_hmd[i] != DPA_OFFLD_DESC_NONE)
-			dpa_classif_free_hm(fwd_hmd[i]);
-	}
-
-	/* Release DPA Classifier library */
-	dpa_classif_lib_exit();
-
-	/* Clean-up the FMC model */
-	err = fmc_clean(&cmodel);
-	if (err != 0)
-		error(0, EBUSY, "Failed to clean-up PCD configuration");
-	else
-		printf("INFO: PCD configuration successfully restored.\n");
-
-	/* Remove the DPA Stats counter */
-	if (cnt_id != DPA_OFFLD_INVALID_OBJECT_ID)
-		dpa_stats_remove_counter(cnt_id);
-
-	err = dpa_stats_free(dpa_stats_id);
-	if (err < 0)
-		error(0, -err, "Failed to release DPA Stats instance\n");
-	else
-		printf("DPA Stats instance successfully released\n");
-
-	/* Release DPA Stats instance */
-	dpa_stats_lib_exit();
-
-	printf("DPA Stats library successfully released\n");
+	printf("\nSuccessfully CREATED DPA Classifier DSCP table (td=%d)\n",
+			dscp_td);
+	return err;
 }
 
-static int ppac_cli_next_stage(int argc, char *argv[])
+static int create_dpa_stats_counters(void)
 {
-	struct dpa_cls_tbl_entry_mod_params mod_params;
-	struct dpa_stats_cls_member_params mbr_prm;
-	struct dpa_offload_lookup_key key, newKey, stats_key;
-	struct dpa_cls_hm_update_params update_hm_params;
-	struct dpa_cls_hm_fwd_params fwd_hm_params;
-	int err, i;
+	struct dpa_stats_params		stats_params;
+	struct dpa_stats_cnt_params	cnt_params;
+	struct dpa_stats_cls_cnt_params	cls_params;
+	struct dpa_offload_lookup_key	**cls_keys;
+	int err = 0, i = 0, j = 0;
 
-	uint8_t			key_data[DPA_OFFLD_MAXENTRYKEYSIZE];
-	uint8_t			mask_data[DPA_OFFLD_MAXENTRYKEYSIZE];
-	uint8_t			new_key_data[DPA_OFFLD_MAXENTRYKEYSIZE];
-	uint8_t			new_mask_data[DPA_OFFLD_MAXENTRYKEYSIZE];
-
-	printf("\nNext test stage...\n");
-	switch (++stage) {
-	case 1: /* Remove first APP_NUM_ENTRIES_TO_REMOVE entries */
-
-		/* Prepare lookup key */
-		key.byte = key_data;
-		key.mask = mask_data;
-		key.size = APP_TABLE_KEY_SIZE;
-		memset(key.mask, 0xff, APP_TABLE_KEY_SIZE);
-
-		for (i = 0; i < APP_NUM_ENTRIES_TO_REMOVE; i++) {
-			memcpy(key.byte, conn[i].key, APP_TABLE_KEY_SIZE);
-			err = dpa_classif_table_delete_entry_by_key(td, &key);
-			if (err < 0) {
-				error(0, -err, "Failed to remove "
-					"entry #%d from the table (td=%d)",
-					i, td);
-				clean_up();
-				exit(-err);
-			}
-
-			mbr_prm.type = DPA_STATS_CLS_MEMBER_SINGLE_KEY;
-			mbr_prm.key = &stats_key;
-			mbr_prm.key->byte = NULL;
-			mbr_prm.key->mask = NULL;
-			mbr_prm.key->size = 0;
-
-			/* Modify DPA Stats class counter to invalidate the
-			 * corresponding lookup key */
-			err = dpa_stats_modify_class_counter(
-					cnt_id,
-					&mbr_prm,
-					i);
-			if (err < 0) {
-				error(0, -err, "Failed to modify DPA Stats "
-						"counter: %d\n", cnt_id);
-				return -err;
-			}
-		}
-
-		/* Remove static entries: */
-		for (i = 0; i < APP_NUM_STATIC_ENTRIES_TO_REMOVE; i++) {
-			memcpy(key.byte, static_entry_key[i],
-							APP_TABLE_KEY_SIZE);
-			err = dpa_classif_table_delete_entry_by_key(td, &key);
-			if (err < 0) {
-				error(0, -err, "Failed to remove static entry "
-					"#%d from the table (td=%d)", i, td);
-				clean_up();
-				exit(-err);
-			}
-		}
-
-		/*
-		 * Modify IPSA update header manipulations for the remaining
-		 * entries:
-		 */
-		memset(&update_hm_params, 0,
-				sizeof(struct dpa_cls_hm_update_params));
-		update_hm_params.update.l3.ipsa.version = 4;
-
-		for (i = APP_NUM_ENTRIES_TO_REMOVE; i < APP_NUM_OF_ENTRIES;
-									i++) {
-			update_hm_params.update.l3.ipsa.addr.ipv4.word =
-								0xac0a0a00 + i;
-			err = dpa_classif_modify_update_hm(update_hmd[i],
-				&update_hm_params, DPA_CLS_HM_UPDATE_MOD_SIP);
-			if (err < 0) {
-				error(0, -err, "Failed to modify IPSA update "
-					"header manipulation #%d\n", i+1);
-				clean_up();
-				exit(-err);
-			}
-		}
-
-		printf("Stage #2 is ready - "
-			"Removed first %d table entries. Removed first %d "
-			"static table entries.\n", APP_NUM_ENTRIES_TO_REMOVE,
-			APP_NUM_STATIC_ENTRIES_TO_REMOVE);
-		break;
-	case 2:
-		/* Update last APP_NUM_ENTRIES_TO_UPDATE entries */
-		newKey.byte = new_key_data;
-		newKey.mask = new_mask_data;
-		newKey.size = APP_TABLE_KEY_SIZE;
-		memset(newKey.mask, 0xff, APP_TABLE_KEY_SIZE);
-
-		key.byte = key_data;
-		key.mask = mask_data;
-		key.size = APP_TABLE_KEY_SIZE;
-		memset(key.mask, 0xff, APP_TABLE_KEY_SIZE);
-
-		memset(&mod_params, 0, sizeof(mod_params));
-		mod_params.type = DPA_CLS_TBL_MODIFY_KEY;
-		mod_params.key = &newKey;
-
-		for (i = 1; i <= APP_NUM_ENTRIES_TO_UPDATE; i++) {
-			memcpy(mod_params.key->byte,
-				new_key[i-1],
-				APP_TABLE_KEY_SIZE);
-			memcpy(key.byte,
-				conn[APP_NUM_OF_ENTRIES-i].key,
-				APP_TABLE_KEY_SIZE);
-
-			err = dpa_classif_table_modify_entry_by_key(
-					td, &key, &mod_params);
-			if (err < 0) {
-				error(0, -err, "Failed to modify entry "
-					"#%d from the table (td=%d)",
-					(APP_NUM_OF_ENTRIES-i), td);
-				clean_up();
-				exit(-err);
-			}
-
-			mbr_prm.type = DPA_STATS_CLS_MEMBER_SINGLE_KEY;
-			mbr_prm.key = &key;
-
-			memcpy(mbr_prm.key->byte,
-					new_key[i-1], APP_TABLE_KEY_SIZE);
-			memset(mbr_prm.key->mask, 0xff, APP_TABLE_KEY_SIZE);
-
-			/* Modify DPA Stats class counter */
-			err = dpa_stats_modify_class_counter(cnt_id,
-					&mbr_prm, (APP_NUM_OF_ENTRIES-i));
-			if (err < 0) {
-				error(0, -err, "Failed to modify DPA Stats "
-						"counter: %d\n", cnt_id);
-				return -err;
-			}
-		}
-
-		/* Modify the last static keys */
-		for (i = 0; i < APP_NUM_STATIC_ENTRIES_TO_UPDATE; i++) {
-			memcpy(mod_params.key->byte, new_static_entry_key[i],
-				APP_TABLE_KEY_SIZE);
-			memcpy(key.byte,
-				static_entry_key[APP_NUM_STATIC_ENTRIES_TO_UPDATE + i],
-				APP_TABLE_KEY_SIZE);
-			err = dpa_classif_table_modify_entry_by_key(
-				td, &key, &mod_params);
-			if (err < 0) {
-				error(0, -err, "Failed to modify static entry "
-					"#%d from the table (td=%d)",
-					(APP_NUM_STATIC_ENTRIES_TO_UPDATE + i),
-					td);
-				clean_up();
-				exit(-err);
-			}
-		}
-
-		/*
-		 * Modify forwarding header manipulations for the remaining
-		 * entries:
-		 */
-		memset(&fwd_hm_params, 0,
-				sizeof(struct dpa_cls_hm_fwd_params));
-		fwd_hm_params.eth.macsa[0] = 0x00;
-		fwd_hm_params.eth.macsa[2] = 0x12;
-		fwd_hm_params.eth.macsa[3] = 0x13;
-		fwd_hm_params.eth.macsa[4] = 0x14;
-		fwd_hm_params.eth.macsa[5] = 0x15;
-
-		for (i = APP_NUM_ENTRIES_TO_REMOVE; i < APP_NUM_OF_ENTRIES;
-									i++) {
-			fwd_hm_params.eth.macsa[1] = i;
-			err = dpa_classif_modify_fwd_hm(fwd_hmd[i],
-				&fwd_hm_params, DPA_CLS_HM_FWD_MOD_ETH_MACSA);
-			if (err < 0) {
-				error(0, -err, "Failed to modify FORWARDING "
-					"header manipulation #%d\n", i+1);
-				clean_up();
-				exit(-err);
-			}
-		}
-
-		printf("Stage #3 is ready - "
-			"Updated key for last %d table entries. Updated key for"
-			" last %d static table entries.\n",
-			APP_NUM_ENTRIES_TO_UPDATE,
-			APP_NUM_STATIC_ENTRIES_TO_UPDATE);
-		break;
-	default: /* Last stage was reached. */
-		printf("Last stage reached.\n");
-		printf("Please type \"quit\" to end the test.\n");
-		return 0;
+	/* Attempt to initialize the DPA Stats user space library */
+	err = dpa_stats_lib_init();
+	if (err < 0) {
+		error(0, -err, "Failed to initialize the DPA Stats user space library");
+		return err;
 	}
-	printf("When ready to go to the next test stage, type "
-		"\"next_stage\"\n");
+
+	printf("DPA Stats library successfully initialized\n");
+
+	stats_params.max_counters = 6;
+	stats_params.storage_area_len = 6000;
+
+	stats_params.storage_area = malloc(stats_params.storage_area_len);
+	if (!stats_params.storage_area) {
+		error(0, ENOMEM, "Cannot allocate memory for DPA Stats storage area\n");
+		return -ENOMEM;
+	}
+
+	/* Save storage area pointer */
+	storage = stats_params.storage_area;
+
+	err = dpa_stats_init(&stats_params, &dpa_stats_id);
+	if (err < 0) {
+		error(0, -err, "Failed to initialize DPA Stats instance\n");
+		return err;
+	}
+	printf("\nSuccessfully Initialized DPA Stats instance: %d\n",
+			dpa_stats_id);
+
+	/* Allocate memory for keys array */
+	cls_params.classif_tbl_params.keys = calloc((MAX_NUM_OF_IPv4_KEYS + 1),
+			sizeof(**cls_keys));
+	if (!cls_params.classif_tbl_params.keys) {
+		error(0, ENOMEM, "Failed to allocate memory for keys");
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < MAX_NUM_OF_IPv4_KEYS; i++) {
+		cls_params.classif_tbl_params.keys[i] = malloc(
+				sizeof(struct dpa_offload_lookup_key));
+		if (!cls_params.classif_tbl_params.keys[i]) {
+			error(0, ENOMEM, "Failed to allocate memory for key");
+			for (j = 0; j < i; j++)
+				free(cls_params.classif_tbl_params.keys[j]);
+			free(cls_params.classif_tbl_params.keys);
+			return -ENOMEM;
+		}
+
+		/* No lookup key is configured in the class */
+		memset(cls_params.classif_tbl_params.keys[i], 0,
+				sizeof(struct dpa_offload_lookup_key));
+	}
+
+	/* Set it to NULL in order to retrieve statistics for miss */
+	cls_params.classif_tbl_params.keys[MAX_NUM_OF_IPv4_KEYS] = NULL;
+
+
+	/* Create Classifier IPv4 Exact Match Table class counter */
+	cls_params.type = DPA_STATS_CNT_CLASSIF_TBL;
+	/* The last member of the class will provide statistics for miss */
+	cls_params.class_members = MAX_NUM_OF_IPv4_KEYS + 1;
+	cls_params.classif_tbl_params.td = ipv4_td;
+	cls_params.classif_tbl_params.cnt_sel = DPA_STATS_CNT_CLASSIF_BYTES |
+						DPA_STATS_CNT_CLASSIF_PACKETS;
+	cls_params.classif_tbl_params.key_type = DPA_STATS_CLASSIF_SINGLE_KEY;
+
+	err = dpa_stats_create_class_counter(dpa_stats_id, &cls_params,
+			&em4_cnt_id);
+	if (err < 0) {
+		error(0, -err, "Failed to create DPA Stats counter\n");
+		return err;
+	}
+	printf("Successfully created DPA Stats counter: %d\n", em4_cnt_id);
+
+	/* Table counters were created, release the allocated memory for keys*/
+	for (i = 0; i <= MAX_NUM_OF_IPv4_KEYS; i++)
+		free(cls_params.classif_tbl_params.keys[i]);
+	free(cls_params.classif_tbl_params.keys);
+
+	/* Allocate memory for keys array */
+	cls_params.classif_tbl_params.keys = calloc((MAX_NUM_OF_IPv6_KEYS + 1),
+							sizeof(**cls_keys));
+	if (!cls_params.classif_tbl_params.keys) {
+		error(0, ENOMEM, "Failed to allocate memory for keys");
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < MAX_NUM_OF_IPv6_KEYS; i++) {
+		cls_params.classif_tbl_params.keys[i] = malloc(
+				sizeof(struct dpa_offload_lookup_key));
+		if (!cls_params.classif_tbl_params.keys[i]) {
+			error(0, ENOMEM, "Failed to allocate memory for key");
+			for (j = 0; j < i; j++)
+				free(cls_params.classif_tbl_params.keys[j]);
+			free(cls_params.classif_tbl_params.keys);
+			return -ENOMEM;
+		}
+
+		/* No lookup key is configured in the class */
+		memset(cls_params.classif_tbl_params.keys[i], 0,
+				sizeof(struct dpa_offload_lookup_key));
+	}
+
+	/* Set it to NULL in order to retrieve statistics for miss */
+	cls_params.classif_tbl_params.keys[MAX_NUM_OF_IPv6_KEYS] = NULL;
+
+	/* Create Classifier IPv6 Exact Match Table class counter */
+	cls_params.type = DPA_STATS_CNT_CLASSIF_TBL;
+	/* The last member of the class will provide statistics for miss */
+	cls_params.class_members = MAX_NUM_OF_IPv6_KEYS + 1;
+	cls_params.classif_tbl_params.td = ipv6_td;
+	cls_params.classif_tbl_params.cnt_sel = DPA_STATS_CNT_CLASSIF_BYTES |
+						DPA_STATS_CNT_CLASSIF_PACKETS;
+	cls_params.classif_tbl_params.key_type = DPA_STATS_CLASSIF_SINGLE_KEY;
+
+	err = dpa_stats_create_class_counter(dpa_stats_id, &cls_params,
+			&em6_cnt_id);
+	if (err < 0) {
+		error(0, -err, "Failed to create DPA Stats counter\n");
+		return err;
+	}
+	printf("Successfully created DPA Stats counter: %d\n", em6_cnt_id);
+
+	/* Table counters were created, release the allocated memory for keys*/
+	for (i = 0; i <= MAX_NUM_OF_IPv6_KEYS; i++)
+		free(cls_params.classif_tbl_params.keys[i]);
+	free(cls_params.classif_tbl_params.keys);
+
+	/* Allocate memory for DSCP keys array */
+	cls_params.classif_tbl_params.keys = calloc((MAX_NUM_OF_DSCP_KEYS),
+			sizeof(**cls_keys));
+	if (!cls_params.classif_tbl_params.keys) {
+		error(0, ENOMEM, "Failed to reallocate memory for keys");
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < MAX_NUM_OF_DSCP_KEYS; i++) {
+		cls_params.classif_tbl_params.keys[i] = malloc(
+				sizeof(struct dpa_offload_lookup_key));
+		if (!cls_params.classif_tbl_params.keys[i]) {
+			error(0, ENOMEM, "Failed to reallocate memory for key");
+			for (j = 0; j < i; j++)
+				free(cls_params.classif_tbl_params.keys[j]);
+			free(cls_params.classif_tbl_params.keys);
+			return -ENOMEM;
+		}
+
+		/* No lookup key is configured in the class */
+		memset(cls_params.classif_tbl_params.keys[i], 0,
+				sizeof(struct dpa_offload_lookup_key));
+	}
+
+	/* Create Classifier Indexed Table class counter */
+	cls_params.type = DPA_STATS_CNT_CLASSIF_TBL;
+	/* The last member of the class will provide statistics for miss */
+	cls_params.class_members = MAX_NUM_OF_DSCP_KEYS;
+	cls_params.classif_tbl_params.td = dscp_td;
+	cls_params.classif_tbl_params.cnt_sel = DPA_STATS_CNT_CLASSIF_BYTES |
+						DPA_STATS_CNT_CLASSIF_PACKETS;
+	cls_params.classif_tbl_params.key_type = DPA_STATS_CLASSIF_SINGLE_KEY;
+
+	err = dpa_stats_create_class_counter(dpa_stats_id, &cls_params,
+			&emd_cnt_id);
+	if (err < 0) {
+		error(0, -err, "Failed to create DPA Stats counter\n");
+		return err;
+	}
+	printf("Successfully created DPA Stats counter: %d\n", emd_cnt_id);
+
+	/* Table counters were created, release the allocated memory for keys*/
+	for (i = 0; i < MAX_NUM_OF_DSCP_KEYS; i++)
+		free(cls_params.classif_tbl_params.keys[i]);
+	free(cls_params.classif_tbl_params.keys);
+
+	/* Create Ethernet single counter to retrieve all statistics */
+	cnt_params.type = DPA_STATS_CNT_ETH;
+	cnt_params.eth_params.cnt_sel = DPA_STATS_CNT_ETH_ALL;
+	cnt_params.eth_params.src.engine_id = ppam_args.fm;
+	cnt_params.eth_params.src.eth_id = DPA_STATS_ETH_1G_PORT0 +
+			ppam_args.port;
+
+	err = dpa_stats_create_counter(dpa_stats_id, &cnt_params, &eth_cnt_id);
+	if (err < 0) {
+		error(0, -err, "Failed to create DPA Stats single counter\n");
+		return err;
+	}
+	printf("Successfully created DPA Stats counter: %d\n", eth_cnt_id);
+
+	err = create_ceetm_counters(dpa_stats_id);
+	if (err < 0)
+		return err;
 
 	return 0;
+}
+
+static int populate_dscp_table(void)
+{
+	int					i = 0, j = 0, err = 0;
+
+	struct dpa_offload_lookup_key		key;
+	struct dpa_cls_tbl_action		action;
+	struct dpa_stats_cls_member_params	params;
+
+	uint8_t				key_data[DPA_OFFLD_MAXENTRYKEYSIZE];
+	uint8_t				mask_data[DPA_OFFLD_MAXENTRYKEYSIZE];
+
+	/* Prepare action */
+	memset(&action, 0, sizeof(action));
+	action.type = DPA_CLS_TBL_ACTION_ENQ;
+	action.enable_statistics = true;
+	action.enq_params.hmd = DPA_OFFLD_DESC_NONE;
+
+	/* Prepare lookup key */
+	key.byte = key_data;
+	key.mask = mask_data;
+	key.size = APP_DSCP_TABLE_KEY_SIZE;
+	memset(key.mask, 0x3f, APP_DSCP_TABLE_KEY_SIZE);
+
+
+	for (i = 0; i < NUM_OF_CHANNELS; i++) {
+		for (j = 0; j < NUM_OF_QUEUES; j++) {
+			/* Update lookup key */
+			memcpy(key.byte, dscp_key[i * NUM_OF_QUEUES + j],
+					APP_DSCP_TABLE_KEY_SIZE);
+
+			/* Update action */
+#if defined(B4860)
+			action.enq_params.new_fqid = intf.lfq[i][j]->idx;
+#else
+			action.enq_params.new_fqid = txfq;
+#endif
+			action.enq_params.override_fqid = TRUE;
+
+
+			err = dpa_classif_table_insert_entry(dscp_td, &key,
+					&action, 0, NULL);
+			if (err < 0) {
+				error(0, -err, "Failed to insert entry #%d into DPA Classifier table (td=%d)",
+						i * NUM_OF_QUEUES + j, dscp_td);
+				return err;
+			}
+			params.type = DPA_STATS_CLS_MEMBER_SINGLE_KEY;
+			params.key = &key;
+
+			/* Modify DPA Stats class counter */
+			err = dpa_stats_modify_class_counter(emd_cnt_id,
+					&params, i * NUM_OF_QUEUES + j);
+			if (err < 0) {
+				error(0, -err, "Failed to modify DPA Stats counter\n");
+				return err;
+			}
+		}
+	}
+
+	TRACE("Successfully populated DPA Classifier table (%d entries)\n", i);
+
+	return err;
 }
 
 static int ppam_interface_init(struct ppam_interface	*p,
@@ -605,6 +711,10 @@ static int ppam_interface_init(struct ppam_interface	*p,
 			unsigned int			num_tx_fqs,
 			uint32_t			*flags __maybe_unused)
 {
+	int err = 0;
+	unsigned int deq_sp = 0;
+	struct ppac_interface *i;
+
 	p->num_tx_fqids = num_tx_fqs;
 	p->tx_fqids = malloc(p->num_tx_fqids * sizeof(*p->tx_fqids));
 	if (!p->tx_fqids)
@@ -617,12 +727,67 @@ static int ppam_interface_init(struct ppam_interface	*p,
 		fman_if_promiscuous_enable(cfg->fman_if);
 #endif /* ENABLE_PROMISC */
 
+	if (cfg->fman_if->mac_idx == ppam_args.port &&
+			cfg->fman_if->fman_idx == ppam_args.fm) {
+		i = container_of(p, struct ppac_interface, ppam_data);
+		txfq = i->tx_fqs[0].fqid;
+		deq_sp = cfg->fman_if->tx_channel_id & 0xF;
+
+		err = ceetm_init(ppam_args.fm, deq_sp);
+		if (err < 0) {
+			error(0, -err, "Failed to initialize CEETM resources\n");
+			clean_up();
+			return err;
+		} else {
+			printf("Successfully initialized CEETM resources for FMan %d Port %d\n",
+			ppam_args.fm, ppam_args.port);
+		}
+
+		/* Create the DPA Classifier DSCP table */
+		err = create_dscp_table();
+		if (err < 0) {
+			error(0, -err, "Failed to created DPA Classifier DSCP Table\n");
+			clean_up();
+			ceetm_free(clean_tx_fqs);
+		}
+
+		/* Create the DPA Classifier IPv4 table */
+		err = create_exact_match_table(&ipv4_td, ccnodes[0],
+				APP_TABLE_KEY_SIZE_IPv4,
+				MAX_NUM_OF_IPv4_KEYS);
+		if (err < 0) {
+			error(0, -err, "Failed to create DPA Classifier Exact Match IPv4 Table\n");
+			clean_up();
+			ceetm_free(clean_tx_fqs);
+		}
+
+		/* Create the DPA Classifier IPv6 table */
+		err = create_exact_match_table(&ipv6_td, ccnodes[1],
+				APP_TABLE_KEY_SIZE_IPv6,
+				MAX_NUM_OF_IPv6_KEYS);
+		if (err < 0) {
+			error(0, -err, "Failed to create DPA Classifier Exact Match IPv6 Table\n");
+			clean_up();
+			ceetm_free(clean_tx_fqs);
+		}
+
+		/* Create the DPA Stats counters */
+		err = create_dpa_stats_counters();
+		if (err < 0) {
+			error(0, -err, "Failed to create DPA Stats counters");
+			clean_up();
+			ceetm_free(clean_tx_fqs);
+		}
+	}
+
 	return 0;
 }
 
 static void ppam_interface_finish(struct ppam_interface *p)
 {
+
 	free(p->tx_fqids);
+	ceetm_free(clean_tx_fqs);
 }
 
 static void ppam_interface_tx_fqid(struct ppam_interface	*p,
@@ -651,14 +816,14 @@ static inline void ppam_rx_error_cb(struct ppam_rx_error	*p,
 	const struct qm_fd	*fd = &dqrr->fd;
 
 	if ((fd->format == qm_fd_contig) || (fd->format == qm_fd_sg))
-		printf("RX ERROR: FQID=%d, frame_format=%d, size=%d bytes, RX status=%#08x\n",
+		TRACE("RX ERROR: FQID=%d, frame_format=%d, size=%d bytes, RX status=%#08x\n",
 			dqrr->fqid, fd->format, fd->length20, fd->status);
 	else if ((fd->format == qm_fd_contig_big) ||
 						(fd->format == qm_fd_sg_big))
-		printf("RX ERROR: FQID=%d, frame_format=%d, size=%d bytes, RX status=%#08x\n",
+		TRACE("RX ERROR: FQID=%d, frame_format=%d, size=%d bytes, RX status=%#08x\n",
 			dqrr->fqid, fd->format, fd->length29, fd->status);
 	else
-		printf("RX ERROR: FQID=%d, frame_format=%d, RX status=%#08x\n",
+		TRACE("RX ERROR: FQID=%d, frame_format=%d, RX status=%#08x\n",
 			dqrr->fqid, fd->format, fd->status);
 
 	ppac_drop_frame(fd);
@@ -684,14 +849,14 @@ static inline void ppam_rx_default_cb(struct ppam_rx_default	*p,
 	const struct qm_fd	*fd = &dqrr->fd;
 
 	if ((fd->format == qm_fd_contig) || (fd->format == qm_fd_sg))
-		printf("RX DEFAULT: FQID=%d, frame_format=%d, size=%d bytes\n",
+		TRACE("RX DEFAULT: FQID=%d, frame_format=%d, size=%d bytes\n",
 			dqrr->fqid, fd->format, fd->length20);
 	else if ((fd->format == qm_fd_contig_big) ||
 						(fd->format == qm_fd_sg_big))
-		printf("RX DEFAULT: FQID=%d, frame_format=%d, size=%d bytes\n",
+		TRACE("RX DEFAULT: FQID=%d, frame_format=%d, size=%d bytes\n",
 			dqrr->fqid, fd->format, fd->length29);
 	else
-		printf("RX DEFAULT: FQID=%d, frame_format=%d\n",
+		TRACE("RX DEFAULT: FQID=%d, frame_format=%d\n",
 			dqrr->fqid, fd->format);
 
 	ppac_drop_frame(fd);
@@ -716,14 +881,14 @@ static inline void ppam_tx_error_cb(struct ppam_tx_error	*p,
 	const struct qm_fd *fd = &dqrr->fd;
 
 	if ((fd->format == qm_fd_contig) || (fd->format == qm_fd_sg))
-		printf("TX ERROR: FQID=%d, frame_format=%d, size=%d bytes, TX status=%#08x\n",
+		TRACE("TX ERROR: FQID=%d, frame_format=%d, size=%d bytes, TX status=%#08x\n",
 			dqrr->fqid, fd->format, fd->length20, fd->status);
 	else if ((fd->format == qm_fd_contig_big) ||
 						(fd->format == qm_fd_sg_big))
-		printf("TX ERROR: FQID=%d, frame_format=%d, size=%d bytes, TX status=%#08x\n",
+		TRACE("TX ERROR: FQID=%d, frame_format=%d, size=%d bytes, TX status=%#08x\n",
 			dqrr->fqid, fd->format, fd->length29, fd->status);
 	else
-		printf("TX ERROR: FQID=%d, frame_format=%d, TX status=%#08x\n",
+		TRACE("TX ERROR: FQID=%d, frame_format=%d, TX status=%#08x\n",
 			dqrr->fqid, fd->format, fd->status);
 
 	ppac_drop_frame(fd);
@@ -768,80 +933,570 @@ static void ppam_rx_hash_finish(struct ppam_rx_hash	*p,
 static inline void ppam_rx_hash_cb(struct ppam_rx_hash		*p,
 				   const struct qm_dqrr_entry	*dqrr)
 {
-	char				*data, *buff;
-	const struct qm_fd		*fd = &dqrr->fd;
-	const struct qm_sg_entry	*sg_entry;
+	void *addr;
+	void *annotations;
+	struct ether_header *prot_eth;
+	const struct qm_fd *fd = &dqrr->fd;
+	void *next_header;
+	bool continue_parsing;
+	uint16_t proto, len = 0;
 
-	data = (char *)__dma_mem_ptov(qm_fd_addr(fd)) + fd->offset;
-
-	switch (fd->format) {
+	annotations = __dma_mem_ptov(qm_fd_addr(fd));
+	TRACE("Rx: 2fwd	 fqid=%d\n", dqrr->fqid);
+	switch (fd->format)	{
 	case qm_fd_contig:
-		printf("RX | IPv4 frame | FQID=%d | size=%d bytes\n",
-		       dqrr->fqid, fd->length20);
-		buff = data;
+		TRACE("FD format = qm_fd_contig\n");
+		addr = annotations + fd->offset;
+		prot_eth = addr;
 		break;
+
 	case qm_fd_sg:
-		printf("RX | IPv4 frame | FQID=%d | size=%d bytes\n",
-		       dqrr->fqid, fd->length20);
-		sg_entry = (const struct qm_sg_entry *)data;
-		if (sg_entry[0].extension) {
-			pr_err("Unsupported frame format. Skipping frame update.\n");
-			buff = NULL;
-		} else if (sg_entry[0].length < IPv4_DA_OFFSET + 4) {
-			pr_err("ERROR: Buffer size too small. Skipping frame update.\n");
-			buff = NULL;
-		} else {
-			buff = (char *)
-				__dma_mem_ptov(qm_sg_addr(&sg_entry[0])) +
-				+ sg_entry[0].offset;
+		TRACE("FD format = qm_fd_sg\n");
+		addr = annotations + fd->offset;
+		prot_eth = __dma_mem_ptov(qm_sg_entry_get64(addr)) +
+				((struct qm_sg_entry *)addr)->offset;
+		break;
+
+	default:
+		TRACE("FD format not supported!\n");
+		BUG();
+		break;
+	}
+
+	next_header = (prot_eth + 1);
+	proto = prot_eth->ether_type;
+	len = sizeof(struct ether_header);
+
+	TRACE("	     phys=0x%"PRIx64", virt=%p, offset=%d, len=%d, bpid=%d\n",
+	      qm_fd_addr(fd), addr, fd->offset, fd->length20, fd->bpid);
+	TRACE("	     dhost="ETH_MAC_PRINTF_FMT"\n",
+	      prot_eth->ether_dhost[0], prot_eth->ether_dhost[1],
+	      prot_eth->ether_dhost[2], prot_eth->ether_dhost[3],
+	      prot_eth->ether_dhost[4], prot_eth->ether_dhost[5]);
+	TRACE("	     shost="ETH_MAC_PRINTF_FMT"\n",
+	      prot_eth->ether_shost[0], prot_eth->ether_shost[1],
+	      prot_eth->ether_shost[2], prot_eth->ether_shost[3],
+	      prot_eth->ether_shost[4], prot_eth->ether_shost[5]);
+	TRACE("	     ether_type=%04x\n", prot_eth->ether_type);
+	/* Eliminate ethernet broadcasts. */
+	if (prot_eth->ether_dhost[0] & 0x01)
+		TRACE("	     -> dropping broadcast packet\n");
+	else {
+	continue_parsing = TRUE;
+	while (continue_parsing) {
+		switch (proto) {
+		case ETHERTYPE_VLAN:
+			TRACE("	       -> it's ETHERTYPE_VLAN!\n");
+			{
+			struct vlan_hdr *vlanhdr = (struct vlan_hdr *)
+							(next_header);
+
+			proto = vlanhdr->type;
+			next_header = (void *)vlanhdr + sizeof(struct vlan_hdr);
+			len = len + sizeof(struct vlan_hdr);
+			}
+			break;
+		case ETHERTYPE_IP:
+			TRACE("	       -> it's ETHERTYPE_IP!\n");
+			{
+			struct iphdr *iphdr = (typeof(iphdr))(next_header);
+			u8 *src = (void *)&iphdr->saddr;
+			u8 *dst = (void *)&iphdr->daddr;
+			TRACE("		  ver=%d,ihl=%d,tos=%d,len=%d,id=%d\n",
+				iphdr->version, iphdr->ihl, iphdr->tos,
+				iphdr->tot_len, iphdr->id);
+			TRACE("		  frag_off=%d,ttl=%d,prot=%d, csum=0x%04x\n",
+					iphdr->frag_off, iphdr->ttl,
+				iphdr->protocol, iphdr->check);
+			TRACE("		  src=%d.%d.%d.%d\n",
+				src[0], src[1], src[2], src[3]);
+			TRACE("		  dst=%d.%d.%d.%d\n",
+				dst[0], dst[1], dst[2], dst[3]);
+			TRACE("Tx: 2fwd	 fqid=%d\n", p->tx_fqid);
+			TRACE("	     phys=0x%"PRIx64", offset=%d, len=%d, bpid=%d\n",
+					qm_fd_addr(fd), fd->offset,
+					fd->length20, fd->bpid);
+			}
+			continue_parsing = FALSE;
+			return;
+
+		case ETHERTYPE_IPV6:
+			TRACE("	       -> it's ETHERTYPE_IPV6!\n");
+			{
+			struct ip6_hdr *ipv6hdr = (typeof(ipv6hdr))
+							(next_header);
+			TRACE("	ver=%d, priority=%d, payload_len=%d, nexthdr=%d, hop_limit=%d\n",
+				((ipv6hdr->ip6_vfc & 0xf0) >> 4),
+				((ipv6hdr->ip6_flow & 0x0ff00000) >> 20),
+				ipv6hdr->ip6_plen,
+				ipv6hdr->ip6_nxt, ipv6hdr->ip6_hops);
+			TRACE(" flow_lbl=%d.%d.%d\n",
+				((ipv6hdr->ip6_flow & 0x000f0000) >> 16),
+				((ipv6hdr->ip6_flow & 0x0000ff00) >> 8),
+				(ipv6hdr->ip6_flow & 0x000000ff));
+			TRACE(" src=%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x\n",
+				ipv6hdr->ip6_src.__in6_u.__u6_addr16[0],
+				ipv6hdr->ip6_src.__in6_u.__u6_addr16[1],
+				ipv6hdr->ip6_src.__in6_u.__u6_addr16[2],
+				ipv6hdr->ip6_src.__in6_u.__u6_addr16[3],
+				ipv6hdr->ip6_src.__in6_u.__u6_addr16[4],
+				ipv6hdr->ip6_src.__in6_u.__u6_addr16[5],
+				ipv6hdr->ip6_src.__in6_u.__u6_addr16[6],
+				ipv6hdr->ip6_src.__in6_u.__u6_addr16[7]);
+			TRACE("	dst=%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x\n",
+				ipv6hdr->ip6_dst.__in6_u.__u6_addr16[0],
+				ipv6hdr->ip6_dst.__in6_u.__u6_addr16[1],
+				ipv6hdr->ip6_dst.__in6_u.__u6_addr16[2],
+				ipv6hdr->ip6_dst.__in6_u.__u6_addr16[3],
+				ipv6hdr->ip6_dst.__in6_u.__u6_addr16[4],
+				ipv6hdr->ip6_dst.__in6_u.__u6_addr16[5],
+				ipv6hdr->ip6_dst.__in6_u.__u6_addr16[6],
+				ipv6hdr->ip6_dst.__in6_u.__u6_addr16[7]);
+			TRACE("Tx: 2fwd	 fqid=%d\n", p->tx_fqid);
+			TRACE("	     phys=0x%"PRIx64", offset=%d, len=%d, bpid=%d\n",
+					qm_fd_addr(fd), fd->offset,
+					fd->length20, fd->bpid);
+			}
+			continue_parsing = FALSE;
+			return;
+
+		case ETHERTYPE_ARP:
+			TRACE("	       -> it's ETHERTYPE_ARP!\n");
+
+			{
+			struct ether_arp *arp = (typeof(arp))(next_header);
+			TRACE("		  hrd=%d, pro=%d, hln=%d, pln=%d, op=%d\n",
+				arp->arp_hrd, arp->arp_pro, arp->arp_hln,
+				arp->arp_pln, arp->arp_op);
+			}
+
+			TRACE("		  -> dropping ARP packet\n");
+			continue_parsing = FALSE;
+			break;
+		default:
+			TRACE("	       -> it's UNKNOWN (!!) type 0x%04x\n",
+				prot_eth->ether_type);
+			TRACE("		  -> dropping unknown packet\n");
+			ppac_drop_frame(fd);
+			continue_parsing = FALSE;
+			break;
+		}
+	}
+	}
+	ppac_drop_frame(fd);
+}
+
+int populate_exact_match_table(int tbl_desc, int proto, uint8_t *key_byte)
+{
+	int					err, entry_id;
+	struct dpa_offload_lookup_key		key;
+	struct dpa_cls_tbl_action		action;
+	struct dpa_stats_cls_member_params	params;
+	struct counter_data			*counter_data;
+
+	uint8_t				key_data[DPA_OFFLD_MAXENTRYKEYSIZE];
+	uint8_t				mask_data[DPA_OFFLD_MAXENTRYKEYSIZE];
+
+	/* Prepare action */
+	memset(&action, 0, sizeof(action));
+	action.type = DPA_CLS_TBL_ACTION_NEXT_TABLE;
+	action.enable_statistics = true;
+	action.next_table_params.next_td = dscp_td;
+
+	/* Prepare lookup key */
+	key.byte = key_data;
+	key.mask = mask_data;
+
+	switch (proto) {
+	case IPv4:
+		action.next_table_params.hmd = fwd_hmd_ipv4[inserted_ipv4_keys];
+		/* Update lookup key */
+		key.size = APP_TABLE_KEY_SIZE_IPv4;
+		memset(key.mask, 0xff, APP_TABLE_KEY_SIZE_IPv4);
+		memcpy(key.byte, key_byte, APP_TABLE_KEY_SIZE_IPv4);
+		err = dpa_classif_table_insert_entry(tbl_desc, &key, &action,
+								0, &entry_id);
+		if (err < 0) {
+			error(0, -err, "Failed to insert entry #%d in the DPA Classifier table (td=%d)",
+					inserted_ipv4_keys, tbl_desc);
+			return err;
+		}
+
+		params.type = DPA_STATS_CLS_MEMBER_SINGLE_KEY;
+		params.key = &key;
+		err = dpa_stats_modify_class_counter(em4_cnt_id, &params,
+							inserted_ipv4_keys);
+		if (err < 0) {
+			error(0, -err, "Failed to modify DPA Stats counter\n");
+			return err;
+		}
+
+		if (list_empty(&avail_ipv4_counters)) {
+			error(0, ENOSPC, "No more counters available");
+			return -ENOSPC;
+		}
+		counter_data = (struct counter_data*)
+				list_entry(avail_ipv4_counters.next,
+						struct counter_data, node);
+		list_del(avail_ipv4_counters.next);
+
+		counter_data->cnt_idx = inserted_ipv4_keys;
+		counter_data->key_ref = entry_id;
+		err = hash_table_insert(hash_ipv4, key_byte, counter_data);
+		if (err < 0)
+			return err;
+
+		inserted_ipv4_keys++;
+		/* Populate the DPA Classifier DSCP table */
+		if (!populate_dscp) {
+			err = populate_dscp_table();
+			if (err < 0) {
+				error(0, -err, "Failed to populate DPA Classifier DSCP Table\n");
+				clean_up();
+			}
+			populate_dscp = true;
 		}
 		break;
-	default:
-		printf("RX | IPv4 frame | FQID=%d\n", dqrr->fqid);
-		pr_err("ERROR: Unsupported frame format. Skipping frame update.\n");
-		buff = NULL;
+	case IPv6:
+		action.next_table_params.hmd = fwd_hmd_ipv6[inserted_ipv6_keys];
+		/* Update lookup key */
+		key.size = APP_TABLE_KEY_SIZE_IPv6;
+		memset(key.mask, 0xff, APP_TABLE_KEY_SIZE_IPv6);
+		memcpy(key.byte, key_byte, APP_TABLE_KEY_SIZE_IPv6);
+		err = dpa_classif_table_insert_entry(tbl_desc, &key, &action,
+								0, NULL);
+		if (err < 0) {
+			error(0, -err, "Failed to insert entry #%d in the DPA Classifier table (td=%d)",
+					inserted_ipv6_keys, tbl_desc);
+			return err;
+		}
+
+		params.type = DPA_STATS_CLS_MEMBER_SINGLE_KEY;
+		params.key = &key;
+		err = dpa_stats_modify_class_counter(em6_cnt_id, &params,
+							inserted_ipv6_keys);
+		if (err < 0) {
+			error(0, -err, "Failed to modify DPA Stats counter\n");
+			return err;
+		}
+
+		if (list_empty(&avail_ipv6_counters)) {
+			error(0, ENOSPC, "No more counters available");
+			return -ENOSPC;
+		}
+		counter_data = (struct counter_data*)
+				list_entry(avail_ipv4_counters.next,
+						struct counter_data, node);
+		list_del(avail_ipv6_counters.next);
+
+		counter_data->cnt_idx = inserted_ipv6_keys;
+		counter_data->key_ref = entry_id;
+		err = hash_table_insert(hash_ipv6, key_byte, counter_data);
+		if (err < 0)
+			return err;
+
+		inserted_ipv6_keys++;
+		/* Populate the DPA Classifier DSCP table */
+		if (!populate_dscp) {
+			err = populate_dscp_table();
+			if (err) {
+				error(0, -err, "Failed to populate DPA Classifier DSCP Table\n");
+				return err;
+			}
+			populate_dscp = true;
+		}
 		break;
 	}
 
-	if (buff) {
-		u16 *fqid = (u16 *)&buff[IPv4_DA_OFFSET + 2];
-		u16 *cksum = (u16 *)&buff[IPv4_CKSUM_OFFSET];
+	return 0;
+}
 
-		printf("  MACDA: %02x-%02x-%02x-%02x-%02x-%02x MACSA: %02x-%02x-%02x-%02x-%02x-%02x\n",
-		       buff[0], buff[1], buff[2], buff[3], buff[4], buff[5],
-		       buff[6], buff[7], buff[8], buff[9], buff[10], buff[11]);
-		printf("  IPSA: %d.%d.%d.%d (hex %02x.%02x.%02x.%02x) IPDA: %d.%d.%d.%d (hex %02x.%02x.%02x.%02x)\n",
-		       buff[IPv4_SA_OFFSET], buff[IPv4_SA_OFFSET + 1],
-		       buff[IPv4_SA_OFFSET + 2], buff[IPv4_SA_OFFSET + 3],
-		       buff[IPv4_SA_OFFSET], buff[IPv4_SA_OFFSET + 1],
-		       buff[IPv4_SA_OFFSET + 2], buff[IPv4_SA_OFFSET + 3],
-		       buff[IPv4_SA_OFFSET + 4], buff[IPv4_SA_OFFSET + 5],
-		       buff[IPv4_SA_OFFSET + 6], buff[IPv4_SA_OFFSET + 7],
-		       buff[IPv4_SA_OFFSET + 4], buff[IPv4_SA_OFFSET + 5],
-		       buff[IPv4_SA_OFFSET + 6], buff[IPv4_SA_OFFSET + 7]);
+int depopulate_exact_match_table(int tbl_desc, int proto, uint8_t *key_byte)
+{
+	int					err;
+	struct dpa_offload_lookup_key		key;
+	struct dpa_stats_cls_member_params	params;
+	struct counter_data			*counter_data;
+
+	uint8_t				key_data[DPA_OFFLD_MAXENTRYKEYSIZE];
+	uint8_t				mask_data[DPA_OFFLD_MAXENTRYKEYSIZE];
+
+	/* Prepare lookup key */
+	key.mask = mask_data;
+
+	switch (proto) {
+	case IPv4:
+		key.size = APP_TABLE_KEY_SIZE_IPv4;
+
+		err = hash_table_remove(hash_ipv4,
+					key_byte,
+					(void**)&counter_data);
+		if (err != 0) {
+			error(0, err, "Remove key from IPv4 hash table\n");
+			return err;
+		}
+
+		/* Invalidate the DPA Stats key */
+		key.byte = NULL;
+		params.type = DPA_STATS_CLS_MEMBER_SINGLE_KEY;
+		params.key = &key;
+
+		err = dpa_stats_modify_class_counter(em4_cnt_id, &params,
+							counter_data->cnt_idx);
+		if (err < 0) {
+			error(0, -err, "Failed to modify DPA Stats counter\n");
+			return err;
+		}
+
+		key.byte = key_data;
+		memset(key.mask, 0xff, APP_TABLE_KEY_SIZE_IPv4);
+		memcpy(key.byte, key_byte, APP_TABLE_KEY_SIZE_IPv4);
+
+		err = dpa_classif_table_delete_entry_by_key(tbl_desc, &key);
+		if (err < 0) {
+			error(0, -err, "Failed to remove entry from DPA Classifier table (td=%d)",
+					tbl_desc);
+			return err;
+		}
 
 		/*
-		 * Update the IPDA by encoding the frame queue id in the last 2
-		 * bytes.
+		 * Add counter control block back to the available control
+		 * blocks list for IPv4
 		 */
-		buff[IPv4_DA_OFFSET + 1] = 0x78;
-		*fqid = (u16)dqrr->fqid;
+		list_add(&avail_ipv4_counters, &counter_data->node);
 
-		/* Recompute header checksum: */
-		*cksum = 0;
-		*cksum = ipv4_cksum((struct iphdr *)&buff[IPv4_OFFSET]);
+		inserted_ipv4_keys--;
+
+		break;
+	case IPv6:
+		key.size = APP_TABLE_KEY_SIZE_IPv6;
+
+		err = hash_table_remove(hash_ipv6,
+					key_byte,
+					(void**)&counter_data);
+		if (err != 0) {
+			error(0, err, "Remove key from IPv6 hash table\n");
+			return err;
+		}
+
+		/* Invalidate the DPA Stats key */
+		key.byte = NULL;
+		params.type = DPA_STATS_CLS_MEMBER_SINGLE_KEY;
+		params.key = &key;
+		err = dpa_stats_modify_class_counter(em6_cnt_id, &params,
+							counter_data->cnt_idx);
+		if (err < 0) {
+			error(0, -err, "Failed to modify DPA Stats counter\n");
+			return err;
+		}
+
+		key.byte = key_data;
+		memset(key.mask, 0xff, APP_TABLE_KEY_SIZE_IPv6);
+		memcpy(key.byte, key_byte, APP_TABLE_KEY_SIZE_IPv6);
+
+		err = dpa_classif_table_delete_entry_by_key(tbl_desc, &key);
+		if (err < 0) {
+			error(0, -err, "Failed to remove entry from DPA Classifier table (td=%d)",
+					tbl_desc);
+			return err;
+		}
+
+		/*
+		 * Add counter control block back to the available control
+		 * blocks list for IPv6
+		 */
+		list_add(&avail_ipv6_counters, &counter_data->node);
+
+		inserted_ipv6_keys--;
+
+		break;
 	}
 
-	/* Send frame to tx */
-	if (p->tx_fqid) {
-		TRACE("  Send frame to Tx --> FQID=%d\n", p->tx_fqid);
-		ppac_send_frame(p->tx_fqid, fd);
-		return;
-	}
-	TRACE("  DROP frame.\n");
+	return 0;
+}
 
-	/* Drop the frame */
-	ppac_drop_frame(fd);
+static void print_classif_dpa_stats_cnts(void)
+{
+	int i = 0;
+	struct em_ipv4 {
+		struct key_counter keys[MAX_NUM_OF_IPv4_KEYS + 1];
+	};
+	struct em_ipv6 {
+		struct key_counter keys[MAX_NUM_OF_IPv6_KEYS + 1];
+	};
+	struct em_dscp {
+		struct key_counter keys[MAX_NUM_OF_DSCP_KEYS];
+	};
+	struct classif_counters {
+		struct em_dscp tbl_dscp;
+		struct em_ipv4 tbl_ipv4;
+		struct em_ipv6 tbl_ipv6;
+	};
+
+	struct classif_counters *cnts = (struct classif_counters *)storage;
+
+	printf("\nCLASSIFIER STATISTICS\n");
+	printf("\n\nExact Match IPv4 Table\n");
+	printf("KEY::       BYTES   FRAMES\n");
+	for (i = 0; i < inserted_ipv4_keys; i++)
+		printf("%2d %14d %8d\n", i, cnts->tbl_ipv4.keys[i].bytes,
+				cnts->tbl_ipv4.keys[i].frames);
+	printf("MISS::      BYTES   FRAMES\n");
+	printf("%17d %8d\n", cnts->tbl_ipv4.keys[MAX_NUM_OF_IPv4_KEYS].bytes,
+			cnts->tbl_ipv4.keys[MAX_NUM_OF_IPv4_KEYS].frames);
+
+	printf("\n\nExact Match IPv6 Table\n");
+	printf("KEY::       BYTES   FRAMES\n");
+	for (i = 0; i < inserted_ipv6_keys; i++)
+		printf("%2d %14d %8d\n", i, cnts->tbl_ipv6.keys[i].bytes,
+				cnts->tbl_ipv6.keys[i].frames);
+	printf("MISS::      BYTES   FRAMES\n");
+	printf("%17d %8d\n", cnts->tbl_ipv6.keys[MAX_NUM_OF_IPv6_KEYS].bytes,
+			cnts->tbl_ipv6.keys[MAX_NUM_OF_IPv6_KEYS].frames);
+
+	printf("\n\nExact Match DSCP Table\n");
+	printf("KEY::       BYTES   FRAMES\n");
+	for (i = 0; i < MAX_NUM_OF_DSCP_KEYS; i++)
+		printf("%2d %14d %8d\n", i, cnts->tbl_dscp.keys[i].bytes,
+				cnts->tbl_dscp.keys[i].frames);
+}
+
+void print_traffic_dpa_stats_cnts(void)
+{
+	struct traffic_counters *cnts = (struct traffic_counters *)storage;
+
+	printf("\nTRAFFIC STATISTICS\n");
+
+	printf("\n\nETHERNET\n");
+	printf("IN:\n");
+	printf("\tFRAMES: %d\n", cnts->eth.pkts);
+	printf("\tBYTES: %d\n", cnts->eth.bytes);
+	printf("\tDROPED FRAMES: %d\n", cnts->eth.dropped_pkts);
+	printf("\tERRORS: %d\n", cnts->eth.in_errors);
+	printf("OUT:\n");
+	printf("\tFRAMES: %d\n", cnts->eth.out_pkts);
+	printf("\tBYTES: %d\n", cnts->eth.out_bytes);
+	printf("\tDROPED FRAMES: %d\n", cnts->eth.out_drop_pkts);
+	printf("\tERRORS: %d\n", cnts->eth.out_errors);
+
+	print_ceetm_counters(cnts);
+}
+
+void classif_request_done_cb(int dpa_id,
+		unsigned int storage_area_offset,
+		unsigned int cnts_written,
+		int bytes_written)
+{
+	printf("storage_area_offset = %d\n", storage_area_offset);
+	printf("cnts_written = %d\n", cnts_written);
+	printf("bytes_written = %d\n", bytes_written);
+	print_classif_dpa_stats_cnts();
+}
+
+void traffic_request_done_cb(int dpa_id,
+		unsigned int storage_area_offset,
+		unsigned int cnts_written,
+		int bytes_written)
+{
+	printf("storage_area_offset = %d\n", storage_area_offset);
+	printf("cnts_written = %d\n", cnts_written);
+	printf("bytes_written = %d\n", bytes_written);
+	print_traffic_dpa_stats_cnts();
+}
+
+static int get_cnts_statistics(enum dpa_stats_op op)
+{
+	struct dpa_stats_cnt_request_params req_params;
+	int cnts_len = 0, err = 0;
+	int classif_cnt_id[3] = {emd_cnt_id, em4_cnt_id, em6_cnt_id};
+#if defined(B4860)
+	int traffic_cnt_id[3] = {eth_cnt_id, tmg_cnt_id, cng_cnt_id};
+#else
+	int traffic_cnt_id[3] = {eth_cnt_id};
+#endif
+	int all_cnt_id[sizeof(classif_cnt_id) / sizeof(classif_cnt_id[0]) +
+	sizeof(traffic_cnt_id) / sizeof(traffic_cnt_id[0])];
+
+	memcpy(all_cnt_id, classif_cnt_id, sizeof(classif_cnt_id));
+	memcpy(all_cnt_id + 3, traffic_cnt_id, sizeof(traffic_cnt_id));
+
+	req_params.reset_cnts = FALSE;
+	req_params.storage_area_offset = 0;
+
+	switch (op) {
+	case dpa_classif_stats_get_sync:
+		req_params.cnts_ids = classif_cnt_id;
+		req_params.cnts_ids_len =
+			sizeof(classif_cnt_id) / sizeof(classif_cnt_id[0]);
+		err = dpa_stats_get_counters(req_params, &cnts_len, NULL);
+		if (err < 0) {
+			error(0, -err, "Failed to create DPA Stats request\n");
+			return err;
+		}
+		printf("\nSuccessfully created DPA Stats sync request\n");
+		print_classif_dpa_stats_cnts();
+		break;
+
+	case dpa_classif_stats_get_async:
+		req_params.cnts_ids = classif_cnt_id;
+		req_params.cnts_ids_len =
+			sizeof(classif_cnt_id) / sizeof(classif_cnt_id[0]);
+		err = dpa_stats_get_counters(req_params,
+				&cnts_len, &classif_request_done_cb);
+		if (err < 0) {
+			error(0, -err, "Failed to create DPA Stats request\n");
+			return err;
+		}
+		printf("\nSuccessfully created DPA Stats async request\n");
+		break;
+
+	case dpa_traffic_stats_get_sync:
+		req_params.cnts_ids = traffic_cnt_id;
+		req_params.cnts_ids_len =
+			sizeof(traffic_cnt_id) / sizeof(traffic_cnt_id[0]);
+#if defined(B4860)
+		err = ceetm_get_counters_sync(req_params, &cnts_len);
+		if (err < 0)
+			return err;
+#else
+		err = dpa_stats_get_counters(req_params, &cnts_len, NULL);
+		if (err < 0) {
+			error(0, -err, "Failed to create DPA Stats request\n");
+			return err;
+		}
+		printf("\nSuccessfully created DPA Stats sync request\n");
+		print_traffic_dpa_stats_cnts();
+#endif
+		break;
+
+	case dpa_traffic_stats_get_async:
+		req_params.cnts_ids = traffic_cnt_id;
+		req_params.cnts_ids_len =
+			sizeof(traffic_cnt_id)/sizeof(traffic_cnt_id[0]);
+		err = dpa_stats_get_counters(req_params,
+				&cnts_len, &traffic_request_done_cb);
+		if (err < 0) {
+			error(0, -err, "Failed to create DPA Stats request\n");
+			return err;
+		}
+		printf("\nSuccessfully created DPA Stats async request\n");
+		break;
+
+	case dpa_stats_reset:
+		err = dpa_stats_reset_counters(all_cnt_id,
+				sizeof(all_cnt_id)/sizeof(all_cnt_id[0]));
+		if (err < 0) {
+			error(0, -err, "Failed to reset DPA Stats counters\n");
+			return err;
+		}
+		printf("\nSuccessfully reset DPA Stats counters\n");
+		break;
+	default:
+		printf("Invalid operation\n");
+		break;
+	}
+
+	return 0;
 }
 
 static int ppam_cli_parse(int key, char *arg, struct argp_state *state)
@@ -869,304 +1524,351 @@ static int ppam_cli_parse(int key, char *arg, struct argp_state *state)
 	return 0;
 }
 
-int create_exact_match_table(void)
+static bool check_mac_addr(char *mac, uint8_t *ret)
 {
-	struct dpa_cls_tbl_params	table_params;
-	struct dpa_cls_tbl_action	miss_action;
-	int				err = 0;
-
-	/* Create an Exact Match table */
-	memset(&table_params, 0, sizeof(table_params));
-	table_params.type	= DPA_CLS_TBL_EXACT_MATCH;
-	table_params.cc_node	= ccnodes[0];
-	table_params.entry_mgmt	= DPA_CLS_TBL_MANAGE_BY_KEY;
-	table_params.prefilled_entries = APP_NUM_OF_STATIC_ENTRIES;
-
-	table_params.exact_match_params.key_size = 9;
-	table_params.exact_match_params.entries_cnt = 24;
-
-	err = dpa_classif_table_create(&table_params, &td);
-	if (err < 0) {
-		error(0, -err, "Failed to create DPA Classifier table");
-		return err;
+	int i = 0, j = 0;
+	char *str;
+	for (i = 0; i < MAC_CHARACTER_LEN; i++) {
+		if (i % 3 != 2 && !isxdigit(mac[i]))
+			return false;
+		if (i % 3 == 2 && mac[i] != ':')
+			return false;
 	}
-	printf("\nSuccessfully CREATED DPA Classifier Exact Match table (td=%d).\n", td);
+	if (mac[MAC_CHARACTER_LEN] != '\0')
+		return false;
 
-	memset(&miss_action, 0, sizeof(struct dpa_cls_tbl_action));
-	miss_action.enable_statistics = TRUE;
-	miss_action.type = DPA_CLS_TBL_ACTION_DROP;
-
-	err = dpa_classif_table_modify_miss_action(td, &miss_action);
-	if (err < 0) {
-		error(0, -err, "Failed to modify DPA Classifier table");
-		return err;
-	}
-	printf("\nSuccessfully Modified DPA Classifier Exact Match table (td=%d).\n", td);
-
-	err = create_dpa_stats_counters();
-	if (err < 0) {
-		error(0, -err, "Failed to create DPA Stats counters");
-		return err;
+	str = strtok(mac, ":");
+	while (str) {
+		ret[j++] = strtoul(str, NULL, 16);
+		str = strtok(NULL, ":");
 	}
 
-	err = populate_table(td);
-
-	return err;
+	return true;
 }
 
-int populate_table(int tbl_desc)
+static int ppac_cli_classif_rem_cmd(int argc, char *argv[])
 {
-	int				i, err;
-	struct dpa_offload_lookup_key	key;
-	struct dpa_cls_tbl_action	action;
-	struct dpa_stats_cls_member_params params;
+	int i = 0, j = 0, err = 1, pos = 0, offset = 0;
+	uint8_t key_ipv4[APP_TABLE_KEY_SIZE_IPv4];
+	uint8_t key_ipv6[APP_TABLE_KEY_SIZE_IPv6];
+	char data[100];
 
-	uint8_t			key_data[DPA_OFFLD_MAXENTRYKEYSIZE];
-	uint8_t			mask_data[DPA_OFFLD_MAXENTRYKEYSIZE];
+	struct sockaddr_in			addr4;
+	struct sockaddr_in6			addr6;
 
-	/* Prepare action */
-	memset(&action, 0, sizeof(action));
-	action.type = DPA_CLS_TBL_ACTION_ENQ;
-	action.enable_statistics = true;
+	if (argc != REM_CMD_ARGC) {
+		printf("Not a valid remove classification key command! Please try again!\n");
+		printf("rem4/6 [IPSA][IPDA][PROT]\n");
+		return -EINVAL;
+	}
 
-	/* Prepare lookup key */
-	key.byte = key_data;
-	key.mask = mask_data;
-	key.size = APP_TABLE_KEY_SIZE;
-	memset(key.mask, 0xff, APP_TABLE_KEY_SIZE);
-
-	for (i = 0; i < APP_NUM_OF_ENTRIES; i++) {
-
-		/* Update lookup key */
-		memcpy(key.byte, conn[i].key, APP_TABLE_KEY_SIZE);
-
-		/* Update action */
-		action.enq_params.new_fqid = conn[i].fqid;
-		action.enq_params.override_fqid = TRUE;
-		action.enq_params.hmd = fwd_hmd[i];
-
-		err = dpa_classif_table_insert_entry(tbl_desc,
-				&key, &action, 0, NULL);
-		if (err < 0) {
-			error(0, -err, "Failed to insert entry #%d in "
-				"the DPA Classifier table (td=%d)",
-				i, tbl_desc);
-			return err;
+	if (!strcmp(argv[0], "rem4")) {
+		if (inserted_ipv4_keys == 0) {
+			printf("Cannot remove IPv4 key. Number of inserted keys is 0!\n");
+			return -ENOSPC;
 		}
 
-		params.type = DPA_STATS_CLS_MEMBER_SINGLE_KEY;
-		params.key = &key;
+		for (i = 1; i < argc - 1; i++) {
+			err = inet_pton(AF_INET, argv[i], &(addr4.sin_addr));
+			if (err != 1) {
+				printf("Invalid IP address %s entered! Please try again!\n",
+						argv[i]);
+				return -EINVAL;
+			}
+			for (j = IPv4_LEN - 1; j >= 0; j--)
+				key_ipv4[pos++] = (addr4.sin_addr.s_addr >>
+						(j * 8)) & 0xFF;
+		}
 
-		/* Modify DPA Stats class counter */
-		err = dpa_stats_modify_class_counter(cnt_id,
-				&params, i);
+		if (!strcmp(argv[i], "TCP") ||
+				!strcmp(argv[i], "tcp") ||
+				!strcmp(argv[i], "6")) {
+			key_ipv4[pos] = 0x6;
+		} else if (!strcmp(argv[i], "UDP") ||
+				!strcmp(argv[i], "udp") ||
+				!strcmp(argv[i], "17")) {
+			key_ipv4[pos] = 0x11;
+		} else {
+			printf("Not a valid protocol specified! Please chose between TCP and UDP and try again!\n");
+			return -EINVAL;
+		}
+
+		for (j = 0; j < APP_TABLE_KEY_SIZE_IPv4; j++) {
+			sprintf(&data[offset], " %02x", key_ipv4[j]);
+			offset += 3;
+		}
+
+		data[offset] = 0;
+
+		err = depopulate_exact_match_table(ipv4_td, IPv4, key_ipv4);
+		if (err != 0) {
+			printf("Cannot remove IPv4 Classification key %s. Please try again!\n",
+					data);
+			return -EINVAL;
+		} else {
+			printf("Successfully removed IPv4 Classification key %s\n",
+					data);
+		}
+	}
+
+	if (!strcmp(argv[0], "rem6")) {
+		if (inserted_ipv6_keys == 0) {
+			printf("Cannot remove IPv6 key. Number of inserted keys is 0!\n");
+			return -ENOSPC;
+		}
+
+		for (i = 1; i < argc - 1; i++) {
+			err = inet_pton(AF_INET6, argv[i], &(addr6.sin6_addr));
+			if (err != 1) {
+				printf("Invalid IP address %s entered! Please try again!\n",
+						argv[i]);
+				return -EINVAL;
+			}
+			for (j = 0; j < IPv6_LEN; j++)
+				key_ipv6[pos++] = addr6.sin6_addr.s6_addr[j];
+		}
+
+		if (!strcmp(argv[i], "TCP") ||
+				!strcmp(argv[i], "tcp") ||
+				!strcmp(argv[i], "6")) {
+			key_ipv6[pos] = 0x6;
+		} else if (!strcmp(argv[i], "UDP") ||
+				!strcmp(argv[i], "udp") ||
+				!strcmp(argv[i], "17")) {
+			key_ipv6[pos] = 0x11;
+		} else {
+			printf("Not a valid protocol specified! Please chose between TCP and UDP and try again!\n");
+			return -EINVAL;
+		}
+
+		for (j = 0; j < APP_TABLE_KEY_SIZE_IPv6; j++) {
+			sprintf(&data[offset], " %02x", key_ipv6[j]);
+			offset += 3;
+		}
+
+		data[offset] = 0;
+
+		err = depopulate_exact_match_table(ipv6_td, IPv6, key_ipv6);
+		if (err != 0) {
+			printf("Cannot remove IPv6 Classification key %s. Please try again!\n",
+					data);
+			return -EINVAL;
+		} else {
+			printf("Successfully removed IPv6 Classification key %s\n",
+					data);
+		}
+	}
+
+	return 0;
+}
+
+static int ppac_cli_classif_add_cmd(int argc, char *argv[])
+{
+	int i = 0, j = 0, err = 1, pos = 0, offset = 0;
+	uint8_t key_ipv4[APP_TABLE_KEY_SIZE_IPv4];
+	uint8_t key_ipv6[APP_TABLE_KEY_SIZE_IPv6];
+	uint8_t mac[ETH_ALEN];
+	char data[100], object_name[100];
+
+	t_Handle				hm_fwd;
+
+	struct sockaddr_in			addr4;
+	struct sockaddr_in6			addr6;
+	struct dpa_cls_hm_fwd_params		fwd_params;
+	struct dpa_cls_hm_fwd_resources		fwd_hm_res;
+
+	if (argc != ADD_CMD_ARGC) {
+		printf("Not a valid add classification key command! Please try again!\n");
+		printf("add4/6 [IPSA][IPDA][PROT][MACDA]\n");
+		return -EINVAL;
+	}
+
+	memset(&fwd_params, 0, sizeof(fwd_params));
+	memset(&fwd_hm_res, 0, sizeof(fwd_hm_res));
+
+	fwd_params.out_if_type = DPA_CLS_HM_IF_TYPE_ETHERNET;
+
+	if (!strcmp(argv[0], "add4")) {
+		if (inserted_ipv4_keys == MAX_NUM_OF_IPv4_KEYS) {
+			printf("Cannot add more than %d IPv4 keys.\n",
+							MAX_NUM_OF_IPv4_KEYS);
+			return -ENOSPC;
+		}
+
+		for (i = 1; i < argc - 2; i++) {
+			err = inet_pton(AF_INET, argv[i], &(addr4.sin_addr));
+			if (err != 1) {
+				printf("Invalid IP address %s entered! Please try again!\n",
+						argv[i]);
+				return -EINVAL;
+			}
+			for (j = IPv4_LEN - 1; j >= 0; j--)
+				key_ipv4[pos++] = (addr4.sin_addr.s_addr >>
+								(j * 8)) & 0xFF;
+		}
+
+		if (!strcmp(argv[i], "TCP") ||
+				!strcmp(argv[i], "tcp") ||
+				!strcmp(argv[i], "6")) {
+			key_ipv4[pos] = 0x6;
+		} else if (!strcmp(argv[i], "UDP") ||
+				!strcmp(argv[i], "udp") ||
+				!strcmp(argv[i], "17")) {
+			key_ipv4[pos] = 0x11;
+		} else {
+			printf("Not a valid protocol specified! Please chose between TCP and UDP and try again!\n");
+			return -EINVAL;
+		}
+
+		if (!check_mac_addr(argv[i + 1], mac)) {
+			printf("Not a valid MAC address entered! Please try again!\n");
+			return -EINVAL;
+		}
+
+		memcpy(fwd_params.eth.macda, mac, ETH_ALEN);
+
+		sprintf(object_name, "fm%d/hdr/fwd4_%d", ppam_args.fm,
+							inserted_ipv4_keys + 1);
+		hm_fwd = fmc_get_handle(&cmodel, object_name);
+		if (!hm_fwd) {
+			error(0, -EINVAL, "Cannot obtain handle for IPv4 forwarding header manipulation %d",
+					inserted_ipv4_keys + 1);
+			return -EINVAL;
+		}
+
+		fwd_hm_res.fwd_node = hm_fwd;
+
+		for (j = 0; j < APP_TABLE_KEY_SIZE_IPv4; j++) {
+			sprintf(&data[offset], " %02x", key_ipv4[j]);
+			offset += 3;
+		}
+
+		data[offset] = 0;
+
+		err = dpa_classif_set_fwd_hm(&fwd_params,
+				DPA_OFFLD_DESC_NONE,
+				&fwd_hmd_ipv4[inserted_ipv4_keys], true,
+				&fwd_hm_res);
 		if (err < 0) {
-			error(0, -err, "Failed to remove DPA Stats counter\n");
+			error(0, -err, "Failed to set up forwarding header manipulation.\n");
 			return -err;
 		}
-	}
-	printf("Successfully populated "
-			"DPA Classifier table (%d entries)\n", i);
 
-	return 0;
-}
-
-static int create_dpa_stats_counters(void)
-{
-	struct dpa_stats_params stats_params;
-	struct dpa_stats_cls_cnt_params cls_params;
-	struct dpa_offload_lookup_key **cls_keys;
-	int err = 0;
-	uint32_t i = 0;
-	uint32_t j = 0;
-
-	/* Attempt to initialize the DPA Stats user space library */
-	err = dpa_stats_lib_init();
-	if (err < 0) {
-		error(0, -err, "Failed to initialize the"
-				" DPA Stats user space library");
-		return err;
+		err = populate_exact_match_table(ipv4_td, IPv4, key_ipv4);
+		if (err != 0) {
+			printf("Cannot add IPv4 Classification key %s. Please try again!\n",
+					data);
+			return -EINVAL;
+		} else {
+			printf("Successfully added IPv4 Classification key %s\n",
+					data);
+		}
 	}
 
-	printf("DPA Stats library successfully initialized\n");
-
-	stats_params.max_counters = 1;
-	stats_params.storage_area_len = 1000;
-
-	stats_params.storage_area = malloc(stats_params.storage_area_len);
-	if (!stats_params.storage_area) {
-		printf("cannot allocate storage area");
-		return -ENOMEM;
-	}
-
-	/* Save storage area pointer */
-	storage = stats_params.storage_area;
-
-	err = dpa_stats_init(&stats_params, &dpa_stats_id);
-	if (err < 0) {
-		error(0, -err, "Failed to initialize DPA Stats instance\n");
-		return err;
-	}
-	printf("\nSuccessfully Initialized DPA Stats "
-			"instance: %d\n", dpa_stats_id);
-
-	/* Create Classifier Table class counter */
-	cls_params.type = DPA_STATS_CNT_CLASSIF_TBL;
-	/* The last member of the class will provide statistics for miss */
-	cls_params.class_members = APP_NUM_OF_ENTRIES + 1;
-	cls_params.classif_tbl_params.td = td;
-	cls_params.classif_tbl_params.cnt_sel = DPA_STATS_CNT_CLASSIF_BYTES |
-						DPA_STATS_CNT_CLASSIF_PACKETS;
-	cls_params.classif_tbl_params.key_type = DPA_STATS_CLASSIF_SINGLE_KEY;
-
-	/* Allocate memory for keys array */
-	cls_params.classif_tbl_params.keys = malloc(
-			cls_params.class_members * sizeof(**cls_keys));
-	if (!cls_params.classif_tbl_params.keys) {
-		error(0, ENOMEM, "Failed to allocate memory for keys");
-		return -ENOMEM;
-	}
-
-	for (i = 0; i < cls_params.class_members - 1; i++) {
-		cls_params.classif_tbl_params.keys[i] = malloc(
-				sizeof(struct dpa_offload_lookup_key));
-		if (!cls_params.classif_tbl_params.keys[i]) {
-			error(0, ENOMEM, "Failed to allocate memory for key");
-			for (j = 0; j < i; j++)
-				free(cls_params.classif_tbl_params.keys[j]);
-			free(cls_params.classif_tbl_params.keys);
-			return -ENOMEM;
+	if (!strcmp(argv[0], "add6")) {
+		if (inserted_ipv6_keys == MAX_NUM_OF_IPv6_KEYS) {
+			printf("Cannot add more than %d IPv6 keys.\n",
+							MAX_NUM_OF_IPv6_KEYS);
+			return -ENOSPC;
 		}
 
-		/* No lookup key is configured in the class */
-		memset(cls_params.classif_tbl_params.keys[i], 0,
-		       sizeof(struct dpa_offload_lookup_key));
-	}
-	/* Set it to NULL in order to retrieve statistics for miss */
-	cls_params.classif_tbl_params.keys[cls_params.class_members - 1] = NULL;
+		for (i = 1; i < argc - 2; i++) {
+			err = inet_pton(AF_INET6, argv[i], &(addr6.sin6_addr));
+			if (err != 1) {
+				printf("Invalid IP address %s entered! Please try again!\n",
+						argv[i]);
+				return -EINVAL;
+			}
+			for (j = 0; j < IPv6_LEN; j++)
+				key_ipv6[pos++] = addr6.sin6_addr.s6_addr[j];
+		}
 
-	err = dpa_stats_create_class_counter(dpa_stats_id,
-			&cls_params, &cnt_id);
-	if (err < 0) {
-		error(0, -err, "Failed to create DPA Stats counter\n");
-		return err;
-	}
-	printf("Successfully created DPA Stats counter: %d\n", cnt_id);
+		if (!strcmp(argv[i], "TCP") ||
+				!strcmp(argv[i], "tcp") ||
+				!strcmp(argv[i], "6")) {
+			key_ipv6[pos] = 0x6;
+		} else if (!strcmp(argv[i], "UDP") ||
+				!strcmp(argv[i], "udp") ||
+				!strcmp(argv[i], "17")) {
+			key_ipv6[pos] = 0x11;
+		} else {
+			printf("Not a valid protocol specified! Please chose between TCP and UDP and try again!\n");
+			return -EINVAL;
+		}
 
-	/* Counter was created, release the allocated memory */
-	for (i = 0; i < cls_params.class_members - 1; i++)
-		free(cls_params.classif_tbl_params.keys[i]);
-	free(cls_params.classif_tbl_params.keys);
+		if (!check_mac_addr(argv[i + 1], mac)) {
+			printf("Not a valid MAC address entered! Please try again!\n");
+			return -EINVAL;
+		}
 
-	return 0;
-}
+		memcpy(fwd_params.eth.macda, mac, ETH_ALEN);
 
-static void print_dpa_stats_cnts(void)
-{
-	uint32_t *stg = (uint32_t *)storage;
-	uint32_t i = 0;
+		sprintf(object_name, "fm%d/hdr/fwd6_%d", ppam_args.fm,
+							inserted_ipv6_keys + 1);
+		hm_fwd = fmc_get_handle(&cmodel, object_name);
+		if (!hm_fwd) {
+			error(0, EINVAL, "Cannot obtain handle for IPv6 forwarding header manipulation %d",
+					inserted_ipv6_keys + 1);
+			return -EINVAL;
+		}
 
-	printf("\nKEY:: BYTES FRAMES\n");
-	for (i = 0; i < 10; i++)
-		printf("%d %7d %5d\n",
-			i, *(stg + i*CLS_MBR_SIZE), *(stg + i*CLS_MBR_SIZE+1));
+		fwd_hm_res.fwd_node = hm_fwd;
 
-	for (i = 10; i < APP_NUM_OF_ENTRIES; i++)
-		printf("%d, %5d %5d\n",
-			i, *(stg + i*CLS_MBR_SIZE), *(stg + i*CLS_MBR_SIZE+1));
-	printf("MISS:: BYTES FRAMES\n");
-	printf("%9d %5d\n", *(stg + APP_NUM_OF_ENTRIES*CLS_MBR_SIZE),
-			*(stg + APP_NUM_OF_ENTRIES*CLS_MBR_SIZE+1));
+		for (j = 0; j < APP_TABLE_KEY_SIZE_IPv6; j++) {
+			sprintf(&data[offset], " %02x", key_ipv6[j]);
+			offset += 3;
+		}
 
-}
+		data[offset] = 0;
 
-void request_done_cb(int dpa_id,
-		unsigned int storage_area_offset, unsigned int cnts_written,
-		int bytes_written)
-{
-	printf("storage_area_offset = %d\n", storage_area_offset);
-	printf("cnts_written = %d\n", cnts_written);
-	printf("bytes_written = %d\n", bytes_written);
-	print_dpa_stats_cnts();
-}
-
-static int get_cnts_statistics(enum dpa_stats_op op)
-{
-	struct dpa_stats_cnt_request_params req_params;
-	int cnts_len = 0, err = 0;
-
-	req_params.cnts_ids = &cnt_id;
-	req_params.cnts_ids_len = 1;
-	req_params.reset_cnts = FALSE;
-	req_params.storage_area_offset = 0;
-
-	cnts_len = 0;
-
-	switch (op) {
-	case dpa_stats_get_sync:
-		err = dpa_stats_get_counters(req_params, &cnts_len, NULL);
+		err = dpa_classif_set_fwd_hm(&fwd_params,
+				DPA_OFFLD_DESC_NONE,
+				&fwd_hmd_ipv6[inserted_ipv6_keys], true,
+				&fwd_hm_res);
 		if (err < 0) {
-			error(0, -err, "Failed to create DPA Stats request\n");
+			error(0, -err, "Failed to set up forwarding header manipulation.\n");
 			return err;
 		}
-		printf("\nSuccessfully created DPA Stats request\n");
-		print_dpa_stats_cnts();
-		break;
-	case dpa_stats_reset:
-		err = dpa_stats_reset_counters(&cnt_id, 1);
-		if (err < 0) {
-			error(0, -err, "Failed to reset DPA Stats counters\n");
+
+		err = populate_exact_match_table(ipv6_td, IPv6, key_ipv6);
+		if (err != 0) {
+			printf("Cannot add IPv6 Classification key %s. Please try again!\n",
+					data);
 			return err;
+		} else {
+			printf("Successfully added IPv6 Classification key %s\n",
+					data);
 		}
-		printf("\nSuccessfully reset DPA Stats counters\n");
-		break;
-	case dpa_stats_get_async:
-		err = dpa_stats_get_counters(req_params,
-				&cnts_len, &request_done_cb);
-		if (err < 0) {
-			error(0, -err, "Failed to create DPA Stats request\n");
-			return err;
-		}
-		printf("\nSuccessfully created DPA Stats request\n");
-		break;
-	default:
-		printf("Invalid operation\n");
-		break;
 	}
 
 	return 0;
-}
-
-static u16 ipv4_cksum(const struct iphdr *iphdr)
-{
-	int cksum = 0;
-	int i;
-	u16 *w = (u16*) iphdr;
-
-	for (i = 0; i < (iphdr->ihl * 2); i++) {
-		cksum += w[i];
-	}
-
-	cksum = (cksum >> 16) + (cksum & 0xffff);
-	cksum += (cksum >> 16);
-
-	return (u16) ((~cksum) & 0xffff);
 }
 
 static int ppac_cli_dpa_stats_cmd(int argc, char *argv[])
 {
-	if (!strcmp(argv[0], "get_stats"))
-		get_cnts_statistics(dpa_stats_get_async);
-	else if (!strcmp(argv[0], "get_stats_sync"))
-		get_cnts_statistics(dpa_stats_get_sync);
+	if (!strcmp(argv[0], "get_classif_stats"))
+		get_cnts_statistics(dpa_classif_stats_get_async);
+	else if (!strcmp(argv[0], "get_classif_stats_sync"))
+		get_cnts_statistics(dpa_classif_stats_get_sync);
+	else if (!strcmp(argv[0], "get_traffic_stats"))
+		get_cnts_statistics(dpa_traffic_stats_get_async);
+	else if (!strcmp(argv[0], "get_traffic_stats_sync"))
+		get_cnts_statistics(dpa_traffic_stats_get_sync);
 	else if (!strcmp(argv[0], "reset_stats"))
 		get_cnts_statistics(dpa_stats_reset);
 
 	return 0;
 }
 
-cli_cmd(get_stats, ppac_cli_dpa_stats_cmd);
-cli_cmd(get_stats_sync, ppac_cli_dpa_stats_cmd);
+/* Register PPAC CLI commands */
+cli_cmd(rem4, ppac_cli_classif_rem_cmd);
+cli_cmd(rem6, ppac_cli_classif_rem_cmd);
+cli_cmd(add4, ppac_cli_classif_add_cmd);
+cli_cmd(add6, ppac_cli_classif_add_cmd);
+cli_cmd(get_classif_stats, ppac_cli_dpa_stats_cmd);
+cli_cmd(get_classif_stats_sync, ppac_cli_dpa_stats_cmd);
+cli_cmd(get_traffic_stats, ppac_cli_dpa_stats_cmd);
+cli_cmd(get_traffic_stats_sync, ppac_cli_dpa_stats_cmd);
 cli_cmd(reset_stats, ppac_cli_dpa_stats_cmd);
 
 /* Inline the PPAC machinery */

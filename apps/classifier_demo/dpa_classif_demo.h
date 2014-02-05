@@ -33,36 +33,88 @@
 #ifndef __DPA_CLASSIF_DEMO_H
 #define __DPA_CLASSIF_DEMO_H
 
+#define APP_TABLE_KEY_SIZE_IPv4			9  /* bytes */
+#define APP_TABLE_KEY_SIZE_IPv6			33 /* bytes */
+#define APP_DSCP_TABLE_KEY_SIZE			1  /* bytes */
 
-#define APP_TABLE_KEY_SIZE			9 /*bytes*/
-#define APP_NUM_OF_ENTRIES			20
-#define APP_NUM_OF_STATIC_ENTRIES		4
-#define APP_NUM_ENTRIES_TO_REMOVE		10
-#define APP_NUM_STATIC_ENTRIES_TO_REMOVE	1
-#define APP_NUM_ENTRIES_TO_UPDATE		5
-#define APP_NUM_STATIC_ENTRIES_TO_UPDATE	2
+#define CLS_MBR_SIZE				2
 
+#define IPv4					4
+#define IPv6					6
 
-struct dpa_classif_connection {
-	uint8_t		key[APP_TABLE_KEY_SIZE];
-	uint32_t	fqid;
-	int		entry_id;
-};
+#define IPv4_LEN				4  /* bytes */
+#define IPv6_LEN				16 /* bytes */
+
+#define MAX_NUM_OF_IPv4_KEYS			64
+#define MAX_NUM_OF_IPv6_KEYS			64
+#define NUM_HASH_BUCKETS			32
+
+#define MAC_CHARACTER_LEN			17
+
+#define REM_CMD_ARGC				4
+#define ADD_CMD_ARGC				5
+
+#define ENABLE_PROMISC
 
 struct ppam_arguments {
 	int	fm;
 	int	port;
 };
 
+struct eth_counter {
+	uint32_t		dropped_pkts;
+	uint32_t		bytes;
+	uint32_t		pkts;
+	uint32_t		broadcast_pkts;
+	uint32_t		multicast_pkts;
+	uint32_t		crc_align_err_pkts;
+	uint32_t		undersized_pkts;
+	uint32_t		oversized_pkts;
+	uint32_t		frags;
+	uint32_t		jabbers;
+	uint32_t		pkts_64b;
+	uint32_t		pkts_65_127b;
+	uint32_t		pkts_128_255b;
+	uint32_t		pkts_256_511b;
+	uint32_t		pkts_512_1023b;
+	uint32_t		pkts_1024_1518b;
+	uint32_t		out_pkts;
+	uint32_t		out_drop_pkts;
+	uint32_t		out_bytes;
+	uint32_t		in_errors;
+	uint32_t		out_errors;
+	uint32_t		in_unicast_pkts;
+	uint32_t		out_unicast_pkts;
+};
+
+struct key_counter {
+	uint32_t bytes;
+	uint32_t frames;
+};
+
+/* VLAN header definition */
+struct vlan_hdr {
+	__u16 tci;
+	__u16 type;
+};
+
+enum dpa_stats_op {
+	dpa_classif_stats_get_async = 0,
+	dpa_classif_stats_get_sync,
+	dpa_traffic_stats_get_async,
+	dpa_traffic_stats_get_sync,
+	dpa_stats_reset
+};
+
+struct counter_data {
+	int key_ref; /* DPA Classifier reference for the key */
+	int cnt_idx; /* DPA Stats counter id for the key */
+	struct list_head node;
+};
 
 int		ppam_init(void);
-
 void		ppam_finish(void);
 
-int		create_exact_match_table(void);
-
-int		populate_table(int td);
-
-void		clean_up(void);
+void		print_traffic_dpa_stats_cnts(void);
 
 #endif /* __DPA_CLASSIFIER_DEMO_H */

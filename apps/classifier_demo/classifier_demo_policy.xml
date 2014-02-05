@@ -41,340 +41,73 @@
 	description="FMAN configuration for 3 tuple lookup">
 
 	<!-- Coarse classification -->
-	<classification name="fman_3_tuple_classif" max="24" masks="yes" statistics="frame">
+	<classification name="3_tuple_ipv4_classif" max="64" masks="yes" statistics="frame">
 		<!-- Key value to be extracted from the packet -->
 		<key>
 			<nonheader source="key" action="exact_match" size="9"/>
 		</key>
-		<entry>
-			<data>0xc0a80106c0a80a0a06</data>
-			<queue base="0x1780"/>
-		</entry>
-		<entry>
-			<data>0xc0a80106c0a80a0a11</data>
-			<queue base="0x1781"/>
-		</entry>
-		<entry>
-			<data>0xc0a80106c0a80a0b06</data>
-			<queue base="0x1782"/>
-		</entry>
-		<entry>
-			<data>0xc0a80106c0a80a0b11</data>
-			<queue base="0x1783"/>
-		</entry>
+		<may-use>
+			<action type="classification" name="dscp_classif" />
+		</may-use>
+		<action condition="on-miss" type="drop"/>
+	</classification>
+
+	<classification name="3_tuple_ipv6_classif" max="64" masks="yes" statistics="frame">
+		<!-- Key value to be extracted from the packet -->
+		<key>
+			<nonheader source="key" action="exact_match" size="33"/>
+		</key>
+		<may-use>
+			<action type="classification" name="dscp_classif" />
+		</may-use>
+		<action condition="on-miss" type="drop"/>
+	</classification>
+
+	<classification name="dscp_classif" max="20" masks="yes" statistics="frame">
+		<!-- Key value to be extracted from the packet -->
+		<key>
+			<fieldref name="ip.dscp"/>
+		</key>
 		<action condition="on-miss" type="drop"/>
 	</classification>
 
 	<!--Distribution -->
-	<distribution name="3_tuple_distribution" description="Build 3 tuple distribution">
+	<distribution name="ipv4_distribution" description="IPv4 distribution">
 		<key>
 			<fieldref name ="ipv4.src"/>
 			<fieldref name ="ipv4.dst"/>
 			<fieldref name ="ipv4.nextp"/>
 		</key>
-		<queue count="32" base="0x1780"/>
-		<action type="classification" name="fman_3_tuple_classif"/>
+		<queue count="1" base="0x1780"/>
+		<action type="classification" name="3_tuple_ipv4_classif"/>
+	</distribution>
+
+	<distribution name="ipv6_distribution" description="IPv6 distribution">
+		<key>
+			<fieldref name ="ipv6.src"/>
+			<fieldref name ="ipv6.dst"/>
+			<fieldref name ="ipv6.nexthdr" header_index="last"/>
+		</key>
+		<queue count="1" base="0x1782"/>
+		<action type="classification" name="3_tuple_ipv6_classif"/>
 	</distribution>
 
 	<manipulations>
-		<header name="update_ipsa1">
-			<update type="ipv4">
-				<field type="src" value="0xaabbccdd"/>
-			</update>
-		</header>
-		<header name="fwd1">
+		<header name="fwd6" duplicate="64">
 			<insert>
 				<size>12</size>
 				<offset>0</offset>
 				<replace>yes</replace>
 				<data>0x0102030405060708090a0b0c</data>
 			</insert>
-			<nextmanip name="update_ipsa1"/>
 		</header>
-
-		<header name="update_ipsa2">
-			<update type="ipv4">
-				<field type="src" value="0xaabbccdd"/>
-			</update>
-		</header>
-		<header name="fwd2">
+		<header name="fwd4" duplicate="64">
 			<insert>
 				<size>12</size>
 				<offset>0</offset>
 				<replace>yes</replace>
 				<data>0x0102030405060708090a0b0c</data>
 			</insert>
-			<nextmanip name="update_ipsa2"/>
-		</header>
-
-		<header name="update_ipsa3">
-			<update type="ipv4">
-				<field type="src" value="0xaabbccdd"/>
-			</update>
-		</header>
-		<header name="fwd3">
-			<insert>
-				<size>12</size>
-				<offset>0</offset>
-				<replace>yes</replace>
-				<data>0x0102030405060708090a0b0c</data>
-			</insert>
-			<nextmanip name="update_ipsa3"/>
-		</header>
-
-		<header name="update_ipsa4">
-			<update type="ipv4">
-				<field type="src" value="0xaabbccdd"/>
-			</update>
-		</header>
-		<header name="fwd4">
-			<insert>
-				<size>12</size>
-				<offset>0</offset>
-				<replace>yes</replace>
-				<data>0x0102030405060708090a0b0c</data>
-			</insert>
-			<nextmanip name="update_ipsa4"/>
-		</header>
-
-		<header name="update_ipsa5">
-			<update type="ipv4">
-				<field type="src" value="0xaabbccdd"/>
-			</update>
-		</header>
-		<header name="fwd5">
-			<insert>
-				<size>12</size>
-				<offset>0</offset>
-				<replace>yes</replace>
-				<data>0x0102030405060708090a0b0c</data>
-			</insert>
-			<nextmanip name="update_ipsa5"/>
-		</header>
-
-		<header name="update_ipsa6">
-			<update type="ipv4">
-				<field type="src" value="0xaabbccdd"/>
-			</update>
-		</header>
-		<header name="fwd6">
-			<insert>
-				<size>12</size>
-				<offset>0</offset>
-				<replace>yes</replace>
-				<data>0x0102030405060708090a0b0c</data>
-			</insert>
-			<nextmanip name="update_ipsa6"/>
-		</header>
-
-		<header name="update_ipsa7">
-			<update type="ipv4">
-				<field type="src" value="0xaabbccdd"/>
-			</update>
-		</header>
-		<header name="fwd7">
-			<insert>
-				<size>12</size>
-				<offset>0</offset>
-				<replace>yes</replace>
-				<data>0x0102030405060708090a0b0c</data>
-			</insert>
-			<nextmanip name="update_ipsa7"/>
-		</header>
-
-		<header name="update_ipsa8">
-			<update type="ipv4">
-				<field type="src" value="0xaabbccdd"/>
-			</update>
-		</header>
-		<header name="fwd8">
-			<insert>
-				<size>12</size>
-				<offset>0</offset>
-				<replace>yes</replace>
-				<data>0x0102030405060708090a0b0c</data>
-			</insert>
-			<nextmanip name="update_ipsa8"/>
-		</header>
-
-		<header name="update_ipsa9">
-			<update type="ipv4">
-				<field type="src" value="0xaabbccdd"/>
-			</update>
-		</header>
-		<header name="fwd9">
-			<insert>
-				<size>12</size>
-				<offset>0</offset>
-				<replace>yes</replace>
-				<data>0x0102030405060708090a0b0c</data>
-			</insert>
-			<nextmanip name="update_ipsa9"/>
-		</header>
-
-		<header name="update_ipsa10">
-			<update type="ipv4">
-				<field type="src" value="0xaabbccdd"/>
-			</update>
-		</header>
-		<header name="fwd10">
-			<insert>
-				<size>12</size>
-				<offset>0</offset>
-				<replace>yes</replace>
-				<data>0x0102030405060708090a0b0c</data>
-			</insert>
-			<nextmanip name="update_ipsa10"/>
-		</header>
-
-		<header name="update_ipsa11">
-			<update type="ipv4">
-				<field type="src" value="0xaabbccdd"/>
-			</update>
-		</header>
-		<header name="fwd11">
-			<insert>
-				<size>12</size>
-				<offset>0</offset>
-				<replace>yes</replace>
-				<data>0x0102030405060708090a0b0c</data>
-			</insert>
-			<nextmanip name="update_ipsa11"/>
-		</header>
-
-		<header name="update_ipsa12">
-			<update type="ipv4">
-				<field type="src" value="0xaabbccdd"/>
-			</update>
-		</header>
-		<header name="fwd12">
-			<insert>
-				<size>12</size>
-				<offset>0</offset>
-				<replace>yes</replace>
-				<data>0x0102030405060708090a0b0c</data>
-			</insert>
-			<nextmanip name="update_ipsa12"/>
-		</header>
-
-		<header name="update_ipsa13">
-			<update type="ipv4">
-				<field type="src" value="0xaabbccdd"/>
-			</update>
-		</header>
-		<header name="fwd13">
-			<insert>
-				<size>12</size>
-				<offset>0</offset>
-				<replace>yes</replace>
-				<data>0x0102030405060708090a0b0c</data>
-			</insert>
-			<nextmanip name="update_ipsa13"/>
-		</header>
-
-		<header name="update_ipsa14">
-			<update type="ipv4">
-				<field type="src" value="0xaabbccdd"/>
-			</update>
-		</header>
-		<header name="fwd14">
-			<insert>
-				<size>12</size>
-				<offset>0</offset>
-				<replace>yes</replace>
-				<data>0x0102030405060708090a0b0c</data>
-			</insert>
-			<nextmanip name="update_ipsa14"/>
-		</header>
-
-		<header name="update_ipsa15">
-			<update type="ipv4">
-				<field type="src" value="0xaabbccdd"/>
-			</update>
-		</header>
-		<header name="fwd15">
-			<insert>
-				<size>12</size>
-				<offset>0</offset>
-				<replace>yes</replace>
-				<data>0x0102030405060708090a0b0c</data>
-			</insert>
-			<nextmanip name="update_ipsa15"/>
-		</header>
-
-		<header name="update_ipsa16">
-			<update type="ipv4">
-				<field type="src" value="0xaabbccdd"/>
-			</update>
-		</header>
-		<header name="fwd16">
-			<insert>
-				<size>12</size>
-				<offset>0</offset>
-				<replace>yes</replace>
-				<data>0x0102030405060708090a0b0c</data>
-			</insert>
-			<nextmanip name="update_ipsa16"/>
-		</header>
-
-		<header name="update_ipsa17">
-			<update type="ipv4">
-				<field type="src" value="0xaabbccdd"/>
-			</update>
-		</header>
-		<header name="fwd17">
-			<insert>
-				<size>12</size>
-				<offset>0</offset>
-				<replace>yes</replace>
-				<data>0x0102030405060708090a0b0c</data>
-			</insert>
-			<nextmanip name="update_ipsa17"/>
-		</header>
-
-		<header name="update_ipsa18">
-			<update type="ipv4">
-				<field type="src" value="0xaabbccdd"/>
-			</update>
-		</header>
-		<header name="fwd18">
-			<insert>
-				<size>12</size>
-				<offset>0</offset>
-				<replace>yes</replace>
-				<data>0x0102030405060708090a0b0c</data>
-			</insert>
-			<nextmanip name="update_ipsa18"/>
-		</header>
-
-		<header name="update_ipsa19">
-			<update type="ipv4">
-				<field type="src" value="0xaabbccdd"/>
-			</update>
-		</header>
-		<header name="fwd19">
-			<insert>
-				<size>12</size>
-				<offset>0</offset>
-				<replace>yes</replace>
-				<data>0x0102030405060708090a0b0c</data>
-			</insert>
-			<nextmanip name="update_ipsa19"/>
-		</header>
-
-		<header name="update_ipsa20">
-			<update type="ipv4">
-				<field type="src" value="0xaabbccdd"/>
-			</update>
-		</header>
-		<header name="fwd20">
-			<insert>
-				<size>12</size>
-				<offset>0</offset>
-				<replace>yes</replace>
-				<data>0x0102030405060708090a0b0c</data>
-			</insert>
-			<nextmanip name="update_ipsa20"/>
 		</header>
 	</manipulations>
 
@@ -385,7 +118,8 @@
 
 	<policy name="3_tuple_policy">
 		<dist_order>
-			<distributionref name="3_tuple_distribution"/>
+			<distributionref name="ipv4_distribution"/>
+			<distributionref name="ipv6_distribution"/>
 			<distributionref name="default_dist"/>
 		</dist_order>
 	</policy>
