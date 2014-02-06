@@ -39,6 +39,9 @@
 
 #include <usdpaa/compat.h>
 
+#include <fsl_sec/sec.h>
+#include <crypto/sec.h>
+
 /*
  * PPAM global startup/teardown
  *
@@ -115,6 +118,10 @@ const char ppam_cfg_path[] __attribute__((weak)) = __stringify(DEF_CFG_PATH);
 
 /* SEC engine era used by RTA functions*/
 enum rta_sec_era rta_sec_era;
+/* SEC engine era, as read from the device tree */
+int32_t hw_sec_era = -1;
+/* SEC engine era, as given by the user at command line */
+int32_t user_sec_era = -1;
 /* The triplet of buffer counts indicating how many to seed to pools */
 static unsigned int bpool_cnt[3];
 /* The SDQCR mask to use (computed from pchannels) */
@@ -1276,15 +1283,13 @@ static error_t ppac_parse(int key, char *arg, struct argp_state *state)
 		args->bpool_cnt[2] = val;
 		break;
 	case 'e':
-		val = atoi(arg);
-		/* enum rta_sec_era starts from 0 */
-		rta_sec_era = val - 1;
-		if (rta_sec_era < RTA_SEC_ERA_1 || rta_sec_era > MAX_SEC_ERA) {
-			fprintf(stderr, "%s: invalid SEC era: %lu\n",
-				state->argv[0], val);
-			return EINVAL;
-		}
+		/*
+		 * The era is validate below, under
+		 * validate_sec_era_version(...) function call
+		 */
+		user_sec_era = atoi(arg);
 		break;
+
 	case ARGP_KEY_ARGS:
 		if (state->argc - state->next != 1)
 			argp_usage(state);
@@ -1520,13 +1525,13 @@ int main(int argc, char *argv[])
 	char *cli, **cli_argv;
 	const struct cli_table_entry *cli_cmd;
 
-	/* TODO: Retrieve default SEC ERA from the platform */
-	rta_set_sec_era(RTA_SEC_ERA_2);
 	rcode = of_init();
 	if (rcode) {
 		pr_err("of_init() failed\n");
 		exit(EXIT_FAILURE);
 	}
+
+	hw_sec_era = sec_get_of_era();
 
 	ncpus = (unsigned long)sysconf(_SC_NPROCESSORS_ONLN);
 	if (ncpus > 1) {
@@ -1543,6 +1548,10 @@ int main(int argc, char *argv[])
 	rcode = argp_parse(&ppac_argp, argc, argv, 0, NULL, &ppac_args);
 	if (unlikely(rcode != 0))
 		return -rcode;
+
+	if (validate_sec_era_version(user_sec_era, hw_sec_era))
+		return -EINVAL;
+
 	bpool_cnt[0] = ppac_args.bpool_cnt[0];
 	bpool_cnt[1] = ppac_args.bpool_cnt[1];
 	bpool_cnt[2] = ppac_args.bpool_cnt[2];
