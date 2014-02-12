@@ -68,8 +68,6 @@ extern "C" {
 /* workaround for PME errata in HW version 2.1.4 */
 #define CONFIG_FSL_PME_BUG_4K_SCAN_REV_2_1_4
 
-/* turn on BMAN_CONFIG so that we can update ccsr based registers */
-#define CONFIG_FSL_BMAN_CONFIG
 
 #ifdef __cplusplus
 }
