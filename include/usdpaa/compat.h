@@ -334,6 +334,8 @@ do { \
 /* Alternate Time Base */
 #define SPR_ATBL	526
 #define SPR_ATBU	527
+#define SPR_TBL		268
+#define SPR_TBU		269
 #define mfspr(reg) \
 ({ \
 	register_t ret; \
@@ -350,6 +352,18 @@ static inline uint64_t mfatb(void)
 	} while (unlikely(hi != chk));
 	return (uint64_t) hi << 32 | (uint64_t) lo;
 }
+
+static inline uint64_t mftb(void)
+{
+	uint32_t hi, lo, chk;
+	do {
+		hi = mfspr(SPR_TBU);
+		lo = mfspr(SPR_TBL);
+		chk = mfspr(SPR_TBU);
+	} while (unlikely(hi != chk));
+	return (uint64_t) hi << 32 | (uint64_t) lo;
+}
+
 /* Spin for a few cycles without bothering the bus */
 static inline void cpu_spin(int cycles)
 {
