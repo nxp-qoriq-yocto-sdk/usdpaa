@@ -487,6 +487,11 @@ static void ppam_rx_hash_finish(struct ppam_rx_hash *p,
 {
 }
 
+int ppam_sec_needed()
+{
+	return 1;
+}
+
 static int init_buffer_pools(void)
 {
 	const struct bpool *bp = bpool;

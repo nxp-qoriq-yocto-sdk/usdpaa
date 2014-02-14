@@ -987,6 +987,11 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 	ip_handler(p, notes, data);
 }
 
+int ppam_sec_needed()
+{
+	return 1;
+}
+
 #include <ppac.c>
 
 struct ppam_arguments {

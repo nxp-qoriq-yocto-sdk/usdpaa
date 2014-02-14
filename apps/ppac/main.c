@@ -106,6 +106,10 @@ int __attribute__((weak)) ppam_thread_poll(void)
 	return 0;
 }
 
+int __attribute__((weak)) ppam_sec_needed(void)
+{
+	return 0;
+}
 /*
  * PPAM-overridable paths to FMan configuration files.
  */
@@ -1531,8 +1535,6 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	hw_sec_era = sec_get_of_era();
-
 	ncpus = (unsigned long)sysconf(_SC_NPROCESSORS_ONLN);
 	if (ncpus > 1) {
 		ppac_args.first = 1;
@@ -1549,8 +1551,11 @@ int main(int argc, char *argv[])
 	if (unlikely(rcode != 0))
 		return -rcode;
 
-	if (validate_sec_era_version(user_sec_era, hw_sec_era))
-		return -EINVAL;
+	if (ppam_sec_needed()) {
+		hw_sec_era = sec_get_of_era();
+		if (validate_sec_era_version(user_sec_era, hw_sec_era))
+			return -EINVAL;
+	}
 
 	bpool_cnt[0] = ppac_args.bpool_cnt[0];
 	bpool_cnt[1] = ppac_args.bpool_cnt[1];

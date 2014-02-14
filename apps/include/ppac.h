@@ -239,6 +239,7 @@ int ppam_post_tx_init(void);
 void ppam_finish(void);
 int ppam_thread_init(void);
 void ppam_thread_finish(void);
+int ppam_sec_needed(void);
 
 /* Default paths to FMan configuration files - these are determined from the
  * build, but can be overriden at run-time using "DEF_PCD_PATH" and
