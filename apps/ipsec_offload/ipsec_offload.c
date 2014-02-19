@@ -887,9 +887,6 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 			}
 			/* IPv4 frame may contain ESP padding */
 			_fd = *fd;
-#ifndef SEC_5_3
-			_fd.length20 = len + iphdr->tot_len;
-#endif
 			ppac_send_frame(tx_fqid, &_fd);
 			continue_parsing = false;
 			}
@@ -912,10 +909,6 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 			}
 			/* IPv6 may contain ESP padding */
 			_fd = *fd;
-#ifndef SEC_5_3
-			_fd.length20 = len + sizeof(*ip6_hdr) +
-					ip6_hdr->ip6_plen;
-#endif
 			ppac_send_frame(tx_fqid, fd);
 			continue_parsing = false;
 			}
