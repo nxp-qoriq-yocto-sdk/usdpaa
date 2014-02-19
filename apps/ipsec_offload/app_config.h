@@ -52,11 +52,8 @@
 /* used by SEC for output frames */
 #define DMA_MAP_SIZE	0x4000000 /*64M*/
 #define SEC_WQ_ID	7
-#ifdef SEC_5_3
 #define SEC_DATA_OFF_BURST	1
-#else
-#define SEC_DATA_OFF_BURST	3
-#endif
+#define SEC_ERA_5_DATA_OFF_BURST	3
 
 /* The following FQIDs are static because they are
  * used in PCD definitions */

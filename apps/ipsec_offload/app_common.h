@@ -33,6 +33,7 @@
 #define __APP_COMMON_H
 
 #include <ppac.h>
+#include <flib/rta.h>
 #include "std_ext.h"
 #include "fmc.h"
 
