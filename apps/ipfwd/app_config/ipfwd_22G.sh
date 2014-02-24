@@ -42,21 +42,31 @@ net_pair_routes()
 	done
 }
 
+net_directional_routes()
+{
+		ipfwd_config -P $pid -B -s 192.168.$1.2 -c $3 \
+		-d 192.168.$2.2 -n $4 -g 192.168.$2.2
+}
+
 case $(basename $0 .sh) in
-   ipfwd_7G)
+   ipfwd_t1040_8G)
 	ipfwd_config -P $pid -F -a 192.168.10.1 -i 0
 	ipfwd_config -P $pid -F -a 192.168.20.1 -i 1
+	ipfwd_config -P $pid -F -a 192.168.30.1 -i 2
 	ipfwd_config -P $pid -F -a 192.168.40.1 -i 3
 	ipfwd_config -P $pid -F -a 192.168.50.1 -i 4
 
 	ipfwd_config -P $pid -G -s 192.168.10.2 -m 02:00:c0:a8:0a:02 -r true
 	ipfwd_config -P $pid -G -s 192.168.20.2 -m 02:00:c0:a8:14:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.30.2 -m 02:00:c0:a8:1e:02 -r true
 	ipfwd_config -P $pid -G -s 192.168.40.2 -m 02:00:c0:a8:28:02 -r true
 	ipfwd_config -P $pid -G -s 192.168.50.2 -m 02:00:c0:a8:32:02 -r true
 
-					# 1024
-	net_pair_routes 10 20 16 16	# 2 * 16 * 16 = 512
-	net_pair_routes 40 50 16 16	# 2 * 16 * 16 = 512
+						# 1280
+	net_pair_routes 10 20 16 16		# 2 * 16 * 16 = 512
+	net_directional_routes 30 40 16 16	# 16 * 16 = 256
+	net_directional_routes 40 50 16 16	# 16 * 16 = 256
+	net_directional_routes 50 30 16 16	# 16 * 16 = 256
 	;;
 
    ipfwd_22G)
