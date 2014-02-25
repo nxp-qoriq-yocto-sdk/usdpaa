@@ -604,11 +604,11 @@ void fman_if_promiscuous_disable(const struct fman_if *p)
 	if ((__if->__if.mac_type == fman_mac_1g) && (!__if->__if.is_memac)) {
 		void *rx_control =
 				&((struct dtsec_regs *)__if->ccsr_map)->rctrl;
-		out_be32(rx_control, in_be32(rx_control) | (~RCTRL_PROM));
+		out_be32(rx_control, in_be32(rx_control) & (~RCTRL_PROM));
 	} else {
 		void *cmdcfg =
 			 &((struct memac_regs *)__if->ccsr_map)->command_config;
-		out_be32(cmdcfg, in_be32(cmdcfg) | (~CMD_CFG_PROMIS_EN));
+		out_be32(cmdcfg, in_be32(cmdcfg) & (~CMD_CFG_PROMIS_EN));
 	}
 }
 
