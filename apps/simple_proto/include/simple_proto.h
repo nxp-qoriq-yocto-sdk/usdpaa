@@ -49,6 +49,7 @@
 #include "rsa.h"
 #include "tls.h"
 #include "ipsec.h"
+#include "mbms.h"
 
 /* prepare test buffers, fqs, fds routines */
 int prepare_test_frames(struct test_param *crypto_info);
@@ -71,8 +72,8 @@ struct protocol_info *(*register_protocol[])(void) = {
 		register_wifi,
 		register_rsa,
 		register_tls,
-		register_ipsec
-
+		register_ipsec,
+		register_mbms
 };
 
 /* helper routines */
