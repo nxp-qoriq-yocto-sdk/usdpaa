@@ -501,14 +501,6 @@ policy.
 
 	<policy name="hash_ipsec_src_dst_spi_policy4">
 		<dist_order>
-			<distributionref name="hash_ipsec_src_dst_spi_dist4"/>
-			<distributionref name="hash_ipv4_src_dst_dist4"/>
-			<distributionref name="default_dist4"/>
-		</dist_order>
-	</policy>
-
-	<policy name="hash_ipv4_shared_policy4">
-		<dist_order>
 			<distributionref name="hash_ipv4_shared_mac_dist4"/>
 			<distributionref name="default_dist4"/>
 		</dist_order>
