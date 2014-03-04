@@ -102,9 +102,10 @@ int prepare_test_frames(struct test_param *crypto_info)
 		error(err, err, "error: set output buffer size");
 
 	err = create_compound_fd(crypto_info->buf_num,
-				 crypto_info->rt.output_buf_size,
-				 crypto_info->rt.input_buf_capacity,
-				 crypto_info->rt.input_buf_length);
+				&(struct compound_fd_params){
+					crypto_info->rt.output_buf_size,
+					crypto_info->rt.input_buf_capacity,
+					crypto_info->rt.input_buf_length});
 	if (err)
 		error(err, err, "error: create_compound_fd() failed");
 
