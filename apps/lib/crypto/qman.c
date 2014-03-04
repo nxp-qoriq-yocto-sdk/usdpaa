@@ -67,14 +67,10 @@ const struct qman_fq_cb sec_tx_cb = {
 
 /*
  * brief	Create a compound frame descriptor understood by SEC 4.0
- * param[in]	buf_num - number of buffers
- * param[in]	output_buf_size
- * param[in]	input_buf_capacity
- * param[in]	input_buf_length
+ * param[in]	fd_params - parameters for each FD
  * return	0 on success, otherwise -ve value
  */
-int create_compound_fd(unsigned int buf_num, uint32_t output_buf_size,
-		       uint32_t input_buf_capacity, uint32_t input_buf_length)
+int create_compound_fd(unsigned buf_num, struct compound_fd_params *fd_params)
 {
 	uint8_t *in_buf, *out_buf;
 	struct sg_entry_priv_t *sg_priv_and_data;
@@ -84,11 +80,11 @@ int create_compound_fd(unsigned int buf_num, uint32_t output_buf_size,
 	uint32_t ind;
 
 	for (ind = 0; ind < buf_num; ind++) {
-
 		/* Allocate memory for scatter-gather entry and
 		   i/p & o/p buffers */
-		total_size = sizeof(struct sg_entry_priv_t) + output_buf_size
-		    + input_buf_capacity;
+		total_size = sizeof(struct sg_entry_priv_t) +
+			     fd_params->output_buf_size +
+			     fd_params->input_buf_capacity;
 
 		sg_priv_and_data =
 		    __dma_mem_memalign(L1_CACHE_BYTES, total_size);
@@ -103,19 +99,19 @@ int create_compound_fd(unsigned int buf_num, uint32_t output_buf_size,
 		/* Get the address of output and input buffers */
 		out_buf = (uint8_t *) (sg_priv_and_data)
 		    + sizeof(struct sg_entry_priv_t);
-		in_buf = (uint8_t *) sg_priv_and_data + (total_size
-							 - input_buf_capacity);
+		in_buf = (uint8_t *)sg_priv_and_data +
+			 (total_size - fd_params->input_buf_capacity);
 
 		sg = (struct qm_sg_entry *)sg_priv_and_data;
 
 		/* output buffer */
 		qm_sg_entry_set64(sg, __dma_mem_vtop(out_buf));
-		sg->length = output_buf_size;
+		sg->length = fd_params->output_buf_size;
 
 		/* input buffer */
 		sg++;
 		qm_sg_entry_set64(sg, __dma_mem_vtop(in_buf));
-		sg->length = input_buf_length;
+		sg->length = fd_params->input_buf_length;
 		sg->final = 1;
 		sg--;
 
