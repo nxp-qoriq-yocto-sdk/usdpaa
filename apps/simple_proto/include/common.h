@@ -115,6 +115,7 @@ struct protocol_info {
 	void (*unregister)(struct protocol_info *);
 				/**< Callback for deregistering the protocol */
 	void *descr;
+	unsigned short buf_align;	/**< Alignment of buffers */
 
 };
 

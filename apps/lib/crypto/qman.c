@@ -78,6 +78,8 @@ int create_compound_fd(unsigned buf_num, struct compound_fd_params *fd_params)
 	/* Total size of sg entry, i/p and o/p buffer required */
 	uint32_t total_size;
 	uint32_t ind;
+	size_t align = fd_params->buf_align ?
+			fd_params->buf_align : L1_CACHE_BYTES;
 
 	total_size = sizeof(struct sg_entry_priv_t) +
 		     fd_params->output_buf_size +
@@ -87,7 +89,7 @@ int create_compound_fd(unsigned buf_num, struct compound_fd_params *fd_params)
 		/* Allocate memory for scatter-gather entry and
 		   i/p & o/p buffers */
 		sg_priv_and_data =
-		    __dma_mem_memalign(L1_CACHE_BYTES, total_size);
+		    __dma_mem_memalign(align, total_size);
 
 		if (unlikely(!sg_priv_and_data)) {
 			fprintf(stderr, "error: Unable to allocate memory"
