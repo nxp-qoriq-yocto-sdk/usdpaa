@@ -79,13 +79,13 @@ int create_compound_fd(unsigned buf_num, struct compound_fd_params *fd_params)
 	uint32_t total_size;
 	uint32_t ind;
 
+	total_size = sizeof(struct sg_entry_priv_t) +
+		     fd_params->output_buf_size +
+		     fd_params->input_buf_capacity;
+
 	for (ind = 0; ind < buf_num; ind++) {
 		/* Allocate memory for scatter-gather entry and
 		   i/p & o/p buffers */
-		total_size = sizeof(struct sg_entry_priv_t) +
-			     fd_params->output_buf_size +
-			     fd_params->input_buf_capacity;
-
 		sg_priv_and_data =
 		    __dma_mem_memalign(L1_CACHE_BYTES, total_size);
 
