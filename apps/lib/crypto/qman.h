@@ -67,6 +67,7 @@ struct compound_fd_params {
 	uint32_t output_buf_size;
 	uint32_t input_buf_capacity;
 	uint32_t input_buf_length;
+	unsigned short buf_align;
 };
 
 /* Create/Init routines */

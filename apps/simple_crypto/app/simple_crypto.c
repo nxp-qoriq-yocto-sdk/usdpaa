@@ -302,7 +302,8 @@ int prepare_test_frames(struct test_param *crypto_info)
 				 &(struct compound_fd_params){
 					crypto_info->rt.output_buf_size,
 					crypto_info->rt.input_buf_capacity,
-					crypto_info->rt.input_buf_length});
+					crypto_info->rt.input_buf_length,
+					0});
 	if (err)
 		error(err, err, "error: create_compound_fd() failed");
 
