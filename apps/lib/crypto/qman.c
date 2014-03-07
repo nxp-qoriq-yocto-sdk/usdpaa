@@ -671,7 +671,7 @@ void print_frame_desc(struct qm_fd *frame_desc)
 				sgentry->offset);
 
 			v = __dma_mem_ptov(addr);
-			for (i = 0; i < sgentry->length; i++)
+			for (i = 0; i < sgentry->length + sgentry->offset; i++)
 				fprintf(stdout, "error: 0x%x\n", *v++);
 
 			sgentry++;
@@ -691,7 +691,7 @@ void print_frame_desc(struct qm_fd *frame_desc)
 				sgentry->offset);
 
 			v = __dma_mem_ptov(addr);
-			for (i = 0; i < sgentry->length; i++)
+			for (i = 0; i < sgentry->length + sgentry->offset; i++)
 				fprintf(stdout, "error: 0x%x\n", *v++);
 		}
 	}
