@@ -50,7 +50,7 @@
 #include <ipc/ipc/include/fsl_ipc_types.h>
 #include <ipc/ipc/include/fsl_bsc913x_ipc.h>
 #include <ipc/ipc/include/dsp_boot.h>
-#include <ipc/ipc/include/dsp_boot.h>
+#include <ipc/ipc/include/fsl_heterogeneous_l1_defense.h>
 
 /* USDPAA APIs */
 #include <internal/compat.h>
@@ -90,9 +90,9 @@ struct fq_pair_t {
 						if (t & (1 << d))
 
 /* config vars initialised with defaults*/
-static unsigned long num_active_dsp = 1;
-static uint32_t active_dsp_mask = 1;
-static unsigned long msg_per_iteration;
+static unsigned long num_active_dsp = NUM_DSP;
+static uint32_t active_dsp_mask;
+static unsigned long msg_per_iteration = 1;
 static unsigned long msg_len = 0x100;
 static unsigned long bpool_buff_cnt = 8192;
 
@@ -363,6 +363,78 @@ static int pa_dpa_init(void)
 	return 0;
 }
 
+static void *ccsr_addr;
+
+static int map_ccsr(void)
+{
+	int fd = open("/dev/mem", O_RDWR);
+	if (-1 == fd) {
+		perror("open failed\n");
+		return -1;
+	}
+
+	ccsr_addr = mmap(NULL, 0x1000000, PROT_READ | PROT_WRITE, MAP_SHARED,
+			 fd, 0xffe000000);
+	if (!ccsr_addr) {
+		perror("mmap failed\n");
+		return -1;
+	}
+
+	printf("CCSRBAR = %#llx at %p\n", *(uint64_t *)ccsr_addr, ccsr_addr);
+
+	return 0;
+}
+
+#ifdef DEBUG
+static int cme_query(uint8_t dsp_id,
+	      uint64_t phys_addr)	/*Physical address */
+{
+#define QCR	0xE014
+#define QCC	0xE020
+#define QCA	0xE024
+#define QU1	0xE028
+#define QU2	0xE02C
+#define CR	0xE03C
+
+	uint32_t cme_qcc, cme_qca, cme_cr, cme_qcr;
+	uint32_t cluster = dsp_id >> 1;
+	uintptr_t cme_addr = (uintptr_t)ccsr_addr +
+				0xc40000 + (cluster * 0x40000);
+	uint32_t qu1;
+	uint32_t qu2;
+
+	cme_qcc = ((phys_addr >> 32) << 6) | 0x11;
+	cme_qca = phys_addr & 0xFFFFFFFF;
+
+	cme_cr = *(uint32_t *)(cme_addr + CR);
+	if (cme_cr & 1)
+		return -1;
+
+	/* issued the cme ext query command*/
+	*(uint32_t *)(cme_addr + QCC) = cme_qcc;
+	hwsync();
+	*(uint32_t *)(cme_addr + QCA) = cme_qca;
+	hwsync();
+
+	/*poling to verified that external query or barrier was executed */
+	do {
+		cme_qcr = *(uint32_t *)(cme_addr + QCR);
+		hwsync();
+	} while (cme_qcr & 1);
+
+	if (cme_qcr & 0x2)
+		return -1;
+
+	qu1 = *(uint32_t *)(cme_addr + QU1);
+	qu2 = *(uint32_t *)(cme_addr + QU2);
+
+	pr_info("QCC: %#x QCA: %#x\n", cme_qcc, cme_qca);
+	pr_info("qu1 = %#x, qu2 = %#x\n", qu1, qu2);
+
+	return 0;
+}
+#endif
+
 static int verify_dsp_msg(const struct qm_fd *fd, uint32_t dsp_id)
 {
 	int i;
@@ -404,10 +476,18 @@ static int verify_dsp_msg(const struct qm_fd *fd, uint32_t dsp_id)
 				   i, dsp_id);
 			pr_err("Expected: %#x, Received: %#x\n",
 				   expected, msg->pattern[i]);
+
+#ifdef DEBUG
+			phys_addr = phys_addr + fd->offset + ((i + 2) * 4);
+			pr_info("virt_addr: %p, phys_addr = %#llx\n",
+				&msg->pattern[i], phys_addr);
+			if (cme_query(dsp_id, phys_addr))
+				pr_err("cme_query failed\n");
+#endif
 			return -1;
 		}
 
-		msg->pattern[i] = 0;
+		/*msg->pattern[i] = 0;*/
 	}
 
 	msg->bpid = 0;
@@ -415,6 +495,7 @@ static int verify_dsp_msg(const struct qm_fd *fd, uint32_t dsp_id)
 
 	return 0;
 }
+
 
 static enum qman_cb_dqrr_result cb_rx(struct qman_portal *qm __always_unused,
 				      struct qman_fq *fq,
@@ -1093,8 +1174,6 @@ static int run_test(int argc, char *argv[])
 				bpool_buff_cnt/2);
 			return -1;
 		}
-	} else {
-		msg_per_iteration = 1;
 	}
 
 	qmfds = calloc(msg_per_iteration, sizeof(struct qm_fd));
@@ -1213,8 +1292,11 @@ static int kill_dspmask(int argc, char *argv[])
 		return -1;
 	}
 
+	/* Remove those DSPs from mask which are not active */
+	dspmask = dspmask & active_dsp_mask;
+
 	for_each_dsp(dsp, dspmask, tmpmask) {
-		printf("Sending kill cmd to DSP[%u]..", dsp);
+		printf("Sending kill cmd to DSP[%u].. ", dsp);
 		ret = kill_dsp(dsp);
 		if (ret) {
 			pr_err("kill_dsp failed for DSP[%u]\n", dsp);
@@ -1227,17 +1309,20 @@ static int kill_dspmask(int argc, char *argv[])
 	return 0;
 }
 
-static int download_dsp_images(uint32_t dspmask)
+static int download_dsp_images(uint32_t dspmask, os_het_l1d_mode_t l1d_mode)
 {
 	dsp_core_info info;
 	uint32_t dsp, tmpmask;
 	int ret;
 
-	/* Currently, only mode-3 L1Defense is supported */
+	/* mode-1 L1Defense is chosen */
 	info.hw_sem_num = 1;
-	info.reset_mode = 4;	/* Replace it with MODE_3_ACTIVE */
+	info.reset_mode = l1d_mode;
 	info.maple_reset_mode = 0;
 	info.debug_print = 0;
+
+	for (dsp = 0; dsp < num_active_dsp; dsp++)
+		info.reDspCoreInfo[dsp].reset_core_flag = 0;
 
 	for_each_dsp(dsp, dspmask, tmpmask) {
 		info.shDspCoreInfo[dsp].reset_core_flag = 0;
@@ -1245,6 +1330,8 @@ static int download_dsp_images(uint32_t dspmask)
 		info.reDspCoreInfo[dsp].reset_core_flag = 1;
 		info.reDspCoreInfo[dsp].core_id = dsp;
 		info.reDspCoreInfo[dsp].dsp_filename = (char *)dsp_images[dsp];
+		pr_info("Downloading file: %s on DSP[%u]\n",
+			info.reDspCoreInfo[dsp].dsp_filename, dsp);
 	}
 
 	ret = fsl_start_L1_defense(ipc, &info);
@@ -1472,6 +1559,7 @@ int main(int argc, char *argv[])
 	int l1d_fd;
 	uint32_t dspmask, tmpmask;
 	uint64_t word;
+	os_het_l1d_mode_t l1d_mode;
 
 	/* Determine number of cores (==number of threads) */
 	long ncpus = sysconf(_SC_NPROCESSORS_ONLN);
@@ -1563,6 +1651,11 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
+	if (map_ccsr()) {
+		pr_err("map_ccsr failed\n");
+		return -1;
+	}
+
 	printf("Starting DSP DPA demo, NUM_PA = %ld, NUM_DSP = %lu\n",
 	       ncpus, num_active_dsp);
 
@@ -1652,14 +1745,17 @@ int main(int argc, char *argv[])
 
 	dspmask = active_dsp_mask;
 
-reconfigure_dsps:
-	/* Start IPC association with DSP */
+reconfigure_dsps_ipc:
 	for_each_dsp(dsp_id, dspmask, tmpmask) {
 		if (dsp_ipc_chan_init(dsp_id)) {
 			pr_err("IPC init failed for dsp: %u\n", dsp_id);
 			exit(EXIT_FAILURE);
 		}
+	}
 
+reconfigure_dsps:
+	/* Start IPC association with DSP */
+	for_each_dsp(dsp_id, dspmask, tmpmask) {
 		if (dsp_dpa_init(dsp_id)) {
 			pr_err("DSP DPA init failed for dsp: %u\n", dsp_id);
 			exit(EXIT_FAILURE);
@@ -1685,23 +1781,27 @@ reconfigure_dsps:
 	dspmask = word;
 
 	pr_info("DSP mask = %#x down\n", dspmask);
-
-	/* Since right now, we support MODE-3 L1defense only,
-	 * we need to re-download images on all active DSPs
-	 */
-	dspmask = active_dsp_mask;
-
 	ret = cleanup_dspmask(dspmask);
 	if (ret) {
 		pr_err("cleanup_dsps failed\n");
 		exit(-1);
 	}
 
-	ret = download_dsp_images(dspmask);
+	/* If all DSPs have to be reset, use mode3 otherwise mode1 reset */
+	if (0x3f == dspmask)
+		l1d_mode = MODE_3_ACTIVE;
+	else
+		l1d_mode = MODE_1_ACTIVE;
+
+	ret = download_dsp_images(dspmask, l1d_mode);
 	if (ret) {
 		pr_err("download_dsp_images failed\n");
 		exit(-1);
 	}
 
-	goto reconfigure_dsps;
+	/* IPC channels need to be re-init as they get reset after mode3 L1D */
+	if (MODE_3_ACTIVE == l1d_mode)
+		goto reconfigure_dsps_ipc;
+	else
+		goto reconfigure_dsps;
 }
