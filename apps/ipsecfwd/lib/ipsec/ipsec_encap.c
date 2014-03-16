@@ -48,6 +48,8 @@ enum IP_STATUS ipsec_encap_send(const struct ppam_rx_hash *ctxt,
 	const struct qm_fd *fd = &notes->dqrr->fd;
 	struct qm_fd fd2;
 	uint32_t ret;
+	struct qman_fq *fq_to_sec;
+	static int to_sec_fq_index;
 
 	if (false == simple_fd_mode) {
 		ipsec_create_compound_fd(&fd2, fd, ip_hdr, ENCRYPT);
@@ -80,8 +82,15 @@ enum IP_STATUS ipsec_encap_send(const struct ppam_rx_hash *ctxt,
 		mutex_unlock(&entry->tlock);
 	}
 
+	if (entry->hb_tunnel) {
+		fq_to_sec = entry->qm_fq_to_sec[to_sec_fq_index++];
+		to_sec_fq_index = to_sec_fq_index % NUM_TO_SEC_FQ;
+	} else {
+		fq_to_sec = entry->qm_fq_to_sec[0];
+	}
+
 loop:
-	ret = qman_enqueue(entry->qm_fq_to_sec, fd, 0);
+	ret = qman_enqueue(fq_to_sec, fd, 0);
 
 	if (unlikely(ret)) {
 		uint64_t now, then = mfatb();
@@ -136,6 +145,7 @@ void ipsec_encap_cb(const struct ipsec_context_t *ipsec_ctxt,
 void ipsec_encap_init(struct ipsec_tunnel_t *entry, struct iphdr *ip_hdr)
 {
 	void *ctxtA;
+
 	ctxtA = create_encapsulation_sec_descriptor(entry, ip_hdr, IPPROTO_TCP);
 	if (NULL == ctxtA) {
 		fprintf(stderr, "error: %s: Error creating descriptor\n",

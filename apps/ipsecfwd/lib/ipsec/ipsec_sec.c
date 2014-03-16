@@ -29,6 +29,64 @@
 #include "app_common.h"
 
 /**
+ * @details  IPSec ESP encapsulation protocol-level shared descriptor.
+ *           Requires an MDHA split key.
+ * @ingroup sharedesc_group
+ *
+ * @param[in,out] descbuf    Pointer to buffer used for descriptor construction
+ * @param[in,out] bufsize    Pointer to descriptor size to be written back upon
+ *      completion
+ * @param [in] ps            If 36/40bit addressing is desired, this parameter
+ *      must be non-zero.
+ * @param[in] pdb         Pointer to the PDB to be used with this descriptor.
+ *      This structure will be copied inline to the descriptor under
+ *      construction. No error checking will be made. Refer to the
+ *      block guide for a details of the encapsulation PDB.
+ * @param[in] cipherdata  Pointer to block cipher transform definitions. Valid
+ *      algorithm values: one of OP_PCL_IPSEC_*
+ * @param[in] authdata    Pointer to authentication transform definitions. Note
+ *      that since a split key is to be used, the size of the split key itself
+ *      is specified. Valid algorithm values: one of OP_PCL_IPSEC_*
+ **/
+static inline void cnstr_shdsc_ipsec_encap_hb(uint32_t *descbuf,
+					   unsigned *bufsize,
+					   unsigned short ps,
+					   struct ipsec_encap_pdb *pdb,
+					   struct alginfo *cipherdata,
+					   struct alginfo *authdata)
+{
+	struct program prg;
+	struct program *program = &prg;
+
+	LABEL(keyjmp);
+	REFERENCE(pkeyjmp);
+	LABEL(hdr);
+	REFERENCE(phdr);
+
+	PROGRAM_CNTXT_INIT(descbuf, 0);
+	if (ps)
+		PROGRAM_SET_36BIT_ADDR();
+	phdr = SHR_HDR(SHR_WAIT, hdr, 0);
+	ENDIAN_DATA((uint8_t *)pdb,
+		    sizeof(struct ipsec_encap_pdb) + pdb->ip_hdr_len);
+	SET_LABEL(hdr);
+	pkeyjmp = JUMP(IMM(keyjmp), LOCAL_JUMP, ALL_TRUE, BOTH|SHRD);
+	KEY(MDHA_SPLIT_KEY, authdata->key_enc_flags, PTR(authdata->key),
+	    authdata->keylen, IMMED);
+	KEY(KEY1, cipherdata->key_enc_flags, PTR(cipherdata->key),
+	    cipherdata->keylen, IMMED);
+	SET_LABEL(keyjmp);
+	PROTOCOL(OP_TYPE_ENCAP_PROTOCOL,
+		 OP_PCLID_IPSEC,
+		 cipherdata->algtype | authdata->algtype);
+	PATCH_JUMP(pkeyjmp, keyjmp);
+	PATCH_HDR(phdr, hdr);
+	*bufsize = PROGRAM_FINALIZE();
+}
+
+
+
+/**
  \brief Initializes the SEC40 descriptor
 	for encapsulation with preheader and Initialization descriptor
  \param[in] sa Pointer to the SA Info structure
@@ -96,8 +154,14 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
  * Pointer Size parameter is currently hardcoded.
  * The application doesn't allow for proper retrieval of PS.
  */
-	cnstr_shdsc_ipsec_encap((uint32_t *)buff_start, &desc_len, 1, pdb,
-				&cipher, &auth);
+	if (sa->hb_tunnel) {
+		cnstr_shdsc_ipsec_encap_hb((uint32_t *)buff_start, &desc_len,
+					   1, pdb, &cipher, &auth);
+	} else {
+		cnstr_shdsc_ipsec_encap((uint32_t *)buff_start, &desc_len,
+					1, pdb, &cipher, &auth);
+	}
+
 	free(pdb);
 
 	pr_debug("Desc len in %s is %x\n", __func__, desc_len);
@@ -111,6 +175,65 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 
 	return preheader_initdesc;
 }
+
+/**
+ * @details IPSec ESP decapsulation protocol-level sharedesc
+ *          Requires an MDHA split key.
+ * @ingroup sharedesc_group
+ *
+ * @param[in,out] descbuf    Pointer to buffer used for descriptor construction
+ * @param[in,out] bufsize    Pointer to descriptor size to be written back upon
+ *      completion
+ * @param [in] ps            If 36/40bit addressing is desired, this parameter
+ *      must be non-zero.
+ * @param[in] pdb         Pointer to the PDB to be used with this descriptor.
+ *      This structure will be copied inline to the descriptor under
+ *      construction. No error checking will be made. Refer to the
+ *      block guide for details about the decapsulation PDB.
+ * @param[in] cipherdata  Pointer to block cipher transform definitions. Valid
+ *      algorithm values: one of OP_PCL_IPSEC_*
+ * @param[in] authdata    Pointer to authentication transform definitions. Note
+ *      that since a split key is to be used, the size of the split key itself
+ *      is specified. Valid algorithm values: one of OP_PCL_IPSEC_*
+ **/
+static inline void cnstr_shdsc_ipsec_decap_hb(uint32_t *descbuf,
+					   unsigned *bufsize,
+					   unsigned short ps,
+					   struct ipsec_decap_pdb *pdb,
+					   struct alginfo *cipherdata,
+					   struct alginfo *authdata)
+{
+	struct program prg;
+	struct program *program = &prg;
+
+	LABEL(keyjmp);
+	REFERENCE(pkeyjmp);
+	LABEL(hdr);
+	REFERENCE(phdr);
+
+	PROGRAM_CNTXT_INIT(descbuf, 0);
+	if (ps)
+		PROGRAM_SET_36BIT_ADDR();
+	phdr = SHR_HDR(SHR_WAIT, hdr, 0);
+	ENDIAN_DATA((uint8_t *)pdb, sizeof(struct ipsec_decap_pdb));
+	SET_LABEL(hdr);
+	pkeyjmp = JUMP(IMM(keyjmp), LOCAL_JUMP, ALL_TRUE, BOTH|SHRD);
+	KEY(MDHA_SPLIT_KEY, authdata->key_enc_flags, PTR(authdata->key),
+	    authdata->keylen, IMMED);
+	KEY(KEY1, cipherdata->key_enc_flags, PTR(cipherdata->key),
+	    cipherdata->keylen, IMMED);
+	SET_LABEL(keyjmp);
+
+	/* Workaround to assert ok-to-share. This works only for ARS=off */
+	LOAD(IMM(0), DCTRL, LDOFF_CHG_SHARE_OK_NO_PROP, 0, WITH(0));
+	PROTOCOL(OP_TYPE_DECAP_PROTOCOL,
+		 OP_PCLID_IPSEC,
+		 cipherdata->algtype | authdata->algtype);
+	PATCH_JUMP(pkeyjmp, keyjmp);
+	PATCH_HDR(phdr, hdr);
+	*bufsize = PROGRAM_FINALIZE();
+}
+
 
 /**
  \brief Initializes the SEC40 descriptor for Decapsulation with preheader and
@@ -166,8 +289,13 @@ void
  * Pointer Size parameter is currently hardcoded.
  * The application doesn't allow for proper retrieval of PS.
  */
-	cnstr_shdsc_ipsec_decap((uint32_t *)buff_start, &desc_len, 1, &pdb,
-				&cipher, &auth);
+	if (sa->hb_tunnel) {
+		cnstr_shdsc_ipsec_decap_hb((uint32_t *)buff_start, &desc_len,
+					   1, &pdb, &cipher, &auth);
+	} else {
+		cnstr_shdsc_ipsec_decap((uint32_t *)buff_start, &desc_len, 1,
+					&pdb, &cipher, &auth);
+	}
 
 	pr_debug("Desc len in %s is %x\n", __func__, desc_len);
 

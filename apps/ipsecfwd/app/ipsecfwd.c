@@ -820,7 +820,11 @@ void ppam_finish(void)
 	/* Closing SEC Rx and Tx FQ's */
 	for (i = 0; i < IPSEC_TUNNEL_ENTRIES; i++) {
 		if (g_ipsec_ctxt[i] != NULL) {
-			teardown_fq(&(g_ipsec_ctxt[i]->fq_to_sec));
+			int j = 0;
+			do {
+				teardown_fq(&(g_ipsec_ctxt[i]->fq_to_sec[j]));
+				j++;
+			} while (j < g_ipsec_ctxt[i]->num_fq_to_sec);
 			teardown_fq(&(g_ipsec_ctxt[i]->fq_from_sec));
 		}
 	}

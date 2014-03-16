@@ -129,6 +129,7 @@ int32_t ipsecfwd_create_sa(struct app_ctrl_ipsec_info *ipsec_info,
 	ipsec_tunnel_config_entry->tunnel_src_ip_addr = ipsec_info->id.saddr;
 	ipsec_tunnel_config_entry->tunnel_dst_ip_addr = ipsec_info->id.daddr;
 	ipsec_tunnel_config_entry->defgw = ipsec_info->id.defgw;
+	ipsec_tunnel_config_entry->hb_tunnel = ipsec_info->hb_tunnel;
 	ipsec_tunnel_config_entry->ealg = &ipsec_info->ealg;
 	ipsec_tunnel_config_entry->aalg = &ipsec_info->aalg;
 	ipsec_tunnel_config_entry->tunnel_id = g_tunnel_id;
@@ -189,6 +190,7 @@ int32_t ipsec_tunnel_encap_init(struct ipsec_tunnel_config_entry_t *config,
 	}
 
 	entry->tunnel_id = config->tunnel_id;
+	entry->hb_tunnel = config->hb_tunnel;
 	entry->saddr = config->src_ip;
 	entry->daddr = config->dst_ip;
 	entry->tunnel_saddr = config->tunnel_src_ip_addr;
@@ -263,6 +265,7 @@ int32_t ipsec_tunnel_decap_init(struct ipsec_tunnel_config_entry_t *config,
 		return -ENOMEM;
 	}
 	entry->tunnel_id = config->tunnel_id;
+	entry->hb_tunnel = config->hb_tunnel;
 	entry->saddr = config->src_ip;
 	entry->daddr = config->dst_ip;
 	entry->tunnel_saddr = config->tunnel_src_ip_addr;

@@ -345,6 +345,9 @@ void ipc_sa_add_del_command(int argc, char **argv, unsigned type)
 		if ((g_mndtr_param & IPC_CTRL_PARAM_BIT_DEFGW) == 0)
 			sa_info.ipsec_info.id.defgw = 0;
 
+		if (g_mndtr_param & IPC_CTRL_PARAM_BIT_HB_TUNNEL)
+			sa_info.ipsec_info.hb_tunnel = true;
+
 	} else {
 		if ((g_mndtr_param & IPC_CTRL_SA_DEL_MDTR_PARAM_MAP) !=
 		    IPC_CTRL_SA_DEL_MDTR_PARAM_MAP) {
@@ -621,6 +624,14 @@ static error_t parse_sa_add_opt(int key, char *arg, struct argp_state *state)
 		sa_info->ipsec_info.id.defgw = in_addr.s_addr;
 		g_mndtr_param |= IPC_CTRL_PARAM_BIT_DEFGW;
 		pr_debug("\nkey = %c; value = %s", key, arg);
+		break;
+
+	case 'b':
+		if (atoi(arg))
+			sa_info->ipsec_info.hb_tunnel = true;
+		else
+			sa_info->ipsec_info.hb_tunnel = false;
+			g_mndtr_param |= IPC_CTRL_PARAM_BIT_HB_TUNNEL;
 		break;
 
 	case 'p':

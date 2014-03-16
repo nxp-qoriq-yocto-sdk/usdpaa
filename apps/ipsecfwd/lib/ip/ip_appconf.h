@@ -104,6 +104,7 @@ struct app_ctrl_ipsec_info {
 #ifdef STATS_TBD
 	struct app_ctrl_ipsec_stats stats;
 #endif
+	bool hb_tunnel;
 };
 
 struct app_ctrl_ip_info {

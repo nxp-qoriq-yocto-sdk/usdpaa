@@ -56,7 +56,10 @@ const char *argp_program_version = "argex 1.0";
 #define IPC_CTRL_PARAM_BIT_FLOWID	(1 << 11)
 /**< Bit Mask for Default Gateway */
 #define IPC_CTRL_PARAM_BIT_DEFGW	(1 << 12)
-#define IPC_CTRL_PARAM_MAX_IPSEC_BIT_NO	12
+/**< High bandwidth tunnel */
+#define IPC_CTRL_PARAM_BIT_HB_TUNNEL	(1 << 13)
+#define IPC_CTRL_PARAM_MAX_IPSEC_BIT_NO	13
+
 
 #define IPC_CTRL_PARAM_BMASK_SRCIP		(1 << 0)
 /**< Bit Mask for Src IP */
@@ -131,6 +134,7 @@ static struct argp_option sa_add_options[] = {
 		"Encryption Type - AES-CBC(0), 3DES-CBC(1) {Default: 0}", 0},
 	{"y", 'y', "ATYPE", 0,
 		"Authentication Type - HMAC-SHA1(0) {Default: 0}", 0},
+	{"b", 'b', "HBT", 0, "High bandwidth tunnel {Default: 0}", 0},
 	{}
 };
 

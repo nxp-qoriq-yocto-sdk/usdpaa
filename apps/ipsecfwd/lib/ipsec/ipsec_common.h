@@ -31,10 +31,10 @@
 #include "ip/ip.h"
 #include "ethernet/eth.h"
 #include "ip/ip_common.h"
-#include "ipsec/ipsec.h"
 #include "net/annotations.h"
 #include "statistics.h"
 
+#define NUM_TO_SEC_FQ		8	/**< Num of FQs to-SEC */
 #define IPSEC_TUNNEL_ENTRIES	1024	/**< Total Tunnel Count */
 #define ESP_HDR_SIZE		8	/**< ESP Header Size */
 #define PADLEN_OFFSET		2	/**< Offset of padlen from end after
@@ -73,9 +73,10 @@ struct ipsec_context_t {
 	struct ipsec_pkt_statistics_t *ipsec_stats;
 #endif
 	struct qman_fq fq_from_sec;
-	struct qman_fq fq_to_sec;
+	struct qman_fq fq_to_sec[NUM_TO_SEC_FQ];
 	struct ppam_rx_hash ppam_ctxt;
 	ipsec_cb ipsec_handler;
+	int num_fq_to_sec;
 };
 
 #ifdef STATS_TBD

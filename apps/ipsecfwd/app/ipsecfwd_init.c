@@ -64,6 +64,7 @@ int32_t init_sec_fqs(struct ipsec_tunnel_t *entry, bool mode,
 	struct qm_mcc_initfq opts;
 	uint32_t ctx_a_excl;
 	uint32_t ctx_a_len;
+	int to_sec_index = 0;
 
 	flags = QMAN_FQ_FLAG_NO_ENQUEUE | QMAN_FQ_FLAG_LOCKED |
 		QMAN_FQ_FLAG_DYNAMIC_FQID;
@@ -112,10 +113,11 @@ int32_t init_sec_fqs(struct ipsec_tunnel_t *entry, bool mode,
 		return -1;
 	}
 
+again:
 	flags = QMAN_FQ_FLAG_LOCKED | QMAN_FQ_FLAG_TO_DCPORTAL |
 		QMAN_FQ_FLAG_DYNAMIC_FQID;
 
-	fq_to_sec = &(g_ipsec_ctxt[entry->tunnel_id]->fq_to_sec);
+	fq_to_sec = &(g_ipsec_ctxt[entry->tunnel_id]->fq_to_sec[to_sec_index]);
 
 	/* Tx Callback Handlers */
 	fq_to_sec->cb = ipsecfwd_tx_cb;
@@ -137,7 +139,14 @@ int32_t init_sec_fqs(struct ipsec_tunnel_t *entry, bool mode,
 			",tunnel ID: %u\n", fq_to_sec->fqid, tunnel_id);
 		return -EINVAL;
 	}
-	entry->qm_fq_to_sec = fq_to_sec;
+	entry->qm_fq_to_sec[to_sec_index] = fq_to_sec;
+
+	to_sec_index++;
+
+	if (entry->hb_tunnel && (to_sec_index < NUM_TO_SEC_FQ))
+		goto again;
+
+	g_ipsec_ctxt[entry->tunnel_id]->num_fq_to_sec = to_sec_index;
 
 	if (mode == ENCRYPT)
 		g_ipsec_ctxt[entry->tunnel_id]->ipsec_handler = &ipsec_encap_cb;

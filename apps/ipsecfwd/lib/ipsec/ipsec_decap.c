@@ -48,6 +48,8 @@ enum IP_STATUS ipsec_decap_send(const struct ppam_rx_hash *ctxt,
 	const struct qm_fd *fd;
 	struct qm_fd fd2;
 	uint32_t ret;
+	struct qman_fq *fq_to_sec;
+	static int to_sec_fq_index;
 
 	esp_hdr =
 	    (struct ipsec_esp_hdr_t *)((char *) ip_hdr +
@@ -113,10 +115,16 @@ enum IP_STATUS ipsec_decap_send(const struct ppam_rx_hash *ctxt,
 		mutex_unlock(&entry->tlock);
 	}
 
+	if (entry->hb_tunnel) {
+		fq_to_sec = entry->qm_fq_to_sec[to_sec_fq_index++];
+		to_sec_fq_index = to_sec_fq_index % NUM_TO_SEC_FQ;
+	} else {
+		fq_to_sec = entry->qm_fq_to_sec[0];
+	}
+
 loop:
 	/* enqueue frame to SEC4.0 for Encap*/
-	ret = qman_enqueue(entry->qm_fq_to_sec, &fd2, 0);
-
+	ret = qman_enqueue(fq_to_sec, &fd2, 0);
 	if (unlikely(ret)) {
 		uint64_t now, then = mfatb();
 		do {

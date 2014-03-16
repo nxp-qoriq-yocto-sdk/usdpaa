@@ -60,6 +60,7 @@ struct ipsec_tunnel_config_entry_t {
 	uint32_t tunnel_dst_ip_addr;  /**< Tunnel Destination IP Address */
 	uint32_t tunnel_id;	/**< Tunnel Id */
 	uint32_t defgw;	/** Default Gateway */
+	bool hb_tunnel;
 	struct app_ctrl_sa_algo *ealg; /**< Encryption Algo info */
 	struct app_ctrl_sa_algo *aalg; /**< Authentication Algo info */
 } __attribute__ ((aligned(64)));
