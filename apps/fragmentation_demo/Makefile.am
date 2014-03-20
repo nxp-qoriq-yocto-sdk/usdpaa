@@ -35,6 +35,7 @@ dist_DATA =  fragmentation_demo_config-p4080.xml \
 		fragmentation_demo_config-b4860.xml \
 		fragmentation_demo_config-b4420.xml \
 		fragmentation_demo_config-p2041.xml \
+		fragmentation_demo_config-t2080.xml \
 		fragmentation_demo_config-t4240.xml \
 		fragmentation_demo_policy.xml
 
