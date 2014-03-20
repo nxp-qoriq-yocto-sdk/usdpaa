@@ -185,8 +185,7 @@ static int test_dec_match_cb(int fd_ind, uint8_t *dec_buf,
 
 	if (CIPHER == crypto_info->mode)
 		return  test_vector_match(
-				  (uint32_t *)(dec_buf +
-					PDCP_P4080REV2_HFN_OV_BUFLEN),
+				  (uint32_t *)(dec_buf + i),
 				  (uint32_t *)ref_test_vector->plaintext,
 				  ref_test_vector->length);
 	else
