@@ -1,4 +1,4 @@
-# Copyright (c) 2011 - 2012 Freescale Semiconductor, Inc.
+# Copyright (c) 2013 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -29,20 +29,14 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback \
-	  hello_reflector ipfwd ipsecfwd sra rmu fra lpm-ipfwd dma_test \
-	  simple_proto classifier_demo fragmentation_demo reassembly_demo \
-	  ipsec_offload
+bin_PROGRAMS = ceetm_demo
 
-ifeq (B4860,$(SOC))
-SUBDIRS += dsp_dpa
-endif
+dist_DATA = ceetm_cfg.xml
 
-ifneq (,$(findstring $(SOC),B4860 T4240 T2080))
-SUBDIRS += ceetm_demo
-endif
-
-dist_DATA = SOURCE_THIS
-
-# install the SOURCE_THIS file in the 'root' home directory
-SOURCE_THIS_install := root
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/include
+ceetm_demo_CFLAGS := $(LIBXML2_CFLAGS)
+ceetm_demo_SOURCES := ceetm_demo.c ceetm_cfg_parser.c
+ceetm_demo_LDADD := usdpaa_ppac usdpaa_syscfg usdpaa_qbman \
+		   usdpaa_fman usdpaa_dma_mem usdpaa_of usdpaa_process
+ceetm_demo_LDFLAGS := $(LIBXML2_LDFLAGS) $(LIBEDIT_LDFLAGS) \
+		     -T $(TOP_LEVEL)/apps/ppac/ppac.lds
