@@ -107,6 +107,8 @@ int dpa_ipsec_init(const struct dpa_ipsec_params *params, int *dpa_ipsec_id)
 		return -errno;
 	}
 
+	*dpa_ipsec_id = prm.dpa_ipsec_id;
+
 	return 0;
 }
 
