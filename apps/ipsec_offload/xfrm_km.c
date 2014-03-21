@@ -42,6 +42,7 @@
 #include <unistd.h>
 #include <linux/types.h>
 #include <sys/socket.h>
+#include <sys/ioctl.h>
 #include <linux/netlink.h>
 #include <linux/xfrm.h>
 #include <sched.h>
@@ -77,7 +78,6 @@ static LIST_HEAD(pending_sp);
 #define NLA_OK(na, len) ((len) >= (int)sizeof(struct nlattr) && \
 			   (na)->nla_len >= sizeof(struct nlattr) && \
 			   (na)->nla_len <= (len))
-
 
 /* returns fqid of inbound OH port Rx default queue
  frames not passing inbound policy verification are enqueued to it */
@@ -386,10 +386,10 @@ static void trace_xfrm_sa_info(struct xfrm_usersa_info *sa_info)
 	} else
 		return;
 
-	printf("xfrm sa spi %x", sa_info->id.spi);
-	printf(" saddr %s", inet_ntop(sa_info->family,
+	TRACE("xfrm sa spi %x", sa_info->id.spi);
+	TRACE(" saddr %s", inet_ntop(sa_info->family,
 				saddr, dst, sizeof(dst)));
-	printf(" daddr %s\n", inet_ntop(sa_info->family,
+	TRACE(" daddr %s\n", inet_ntop(sa_info->family,
 				daddr, dst, sizeof(dst)));
 }
 
@@ -514,6 +514,7 @@ static inline int do_offload(int dpa_ipsec_id,
 		free(dpa_pol);
 		return ret;
 	}
+
 	trace_dpa_policy(dpa_pol);
 	return ret;
 }
@@ -1210,6 +1211,62 @@ int list_dpa_sa(int argc, char *argv[])
 	return 0;
 }
 
+/*
+ * Check if policy is referring an SA with the same tunnel source address as the
+ * Virtual inbound interface, i.e check if policy is for this instance
+ *
+ * Returns:
+ *	1 in case policy is for this instance
+ *	0 in case policy is not for this instance
+ *	Negative errno value representing the encountered error if could not
+ *	open socket or if ioctl fails.
+ */
+static inline int policy_is_for_us(xfrm_address_t *tun_saddr, int af)
+{
+	int fd, ret;
+	struct ifreq ifr;
+	struct in_addr *in_addr;
+
+	if (af == AF_INET) {
+		TRACE("Get IP address for app_conf.vif name %s\n",
+		      app_conf.vif);
+
+		fd = socket(AF_INET, SOCK_DGRAM, 0);
+		if (fd < 0) {
+			error(0, errno, "socket error\n");
+			return -errno;
+		}
+
+		ifr.ifr_addr.sa_family = AF_INET;
+		strncpy(ifr.ifr_name, app_conf.vif, IFNAMSIZ-1);
+		ret = ioctl(fd, SIOCGIFADDR, &ifr);
+		if (ret < 0) {
+			error(0, errno, "Failed to get the IP address\n");
+			return -errno;
+		}
+
+		close(fd);
+
+		in_addr = &((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
+		TRACE("IP address for app_conf.vif name %s is %s\n",
+			app_conf.vif, inet_ntoa(*in_addr));
+		TRACE("Tunnel IP %s\n",
+			inet_ntoa(*((struct in_addr *)tun_saddr)));
+
+		if (in_addr->s_addr == ((struct in_addr *)tun_saddr)->s_addr) {
+			TRACE("The policy is for this instance\n");
+			return 1;
+		} else {
+			TRACE("The policy is NOT for this instance\n");
+			return 0;
+		}
+	}
+
+	fprintf(stderr, "Warning: the tunnel address is not from AF_INET\n");
+
+	return -EINVAL;
+}
+
 static int process_new_policy(const struct nlmsghdr	*nh,
 			      uint32_t			policy_miss_fqid,
 			      int			dpa_ipsec_id)
@@ -1246,12 +1303,25 @@ static int process_new_policy(const struct nlmsghdr	*nh,
 	trace_xfrm_policy_info(pol_info);
 
 	/* get SA tmpl */
-	m = do_spdget(pol_info->index, &saddr, &daddr,
-			&af);
+	m = do_spdget(pol_info->index, &saddr, &daddr, &af);
 	if (unlikely(!m)) {
 		fprintf(stderr,
 			"Policy doesn't exist in kernel SPDB\n");
 		goto out_new_pol;
+	}
+
+	/* Check if policy is regarding this DPA IPSec instance */
+	ret = policy_is_for_us(&saddr, af);
+	switch (ret) {
+	case 0:
+		TRACE("Policy not for this instance %d\n", dpa_ipsec_id);
+		return 0;
+	case 1:
+		TRACE("Policy is for this instance %d\n", dpa_ipsec_id);
+		break;
+	default:
+		TRACE("Failed checking policy versus tunnel source\n");
+		return 0;
 	}
 
 	/* create dpa pol and fill in fields */
@@ -1359,6 +1429,7 @@ static int resolve_xfrm_notif(const struct nlmsghdr	*nh,
 {
 	int ret = 0;
 
+	TRACE("Used instance id %d\n", dpa_ipsec_id);
 
 	switch (nh->nlmsg_type) {
 	case XFRM_MSG_UPDSA:
@@ -1459,30 +1530,28 @@ static void *xfrm_msg_loop(void *data)
 				"error receiving from XFRM socket, errno %d\n",
 				errno);
 			break;
-		} else if (errno == EINTR) /* loop break requested */
+		} else if (errno == EINTR) { /* loop break requested */
 			break;
+		}
+
 		for (nh = (struct nlmsghdr *)buf; NLMSG_OK(nh, len);
 		     nh = NLMSG_NEXT(nh, len)) {
 			if (nh->nlmsg_type == NLMSG_ERROR) {
-				fprintf(stderr,
-					"Netlink error on XFRM socket,"
-					" errno %d\n",
+				fprintf(stderr, "Netlink error on XFRM socket, errno %d\n",
 					errno);
 				break;
 			}
 			if (nh->nlmsg_flags & NLM_F_MULTI ||
 				nh->nlmsg_type == NLMSG_DONE) {
-				fprintf(stderr,
-					"XFRM multi-part messages not supported\n");
+				fprintf(stderr, "XFRM multi-part messages not supported\n");
 				break;
 			}
 
 			ret = resolve_xfrm_notif(nh, len, policy_miss_fqid,
-					dpa_ipsec_id);
-
+						 dpa_ipsec_id);
 			if (ret != 0 && ret != -EBADMSG) {
-				fprintf(stderr, "Resolve xfrm notification"
-					" error %d\n", ret);
+				fprintf(stderr, "Resolve xfrm notification error %d\n",
+					ret);
 				break;
 			}
 		}

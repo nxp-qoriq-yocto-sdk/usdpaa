@@ -60,7 +60,16 @@
 /* Tx FQIDs on outbound direction */
 #define IB_TX_FQID			0x3e83
 #define OB_OH_POST_TX_FQID		0x3e82
-#define OB_OH_PRE_TX_FQID		0x3e81
+
+/*
+ * Array containing the FQ IDs for PRE SEC Offline port
+ * Policy PCD XML will be updated by ipsec_offload usecase with corresponding FQ
+ * ID before applying
+ * Iterate in this array based on the FMAN ID, not DPA IPSec instance ID
+ */
+#define MAX_DPA_IPSEC_INSTANCES		2
+static const int ob_oh_pre_tx_fqid[MAX_DPA_IPSEC_INSTANCES] = {0x3e81, 0x4e81};
+
 /* Tx FQIDs on inbound direction */
 #define OB_TX_FQID			0x2e80
 #define IB_OH_TX_FQID			0x2e81

@@ -246,8 +246,8 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 		ret = set_cc_miss_fqid(cmodel, fmc_path, rx_start);
 		if (ret < 0)
 			goto err;
-
 	}
+
 	if (!strcmp(macless_name, app_conf.vof)) {
 		/* set fqids for vof PCD */
 		memset(fmc_path, 0, sizeof(fmc_path));
@@ -281,6 +281,111 @@ err:
 	return ret;
 }
 
+/*
+ * Update the CC model for ib_ip4_local_cc & ib_ip6_local_cc
+ * Select the miss FQ ID to be the queue from which the outbound PRE SEC OH port
+ * will dequeue.
+ */
+static int update_ib_local_cc_miss_fq(void)
+{
+	char fmc_path[64];
+	const char *port_type;
+	int ret;
+
+	memset(fmc_path, 0, sizeof(fmc_path));
+	port_type = get_port_type(app_conf.ob_eth);
+	sprintf(fmc_path, "fm%d/port/%s/%d/ccnode/ib_ip4_local_cc",
+		app_conf.fm, port_type, app_conf.ob_eth->mac_idx);
+
+	ret = set_cc_miss_fqid(cmodel, fmc_path,
+			       ob_oh_pre_tx_fqid[app_conf.fm]);
+	if (ret < 0) {
+		fprintf(stderr, "Failed to update miss FQ id with %d for ib_ip4_local_cc\n",
+			ob_oh_pre_tx_fqid[app_conf.fm]);
+		return ret;
+	}
+
+	memset(fmc_path, 0, sizeof(fmc_path));
+	port_type = get_port_type(app_conf.ob_eth);
+	sprintf(fmc_path, "fm%d/port/%s/%d/ccnode/ib_ip6_local_cc",
+		app_conf.fm, port_type, app_conf.ob_eth->mac_idx);
+	ret = set_cc_miss_fqid(cmodel, fmc_path,
+			       ob_oh_pre_tx_fqid[app_conf.fm]);
+	if (ret < 0) {
+		fprintf(stderr, "Failed to update miss FQ ID with %d for ib_ip6_local_cc\n",
+			ob_oh_pre_tx_fqid[app_conf.fm]);
+		return ret;
+	}
+
+	return 0;
+}
+
+/*
+ * Update the CC model for
+ * ob_rx_dist_udp, ob_rx_dist_tcp, ob_rx_ip4_dist, ob_rx_ip6_dist
+ * This update should be done only in dual port mode
+ */
+static int update_ob_dist_miss_fq(void)
+{
+	char fmc_path[64];
+	const char *port_type;
+	int ret;
+
+	memset(fmc_path, 0, sizeof(fmc_path));
+	port_type = get_port_type(app_conf.ob_eth);
+	sprintf(fmc_path, "fm%d/port/%s/%d/dist/ob_rx_dist_udp",
+		app_conf.fm, port_type, app_conf.ob_eth->mac_idx);
+
+	ret = set_dist_base_fqid(cmodel, fmc_path,
+				 ob_oh_pre_tx_fqid[app_conf.fm]);
+	if (ret < 0) {
+		fprintf(stderr, "Failed to update base FQ id with %d for ob_rx_dist_udp\n",
+			ob_oh_pre_tx_fqid[app_conf.fm]);
+		return ret;
+	}
+
+	memset(fmc_path, 0, sizeof(fmc_path));
+	port_type = get_port_type(app_conf.ob_eth);
+	sprintf(fmc_path, "fm%d/port/%s/%d/dist/ob_rx_dist_tcp",
+		app_conf.fm, port_type, app_conf.ob_eth->mac_idx);
+
+	ret = set_dist_base_fqid(cmodel, fmc_path,
+				 ob_oh_pre_tx_fqid[app_conf.fm]);
+	if (ret < 0) {
+		fprintf(stderr, "Failed to update base FQ ID with %d for ob_rx_dist_tcp\n",
+			ob_oh_pre_tx_fqid[app_conf.fm]);
+		return ret;
+	}
+
+	memset(fmc_path, 0, sizeof(fmc_path));
+	port_type = get_port_type(app_conf.ob_eth);
+	sprintf(fmc_path, "fm%d/port/%s/%d/dist/ob_rx_ip4_dist",
+		app_conf.fm, port_type, app_conf.ob_eth->mac_idx);
+
+	ret = set_dist_base_fqid(cmodel, fmc_path,
+				 ob_oh_pre_tx_fqid[app_conf.fm]);
+	if (ret < 0) {
+		fprintf(stderr, "Failed to update base FQ ID with %d for ob_rx_ip4_dist\n",
+			ob_oh_pre_tx_fqid[app_conf.fm]);
+		return ret;
+	}
+
+	memset(fmc_path, 0, sizeof(fmc_path));
+	port_type = get_port_type(app_conf.ob_eth);
+	sprintf(fmc_path, "fm%d/port/%s/%d/dist/ob_rx_ip6_dist",
+		app_conf.fm, port_type, app_conf.ob_eth->mac_idx);
+
+	ret = set_dist_base_fqid(cmodel, fmc_path,
+				 ob_oh_pre_tx_fqid[app_conf.fm]);
+	if (ret < 0) {
+		fprintf(stderr, "Failed to update base FQ ID with %d for ob_rx_ip6_dist\n",
+			ob_oh_pre_tx_fqid[app_conf.fm]);
+		return ret;
+	}
+
+	return 0;
+}
+
 /* There is no configuration that specifies how many Tx FQs to use
  * per-interface, it's an internal choice for ppac.c and may depend on
  * optimisations, link-speeds, command-line options, etc. Also the Tx FQIDs are
@@ -309,8 +414,8 @@ static int ppam_interface_init(struct ppam_interface *p,
 
 	if (app_conf.ob_oh_pre == i->port_cfg->fman_if) {
 		*flags |= PPAM_TX_FQ_NO_BUF_DEALLOC;
-		ret = setup_macless_if_tx(i, OB_OH_PRE_TX_FQID, &num_tx_fqs,
-					  fq, app_conf.vipsec);
+		ret = setup_macless_if_tx(i, ob_oh_pre_tx_fqid[app_conf.fm],
+					  &num_tx_fqs, fq, app_conf.vipsec);
 		if (ret < 0)
 			goto err;
 
@@ -333,11 +438,13 @@ static int ppam_interface_init(struct ppam_interface *p,
 		ret = setup_macless_if_rx(i, app_conf.vif);
 		if (ret < 0)
 			goto err;
+
 		ret = set_mac_addr(app_conf.vif,
 				   &i->port_cfg->fman_if->mac_addr);
 		if (ret < 0)
 			goto err;
 	}
+
 	if ((app_conf.ob_eth != app_conf.ib_eth) &&
 	    (app_conf.ob_eth == i->port_cfg->fman_if)) {
 		ret = setup_macless_if_tx(i, OB_TX_FQID, &num_tx_fqs,
@@ -792,22 +899,42 @@ int ppam_init(void)
 		fprintf(stderr, "PCD model compile failure\n");
 		goto bp_cleanup;
 	}
-	TRACE("PCD applied\n");
+	TRACE("PCD compiled\n");
+
+	/*
+	 * update the ib_ip4_local_cc & ib_ip6_local_cc miss action only in case
+	 * of single port
+	 * Classification steps:
+	 * ESP? no -> Out Local? no -> In Local? no -> Enqueue to OUT PRE SEC OH
+	 */
+	if (app_conf.ob_eth == app_conf.ib_eth) {
+		ret = update_ib_local_cc_miss_fq();
+		if (ret < 0)
+			goto bp_cleanup;
+	}
+
+	/*
+	 * update the ob_rx_dist_udp, ob_rx_dist_tcp, ob_rx_ip4_dist,
+	 * ob_rx_ip6_dist base FQ ID only in case of dual port
+	 */
+	if (app_conf.ob_eth != app_conf.ib_eth) {
+		ret = update_ob_dist_miss_fq();
+		if (ret < 0)
+			goto bp_cleanup;
+	}
 
 	if (DPAA_VERSION >= 11)	{
 		ret = vsp_init(app_conf.fm, app_conf.ib_oh->mac_idx,
 				       e_FM_PORT_TYPE_OH_OFFLINE_PARSING);
 		if (ret < 0) {
 			fprintf(stderr, "VSP init failed\n");
-			goto fmc_cleanup;
+			goto bp_cleanup;
 		}
 		TRACE("VSP initialized\n");
 	}
 
 	return 0;
 
-fmc_cleanup:
-	fmc_cleanup();
 bp_cleanup:
 	cleanup_buffer_pools();
 err:
@@ -837,12 +964,18 @@ int ppam_post_tx_init(void)
 	}
 	TRACE("DPA IPsec offloading initialized\n");
 
-	ret = stats_init();
-	if (ret < 0) {
-		fprintf(stderr, "DPA Stats init failed\n");
-		goto err;
+	/*
+	 * DPA Offload Stats driver does not support multiple instances
+	 * Only enable stats for the first created instance
+	 */
+	if (dpa_ipsec_id == 0) {
+		ret = stats_init();
+		if (ret < 0) {
+			fprintf(stderr, "DPA Stats init failed\n");
+			goto err;
+		}
+		TRACE("DPA Stats initialized\n");
 	}
-	TRACE("DPA Stats initialized\n");
 
 	return 0;
 err:
@@ -887,7 +1020,9 @@ void ppam_post_finish_rx(void)
 
 void ppam_finish(void)
 {
-	stats_cleanup();
+	/* Stats are enabled only for the first DPA IPSec instance */
+	if (dpa_ipsec_id == 0)
+		stats_cleanup();
 	ipsec_offload_cleanup(dpa_ipsec_id);
 	fmc_cleanup();
 	cleanup_macless_config(app_conf.vipsec);
