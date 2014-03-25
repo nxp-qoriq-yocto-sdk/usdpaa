@@ -526,8 +526,11 @@ struct dpa_ipsec_stats {
 /* This function will populate sa_stats with SEC statistics for SA with sa_id */
 int dpa_ipsec_sa_get_stats(int sa_id, struct dpa_ipsec_sa_stats *sa_stats);
 
-/* Return IPSec global statistics in the "stats" data structure */
-int dpa_ipsec_get_stats(struct dpa_ipsec_stats *stats);
+/*
+ * Computes and copies in the "stats" data structure the IPSec global
+ * statistics relative to the instance with ID dpa_ipsec_id
+ */
+int dpa_ipsec_get_stats(int dpa_ipsec_id, struct dpa_ipsec_stats *stats);
 
 enum dpa_ipsec_sa_modify_type {
 	DPA_IPSEC_SA_MODIFY_ARS = 0, /* Set the anti replay window size	      */

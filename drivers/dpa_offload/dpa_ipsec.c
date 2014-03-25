@@ -362,8 +362,10 @@ int dpa_ipsec_sa_get_stats(int sa_id, struct dpa_ipsec_sa_stats *sa_stats)
 	return 0;
 }
 
-int dpa_ipsec_get_stats(struct dpa_ipsec_stats *stats)
+int dpa_ipsec_get_stats(int dpa_ipsec_id, struct dpa_ipsec_stats *stats)
 {
+	struct ioc_dpa_ipsec_instance_stats ioc_prm;
+
 	if (dpa_ipsec_devfd < 0) {
 		error(0, ENODEV, "DPA IPSec library is not initialized\n");
 		return -EAGAIN;
@@ -374,10 +376,14 @@ int dpa_ipsec_get_stats(struct dpa_ipsec_stats *stats)
 		return -EINVAL;
 	}
 
-	if (ioctl(dpa_ipsec_devfd, DPA_IPSEC_IOC_GET_STATS, stats) < 0) {
+	ioc_prm.instance_id = dpa_ipsec_id;
+
+	if (ioctl(dpa_ipsec_devfd, DPA_IPSEC_IOC_GET_STATS, &ioc_prm) < 0) {
 		error(0, errno, "Could not get IPSec global statistics.\n");
 		return -errno;
 	}
+
+	memcpy(stats, &ioc_prm.stats, sizeof(*stats));
 
 	return 0;
 }
