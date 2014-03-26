@@ -174,6 +174,7 @@ int rman_config_ibcu(struct rman_inbound_block *ib,
 		  cfg->sid_mask << 16 | cfg->did_mask);
 	switch (cfg->tran->type) {
 	case RIO_TYPE_DBELL:
+	case RIO_TYPE_PW:
 		write_reg(&ib->cu[cu_index].cu_regs->rvr[1],
 			  cfg->tran->flowlvl << 28 |
 			  cfg->port << 24);

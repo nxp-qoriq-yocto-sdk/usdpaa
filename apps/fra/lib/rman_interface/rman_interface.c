@@ -582,6 +582,7 @@ rman_tx_init(uint8_t port, int fqid, int fqs_num, uint8_t wq,
 			md->other_attr = tran->dstr.cos;
 			break;
 		case RIO_TYPE_DBELL:
+		case RIO_TYPE_PW:
 			break;
 		default:
 			error(0, 0, "Not support SRIO type %d", tran->type);
@@ -731,9 +732,17 @@ int rman_send_frame(struct hash_opt *opt, const struct qm_fd *fd)
 			stdmd->did, stdmd->other_attr, stdmd->dest,
 			opt->tx_fqid);
 		break;
+	case RIO_TYPE_PW:
+		FRA_DBG(
+			"sends to device(%d) a msg using port-write"
+			" dest(0x%x) other_attr(0x%x) fq(0x%x)",
+			stdmd->did, stdmd->dest,
+			stdmd->other_attr, opt->tx_fqid);
+		break;
 	default:
-		FRA_DBG("sends to device(%d) a msg using %d"
-			" dest(0x%x) oter_attr(0x%x) fq(0x%x)",
+		FRA_DBG(
+			"sends to device(%d) a msg using %d"
+			" dest(0x%x) other_attr(0x%x) fq(0x%x)",
 			stdmd->did, stdmd->ftype,
 			stdmd->dest, stdmd->other_attr, opt->tx_fqid);
 		break;

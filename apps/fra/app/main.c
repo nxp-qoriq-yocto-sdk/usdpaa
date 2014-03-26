@@ -37,6 +37,7 @@
 #include <fra_cfg_parser.h>
 #include <fra.h>
 #include <test_speed.h>
+#include <test_port_write.h>
 #include <readline.h>  /* libedit */
 #include <argp.h>
 
@@ -74,6 +75,7 @@ struct worker_msg {
 		worker_msg_do_global_init,
 		worker_msg_do_global_finish,
 		worker_msg_do_test_speed,
+		worker_msg_do_test_pw,
 		worker_msg_do_reset,
 #ifdef FRA_CGR
 		worker_msg_query_cgr
@@ -146,6 +148,10 @@ static int process_msg(struct worker *worker, struct worker_msg *msg)
 	/* Do test speed */
 	else if (msg->msg == worker_msg_do_test_speed)
 		test_speed_send_msg();
+
+	/* Do test Port Write */
+	else if (msg->msg == worker_msg_do_test_pw)
+		test_pw_send_data();
 
 	/* Do global reset */
 	else if (msg->msg == worker_msg_do_reset)
@@ -583,6 +589,7 @@ struct fra_arguments {
 	const char *fra_cfg;
 	int first, last;
 	int noninteractive;
+	int only_rman;
 };
 
 const char *argp_program_version = PACKAGE_VERSION;
@@ -597,6 +604,7 @@ static const struct argp_option argp_opts[] = {
 	{"fm-interfaces", 'i', "interface names", 0, "FMAN interfaces"},
 	{"fra-config", 'f', "FILE", 0, "FRA configuration XML file"},
 	{"non-interactive", 'n', 0, 0, "Ignore stdin"},
+	{"rman only", 'r', 0, 0, "Only initialize RMan without FMan"},
 	{"cpu-range", 0, 0, OPTION_DOC, "'index' or 'first'..'last'"},
 	{}
 };
@@ -619,6 +627,9 @@ static error_t fra_parse(int key, char *arg, struct argp_state *state)
 		break;
 	case 'n':
 		args->noninteractive = 1;
+		break;
+	case 'r':
+		args->only_rman = 1;
 		break;
 	case ARGP_KEY_ARGS:
 		if (state->argc - state->next != 1)
@@ -741,6 +752,16 @@ void test_speed_to_send(void)
 	test_speed_info();
 }
 
+void test_pw_to_send(void)
+{
+	struct worker *worker;
+
+	list_for_each_entry(worker, &workers, node) {
+		msg_post(worker, worker_msg_do_test_pw);
+		break;
+	}
+}
+
 #ifdef FRA_CGR
 static int msg_query_cgr(struct worker *worker)
 {
@@ -837,17 +858,20 @@ int main(int argc, char *argv[])
 	 * are not necessarily from the XML files, such as the pool channels
 	 * that the application is allowed to use (these are currently
 	 * hard-coded into the netcfg code). */
-	netcfg = usdpaa_netcfg_acquire(pcd_path, cfg_path);
-	if (!netcfg) {
-		error(0, 0,
-		      "failed to load configuration");
-		return -EINVAL;
-	}
-	if (!netcfg->num_ethports) {
-		error(0, 0,
-		      "no network interfaces available");
-		return -EINVAL;
-	}
+	if (!fra_args.only_rman) {
+		netcfg = usdpaa_netcfg_acquire(pcd_path, cfg_path);
+		if (!netcfg) {
+			error(0, 0,
+			      "failed to load configuration");
+			return -EINVAL;
+		}
+		if (!netcfg->num_ethports) {
+			error(0, 0,
+			      "no network interfaces available");
+			return -EINVAL;
+		}
+	} else
+		netcfg = NULL;
 
 	fra_cfg = fra_parse_cfgfile(fra_cfg_path);
 	if (!fra_cfg) {
@@ -868,8 +892,11 @@ int main(int argc, char *argv[])
 	if (rcode)
 		error(0, 0,
 			"no pool channels available\n");
-	printf("Configuring for %d network interface%s\n",
-		netcfg->num_ethports, netcfg->num_ethports > 1 ? "s" : "");
+
+	if (netcfg)
+		printf("Configuring for %d network interface%s\n",
+			netcfg->num_ethports,
+			netcfg->num_ethports > 1 ? "s" : "");
 
 	/* - map DMA mem */
 	FRA_DBG("Initialising DMA mem");
@@ -961,7 +988,8 @@ leave:
 	primary = NULL;
 	worker_free(worker);
 	finish_pool_channels();
-	usdpaa_netcfg_release(netcfg);
+	if (netcfg)
+		usdpaa_netcfg_release(netcfg);
 	fra_cfg_release(fra_cfg);
 	of_finish();
 	return rcode;

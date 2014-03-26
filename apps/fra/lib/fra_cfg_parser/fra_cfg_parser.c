@@ -110,7 +110,7 @@ const char *RIO_TYPE_TO_STR[] = {
 	[RIO_TYPE5] = "NWrite",
 	[RIO_TYPE6] = "SWrite",
 	[RIO_TYPE7] = "reserved",
-	[RIO_TYPE8] = "Maintenance",
+	[RIO_TYPE8] = "Port-Write",
 	[RIO_TYPE9] = "Data-streaming",
 	[RIO_TYPE10] = "Doorbell",
 	[RIO_TYPE11] = "Mailbox"
@@ -287,6 +287,7 @@ static int parse_tran(xmlNodePtr tran_node, struct list_head *list)
 	tranp = tran_node->xmlChildrenNode;
 	switch (tran->type) {
 	case RIO_TYPE_DBELL:
+	case RIO_TYPE_PW:
 		for_all_sibling_nodes(tranp) {
 			if ((is_node(tranp, BAD_CAST TRAN_FLOWLVL_NODE))) {
 				tran_parse_element(tranp, tran->flowlvl,

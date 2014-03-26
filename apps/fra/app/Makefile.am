@@ -34,7 +34,7 @@ bin_PROGRAMS = fra
 AM_CFLAGS := $(LIBEDIT_CFLAGS) -I$(TOP_LEVEL)/apps/fra/include \
 	     -I$(TOP_LEVEL)/apps/include
 
-fra_SOURCES := main.c fra.c test_speed.c
+fra_SOURCES := main.c fra.c test_speed.c test_port_write.c
 fra_LDADD := fra_cfg_parser rman_interface fra_fman_port fra_fq_interface \
 	     usdpaa_syscfg usdpaa_qbman usdpaa_fman usdpaa_dma_mem \
 	     usdpaa_rman usdpaa_srio usdpaa_of usdpaa_process fra_bpool \

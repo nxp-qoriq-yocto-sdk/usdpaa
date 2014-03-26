@@ -140,7 +140,8 @@ static int fra_cli_status(int argc, char *argv[])
 		"\tThe algorithmic frame queue bits info:\n"
 		"\t\tdata streaming:%d mailbox:%d\n"
 		"\tBPID info:\n"
-		"\t\tdata streaming:%d mailbox:%d doorbell:%d sg:%d\n",
+		"\t\tdata streaming:%d mailbox:%d doorbell:%d sg:%d\n"
+		"\t\tportwrite:%d\n",
 		MD_CREATE_MODE_STR[fra_cfg->rman_cfg.md_create],
 		fra_cfg->rman_cfg.osid == 1 ? "yes" : "no",
 		fra_cfg->rman_cfg.fq_bits[RIO_TYPE_DSTR],
@@ -148,7 +149,8 @@ static int fra_cli_status(int argc, char *argv[])
 		fra_cfg->rman_cfg.bpid[RIO_TYPE_DSTR],
 		fra_cfg->rman_cfg.bpid[RIO_TYPE_MBOX],
 		fra_cfg->rman_cfg.bpid[RIO_TYPE_DBELL],
-		fra_cfg->rman_cfg.sgbpid);
+		fra_cfg->rman_cfg.sgbpid,
+		fra_cfg->rman_cfg.bpid[RIO_TYPE_PW]);
 
 	rman_if_status();
 
@@ -996,8 +998,8 @@ int fra_init(const struct usdpaa_netcfg_info *netcfg,
 	struct fra_fman_port_cfg *fra_fman_port_cfg;
 	int err;
 
-	if (!netcfg || !fra_cfg) {
-		error(0, 0, "is not been configured");
+	if (!fra_cfg) {
+		error(0, 0, "Fra is not been configured");
 		return -EINVAL;
 	}
 
