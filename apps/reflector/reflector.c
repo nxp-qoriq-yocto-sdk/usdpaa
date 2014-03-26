@@ -243,10 +243,10 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 
 	BUG_ON(fd->format != qm_fd_contig);
 	annotations = __dma_mem_ptov(qm_fd_addr(fd));
+	addr = annotations + fd->offset;
 	TRACE("Rx: 2fwd	 fqid=%d\n", dqrr->fqid);
 	TRACE("	     phys=0x%"PRIx64", virt=%p, offset=%d, len=%d, bpid=%d\n",
 		qm_fd_addr(fd), addr, fd->offset, fd->length20, fd->bpid);
-	addr = annotations + fd->offset;
 	prot_eth = addr;
 	TRACE("	     dhost="ETH_MAC_PRINTF_FMT"\n",
 	      prot_eth->ether_dhost[0], prot_eth->ether_dhost[1],
