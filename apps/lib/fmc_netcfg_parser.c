@@ -565,7 +565,8 @@ static int parse_engine(xmlNodePtr enode, const char *pcd_file)
 		if (unlikely(tmp == NULL))
 			break;
 		p_type = (strcmp(tmp, "OFFLINE") == 0) ? fman_offline :
-			(strcmp(tmp,"10G") == 0) ? fman_mac_10g : fman_mac_1g;
+			(strcmp(tmp,"10G") == 0) ? fman_mac_10g :
+			(strcmp(tmp,"ONIC") == 0) ? fman_onic : fman_mac_1g;
 
 		/* Get the policy applied with the MAC port from PORT node
 		 attribute "policy" */

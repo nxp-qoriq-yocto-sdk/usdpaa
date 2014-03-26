@@ -56,7 +56,8 @@ enum fman_mac_type {
 	fman_offline = 0,
 	fman_mac_1g,
 	fman_mac_10g,
-	fman_mac_less
+	fman_mac_less,
+	fman_onic
 };
 
 struct mac_addr {
@@ -307,6 +308,16 @@ struct macless_port_cfg {
 	struct ether_addr peer_mac;
 };
 
+struct onic_port_cfg {
+	char macless_name[IFNAMSIZ];
+	uint32_t rx_start;
+	uint32_t rx_count;
+	uint32_t tx_start;
+	uint32_t tx_count;
+	struct ether_addr src_mac;
+	struct ether_addr peer_mac;
+};
+
 struct shared_mac_cfg {
 	/* is this interface a shared interface or not */
 	int is_shared_mac;
@@ -331,11 +342,14 @@ struct fman_if {
 	/* The hard-coded FQIDs for this interface. Note: this doesn't cover the
 	 * PCD nor the "Rx default" FQIDs, which are configured via FMC and its
 	 * XML-based configuration. */
+	uint32_t fqid_rx_def;
 	uint32_t fqid_rx_err;
 	uint32_t fqid_tx_err;
 	uint32_t fqid_tx_confirm;
 	/* The MAC-less port info */
 	struct macless_port_cfg macless_info;
+	/* The oNIC port info */
+	struct onic_port_cfg onic_info;
 	/* The shared MAC info */
 	struct shared_mac_cfg shared_mac_info;
 	/* The base node for a per-"if" list of "struct fman_if_bpool" items */

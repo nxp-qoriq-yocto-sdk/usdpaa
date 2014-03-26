@@ -105,6 +105,7 @@
 #define PPAC_TX_FQS_10G		2	/* 10G Port Tx FQ count */
 #define PPAC_TX_FQS_1G		2	/* 1G Port Tx FQ count */
 #define PPAC_TX_FQS_OFFLINE	2	/* Offline Port Tx FQ count */
+#define PPAC_TX_FQS_ONIC	1	/* ONIC Port Tx FQ count */
 #define PPAC_PRIORITY_2DROP	3	/* Error/default/etc */
 #define PPAC_PRIORITY_2FWD	4	/* rx-hash */
 #define PPAC_PRIORITY_2TX	4	/* Consumed by Fman */
@@ -133,7 +134,6 @@
 /**********/
 /* macros */
 /**********/
-
 #ifdef PPAC_TRACE
 #define TRACE		printf
 #else

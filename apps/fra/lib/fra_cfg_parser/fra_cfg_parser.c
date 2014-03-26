@@ -1061,7 +1061,9 @@ static int parse_network_cfg(xmlNodePtr cur, struct list_head *list)
 			cfg->port_type = (strcmp(ptr, "OFFLINE") == 0) ?
 					 fman_offline :
 					 (strcmp(ptr, "10G") == 0) ?
-					 fman_mac_10g : fman_mac_1g;
+					 fman_mac_10g :
+					 (strcmp(ptr, "ONIC") == 0) ?
+					 fman_onic : fman_mac_1g;
 
 		ptr = (char *)get_attributes(cfgptr, BAD_CAST FMAN_PORT_NUM);
 		if (ptr)

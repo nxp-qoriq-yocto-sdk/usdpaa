@@ -202,6 +202,12 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 	else if (of_device_is_compatible(dpa_node, "fsl,dpa-ethernet-shared"))
 		is_shared = 1;
 
+	if (is_offline) {
+		/* If this offline port is associated with any device(oNIC) then return */
+		if(of_get_property(dpa_node, "phandle" ,&lenp))
+			return 0;
+	}
+
 	rprop = is_offline ? "fsl,qman-frame-queues-oh" :
 					 "fsl,qman-frame-queues-rx";
 	mprop = is_offline ? "fsl,fman-oh-port" :
@@ -478,6 +484,179 @@ err:
 	return _errno;
 }
 
+static int fman_if_init_onic(const struct device_node *dpa_node)
+{
+	const char *rprop;
+	struct __fman_if *__if;
+	struct fman_if_bpool *bpool;
+	const phandle *pools_phandle;
+	const phandle *tx_channel_id, *mac_addr;
+	const phandle *rx_phandle, *tx_phandle;
+	const struct device_node *pool_node;
+	const char *mname;
+	const char *dname = dpa_node->full_name;
+	size_t lenp;
+	int _errno;
+	int i;
+	const phandle *p_oh_node = NULL;
+	const struct device_node *oh_node = NULL;
+	const struct device_node *oh_node2 = NULL;
+	const phandle *p_fman_oh_node = NULL;
+	const struct device_node *fman_oh_node = NULL;
+
+	if (of_device_is_available(dpa_node) == false)
+		return 0;
+
+	/* Allocate an object for this network interface */
+	__if = malloc(sizeof(*__if));
+	my_err(!__if, -ENOMEM, "malloc(%zu)\n", sizeof(*__if));
+	memset(__if, 0, sizeof(*__if));
+	INIT_LIST_HEAD(&__if->__if.bpool_list);
+	strncpy(__if->node_path, dpa_node->full_name, PATH_MAX - 1);
+	__if->node_path[PATH_MAX - 1] = '\0';
+
+	if (fman_ip_rev >= FMAN_V3) {
+		/*
+		 * Set A2V, OVOM, EBD bits in contextA to allow external
+		 * buffer deallocation by fman.
+		 */
+		fman_dealloc_bufs_mask_hi = FMAN_V3_CONTEXTA_EN_A2V |
+			FMAN_V3_CONTEXTA_EN_OVOM;
+		fman_dealloc_bufs_mask_lo = FMAN_V3_CONTEXTA_EN_EBD;
+	} else {
+		fman_dealloc_bufs_mask_hi = 0;
+		fman_dealloc_bufs_mask_lo = 0;
+	}
+	/* Is the MAC node 1G, 10G, offline or MAC-less? */
+	__if->__if.is_memac = 0;
+	__if->__if.mac_type = fman_onic;
+
+	/* Extract the MAC address for linux peer */
+	mname = "oNIC-node";
+
+	mac_addr = of_get_property(dpa_node, "local-mac-address",
+				&lenp);
+	my_err(!mac_addr, -EINVAL, "%s: no local-mac-address\n",
+		mname);
+	memcpy(&__if->__if.onic_info.peer_mac, mac_addr, ETH_ALEN);
+
+	_errno = find_mac_name(&__if->__if.onic_info.peer_mac,
+			&__if->__if.onic_info.macless_name[0]);
+
+	my_err(_errno, -EINVAL, "Get device name failed for: %s\n",
+	       mname);
+
+	/* Extract the Tx port (it's the first of the two port handles)
+	 * and get its channel ID */
+	p_oh_node = of_get_property(dpa_node, "fsl,oh-ports", &lenp);
+	my_err(!p_oh_node, -EINVAL, "%s: couldn't get p_oh-ports\n",
+			dpa_node->full_name);
+
+	oh_node = of_find_node_by_phandle(p_oh_node[0]);
+	my_err(!oh_node, -EINVAL, "%s: couldn't get oh_node\n",
+			dpa_node->full_name);
+
+	p_fman_oh_node = of_get_property(oh_node, "fsl,fman-oh-port", &lenp);
+	my_err(!p_fman_oh_node, -EINVAL, "%s: couldn't get p_fman_oh_node\n",
+			dpa_node->full_name);
+
+	fman_oh_node = of_find_node_by_phandle(*p_fman_oh_node);
+	my_err(!fman_oh_node, -EINVAL, "%s: couldn't get fman_oh_node\n",
+			dpa_node->full_name);
+
+	assert(lenp == (1 * sizeof(phandle)));
+	tx_channel_id = of_get_property(fman_oh_node, "fsl,qman-channel-id", &lenp);
+	my_err(!tx_channel_id, -EINVAL, "%s: no fsl-qman-channel-id\n",
+			dpa_node->full_name);
+
+	assert(lenp == sizeof(*tx_channel_id));
+	__if->__if.tx_channel_id = *tx_channel_id;
+
+	rprop = "fsl,qman-frame-queues-oh";
+	/* Extract the Rx FQIDs */
+	oh_node2 = of_find_node_by_phandle(p_oh_node[1]);
+	my_err(!oh_node2, -EINVAL, "%s: couldn't get oh_node2\n",
+			dpa_node->full_name);
+	rx_phandle = of_get_property(oh_node2, rprop, &lenp);
+	my_err(!rx_phandle, -EINVAL, "%s: no fsl,qman-frame-queues-oh\n",
+			dname);
+	assert(lenp == (4 * sizeof(phandle)));
+	assert((rx_phandle[1] == 1) && (rx_phandle[3] == 1));
+	__if->__if.fqid_rx_err = rx_phandle[0];
+	__if->__if.fqid_rx_def = rx_phandle[2];
+
+	/* Don't Extract the Tx FQIDs */
+	__if->__if.fqid_tx_err = 0;
+	__if->__if.fqid_tx_confirm = 0;
+
+	/* Obtain the buffer pool nodes used by this interface */
+	oh_node = of_find_node_by_phandle(p_oh_node[1]);
+	my_err(!oh_node, -EINVAL, "%s: couldn't get oh_node\n",
+			dpa_node->full_name);
+	pools_phandle = of_get_property(oh_node, "fsl,bman-buffer-pools",
+			&lenp);
+	my_err(!pools_phandle, -EINVAL, "%s: no fsl,bman-buffer-pools\n",
+			dname);
+	/* For each pool, parse the corresponding node and add a pool object to
+	 * the interface's "bpool_list" */
+	assert(lenp && !(lenp % sizeof(phandle)));
+	while (lenp) {
+		size_t proplen;
+		const phandle *prop;
+		const char *pname;
+		/* Allocate an object for the pool */
+		bpool = malloc(sizeof(*bpool));
+		my_err(!bpool, -ENOMEM, "malloc(%zu)\n", sizeof(*bpool));
+		/* Find the pool node */
+		pool_node = of_find_node_by_phandle(*pools_phandle);
+		my_err(!pool_node, -ENXIO, "%s: bad fsl,bman-buffer-pools\n",
+				dname);
+		pname = pool_node->full_name;
+		/* Extract the BPID property */
+		prop = of_get_property(pool_node, "fsl,bpid", &proplen);
+		my_err(!prop, -EINVAL, "%s: no fsl,bpid\n", pname);
+		assert(proplen == sizeof(*prop));
+		bpool->bpid = *prop;
+		/* Extract the cfg property (count/size/addr). "fsl,bpool-cfg"
+		 * indicates for the Bman driver to seed the pool.
+		 * "fsl,bpool-ethernet-cfg" is used by the network driver. The
+		 * two are mutually exclusive, so check for either of them. */
+		prop = of_get_property(pool_node, "fsl,bpool-cfg",
+				&proplen);
+		if (!prop)
+			prop = of_get_property(pool_node,
+					"fsl,bpool-ethernet-cfg",
+					&proplen);
+		if (!prop) {
+			/* It's OK for there to be no bpool-cfg */
+			bpool->count = bpool->size = bpool->addr = 0;
+		} else {
+			assert(proplen == (6 * sizeof(*prop)));
+			bpool->count = ((uint64_t)prop[0] << 32) |
+				prop[1];
+			bpool->size = ((uint64_t)prop[2] << 32) |
+				prop[3];
+			bpool->addr = ((uint64_t)prop[4] << 32) |
+				prop[5];
+		}
+		/* Parsing of the pool is complete, add it to the interface
+		 * list. */
+		list_add_tail(&bpool->node, &__if->__if.bpool_list);
+		lenp -= sizeof(phandle);
+		pools_phandle++;
+	}
+
+	/* Parsing of the network interface is complete, add it to the list. */
+	printf("Found %s, Tx Channel = %x, FMAN = %x, Port ID = %x\n",
+			dname, __if->__if.tx_channel_id, __if->__if.fman_idx,
+			__if->__if.mac_idx);
+	list_add_tail(&__if->__if.node, &__ifs);
+	return 0;
+err:
+	if_destructor(__if);
+	return _errno;
+}
+
 int fman_init(void)
 {
 	const struct device_node *dpa_node;
@@ -516,6 +695,12 @@ int fman_init(void)
 	for_each_compatible_node(dpa_node, NULL, "fsl,dpa-ethernet-macless") {
 		/* it is a MAC-less interface */
 		_errno = fman_if_init(dpa_node, 1);
+		my_err(_errno, _errno, "if_init(%s)\n",
+						 dpa_node->full_name);
+	}
+	for_each_compatible_node(dpa_node, NULL, "fsl,dpa-ethernet-generic") {
+		/* it is a oNIC interface */
+		_errno = fman_if_init_onic(dpa_node);
 		my_err(_errno, _errno, "if_init(%s)\n",
 						 dpa_node->full_name);
 	}
@@ -619,7 +804,7 @@ void fman_if_enable_rx(const struct fman_if *p)
 	assert(ccsr_map_fd != -1);
 
 	/* No need to enable Offline port */
-	if (__if->__if.mac_type == fman_offline)
+	if ((__if->__if.mac_type == fman_offline) || (__if->__if.mac_type == fman_onic))
 		return;
 
 	/* enable Rx and Tx */

@@ -111,6 +111,9 @@ void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr)
 		if (__if->mac_type == fman_mac_less)
 			printf("\n+ MAC-less name: %s\n",
 				__if->macless_info.macless_name);
+		else if (__if->mac_type == fman_onic)
+			printf("\n+ oNIC name: %s\n",
+				__if->onic_info.macless_name);
 		else
 			printf("\n+ Fman %d, MAC %d (%s);\n",
 				 __if->fman_idx, __if->mac_idx,
@@ -122,27 +125,46 @@ void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr)
 				ETH_MAC_PRINTF_ARGS(&__if->mac_addr));
 		}
 
-		if (__if->mac_type != fman_mac_less) {
+		if (__if->mac_type != fman_onic) {
+			if (__if->mac_type != fman_mac_less) {
+				printf("\ttx_channel_id: 0x%02x\n",
+						__if->tx_channel_id);
+				if (list_empty(p_cfg->list)) {
+					printf("PCD List not found\n");
+				} else {
+					printf("\tfqid_rx_hash:\n");
+					list_for_each_entry(fqr, p_cfg->list, list) {
+						printf("\t\t(PCD: start 0x%x, count %d)\n",
+								fqr->start, fqr->count);
+					}
+				}
+				printf("\tfqid_rx_def: 0x%x\n", p_cfg->rx_def);
+				printf("\tfqid_rx_err: 0x%x\n", __if->fqid_rx_err);
+			} else
+				printf("\tfqid_rx_def start: 0x%x, count: %d\n",
+						__if->macless_info.tx_start,
+						__if->macless_info.tx_count);
+		} else {
 			printf("\ttx_channel_id: 0x%02x\n",
 					__if->tx_channel_id);
 			if (list_empty(p_cfg->list)) {
 				printf("PCD List not found\n");
 			} else {
 				printf("\tfqid_rx_hash:\n");
-				list_for_each_entry(fqr, p_cfg->list, list) {
-				   printf("\t\t(PCD: start 0x%x, count %d)\n",
-						fqr->start, fqr->count);
+					list_for_each_entry(fqr, p_cfg->list, list) {
+					printf("\t\t(PCD: start 0x%x, count %d)\n",
+							fqr->start, fqr->count);
 				}
 			}
-			printf("\tfqid_rx_def: 0x%x\n", p_cfg->rx_def);
+			if (__if->mac_type == fman_onic)
+				printf("\tfqid_rx_def: 0x%x\n", __if->fqid_rx_def);
+			else
+				printf("\tfqid_rx_def: 0x%x\n", p_cfg->rx_def);
 			printf("\tfqid_rx_err: 0x%x\n", __if->fqid_rx_err);
-		} else
-			printf("\tfqid_rx_def start: 0x%x, count: %d\n",
-				__if->macless_info.tx_start,
-				 __if->macless_info.tx_count);
+		}
 
 		if (__if->mac_type != fman_offline) {
-			if (__if->mac_type != fman_mac_less) {
+			if (!(__if->mac_type == fman_mac_less || __if->mac_type == fman_onic)) {
 				printf("\tfqid_tx_err: 0x%x\n",
 						__if->fqid_tx_err);
 				printf("\tfqid_tx_confirm: 0x%x\n",
@@ -150,7 +172,7 @@ void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr)
 			}
 			fman_if_for_each_bpool(bpool, __if)
 				printf("\tbuffer pool: (bpid=%d, count=%"PRId64
-				       "size=%"PRId64", addr=0x%"PRIx64")\n",
+				       " size=%"PRId64", addr=0x%"PRIx64")\n",
 				       bpool->bpid, bpool->count, bpool->size,
 				       bpool->addr);
 		}
@@ -259,6 +281,9 @@ void usdpaa_netcfg_enable_disable_shared_rx(const struct fman_if *fif,
 	if (fif->mac_type == fman_mac_less) {
 		strncpy(ifreq.ifr_name, fif->macless_info.macless_name,
 				sizeof(ifreq.ifr_name));
+	} else if (fif->mac_type == fman_onic) {
+		strncpy(ifreq.ifr_name, fif->onic_info.macless_name,
+				sizeof(ifreq.ifr_name));
 	} else
 		strncpy(ifreq.ifr_name, fif->shared_mac_info.shared_mac_name,
 				sizeof(ifreq.ifr_name));
@@ -301,8 +326,10 @@ static void check_fman_enabled_interfaces(void)
 			if (cli_info->mac_present) {
 				/* compare if command line macless interface
 				 * matches the one in fman list */
-			   if (memcmp(&__if->macless_info.peer_mac,
-				&cli_info->peer_mac, ETHER_ADDR_LEN) == 0) {
+			   if ((memcmp(&__if->macless_info.peer_mac,
+				&cli_info->peer_mac, ETHER_ADDR_LEN) == 0) ||
+				(memcmp(&__if->onic_info.peer_mac,
+				&cli_info->peer_mac, ETHER_ADDR_LEN) == 0)) {
 				fqlist = malloc(sizeof(struct list_head));
 				if (!fqlist) {
 					fprintf(stderr, "%s: No mem fqlist\n",

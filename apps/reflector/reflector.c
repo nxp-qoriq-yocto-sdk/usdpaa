@@ -351,6 +351,13 @@ static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
 			ppam_rx_hash_cb(&rx_hash, dqrr);
 			return;
 		}
+		if (fman_onic == pcfg->fman_if->mac_type) {
+			struct ppam_rx_hash rx_hash;
+			/* Forward the frame to first Tx FQ of the interface*/
+			rx_hash.tx_fqid = _if->tx_fqids[0];
+			ppam_rx_hash_cb(&rx_hash, dqrr);
+			return;
+		}
 	}
 	ppac_drop_frame(fd);
 }

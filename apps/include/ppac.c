@@ -165,6 +165,11 @@ void cb_ern(struct qman_portal *qm __always_unused,
 #else
 #define RX_OFFLINE_PIC 0
 #endif
+#ifdef PPAC_RX_ONIC_PREFERINCACHE
+#define RX_ONIC_PIC 1
+#else
+#define RX_ONIC_PIC 0
+#endif
 
 /* This is part of the inlined code due to its dependency on ppam_* types. */
 int ppac_interface_init(unsigned idx)
@@ -196,13 +201,24 @@ int ppac_interface_init(unsigned idx)
 	i->size = size;
 	i->port_cfg = port;
 	/* allocate and initialise Tx FQs for this interface */
-	i->num_tx_fqs = (fif->mac_type == fman_mac_less) ?
-			fif->macless_info.rx_count :
-			(fif->mac_type == fman_mac_10g) ?
-			PPAC_TX_FQS_10G :
-			(fif->mac_type == fman_offline) ?
-			PPAC_TX_FQS_OFFLINE : PPAC_TX_FQS_1G;
-	if (fif->mac_type != fman_mac_less) {
+	switch (fif->mac_type) {
+		case fman_onic:
+			i->num_tx_fqs = PPAC_TX_FQS_ONIC;
+			break;
+		case fman_mac_less:
+			i->num_tx_fqs = fif->macless_info.rx_count;
+			break;
+		case fman_mac_10g:
+			i->num_tx_fqs = PPAC_TX_FQS_10G;
+			break;
+		case fman_mac_1g:
+			i->num_tx_fqs = PPAC_TX_FQS_1G;
+			break;
+		case fman_offline:
+			i->num_tx_fqs = PPAC_TX_FQS_OFFLINE;
+			break;
+	}
+	if ((fif->mac_type != fman_mac_less)/* && (fif->mac_type != fman_onic)*/) {
 		i->tx_fqs = malloc(sizeof(*i->tx_fqs) * i->num_tx_fqs);
 		if (!i->tx_fqs) {
 			__dma_mem_free(i);
@@ -210,7 +226,6 @@ int ppac_interface_init(unsigned idx)
 		}
 		memset(i->tx_fqs, 0, sizeof(*i->tx_fqs) * i->num_tx_fqs);
 	}
-
 	err = ppam_interface_init(&i->ppam_data, port, i->num_tx_fqs, &flags);
 	if (err) {
 		free(i->tx_fqs);
@@ -226,6 +241,7 @@ int ppac_interface_init(unsigned idx)
 		}
 		list_add_tail(&i->node, &ifs);
 		return 0;
+
 	}
 
 #ifdef PPAC_TX_CONFIRM
@@ -246,7 +262,7 @@ int ppac_interface_init(unsigned idx)
 		ppam_interface_tx_fqid(&i->ppam_data, loop, fq->fqid);
 	}
 	/* Offline ports don't have Tx Error or Tx Confirm FQs */
-	if (fif->mac_type == fman_offline) {
+	if (fif->mac_type == fman_offline || fif->mac_type == fman_onic) {
 		list_add_tail(&i->node, &ifs);
 		return 0;
 	}
@@ -268,7 +284,6 @@ int ppac_interface_init(unsigned idx)
 	}
 
 	list_add_tail(&i->node, &ifs);
-
 	return 0;
 }
 
@@ -296,6 +311,20 @@ int ppac_interface_init_rx(struct ppac_interface *i)
 				fqid++, get_rxc(), &stash_opts,
 				cb_dqrr_rx_default);
 		}
+		ppac_interface_enable_shared_rx(i);
+		return 0;
+	} else if (fif->mac_type == fman_onic) {
+		uint32_t fqid = fif->fqid_rx_def;
+		i->rx_default[0].ppac_if = i;
+		err = ppam_rx_default_init(&i->rx_default[0].s,
+			&i->ppam_data, 0, &stash_opts);
+		if (err) {
+			error(0, err, "%s", __func__);
+			return err;
+		}
+		ppac_fq_nonpcd_init(&i->rx_default[0].fq,
+			fqid++, get_rxc(), &stash_opts,
+			cb_dqrr_rx_default);
 		ppac_interface_enable_shared_rx(i);
 		return 0;
 	}
@@ -370,6 +399,7 @@ int ppac_interface_init_rx(struct ppac_interface *i)
 				(fif->mac_type == fman_mac_1g) ? RX_1G_PIC :
 				(fif->mac_type == fman_mac_10g) ? RX_10G_PIC :
 				(fif->mac_type == fman_offline) ? RX_OFFLINE_PIC:
+				(fif->mac_type == fman_onic) ? RX_ONIC_PIC:
 				0);
 		}
 		list_add_tail(&pcd_range->list, &i->list);
@@ -378,7 +408,6 @@ int ppac_interface_init_rx(struct ppac_interface *i)
 	ppac_interface_enable_rx(i);
 	if (fif->shared_mac_info.is_shared_mac == 1)
 		ppac_interface_enable_shared_rx(i);
-
 	return 0;
 }
 void ppac_interface_enable_rx(const struct ppac_interface *i)
