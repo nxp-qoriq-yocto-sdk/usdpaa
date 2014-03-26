@@ -42,4 +42,5 @@ dist_DATA = fra_config_dstr_processing1.xml \
 	    fra_config_dstr_processing1_port2.xml \
 	    fra_config_dstr_processing2_port2.xml \
 	    fra_config_mbox_processing1_port2.xml \
-	    fra_config_mbox_processing2_port2.xml
+	    fra_config_mbox_processing2_port2.xml \
+	    fra_config_port_write_test.xml
