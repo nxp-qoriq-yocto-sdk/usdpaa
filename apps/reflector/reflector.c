@@ -327,7 +327,7 @@ static inline void ppam_rx_default_cb(struct ppam_rx_default *p,
 				      const struct qm_dqrr_entry *dqrr)
 {
 	const struct qm_fd *fd = &dqrr->fd;
-	struct ppac_interface *c_if = container_of(p,
+	struct ppac_interface *c_if = container_of(_if,
 						   struct ppac_interface,
 						   ppam_data);
 
