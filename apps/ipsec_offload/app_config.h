@@ -85,8 +85,6 @@ struct app_conf {
 	u32 ipf_bpid;
 	/* MTU pre encryption */
 	int mtu_pre_enc;
-	/* perform inbound policy verification */
-	bool inb_pol_check;
 	/* outer header TOS field */
 	int outer_tos;
 	/* enable inbound ECN tunneling*/
@@ -101,9 +99,9 @@ struct app_conf {
 	char vof[IFNAMSIZ];
 	/* IPsec interface name */
 	char vipsec[IFNAMSIZ];
-	/* Aggregate inbound tunnels. Inbound decrypted traffic from multiple SAs
-	 * will be enqueued to oh_pre_sec port, encrypted on one SA and sent
-	 * to Tx port.(single port case)
+	/* Aggregate inbound tunnels. Inbound decrypted traffic
+	 * from multiple SAs will be enqueued to oh_pre_sec port,
+	 * encrypted on one SA and sent to Tx port.(single port case)
 	 */
 	bool ib_aggreg;
 };

@@ -91,35 +91,12 @@ static uint32_t get_policy_miss_fqid(void)
 	return 0;
 }
 
-static int create_post_flowid_table(void)
-{
-	int ret, cls_td = -1;
-	struct dpa_cls_tbl_params cls_tbl_params;
-
-	memset(&cls_tbl_params, 0, sizeof(cls_tbl_params));
-	cls_tbl_params.cc_node = cc_post_flow_id;
-	cls_tbl_params.type = DPA_CLS_TBL_EXACT_MATCH;
-	cls_tbl_params.entry_mgmt = DPA_CLS_TBL_MANAGE_BY_REF;
-	cls_tbl_params.exact_match_params.entries_cnt = 1;
-	cls_tbl_params.exact_match_params.key_size = 1;
-	cls_tbl_params.prefilled_entries = 1;
-	ret = dpa_classif_table_create(&cls_tbl_params,
-				       &cls_td);
-	if (ret < 0) {
-		fprintf(stderr, "%s:%d: Error creating inbound "
-				"post flowid table, err %d\n",
-				__func__, __LINE__, ret);
-		return ret;
-	}
-	return cls_td;
-}
 
 static void *xfrm_msg_loop(void *);
 
 struct thread_data {
 	int dpa_ipsec_id;
 	uint32_t pol_miss_fqid;
-	int post_flow_id_td;
 };
 
 int create_nl_socket(int protocol, int groups)
@@ -151,20 +128,13 @@ int setup_xfrm_msgloop(int dpa_ipsec_id, pthread_t *tid)
 {
 	int ret;
 	uint32_t policy_miss_fqid;
-	int post_flow_id_td;
 	struct thread_data *data;
 
 	/* get required fqids */
 	policy_miss_fqid = get_policy_miss_fqid();
-	post_flow_id_td = create_post_flowid_table();
 
 	if (!policy_miss_fqid) {
 		fprintf(stderr, "cannot get policy_miss_fqid\n");
-		return -1;
-	}
-
-	if (post_flow_id_td < 0) {
-		fprintf(stderr, "cannot create post flow id table\n");
 		return -1;
 	}
 
@@ -176,7 +146,6 @@ int setup_xfrm_msgloop(int dpa_ipsec_id, pthread_t *tid)
 
 	data->dpa_ipsec_id = dpa_ipsec_id;
 	data->pol_miss_fqid = policy_miss_fqid;
-	data->post_flow_id_td = post_flow_id_td;
 
 	ret = pthread_create(tid, NULL, xfrm_msg_loop, data);
 	if (ret)
@@ -187,7 +156,6 @@ int setup_xfrm_msgloop(int dpa_ipsec_id, pthread_t *tid)
 static int offload_sa(int dpa_ipsec_id,
 			struct dpa_ipsec_sa_params *sa_params,
 			struct xfrm_usersa_info *sa_info,
-			int next_table_td,
 			int policy_miss_fqid,
 			int dir, int *sa_id,
 			struct xfrm_encap_tmpl *encap)
@@ -304,10 +272,6 @@ static int offload_sa(int dpa_ipsec_id,
 		}
 		/* default SA action */
 		memset(&def_sa_action, 0, sizeof(def_sa_action));
-		def_sa_action.type = DPA_CLS_TBL_ACTION_NEXT_TABLE;
-		def_sa_action.enable_statistics = false;
-		def_sa_action.next_table_params.next_td = next_table_td;
-		def_sa_action.next_table_params.hmd = DPA_OFFLD_DESC_NONE;
 		sa_params->sa_in_params.post_ipsec_action = def_sa_action;
 
 		/* miss action */
@@ -327,11 +291,9 @@ static int offload_sa(int dpa_ipsec_id,
 
 static inline int offload_policy(struct dpa_ipsec_policy_params *pol_params,
 				struct xfrm_selector *sel,
-				int sa_id, int dir, int next_table_td,
-				int *manip_desc)
+				int sa_id, int dir, int *manip_desc)
 {
 	int ret = 0;
-	struct dpa_cls_tbl_action policy_action;
 
 	memset(pol_params, 0, sizeof(*pol_params));
 	if ((dir == XFRM_POLICY_OUT) && (app_conf.mtu_pre_enc > 0)) {
@@ -392,16 +354,6 @@ static inline int offload_policy(struct dpa_ipsec_policy_params *pol_params,
 
 	if (sel->proto == IPPROTO_IP)
 		pol_params->masked_proto = true;
-
-	memset(&policy_action, 0, sizeof(policy_action));
-	if (dir == XFRM_POLICY_IN) {
-		policy_action.type = DPA_CLS_TBL_ACTION_NEXT_TABLE;
-		policy_action.enable_statistics = false;
-		policy_action.next_table_params.next_td = next_table_td;
-		policy_action.next_table_params.hmd = DPA_OFFLD_DESC_NONE;
-		pol_params->dir_params.type = DPA_IPSEC_POL_DIR_PARAMS_ACT;
-		pol_params->dir_params.in_action = policy_action;
-	}
 
 	ret = dpa_ipsec_sa_add_policy(sa_id, pol_params);
 	return ret;
@@ -525,7 +477,6 @@ static inline void dpa_pol_free_manip(struct dpa_pol *dpa_pol)
 
 static inline int do_offload(int dpa_ipsec_id,
 			int *sa_id,
-			int post_flow_id_td,
 			uint32_t policy_miss_fqid,
 			struct dpa_sa *dpa_sa,
 			struct dpa_pol *dpa_pol)
@@ -533,9 +484,8 @@ static inline int do_offload(int dpa_ipsec_id,
 	int ret = 0;
 	if (*sa_id == DPA_OFFLD_INVALID_OBJECT_ID) {
 		ret = offload_sa(dpa_ipsec_id, &dpa_sa->sa_params,
-				&dpa_sa->xfrm_sa_info, post_flow_id_td,
-				policy_miss_fqid, dpa_pol->xfrm_pol_info.dir,
-				sa_id, &dpa_sa->encap);
+				&dpa_sa->xfrm_sa_info, policy_miss_fqid,
+				dpa_pol->xfrm_pol_info.dir,	sa_id, &dpa_sa->encap);
 		if (ret < 0) {
 			fprintf(stderr, "offload_sa failed , ret %d\n", ret);
 			free(dpa_sa->sa_params.crypto_params.cipher_key);
@@ -552,13 +502,11 @@ static inline int do_offload(int dpa_ipsec_id,
 	}
 
 	dpa_pol->sa_id = *sa_id;
-	if (dpa_pol->xfrm_pol_info.dir == XFRM_POLICY_IN &&
-		!app_conf.inb_pol_check)
+	if (dpa_pol->xfrm_pol_info.dir == XFRM_POLICY_IN)
 		return ret;
 	ret = offload_policy(&dpa_pol->pol_params,
 			&dpa_pol->xfrm_pol_info.sel, *sa_id,
-			dpa_pol->xfrm_pol_info.dir, post_flow_id_td,
-			&dpa_pol->manip_desc);
+			dpa_pol->xfrm_pol_info.dir, &dpa_pol->manip_desc);
 	if (ret < 0) {
 		fprintf(stderr, "offload_policy failed, ret %d\n", ret);
 		dpa_pol_free_manip(dpa_pol);
@@ -745,10 +693,7 @@ static inline int flush_dpa_policies(void)
 			dpa_pol = (struct dpa_pol *)p;
 			assert(dpa_sa->in_sa_id !=
 			       DPA_OFFLD_INVALID_OBJECT_ID);
-			if (app_conf.inb_pol_check)
-				ret = dpa_ipsec_sa_remove_policy(
-					dpa_sa->in_sa_id,
-					&dpa_pol->pol_params);
+
 
 			list_del(&dpa_pol->list);
 			free(dpa_pol);
@@ -1059,7 +1004,6 @@ static inline int alloc_ipsec_algs(struct dpa_sa		*dpa_sa,
 
 static int process_notif_sa(const struct nlmsghdr	*nh, int len,
 			   uint32_t			policy_miss_fqid,
-			   uint32_t			post_flow_id_td,
 			   int				dpa_ipsec_id)
 {
 	struct xfrm_usersa_info *sa_info;
@@ -1149,8 +1093,7 @@ static int process_notif_sa(const struct nlmsghdr	*nh, int len,
 			assert(sa_id);
 			assert(pol_list);
 
-			ret = do_offload(dpa_ipsec_id, sa_id, post_flow_id_td,
-					policy_miss_fqid, dpa_sa, dpa_pol);
+			ret = do_offload(dpa_ipsec_id, sa_id, policy_miss_fqid, dpa_sa, dpa_pol);
 			if (ret < 0)
 				return ret;
 
@@ -1269,7 +1212,6 @@ int list_dpa_sa(int argc, char *argv[])
 
 static int process_new_policy(const struct nlmsghdr	*nh,
 			      uint32_t			policy_miss_fqid,
-			      uint32_t			post_flow_id_td,
 			      int			dpa_ipsec_id)
 {
 
@@ -1339,7 +1281,7 @@ static int process_new_policy(const struct nlmsghdr	*nh,
 	set_offload_dir(dpa_sa, &sa_id, pol_info->dir, &pols);
 	assert(sa_id);
 
-	ret = do_offload(dpa_ipsec_id, sa_id, post_flow_id_td, policy_miss_fqid,
+	ret = do_offload(dpa_ipsec_id, sa_id, policy_miss_fqid,
 			dpa_sa, dpa_pol);
 	if (ret < 0)
 		return ret;
@@ -1374,8 +1316,7 @@ static int process_del_policy(const struct nlmsghdr *nh)
 		goto out_del_policy;
 	}
 
-	if (dpa_pol->xfrm_pol_info.dir == XFRM_POLICY_IN &&
-	    !app_conf.inb_pol_check)
+	if (dpa_pol->xfrm_pol_info.dir == XFRM_POLICY_IN)
 		goto out_del_policy;
 
 	assert(sa_id);
@@ -1414,7 +1355,6 @@ static int process_flush_policy(void)
 static int resolve_xfrm_notif(const struct nlmsghdr	*nh,
 			       int			len,
 			       uint32_t			policy_miss_fqid,
-			       uint32_t			post_flow_id_td,
 			       int			dpa_ipsec_id)
 {
 	int ret = 0;
@@ -1424,8 +1364,7 @@ static int resolve_xfrm_notif(const struct nlmsghdr	*nh,
 	case XFRM_MSG_UPDSA:
 		TRACE("XFRM_MSG_UPDSA\n");
 	case XFRM_MSG_NEWSA:
-		ret = process_notif_sa(nh, len, policy_miss_fqid,
-				post_flow_id_td, dpa_ipsec_id);
+		ret = process_notif_sa(nh, len, policy_miss_fqid, dpa_ipsec_id);
 		break;
 	case XFRM_MSG_DELSA:
 		ret = process_del_sa(nh);
@@ -1437,8 +1376,7 @@ static int resolve_xfrm_notif(const struct nlmsghdr	*nh,
 	case XFRM_MSG_UPDPOLICY:
 		TRACE("XFRM_MSG_UPDPOLICY\n");
 	case XFRM_MSG_NEWPOLICY:
-		ret = process_new_policy(nh, policy_miss_fqid, post_flow_id_td,
-					dpa_ipsec_id);
+		ret = process_new_policy(nh, policy_miss_fqid, dpa_ipsec_id);
 		break;
 	case XFRM_MSG_DELPOLICY:
 		ret = process_del_policy(nh);
@@ -1468,7 +1406,6 @@ static void *xfrm_msg_loop(void *data)
 	struct msghdr msg;
 	struct nlmsghdr *nh;
 	uint32_t policy_miss_fqid;
-	uint32_t post_flow_id_td;
 	int dpa_ipsec_id;
 	cpu_set_t cpuset;
 	struct sigaction new_action, old_action;
@@ -1477,7 +1414,6 @@ static void *xfrm_msg_loop(void *data)
 	struct thread_data *thread_data = (struct thread_data *)data;
 	dpa_ipsec_id = thread_data->dpa_ipsec_id;
 	policy_miss_fqid = thread_data->pol_miss_fqid;
-	post_flow_id_td = thread_data->post_flow_id_td;
 
 	/* install a signal handler for SIGTERM */
 	new_action.sa_handler = sig_handler;
@@ -1542,7 +1478,7 @@ static void *xfrm_msg_loop(void *data)
 			}
 
 			ret = resolve_xfrm_notif(nh, len, policy_miss_fqid,
-					    post_flow_id_td, dpa_ipsec_id);
+					dpa_ipsec_id);
 
 			if (ret != 0 && ret != -EBADMSG) {
 				fprintf(stderr, "Resolve xfrm notification"

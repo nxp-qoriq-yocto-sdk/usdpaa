@@ -79,7 +79,8 @@ static const char *fmc_1g = "1G";
 static const char *fmc_10g = "10G";
 static const char *fmc_offline = "OFFLINE";
 
-static inline const char *get_port_type(struct fman_if *__if) {
+static inline const char *get_port_type(struct fman_if *__if)
+{
 	if (__if->mac_type == fman_mac_1g)
 		return fmc_1g;
 	else if (__if->mac_type == fman_mac_10g)
@@ -93,10 +94,8 @@ static inline const char *get_port_type(struct fman_if *__if) {
 extern t_Handle pcd_dev;
 /* inbound SA lookup */
 extern t_Handle cc_in_rx[DPA_IPSEC_MAX_SA_TYPE];
-/* flow_id lookup - optional in policy verification */
-extern t_Handle cc_flow_id;
-/* post flow_id classification */
-extern t_Handle cc_post_flow_id;
+/* VIPSEC Rx flow classification */
+extern t_Handle cc_vipsec_rx[MAX_ETHER_TYPES];
 /* outbound SP lookup */
 extern t_Handle cc_out_pre_enc[DPA_IPSEC_MAX_SUPPORTED_PROTOS];
 /* outbound post ipsec forwarding - ether header manip */

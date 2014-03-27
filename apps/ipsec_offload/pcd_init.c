@@ -49,12 +49,13 @@ const char ppam_pdl_path[] = __stringify(DEF_PDL_PATH);
 const char ppam_swp_path[] = __stringify(DEF_SWP_PATH);
 
 /* cc nodes required by DPA IPsec offloading */
-t_Handle cc_in_rx[DPA_IPSEC_MAX_SA_TYPE], cc_flow_id, cc_post_flow_id,
+t_Handle cc_in_rx[DPA_IPSEC_MAX_SA_TYPE],
 	 cc_out_pre_enc[DPA_IPSEC_MAX_SUPPORTED_PROTOS];
 
 /* cc nodes used for outbound/inbound post ipsec forwarding */
 t_Handle cc_out_post_enc[MAX_ETHER_TYPES];
 t_Handle cc_in_post_dec[MAX_ETHER_TYPES];
+t_Handle cc_vipsec_rx[MAX_ETHER_TYPES];
 
 /* header manipulation handles for ethernet header replacing */
 t_Handle ob_fwd_hm, ib_fwd_hm;
@@ -189,22 +190,6 @@ int fmc_apply_model(void)
 
 	memset(fmc_path, 0, sizeof(fmc_path));
 	sprintf(fmc_path,
-		"fm%d/port/OFFLINE/%d/ccnode/flow_id_cc",
-		app_conf.fm, app_conf.ib_oh->mac_idx);
-	cc_flow_id = fmc_get_handle(&cmodel, fmc_path);
-	if (!cc_flow_id)
-		goto err;
-
-	memset(fmc_path, 0, sizeof(fmc_path));
-	sprintf(fmc_path,
-		"fm%d/port/OFFLINE/%d/ccnode/post_flow_id_cc",
-		app_conf.fm, app_conf.ib_oh->mac_idx);
-	cc_post_flow_id = fmc_get_handle(&cmodel, fmc_path);
-	if (!cc_post_flow_id)
-		goto err;
-
-	memset(fmc_path, 0, sizeof(fmc_path));
-	sprintf(fmc_path,
 		"fm%d/port/OFFLINE/%d/ccnode/tcpudp_cc",
 		app_conf.fm, app_conf.ob_oh_pre->mac_idx);
 	cc_out_pre_enc[DPA_IPSEC_PROTO_ANY_IPV4] = fmc_get_handle(&cmodel,
@@ -267,6 +252,22 @@ int fmc_apply_model(void)
 							fmc_path);
 
 	if (!cc_in_post_dec[ETHER_TYPE_IPv6])
+		goto err;
+
+	memset(fmc_path, 0, sizeof(fmc_path));
+	sprintf(fmc_path,
+		"fm%d/port/OFFLINE/%d/ccnode/ib_post_vipsec_cc",
+		app_conf.fm, app_conf.ib_oh->mac_idx);
+	cc_vipsec_rx[ETHER_TYPE_IPv4] = fmc_get_handle(&cmodel, fmc_path);
+	if (!cc_vipsec_rx[ETHER_TYPE_IPv4])
+		goto err;
+
+	memset(fmc_path, 0, sizeof(fmc_path));
+	sprintf(fmc_path,
+		"fm%d/port/OFFLINE/%d/ccnode/ib_post_vipsec6_cc",
+		app_conf.fm, app_conf.ib_oh->mac_idx);
+	cc_vipsec_rx[ETHER_TYPE_IPv6] = fmc_get_handle(&cmodel, fmc_path);
+	if (!cc_vipsec_rx[ETHER_TYPE_IPv6])
 		goto err;
 
 	port_type = get_port_type(app_conf.ob_eth);

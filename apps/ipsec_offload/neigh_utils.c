@@ -64,6 +64,9 @@ static int neigh_cc_key_size[] = NEIGH_TABLES_KEY_SIZE;
 static int local_cc_num_keys[] = LOCAL_TABLES_NUM_KEYS;
 static int local_cc_key_size[] = LOCAL_TABLES_KEY_SIZE;
 
+static int vipsec_cc_num_keys[] = VIPSEC_TABLES_NUM_KEYS;
+static int vipsec_cc_key_size[] = VIPSEC_TABLES_KEY_SIZE;
+
 static void make_bitmask(u8 *mask, int size, int prefixlen)
 {
 	int nbytes, nbits;
@@ -130,6 +133,25 @@ static void cleanup_neigh_tables(struct fman_if *__if)
 	struct ppac_interface *ppac_if = get_ppac_if(__if);
 	for (i = 0; i < MAX_ETHER_TYPES; i++) {
 		td = (ppac_if->ppam_data.hhm_td)[i];
+		dpa_classif_table_free(td);
+	}
+}
+
+static int init_vipsec_tables(struct fman_if *__if, t_Handle *cc_nodes)
+{
+	int ret;
+	struct ppac_interface *ppac_if = get_ppac_if(__if);
+	ret = init_tables(cc_nodes, vipsec_cc_num_keys, vipsec_cc_key_size,
+			&ppac_if->ppam_data.vipsec_rx);
+	return ret;
+}
+
+static void cleanup_vipsec_tables(struct fman_if *__if)
+{
+	int i, td;
+	struct ppac_interface *ppac_if = get_ppac_if(__if);
+	for (i = 0; i < MAX_ETHER_TYPES; i++) {
+		td = (ppac_if->ppam_data.vipsec_rx)[i];
 		dpa_classif_table_free(td);
 	}
 }
@@ -412,13 +434,13 @@ int create_local_entry(int ifindex, int af, u8 *key)
 {
 	int ret = 0;
 	int rx_start = 0;
-	struct fman_if *__if;
-	char macless_name[IF_NAMESIZE];
-	struct ppac_interface *ppac_if;
-	int td;
-	int key_size;
-	int *local_td;
+	int td = 0;
+	int key_size = 0;
+	int *local_td = NULL;
 	int ppac_if_found = 0;
+	struct fman_if *__if = NULL;
+	char macless_name[IF_NAMESIZE];
+	struct ppac_interface *ppac_if = NULL;
 
 	if (!if_indextoname(ifindex, macless_name))
 		return -ENODEV;
@@ -448,6 +470,11 @@ int create_local_entry(int ifindex, int af, u8 *key)
 		local_td =  ppac_if->ppam_data.local_td_ib;
 	else if (!strcmp(macless_name, app_conf.vof))
 		local_td =  ppac_if->ppam_data.local_td_ob;
+	else if (!strcmp(macless_name, app_conf.vipsec))
+		local_td = ppac_if->ppam_data.vipsec_rx;
+
+	if (!local_td)
+		return -1;
 
 	/* add in the corresponding table for af the entry */
 	if (af == AF_INET) {
@@ -469,7 +496,7 @@ int remove_local_entry(int ifindex, int af, u8 *key)
 	int td, ret = 0;
 	int key_size;
 	struct ppac_interface *ppac_if;
-	int *local_td;
+	int *local_td = NULL;
 	char macless_name[IF_NAMESIZE];
 	int ppac_if_found = 0;
 
@@ -490,6 +517,11 @@ int remove_local_entry(int ifindex, int af, u8 *key)
 		local_td =  ppac_if->ppam_data.local_td_ib;
 	else if (!strcmp(macless_name, app_conf.vof))
 		local_td =  ppac_if->ppam_data.local_td_ob;
+	else if (!strcmp(macless_name, app_conf.vipsec))
+		local_td = ppac_if->ppam_data.vipsec_rx;
+
+	if (!local_td)
+		return -1;
 
 	if (af == AF_INET) {
 		td = local_td[ETHER_TYPE_IPv4];
@@ -754,6 +786,11 @@ static void *neigh_msg_loop(void *data)
 	if (ret < 0)
 		goto out3;
 
+	ret = init_vipsec_tables(app_conf.ib_oh, cc_vipsec_rx);
+	if (ret < 0)
+		goto out4;
+
+
 	rtm_sd = create_nl_socket(NETLINK_ROUTE,
 				  RTMGRP_NEIGH |
 				  RTMGRP_IPV4_IFADDR |
@@ -845,6 +882,9 @@ static void *neigh_msg_loop(void *data)
 			}
 		}
 	}
+
+	cleanup_vipsec_tables(app_conf.ib_oh);
+out4:
 	cleanup_local_tables_ib(app_conf.ib_eth);
 out3:
 	cleanup_local_tables_ob(app_conf.ob_eth);

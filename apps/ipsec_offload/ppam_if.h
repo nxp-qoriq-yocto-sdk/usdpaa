@@ -50,6 +50,7 @@ struct ppam_interface {
 	int *hhm_td;
 	int *local_td_ib;
 	int *local_td_ob;
+	int *vipsec_rx;
 
 	/* Macless interface that receives traffic from this interface */
 	int macless_ifindex;

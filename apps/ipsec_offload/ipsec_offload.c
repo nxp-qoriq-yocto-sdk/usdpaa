@@ -87,7 +87,6 @@ struct ppam_arguments {
 	const char *ob_oh_post;
 	const char *max_sa;
 	const char *mtu_pre_enc;
-	int inb_pol_check;
 	const char *outer_tos;
 	int ib_ecn;
 	int ob_ecn;
@@ -142,15 +141,17 @@ static int setup_macless_if_tx(struct ppac_interface *i, uint32_t last_fqid,
 	struct ether_addr mac;
 
 	memset(&mac, 0, sizeof(mac));
+		get_mac_addr(macless_name, &mac);
 
 	list_for_each_entry(__if, fman_if_list, node) {
 		if (__if->mac_type != fman_mac_less)
 			continue;
-		get_mac_addr(macless_name, &mac);
+
 		if (!memcmp(&mac.ether_addr_octet,
 			    &__if->macless_info.peer_mac.ether_addr_octet,
 			    ETH_ALEN)) {
-			strncpy(__if->macless_info.macless_name, macless_name, IFNAMSIZ);
+			strncpy(__if->macless_info.macless_name, macless_name,
+					IFNAMSIZ);
 			__if->macless_info.macless_name[IFNAMSIZ-1] = 0;
 			tx_start = __if->macless_info.tx_start;
 			tx_count = __if->macless_info.tx_count;
@@ -191,7 +192,8 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 	int idx;
 
 	if (strcmp(macless_name, app_conf.vif) &&
-	    strcmp(macless_name, app_conf.vof))
+	    strcmp(macless_name, app_conf.vof) &&
+	    strcmp(macless_name, app_conf.vipsec))
 		return -ENODEV;
 
 	idx = if_nametoindex(macless_name);
@@ -286,13 +288,17 @@ static int ppam_interface_init(struct ppam_interface *p,
 			       uint32_t *flags __maybe_unused)
 {
 	int ret;
+	int idx;
 	struct ppac_interface *i =
 		container_of(p, struct ppac_interface, ppam_data);
 	struct qman_fq *fq = &i->tx_fqs[0];
+	struct ppac_interface *ppac_if = NULL;
+
 	if (app_conf.ob_oh_post == i->port_cfg->fman_if) {
 		fq->fqid = OB_OH_POST_TX_FQID;
 		*flags |= PPAM_TX_FQ_NO_BUF_DEALLOC;
 	}
+
 	if (app_conf.ob_oh_pre == i->port_cfg->fman_if) {
 		*flags |= PPAM_TX_FQ_NO_BUF_DEALLOC;
 		ret = setup_macless_if_tx(i, OB_OH_PRE_TX_FQID, &num_tx_fqs,
@@ -304,6 +310,7 @@ static int ppam_interface_init(struct ppam_interface *p,
 		if (ret < 0)
 			goto err;
 	}
+
 	if (app_conf.ib_eth == i->port_cfg->fman_if) {
 		ret = setup_macless_if_tx(i, IB_TX_FQID, &num_tx_fqs,
 					  fq, app_conf.vif);
@@ -331,7 +338,15 @@ static int ppam_interface_init(struct ppam_interface *p,
 		if (ret < 0)
 			goto err;
 	}
-	if (app_conf.ib_oh ==  i->port_cfg->fman_if) {
+	if (app_conf.ib_oh == i->port_cfg->fman_if)
+	{
+		/* The IB OH sends traffic to the vipsec interface*/
+
+		idx = if_nametoindex(app_conf.vipsec);
+		if (!idx)
+			return -ENODEV;
+		i->ppam_data.macless_ifindex = idx;
+
 		fq->fqid = IB_OH_TX_FQID;
 	}
 
@@ -340,9 +355,11 @@ static int ppam_interface_init(struct ppam_interface *p,
 	if (!p->tx_fqids)
 		return -ENOMEM;
 	return 0;
+
 err:
 	return ret;
 }
+
 static void ppam_interface_finish(struct ppam_interface *p)
 {
 	free(p->tx_fqids);
@@ -652,15 +669,12 @@ int ppam_init(void)
 	}
 
 	if (ppam_args.vipsec)
-		strncpy(app_conf.vipsec, ppam_args.vipsec, sizeof(app_conf.vipsec));
+		strncpy(app_conf.vipsec, ppam_args.vipsec,
+				sizeof(app_conf.vipsec));
 
 	/* mtu pre enc */
 	if (ppam_args.mtu_pre_enc)
 		app_conf.mtu_pre_enc = atoi(ppam_args.mtu_pre_enc);
-
-	/* if true - perform inbound policy verification */
-	if (ppam_args.inb_pol_check)
-		app_conf.inb_pol_check = true;
 
 	if (ppam_args.outer_tos)
 		app_conf.outer_tos = atoi(ppam_args.outer_tos);
@@ -705,6 +719,8 @@ int ppam_post_tx_init(void)
 		fman_if_loopback_enable(app_conf.ib_eth);
 		TRACE("Loopback set on inbound port\n");
 	}
+	fman_if_promiscuous_enable(app_conf.ob_eth);
+	printf("Promisc enabled on outbound port\n");
 
 	ret = fmc_apply_model();
 	if (ret < 0) {
@@ -954,7 +970,6 @@ static const struct argp_option argp_opts[] = {
 	{"ob-oh-post", 's', "INT", 0, "Outbound post IPsec offline port index"},
 	{"max-sa", 'm', "INT", 0, "Maximum number of SA pairs"},
 	{"mtu-pre-enc", 'r', "INT", 0, "MTU pre encryption"},
-	{"inb-pol-check" , 'c' , 0, 0, "Inbound policy verification"},
 	{"outer-tos", 'x', "INT", 0, "Outer header TOS field"},
 	{"ib-ecn", 'y', 0, 0, "Inbound ECN tunneling"},
 	{"ob-ecn", 'z', 0, 0, "Outbound ECN tunneling"},
@@ -995,9 +1010,6 @@ static error_t parse_opts(int key, char *arg, struct argp_state *state)
 	case 'r':
 		ppam_args.mtu_pre_enc = arg;
 		break;
-	case 'c':
-		ppam_args.inb_pol_check = 1;
-		break;
 	case 'x':
 		ppam_args.outer_tos = arg;
 		break;
@@ -1016,7 +1028,7 @@ static error_t parse_opts(int key, char *arg, struct argp_state *state)
 	case 'w':
 		ppam_args.vof = arg;
 		break;
-	 case 'u':
+	case 'u':
 		ppam_args.vipsec = arg;
 		break;
 	default:

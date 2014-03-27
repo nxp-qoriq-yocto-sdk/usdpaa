@@ -241,234 +241,7 @@
 	</policy>
 
 	<!-- ib-oh-post -->
-	<classification name="flow_id_cc">
-		<!--num of entries = number of sa pairs -->
-		<key>
-			<nonheader source="flowid" action="indexed_lookup" offset="0" size="2" ic_index_mask="0x03F0"/>
-		</key>
-		<entry> <!-- entry 0 -->
-			<action type="drop"/>
-			<!-- <action type="classification" name="post_flow_id_cc"/> -->
-		</entry>
-		<entry> <!-- entry 1 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 2 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 3 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 4 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 5 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 6 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 7 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 8 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 9 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 10 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 11 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 12 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 13 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 14 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 15 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 0 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 1 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 2 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 3 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 4 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 5 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 6 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 7 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 8 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 9 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 10 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 11 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 12 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 13 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 14 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 15 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 0 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 1 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 2 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 3 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 4 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 5 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 6 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 7 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 8 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 9 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 10 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 11 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 12 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 13 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 14 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 15 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 0 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 1 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 2 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 3 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 4 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 5 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 6 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 7 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 8 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 9 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 10 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 11 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 12 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 13 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 14 -->
-			<action type="drop"/>
-		</entry>
-		<entry> <!-- entry 15 -->
-			<action type="drop"/>
-		</entry>
-		<may-use>
-			<action type="classification" name="post_flow_id_cc"/>
-		</may-use>
-	</classification>
-	<classification name="ib_post_ip_cc" max="64" masks="yes">
-		<key>
-			<nonheader source="key" action="exact_match" offset="0" size="4"/>
-		</key>
-		<queue base="0xcdab"/>
-	</classification>
-	<classification name="ib_post_ip6_cc" max="64" masks="no">
-		<key>
-			<nonheader source="key" action="exact_match" offset="0" size="16"/>
-		</key>
-		<queue base="0xcdab"/>
-	</classification>
-	<classification name="ib_post_np_cc">
-		<key>
-			<fieldref name="ethernet.type"/>
-		</key>
-		<entry>
-			<data>0x0800</data>
-			<action type="classification" name="ib_post_ip_cc"/>
-		</entry>
-		<entry>
-			<data>0x86DD</data>
-			<action type="classification" name="ib_post_ip6_cc"/>
-		</entry>
-	</classification>
-	<classification name="post_flow_id_cc">
+	<classification name="ib_post_udp_cc">
 		<key>
 			<fieldref name="udp.dport"/>
 		</key>
@@ -476,27 +249,70 @@
 			<data>0x868</data>
 			<queue base="0x2e00"/>
 		</entry>
-		<action condition="on-miss" type="classification" name="ib_post_np_cc"/>
+		<action condition="on-miss" type="classification" name="ib_post_eth_cc"/>
 	</classification>
-	<distribution name="ib_post_ip6_dist">
-		<protocols>
-			<protcolref name="ipv6"/>
-		</protocols>
-		<queue count="1" base="0x2e80"/>
+	
+	<classification name="ib_post_eth_cc">
 		<key>
-			<fieldref name="ipv6.dst"/>
+			<fieldref name="ethernet.type"/>
 		</key>
-		<action type="classification" name="flow_id_cc"/>
-	</distribution>
-	<distribution name="ib_post_ip_dist">
-		<protocols>
-			<protcolref name="ipv4"/>
-		</protocols>
-		<queue count="1" base="0x2e80"/>
+		<entry>
+			<data>0x0800</data>
+			<action type="classification" name="ib_post_vipsec_cc"/>
+		</entry>
+		<entry>
+			<data>0x86DD</data>
+			<action type="classification" name="ib_post_vipsec6_cc"/>
+		</entry>
+	</classification>
+	
+	<classification name="ib_post_vipsec_cc" max="64" masks="yes">
 		<key>
 			<fieldref name="ipv4.dst"/>
 		</key>
-		<action type="classification" name="flow_id_cc"/>
+		<action condition="on-miss" type="classification" name="ib_post_ip_cc"/>
+	</classification>
+	
+	<classification name="ib_post_ip_cc" max="64" masks="yes">
+		<key>
+			<fieldref name="ipv4.dst"/>
+		</key>
+		<queue base="0xcdab"/> <!-- 0x0FA0 -->
+	</classification>
+	
+	<classification name="ib_post_vipsec6_cc" max="64" masks="no">
+		<key>
+			<fieldref name="ipv6.dst"/>
+		</key>
+		<action condition="on-miss" type="classification" name="ib_post_ip6_cc"/>
+	</classification>
+	
+	<classification name="ib_post_ip6_cc" max="64" masks="no">
+		<key>
+			<fieldref name="ipv6.dst"/>
+		</key>
+		<queue base="0xcdab"/> <!-- 0x0FA0 -->
+	</classification>
+
+	<distribution name="ib_post_udp_dist">
+		<protocols>
+			<protcolref name="udp"/>
+		</protocols>
+		<queue count="1" base="0x2e80"/>
+		<key>
+			<fieldref name="udp.dport"/>
+		</key>
+		<action type="classification" name="ib_post_udp_cc"/>
+	</distribution>
+	<distribution name="ib_post_eth_dist">
+		<protocols>
+			<protcolref name="ethernet"/>
+		</protocols>
+		<queue count="1" base="0x2e80"/>
+		<key>
+			<fieldref name="ethernet.type"/>
+		</key>
+		<action type="classification" name="ib_post_eth_cc"/>
 	</distribution>
 	<distribution name="ib_oh_default_dist">
 		<queue count="8" base="0x2e80"/>
@@ -517,8 +333,8 @@
 		<dist_order>
 			<distributionref name="reass_ipv4"/>
 			<distributionref name="reass_ipv6"/>
-			<distributionref name="ib_post_ip_dist"/>
-			<distributionref name="ib_post_ip6_dist"/>
+			<distributionref name="ib_post_udp_dist"/>
+			<distributionref name="ib_post_eth_dist"/>
 			<distributionref name="ib_oh_default_dist"/>
 		</dist_order>
 		<reassembly name="ib_post_reass"/>
@@ -619,7 +435,7 @@
 		</key>
 		<action condition="on-miss" type="drop" statistics="enable"/>
 	</classification>
-	<classification name="ib_ip4_local_cc" max="64" masks="yes">
+	<classification name="ib_ip4_local_cc" max="64" masks="no">
 		<key>
 			<nonheader source="key" action="exact_match" offset="0" size="4"/>
 		</key>

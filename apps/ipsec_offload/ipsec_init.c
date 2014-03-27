@@ -91,8 +91,8 @@ int ipsec_offload_init(int *dpa_ipsec_id)
 
 		err = dpa_classif_table_create(&cls_tbl_params, &cls_td);
 		if (err < 0) {
-			fprintf(stderr, "Error creating inbound SA "
-				"classif table (%d), err %d\n", i, err);
+			fprintf(stderr, "Error creating inbound SA classif table (%d), err %d\n",
+					i, err);
 			goto out_libs;
 		}
 
@@ -124,25 +124,11 @@ int ipsec_offload_init(int *dpa_ipsec_id)
 	else
 		ipsec_params.post_sec_in_params.qm_tx_ch =
 						  app_conf.ib_oh->tx_channel_id;
-	memset(&cls_tbl_params, 0, sizeof(cls_tbl_params));
-	cls_tbl_params.cc_node = cc_flow_id;
-	cls_tbl_params.type = DPA_CLS_TBL_INDEXED;
-	cls_tbl_params.entry_mgmt = DPA_CLS_TBL_MANAGE_BY_REF;
-	cls_tbl_params.indexed_params.entries_cnt = ipsec_params.max_sa_pairs;
-	err = dpa_classif_table_create(&cls_tbl_params, &cls_td);
-	if (err < 0) {
-		fprintf(stderr,
-			"INB post SEC dpa_classif_table_create failed,"
-			"err %d\n", err);
-		goto out_inb_post_sec;
-	}
 
 	/* INB policy verification */
-	ipsec_params.post_sec_in_params.dpa_cls_td = cls_td;
-	ipsec_params.post_sec_in_params.do_pol_check = app_conf.inb_pol_check;
-	if (app_conf.inb_pol_check)
-		ipsec_params.post_sec_in_params.key_fields =
-						DPA_IPSEC_KEY_FIELD_DPORT;
+	ipsec_params.post_sec_in_params.dpa_cls_td = DPA_OFFLD_DESC_NONE;
+	ipsec_params.post_sec_in_params.do_pol_check = false;
+
 	/* OUTB/UL post SEC params */
 	if (rta_get_sec_era() < RTA_SEC_ERA_5)
 		ipsec_params.post_sec_out_params.data_off =
@@ -167,8 +153,8 @@ int ipsec_offload_init(int *dpa_ipsec_id)
 			err = dpa_classif_table_create(&cls_tbl_params,
 							&cls_td);
 			if (err < 0) {
-				fprintf(stderr, "Error creating outbound "
-					"classif table (%d),err %d\n", i, err);
+				fprintf(stderr, "Error creating outbound classif table (%d),err %d\n",
+						i, err);
 				goto out_outb_pre_sec;
 			}
 
@@ -204,11 +190,6 @@ out_outb_pre_sec:
 							DPA_OFFLD_DESC_NONE)
 			dpa_classif_table_free(ipsec_params.
 					pre_sec_out_params.table[i].dpa_cls_td);
-out_inb_post_sec:
-	if (ipsec_params.post_sec_in_params.dpa_cls_td !=
-							DPA_OFFLD_DESC_NONE)
-		dpa_classif_table_free(ipsec_params.
-						post_sec_in_params.dpa_cls_td);
 
 	for (i = 0; i < DPA_IPSEC_MAX_SA_TYPE; i++)
 		if (ipsec_params.pre_sec_in_params.dpa_cls_td[i] !=
