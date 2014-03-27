@@ -64,7 +64,14 @@
 #define add_cli_cmd(cmd) install_cli_cmd(#cmd, cmd)
 static const char cmd_prompt[] = "dsp_dpa> ";
 static const char const *dsp_images[] = {
-	"c0.bin", "c1.bin", "c2.bin", "c3.bin", "c4.bin", "c5.bin" };
+					"sh0.bin",	/* Shared image */
+					"c0.bin",	/* DSP0 image */
+					"c1.bin",	/* DSP1 image */
+					"c2.bin",	/* DSP2 image */
+					"c3.bin",	/* DSP3 image */
+					"c4.bin",	/* DSP4 image */
+					"c5.bin"	/* DSP5 image */
+					};
 
 struct fq_pair_t {
 	struct qman_fq pa_fq;
@@ -438,6 +445,7 @@ static int cme_query(uint8_t dsp_id,
 static int verify_dsp_msg(const struct qm_fd *fd, uint32_t dsp_id)
 {
 	int i;
+	uint16_t bpid;
 	uint32_t words;
 	const mem_range_t *bpool_mem = &dsp_assoc[dsp_id].bpool_mem;
 	uint64_t phys_addr = qm_fd_addr(fd);
@@ -452,9 +460,11 @@ static int verify_dsp_msg(const struct qm_fd *fd, uint32_t dsp_id)
 	hwsync();
 	msg = fsl_usmmgr_p2v(phys_addr + fd->offset, usmmgr);
 
-	if (fd->bpid != msg->bpid) {
+	bpid = bman_get_params(dsp_assoc[dsp_id].bpool)->bpid;
+	if ((fd->bpid != bpid) || (msg->bpid != bpid)) {
 		pr_err("BPID mismatch in msg from dsp[%u]\n", dsp_id);
-		pr_err("Expected: %d, Received: %u\n", fd->bpid, msg->bpid);
+		pr_err("Real: %u, FD: %u, Msg: %u\n",
+		       bpid, fd->bpid, msg->bpid);
 		return -1;
 	}
 
@@ -1048,8 +1058,10 @@ static void cli_loop(void)
 			exit(1);
 		}
 
-		if (FD_ISSET(l1d_eventfd, &fds))
+		if (FD_ISSET(l1d_eventfd, &fds)) {
+			rl_callback_handler_remove();
 			return;
+		}
 
 		if (FD_ISSET(fileno(stdin), &fds))
 			rl_callback_read_char();
@@ -1315,23 +1327,30 @@ static int download_dsp_images(uint32_t dspmask, os_het_l1d_mode_t l1d_mode)
 	uint32_t dsp, tmpmask;
 	int ret;
 
-	/* mode-1 L1Defense is chosen */
 	info.hw_sem_num = 1;
 	info.reset_mode = l1d_mode;
 	info.maple_reset_mode = 0;
 	info.debug_print = 0;
 
-	for (dsp = 0; dsp < num_active_dsp; dsp++)
+	/* Reset the whole info structure */
+	for (dsp = 0; dsp < num_active_dsp; dsp++) {
 		info.reDspCoreInfo[dsp].reset_core_flag = 0;
-
-	for_each_dsp(dsp, dspmask, tmpmask) {
 		info.shDspCoreInfo[dsp].reset_core_flag = 0;
-
-		info.reDspCoreInfo[dsp].reset_core_flag = 1;
 		info.reDspCoreInfo[dsp].core_id = dsp;
-		info.reDspCoreInfo[dsp].dsp_filename = (char *)dsp_images[dsp];
-		pr_info("Downloading file: %s on DSP[%u]\n",
-			info.reDspCoreInfo[dsp].dsp_filename, dsp);
+		info.reDspCoreInfo[dsp].dsp_filename =
+						(char *)dsp_images[dsp + 1];
+		info.shDspCoreInfo[dsp].dsp_filename = (char *)dsp_images[0];
+	}
+
+	if ((MODE_3_ACTIVE == l1d_mode) || (MODE_2_ACTIVE == l1d_mode)) {
+		for (dsp = 0; dsp < num_active_dsp; dsp++)
+			info.reDspCoreInfo[dsp].reset_core_flag = 1;
+
+		if (MODE_3_ACTIVE == l1d_mode)
+			info.shDspCoreInfo[0].reset_core_flag = 1;
+	} else {
+		for_each_dsp(dsp, dspmask, tmpmask)
+			info.reDspCoreInfo[dsp].reset_core_flag = 1;
 	}
 
 	ret = fsl_start_L1_defense(ipc, &info);
@@ -1779,23 +1798,34 @@ reconfigure_dsps:
 	}
 
 	dspmask = word;
-
 	pr_info("DSP mask = %#x down\n", dspmask);
-	ret = cleanup_dspmask(dspmask);
-	if (ret) {
-		pr_err("cleanup_dsps failed\n");
-		exit(-1);
+
+retry_l1d_mode:
+	printf("Enter L1Defense mode (mode1=%d, mode2=%d, mode3=%d): ",
+	       MODE_1_ACTIVE, MODE_2_ACTIVE, MODE_3_ACTIVE);
+	scanf("%1d", (int *)&l1d_mode);
+
+	if ((l1d_mode != MODE_1_ACTIVE) &&
+	    (l1d_mode != MODE_2_ACTIVE) &&
+	    (l1d_mode != MODE_3_ACTIVE)) {
+		printf("Invalid mode = %d.\n", l1d_mode);
+		goto retry_l1d_mode;
 	}
 
-	/* If all DSPs have to be reset, use mode3 otherwise mode1 reset */
-	if (0x3f == dspmask)
-		l1d_mode = MODE_3_ACTIVE;
-	else
-		l1d_mode = MODE_1_ACTIVE;
+	pr_info("Invoking L1Defense mode: %d\n", l1d_mode);
+
+	if (MODE_3_ACTIVE == l1d_mode || MODE_2_ACTIVE == l1d_mode)
+		dspmask = active_dsp_mask;
 
 	ret = download_dsp_images(dspmask, l1d_mode);
 	if (ret) {
 		pr_err("download_dsp_images failed\n");
+		exit(-1);
+	}
+
+	ret = cleanup_dspmask(dspmask);
+	if (ret) {
+		pr_err("cleanup_dsps failed\n");
 		exit(-1);
 	}
 
