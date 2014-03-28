@@ -65,6 +65,10 @@
 #define OB_TX_FQID			0x2e80
 #define IB_OH_TX_FQID			0x2e81
 
+/* virtual storage profile used on the IB OH (only in case of ONIC) */
+#define VSP_ID					1
+#define VSP_BP_SIZE				1728
+
 /* application configuration data */
 struct app_conf {
 	/* FMAN index */

@@ -197,7 +197,7 @@ static void cleanup_local_tables_ib(struct fman_if *__if)
 
 
 static int table_insert_entry(int td, u8 *key, u8 *mask,
-			      int key_size, int hmd, uint32_t fqid)
+			      int key_size, int hmd, uint32_t fqid, int vsp_id)
 {
 	int ret;
 	struct dpa_offload_lookup_key dpa_key;
@@ -212,6 +212,8 @@ static int table_insert_entry(int td, u8 *key, u8 *mask,
 	def_action.enq_params.new_fqid = fqid;
 	def_action.enq_params.hmd = hmd;
 	def_action.enq_params.override_fqid = true;
+	if (DPAA_VERSION >= 11)
+		def_action.enq_params.new_rel_vsp_id = vsp_id;
 
 	ret = dpa_classif_table_insert_entry(td,
 		&dpa_key, &def_action, 0, NULL);
@@ -360,11 +362,11 @@ int create_neigh_entry(struct fman_if *__if,
 		hexdump(mask, key_size);
 
 		ret = table_insert_entry(td, key, mask, key_size, hmd,
-				ppac_oif->ppam_data.tx_fqids[0]);
+				ppac_oif->ppam_data.tx_fqids[0], VSP_ID);
 
 	} else {
 		ret = table_insert_entry(td, key, NULL, key_size, hmd,
-			ppac_oif->ppam_data.tx_fqids[0]);
+			ppac_oif->ppam_data.tx_fqids[0], VSP_ID);
 	}
 
 	return ret;
@@ -435,6 +437,7 @@ int create_local_entry(int ifindex, int af, u8 *key)
 	int ret = 0;
 	int rx_start = 0;
 	int td = 0;
+	int vsp_id = VSP_ID;
 	int key_size = 0;
 	int *local_td = NULL;
 	int ppac_if_found = 0;
@@ -454,16 +457,6 @@ int create_local_entry(int ifindex, int af, u8 *key)
 	}
 	if (!ppac_if_found)
 		return -ENODEV;
-
-	/* get macless rx fqs */
-	list_for_each_entry(__if, fman_if_list, node) {
-		if (__if->mac_type == fman_mac_less &&
-		    __if->macless_info.macless_name &&
-		    !strcmp(macless_name, __if->macless_info.macless_name)) {
-			rx_start = __if->macless_info.rx_start;
-			break;
-		}
-	}
 
 	/* get direction */
 	if (!strcmp(macless_name, app_conf.vif))
@@ -486,8 +479,32 @@ int create_local_entry(int ifindex, int af, u8 *key)
 	} else {
 		return -ENOTSUP;
 	}
-	ret = table_insert_entry(td, key, NULL, key_size, -1, rx_start);
 
+	/* get the rx fqs */
+
+	/* for B4 & T4 the VIPSEC interface is not MACLESS but ONIC
+	 * the RX queue of the ONIC is the default queue of the Rx OH (IB OH) */
+	if (is_onic(macless_name))
+	{
+		__if = get_fif(app_conf.fm, app_conf.ib_oh->mac_idx,
+				       app_conf.ib_oh->mac_type);
+		rx_start = __if->fqid_rx_def;
+		vsp_id = 0;
+	}
+	else
+	{
+		list_for_each_entry(__if, fman_if_list, node) {
+			if (__if->mac_type == fman_mac_less &&
+				__if->macless_info.macless_name &&
+				!strcmp(macless_name, __if->macless_info.macless_name)) {
+
+				rx_start = __if->macless_info.rx_start;
+				break;
+			}
+		}
+	}
+
+	ret = table_insert_entry(td, key, NULL, key_size, -1, rx_start, vsp_id);
 	return ret;
 }
 

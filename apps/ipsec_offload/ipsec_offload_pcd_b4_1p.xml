@@ -41,6 +41,9 @@
     xsi:noNamespaceSchemaLocation="xmlProject/pcd.xsd" name="ipsec_offload"
     description="FMAN configuration for ipsec_offload application">
 
+	<vsp name="Vipsec_Traffic" base="0"/>
+	<vsp name="Non_Vipsec_Traffic" base="1"/>
+
 	<manipulations>
 		 <reassembly name="ib_post_reass">
 		      <sgBpid>16</sgBpid>
@@ -247,6 +250,7 @@
 		</key>
 		<entry>
 			<data>0x868</data>
+			<vsp name="Non_Vipsec_Traffic" base="1"/>
 			<queue base="0x2e00"/>
 		</entry>
 		<action condition="on-miss" type="classification" name="ib_post_eth_cc"/>
@@ -315,6 +319,7 @@
 		<action type="classification" name="ib_post_eth_cc"/>
 	</distribution>
 	<distribution name="ib_oh_default_dist">
+		<vsp name="Non_Vipsec_Traffic" base="1"/>
 		<queue count="8" base="0x2e80"/>
 	</distribution>
 	<distribution name="reass_ipv4">

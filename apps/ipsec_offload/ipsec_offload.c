@@ -32,6 +32,7 @@
 
 #include <ppac.h>
 #include "ppam_if.h"
+#include "fm_vsp_ext.h"
 #include <ppac_interface.h>
 #include <usdpaa/fman.h>
 #include <fsl_sec/sec.h>
@@ -115,6 +116,8 @@ struct app_conf app_conf;
 static int dpa_ipsec_id;
 static struct fmc_model_t *cmodel;
 static pthread_t xfrm_tid, neigh_tid;
+static t_Handle	vsp;
+static t_Handle	fm_obj;
 
 static void cleanup_macless_config(char *macless_name)
 {
@@ -134,33 +137,39 @@ static int setup_macless_if_tx(struct ppac_interface *i, uint32_t last_fqid,
 			       unsigned int *num_tx_fqs, struct qman_fq *fq,
 			       char *macless_name)
 {
-	struct fman_if *__if;
 	int loop;
+	struct fman_if *__if;
 	uint32_t tx_start = 0;
 	uint32_t tx_count = 0;
 	struct ether_addr mac;
 
-	memset(&mac, 0, sizeof(mac));
-		get_mac_addr(macless_name, &mac);
+	/* USDPAA should not create the TX queues for the VIPSEC interface
+	 * on T4 & B4 <== ONIC */
 
-	list_for_each_entry(__if, fman_if_list, node) {
-		if (__if->mac_type != fman_mac_less)
-			continue;
+	if (!is_onic(macless_name))
+	{
+		memset(&mac, 0, sizeof(mac));
+			get_mac_addr(macless_name, &mac);
 
-		if (!memcmp(&mac.ether_addr_octet,
-			    &__if->macless_info.peer_mac.ether_addr_octet,
-			    ETH_ALEN)) {
-			strncpy(__if->macless_info.macless_name, macless_name,
-					IFNAMSIZ);
-			__if->macless_info.macless_name[IFNAMSIZ-1] = 0;
-			tx_start = __if->macless_info.tx_start;
-			tx_count = __if->macless_info.tx_count;
-			break;
+		list_for_each_entry(__if, fman_if_list, node) {
+			if (__if->mac_type != fman_mac_less)
+				continue;
+
+			if (!memcmp(&mac.ether_addr_octet,
+					&__if->macless_info.peer_mac.ether_addr_octet,
+					ETH_ALEN)) {
+				strncpy(__if->macless_info.macless_name, macless_name,
+						IFNAMSIZ);
+				__if->macless_info.macless_name[IFNAMSIZ-1] = 0;
+				tx_start = __if->macless_info.tx_start;
+				tx_count = __if->macless_info.tx_count;
+				break;
+			}
 		}
-	}
 
-	if (!tx_start || !tx_count)
-		return -ENODEV;
+		if (!tx_start || !tx_count)
+			return -ENODEV;
+	}
 
 	free(i->tx_fqs);
 	i->num_tx_fqs = tx_count + 1;
@@ -292,7 +301,6 @@ static int ppam_interface_init(struct ppam_interface *p,
 	struct ppac_interface *i =
 		container_of(p, struct ppac_interface, ppam_data);
 	struct qman_fq *fq = &i->tx_fqs[0];
-	struct ppac_interface *ppac_if = NULL;
 
 	if (app_conf.ob_oh_post == i->port_cfg->fman_if) {
 		fq->fqid = OB_OH_POST_TX_FQID;
@@ -305,10 +313,16 @@ static int ppam_interface_init(struct ppam_interface *p,
 					  fq, app_conf.vipsec);
 		if (ret < 0)
 			goto err;
-		ret = set_mac_addr(app_conf.vipsec,
-				   &app_conf.ib_eth->mac_addr);
-		if (ret < 0)
-			goto err;
+
+		/* temporarily, until the ONIC driver has support for ioctl set mac addr */
+
+		if (DPAA_VERSION < 11)
+		{
+			ret = set_mac_addr(app_conf.vipsec,
+					   &app_conf.ib_eth->mac_addr);
+			if (ret < 0)
+				goto err;
+		}
 	}
 
 	if (app_conf.ib_eth == i->port_cfg->fman_if) {
@@ -572,6 +586,81 @@ static struct fman_if *parse_offline_portarg(const char *p, int fm_idx)
 	return get_fif(fm_idx, port_idx, fman_offline);
 }
 
+static int vsp_init(int fman_id, int fm_port_number, e_FmPortType fm_port_type)
+{
+	int	ret = E_OK;
+	t_FmVspParams vsp_params;
+	t_FmBufferPrefixContent buf_prefix_cont;
+
+	fm_obj = FM_Open(fman_id);
+	if (!fm_obj) {
+		fprintf(stderr, "FM_Open NULL handle.\n");
+		return -EINVAL;
+	}
+
+	/* create a descriptor for the FM VSP module */
+
+	memset(&vsp_params, 0, sizeof(vsp_params));
+
+	vsp_params.h_Fm = fm_obj;
+	vsp_params.relativeProfileId = VSP_ID;
+	vsp_params.portParams.portId = fm_port_number;
+	vsp_params.portParams.portType = fm_port_type;
+	vsp_params.extBufPools.numOfPoolsUsed = 1;
+	vsp_params.extBufPools.extBufPool[0].id = IF_BPID;
+	vsp_params.extBufPools.extBufPool[0].size = VSP_BP_SIZE;
+
+	vsp = FM_VSP_Config(&vsp_params);
+	if (!vsp) {
+		fprintf(stderr, "FM_VSP_Config NULL\n");
+		return -EINVAL;
+	}
+
+	/* configure the application buffer (structure, size and content) */
+
+	memset(&buf_prefix_cont, 0, sizeof(buf_prefix_cont));
+
+	buf_prefix_cont.privDataSize = 16;
+	buf_prefix_cont.dataAlign = 64;
+	buf_prefix_cont.passPrsResult = TRUE;
+	buf_prefix_cont.passTimeStamp = TRUE;
+	buf_prefix_cont.passHashResult = FALSE;
+	buf_prefix_cont.passAllOtherPCDInfo = FALSE;
+
+	ret = FM_VSP_ConfigBufferPrefixContent(vsp,	&buf_prefix_cont);
+	if (ret != E_OK) {
+		fprintf(stderr, "FM_VSP_ConfigBufferPrefixContent error "
+				"for vsp; err: %d\n", ret);
+		return ret;
+	}
+
+	/* initialize the FM VSP module */
+
+	ret = FM_VSP_Init(vsp);
+	if (ret != E_OK) {
+		error(0, ret, "FM_VSP_Init error: %d\n", ret);
+	}
+
+	return ret;
+}
+
+static int vsp_clean(void)
+{
+	int ret = E_OK;
+
+	if (vsp) {
+	    ret = FM_VSP_Free(vsp);
+		if (ret != E_OK) {
+			fprintf(stderr, "Error FM_VSP_Free: %d", ret);
+			return ret;
+		}
+	}
+
+	FM_Close(fm_obj);
+
+	return E_OK;
+}
+
 int ppam_init(void)
 {
 	int ret;
@@ -698,6 +787,17 @@ int ppam_init(void)
 	}
 	TRACE("Buffer pool initialized\n");
 
+	if (DPAA_VERSION >= 11)
+	{
+		ret = vsp_init(app_conf.fm, app_conf.ib_oh->mac_idx,
+				       e_FM_PORT_TYPE_OH_OFFLINE_PARSING);
+		if (ret < 0) {
+			fprintf(stderr, "VSP init failed\n");
+			goto err;
+		}
+		TRACE("VSP initialized\n");
+	}
+
 	cmodel = fmc_compile_model();
 	if (!cmodel) {
 		fprintf(stderr, "PCD model compile failure\n");
@@ -708,6 +808,7 @@ int ppam_init(void)
 
 bp_cleanup:
 	cleanup_buffer_pools();
+	vsp_clean();
 err:
 	return -1;
 }
@@ -788,6 +889,7 @@ void ppam_finish(void)
 	stats_cleanup();
 	ipsec_offload_cleanup(dpa_ipsec_id);
 	fmc_cleanup();
+	vsp_clean();
 	cleanup_macless_config(app_conf.vipsec);
 	cleanup_macless_config(app_conf.vif);
 	cleanup_macless_config(app_conf.vof);
