@@ -787,28 +787,29 @@ int ppam_init(void)
 	}
 	TRACE("Buffer pool initialized\n");
 
-	if (DPAA_VERSION >= 11)
-	{
-		ret = vsp_init(app_conf.fm, app_conf.ib_oh->mac_idx,
-				       e_FM_PORT_TYPE_OH_OFFLINE_PARSING);
-		if (ret < 0) {
-			fprintf(stderr, "VSP init failed\n");
-			goto err;
-		}
-		TRACE("VSP initialized\n");
-	}
-
 	cmodel = fmc_compile_model();
 	if (!cmodel) {
 		fprintf(stderr, "PCD model compile failure\n");
 		goto bp_cleanup;
 	}
 	TRACE("PCD applied\n");
+
+	if (DPAA_VERSION >= 11)	{
+		ret = vsp_init(app_conf.fm, app_conf.ib_oh->mac_idx,
+				       e_FM_PORT_TYPE_OH_OFFLINE_PARSING);
+		if (ret < 0) {
+			fprintf(stderr, "VSP init failed\n");
+			goto fmc_cleanup;
+		}
+		TRACE("VSP initialized\n");
+	}
+
 	return 0;
 
+fmc_cleanup:
+	fmc_cleanup();
 bp_cleanup:
 	cleanup_buffer_pools();
-	vsp_clean();
 err:
 	return -1;
 }
@@ -889,11 +890,12 @@ void ppam_finish(void)
 	stats_cleanup();
 	ipsec_offload_cleanup(dpa_ipsec_id);
 	fmc_cleanup();
-	vsp_clean();
 	cleanup_macless_config(app_conf.vipsec);
 	cleanup_macless_config(app_conf.vif);
 	cleanup_macless_config(app_conf.vof);
 	cleanup_buffer_pools();
+	if (DPAA_VERSION >= 11)
+			vsp_clean();
 }
 
 /* Swap 6-byte MAC headers "efficiently" (hopefully) */
