@@ -202,12 +202,6 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 	else if (of_device_is_compatible(dpa_node, "fsl,dpa-ethernet-shared"))
 		is_shared = 1;
 
-	if (is_offline) {
-		/* If this offline port is associated with any device(oNIC) then return */
-		if(of_get_property(dpa_node, "phandle" ,&lenp))
-			return 0;
-	}
-
 	rprop = is_offline ? "fsl,qman-frame-queues-oh" :
 					 "fsl,qman-frame-queues-rx";
 	mprop = is_offline ? "fsl,fman-oh-port" :
