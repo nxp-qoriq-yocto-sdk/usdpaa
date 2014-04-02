@@ -212,8 +212,7 @@ static int table_insert_entry(int td, u8 *key, u8 *mask,
 	def_action.enq_params.new_fqid = fqid;
 	def_action.enq_params.hmd = hmd;
 	def_action.enq_params.override_fqid = true;
-	if (DPAA_VERSION >= 11)
-		def_action.enq_params.new_rel_vsp_id = vsp_id;
+	def_action.enq_params.new_rel_vsp_id = vsp_id;
 
 	ret = dpa_classif_table_insert_entry(td,
 		&dpa_key, &def_action, 0, NULL);
@@ -480,28 +479,26 @@ int create_local_entry(int ifindex, int af, u8 *key)
 		return -ENOTSUP;
 	}
 
-	/* get the rx fqs */
+	/* get the fman_if for the macless */
 
-	/* for B4 & T4 the VIPSEC interface is not MACLESS but ONIC
-	 * the RX queue of the ONIC is the default queue of the Rx OH (IB OH) */
-	if (is_onic(macless_name))
-	{
+	__if = ppac_if->port_cfg->fman_if;
+	if (!__if)
+		return -ENODEV;
+
+	/* get the rx fqs
+	 * if the VIPSEC interface is oNIC and not MACLESS the RX queue of the ONIC
+	 * is the default queue of the Rx OH (IB OH) */
+
+	if (__if->mac_type == fman_mac_less)
+		rx_start = __if->macless_info.rx_start;
+
+	else if (__if->mac_type == fman_onic &&
+			!strcmp(macless_name, app_conf.vipsec)) {
+
 		__if = get_fif(app_conf.fm, app_conf.ib_oh->mac_idx,
 				       app_conf.ib_oh->mac_type);
 		rx_start = __if->fqid_rx_def;
 		vsp_id = 0;
-	}
-	else
-	{
-		list_for_each_entry(__if, fman_if_list, node) {
-			if (__if->mac_type == fman_mac_less &&
-				__if->macless_info.macless_name &&
-				!strcmp(macless_name, __if->macless_info.macless_name)) {
-
-				rx_start = __if->macless_info.rx_start;
-				break;
-			}
-		}
 	}
 
 	ret = table_insert_entry(td, key, NULL, key_size, -1, rx_start, vsp_id);

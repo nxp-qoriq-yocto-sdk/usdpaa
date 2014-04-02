@@ -63,11 +63,6 @@ static inline struct ppac_interface *get_ppac_if(struct fman_if *__if)
 	return NULL;
 }
 
-static inline int is_onic(char * macless_name)
-{
-	return (DPAA_VERSION >= 11 && !strcmp(macless_name, app_conf.vipsec));
-}
-
 /* VLAN header definition */
 struct vlan_hdr {
 	__u16 tci;
