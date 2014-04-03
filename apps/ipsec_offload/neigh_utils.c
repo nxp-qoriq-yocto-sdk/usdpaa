@@ -439,8 +439,9 @@ int create_local_entry(int ifindex, int af, u8 *key)
 	int vsp_id = VSP_ID;
 	int key_size = 0;
 	int *local_td = NULL;
-	int ppac_if_found = 0;
 	struct fman_if *__if = NULL;
+	struct fman_if * ib_oh_if = NULL;
+	int found = 0;
 	char macless_name[IF_NAMESIZE];
 	struct ppac_interface *ppac_if = NULL;
 
@@ -450,11 +451,11 @@ int create_local_entry(int ifindex, int af, u8 *key)
 	/* get port that sends traffic to macless rx */
 	list_for_each_entry(ppac_if, &ifs, node) {
 		if (ppac_if->ppam_data.macless_ifindex == ifindex) {
-			ppac_if_found = 1;
+			found = 1;
 			break;
 		}
 	}
-	if (!ppac_if_found)
+	if (!found)
 		return -ENODEV;
 
 	/* get direction */
@@ -481,8 +482,17 @@ int create_local_entry(int ifindex, int af, u8 *key)
 
 	/* get the fman_if for the macless */
 
-	__if = ppac_if->port_cfg->fman_if;
-	if (!__if)
+	found = 0;
+	list_for_each_entry(__if, fman_if_list, node) {
+		if ((__if->mac_type == fman_mac_less ||	__if->mac_type == fman_onic) &&
+			__if->macless_info.macless_name &&
+				!strcmp(macless_name, __if->macless_info.macless_name)) {
+				found = 1;
+				break;
+			}
+	}
+
+	if (!found)
 		return -ENODEV;
 
 	/* get the rx fqs
@@ -492,12 +502,14 @@ int create_local_entry(int ifindex, int af, u8 *key)
 	if (__if->mac_type == fman_mac_less)
 		rx_start = __if->macless_info.rx_start;
 
-	else if (__if->mac_type == fman_onic &&
-			!strcmp(macless_name, app_conf.vipsec)) {
+	else if (__if->mac_type == fman_onic
+		     && !strcmp(macless_name, app_conf.vipsec)) {
+		ib_oh_if = get_fif(app_conf.fm, app_conf.ib_oh->mac_idx,
+						   app_conf.ib_oh->mac_type);
+		if (!ib_oh_if)
+			return -ENODEV;
 
-		__if = get_fif(app_conf.fm, app_conf.ib_oh->mac_idx,
-				       app_conf.ib_oh->mac_type);
-		rx_start = __if->fqid_rx_def;
+		rx_start = ib_oh_if->fqid_rx_def;
 		vsp_id = 0;
 	}
 

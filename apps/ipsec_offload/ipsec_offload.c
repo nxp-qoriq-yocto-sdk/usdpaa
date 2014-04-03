@@ -231,7 +231,7 @@ static int setup_macless_if_tx(struct ppac_interface *i, uint32_t last_fqid,
 
 	list_for_each_entry(__if, fman_if_list, node) {
 
-		if ((__if->mac_type != fman_mac_less) || (__if->mac_type != fman_onic))
+		if ((__if->mac_type != fman_mac_less) && (__if->mac_type != fman_onic))
 			continue;
 
 		if (!memcmp(&mac.ether_addr_octet,
@@ -777,6 +777,9 @@ int ppam_init(void)
 {
 	int ret;
 
+	memset(&xfrm_tid, 0, sizeof(pthread_t));
+	memset(&neigh_tid, 0, sizeof(pthread_t));
+
 	/* mandatory cmdline args */
 	/* fm index */
 	if (!ppam_args.fm) {
@@ -1018,11 +1021,15 @@ int ppam_thread_init(void)
 void ppam_post_finish_rx(void)
 {
 	int ret __maybe_unused;
-	ret = pthread_kill(neigh_tid, SIGTERM);
-	TRACE("Finished NEIGH messages processing (%d)\n", ret);
-	pthread_kill(xfrm_tid, SIGTERM);
-	ret = pthread_join(xfrm_tid, NULL);
-	TRACE("Finished XFRM messages processing (%d)\n", ret);
+	if (neigh_tid) {
+		ret = pthread_kill(neigh_tid, SIGTERM);
+		TRACE("Finished NEIGH messages processing (%d)\n", ret);
+	}
+	if (xfrm_tid) {
+		pthread_kill(xfrm_tid, SIGTERM);
+		ret = pthread_join(xfrm_tid, NULL);
+		TRACE("Finished XFRM messages processing (%d)\n", ret);
+	}
 }
 
 void ppam_finish(void)
