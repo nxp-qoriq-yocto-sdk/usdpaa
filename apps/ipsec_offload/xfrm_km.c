@@ -1212,16 +1212,17 @@ int list_dpa_sa(int argc, char *argv[])
 }
 
 /*
- * Check if policy is referring an SA with the same tunnel source address as the
- * Virtual inbound interface, i.e check if policy is for this instance
+ * Check if policy is referring an SA with the same tunnel source/destination
+ * address as the Virtual inbound interface, i.e check if policy is for this
+ * instance
  *
  * Returns:
  *	1 in case policy is for this instance
  *	0 in case policy is not for this instance
  *	Negative errno value representing the encountered error if could not
- *	open socket or if ioctl fails.
+ *	open socket or if ioctl fails
  */
-static inline int policy_is_for_us(xfrm_address_t *tun_saddr, int af)
+static inline int policy_is_for_us(xfrm_address_t *tun_addr, int af)
 {
 	int fd, ret;
 	struct ifreq ifr;
@@ -1251,9 +1252,9 @@ static inline int policy_is_for_us(xfrm_address_t *tun_saddr, int af)
 		TRACE("IP address for app_conf.vif name %s is %s\n",
 			app_conf.vif, inet_ntoa(*in_addr));
 		TRACE("Tunnel IP %s\n",
-			inet_ntoa(*((struct in_addr *)tun_saddr)));
+			inet_ntoa(*((struct in_addr *)tun_addr)));
 
-		if (in_addr->s_addr == ((struct in_addr *)tun_saddr)->s_addr) {
+		if (in_addr->s_addr == ((struct in_addr *)tun_addr)->s_addr) {
 			TRACE("The policy is for this instance\n");
 			return 1;
 		} else {
@@ -1278,7 +1279,7 @@ static int process_new_policy(const struct nlmsghdr	*nh,
 	struct dpa_sa *dpa_sa;
 	struct dpa_pol *dpa_pol, *pol;
 	int af;
-	xfrm_address_t saddr, daddr;
+	xfrm_address_t saddr, daddr, addr;
 	int *sa_id = NULL;
 	int ret = 0;
 
@@ -1310,8 +1311,17 @@ static int process_new_policy(const struct nlmsghdr	*nh,
 		goto out_new_pol;
 	}
 
+	if (app_conf.ib_loop)
+		memcpy(&addr, &saddr, sizeof(saddr));
+	else {
+		if (pol_info->dir == XFRM_POLICY_OUT)
+			memcpy(&addr, &saddr, sizeof(saddr));
+		if (pol_info->dir == XFRM_POLICY_IN)
+			memcpy(&addr, &daddr, sizeof(saddr));
+	}
+
 	/* Check if policy is regarding this DPA IPSec instance */
-	ret = policy_is_for_us(&saddr, af);
+	ret = policy_is_for_us(&addr, af);
 	switch (ret) {
 	case 0:
 		TRACE("Policy not for this instance %d\n", dpa_ipsec_id);
