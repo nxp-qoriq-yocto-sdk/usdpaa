@@ -80,30 +80,43 @@ int init_rtv_mbms(struct test_param *crypto_info)
 		switch (mbms_params->type) {
 		case MBMS_PDU_TYPE0:
 			ref_test_vector->length =
-				NO_OF_BITS(mbms_type0_test_data_len[test_set]);
+			NO_OF_BITS(mbms_type0_test_data_in_len[test_set]);
 			ref_test_vector->plaintext =
 					mbms_type0_test_data[test_set];
 			ref_test_vector->ciphertext =
 					mbms_type0_test_data[test_set];
+			ref_test_vector->expected_status =
+					mbms_type0_fd_status[test_set];
+			ref_test_vector->expected_outlen =
+					mbms_type0_test_data_out_len[test_set];
 			break;
 
 		case MBMS_PDU_TYPE1:
 			ref_test_vector->length =
-				NO_OF_BITS(mbms_type1_test_data_len[test_set]);
+			NO_OF_BITS(mbms_type1_test_data_in_len[test_set]);
 			ref_test_vector->plaintext =
-					mbms_type1_test_data[test_set];
+					mbms_type1_test_data_in[test_set];
 			ref_test_vector->ciphertext =
-					mbms_type1_test_data[test_set];
+					mbms_type1_test_data_out[test_set];
+			ref_test_vector->expected_status =
+					mbms_type1_fd_status[test_set];
+			ref_test_vector->expected_outlen =
+					mbms_type1_test_data_out_len[test_set];
 			break;
 
 		case MBMS_PDU_TYPE3:
 			ref_test_vector->length =
-				NO_OF_BITS(mbms_type3_test_data_len[test_set]);
+			NO_OF_BITS(mbms_type3_test_data_in_len[test_set]);
 			ref_test_vector->plaintext =
-					mbms_type3_test_data[test_set];
+					mbms_type3_test_data_in[test_set];
 			ref_test_vector->ciphertext =
-					mbms_type3_test_data[test_set];
+					mbms_type3_test_data_out[test_set];
+			ref_test_vector->expected_status =
+					mbms_type3_fd_status[test_set];
+			ref_test_vector->expected_outlen =
+					mbms_type3_test_data_out_len[test_set];
 			break;
+
 		default:
 			return -EINVAL;
 		}
@@ -156,7 +169,7 @@ static int test_enc_match_cb(int fd_ind, uint8_t *enc_buf,
 
 	return test_vector_match((uint32_t *)enc_buf,
 			(uint32_t *)ref_test_vector->ciphertext,
-			crypto_info->rt.input_buf_length * BITS_PER_BYTE);
+			ref_test_vector->expected_outlen * BITS_PER_BYTE);
 }
 
 static void *create_descriptor(bool mode, void *params)
@@ -318,13 +331,60 @@ static int set_buf_size(struct test_param *crypto_info)
  */
 static int validate_test_set(struct test_param *crypto_info)
 {
-	if (crypto_info->test_set == 1)
-		return 0;
+	struct protocol_info *proto = crypto_info->proto;
+	struct mbms_params *mbms_params = proto->proto_params;
+
+	switch (mbms_params->type) {
+		case MBMS_PDU_TYPE0:
+			if (crypto_info->test_set > 0 &&
+			    crypto_info->test_set < 3)
+				return 0;
+			break;
+
+		case MBMS_PDU_TYPE1:
+		case MBMS_PDU_TYPE3:
+			if (crypto_info->test_set > 0 &&
+			    crypto_info->test_set < 4)
+				return 0;
+			break;
+
+		default:
+			break;
+
+	}
 
 	fprintf(stderr, "error: Invalid Parameters: Test set number is invalid\n");
 	return -EINVAL;
 }
 
+/**
+ * @brief       Verifies if the FD status matches the tests
+ * @param[in]   status - FD status
+ * @param[in]   params - MBMS protocol parameters
+ * @return      0 on success, otherwise -EINVAL value
+ */
+
+static int check_status(unsigned int status, void *params)
+{
+	struct protocol_info *proto;
+	struct mbms_ref_vector_s *ref_test_vector;
+
+	proto = (struct protocol_info*)params;
+	ref_test_vector = proto->proto_vector;
+
+	/*
+	 * As per the MBMS processing SDD, the format of the "status" field of
+	 * the FD is set to the following:
+	 * o 0x00 if both the header CRC and the payload CRC are correct
+	 * o 0xaa if the header CRC doesn't match
+	 * o 0xbb if the header CRC matches but the payload CRC doesn't match
+	 *
+	 * The status is reported via a HALT command and the status is set
+	 * in the least significant byte of the FD status field.
+	 */
+	return likely((status & JUMP_OFFSET_MASK) ==
+			ref_test_vector->expected_status) ? 0 : -1;
+}
 /**
  * @brief       Allocates the necessary structures for a protocol, sets the
  *              callbacks for the protocol and returns the allocated chunk.
@@ -353,6 +413,7 @@ struct protocol_info *register_mbms(void)
 	proto_info->set_buf_size = set_buf_size;
 	proto_info->validate_test_set = validate_test_set;
 	proto_info->set_enc_buf_cb = set_enc_buf_cb;
+	proto_info->check_status = check_status;
 	proto_info->proto_params = calloc(1, sizeof(struct mbms_params));
 	if (unlikely(!proto_info->proto_params)) {
 		pr_err("failed to allocate protocol parameters in %s",
