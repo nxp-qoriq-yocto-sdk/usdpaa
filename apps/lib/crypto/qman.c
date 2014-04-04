@@ -443,7 +443,7 @@ void cb_fq_change_state(struct qman_portal *qm, struct qman_fq *fq,
  * return	0 - if status is correct (i.e. 0)
  *		-1 - if CAAM returned an error status (i.e. non 0)
  */
-int check_fd_status(unsigned int buf_num)
+__attribute__((weak)) int check_fd_status(unsigned int buf_num)
 {
 	uint32_t ind;
 
