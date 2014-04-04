@@ -857,3 +857,24 @@ void unregister_modules()
 	free(protocols);
 	free(argp_children);
 }
+
+int check_fd_status(unsigned int buf_num) {
+	int ind;
+	extern struct qm_fd *fd;
+
+	for (ind = 0; ind < buf_num; ind++)
+		if (unlikely(fd[ind].status)) {
+			int fail = 1;
+			if (unlikely(proto->check_status))
+				fail = proto->check_status(fd[ind].status,
+							   proto);
+
+			if (likely(fail)) {
+				fprintf(stderr, "error: Bad status return from SEC\n");
+				print_frame_desc(&fd[ind]);
+				return -1;
+			}
+		}
+	return 0;
+}
+
