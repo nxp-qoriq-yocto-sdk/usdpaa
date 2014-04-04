@@ -211,9 +211,9 @@ int show_sa_stats(int argc, char *argv[])
 int show_ipsec_stats(int argc, char *argv[])
 {
 	struct dpa_ipsec_stats ipsec_stats;
-	int err;
+	int err, instance_id = 0;
 
-	err = dpa_ipsec_get_stats(&ipsec_stats);
+	err = dpa_ipsec_get_stats(instance_id, &ipsec_stats);
 	if (err == 0) {
 		printf("\nIPSec global statistics:\n");
 		printf("    - SA Lookup Miss on INBOUND : %u packets (i.e. %u "
