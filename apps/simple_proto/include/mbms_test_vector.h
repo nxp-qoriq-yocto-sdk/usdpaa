@@ -33,7 +33,7 @@
 #define MBMS_TEST_VECTOR_H_
 
 /**
- * Structure which defines a PDCP test vector.
+ * Structure which defines a MBMS test vector.
  */
 struct mbms_ref_vector_s {
 	union {
