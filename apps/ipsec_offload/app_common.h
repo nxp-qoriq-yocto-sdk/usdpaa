@@ -63,6 +63,80 @@ static inline struct ppac_interface *get_ppac_if(struct fman_if *__if)
 	return NULL;
 }
 
+static inline char * get_macless_name (struct fman_if * __if)
+{
+	if (!__if)
+		return NULL;
+
+	return __if->mac_type == fman_mac_less? __if->macless_info.macless_name :
+		   __if->mac_type == fman_onic ? __if->onic_info.macless_name :
+		   NULL;
+}
+
+static inline void set_macless_name (struct fman_if * __if, const char * macless_name)
+{
+	char * p = NULL;
+	if (!__if || !macless_name)
+		return;
+
+	p = __if->mac_type == fman_mac_less? __if->macless_info.macless_name :
+	    __if->mac_type == fman_onic ? __if->onic_info.macless_name :
+	   NULL;
+
+	if (!p)
+		return;
+
+	strncpy(p, macless_name, IFNAMSIZ);
+	p[IFNAMSIZ-1] = 0;
+}
+
+
+static inline struct ether_addr * get_macless_peer_mac (struct fman_if * __if)
+{
+	if (!__if)
+		return NULL;
+
+	return __if->mac_type == fman_mac_less? &__if->macless_info.peer_mac :
+		   __if->mac_type == fman_onic ?  &__if->onic_info.peer_mac :
+		   NULL;
+}
+
+static inline struct fman_if * get_fman_if_by_name (const char * p_macless_name)
+{
+	char * port_name = NULL;
+	struct fman_if * __if = NULL;
+
+	if (!p_macless_name)
+		return NULL;
+
+	list_for_each_entry(__if, fman_if_list, node) {
+		port_name = get_macless_name(__if);
+		if (port_name && !strcmp(p_macless_name, port_name))
+			return __if;
+	}
+
+	return NULL;
+}
+
+static inline struct fman_if * get_fman_if_by_mac (struct ether_addr * p_macless_mac)
+{
+	struct ether_addr * port_mac = NULL;
+	struct fman_if * __if = NULL;
+
+	if (!p_macless_mac)
+		return NULL;
+
+	list_for_each_entry(__if, fman_if_list, node) {
+		port_mac = get_macless_peer_mac(__if);
+		if (port_mac &&	!memcmp(&p_macless_mac->ether_addr_octet,
+				                &port_mac->ether_addr_octet, ETH_ALEN))
+			return __if;
+	}
+
+	return NULL;
+}
+
+
 /* VLAN header definition */
 struct vlan_hdr {
 	__u16 tci;
@@ -124,6 +198,10 @@ int set_dist_base_fqid(struct fmc_model_t *cmodel, char *fmc_path,
 		       uint32_t fqid);
 int set_cc_miss_fqid(struct fmc_model_t *cmodel, char *fmc_path,
 		     uint32_t fqid);
+#if defined(B4860) || defined(T4240)
+int set_cc_miss_fqid_with_vsp(struct fmc_model_t *cmodel, char *fmc_path,
+		     uint32_t fqid);
+#endif
 struct fmc_model_t *fmc_compile_model(void);
 int fmc_apply_model(void);
 int stats_init(void);

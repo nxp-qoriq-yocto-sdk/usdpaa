@@ -482,17 +482,8 @@ int create_local_entry(int ifindex, int af, u8 *key)
 
 	/* get the fman_if for the macless */
 
-	found = 0;
-	list_for_each_entry(__if, fman_if_list, node) {
-		if ((__if->mac_type == fman_mac_less ||	__if->mac_type == fman_onic) &&
-			__if->macless_info.macless_name &&
-				!strcmp(macless_name, __if->macless_info.macless_name)) {
-				found = 1;
-				break;
-			}
-	}
-
-	if (!found)
+	__if = get_fman_if_by_name(macless_name);
+	if (!__if)
 		return -ENODEV;
 
 	/* get the rx fqs
@@ -509,6 +500,9 @@ int create_local_entry(int ifindex, int af, u8 *key)
 		if (!ib_oh_if)
 			return -ENODEV;
 
+		//temporary until CR ENGR00307282 is implemented
+		//the usecase needs to have from dts, the default queue of the Rx OH
+		//this is not yet available from USDPAA
 		rx_start = ib_oh_if->fqid_rx_def;
 		vsp_id = 0;
 	}

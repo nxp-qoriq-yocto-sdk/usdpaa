@@ -203,58 +203,68 @@ static int vsp_clean(void)
 
 static void cleanup_macless_config(char *macless_name)
 {
-	int ret;
-	struct fman_if *__if;
-	list_for_each_entry(__if, fman_if_list, node) {
-		if ((__if->mac_type != fman_mac_less) ||
-		    (__if->macless_info.macless_name != macless_name))
-			continue;
-		ret = set_mac_addr(macless_name, &__if->macless_info.peer_mac);
-		if (ret < 0)
-			fprintf(stderr, "Failed to restore %s mac address\n",
-				macless_name);
-	}
+	struct fman_if *__if = NULL;
+	struct ether_addr * original_mac = NULL;
+
+	/* get the original mac addr of the interface - the one in fman_if */
+
+	__if = get_fman_if_by_name(macless_name);
+	if (!__if )
+		goto err;
+
+	original_mac = get_macless_peer_mac(__if);
+	if (!original_mac)
+		goto err;
+
+	/* restore the mac address */
+
+	if (set_mac_addr(macless_name, original_mac) < 0)
+		goto err;
+
+	return;
+
+err:
+	fprintf(stderr, "Failed to restore %s mac address\n", macless_name);
 }
+
 static int setup_macless_if_tx(struct ppac_interface *i, uint32_t last_fqid,
 			       unsigned int *num_tx_fqs, struct qman_fq *fq,
 			       char *macless_name)
 {
-	int loop;
-	int found = 0;
+	int ret = 0;
+	int loop = 0;
 	struct fman_if *__if;
 	uint32_t tx_start = 0;
 	uint32_t tx_count = 0;
 	struct ether_addr mac;
 
+	/* get the ethernet address of the macless port */
+
 	memset(&mac, 0, sizeof(mac));
-	get_mac_addr(macless_name, &mac);
+	ret = get_mac_addr(macless_name, &mac);
+	if (ret < 0)
+		return ret;
 
-	list_for_each_entry(__if, fman_if_list, node) {
+	/* find the corresponding fman interface */
 
-		if ((__if->mac_type != fman_mac_less) && (__if->mac_type != fman_onic))
-			continue;
-
-		if (!memcmp(&mac.ether_addr_octet,
-			        &__if->macless_info.peer_mac.ether_addr_octet, ETH_ALEN)) {
-
-			found = 1;
-			strncpy(__if->macless_info.macless_name, macless_name, IFNAMSIZ);
-			__if->macless_info.macless_name[IFNAMSIZ-1] = 0;
-
-			/* USDPAA creates the TX queues for macless interfaces
-			 * (and not for oNIC) */
-			if (__if->mac_type == fman_mac_less) {
-				tx_start = __if->macless_info.tx_start;
-				tx_count = __if->macless_info.tx_count;
-				if (!tx_start || !tx_count)
-					return -ENODEV;
-			}
-			break;
-		}
-	}
-
-	if (!found)
+	__if = get_fman_if_by_mac(&mac);
+	if (!__if)
 		return -ENODEV;
+
+	/* set the name of the macless port */
+
+	set_macless_name(__if, macless_name);
+
+	/* get the macless tx queues - for macless ports only
+	 * usdpaa does not create tx queues for oNIC ports */
+
+	if (__if->mac_type == fman_mac_less) {
+		tx_start = __if->macless_info.tx_start;
+		tx_count = __if->macless_info.tx_count;
+
+		if (!tx_start || !tx_count)
+			return -ENODEV;
+	}
 
 	free(i->tx_fqs);
 	i->num_tx_fqs = tx_count + 1;
@@ -278,16 +288,15 @@ static int setup_macless_if_tx(struct ppac_interface *i, uint32_t last_fqid,
 static int setup_macless_if_rx(struct ppac_interface *i,
 				const char *macless_name)
 {
-	struct fman_if *__if;
+	int ret = 0;
+	struct fman_if *__if = NULL;
 	uint32_t rx_start = 0;
-	int ret;
 	char fmc_path[64];
 	const char *port_type;
 	int idx;
 
 	if (strcmp(macless_name, app_conf.vif) &&
-	    strcmp(macless_name, app_conf.vof) &&
-	    strcmp(macless_name, app_conf.vipsec))
+	    strcmp(macless_name, app_conf.vof))
 		return -ENODEV;
 
 	idx = if_nametoindex(macless_name);
@@ -295,16 +304,11 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 		return -ENODEV;
 	i->ppam_data.macless_ifindex = idx;
 
-	list_for_each_entry(__if, fman_if_list, node) {
-		if (__if->mac_type == fman_mac_less &&
-		    __if->macless_info.macless_name &&
-		    !strcmp(__if->macless_info.macless_name, macless_name)) {
-			rx_start = __if->macless_info.rx_start;
-			break;
-		}
-	}
-	if (!rx_start)
+	__if = get_fman_if_by_name(macless_name);
+	if (!__if)
 		return -ENODEV;
+
+	rx_start = __if->macless_info.rx_start;
 
 	if (!strcmp(macless_name, app_conf.vif)) {
 		/* set fqids for vif PCD */
@@ -321,14 +325,25 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 		sprintf(fmc_path, "fm%d/port/OFFLINE/%d/ccnode/"
 			"ib_post_ip_cc",
 			app_conf.fm, app_conf.ib_oh->mac_idx);
+
+#if defined(B4860) || defined(T4240)
+		ret = set_cc_miss_fqid_with_vsp(cmodel, fmc_path, rx_start);
+#else
 		ret = set_cc_miss_fqid(cmodel, fmc_path, rx_start);
+#endif
+
 		if (ret < 0)
 			goto err;
+
 		memset(fmc_path, 0, sizeof(fmc_path));
 		sprintf(fmc_path, "fm%d/port/OFFLINE/%d/ccnode/"
 			"ib_post_ip6_cc",
 			app_conf.fm, app_conf.ib_oh->mac_idx);
+#if defined(B4860) || defined(T4240)
+		ret = set_cc_miss_fqid_with_vsp(cmodel, fmc_path, rx_start);
+#else
 		ret = set_cc_miss_fqid(cmodel, fmc_path, rx_start);
+#endif
 		if (ret < 0)
 			goto err;
 	}
@@ -1039,6 +1054,7 @@ void ppam_finish(void)
 		stats_cleanup();
 	ipsec_offload_cleanup(dpa_ipsec_id);
 	fmc_cleanup();
+	/* reset mac addresses for the macless / oNIC ports */
 	cleanup_macless_config(app_conf.vipsec);
 	cleanup_macless_config(app_conf.vif);
 	cleanup_macless_config(app_conf.vof);

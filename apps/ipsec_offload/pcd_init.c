@@ -107,6 +107,30 @@ int set_cc_miss_fqid(struct fmc_model_t *_cmodel, char *fmc_path,
 	return -1;
 }
 
+#if defined(B4860) || defined(T4240)
+
+int set_cc_miss_fqid_with_vsp(struct fmc_model_t *_cmodel, char *fmc_path,
+		     uint32_t fqid)
+{
+	int i = 0;
+	for (i = 0; i < _cmodel->ccnode_count; i++) {
+		if (!strcmp(_cmodel->ccnode_name[i], fmc_path)) {
+			_cmodel->ccnode[i].keysParams.
+			ccNextEngineParamsForMiss.
+			params.enqueueParams.newFqid = fqid;
+
+			_cmodel->ccnode[i].keysParams.
+			ccNextEngineParamsForMiss.
+			params.enqueueParams.newRelativeStorageProfileId = VSP_ID;
+
+			return 0;
+		}
+	}
+	return -1;
+}
+
+#endif
+
 struct fmc_model_t *fmc_compile_model(void)
 {
 	t_Error err = E_OK;

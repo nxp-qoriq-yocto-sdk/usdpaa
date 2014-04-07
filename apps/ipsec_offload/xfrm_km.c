@@ -1283,6 +1283,8 @@ static int process_new_policy(const struct nlmsghdr	*nh,
 	int *sa_id = NULL;
 	int ret = 0;
 
+	memset(&addr, 0, sizeof(addr));
+
 	if (nh->nlmsg_type == XFRM_MSG_NEWPOLICY)
 		TRACE("XFRM_MSG_NEWPOLICY\n");
 	pol_info = (struct xfrm_userpolicy_info *)
