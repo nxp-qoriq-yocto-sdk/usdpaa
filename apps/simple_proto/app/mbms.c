@@ -358,13 +358,13 @@ static int validate_test_set(struct test_param *crypto_info)
 }
 
 /**
- * @brief       Verifies if the FD status matches the tests
- * @param[in]   status - FD status
- * @param[in]   params - MBMS protocol parameters
- * @return      0 on success, otherwise -EINVAL value
+ * @brief           Verifies if the FD status matches the tests
+ * @param[in/out]   status - FD status
+ * @param[in]       params - MBMS protocol parameters
+ * @return          0 on success, otherwise -EINVAL value
  */
 
-static int check_status(unsigned int status, void *params)
+static int check_status(unsigned int *status, void *params)
 {
 	struct protocol_info *proto;
 	struct mbms_ref_vector_s *ref_test_vector;
@@ -382,9 +382,19 @@ static int check_status(unsigned int status, void *params)
 	 * The status is reported via a HALT command and the status is set
 	 * in the least significant byte of the FD status field.
 	 */
-	return likely((status & JUMP_OFFSET_MASK) ==
-			ref_test_vector->expected_status) ? 0 : -1;
+	if (likely((*status & JUMP_OFFSET_MASK) ==
+			ref_test_vector->expected_status)) {
+		/*
+		 * Clear status here. If this isn't done, the next time the FD
+		 * is resubmitted to SEC, it will be interpreted by SEC and
+		 * this will result in an erroneous behavior.
+		 */
+		*status = 0x00;
+		return 0;
+	}
+	return -1;
 }
+
 /**
  * @brief       Allocates the necessary structures for a protocol, sets the
  *              callbacks for the protocol and returns the allocated chunk.
