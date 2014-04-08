@@ -112,7 +112,7 @@ struct protocol_info {
 				/**< Callback for deregistering the protocol */
 	void *descr;
 	unsigned short buf_align;	/**< Alignment of buffers */
-	int (*check_status)(unsigned, void*);
+	int (*check_status)(unsigned *, void*);
 				/**< Callback for checking the status returned
 				     by SEC in fd_status. */
 

@@ -868,7 +868,7 @@ int check_fd_status(unsigned int buf_num) {
 		if (unlikely(fd[ind].status)) {
 			int fail = 1;
 			if (unlikely(proto->check_status))
-				fail = proto->check_status(fd[ind].status,
+				fail = proto->check_status(&fd[ind].status,
 							   proto);
 
 			if (likely(fail)) {
