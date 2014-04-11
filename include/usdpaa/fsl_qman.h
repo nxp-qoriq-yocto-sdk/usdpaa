@@ -2724,8 +2724,8 @@ int qman_ceetm_lni_get_excess_rate(struct qm_ceetm_lni *lni,
  * of range as indicated above, or -EIO if the configure/query tcfcc command
  * returns error.
  *
- * Refer to the section of QMan CEETM traffic class flow control in the Refernce
- * Manual.
+ * Refer to the section of QMan CEETM traffic class flow control in the
+ * Reference Manual.
  */
 int qman_ceetm_lni_set_tcfcc(struct qm_ceetm_lni *lni,
 			     unsigned int cq_level,
@@ -2872,30 +2872,30 @@ int qman_ceetm_channel_get_group(struct qm_ceetm_channel *channel,
 
 /**
  * qman_ceetm_channel_set_group_cr_eligibility
- * qman_ceetm_channel_set_group_er_eligibility - Set channel group eligibitity
+ * qman_ceetm_channel_set_group_er_eligibility - Set channel group eligibility
  * @channel: the given channel object
  * @group_b: indicates whether there is group B in this channel.
  * @cre: the commit rate eligibility, 1 for enable, 0 for disable.
  *
- * Return zero for success, or -EINVAL if eligiblity setting fails.
+ * Return zero for success, or -EINVAL if eligibility setting fails.
 */
-int qman_ceetm_channel_set_group_cr_eligiblility(struct qm_ceetm_channel
+int qman_ceetm_channel_set_group_cr_eligibility(struct qm_ceetm_channel
 				*channel, int group_b, int cre);
-int qman_ceetm_channel_set_group_er_eligiblility(struct qm_ceetm_channel
+int qman_ceetm_channel_set_group_er_eligibility(struct qm_ceetm_channel
 				*channel, int group_b, int ere);
 
 /**
  * qman_ceetm_channel_set_cq_cr_eligibility
- * qman_ceetm_channel_set_cq_er_eligibility - Set channel cq eligibitity
+ * qman_ceetm_channel_set_cq_er_eligibility - Set channel cq eligibility
  * @channel: the given channel object
  * @idx: is from 0 to 7 (representing CQ0 to CQ7).
  * @cre: the commit rate eligibility, 1 for enable, 0 for disable.
  *
- * Return zero for success, or -EINVAL if eligiblity setting fails.
+ * Return zero for success, or -EINVAL if eligibility setting fails.
 */
-int qman_ceetm_channel_set_cq_cr_eligiblility(struct qm_ceetm_channel *channel,
+int qman_ceetm_channel_set_cq_cr_eligibility(struct qm_ceetm_channel *channel,
 					unsigned int idx, int cre);
-int qman_ceetm_channel_set_cq_er_eligiblility(struct qm_ceetm_channel *channel,
+int qman_ceetm_channel_set_cq_er_eligibility(struct qm_ceetm_channel *channel,
 					unsigned int idx, int ere);
 
 	/* --------------------- */
