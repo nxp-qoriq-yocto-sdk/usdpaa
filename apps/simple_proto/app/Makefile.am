@@ -30,7 +30,8 @@
 
 bin_PROGRAMS = simple_proto
 
-AM_CFLAGS := -I$(TOP_LEVEL)/apps/simple_proto/include -I$(TOP_LEVEL)/apps/lib
+AM_CFLAGS := -I$(TOP_LEVEL)/apps/simple_proto/include -I$(TOP_LEVEL)/apps/lib \
+	     -I$(TOP_LEVEL)/apps/include
 AM_CFLAGS += $(LIBRTA_CFLAGS) -DRTA_DEBUG
 
 simple_proto_SOURCES := simple_proto.c macsec.c wimax.c pdcp.c srtp.c wifi.c \
