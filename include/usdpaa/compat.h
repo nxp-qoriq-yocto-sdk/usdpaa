@@ -332,7 +332,8 @@ do { \
 	} \
 } while (0)
 
-#define ALIGN(x, a) (((x) + ((typeof(x))(a) - 1)) & ~((typeof(x))(a) - 1))
+#define ALIGN(x, a) (((x) + ((__typeof__(x))(a) - 1)) \
+			& ~((__typeof__(x))(a) - 1))
 
 /* "struct list_head" is needed by fsl_qman.h and fman.h, and the latter is not
  * much use to users unless related logic is available too
