@@ -250,6 +250,7 @@ static void *create_descriptor(bool mode, void *params)
 	uint32_t *shared_desc = NULL;
 	unsigned shared_desc_len;
 	int i;
+	bool found = 0;
 
 	prehdr_desc = __dma_mem_memalign(L1_CACHE_BYTES,
 					 sizeof(struct sec_descriptor_t));
@@ -260,10 +261,23 @@ static void *create_descriptor(bool mode, void *params)
 		return NULL;
 	}
 
-	/*
-	 * Store the pointer to the descriptor for free'ing later on
-	 */
-	proto->descr = prehdr_desc;
+	/* Store the pointer to the descriptor for freeing later on */
+	for (i = mode ? 0 : 1; i < proto->num_cpus * FQ_PER_CORE * 2; i += 2) {
+		mutex_lock(&proto->desc_wlock);
+		if (proto->descr[i].descr == NULL) {
+			proto->descr[i].descr = (uint32_t *)prehdr_desc;
+			proto->descr[i].mode = mode;
+			found = 1;
+			mutex_unlock(&proto->desc_wlock);
+			break;
+		}
+		mutex_unlock(&proto->desc_wlock);
+	}
+
+	if (!found) {
+		pr_err("Could not store descriptor pointer %s\n", __func__);
+		return NULL;
+	}
 
 	memset(prehdr_desc, 0, sizeof(struct sec_descriptor_t));
 	shared_desc = (typeof(shared_desc))&prehdr_desc->descbuf;
@@ -463,6 +477,7 @@ static int validate_test_set(struct test_param *crypto_info)
  */
 struct protocol_info *register_wimax(void)
 {
+	unsigned num_cpus = sysconf(_SC_NPROCESSORS_ONLN);
 	struct protocol_info *proto_info = calloc(1, sizeof(*proto_info));
 
 	if (unlikely(!proto_info)) {
@@ -495,6 +510,27 @@ struct protocol_info *register_wimax(void)
 		goto err;
 	}
 
+	/*
+	 * For each "to SEC" FQ, there is one descriptor
+	 * There are FQ_PER_CORE descriptors per core
+	 * There is one descriptor for each "direction" (enc/dec).
+	 * Thus the total number of descriptors that need to be stored across
+	 * the whole system is:
+	 *                       num_desc = num_cpus * FQ_PER_CORE * 2
+	 * Note: This assumes that all the CPUs are used; if not all CPUs are
+	 *       used, some memory will be wasted (equal to the # of unused
+	 *       cores multiplied by sizeof(struct desc_storage))
+	 */
+	proto_info->descr = calloc(num_cpus * FQ_PER_CORE * 2,
+				   sizeof(struct desc_storage));
+	if (unlikely(!proto_info->descr)) {
+		pr_err("failed to allocate descriptor storage in %s",
+		       __FILE__);
+		goto err;
+	}
+	mutex_init(&proto_info->desc_wlock);
+	proto_info->num_cpus = num_cpus;
+
 	return proto_info;
 err:
 	free(proto_info->proto_params);
@@ -513,13 +549,15 @@ err:
  */
 void unregister_wimax(struct protocol_info *proto_info)
 {
+	int i;
 	struct wimax_ref_vector_s *wimax_ref_vector;
 
 	if (unlikely(proto_info))
 		return;
 
-	if (proto_info->descr)
-		__dma_mem_free(proto_info->descr);
+	for (i = 0; i < proto_info->num_cpus * FQ_PER_CORE * 2; i++)
+		if (proto_info->descr[i].descr)
+			__dma_mem_free(proto_info->descr[i].descr);
 
 	wimax_ref_vector = proto_info->proto_vector;
 	if (wimax_ref_vector->ciphertext)

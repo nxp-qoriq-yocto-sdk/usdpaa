@@ -36,6 +36,7 @@
 #include <stdbool.h>
 
 #include <usdpaa/fsl_qman.h>
+#include <mutex.h>
 
 #define DES_BLOCK_SIZE		8
 #define AES_BLOCK_SIZE		16
@@ -66,6 +67,11 @@ struct parse_input_t {
 	uint32_t *cmd_params;
 	uint32_t *proto_params;	/**< protocol specific parameters */
 	struct test_param *crypto_info;
+};
+
+struct desc_storage {
+	uint32_t *descr;
+	bool mode;
 };
 
 /**
@@ -114,12 +120,16 @@ struct protocol_info {
 	void *proto_params;	/**< Per-protocol defined parameters. */
 	void (*unregister)(struct protocol_info *);
 				/**< Callback for deregistering the protocol */
-	void *descr;
+	struct desc_storage *descr;
+				/**< Descriptor storage */
+	spinlock_t desc_wlock;	/**< Mutex for ensuring that the descriptors
+				     are written in an ordered fashion in the
+				     descr member. */
 	unsigned short buf_align;	/**< Alignment of buffers */
 	int (*check_status)(unsigned *, void*);
 				/**< Callback for checking the status returned
 				     by SEC in fd_status. */
-
+	unsigned num_cpus;	/**< Number of online CPUs in the system */
 };
 
 #endif /* PROTOCOLS_H_ */
