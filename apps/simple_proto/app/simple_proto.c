@@ -768,6 +768,8 @@ inline pthread_barrier_t *get_thread_barrier(void)
  */
 static void set_crypto_cbs(struct test_cb *crypto_cb)
 {
+	memset(crypto_cb, 0, sizeof(struct test_cb));
+
 	crypto_cb->set_sec_descriptor = proto->setup_sec_descriptor;
 	crypto_cb->is_enc_match = test_enc_match;
 	crypto_cb->is_dec_match = test_dec_match;
