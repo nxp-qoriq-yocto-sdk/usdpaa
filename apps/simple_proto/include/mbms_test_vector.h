@@ -70,6 +70,10 @@ struct mbms_ref_vector_s {
 						     this test vector. */
 	unsigned int expected_outlen;		/**< Output length expected
 						     for this test vector. */
+	int expected_hdr_crc_fail;		/**< # of expected Header CRC
+						     failures. */
+	int expected_payload_crc_fail;		/**< # of expected Payload CRC
+						     failures. */
 };
 
 struct mbms_test_param {
@@ -196,6 +200,17 @@ uint32_t mbms_type0_test_data_out_len[] = {
 uint8_t mbms_type0_fd_status[] = {
 	0,
 	0xaa
+};
+
+int mbms_type0_hdr_crc_fail[] = {
+	0,
+	/*
+	 * Since it's impossible to know beforehand how many buffers, iterations
+	 * etc. the user will select at runtime, a placeholder is used here,
+	 * which means that the app will calculate the proper number of
+	 * failed CRCs
+	 */
+	-1
 };
 
 uint8_t *mbms_type1_test_data_in[] = {
@@ -402,6 +417,30 @@ uint8_t *mbms_type1_test_data_out[] = {
 uint32_t mbms_type1_test_data_out_len[] = {
 	93,
 	61,
+	0
+};
+
+int mbms_type1_hdr_crc_fail[] = {
+	0,
+	0,
+	/*
+	 * Since it's impossible to know beforehand how many buffers, iterations
+	 * etc. the user will select at runtime, a placeholder is used here,
+	 * which means that the app will calculate the proper number of
+	 * failed CRCs
+	 */
+	-1,
+};
+
+int mbms_type1_payload_crc_fail[] = {
+	0,
+	/*
+	 * Since it's impossible to know beforehand how many buffers, iterations
+	 * etc. the user will select at runtime, a placeholder is used here,
+	 * which means that the app will calculate the proper number of
+	 * failed CRCs
+	 */
+	-1,
 	0
 };
 
@@ -619,6 +658,30 @@ uint8_t *mbms_type3_test_data_out[] = {
 uint32_t mbms_type3_test_data_out_len[] = {
 	101,
 	69,
+	0
+};
+
+int mbms_type3_hdr_crc_fail[] = {
+	0,
+	0,
+	/*
+	 * Since it's impossible to know beforehand how many buffers, iterations
+	 * etc. the user will select at runtime, a placeholder is used here,
+	 * which means that the app will calculate the proper number of
+	 * failed CRCs
+	 */
+	-1
+};
+
+int mbms_type3_payload_crc_fail[] = {
+	0,
+	/*
+	 * Since it's impossible to know beforehand how many buffers, iterations
+	 * etc. the user will select at runtime, a placeholder is used here,
+	 * which means that the app will calculate the proper number of
+	 * failed CRCs
+	 */
+	-1,
 	0
 };
 
