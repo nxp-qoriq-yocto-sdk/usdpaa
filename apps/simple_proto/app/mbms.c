@@ -89,6 +89,9 @@ int init_rtv_mbms(struct test_param *crypto_info)
 					mbms_type0_fd_status[test_set];
 			ref_test_vector->expected_outlen =
 					mbms_type0_test_data_out_len[test_set];
+			ref_test_vector->expected_hdr_crc_fail =
+					mbms_type0_hdr_crc_fail[test_set];
+			ref_test_vector->expected_payload_crc_fail = 0;
 			break;
 
 		case MBMS_PDU_TYPE1:
@@ -102,6 +105,10 @@ int init_rtv_mbms(struct test_param *crypto_info)
 					mbms_type1_fd_status[test_set];
 			ref_test_vector->expected_outlen =
 					mbms_type1_test_data_out_len[test_set];
+			ref_test_vector->expected_hdr_crc_fail =
+					mbms_type1_hdr_crc_fail[test_set];
+			ref_test_vector->expected_payload_crc_fail =
+					mbms_type1_payload_crc_fail[test_set];
 			break;
 
 		case MBMS_PDU_TYPE3:
@@ -115,6 +122,10 @@ int init_rtv_mbms(struct test_param *crypto_info)
 					mbms_type3_fd_status[test_set];
 			ref_test_vector->expected_outlen =
 					mbms_type3_test_data_out_len[test_set];
+			ref_test_vector->expected_hdr_crc_fail =
+					mbms_type3_hdr_crc_fail[test_set];
+			ref_test_vector->expected_payload_crc_fail =
+					mbms_type3_payload_crc_fail[test_set];
 			break;
 
 		default:
@@ -170,6 +181,106 @@ static int test_enc_match_cb(int fd_ind, uint8_t *enc_buf,
 	return test_vector_match((uint32_t *)enc_buf,
 			(uint32_t *)ref_test_vector->ciphertext,
 			ref_test_vector->expected_outlen * BITS_PER_BYTE);
+}
+
+static int mbms_enc_done_cbk(void *params, int iter)
+{
+	struct test_param *crypto_info = (struct test_param *)params;
+	struct protocol_info *proto = crypto_info->proto;
+	struct mbms_params *mbms_params = proto->proto_params;
+	struct mbms_ref_vector_s *ref_test_vector = proto->proto_vector;
+	struct sec_descriptor_t *sd;
+	struct mbms_type_1_3_pdb stats1_3;
+	struct mbms_type_0_pdb stats0;
+	uint32_t *desc;
+	unsigned expected_header_crc_fail, expected_payload_crc_fail;
+	unsigned crc_header_fail = 0, crc_payload_fail = 0;
+	int i;
+
+	switch (mbms_params->type) {
+	case MBMS_PDU_TYPE0:
+		if (ref_test_vector->expected_hdr_crc_fail != -1)
+			expected_header_crc_fail =
+				ref_test_vector->expected_hdr_crc_fail;
+		else
+			/* All packets have the wrong header CRC */
+			expected_header_crc_fail = crypto_info->buf_num;
+		expected_payload_crc_fail = 0;
+		break;
+
+	case MBMS_PDU_TYPE1:
+	case MBMS_PDU_TYPE3:
+		if (ref_test_vector->expected_hdr_crc_fail != -1)
+			expected_header_crc_fail =
+				ref_test_vector->expected_hdr_crc_fail;
+		else
+			/* All packets have the wrong header CRC */
+			expected_header_crc_fail = crypto_info->buf_num;
+
+		if (ref_test_vector->expected_payload_crc_fail != -1)
+			expected_payload_crc_fail =
+				ref_test_vector->expected_payload_crc_fail;
+		else
+			/* All packets have the wrong header CRC */
+			expected_payload_crc_fail = crypto_info->buf_num;
+		break;
+
+	default:
+		pr_err("Invalid MBMS PDU Type %d\n", mbms_params->type);
+		return -1;
+	}
+
+	for (i = 0; i < proto->num_cpus * FQ_PER_CORE * 2; i++) {
+		if (proto->descr[i].descr) {
+			sd =  (struct sec_descriptor_t *)proto->descr[i].descr;
+			desc = sd->descbuf;
+			switch (mbms_params->type) {
+			case MBMS_PDU_TYPE0:
+				get_mbms_stats(desc,
+					       (void *)&stats0,
+					       mbms_params->type);
+				crc_header_fail += stats0.crc_header_fail;
+				break;
+
+			case MBMS_PDU_TYPE1:
+			case MBMS_PDU_TYPE3:
+				get_mbms_stats(desc,
+					       (void *)&stats1_3,
+					       mbms_params->type);
+				crc_header_fail += stats1_3.crc_header_fail;
+				crc_payload_fail += stats1_3.crc_payload_fail;
+				break;
+
+			default:
+				pr_err("Invalid MBMS PDU Type %d (%s)",
+				       mbms_params->type,
+				       __func__);
+				return -1;
+			}
+		}
+	}
+
+	/*
+	 * Since the statistics aren't reset in between runs, then
+	 * the # of failed CRCs will continue to multiply per each
+	 * iteration.
+	 */
+	expected_header_crc_fail *= (iter + 1);
+	expected_payload_crc_fail *= (iter + 1);
+
+	pr_debug("Got %d Header CRC failures\n", crc_header_fail);
+	pr_debug("Got %d Payload CRC failures\n", crc_payload_fail);
+
+	pr_debug("Expected %d Header CRC failures\n", expected_header_crc_fail);
+	pr_debug("Expected %d Payload CRC failures\n",
+		 expected_payload_crc_fail);
+
+	if ((expected_header_crc_fail == crc_header_fail) &&
+	    (expected_payload_crc_fail == crc_payload_fail)) {
+		printf("MBMS statistics test pass\n");
+		return 0;
+	}
+	return 1;
 }
 
 static void *create_descriptor(bool mode, void *params)
@@ -349,22 +460,21 @@ static int validate_test_set(struct test_param *crypto_info)
 	struct mbms_params *mbms_params = proto->proto_params;
 
 	switch (mbms_params->type) {
-		case MBMS_PDU_TYPE0:
-			if (crypto_info->test_set > 0 &&
-			    crypto_info->test_set < 3)
-				return 0;
-			break;
+	case MBMS_PDU_TYPE0:
+		if (crypto_info->test_set > 0 &&
+		    crypto_info->test_set < 3)
+			return 0;
+		break;
 
-		case MBMS_PDU_TYPE1:
-		case MBMS_PDU_TYPE3:
-			if (crypto_info->test_set > 0 &&
-			    crypto_info->test_set < 4)
-				return 0;
-			break;
+	case MBMS_PDU_TYPE1:
+	case MBMS_PDU_TYPE3:
+		if (crypto_info->test_set > 0 &&
+		    crypto_info->test_set < 4)
+			return 0;
+		break;
 
-		default:
-			break;
-
+	default:
+		break;
 	}
 
 	fprintf(stderr, "error: Invalid Parameters: Test set number is invalid\n");
@@ -439,6 +549,8 @@ struct protocol_info *register_mbms(void)
 	proto_info->validate_test_set = validate_test_set;
 	proto_info->set_enc_buf_cb = set_enc_buf_cb;
 	proto_info->check_status = check_status;
+	proto_info->enc_done_cbk = mbms_enc_done_cbk;
+
 	proto_info->proto_params = calloc(1, sizeof(struct mbms_params));
 	if (unlikely(!proto_info->proto_params)) {
 		pr_err("failed to allocate protocol parameters in %s",
