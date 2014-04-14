@@ -32,9 +32,7 @@
 #include <argp.h>
 #include <inttypes.h>
 
-#include <flib/rta.h>
-#include <flib/desc.h>
-#include <flib/protoshared.h>
+#include <flib/desc/algo.h>
 
 #include <crypto/test_utils.h>
 #include <crypto/sec.h>

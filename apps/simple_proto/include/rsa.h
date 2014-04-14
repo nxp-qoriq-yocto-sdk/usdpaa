@@ -36,9 +36,7 @@
 #include <argp.h>
 #include <inttypes.h>
 
-#include <flib/rta.h>
-#include <flib/desc.h>
-#include <flib/protoshared.h>
+#include <flib/desc/rsa.h>
 
 #include <usdpaa/compat.h>
 

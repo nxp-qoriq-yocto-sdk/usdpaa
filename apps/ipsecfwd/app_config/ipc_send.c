@@ -28,7 +28,7 @@
 
 #include <usdpaa/of.h>
 #include <usdpaa/compat.h>
-#include <flib/desc.h>
+#include <flib/rta.h>
 
 #include "ipc_send.h"
 #include "ip/ip_appconf.h"

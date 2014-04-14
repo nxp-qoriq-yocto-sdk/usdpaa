@@ -23,8 +23,8 @@
  */
 
 #include <usdpaa/dma_mem.h>
-#include <flib/desc.h>
-#include <flib/protoshared.h>
+#include <flib/rta.h>
+#include <flib/desc/ipsec.h>
 #include "ipsec_sec.h"
 #include "app_common.h"
 

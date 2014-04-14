@@ -28,8 +28,7 @@
 #include "ipsec/ipsec_sec.h"
 #include "ipsec/ipsec_common.h"
 #include "ipsec/ipsec_encap.h"
-#include <flib/jobdesc.h>
-#include <flib/desc.h>
+#include <flib/desc/jobdesc.h>
 #include <usdpaa/dma_mem.h>
 
 int32_t g_key_split_flag;

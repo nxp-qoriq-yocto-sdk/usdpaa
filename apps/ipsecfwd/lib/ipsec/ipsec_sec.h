@@ -33,7 +33,7 @@
 #include "ip/ip_common.h"
 #include "net/annotations.h"
 #include "ip/ip_appconf.h"
-#include <flib/desc.h>
+#include <flib/rta.h>
 #include <app_conf.h>
 
 /* BPID for use by SEC in case simple FD mode is used */
