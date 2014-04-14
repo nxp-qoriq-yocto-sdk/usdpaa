@@ -130,7 +130,21 @@
 /**************/
 #define PPAM_TX_FQ_NO_BUF_DEALLOC 0x00000001	/* Disable buffer deallocation*/
 #define PPAM_TX_FQ_NO_CHECKSUM	0x00000002	/* Disable checksum */
-
+/* Set OPCODE11 into the FQ (which is where the RMan packet enters)
+* Context-A[A1] field in order to support the FMan/RMan inter operability
+* issues.
+* The following inter operability issues are tackled by the ucode OPCODE11:
+* - Clearing FCSI bit in the FD status (this bit has affect on the parser).
+* - Adjust Scatter/Gather FD offset to the correct value as used for the first
+*  SG entry.
+* - Check for RMan errors.
+* - FMan V2 and FMan V3:In case frame came from RMan and it is sRIO type 9 then
+*   the FD is of SG format and most likely it is with only one entry; in order
+*   to increase performance/latency(especially if frame is directed to the SEC)
+*   the firmware converts this oneentry SG format frame into single buffer
+*   format.
+*/
+#define PPAM_TX_FQ_SET_OPCODE11 0x00000004 
 /**********/
 /* macros */
 /**********/

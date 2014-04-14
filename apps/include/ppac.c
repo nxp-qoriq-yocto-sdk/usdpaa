@@ -253,6 +253,8 @@ int ppac_interface_init(unsigned idx)
 					(uint64_t)fman_dealloc_bufs_mask_lo;
 	if (flags & PPAM_TX_FQ_NO_CHECKSUM)
 		context_a |= FMAN_CONTEXTA_DIS_CHECKSUM;
+        if (flags & PPAM_TX_FQ_SET_OPCODE11)
+                context_a |= FMAN_CONTEXTA_SET_OPCODE11;
 #endif
 
 	for (loop = 0; loop < i->num_tx_fqs; loop++) {

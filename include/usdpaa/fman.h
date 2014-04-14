@@ -438,6 +438,7 @@ static inline void fman_if_disable_all_rx(void)
 #define FMAN_V3_CONTEXTA_EN_OVOM	0x02000000
 #define FMAN_V3_CONTEXTA_EN_EBD	0x80000000
 #define FMAN_CONTEXTA_DIS_CHECKSUM	0x7ull
+#define FMAN_CONTEXTA_SET_OPCODE11 0x2000000b00000000
 extern u16 fman_ip_rev;
 extern u32 fman_dealloc_bufs_mask_hi;
 extern u32 fman_dealloc_bufs_mask_lo;
