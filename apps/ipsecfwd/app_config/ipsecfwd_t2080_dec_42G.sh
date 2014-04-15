@@ -65,7 +65,7 @@ net_pair_routes()
 }
 
 case $(basename $0 .sh) in
-	ipsecfwd_dec_42G)
+	ipsecfwd_t2080_dec_42G)
 		ipsecfwd_config -P $pid -F -a 192.168.40.1 -i 2
 		ipsecfwd_config -P $pid -F -a 192.168.50.1 -i 8
 		ipsecfwd_config -P $pid -F -a 192.168.60.1 -i 9

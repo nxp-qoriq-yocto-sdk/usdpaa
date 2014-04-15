@@ -34,39 +34,35 @@ fi
 
 net_pair_routes()
 {
-net=0
-	while [ "$net" -le $5 ]
+	for net in $1 $2
 	do
-		lpm_ipfwd_config -P $pid -B -c $2 -d $1.$net.24.2 -n $3 -g \
-		192.168.$4.2
-		net=`expr $net + 1`
+		ipfwd_config -P $pid -B -s 192.168.$net.2 -c $3 \
+		-d 192.168.$(expr $1 + $2 - $net).2 -n $4 \
+		-g 192.168.$(expr $1 + $2 - $net).2
 	done
 }
 
 case $(basename $0 .sh) in
-  lpm_ipfwd_t2080qds_42G)
-     lpm_ipfwd_config -P $pid -F -a 192.168.40.1 -i 2
-     lpm_ipfwd_config -P $pid -F -a 192.168.50.1 -i 8
-     lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 9
-     lpm_ipfwd_config -P $pid -F -a 192.168.130.1 -i 3
-     lpm_ipfwd_config -P $pid -F -a 192.168.140.1 -i 10
-     lpm_ipfwd_config -P $pid -F -a 192.168.150.1 -i 11
+   ipfwd_t2080_42G)
+	ipfwd_config -P $pid -F -a 192.168.40.1 -i 2
+	ipfwd_config -P $pid -F -a 192.168.50.1 -i 8
+	ipfwd_config -P $pid -F -a 192.168.60.1 -i 9
+	ipfwd_config -P $pid -F -a 192.168.130.1 -i 3
+	ipfwd_config -P $pid -F -a 192.168.140.1 -i 10
+	ipfwd_config -P $pid -F -a 192.168.150.1 -i 11
 
-     lpm_ipfwd_config -P $pid -G -s 192.168.40.2 -m 02:00:c0:a8:45:02 -r true
-     lpm_ipfwd_config -P $pid -G -s 192.168.50.2 -m 02:00:c0:a8:3c:02 -r true
-     lpm_ipfwd_config -P $pid -G -s 192.168.60.2 -m 02:00:c0:a8:82:02 -r true
-     lpm_ipfwd_config -P $pid -G -s 192.168.130.2 -m 02:00:c0:a8:ad:02 -r true
-     lpm_ipfwd_config -P $pid -G -s 192.168.140.2 -m 02:00:c0:a8:8c:02 -r true
-     lpm_ipfwd_config -P $pid -G -s 192.168.150.2 -m 02:00:c0:a8:a0:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.40.2 -m 02:00:c0:a8:da:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.50.2 -m 02:00:c0:a8:0a:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.60.2 -m 02:00:c0:a8:14:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.130.2 -m 02:00:c0:a8:a8:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.140.2 -m 02:00:c0:a8:28:02 -r true
+	ipfwd_config -P $pid -G -s 192.168.150.2 -m 02:00:c0:a8:32:02 -r true
 
-     # 1024
-     net_pair_routes 190 1 16 40 63	# 64
-     net_pair_routes 191 1 16 50 223	# 224
-     net_pair_routes 192 1 16 60 223	# 224
-     net_pair_routes 193 1 16 130 63	# 64
-     net_pair_routes 194 1 16 140 223	# 224
-     net_pair_routes 195 1 16 150 223	# 224
-     ;;
+					# 998
+	net_pair_routes 40 130 7 7	# 2 *  7 *  7 = 98
+	net_pair_routes 50 60 15 15	# 2 * 15 * 15 = 450
+	net_pair_routes 140 150 15 15	# 2 * 15 * 15 = 450
+	;;
 
 esac
-echo LPM-IPFwd Route Creation completed
+echo IPFwd Route Creation completed

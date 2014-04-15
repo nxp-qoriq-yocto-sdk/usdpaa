@@ -32,7 +32,7 @@
 bin_PROGRAMS = lpm_ipfwd_config
 dist_DATA = lpm_ipfwd_22G.sh lpm_ipfwd_20G.sh lpm_ipfwd_14G.sh \
 	lpm_ipfwd_20G_1Mroutes.sh lpm_ipfwd_40G.sh lpm_ipfwd_42G.sh \
-	lpm_ipfwd_7G.sh
+	lpm_ipfwd_7G.sh lpm_ipfwd_t2080_42G.sh
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/lpm-ipfwd/lib -I$(TOP_LEVEL)/apps/lpm-ipfwd/include
 
@@ -53,3 +53,5 @@ lpm_ipfwd_42G.sh_install = $(INSTALL_BIN)
 lpm_ipfwd_42G.sh_install_flags = $(INSTALL_BIN_FLAGS)
 lpm_ipfwd_7G.sh_install_flags = $(INSTALL_BIN_FLAGS)
 lpm_ipfwd_7G.sh_install = $(INSTALL_BIN)
+lpm_ipfwd_t2080_42G.sh_install = $(INSTALL_BIN)
+lpm_ipfwd_t2080_42G.sh_install_flags = $(INSTALL_BIN_FLAGS)
