@@ -782,6 +782,8 @@ static void set_crypto_cbs(struct test_cb *crypto_cb)
 	crypto_cb->get_num_of_cpus = get_num_of_cpus;
 	crypto_cb->requires_authentication = requires_authentication;
 	crypto_cb->get_thread_barrier = get_thread_barrier;
+	crypto_cb->enc_done_cbk = proto->enc_done_cbk;
+	crypto_cb->dec_done_cbk = proto->dec_done_cbk;
 }
 
 int register_modules()
