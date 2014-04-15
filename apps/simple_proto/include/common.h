@@ -130,6 +130,12 @@ struct protocol_info {
 				/**< Callback for checking the status returned
 				     by SEC in fd_status. */
 	unsigned num_cpus;	/**< Number of online CPUs in the system */
+	int (*enc_done_cbk) (void *, int);
+				/**< Callback for encapsulation end of test
+				     checks */
+	int (*dec_done_cbk) (void *, int);
+				/**< Callback for decapsulation end of test
+				     checks */
 };
 
 #endif /* PROTOCOLS_H_ */
