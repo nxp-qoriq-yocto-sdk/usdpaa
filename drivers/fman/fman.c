@@ -715,7 +715,8 @@ void fman_finish(void)
 
 		/* No need to disable Offline port or MAC less */
 		if ((__if->__if.mac_type == fman_offline) ||
-			(__if->__if.mac_type == fman_mac_less))
+			(__if->__if.mac_type == fman_mac_less) ||
+			(__if->__if.mac_type == fman_onic))
 			continue;
 
 		/* disable Rx and Tx */
@@ -817,7 +818,8 @@ void fman_if_disable_rx(const struct fman_if *p)
 	assert(ccsr_map_fd != -1);
 
 	/* No need to disable Offline port */
-	if (__if->__if.mac_type == fman_offline)
+	if (__if->__if.mac_type == fman_offline ||
+	    __if->__if.mac_type == fman_onic)
 		return;
 
 	/* only disable Rx, not Tx */
@@ -836,7 +838,8 @@ void fman_if_loopback_enable(const struct fman_if *p)
 	assert(ccsr_map_fd != -1);
 
 	/* Do nothing for Offline port */
-	if (__if->__if.mac_type == fman_offline)
+	if (__if->__if.mac_type == fman_offline ||
+	    __if->__if.mac_type == fman_onic)
 		return;
 
 	/* Enable loopback mode */
@@ -858,7 +861,8 @@ void fman_if_loopback_disable(const struct fman_if *p)
 	assert(ccsr_map_fd != -1);
 
 	/* Do nothing for Offline port */
-	if (__if->__if.mac_type == fman_offline)
+	if (__if->__if.mac_type == fman_offline ||
+	    __if->__if.mac_type == fman_onic)
 		return;
 
 	/* Disable loopback mode */
