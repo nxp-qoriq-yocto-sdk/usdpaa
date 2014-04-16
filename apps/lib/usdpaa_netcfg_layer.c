@@ -564,6 +564,10 @@ struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
 		cfg->fman_if = __if;
 		/* Extract FMC configuration only for
 		   command-line interfaces */
+		if (__if->mac_type == fman_onic) {
+			cfg->rx_def = __if->fqid_rx_def;
+			continue;
+		}
 		_errno = fmc_netcfg_get_info(__if->fman_idx,
 			__if->mac_type, __if->mac_idx, &xmlcfg);
 		if (_errno == 0) {
