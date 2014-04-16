@@ -247,7 +247,9 @@ int ppac_interface_init(unsigned idx)
 #ifdef PPAC_TX_CONFIRM
 	context_b = fif->fqid_tx_confirm;
 #else
-	context_a = (uint64_t)1 << 63;
+	if (fif->mac_type != fman_onic && fif->mac_type != fman_offline)
+		context_a = (uint64_t)1 << 63;
+
 	if (!(flags & PPAM_TX_FQ_NO_BUF_DEALLOC))
 		context_a |= ((uint64_t)fman_dealloc_bufs_mask_hi << 32) |
 					(uint64_t)fman_dealloc_bufs_mask_lo;
@@ -317,6 +319,15 @@ int ppac_interface_init_rx(struct ppac_interface *i)
 		return 0;
 	} else if (fif->mac_type == fman_onic) {
 		uint32_t fqid = fif->fqid_rx_def;
+		err = ppam_rx_error_init(&i->rx_error.s, &i->ppam_data,
+						&stash_opts);
+		if (err) {
+			error(0, err, "%s", __func__);
+			return err;
+		}
+		ppac_fq_nonpcd_init(&i->rx_error.fq, fif->fqid_rx_err,
+				    get_rxc(), &stash_opts, cb_dqrr_rx_error);
+
 		i->rx_default[0].ppac_if = i;
 		err = ppam_rx_default_init(&i->rx_default[0].s,
 			&i->ppam_data, 0, &stash_opts);
@@ -474,6 +485,7 @@ void ppac_interface_finish(struct ppac_interface *i)
 
 	/* Offline and shared-mac ports don't have Tx Error or Confirm FQs */
 	if (ppac_interface_type(i) != fman_offline &&
+	    ppac_interface_type(i) != fman_onic &&
 	    fif->shared_mac_info.is_shared_mac != 1) {
 		ppam_tx_confirm_finish(&i->tx_confirm.s, &i->ppam_data);
 		teardown_fq(&i->tx_confirm.fq);
