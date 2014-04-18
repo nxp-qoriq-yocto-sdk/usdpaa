@@ -44,11 +44,7 @@
 #include <syslog.h>
 #include <string.h>
 
-#define S_APP_PATH	"/socket_usdpaad"
-#define S_CMD_PATH	"/socket_cmdd"
-#define BUF_SIZE_MAX		100
-#define CMD_BUF_SIZE_MAX	10
-#define MAX_NUM_APP		8
+#include <fsl_cpu_hotplug.h>
 
 int main(int argc, char *argv[])
 {

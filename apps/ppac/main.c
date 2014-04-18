@@ -42,6 +42,7 @@
 #include <string.h>
 
 #include <ppac.h>
+#include <fsl_cpu_hotplug.h>
 #include <flib/rta.h>
 
 #include <unistd.h>
@@ -1515,9 +1516,6 @@ static int ppac_cli_ifconfig(int argc, char *argv[])
 	return 0;
 }
 
-#define BUF_SIZE_MAX	100
-#define SIZE_PID_MAX	10
-
 void *listener_fn(void * arg)
 {
 	/* Initialization required for connecting with cpu_hotplug daemon */
@@ -1545,7 +1543,7 @@ void *listener_fn(void * arg)
 		perror("opening datagram socket");
 
 	s_to_daemon.sun_family = AF_UNIX;
-	strcpy(s_to_daemon.sun_path, "/socket_usdpaa_d");
+	strcpy(s_to_daemon.sun_path, S_APP_PATH);
 
 	s_from_daemon.sun_family = AF_UNIX;
 	strcpy(s_from_daemon.sun_path, s_pid);
