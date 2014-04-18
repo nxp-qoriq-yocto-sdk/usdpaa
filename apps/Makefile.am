@@ -35,7 +35,10 @@ SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback \
 	  ipsec_offload cpu_hotplug
 
 ifeq (B4860,$(SOC))
-SUBDIRS += dsp_dpa srio_ipsec_offload
+SUBDIRS += srio_ipsec_offload
+ifeq (powerpc,$(ARCH))
+SUBDIRS += dsp_dpa
+endif
 endif
 
 ifneq (,$(findstring $(SOC),B4860 T4240 T2080))
