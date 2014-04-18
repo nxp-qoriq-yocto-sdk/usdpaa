@@ -440,7 +440,6 @@ int create_local_entry(int ifindex, int af, u8 *key)
 	int key_size = 0;
 	int *local_td = NULL;
 	struct fman_if *__if = NULL;
-	struct fman_if * ib_oh_if = NULL;
 	int found = 0;
 	char macless_name[IF_NAMESIZE];
 	struct ppac_interface *ppac_if = NULL;
@@ -495,15 +494,9 @@ int create_local_entry(int ifindex, int af, u8 *key)
 
 	else if (__if->mac_type == fman_onic
 		     && !strcmp(macless_name, app_conf.vipsec)) {
-		ib_oh_if = get_fif(app_conf.fm, app_conf.ib_oh->mac_idx,
-						   app_conf.ib_oh->mac_type);
-		if (!ib_oh_if)
-			return -ENODEV;
 
-		//temporary until CR ENGR00307282 is implemented
-		//the usecase needs to have from dts, the default queue of the Rx OH
-		//this is not yet available from USDPAA
-		rx_start = ib_oh_if->fqid_rx_def;
+		/* enqueue oNIC traffic in the default queue of oNIC's Rx OH */
+		rx_start = __if->onic_info.onic_rx_start;
 		vsp_id = 0;
 	}
 
