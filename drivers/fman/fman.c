@@ -567,6 +567,15 @@ static int fman_if_init_onic(const struct device_node *dpa_node)
 	__if->__if.tx_channel_id = *tx_channel_id;
 
 	rprop = "fsl,qman-frame-queues-oh";
+
+	/* Extract the FQs from which oNIC driver in Linux is dequeing */
+	rx_phandle = of_get_property(oh_node, rprop, &lenp);
+	my_err(!rx_phandle, -EINVAL, "%s: no fsl,qman-frame-queues-oh\n",
+	       dname);
+	assert(lenp == (4 * sizeof(phandle)));
+	__if->__if.onic_info.onic_rx_start = rx_phandle[2];
+	__if->__if.onic_info.onic_rx_count = rx_phandle[3];
+
 	/* Extract the Rx FQIDs */
 	oh_node2 = of_find_node_by_phandle(p_oh_node[1]);
 	my_err(!oh_node2, -EINVAL, "%s: couldn't get oh_node2\n",

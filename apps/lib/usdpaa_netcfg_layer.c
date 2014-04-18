@@ -156,10 +156,15 @@ void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr)
 							fqr->start, fqr->count);
 				}
 			}
-			if (__if->mac_type == fman_onic)
+			if (__if->mac_type == fman_onic) {
 				printf("\tfqid_rx_def: 0x%x\n", __if->fqid_rx_def);
-			else
+				printf("\tonic_rx_start: %#x\n",
+				       __if->onic_info.onic_rx_start);
+				printf("\tonic_rx_count: %#x\n",
+				       __if->onic_info.onic_rx_count);
+			} else {
 				printf("\tfqid_rx_def: 0x%x\n", p_cfg->rx_def);
+			}
 			printf("\tfqid_rx_err: 0x%x\n", __if->fqid_rx_err);
 		}
 

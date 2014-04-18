@@ -310,10 +310,8 @@ struct macless_port_cfg {
 
 struct onic_port_cfg {
 	char macless_name[IFNAMSIZ];
-	uint32_t rx_start;
-	uint32_t rx_count;
-	uint32_t tx_start;
-	uint32_t tx_count;
+	uint32_t onic_rx_start;		/* Consumed by oNIC drv in linux */
+	uint32_t onic_rx_count;
 	struct ether_addr src_mac;
 	struct ether_addr peer_mac;
 };
