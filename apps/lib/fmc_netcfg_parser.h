@@ -41,7 +41,6 @@
 /* Range of frame queues specified for PCD and Default RX */
 struct fmc_netcfg_fqs {
 	struct list_head *list; /* List of "struct fm_eth_port_fqrange" */
-	uint32_t rxdef;	/* Default FQID */
 };
 
 /* pcd_file@ : netpcd file (XML). which have a PCD information.

@@ -579,7 +579,7 @@ struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
 			if (use_all_interfaces || netcfg_interface_match(
 			   __if->fman_idx, __if->mac_type, __if->mac_idx)) {
 				cfg->list = xmlcfg.list;
-				cfg->rx_def = xmlcfg.rxdef;
+				cfg->rx_def = __if->fqid_rx_def;
 				num_cfg_ports++;
 				idx++;
 			}

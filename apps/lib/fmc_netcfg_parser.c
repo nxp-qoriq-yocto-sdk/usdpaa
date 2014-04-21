@@ -75,7 +75,6 @@ struct interface_info {
 	enum fman_mac_type port_type;
 	uint8_t port_num;		/* 0 onwards */
 	struct list_head *list;		/* List of PCD FQs*/
-	uint32_t rxdef;			/* default RX fq range */
 };
 
 /* Structure contains information about the MAC interfaces
@@ -318,72 +317,6 @@ static int pcdinfo(char *dist_name, struct fm_eth_port_fqrange *fqr)
 	return _errno;
 }
 
-static int rxdefinfo(char *dist_name, uint32_t *rxdef)
-{
-	uint8_t len;
-	char *name;
-	int _errno = -ENXIO;
-	char *ptr;
-	xmlNodePtr distp;
-	xmlNodePtr cur;
-
-	cur = netpcd_root_node->xmlChildrenNode;
-	for_all_sibling_nodes(cur) {
-		if (unlikely(!is_node(cur, BAD_CAST NPCD_DIST_NODE)))
-			continue;
-
-		len = strnlen(dist_name, 100);
-		name = (char *)get_attributes(cur, BAD_CAST NPCD_DIST_NA_name);
-		if (unlikely(!name) || unlikely(strncmp(name, dist_name, len)))
-			continue;
-
-		distp = cur->xmlChildrenNode;
-		for_all_sibling_nodes(distp) {
-			uint32_t count;
-			if (unlikely(!is_node(distp,
-						BAD_CAST NPCD_DIST_FQ_NODE)))
-				continue;
-
-			/* Extract the number of FQs */
-			ptr = get_attributes(distp,
-					BAD_CAST NPCD_DIST_FQ_NA_count);
-			if (unlikely(ptr == NULL)) {
-				fprintf(stderr, "%s:%hu:%s() error: "
-					"(Node(%s)->Attribute (%s) not found\n",
-					__FILE__, __LINE__, __func__,
-					distp->name, NPCD_DIST_FQ_NA_count);
-				return -EINVAL;
-			}
-
-			count = strtoul(ptr, NULL, 0);
-			if( count != 1) {
-				fprintf(stderr, "%s:%hu:%s() error: "
-					"(%s:%c != 1)\n",
-					__FILE__, __LINE__, __func__, name,
-					count);
-				return -EINVAL;
-			}
-
-			/* Extract the starting number of FQs */
-			ptr = get_attributes(distp,
-					BAD_CAST NPCD_DIST_FQ_NA_base);
-			if (unlikely(ptr == NULL)) {
-				fprintf(stderr, "%s:%hu:%s() error: "
-					"(Node(%s)->Attribute (%s) not found\n",
-					__FILE__, __LINE__, __func__,
-					distp->name, NPCD_DIST_FQ_NA_base);
-				return -EINVAL;
-			}
-
-			*rxdef = strtoul(ptr, NULL, 0);
-			_errno = 0;
-			break;
-		}
-		break;
-	}
-	return _errno;
-}
-
 static int parse_policy(xmlNodePtr cur, struct fmc_netcfg_fqs *fqs)
 {
 	char *name;
@@ -424,17 +357,6 @@ static int parse_policy(xmlNodePtr cur, struct fmc_netcfg_fqs *fqs)
 		if (unlikely(name == NULL))
 			return -ENXIO;
 
-		if (dist_node->next == NULL) {
-			if (rxdefinfo(name, &fqs->rxdef)) {
-				fprintf(stderr, "%s:%hu:%s() error: DEFRX %s"
-					" information not found\n", __FILE__,
-					 __LINE__, __func__, name);
-				return -ENXIO;
-			}
-			fqs->list = fqlist;
-			return 0;
-		}
-
 		fqr = malloc(sizeof(*fqr));
 		if (!fqr) {
 			fprintf(stderr, "%s: Unable to allocate memory for"
@@ -461,6 +383,7 @@ static int parse_policy(xmlNodePtr cur, struct fmc_netcfg_fqs *fqs)
 			list_add_tail(&fqr->list, fqlist);
 	}
 
+	fqs->list = fqlist;
 	return 0;
 }
 
@@ -585,7 +508,6 @@ static int parse_engine(xmlNodePtr enode, const char *pcd_file)
 		i_info->port_num = p_num;
 		i_info->list = fqs.list;
 		i_info->port_type = p_type;
-		i_info->rxdef = fqs.rxdef;
 		p_curr++;
 	}
 
@@ -732,7 +654,6 @@ int fmc_netcfg_get_info(uint8_t fman, enum fman_mac_type p_type, uint8_t p_num,
 			continue;
 
 		cfg->list = i_info->list;
-		cfg->rxdef = i_info->rxdef;
 
 		return 0;
 	}

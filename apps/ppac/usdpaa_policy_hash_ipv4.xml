@@ -447,7 +447,6 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist0"/>
 			<distributionref name="hash_ipv4_src_dst_dist0"/>
-			<distributionref name="default_dist0"/>
 		</dist_order>
 	</policy>
 
@@ -461,7 +460,6 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist1"/>
 			<distributionref name="hash_ipv4_src_dst_dist1"/>
-			<distributionref name="default_dist1"/>
 		</dist_order>
 	</policy>
 
@@ -475,7 +473,6 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist2"/>
 			<distributionref name="hash_ipv4_src_dst_dist2"/>
-			<distributionref name="default_dist2"/>
 		</dist_order>
 	</policy>
 
@@ -489,7 +486,6 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist3"/>
 			<distributionref name="hash_ipv4_src_dst_dist3"/>
-			<distributionref name="default_dist3"/>
 		</dist_order>
 	</policy>
 
@@ -503,7 +499,6 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist4"/>
 			<distributionref name="hash_ipv4_src_dst_dist4"/>
-			<distributionref name="default_dist4"/>
 		</dist_order>
 	</policy>
 
@@ -517,7 +512,6 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist5"/>
 			<distributionref name="hash_ipv4_src_dst_dist5"/>
-			<distributionref name="default_dist5"/>
 		</dist_order>
 	</policy>
 
@@ -531,7 +525,6 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist6"/>
 			<distributionref name="hash_ipv4_src_dst_dist6"/>
-			<distributionref name="default_dist6"/>
 		</dist_order>
 	</policy>
 
@@ -545,7 +538,6 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist7"/>
 			<distributionref name="hash_ipv4_src_dst_dist7"/>
-			<distributionref name="default_dist7"/>
 		</dist_order>
 	</policy>
 
@@ -559,7 +551,6 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist8"/>
 			<distributionref name="hash_ipv4_src_dst_dist8"/>
-			<distributionref name="default_dist8"/>
 		</dist_order>
 	</policy>
 
@@ -573,7 +564,6 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist9"/>
 			<distributionref name="hash_ipv4_src_dst_dist9"/>
-			<distributionref name="default_dist9"/>
 		</dist_order>
 	</policy>
 
@@ -587,7 +577,6 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist10"/>
 			<distributionref name="hash_ipv4_src_dst_dist10"/>
-			<distributionref name="default_dist10"/>
 		</dist_order>
 	</policy>
 
@@ -601,7 +590,6 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist11"/>
 			<distributionref name="hash_ipv4_src_dst_dist11"/>
-			<distributionref name="default_dist11"/>
 		</dist_order>
 	</policy>
 
@@ -615,7 +603,6 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist12"/>
 			<distributionref name="hash_ipv4_src_dst_dist12"/>
-			<distributionref name="default_dist12"/>
 		</dist_order>
 	</policy>
 
@@ -629,7 +616,6 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist13"/>
 			<distributionref name="hash_ipv4_src_dst_dist13"/>
-			<distributionref name="default_dist13"/>
 		</dist_order>
 	</policy>
 
@@ -643,7 +629,6 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist14"/>
 			<distributionref name="hash_ipv4_src_dst_dist14"/>
-			<distributionref name="default_dist14"/>
 		</dist_order>
 	</policy>
 
@@ -657,7 +642,6 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist15"/>
 			<distributionref name="hash_ipv4_src_dst_dist15"/>
-			<distributionref name="default_dist15"/>
 		</dist_order>
 	</policy>
 
@@ -671,7 +655,6 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist16"/>
 			<distributionref name="hash_ipv4_src_dst_dist16"/>
-			<distributionref name="default_dist16"/>
 		</dist_order>
 	</policy>
 
@@ -685,7 +668,6 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist17"/>
 			<distributionref name="hash_ipv4_src_dst_dist17"/>
-			<distributionref name="default_dist17"/>
 		</dist_order>
 	</policy>
 
@@ -699,7 +681,6 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist18"/>
 			<distributionref name="hash_ipv4_src_dst_dist18"/>
-			<distributionref name="default_dist18"/>
 		</dist_order>
 	</policy>
 
@@ -713,7 +694,6 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipsec_src_dst_spi_dist19"/>
 			<distributionref name="hash_ipv4_src_dst_dist19"/>
-			<distributionref name="default_dist19"/>
 		</dist_order>
 	</policy>
 
