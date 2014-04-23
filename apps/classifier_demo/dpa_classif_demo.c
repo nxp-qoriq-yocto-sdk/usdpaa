@@ -126,7 +126,7 @@ static int			eth_cnt_id = DPA_OFFLD_INVALID_OBJECT_ID;
 extern int			tmg_cnt_id;
 extern int			cng_cnt_id;
 
-static uint32_t			txfq;
+static uint32_t			txfq = -1;
 
 static int			inserted_ipv4_keys;
 static int			inserted_ipv6_keys;
@@ -713,7 +713,6 @@ static int ppam_interface_init(struct ppam_interface	*p,
 {
 	int err = 0;
 	unsigned int deq_sp = 0;
-	struct ppac_interface *i;
 
 	p->num_tx_fqids = num_tx_fqs;
 	p->tx_fqids = malloc(p->num_tx_fqids * sizeof(*p->tx_fqids));
@@ -729,8 +728,6 @@ static int ppam_interface_init(struct ppam_interface	*p,
 
 	if (cfg->fman_if->mac_idx == ppam_args.port &&
 			cfg->fman_if->fman_idx == ppam_args.fm) {
-		i = container_of(p, struct ppac_interface, ppam_data);
-		txfq = i->tx_fqs[0].fqid;
 		deq_sp = cfg->fman_if->tx_channel_id & 0xF;
 
 		err = ceetm_init(ppam_args.fm, deq_sp);
@@ -795,6 +792,8 @@ static void ppam_interface_tx_fqid(struct ppam_interface	*p,
 				uint32_t			fqid)
 {
 	p->tx_fqids[idx] = fqid;
+	if (txfq == -1)
+		txfq = fqid;
 }
 
 static int ppam_rx_error_init(struct ppam_rx_error	*p,
