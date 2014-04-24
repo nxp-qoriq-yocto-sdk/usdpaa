@@ -37,4 +37,4 @@ AM_CFLAGS += -I$(TOP_LEVEL)/apps/ipsecfwd/lib
 AM_CFLAGS += -I$(TOP_LEVEL)/apps/lib
 AM_CFLAGS += -I$(TOP_LEVEL)/apps/lib/arp
 
-apps_ipsecfwd_arp_SOURCES := arp.c
+apps_ipsecfwd_arp_SOURCES := ../../../lib/arp/arp.c
