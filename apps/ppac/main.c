@@ -1521,12 +1521,10 @@ void *listener_fn(void * arg)
 	/* Initialization required for connecting with cpu_hotplug daemon */
 	struct worker *worker;
 	struct sockaddr_un s_to_daemon, s_from_daemon;
-	struct timeval time = {0};
 	char buf[BUF_SIZE_MAX];
 	char s_pid[SIZE_PID_MAX];
 	int len, core_num, ret, n;
 	unsigned int to_daemon, from_daemon;
-	fd_set readfd;
 	pid_t pid;
 	/* Supporting maximum 32 cpu, thread on core_num >32 won't be restore*/
 	u32 core_map = 0;
@@ -1568,37 +1566,33 @@ void *listener_fn(void * arg)
 
 	while (1) {
 		/* Check msgs from daemon */
-		FD_SET(from_daemon, &readfd);
-		select(from_daemon + 1, &readfd, NULL, NULL, &time);
-		if (FD_ISSET(from_daemon, &readfd)) {
-			memset(buf, 0, BUF_SIZE_MAX);
-			if (read(from_daemon, buf, BUF_SIZE_MAX) < 0)
-				perror("cpu hotplug daemon not running");
+		memset(buf, 0, BUF_SIZE_MAX);
+		if (read(from_daemon, buf, BUF_SIZE_MAX) < 0)
+			perror("cpu hotplug daemon not running");
 
-			/* Process the received cmd */
-			core_num = atoi(&buf[1]);
-			switch (buf[0]) {
-			case '+':
-				/* check if a threads was running on core_num */
-				if (core_map & (1 << core_num)) {
-					/* if thread was running on core_num,
-					 * start a thread on that core */
-					core_map = core_map & ~(1 << core_num);
-					worker = worker_new(core_num, 0);
-					if (worker)
-						worker_add(worker);
-				}
-				break;
-			case '-':
-				/* check if a thread is running on core_num,
-				 * if yes kill it */
-				worker = worker_find(core_num, 0);
-				if (worker) {
-					worker_free(worker);
-					core_map = core_map | 1 << core_num;
-				}
-				break;
+		/* Process the received cmd */
+		core_num = atoi(&buf[1]);
+		switch (buf[0]) {
+		case '+':
+			/* check if a threads was running on core_num */
+			if (core_map & (1 << core_num)) {
+				/* if thread was running on core_num,
+				 * start a thread on that core */
+				core_map = core_map & ~(1 << core_num);
+				worker = worker_new(core_num, 0);
+				if (worker)
+					worker_add(worker);
 			}
+			break;
+		case '-':
+			/* check if a thread is running on core_num,
+			 * if yes kill it */
+			worker = worker_find(core_num, 0);
+			if (worker) {
+				worker_free(worker);
+				core_map = core_map | 1 << core_num;
+			}
+			break;
 		}
 	}
 }
