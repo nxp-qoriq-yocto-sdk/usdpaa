@@ -198,7 +198,7 @@ int set_dist_base_fqid(struct fmc_model_t *cmodel, char *fmc_path,
 		       uint32_t fqid);
 int set_cc_miss_fqid(struct fmc_model_t *cmodel, char *fmc_path,
 		     uint32_t fqid);
-#if defined(B4860) || defined(T4240)
+#if defined(B4860) || defined(T4240) || defined(B4420)
 int set_cc_miss_fqid_with_vsp(struct fmc_model_t *cmodel, char *fmc_path,
 		     uint32_t fqid);
 #endif

@@ -50,7 +50,7 @@
 #include "app_config.h"
 #include "app_common.h"
 
-#if defined(B4860) || defined(T4240)
+#if defined(B4860) || defined(T4240) || defined(B4420)
 #include "fm_vsp_ext.h"
 #endif
 
@@ -120,7 +120,7 @@ static int dpa_ipsec_id;
 static struct fmc_model_t *cmodel;
 static pthread_t xfrm_tid, neigh_tid;
 
-#if defined(B4860) || defined(T4240)
+#if defined(B4860) || defined(T4240) || defined(B4420)
 
 static t_Handle	vsp;
 static t_Handle	fm_obj;
@@ -326,7 +326,7 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 			"ib_post_ip_cc",
 			app_conf.fm, app_conf.ib_oh->mac_idx);
 
-#if defined(B4860) || defined(T4240)
+#if defined(B4860) || defined(T4240) || defined(B4420)
 		ret = set_cc_miss_fqid_with_vsp(cmodel, fmc_path, rx_start);
 #else
 		ret = set_cc_miss_fqid(cmodel, fmc_path, rx_start);
@@ -339,7 +339,7 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 		sprintf(fmc_path, "fm%d/port/OFFLINE/%d/ccnode/"
 			"ib_post_ip6_cc",
 			app_conf.fm, app_conf.ib_oh->mac_idx);
-#if defined(B4860) || defined(T4240)
+#if defined(B4860) || defined(T4240) || defined(B4420)
 		ret = set_cc_miss_fqid_with_vsp(cmodel, fmc_path, rx_start);
 #else
 		ret = set_cc_miss_fqid(cmodel, fmc_path, rx_start);
@@ -946,7 +946,7 @@ int ppam_init(void)
 			goto bp_cleanup;
 	}
 
-#if defined(B4860) || defined(T4240)
+#if defined(B4860) || defined(T4240) || defined(B4420)
 
 	ret = vsp_init(app_conf.fm, app_conf.ib_oh->mac_idx,
 				   e_FM_PORT_TYPE_OH_OFFLINE_PARSING);
@@ -1059,7 +1059,7 @@ void ppam_finish(void)
 	cleanup_macless_config(app_conf.vif);
 	cleanup_macless_config(app_conf.vof);
 	cleanup_buffer_pools();
-#if defined(B4860) || defined(T4240)
+#if defined(B4860) || defined(T4240) || defined(B4420)
 	vsp_clean();
 #endif
 }
