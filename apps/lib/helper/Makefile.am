@@ -39,4 +39,4 @@ AM_CFLAGS := \
 
 lib_LIBRARIES = usdpaa_helper
 $(lib_LIBRARIES)_SOURCES := helper_common.c helper_interface.c \
-	helper_api.c
+	helper_api.c helper_sec.c
