@@ -1,4 +1,4 @@
-# Copyright (c) 2011 - 2012 Freescale Semiconductor, Inc.
+# Copyright (c) 2014 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -29,23 +29,16 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback \
-	  hello_reflector ipfwd ipsecfwd sra rmu fra lpm-ipfwd dma_test \
-	  simple_proto classifier_demo fragmentation_demo reassembly_demo \
-	  ipsec_offload cpu_hotplug helper_reflector
 
-ifeq (B4860,$(SOC))
-SUBDIRS += srio_ipsec_offload
-ifeq (powerpc,$(ARCH))
-SUBDIRS += dsp_dpa
-endif
-endif
+AM_CFLAGS := \
+	-I$(TOP_LEVEL)/apps/lib/helper
 
-ifneq (,$(findstring $(SOC),B4860 T4240 T2080))
-SUBDIRS += ceetm_demo
-endif
+bin_PROGRAMS = helper_reflector
+$(bin_PROGRAMS)_SOURCES := helper_reflector.c
+$(bin_PROGRAMS)_LDADD := usdpaa_helper usdpaa_syscfg usdpaa_qbman \
+	usdpaa_fman usdpaa_of usdpaa_dma_mem usdpaa_process
+$(bin_PROGRAMS)_LDFLAGS := $(LIBXML2_LDFLAGS)
+$(bin_PROGRAMS)_CFLAGS := \
+	-DDEF_PCD_PATH="/$(INSTALL_OTHER)/usdpaa_policy_hash_ipv4.xml" \
+	-DDEF_CFG_PATH="/$(INSTALL_OTHER)/usdpaa_config_p4_serdes_0xe.xml"
 
-dist_DATA = SOURCE_THIS
-
-# install the SOURCE_THIS file in the 'root' home directory
-SOURCE_THIS_install := root
