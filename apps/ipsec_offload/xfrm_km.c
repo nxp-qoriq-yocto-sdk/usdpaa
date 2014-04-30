@@ -1211,6 +1211,41 @@ int list_dpa_sa(int argc, char *argv[])
 	return 0;
 }
 
+
+static inline int vif_is_up()
+{
+	int fd, ret;
+	struct ifreq ifr;
+
+	TRACE("Get flags for app_conf.vif %s\n", app_conf.vif);
+
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (fd < 0) {
+		error(0, errno, "socket error\n");
+		return -errno;
+	}
+
+	ifr.ifr_addr.sa_family = AF_INET;
+	strncpy(ifr.ifr_name, app_conf.vif, IFNAMSIZ-1);
+	ret = ioctl(fd, SIOCGIFFLAGS, &ifr);
+	if (ret < 0) {
+		error(0, errno, "Failed to get flags for VIF interface\n");
+		return -errno;
+	}
+
+	if (ifr.ifr_flags & IFF_UP) {
+		TRACE("VIF %s is up\n", app_conf.vif);
+		return 1;
+	}
+
+	close(fd);
+
+	TRACE("VIF %s is down\n", app_conf.vif);
+
+	return 0;
+}
+
+
 /*
  * Check if policy is referring an SA with the same tunnel source/destination
  * address as the Virtual inbound interface, i.e check if policy is for this
@@ -1322,6 +1357,20 @@ static int process_new_policy(const struct nlmsghdr	*nh,
 			memcpy(&addr, &daddr, sizeof(saddr));
 	}
 
+	/* Check if VIF interface is up and skip policy check if not */
+	ret = vif_is_up();
+	switch (ret) {
+	case 0:
+		/* VIF is down */
+		goto skip_policy_is_for_us;
+	case 1:
+		/* VIF is up */
+		break;
+	default:
+		TRACE("Failed to check VIF state\n");
+		return 0;
+	}
+
 	/* Check if policy is regarding this DPA IPSec instance */
 	ret = policy_is_for_us(&addr, af);
 	switch (ret) {
@@ -1335,6 +1384,8 @@ static int process_new_policy(const struct nlmsghdr	*nh,
 		TRACE("Failed checking policy versus tunnel source\n");
 		return 0;
 	}
+
+skip_policy_is_for_us:
 
 	/* create dpa pol and fill in fields */
 	dpa_pol = malloc(sizeof(*dpa_pol));
