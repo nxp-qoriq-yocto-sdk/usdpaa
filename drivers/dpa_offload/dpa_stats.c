@@ -58,7 +58,7 @@
  * can translate the "fmlib" handles into FM driver handles.
  */
 typedef struct t_Device {
-	uint32_t	id;
+	uintptr_t	id;
 	int		fd;
 	void		*h_UserPriv;
 	uint32_t	owners;
@@ -976,7 +976,7 @@ int dpa_stats_init(const struct dpa_stats_params *params, int *dpa_stats_id)
 		return err;
 	}
 
-	if (ioctl(dpa_stats_devfd, DPA_STATS_IOC_INIT, prm) < 0) {
+	if (ioctl(dpa_stats_devfd, DPA_STATS_IOC_INIT, &prm) < 0) {
 		error(0, errno, "Couldn't initialize the DPA Stats instance\n");
 		free_resources(dpa_stats);
 		return -errno;
@@ -1043,6 +1043,7 @@ int dpa_stats_create_counter(int dpa_stats_id,
 	}
 	dpa_stats = gbl_dpa_stats;
 
+	memset(&prm, 0, sizeof(prm));
 	memcpy(&prm.cnt_params, cnt_params, sizeof(prm.cnt_params));
 
 	switch (cnt_params->type) {
