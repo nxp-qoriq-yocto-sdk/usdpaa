@@ -42,7 +42,11 @@ dist_DATA = ipsec_offload_config_p4080.xml ipsec_offload_config_p4080_1p.xml \
             ipsec_offload_pcd_b4.xml ipsec_offload_pcd_b4_1p.xml \
             ipsec_offload_pcd_t4.xml ipsec_offload_pcd_t4_1p.xml \
             ipsec_offload_pcd_t2.xml ipsec_offload_pcd_t2_1p.xml \
-            ipsec_offload_policy.xml ipsec_offload_policy_1p.xml ipsec_offload_swp.xml
+            ipsec_offload_policy.xml ipsec_offload_policy_1p.xml ipsec_offload_swp.xml \
+            ipsec_offload_config_p4080_1p_fman0_instance.xml \
+            ipsec_offload_config_p4080_1p_fman1_instance.xml \
+            ipsec_offload_policy_1p_fman0_instance.xml \
+            ipsec_offload_policy_1p_fman1_instance.xml
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/include \
 	     $(FMC_CFLAGS) $(FMLIB_CFLAGS) $(LIBRTA_CFLAGS)
