@@ -74,16 +74,6 @@ struct ioc_dpa_stats_cnts_reset_params {
 	unsigned int cnts_ids_len;
 };
 
-struct dpa_stats_event_params {
-	int			dpa_stats_id;
-	unsigned int		storage_area_offset;
-	unsigned int		cnts_written;
-	int			bytes_written;
-	int			*us_cnt_ids;
-	unsigned int		cnt_ids_len;
-	dpa_stats_request_cb	request_done;
-};
-
 #ifdef CONFIG_COMPAT
 struct dpa_stats_compat_params {
 	unsigned int max_counters;
@@ -242,16 +232,6 @@ struct compat_ioc_dpa_stats_cnt_request_params {
 struct compat_ioc_dpa_stats_cnts_reset_params {
 	compat_uptr_t cnts_ids;
 	unsigned int cnts_ids_len;
-};
-
-struct compat_dpa_stats_event_params {
-	int			dpa_stats_id;
-	unsigned int		storage_area_offset;
-	unsigned int		cnts_written;
-	int			bytes_written;
-	compat_uptr_t		us_cnt_ids;
-	unsigned int		cnt_ids_len;
-	compat_uptr_t		request_done;
 };
 #endif
 #define DPA_STATS_IOC_MAGIC				0xde

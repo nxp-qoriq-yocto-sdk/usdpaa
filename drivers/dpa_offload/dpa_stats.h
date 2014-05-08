@@ -113,4 +113,22 @@ struct dpa_stats_cnt_cb {
 	get_cnt_stats *f_get_cnt_stats;
 };
 
+struct dpa_stats_event_params {
+	int			dpa_stats_id;
+	unsigned int		storage_area_offset;
+	unsigned int		cnts_written;
+	int			bytes_written;
+	dpa_stats_request_cb	request_done;
+};
+
+#ifdef CONFIG_COMPAT
+struct compat_dpa_stats_event_params {
+	int			dpa_stats_id;
+	unsigned int		storage_area_offset;
+	unsigned int		cnts_written;
+	int			bytes_written;
+	compat_uptr_t		request_done;
+};
+#endif /* CONFIG_COMPAT */
+
 #endif /* __DPA_STATS_H */

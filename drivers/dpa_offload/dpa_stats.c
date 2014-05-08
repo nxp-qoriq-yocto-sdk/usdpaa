@@ -1487,6 +1487,11 @@ void *dpa_stats_event_thread(void *arg)
 		buff_sz = read(dpa_stats_devfd, buffer, (NUM_EVENTS_IN_READ *
 				sizeof(*event_prm)));
 
+		if (buff_sz < 0) {
+			error(0, EINVAL, "Could not read information from "
+				"buffer\n");
+			return NULL;
+		}
 		event_prm  = (struct dpa_stats_event_params *)buffer;
 
 		/* Dispatch events */
