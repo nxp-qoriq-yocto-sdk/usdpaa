@@ -103,14 +103,14 @@ int ceetm_init(int fman, int deq_sp)
 	int i = 0, j = 0;
 	uint8_t prio_a = 1, prio_b = 2;
 	uint16_t we_mask;
-	uint32_t cr_speed[NUM_OF_CHANNELS] = {	100000000,  /* bps AF1x */
-						200000000,  /* bps AF2x */
-						250000000,  /* bps AF3x */
-						400000000}; /* bps AF4x */
-	uint32_t er_speed[NUM_OF_CHANNELS] = {	125000000,  /* bps AF1x */
-						225000000,  /* bps AF2x */
-						275000000,  /* bps AF3x */
-						425000000}; /* bps AF4x */
+	uint32_t cr_speed[NUM_OF_CHANNELS] = {	80000000,   /* bps AF1x */
+						90000000,   /* bps AF2x */
+						100000000,  /* bps AF3x */
+						110000000}; /* bps AF4x */
+	uint32_t er_speed[NUM_OF_CHANNELS] = {	85000000,   /* bps AF1x */
+						95000000,   /* bps AF2x */
+						105000000,  /* bps AF3x */
+						115000000}; /* bps AF4x */
 	uint64_t context_a = 0x9200000080000000ull, context_b = 0;
 
 	struct qm_ceetm_ccg_params c_params;
