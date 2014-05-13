@@ -86,7 +86,7 @@
 		<key>
 			<fieldref name ="ipv6.src"/>
 			<fieldref name ="ipv6.dst"/>
-			<fieldref name ="ipv6.nexthdr" header_index="last"/>
+			<fieldref name ="ipv6.nexthdr"/>
 		</key>
 		<queue count="1" base="0x1782"/>
 		<action type="classification" name="3_tuple_ipv6_classif"/>
