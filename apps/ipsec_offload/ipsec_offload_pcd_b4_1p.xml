@@ -323,12 +323,14 @@
 		<queue count="8" base="0x2e80"/>
 	</distribution>
 	<distribution name="reass_ipv4">
+	    <vsp name="Non_Vipsec_Traffic" base="1"/>
 		<protocols>
 			<protocolref name="ipv4"/>
 			<protocolref name="ipv4" opt="0x00000008" />
 		</protocols>
 	</distribution>
 	<distribution name="reass_ipv6">
+		<vsp name="Non_Vipsec_Traffic" base="1"/>
 		<protocols>
 			<protocolref name="ipv4"/>
 			<protocolref name="ipv4" opt="0x00000004" />
