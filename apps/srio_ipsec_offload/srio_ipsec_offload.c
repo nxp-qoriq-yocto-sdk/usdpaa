@@ -306,6 +306,8 @@ static int ppam_interface_init(struct ppam_interface *p,
 	}
 	if (app_conf.ib_oh_pre == i->port_cfg->fman_if) {
                 fq->fqid = IB_OH_DIST_TX_FQID;
+                *flags |= PPAM_TX_FQ_NO_BUF_DEALLOC;
+                *flags |= PPAM_TX_FQ_SET_OPCODE11;
 	}
         if(app_conf.ob_eth == i->port_cfg->fman_if) {
 		ret = setup_macless_if_tx(i, OB_TX_FQID, &num_tx_fqs,
@@ -339,21 +341,6 @@ static void ppam_interface_finish(struct ppam_interface *p)
 static void ppam_interface_tx_fqid(struct ppam_interface *p, unsigned idx,
 				   uint32_t fqid)
 {
-       struct ppac_interface *i =
-		container_of(p, struct ppac_interface, ppam_data);
-       u16 channel_id = app_conf.ib_oh_pre->tx_channel_id;
-       if(fqid == IB_OH_DIST_TX_FQID){
-	    struct qman_fq *fq = &i->tx_fqs[idx];
-            uint64_t context_a = 0;
-            uint32_t context_b = 0;
-            teardown_fq(fq);
-            context_a = (uint64_t)1 << 63;
-            context_a |= ((uint64_t)fman_dealloc_bufs_mask_hi << 32) |
-                                        (uint64_t)fman_dealloc_bufs_mask_lo;
-            FM_CONTEXTA_SET_A1_VALID(&context_a, true);
-            FM_CONTEXTA_SET_A1(&context_a, OPCODE);
-	    ppac_fq_tx_init(fq, channel_id, context_a, context_b);
-       }
        p->tx_fqids[idx] = fqid;
 }
 
@@ -466,23 +453,17 @@ static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_interface *_if,
 		}
 	}
 
-	/* one or more ports were not found*/
-	if (!ib_oh_if || !ob_oh_if || !eth_if || !ib_oh_pre_if)
-		return 0;
-	/* inbound mappings : inbound offline Rx - ethernet Tx*/
-	if (&ib_oh_if->ppam_data == _if) {
-		__if = &eth_if->ppam_data;
-		p->tx_fqid = __if->tx_fqids[idx % __if->num_tx_fqids];
-		TRACE("Mapping Rx FQ %p:%d --> Tx FQID %d\n",
-		      p, idx, p->tx_fqid);
+    /* one or more ports were not found*/
+    if (!ib_oh_if || !ob_oh_if || !eth_if || !ib_oh_pre_if)
+        return 0;
+    /* inbound mappings : inbound offline Rx - ethernet Tx*/
+    if (&ib_oh_if->ppam_data == _if) {
+        __if = &eth_if->ppam_data;
+	p->tx_fqid = __if->tx_fqids[idx % __if->num_tx_fqids];
+	TRACE("Mapping Rx FQ %p:%d --> Tx FQID %d\n",
+	      p, idx, p->tx_fqid);
 	}
 
-    /* inbound mappings : inbound offline Rx - sRIO Tx*/
-    if (&ib_oh_if->ppam_data == _if) {
-        p->tx_fqid = RMAN_TX_FQID;
-        TRACE("USDPAA IB Mapping IB OH Rx FQ %p:0x%x --> sRIO Tx FQID 0x%x\n",
-                p, idx, p->tx_fqid);
-    }
     /* outbound mappings : ethernet Rx - outbound offline Tx*/
     if (&eth_if->ppam_data == _if) {
 	__if = &ob_oh_if->ppam_data;

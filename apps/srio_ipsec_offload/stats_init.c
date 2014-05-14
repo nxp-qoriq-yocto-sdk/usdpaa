@@ -211,7 +211,17 @@ int show_sa_stats(int argc, char *argv[])
 int show_ipsec_stats(int argc, char *argv[])
 {
 	struct dpa_ipsec_stats ipsec_stats;
-	int err, instance_id = 0;
+	int err, instance_id;
+
+        if (argc != 2)
+                return -EINVAL;
+
+        if (!isdigit(*argv[1])) {
+                printf("\n.Instance ID must be of type int.\n");
+                return -EINVAL;
+        }
+
+        instance_id = atoi(argv[1]);
 
 	err = dpa_ipsec_get_stats(instance_id, &ipsec_stats);
 	if (err == 0) {

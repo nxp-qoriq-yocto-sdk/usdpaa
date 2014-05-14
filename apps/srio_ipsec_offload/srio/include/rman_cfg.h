@@ -34,7 +34,6 @@
 #define _RMAN_CFG_H
 
 /* Application options */
-#define ENABLE_RMAN_DEBUG
 #ifdef ENABLE_RMAN_DEBUG
 #define RMAN_DBG(fmt, args...) \
 	do { \
