@@ -32,7 +32,7 @@
 #include "fmc.h"
 #include "ceetm_api.h"
 #include "hash_table.h"
-#include "jhash_func.h"
+#include "fman_crc64_hash_func.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -394,14 +394,14 @@ int ppam_init(void)
 	}
 
 	hash_ipv4 = hash_table_create(APP_TABLE_KEY_SIZE_IPv4, NUM_HASH_BUCKETS,
-					MAX_NUM_OF_IPv4_KEYS, lookup);
+				     MAX_NUM_OF_IPv4_KEYS, crc64_hash_function);
 	if (!hash_ipv4) {
 		error(0, EINVAL, "Cannot create IPv4 application internal hash table");
 		return -EINVAL;
 	}
 
 	hash_ipv6 = hash_table_create(APP_TABLE_KEY_SIZE_IPv6, NUM_HASH_BUCKETS,
-					MAX_NUM_OF_IPv6_KEYS, lookup);
+				     MAX_NUM_OF_IPv6_KEYS, crc64_hash_function);
 	if (!hash_ipv6) {
 		error(0, EINVAL, "Cannot create IPv6 application internal hash table");
 		return -EINVAL;
