@@ -30,7 +30,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef B4860
+#if defined(B4860) || defined(T4240) || defined(T2080)
 
 #include <ppac.h>
 #include "fm_vsp_ext.h"
@@ -177,4 +177,4 @@ int vsp_clean(void)
 	return E_OK;
 }
 
-#endif /* B4860 */
+#endif /* defined(B4860) || defined(T4240) || defined(T2080) */

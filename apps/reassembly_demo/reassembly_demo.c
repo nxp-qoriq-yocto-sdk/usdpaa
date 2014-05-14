@@ -45,7 +45,7 @@
 
 #include "fmc.h"
 
-#if defined(B4860)
+#if defined(B4860) || defined(T4240) || defined(T2080)
 #include "vsp_api.h"
 #endif
 
@@ -205,7 +205,7 @@ int ppam_init(void)
 		return -err;
 	}
 
-#if defined(B4860)
+#if defined(B4860) || defined(T4240) || defined(T2080)
 	/* Init vsp */
 	err = vsp_init(ppam_args.fm, ppam_args.port);
 	if (err != 0) {
@@ -263,7 +263,7 @@ void ppam_finish()
 	else
 		TRACE("PCD configuration successfully restored.\n");
 
-#if defined(B4860)
+#if defined(B4860) || defined(T4240) || defined(T2080)
 	/* Cleanup vsp */
 	err = vsp_clean();
 	if (err !=  0)
