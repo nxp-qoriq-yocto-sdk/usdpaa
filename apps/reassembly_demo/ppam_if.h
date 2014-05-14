@@ -35,6 +35,10 @@
 
 #include <stdint.h>
 
+#if defined(B4860) || defined(T4240) || defined(T2080)
+#define VSP_SUPPORTED
+#endif
+
 /* structs required by ppac.c */
 struct ppam_interface {
 	unsigned int num_tx_fqids;

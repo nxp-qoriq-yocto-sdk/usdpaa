@@ -30,12 +30,12 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if defined(B4860) || defined(T4240) || defined(T2080)
-
 #include <ppac.h>
 #include "fm_vsp_ext.h"
 #include "fm_port_ext.h"
 #include "ppam_if.h"
+
+#ifdef VSP_SUPPORTED
 
 #include <inttypes.h>
 #include <error.h>
@@ -177,4 +177,4 @@ int vsp_clean(void)
 	return E_OK;
 }
 
-#endif /* defined(B4860) || defined(T4240) || defined(T2080) */
+#endif /* VSP_SUPPORTED */
