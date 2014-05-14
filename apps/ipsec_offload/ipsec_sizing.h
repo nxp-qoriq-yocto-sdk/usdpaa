@@ -43,6 +43,12 @@
 #elif defined B4420
 #define NUM_SETS		8
 #define NUM_WAYS		8
+#elif defined T4240
+#define NUM_SETS		8
+#define NUM_WAYS		8
+#elif defined T2080
+#define NUM_SETS		8
+#define NUM_WAYS		8
 #else
 #define NUM_SETS		2
 #define NUM_WAYS		8

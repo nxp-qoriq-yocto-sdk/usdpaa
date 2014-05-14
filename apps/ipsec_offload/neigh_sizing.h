@@ -54,6 +54,18 @@
 #define IPv4_NUM_ADDRS		16
 #define IPv6_NUM_ADDRS		16
 
+#elif defined T4240
+#define IPv4_NUM_KEYS		64
+#define IPv6_NUM_KEYS		64
+#define IPv4_NUM_ADDRS		16
+#define IPv6_NUM_ADDRS		16
+
+#elif defined T2080
+#define IPv4_NUM_KEYS		64
+#define IPv6_NUM_KEYS		64
+#define IPv4_NUM_ADDRS		16
+#define IPv6_NUM_ADDRS		16
+
 #else
 #define IPv4_NUM_KEYS		16
 #define IPv6_NUM_KEYS		16
