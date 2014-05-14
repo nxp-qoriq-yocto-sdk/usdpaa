@@ -1035,15 +1035,16 @@ int ppam_thread_init(void)
 
 void ppam_post_finish_rx(void)
 {
-	int ret __maybe_unused;
 	if (neigh_tid) {
-		ret = pthread_kill(neigh_tid, SIGTERM);
-		TRACE("Finished NEIGH messages processing (%d)\n", ret);
+		pthread_kill(neigh_tid, SIGUSR1);
+		pthread_join(neigh_tid, NULL);
+		TRACE("Finished NEIGH messages processing\n");
 	}
+
 	if (xfrm_tid) {
-		pthread_kill(xfrm_tid, SIGTERM);
-		ret = pthread_join(xfrm_tid, NULL);
-		TRACE("Finished XFRM messages processing (%d)\n", ret);
+		pthread_kill(xfrm_tid, SIGUSR2);
+		pthread_join(xfrm_tid, NULL);
+		TRACE("Finished XFRM messages processing\n");
 	}
 }
 

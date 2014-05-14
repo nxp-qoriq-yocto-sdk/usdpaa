@@ -767,8 +767,10 @@ int setup_neigh_loop(pthread_t *tid)
 	return ret;
 }
 
+static volatile sig_atomic_t quit;
 static void sig_handler(int signum)
 {
+	quit = 1;
 }
 
 static void *neigh_msg_loop(void *data)
@@ -782,6 +784,8 @@ static void *neigh_msg_loop(void *data)
 	int vif_idx, vof_idx, vipsec_idx;
 	int len, ret;
 	struct sigaction new_action, old_action;
+
+	quit = 0;
 
 	ret = init_neigh_tables(app_conf.ob_oh_post, cc_out_post_enc);
 	if (ret < 0)
@@ -821,9 +825,9 @@ static void *neigh_msg_loop(void *data)
 	new_action.sa_handler = sig_handler;
 	sigemptyset(&new_action.sa_mask);
 	new_action.sa_flags = 0;
-	sigaction(SIGTERM, NULL, &old_action);
+	sigaction(SIGUSR1, NULL, &old_action);
 	if (old_action.sa_handler != SIG_IGN)
-		sigaction(SIGTERM, &new_action, NULL);
+		sigaction(SIGUSR1, &new_action, NULL);
 
 	vif_idx = if_nametoindex(app_conf.vif);
 	if (!vif_idx) {
@@ -848,7 +852,7 @@ static void *neigh_msg_loop(void *data)
 		pthread_exit(NULL);
 	}
 
-	while (1) {
+	while (!quit) {
 		len = recvmsg(rtm_sd, &msg, 0);
 		if (len < 0 && errno != EINTR) {
 			fprintf(stderr,

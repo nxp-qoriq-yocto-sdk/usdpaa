@@ -120,8 +120,10 @@ err:
 	return -1;
 }
 
+static volatile sig_atomic_t quit;
 static void sig_handler(int signum)
 {
+	quit = 1;
 }
 
 int setup_xfrm_msgloop(int dpa_ipsec_id, pthread_t *tid)
@@ -1544,6 +1546,7 @@ static void *xfrm_msg_loop(void *data)
 	cpu_set_t cpuset;
 	struct sigaction new_action, old_action;
 
+	quit = 0;
 	/* get ipsec instance we use */
 	struct thread_data *thread_data = (struct thread_data *)data;
 	dpa_ipsec_id = thread_data->dpa_ipsec_id;
@@ -1553,9 +1556,9 @@ static void *xfrm_msg_loop(void *data)
 	new_action.sa_handler = sig_handler;
 	sigemptyset(&new_action.sa_mask);
 	new_action.sa_flags = 0;
-	sigaction(SIGTERM, NULL, &old_action);
+	sigaction(SIGUSR2, NULL, &old_action);
 	if (old_action.sa_handler != SIG_IGN)
-		sigaction(SIGTERM, &new_action, NULL);
+		sigaction(SIGUSR2, &new_action, NULL);
 
 	/* Set this cpu-affinity to CPU 0 */
 	CPU_ZERO(&cpuset);
@@ -1586,7 +1589,7 @@ static void *xfrm_msg_loop(void *data)
 	msg.msg_iovlen = 1;
 
 	/* XFRM notification loop */
-	while (1) {
+	while (!quit) {
 		len = recvmsg(xfrm_sd, &msg, 0);
 		if (len < 0 && errno != EINTR) {
 			fprintf(stderr,
