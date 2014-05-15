@@ -1552,7 +1552,7 @@ static void *xfrm_msg_loop(void *data)
 	dpa_ipsec_id = thread_data->dpa_ipsec_id;
 	policy_miss_fqid = thread_data->pol_miss_fqid;
 
-	/* install a signal handler for SIGTERM */
+	/* install a signal handler for SIGUSR2 */
 	new_action.sa_handler = sig_handler;
 	sigemptyset(&new_action.sa_mask);
 	new_action.sa_flags = 0;
