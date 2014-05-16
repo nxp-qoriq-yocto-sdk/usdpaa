@@ -63,11 +63,59 @@
 		<action condition="on-miss" type="drop"/>
 	</classification>
 
-	<classification name="dscp_classif" max="20" masks="yes" statistics="frame">
+	<classification name="dscp_classif" max="12" masks="yes" statistics="frame">
 		<!-- Key value to be extracted from the packet -->
 		<key>
 			<fieldref name="ip.dscp"/>
 		</key>
+		<entry>
+			<data>0x0A</data>
+			<mask>0xff</mask>
+		</entry>
+		<entry>
+			<data>0x0C</data>
+			<mask>0xff</mask>
+		</entry>
+		<entry>
+			<data>0x0E</data>
+			<mask>0xff</mask>
+		</entry>
+		<entry>
+			<data>0x12</data>
+			<mask>0xff</mask>
+		</entry>
+		<entry>
+			<data>0x14</data>
+			<mask>0xff</mask>
+		</entry>
+		<entry>
+			<data>0x16</data>
+			<mask>0xff</mask>
+		</entry>
+		<entry>
+			<data>0x1A</data>
+			<mask>0xff</mask>
+		</entry>
+		<entry>
+			<data>0x1C</data>
+			<mask>0xff</mask>
+		</entry>
+		<entry>
+			<data>0x1E</data>
+			<mask>0xff</mask>
+		</entry>
+		<entry>
+			<data>0x22</data>
+			<mask>0xff</mask>
+		</entry>
+		<entry>
+			<data>0x24</data>
+			<mask>0xff</mask>
+		</entry>
+		<entry>
+			<data>0x26</data>
+			<mask>0xff</mask>
+		</entry>
 		<action condition="on-miss" type="drop"/>
 	</classification>
 

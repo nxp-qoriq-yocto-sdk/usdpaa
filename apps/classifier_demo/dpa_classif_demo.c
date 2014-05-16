@@ -65,21 +65,21 @@ static int		ppam_cli_parse(int		key,
 				struct argp_state	*state);
 
 static const uint8_t dscp_key[MAX_NUM_OF_DSCP_KEYS][APP_DSCP_TABLE_KEY_SIZE] = {
-	{ 0x28 >> 2 }, /* AF11 */
-	{ 0x30 >> 2 }, /* AF12 */     /* Channel 1 */
-	{ 0x38 >> 2 }, /* AF13 */
+	{ 0x0A }, /* AF11 */
+	{ 0x0C }, /* AF12 */     /* Channel 1 */
+	{ 0x0E }, /* AF13 */
 
-	{ 0x48 >> 2 }, /* AF21 */
-	{ 0x50 >> 2 }, /* AF22 */     /* Channel 2 */
-	{ 0x58 >> 2 }, /* AF23 */
+	{ 0x12 }, /* AF21 */
+	{ 0x14 }, /* AF22 */     /* Channel 2 */
+	{ 0x16 }, /* AF23 */
 
-	{ 0x68 >> 2 }, /* AF31 */
-	{ 0x70 >> 2 }, /* AF32 */     /* Channel 3 */
-	{ 0x78 >> 2 }, /* AF33 */
+	{ 0x1A }, /* AF31 */
+	{ 0x1C }, /* AF32 */     /* Channel 3 */
+	{ 0x1E }, /* AF33 */
 
-	{ 0x88 >> 2 }, /* AF41 */
-	{ 0x90 >> 2 }, /* AF42 */     /* Channel 4 */
-	{ 0x98 >> 2 }  /* AF43 */
+	{ 0x22 }, /* AF41 */
+	{ 0x24 }, /* AF42 */     /* Channel 4 */
+	{ 0x26 }  /* AF43 */
 };
 
 struct ppam_arguments ppam_args = {
@@ -168,40 +168,6 @@ void clean_up(void)
 	printf("DPA Stats library successfully released\n");
 
 	if (dscp_td != DPA_OFFLD_DESC_NONE) {
-		/* Flush DSCP DPA Classifier table */
-		err = dpa_classif_table_flush(dscp_td);
-		if (err < 0)
-			error(0, -err, "DPA Classifier DSCP table flush failed");
-	}
-
-	if (ipv4_td != DPA_OFFLD_DESC_NONE) {
-		/* Flush IPv4 DPA Classifier table */
-		err = dpa_classif_table_flush(ipv4_td);
-		if (err < 0)
-			error(0, -err, "DPA Classifier IPv4 table flush failed");
-		else
-			printf("DPA Classifier IPv4 table flushed.\n");
-	}
-
-	if (ipv6_td != DPA_OFFLD_DESC_NONE) {
-		/* Flush IPv6 DPA Classifier table */
-		err = dpa_classif_table_flush(ipv6_td);
-		if (err < 0)
-			error(0, -err, "DPA Classifier IPv6 table flush failed");
-		else
-			printf("DPA Classifier IPv6 table flushed.\n");
-	}
-
-	/* Free header manipulation operations */
-	for (i = 0; i < MAX_NUM_OF_IPv4_KEYS; i++)
-		if (fwd_hmd_ipv4[i] != DPA_OFFLD_DESC_NONE)
-			dpa_classif_free_hm(fwd_hmd_ipv4[i]);
-
-	for (i = 0; i < MAX_NUM_OF_IPv6_KEYS; i++)
-		if (fwd_hmd_ipv6[i] != DPA_OFFLD_DESC_NONE)
-			dpa_classif_free_hm(fwd_hmd_ipv6[i]);
-
-	if (dscp_td != DPA_OFFLD_DESC_NONE) {
 		/* Free DSCP DPA Classifier table */
 		err = dpa_classif_table_free(dscp_td);
 		if (err < 0)
@@ -230,6 +196,15 @@ void clean_up(void)
 		else
 			printf("INFO: DPA Classifier IPv6 table resources released.\n");
 	}
+
+	/* Free header manipulation operations */
+	for (i = 0; i < MAX_NUM_OF_IPv4_KEYS; i++)
+		if (fwd_hmd_ipv4[i] != DPA_OFFLD_DESC_NONE)
+			dpa_classif_free_hm(fwd_hmd_ipv4[i]);
+
+	for (i = 0; i < MAX_NUM_OF_IPv6_KEYS; i++)
+		if (fwd_hmd_ipv6[i] != DPA_OFFLD_DESC_NONE)
+			dpa_classif_free_hm(fwd_hmd_ipv6[i]);
 
 	/* Release DPA Classifier library */
 	dpa_classif_lib_exit();
@@ -343,6 +318,7 @@ int ppam_init(void)
 
 	printf("dpa_classifier_demo is assuming FMan:%d and port:%d\n",
 		ppam_args.fm, ppam_args.port);
+
 	/* Get the CC Node Handle */
 	sprintf(object_name, "fm%d/port/1G/%d/ccnode/3_tuple_ipv4_classif",
 		ppam_args.fm, ppam_args.port);
@@ -426,6 +402,7 @@ static int create_dscp_table(void)
 	table_params.cc_node	= ccnodes[2];
 	table_params.entry_mgmt	= DPA_CLS_TBL_MANAGE_BY_KEY;
 
+	table_params.prefilled_entries = MAX_NUM_OF_DSCP_KEYS;
 	table_params.exact_match_params.entries_cnt = MAX_NUM_OF_DSCP_KEYS;
 	table_params.exact_match_params.key_size = APP_DSCP_TABLE_KEY_SIZE;
 
@@ -648,6 +625,7 @@ static int populate_dscp_table(void)
 
 	struct dpa_offload_lookup_key		key;
 	struct dpa_cls_tbl_action		action;
+	struct dpa_cls_tbl_entry_mod_params	modify;
 	struct dpa_stats_cls_member_params	params;
 
 	uint8_t				key_data[DPA_OFFLD_MAXENTRYKEYSIZE];
@@ -663,8 +641,10 @@ static int populate_dscp_table(void)
 	key.byte = key_data;
 	key.mask = mask_data;
 	key.size = APP_DSCP_TABLE_KEY_SIZE;
-	memset(key.mask, 0x3f, APP_DSCP_TABLE_KEY_SIZE);
+	memset(key.mask, 0xff, APP_DSCP_TABLE_KEY_SIZE);
 
+	/* Prepare modify params */
+	memset(&modify, 0, sizeof(modify));
 
 	for (i = 0; i < NUM_OF_CHANNELS; i++) {
 		for (j = 0; j < NUM_OF_QUEUES; j++) {
@@ -680,11 +660,14 @@ static int populate_dscp_table(void)
 #endif
 			action.enq_params.override_fqid = TRUE;
 
+			modify.action = &action;
+			modify.type = DPA_CLS_TBL_MODIFY_ACTION;
 
-			err = dpa_classif_table_insert_entry(dscp_td, &key,
-					&action, 0, NULL);
+
+			err = dpa_classif_table_modify_entry_by_key(dscp_td, &key,
+							&modify);
 			if (err < 0) {
-				error(0, -err, "Failed to insert entry #%d into DPA Classifier table (td=%d)",
+				error(0, -err, "Failed to modify entry #%d into DPA Classifier table (td=%d)",
 						i * NUM_OF_QUEUES + j, dscp_td);
 				return err;
 			}
@@ -1101,6 +1084,7 @@ int populate_exact_match_table(int tbl_desc, int proto, uint8_t *key_byte)
 	action.type = DPA_CLS_TBL_ACTION_NEXT_TABLE;
 	action.enable_statistics = true;
 	action.next_table_params.next_td = dscp_td;
+	action.next_table_params.hmd = DPA_OFFLD_DESC_NONE;
 
 	/* Prepare lookup key */
 	key.byte = key_data;
@@ -1686,6 +1670,7 @@ static int ppac_cli_classif_add_cmd(int argc, char *argv[])
 	memset(&fwd_hm_res, 0, sizeof(fwd_hm_res));
 
 	fwd_params.out_if_type = DPA_CLS_HM_IF_TYPE_ETHERNET;
+	fwd_params.fm_pcd = NULL;
 
 	if (!strcmp(argv[0], "add4")) {
 		if (inserted_ipv4_keys == MAX_NUM_OF_IPv4_KEYS) {
