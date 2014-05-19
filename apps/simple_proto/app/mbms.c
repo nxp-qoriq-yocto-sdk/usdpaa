@@ -41,7 +41,7 @@ struct argp_option mbms_options[] = {
 	 "Select MBMS PDU type:"
 	 "\n\t 0 = Type 0 PDU"
 	 "\n\t 1 = Type 1 PDU"
-	 "\n\t 2 = Type 3 PDU"
+	 "\n\t 3 = Type 3 PDU"
 	 "\n"},
 	{0}
 };
