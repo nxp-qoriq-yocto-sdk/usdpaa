@@ -89,7 +89,9 @@ struct rc_entry_statistics_t {
 struct rc_entry_t {
 	struct rc_entry_t *next;
 	/**< Pointer to the next Route Cache Entry*/
+#ifdef STATS_TBD
 	struct rc_entry_statistics_t *stats;
+#endif
 	in_addr_t saddr;
 	/**< Pointer to the Source Address */
 	in_addr_t daddr;
