@@ -164,6 +164,7 @@ static int ipfwd_add_route(const struct app_ctrl_op_info *route_info)
 
 	entry->saddr = route_info->ip_info.src_ipaddr;
 	entry->daddr = route_info->ip_info.dst_ipaddr;
+#ifdef STATS_TBD
 	_errno = posix_memalign((void **)&entry->stats, L1_CACHE_BYTES,
 			   sizeof(struct rc_entry_statistics_t));
 	if (unlikely(_errno < 0)) {
@@ -171,6 +172,7 @@ static int ipfwd_add_route(const struct app_ctrl_op_info *route_info)
 		return _errno;
 	}
 	memset(entry->stats, 0, sizeof(struct rc_entry_statistics_t));
+#endif
 	refcount_acquire(dest->neighbor->refcnt);
 
 	entry->dest = dest;
