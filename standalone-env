@@ -80,8 +80,8 @@ board2cpu()
                [bB]4860*) echo e6500;;
                [tT]4240*-64b) echo 64e6500;;
                [tT]4240*) echo e6500;;
-               [tT]1040*-64b) echo 64e6500;;
-               [tT]1040*) echo e6500;;
+               [tT]1040*-64b) echo 64e5500;;
+               [tT]1040*) echo e5500;;
                [tT]2080*-64b) echo 64e6500;;
                [tT]2080*) echo e6500;;
        esac
