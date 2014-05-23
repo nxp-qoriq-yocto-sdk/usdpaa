@@ -215,6 +215,16 @@ int test_enc_match_cb(int fd_ind, uint8_t *enc_buf,
 			crypto_info->rt.output_buf_size * BITS_PER_BYTE) != 0))
 		return -1;
 
+	/*
+	 * Even if the ciphertext of the encapsulation output frame is not
+	 * predictable due to the Packet Number incrementation, the correctness
+	 * of the output header can be checked.
+	 */
+	if (fd_ind &&
+	    test_vector_match((uint32_t *)enc_buf,
+			      (uint32_t *)ref_test_vector->ciphertext,
+			      WIMAX_GMH_SIZE * BITS_PER_BYTE) != 0)
+		 return -1;
 	return 0;
 }
 
