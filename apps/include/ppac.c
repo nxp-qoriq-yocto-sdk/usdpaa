@@ -247,7 +247,7 @@ int ppac_interface_init(unsigned idx)
 #ifdef PPAC_TX_CONFIRM
 	context_b = fif->fqid_tx_confirm;
 #else
-	if (fif->mac_type != fman_onic && fif->mac_type != fman_offline)
+	if (fif->mac_type != fman_onic)
 		context_a = (uint64_t)1 << 63;
 
 	if (!(flags & PPAM_TX_FQ_NO_BUF_DEALLOC))
