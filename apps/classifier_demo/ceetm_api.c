@@ -30,6 +30,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <unistd.h>
 #include "ceetm_api.h"
 
 int				tmg_cnt_id = DPA_OFFLD_INVALID_OBJECT_ID;
@@ -338,7 +339,7 @@ int ceetm_init(int fman, int deq_sp)
 		}
 	}
 
-	err = posix_memalign((void *)&worker, MAX_CACHELINE, sizeof(worker));
+	err = posix_memalign((void *)&worker, MAX_CACHELINE, sizeof(*worker));
 	if (err) {
 		error(0, -err, "Cannot allocate memory for get_stats thread\n");
 		return -ENOMEM;
@@ -410,12 +411,19 @@ int create_ceetm_counters(int dpa_stats_id)
 static void *worker_fn(void *args)
 {
 	int err = 0;
+	long cpu = -1;
 	struct worker *wrk = args;
 	cpu_set_t cpuset;
 
 	/* Set CPU affinity */
 	CPU_ZERO(&cpuset);
-	CPU_SET(1, &cpuset);
+	/* If possible start the thread on the last cpu available */
+	cpu = sysconf(_SC_NPROCESSORS_ONLN) - 1;
+	if (cpu >= 0)
+		CPU_SET(cpu, &cpuset);
+	else
+		/* Otherwise use the default USDPAA cpu */
+		CPU_SET(1, &cpuset);
 
 	err = pthread_setaffinity_np(wrk->id, sizeof(cpu_set_t), &cpuset);
 	if (err) {
