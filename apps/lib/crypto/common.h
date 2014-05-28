@@ -57,7 +57,7 @@ struct test_cb {
 	long (*get_num_of_cpus) (void);
 	enum test_mode (*get_test_mode) (void *);
 	uint8_t(*requires_authentication) (void *);
-	pthread_barrier_t(*get_thread_barrier) (void);
+	pthread_barrier_t *(*get_thread_barrier) (void);
 	int (*enc_done_cbk) (void *, int);
 	int (*dec_done_cbk) (void *, int);
 };
