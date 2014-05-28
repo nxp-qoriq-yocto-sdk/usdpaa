@@ -82,7 +82,7 @@ int worker_fn(struct thread_data *tdata)
 	int iterations = 0, itr_num;
 	int buf_num;
 	enum test_mode mode;
-	static pthread_barrier_t app_barrier;
+	static pthread_barrier_t *app_barrier = NULL;
 	long ncpus;
 	struct test_cb crypto_cb = *((struct test_cb *)tdata->test_cb);
 	void *crypto_param = tdata->test_param;
@@ -140,7 +140,7 @@ int worker_fn(struct thread_data *tdata)
 		}
 		set_enc_pkts_from_sec();
 
-		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
+		if (EINVAL == pthread_barrier_wait(app_barrier)) {
 			fprintf(stderr, "error: Encrypt mode:"
 				" pthread_barrier_wait failed"
 				" before enqueue\n");
@@ -165,7 +165,7 @@ int worker_fn(struct thread_data *tdata)
 		/* Receive encrypted or MAC data from SEC40 */
 		enc_qman_poll();
 
-		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
+		if (EINVAL == pthread_barrier_wait(app_barrier)) {
 			fprintf(stderr, "error: Encrypt mode:"
 				" pthread_barrier_wait failed"
 				" before enqueue\n");
@@ -200,7 +200,7 @@ int worker_fn(struct thread_data *tdata)
 		}
 		set_dec_pkts_from_sec();
 error2:
-		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
+		if (EINVAL == pthread_barrier_wait(app_barrier)) {
 			fprintf(stderr, "error: Decrypt mode:"
 				" pthread_barrier_wait failed"
 				" before enqueue\n");
@@ -231,7 +231,7 @@ error2:
 		/* Recieve decrypted data from SEC40 */
 		dec_qman_poll();
 
-		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
+		if (EINVAL == pthread_barrier_wait(app_barrier)) {
 			fprintf(stderr, "error: Encrypt mode:"
 				" pthread_barrier_wait failed"
 				" before enqueue\n");
@@ -257,7 +257,7 @@ error2:
 			}
 		}
 error3:
-		if (EINVAL == pthread_barrier_wait(&app_barrier)) {
+		if (EINVAL == pthread_barrier_wait(app_barrier)) {
 			fprintf(stderr, "error: pthread_barrier_wait failed"
 				" after test_dec_match\n");
 			abort();

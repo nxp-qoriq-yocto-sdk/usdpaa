@@ -1384,9 +1384,9 @@ inline long get_num_of_cpus(void)
  * param[in]	None
  * return	Thread barrier
  */
-inline pthread_barrier_t get_thread_barrier(void)
+inline pthread_barrier_t *get_thread_barrier(void)
 {
-	return app_barrier;
+	return &app_barrier;
 }
 
 /*
