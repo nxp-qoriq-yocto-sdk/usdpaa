@@ -97,6 +97,8 @@ static const struct argp_option argp_opts[] = {
 
 const struct argp ppam_argp = {argp_opts, ppam_cli_parse, 0, ppam_doc};
 
+const uint8_t			mac_src[ETH_ALEN] = { 0x00, 0x1e, 0xc9, 0x49, 0xbb, 0xbe  };
+
 struct fmc_model_t		cmodel;
 
 t_Handle			ccnodes[3];
@@ -1669,6 +1671,7 @@ static int ppac_cli_classif_add_cmd(int argc, char *argv[])
 	memset(&fwd_params, 0, sizeof(fwd_params));
 	memset(&fwd_hm_res, 0, sizeof(fwd_hm_res));
 
+	memcpy(fwd_params.eth.macsa, mac_src, ETH_ALEN);
 	fwd_params.out_if_type = DPA_CLS_HM_IF_TYPE_ETHERNET;
 	fwd_params.fm_pcd = NULL;
 
