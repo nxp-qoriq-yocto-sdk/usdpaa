@@ -219,6 +219,37 @@ policy.
 			<fieldref name="ipsec_esp.spi"/>
 		</key>
 	</distribution>
+
+	<distribution name="hash_ipv4_shared_mac_dist6">
+		<queue base="1" count="1" />
+		<protocols>
+			<protocolref name="ipv4" />
+		</protocols>
+		<action type="classification" name="ip_dest_clsf6"/>
+	</distribution>
+	<classification name="ip_dest_clsf6">
+		<key>
+			<fieldref name="ipv4.dst" />
+		</key>
+		<entry>
+			<data>0xc0a82c03</data>
+			<queue base="0x02" />
+			<action type="distribution" name="usdpaa_dist6" />
+		</entry>
+		<entry>
+			<data>0xc0a82c04</data>
+			<queue base="0x03" />
+			<action type="distribution" name="default_dist6" />
+		</entry>
+		<action type="distribution" name="default_dist6" condition="on-miss" />
+	</classification>
+	<distribution name="usdpaa_dist6">
+		<queue count="32" base="0xf00"/>
+		<key>
+			<fieldref name="ipv4.dst"/>
+		</key>
+	</distribution>
+
 	<distribution name="hash_ipv4_shared_mac_dist7">
                 <queue base="1" count="1" />
                 <protocols>
@@ -535,8 +566,7 @@ policy.
 
 	<policy name="hash_ipsec_src_dst_spi_policy6">
 		<dist_order>
-			<distributionref name="hash_ipsec_src_dst_spi_dist6"/>
-			<distributionref name="hash_ipv4_src_dst_dist6"/>
+			<distributionref name="hash_ipv4_shared_mac_dist6"/>
 			<distributionref name="default_dist6"/>
 		</dist_order>
 	</policy>
