@@ -62,19 +62,19 @@
 		</key>
 		<entry>
 			<data>0x868</data>
-			<mask>0xFFFF</mask>
 			<queue base="0x2e01" />
 			<vsp name="IPv4_Reass_VSP" />
 			<action statistics="enable" />
 		</entry>
 	</classification>
 
-	<classification name="ipv4_udp_first_frag">
+	<classification name="ipv4_udp_first_frag" masks="yes">
 		<key>
 			<fieldref name="ipv4.foffset" />
 		</key>
 		<entry>
 			<data>0x0000</data>
+			<mask>0x1FFF</mask>
 			<action type="classification" name="ipv4_udp" />
 		</entry>
 	</classification>
