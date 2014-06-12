@@ -38,7 +38,9 @@
  */
 
 #include <usdpaa/compat.h>
-#include <fsl_sec/dcl.h>
+#include <fsl_sec/sec.h>
+#include <flib/desc.h>
+
 #include <internal/compat.h>
 
 #define MAX_LEADER_LEN 31 /* offset + raw + instruction-name-length */
@@ -407,7 +409,7 @@ EXPORT_SYMBOL(desc_hexdump);
 static void show_shrhdr(uint32_t *hdr)
 {
 	DPTINT("   shrdesc: stidx=%d share=%s ",
-	      (*hdr >> HDR_START_IDX_SHIFT) & HDR_START_IDX_MASK,
+	      (*hdr & HDR_START_IDX_MASK) >> HDR_START_IDX_SHIFT,
 	      deschdr_share[(*hdr >> HDR_SD_SHARE_SHIFT) & HDR_SD_SHARE_MASK]);
 
 	if (*hdr & HDR_DNR)
@@ -426,10 +428,10 @@ static void show_hdr(uint32_t *hdr)
 {
 	if (*hdr & HDR_SHARED) {
 		DPTINT("   jobdesc: shrsz=%d ",
-		      (*hdr >> HDR_START_IDX_SHIFT) & HDR_START_IDX_MASK);
+		      (*hdr & HDR_START_IDX_MASK) >> HDR_START_IDX_SHIFT);
 	} else {
 		DPTINT("   jobdesc: stidx=%d ",
-		      (*hdr >> HDR_START_IDX_SHIFT) & HDR_START_IDX_MASK);
+		      (*hdr & HDR_START_IDX_MASK) >> HDR_START_IDX_SHIFT);
 	}
 	DPTINT("share=%s ",
 	      deschdr_share[(*hdr >> HDR_SD_SHARE_SHIFT) & HDR_SD_SHARE_MASK]);
@@ -908,7 +910,7 @@ static void decode_bidir_pcl_op(uint32_t *cmd)
 		DPTINT("pclinfo=0x%04x ", *cmd & OP_PCLINFO_MASK);
 		break;
 
-	case OP_PCLID_DTLS:
+	case OP_PCLID_DTLS10:
 		DPTINT("dtls ");
 		DPTINT("pclinfo=0x%04x ", *cmd & OP_PCLINFO_MASK);
 		break;
@@ -963,8 +965,12 @@ static void decode_class12_op(uint32_t *cmd)
 		DPTINT("rng ");
 		break;
 
-	case OP_ALG_ALGSEL_SNOW:
-		DPTINT("snow ");
+	case OP_ALG_ALGSEL_SNOW_F8:
+		DPTINT("snow f8");
+		break;
+
+	case OP_ALG_ALGSEL_SNOW_F9:
+		DPTINT("snow f9");
 		break;
 
 	case OP_ALG_ALGSEL_KASUMI:
@@ -1128,18 +1134,16 @@ static void decode_class12_op(uint32_t *cmd)
 			DPTINT("rng ");
 			break;
 
-		case OP_ALG_AAI_RNG_NOZERO:
+		case OP_ALG_AAI_RNG_NZB:
 			DPTINT("rng-no0 ");
 			break;
 
-		case OP_ALG_AAI_RNG_ODD:
+		case OP_ALG_AAI_RNG_OBP:
 			DPTINT("rngodd ");
 			break;
 		}
 		break;
 
-
-	case OP_ALG_ALGSEL_SNOW:
 	case OP_ALG_ALGSEL_KASUMI:
 		switch (*cmd & OP_ALG_AAI_MASK) {
 		case OP_ALG_AAI_F8:
@@ -1337,8 +1341,8 @@ static void show_op(uint32_t *cmd, uint8_t *idx, int8_t *leader)
 			show_op_pk_modmath_args(*cmd);
 			break;
 
-		case OP_ALG_PKMODE_CPYMEM_N_SZ:
-		case OP_ALG_PKMODE_CPYMEM_SRC_SZ:
+		case OP_ALG_PKMODE_COPY_NSZ:
+		case OP_ALG_PKMODE_COPY_SSZ:
 			show_op_pk_cpymem_args(*cmd);
 			break;
 		}
@@ -1622,8 +1626,7 @@ void caam_desc_disasm(uint32_t *desc, uint32_t opts)
 			DPTINT("0x%08x ", desc[0]);
 		show_shrhdr(desc);
 		len   = *desc & HDR_DESCLEN_SHR_MASK;
-		stidx = (*desc >> HDR_START_IDX_SHIFT) &
-			HDR_START_IDX_MASK;
+		stidx = (*desc & HDR_START_IDX_MASK) >> HDR_START_IDX_SHIFT;
 
 		if (stidx == 0)
 			stidx++;
@@ -1646,8 +1649,7 @@ void caam_desc_disasm(uint32_t *desc, uint32_t opts)
 			DPTINT("0x%08x ", desc[0]);
 		show_hdr(desc);
 		len   = *desc & HDR_DESCLEN_MASK;
-		stidx = (*desc >> HDR_START_IDX_SHIFT) &
-			HDR_START_IDX_MASK;
+		stidx = (*desc >> HDR_START_IDX_MASK) & HDR_START_IDX_SHIFT;
 
 		/* Start index of 0 really just means 1, so fix */
 		if (stidx == 0)

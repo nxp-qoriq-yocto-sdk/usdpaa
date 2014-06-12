@@ -1,3 +1,3 @@
-lib_LIBRARIES = usdpaa_sec
+lib_LIBRARIES = usdpaa_sec-disasm
 
-usdpaa_sec_SOURCES := disasm.c
+usdpaa_sec-disasm_SOURCES := disasm.c

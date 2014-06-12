@@ -33,6 +33,10 @@
 
 #include <internal/of.h>
 
+/* Disassembler options */
+#define DISASM_SHOW_OFFSETS	0x01 /* display instruction indices */
+#define DISASM_SHOW_RAW		0x02 /* display each raw instruction */
+
 /**
  * SEC QI error codes
  *
@@ -61,5 +65,12 @@ static inline int sec_get_of_era(void)
 	return -1;
 }
 
+/*
+ * Disassembler functions
+ */
+void desc_hexdump(uint32_t *descdata, uint32_t  size, uint32_t wordsperline,
+		  int8_t *indentstr);
+
+void caam_desc_disasm(uint32_t *desc, uint32_t opts);
 
 #endif /* SEC_H */
