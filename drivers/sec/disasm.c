@@ -1649,7 +1649,7 @@ void caam_desc_disasm(uint32_t *desc, uint32_t opts)
 			DPTINT("0x%08x ", desc[0]);
 		show_hdr(desc);
 		len   = *desc & HDR_DESCLEN_MASK;
-		stidx = (*desc >> HDR_START_IDX_MASK) & HDR_START_IDX_SHIFT;
+		stidx = (*desc & HDR_START_IDX_MASK) >> HDR_START_IDX_SHIFT;
 
 		/* Start index of 0 really just means 1, so fix */
 		if (stidx == 0)
