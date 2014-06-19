@@ -199,7 +199,7 @@ uint32_t mbms_type0_test_data_out_len[] = {
 
 uint8_t mbms_type0_fd_status[] = {
 	0,
-	0xaa
+	MBMS_CRC_HDR_FAIL
 };
 
 int mbms_type0_hdr_crc_fail[] = {
@@ -335,8 +335,8 @@ uint32_t mbms_type1_test_data_in_len[] = {
 
 uint8_t mbms_type1_fd_status[] = {
 	0,
-	0xab,
-	0xaa
+	MBMS_CRC_PAYLOAD_FAIL,
+	MBMS_CRC_HDR_FAIL
 };
 
 uint8_t *mbms_type1_test_data_out[] = {
@@ -572,8 +572,8 @@ uint32_t mbms_type3_test_data_in_len[] = {
 
 uint8_t mbms_type3_fd_status[] = {
 	0,
-	0xab,
-	0xaa
+	MBMS_CRC_PAYLOAD_FAIL,
+	MBMS_CRC_HDR_FAIL
 };
 
 uint8_t *mbms_type3_test_data_out[] = {
