@@ -225,7 +225,7 @@ static inline void cnstr_shdsc_ipsec_decap_hb(uint32_t *descbuf,
 	SET_LABEL(keyjmp);
 
 	/* Workaround to assert ok-to-share. This works only for ARS=off */
-	LOAD(IMM(0), DCTRL, LDOFF_CHG_SHARE_OK_NO_PROP, 0, WITH(0));
+	LOAD(IMM(0), DCTRL, LDOFF_CHG_SHARE_OK_NO_PROP, 0, 0);
 	PROTOCOL(OP_TYPE_DECAP_PROTOCOL,
 		 OP_PCLID_IPSEC,
 		 cipherdata->algtype | authdata->algtype);
