@@ -331,7 +331,15 @@ do { \
 /* Other miscellaneous interfaces our APIs depend on; */
 
 /* Qman/Bman API inlines and macros; */
+
+#ifdef lower_32_bits
+#undef lower_32_bits
+#endif
 #define lower_32_bits(x) ((u32)(x))
+
+#ifdef upper_32_bits
+#undef upper_32_bits
+#endif
 #define upper_32_bits(x) ((u32)(((x) >> 16) >> 16))
 
 /* PPAC inlines require cpu_spin(); */

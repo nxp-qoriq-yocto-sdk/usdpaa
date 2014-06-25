@@ -107,14 +107,14 @@ static int init_rsa_enc_pdb(struct test_param *crypto_info, int mode)
 		rsa_enc.header = (rtv->sgf << RSA_ENC_SGF_SHIFT) |
 		      (rtv->e_len << RSA_ENC_E_LEN_SHIFT) |
 		      (rtv->n_len);
-		rsa_enc.f_ref_high = high_32b(__dma_mem_vtop(rtv->f));
-		rsa_enc.f_ref_low = low_32b(__dma_mem_vtop(rtv->f));
-		rsa_enc.g_ref_high = high_32b(__dma_mem_vtop(rtv->g));
-		rsa_enc.g_ref_low = low_32b(__dma_mem_vtop(rtv->g));
-		rsa_enc.e_ref_high = high_32b(__dma_mem_vtop(rtv->e));
-		rsa_enc.e_ref_low = low_32b(__dma_mem_vtop(rtv->e));
-		rsa_enc.n_ref_high = high_32b(__dma_mem_vtop(rtv->n));
-		rsa_enc.n_ref_low = low_32b(__dma_mem_vtop(rtv->n));
+		rsa_enc.f_ref_high = upper_32_bits(__dma_mem_vtop(rtv->f));
+		rsa_enc.f_ref_low = lower_32_bits(__dma_mem_vtop(rtv->f));
+		rsa_enc.g_ref_high = upper_32_bits(__dma_mem_vtop(rtv->g));
+		rsa_enc.g_ref_low = lower_32_bits(__dma_mem_vtop(rtv->g));
+		rsa_enc.e_ref_high = upper_32_bits(__dma_mem_vtop(rtv->e));
+		rsa_enc.e_ref_low = lower_32_bits(__dma_mem_vtop(rtv->e));
+		rsa_enc.n_ref_high = upper_32_bits(__dma_mem_vtop(rtv->n));
+		rsa_enc.n_ref_low = lower_32_bits(__dma_mem_vtop(rtv->n));
 		rsa_enc.f_len = rtv->f_len;
 		memcpy(rtv->e_pdb, &rsa_enc,
 		       sizeof(struct rsa_encrypt_pdb_64b));
@@ -127,10 +127,10 @@ static int init_rsa_enc_pdb(struct test_param *crypto_info, int mode)
 		rsa_enc.header = (rtv->sgf << RSA_ENC_SGF_SHIFT) |
 			      (rtv->e_len << RSA_ENC_E_LEN_SHIFT) |
 			      (rtv->n_len);
-		rsa_enc.f_ref = low_32b(__dma_mem_vtop(rtv->f));
-		rsa_enc.g_ref = low_32b(__dma_mem_vtop(rtv->g));
-		rsa_enc.e_ref = low_32b(__dma_mem_vtop(rtv->e));
-		rsa_enc.n_ref = low_32b(__dma_mem_vtop(rtv->n));
+		rsa_enc.f_ref = lower_32_bits(__dma_mem_vtop(rtv->f));
+		rsa_enc.g_ref = lower_32_bits(__dma_mem_vtop(rtv->g));
+		rsa_enc.e_ref = lower_32_bits(__dma_mem_vtop(rtv->e));
+		rsa_enc.n_ref = lower_32_bits(__dma_mem_vtop(rtv->n));
 		rsa_enc.f_len = rtv->f_len;
 		memcpy(rtv->e_pdb, &rsa_enc, sizeof(struct rsa_encrypt_pdb));
 		rtv->e_pdb_size = sizeof(struct rsa_encrypt_pdb);
@@ -163,14 +163,14 @@ static int init_rsa_dec_form1_pdb(struct test_param *crypto_info, int mode)
 		rsa_dec.header = (rtv->sgf << RSA_DEC1_SGF_SHIFT) |
 		      (rtv->d_len << RSA_DEC1_D_LEN_SHIFT) |
 		      (rtv->n_len);
-		rsa_dec.f_ref_high = high_32b(__dma_mem_vtop(rtv->f));
-		rsa_dec.f_ref_low = low_32b(__dma_mem_vtop(rtv->f));
-		rsa_dec.g_ref_high = high_32b(__dma_mem_vtop(rtv->g));
-		rsa_dec.g_ref_low = low_32b(__dma_mem_vtop(rtv->g));
-		rsa_dec.d_ref_high = high_32b(__dma_mem_vtop(rtv->d));
-		rsa_dec.d_ref_low = low_32b(__dma_mem_vtop(rtv->d));
-		rsa_dec.n_ref_high = high_32b(__dma_mem_vtop(rtv->n));
-		rsa_dec.n_ref_low = low_32b(__dma_mem_vtop(rtv->n));
+		rsa_dec.f_ref_high = upper_32_bits(__dma_mem_vtop(rtv->f));
+		rsa_dec.f_ref_low = lower_32_bits(__dma_mem_vtop(rtv->f));
+		rsa_dec.g_ref_high = upper_32_bits(__dma_mem_vtop(rtv->g));
+		rsa_dec.g_ref_low = lower_32_bits(__dma_mem_vtop(rtv->g));
+		rsa_dec.d_ref_high = upper_32_bits(__dma_mem_vtop(rtv->d));
+		rsa_dec.d_ref_low = lower_32_bits(__dma_mem_vtop(rtv->d));
+		rsa_dec.n_ref_high = upper_32_bits(__dma_mem_vtop(rtv->n));
+		rsa_dec.n_ref_low = lower_32_bits(__dma_mem_vtop(rtv->n));
 		memcpy(rtv->d_pdb, &rsa_dec,
 		       sizeof(struct rsa_dec_pdb_form1_64b));
 		rtv->d_pdb_size = sizeof(struct rsa_dec_pdb_form1_64b);
@@ -182,10 +182,10 @@ static int init_rsa_dec_form1_pdb(struct test_param *crypto_info, int mode)
 		rsa_dec.header = (rtv->sgf << RSA_DEC1_SGF_SHIFT) |
 			      (rtv->d_len << RSA_DEC1_D_LEN_SHIFT) |
 			      (rtv->n_len);
-		rsa_dec.f_ref = low_32b(__dma_mem_vtop(rtv->f));
-		rsa_dec.g_ref = low_32b(__dma_mem_vtop(rtv->g));
-		rsa_dec.d_ref = low_32b(__dma_mem_vtop(rtv->d));
-		rsa_dec.n_ref = low_32b(__dma_mem_vtop(rtv->n));
+		rsa_dec.f_ref = lower_32_bits(__dma_mem_vtop(rtv->f));
+		rsa_dec.g_ref = lower_32_bits(__dma_mem_vtop(rtv->g));
+		rsa_dec.d_ref = lower_32_bits(__dma_mem_vtop(rtv->d));
+		rsa_dec.n_ref = lower_32_bits(__dma_mem_vtop(rtv->n));
 		memcpy(rtv->d_pdb, &rsa_dec, sizeof(struct rsa_dec_pdb_form1));
 		rtv->d_pdb_size = sizeof(struct rsa_dec_pdb_form1);
 	}
@@ -229,20 +229,22 @@ static int init_rsa_dec_form2_pdb(struct test_param *crypto_info, int mode)
 		rsa_dec.header = (rtv->sgf << RSA_DEC2_SGF_SHIFT) |
 		      (rtv->d_len << RSA_DEC2_D_LEN_SHIFT) |
 		      (rtv->n_len);
-		rsa_dec.f_ref_high = high_32b(__dma_mem_vtop(rtv->f));
-		rsa_dec.f_ref_low = low_32b(__dma_mem_vtop(rtv->f));
-		rsa_dec.g_ref_high = high_32b(__dma_mem_vtop(rtv->g));
-		rsa_dec.g_ref_low = low_32b(__dma_mem_vtop(rtv->g));
-		rsa_dec.d_ref_high = high_32b(__dma_mem_vtop(rtv->d));
-		rsa_dec.d_ref_low = low_32b(__dma_mem_vtop(rtv->d));
-		rsa_dec.p_ref_high = high_32b(__dma_mem_vtop(rtv->p));
-		rsa_dec.p_ref_low = low_32b(__dma_mem_vtop(rtv->p));
-		rsa_dec.q_ref_high = high_32b(__dma_mem_vtop(rtv->q));
-		rsa_dec.q_ref_low = low_32b(__dma_mem_vtop(rtv->q));
-		rsa_dec.tmp1_ref_high = high_32b(__dma_mem_vtop(rtv->tmp1));
-		rsa_dec.tmp1_ref_low = low_32b(__dma_mem_vtop(rtv->tmp1));
-		rsa_dec.tmp2_ref_high = high_32b(__dma_mem_vtop(rtv->tmp2));
-		rsa_dec.tmp2_ref_low = low_32b(__dma_mem_vtop(rtv->tmp2));
+		rsa_dec.f_ref_high = upper_32_bits(__dma_mem_vtop(rtv->f));
+		rsa_dec.f_ref_low = lower_32_bits(__dma_mem_vtop(rtv->f));
+		rsa_dec.g_ref_high = upper_32_bits(__dma_mem_vtop(rtv->g));
+		rsa_dec.g_ref_low = lower_32_bits(__dma_mem_vtop(rtv->g));
+		rsa_dec.d_ref_high = upper_32_bits(__dma_mem_vtop(rtv->d));
+		rsa_dec.d_ref_low = lower_32_bits(__dma_mem_vtop(rtv->d));
+		rsa_dec.p_ref_high = upper_32_bits(__dma_mem_vtop(rtv->p));
+		rsa_dec.p_ref_low = lower_32_bits(__dma_mem_vtop(rtv->p));
+		rsa_dec.q_ref_high = upper_32_bits(__dma_mem_vtop(rtv->q));
+		rsa_dec.q_ref_low = lower_32_bits(__dma_mem_vtop(rtv->q));
+		rsa_dec.tmp1_ref_high =
+				upper_32_bits(__dma_mem_vtop(rtv->tmp1));
+		rsa_dec.tmp1_ref_low = lower_32_bits(__dma_mem_vtop(rtv->tmp1));
+		rsa_dec.tmp2_ref_high =
+				upper_32_bits(__dma_mem_vtop(rtv->tmp2));
+		rsa_dec.tmp2_ref_low = lower_32_bits(__dma_mem_vtop(rtv->tmp2));
 		rsa_dec.trailer = (rtv->q_len << RSA_DEC2_Q_LEN_SHIFT) |
 				  (rtv->p_len);
 		memcpy(rtv->d_pdb, &rsa_dec,
@@ -256,13 +258,13 @@ static int init_rsa_dec_form2_pdb(struct test_param *crypto_info, int mode)
 		rsa_dec.header = (rtv->sgf << RSA_DEC2_SGF_SHIFT) |
 			      (rtv->e_len << RSA_DEC2_D_LEN_SHIFT) |
 			      (rtv->n_len);
-		rsa_dec.f_ref = low_32b(__dma_mem_vtop(rtv->f));
-		rsa_dec.g_ref = low_32b(__dma_mem_vtop(rtv->g));
-		rsa_dec.d_ref = low_32b(__dma_mem_vtop(rtv->d));
-		rsa_dec.p_ref = low_32b(__dma_mem_vtop(rtv->p));
-		rsa_dec.q_ref = low_32b(__dma_mem_vtop(rtv->q));
-		rsa_dec.tmp1_ref = low_32b(__dma_mem_vtop(rtv->tmp1));
-		rsa_dec.tmp2_ref = low_32b(__dma_mem_vtop(rtv->tmp2));
+		rsa_dec.f_ref = lower_32_bits(__dma_mem_vtop(rtv->f));
+		rsa_dec.g_ref = lower_32_bits(__dma_mem_vtop(rtv->g));
+		rsa_dec.d_ref = lower_32_bits(__dma_mem_vtop(rtv->d));
+		rsa_dec.p_ref = lower_32_bits(__dma_mem_vtop(rtv->p));
+		rsa_dec.q_ref = lower_32_bits(__dma_mem_vtop(rtv->q));
+		rsa_dec.tmp1_ref = lower_32_bits(__dma_mem_vtop(rtv->tmp1));
+		rsa_dec.tmp2_ref = lower_32_bits(__dma_mem_vtop(rtv->tmp2));
 		rsa_dec.trailer = (rtv->q_len << RSA_DEC2_Q_LEN_SHIFT) |
 				  (rtv->p_len);
 		memcpy(rtv->d_pdb, &rsa_dec, sizeof(struct rsa_dec_pdb_form2));
@@ -314,24 +316,26 @@ static int init_rsa_dec_form3_pdb(struct test_param *crypto_info, int mode)
 			return -ENOMEM;
 		rsa_dec.header = (rtv->sgf << RSA_DEC3_SGF_SHIFT) |
 		      (rtv->n_len);
-		rsa_dec.f_ref_high = high_32b(__dma_mem_vtop(rtv->f));
-		rsa_dec.f_ref_low = low_32b(__dma_mem_vtop(rtv->f));
-		rsa_dec.g_ref_high = high_32b(__dma_mem_vtop(rtv->g));
-		rsa_dec.g_ref_low = low_32b(__dma_mem_vtop(rtv->g));
-		rsa_dec.c_ref_high = high_32b(__dma_mem_vtop(rtv->c));
-		rsa_dec.c_ref_low = low_32b(__dma_mem_vtop(rtv->c));
-		rsa_dec.p_ref_high = high_32b(__dma_mem_vtop(rtv->p));
-		rsa_dec.p_ref_low = low_32b(__dma_mem_vtop(rtv->p));
-		rsa_dec.q_ref_high = high_32b(__dma_mem_vtop(rtv->q));
-		rsa_dec.q_ref_low = low_32b(__dma_mem_vtop(rtv->q));
-		rsa_dec.dp_ref_high = high_32b(__dma_mem_vtop(rtv->dp));
-		rsa_dec.dp_ref_low = low_32b(__dma_mem_vtop(rtv->dp));
-		rsa_dec.dq_ref_high = high_32b(__dma_mem_vtop(rtv->dq));
-		rsa_dec.dq_ref_low = low_32b(__dma_mem_vtop(rtv->dq));
-		rsa_dec.tmp1_ref_high = high_32b(__dma_mem_vtop(rtv->tmp1));
-		rsa_dec.tmp1_ref_low = low_32b(__dma_mem_vtop(rtv->tmp1));
-		rsa_dec.tmp2_ref_high = high_32b(__dma_mem_vtop(rtv->tmp2));
-		rsa_dec.tmp2_ref_low = low_32b(__dma_mem_vtop(rtv->tmp2));
+		rsa_dec.f_ref_high = upper_32_bits(__dma_mem_vtop(rtv->f));
+		rsa_dec.f_ref_low = lower_32_bits(__dma_mem_vtop(rtv->f));
+		rsa_dec.g_ref_high = upper_32_bits(__dma_mem_vtop(rtv->g));
+		rsa_dec.g_ref_low = lower_32_bits(__dma_mem_vtop(rtv->g));
+		rsa_dec.c_ref_high = upper_32_bits(__dma_mem_vtop(rtv->c));
+		rsa_dec.c_ref_low = lower_32_bits(__dma_mem_vtop(rtv->c));
+		rsa_dec.p_ref_high = upper_32_bits(__dma_mem_vtop(rtv->p));
+		rsa_dec.p_ref_low = lower_32_bits(__dma_mem_vtop(rtv->p));
+		rsa_dec.q_ref_high = upper_32_bits(__dma_mem_vtop(rtv->q));
+		rsa_dec.q_ref_low = lower_32_bits(__dma_mem_vtop(rtv->q));
+		rsa_dec.dp_ref_high = upper_32_bits(__dma_mem_vtop(rtv->dp));
+		rsa_dec.dp_ref_low = lower_32_bits(__dma_mem_vtop(rtv->dp));
+		rsa_dec.dq_ref_high = upper_32_bits(__dma_mem_vtop(rtv->dq));
+		rsa_dec.dq_ref_low = lower_32_bits(__dma_mem_vtop(rtv->dq));
+		rsa_dec.tmp1_ref_high =
+				upper_32_bits(__dma_mem_vtop(rtv->tmp1));
+		rsa_dec.tmp1_ref_low = lower_32_bits(__dma_mem_vtop(rtv->tmp1));
+		rsa_dec.tmp2_ref_high =
+				upper_32_bits(__dma_mem_vtop(rtv->tmp2));
+		rsa_dec.tmp2_ref_low = lower_32_bits(__dma_mem_vtop(rtv->tmp2));
 		rsa_dec.trailer = (rtv->q_len << RSA_DEC3_Q_LEN_SHIFT) |
 				  (rtv->p_len);
 		memcpy(rtv->d_pdb, &rsa_dec,
@@ -345,15 +349,15 @@ static int init_rsa_dec_form3_pdb(struct test_param *crypto_info, int mode)
 		rsa_dec.header = (rtv->sgf << RSA_DEC2_SGF_SHIFT) |
 			      (rtv->e_len << RSA_DEC2_D_LEN_SHIFT) |
 			      (rtv->n_len);
-		rsa_dec.f_ref = low_32b(__dma_mem_vtop(rtv->f));
-		rsa_dec.g_ref = low_32b(__dma_mem_vtop(rtv->g));
-		rsa_dec.c_ref = low_32b(__dma_mem_vtop(rtv->c));
-		rsa_dec.p_ref = low_32b(__dma_mem_vtop(rtv->p));
-		rsa_dec.q_ref = low_32b(__dma_mem_vtop(rtv->q));
-		rsa_dec.dp_ref = low_32b(__dma_mem_vtop(rtv->dp));
-		rsa_dec.dq_ref = low_32b(__dma_mem_vtop(rtv->dq));
-		rsa_dec.tmp1_ref = low_32b(__dma_mem_vtop(rtv->tmp1));
-		rsa_dec.tmp2_ref = low_32b(__dma_mem_vtop(rtv->tmp2));
+		rsa_dec.f_ref = lower_32_bits(__dma_mem_vtop(rtv->f));
+		rsa_dec.g_ref = lower_32_bits(__dma_mem_vtop(rtv->g));
+		rsa_dec.c_ref = lower_32_bits(__dma_mem_vtop(rtv->c));
+		rsa_dec.p_ref = lower_32_bits(__dma_mem_vtop(rtv->p));
+		rsa_dec.q_ref = lower_32_bits(__dma_mem_vtop(rtv->q));
+		rsa_dec.dp_ref = lower_32_bits(__dma_mem_vtop(rtv->dp));
+		rsa_dec.dq_ref = lower_32_bits(__dma_mem_vtop(rtv->dq));
+		rsa_dec.tmp1_ref = lower_32_bits(__dma_mem_vtop(rtv->tmp1));
+		rsa_dec.tmp2_ref = lower_32_bits(__dma_mem_vtop(rtv->tmp2));
 		rsa_dec.trailer = (rtv->q_len << RSA_DEC3_Q_LEN_SHIFT) |
 				  (rtv->p_len);
 		memcpy(rtv->d_pdb, &rsa_dec, sizeof(struct rsa_dec_pdb_form3));
