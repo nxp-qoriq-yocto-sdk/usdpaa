@@ -278,10 +278,10 @@ static void *create_descriptor(bool mode, void *params)
 	auth_info.key_enc_flags = 0;
 
 	if (ENCRYPT == mode)
-		cnstr_shdsc_ipsec_encap(shared_desc, &shared_desc_len, 1,
+		cnstr_shdsc_ipsec_encap(shared_desc, &shared_desc_len, true,
 					rtv->e_pdb, &cipher_info, &auth_info);
 	else
-		cnstr_shdsc_ipsec_decap(shared_desc, &shared_desc_len, 1,
+		cnstr_shdsc_ipsec_decap(shared_desc, &shared_desc_len, true,
 					rtv->d_pdb, &cipher_info, &auth_info);
 
 	prehdr_desc->prehdr.hi.word = shared_desc_len & SEC_PREHDR_SDLEN_MASK;

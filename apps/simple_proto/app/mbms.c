@@ -328,7 +328,7 @@ static void *create_descriptor(bool mode, void *params)
 
 	cnstr_shdsc_mbms(shared_desc,
 			 &shared_desc_len,
-			 1,
+			 true,
 			 &preheader_len,
 			 mbms_params->type);
 

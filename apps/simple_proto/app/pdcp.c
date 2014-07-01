@@ -417,7 +417,7 @@ static void *create_descriptor(bool mode, void *params)
 * This is currently hardcoded. The application doesn't allow for
 * proper retrieval of PS.
 */
-						       1,
+						       true,
 						       hfn_val,
 						       ref_test_vector->bearer,
 						       ref_test_vector->dir,
@@ -432,7 +432,7 @@ static void *create_descriptor(bool mode, void *params)
 * This is currently hardcoded. The application doesn't allow for
 * proper retrieval of PS.
 */
-						       1,
+						       true,
 						       hfn_val,
 						       ref_test_vector->bearer,
 						       ref_test_vector->dir,
@@ -450,7 +450,7 @@ static void *create_descriptor(bool mode, void *params)
 * This is currently hardcoded. The application doesn't allow for
 * proper retrieval of PS.
 */
-						       1,
+						       true,
 						       ref_test_vector->sns,
 						       hfn_val,
 						       ref_test_vector->bearer,
@@ -465,7 +465,7 @@ static void *create_descriptor(bool mode, void *params)
 * This is currently hardcoded. The application doesn't allow for
 * proper retrieval of PS.
 */
-						       1,
+						       true,
 						       ref_test_vector->sns,
 						       hfn_val,
 						       ref_test_vector->bearer,
@@ -483,7 +483,7 @@ static void *create_descriptor(bool mode, void *params)
 * This is currently hardcoded. The application doesn't allow for
 * proper retrieval of PS.
 */
-						   1,
+						   true,
 						   &auth_info);
 		break;
 

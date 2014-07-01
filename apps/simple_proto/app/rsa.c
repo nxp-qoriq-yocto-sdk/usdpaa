@@ -467,7 +467,7 @@ static void *create_descriptor(bool mode, void *params)
  * This is currently hardcoded. The application doesn't allow for
  * proper retrieval of PS.
  */
-				1,
+				true,
 				rtv->e_pdb,
 				rtv->e_pdb_size,
 				&rtv->protocmd);
@@ -490,7 +490,7 @@ static void *create_descriptor(bool mode, void *params)
  * This is currently hardcoded. The application doesn't allow for
  * proper retrieval of PS.
  */
-				1,
+				true,
 				rtv->d_pdb,
 				rtv->d_pdb_size,
 				&rtv->protocmd);

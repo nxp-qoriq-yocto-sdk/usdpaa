@@ -285,7 +285,7 @@ static void *create_descriptor(bool mode, void *params)
 			rtv->protcmd.optype = OP_TYPE_ENCAP_PROTOCOL;
 			cnstr_shdsc_tls(shared_desc,
 					&shared_desc_len,
-					1,
+					true,
 					rtv->e_pdb,
 					sizeof(struct tls_block_pdb),
 					&rtv->protcmd,
@@ -295,7 +295,7 @@ static void *create_descriptor(bool mode, void *params)
 			rtv->protcmd.optype = OP_TYPE_DECAP_PROTOCOL;
 			cnstr_shdsc_tls(shared_desc,
 					&shared_desc_len,
-					1,
+					true,
 					rtv->d_pdb,
 					sizeof(struct tls_block_pdb),
 					&rtv->protcmd,

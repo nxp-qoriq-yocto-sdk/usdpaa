@@ -196,7 +196,7 @@ static void *create_descriptor(bool mode, void *params)
 * This is currently hardcoded. The application doesn't allow for
 * proper retrieval of PS.
 */
-				       0,
+				       false,
 				       ref_test_vector->mac_hdr_len,
 				       ref_test_vector->pn,
 				       ref_test_vector->priority,
@@ -209,7 +209,7 @@ static void *create_descriptor(bool mode, void *params)
 * This is currently hardcoded. The application doesn't allow for
 * proper retrieval of PS.
 */
-				       0,
+				       false,
 				       ref_test_vector->mac_hdr_len,
 				       ref_test_vector->pn,
 				       ref_test_vector->priority,

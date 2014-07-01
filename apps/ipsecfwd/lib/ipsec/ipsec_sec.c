@@ -37,7 +37,7 @@
  * @param[in,out] bufsize    Pointer to descriptor size to be written back upon
  *      completion
  * @param [in] ps            If 36/40bit addressing is desired, this parameter
- *      must be non-zero.
+ *      must be true.
  * @param[in] pdb         Pointer to the PDB to be used with this descriptor.
  *      This structure will be copied inline to the descriptor under
  *      construction. No error checking will be made. Refer to the
@@ -50,7 +50,7 @@
  **/
 static inline void cnstr_shdsc_ipsec_encap_hb(uint32_t *descbuf,
 					   unsigned *bufsize,
-					   unsigned short ps,
+					   bool ps,
 					   struct ipsec_encap_pdb *pdb,
 					   struct alginfo *cipherdata,
 					   struct alginfo *authdata)
@@ -156,10 +156,10 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
  */
 	if (sa->hb_tunnel) {
 		cnstr_shdsc_ipsec_encap_hb((uint32_t *)buff_start, &desc_len,
-					   1, pdb, &cipher, &auth);
+					   true, pdb, &cipher, &auth);
 	} else {
 		cnstr_shdsc_ipsec_encap((uint32_t *)buff_start, &desc_len,
-					1, pdb, &cipher, &auth);
+					true, pdb, &cipher, &auth);
 	}
 
 	free(pdb);
@@ -185,7 +185,7 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
  * @param[in,out] bufsize    Pointer to descriptor size to be written back upon
  *      completion
  * @param [in] ps            If 36/40bit addressing is desired, this parameter
- *      must be non-zero.
+ *      must be true.
  * @param[in] pdb         Pointer to the PDB to be used with this descriptor.
  *      This structure will be copied inline to the descriptor under
  *      construction. No error checking will be made. Refer to the
@@ -198,7 +198,7 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
  **/
 static inline void cnstr_shdsc_ipsec_decap_hb(uint32_t *descbuf,
 					   unsigned *bufsize,
-					   unsigned short ps,
+					   bool ps,
 					   struct ipsec_decap_pdb *pdb,
 					   struct alginfo *cipherdata,
 					   struct alginfo *authdata)
@@ -291,9 +291,9 @@ void
  */
 	if (sa->hb_tunnel) {
 		cnstr_shdsc_ipsec_decap_hb((uint32_t *)buff_start, &desc_len,
-					   1, &pdb, &cipher, &auth);
+					   true, &pdb, &cipher, &auth);
 	} else {
-		cnstr_shdsc_ipsec_decap((uint32_t *)buff_start, &desc_len, 1,
+		cnstr_shdsc_ipsec_decap((uint32_t *)buff_start, &desc_len, true,
 					&pdb, &cipher, &auth);
 	}
 
