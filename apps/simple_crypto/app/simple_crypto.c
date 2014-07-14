@@ -613,7 +613,7 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 		alginfo.algtype = OP_ALG_ALGSEL_SHA1;
 		alginfo.key = ref_test_vector.key;
 		alginfo.key_enc_flags = 0;
-		cnstr_shdsc_hmac(shared_desc, &shared_desc_len, &alginfo, NULL);
+		cnstr_shdsc_hmac(shared_desc, &shared_desc_len, &alginfo, 0, 0);
 		break;
 
 	default:
