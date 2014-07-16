@@ -502,6 +502,7 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 
 	switch (crypto_info.algo) {
 	case AES_CBC:
+		alginfo.algtype = OP_ALG_ALGSEL_AES;
 		alginfo.key = ref_test_vector.key;
 		alginfo.keylen = AES_CBC_KEY_LEN;
 		alginfo.key_enc_flags = 0;
@@ -509,11 +510,11 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 					  &alginfo,
 					  ref_test_vector.iv.init_vec,
 					  AES_CBC_IV_LEN,
-					  mode ? DIR_ENC : DIR_DEC,
-					  OP_ALG_ALGSEL_AES);
+					  mode ? DIR_ENC : DIR_DEC);
 		break;
 
 	case TDES_CBC:
+		alginfo.algtype = OP_ALG_ALGSEL_3DES;
 		alginfo.key = ref_test_vector.key;
 		alginfo.keylen = TDES_CBC_KEY_LEN;
 		alginfo.key_enc_flags = 0;
@@ -521,8 +522,7 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 					  &alginfo,
 					  ref_test_vector.iv.init_vec,
 					  TDES_CBC_IV_LEN,
-					  mode ? DIR_ENC : DIR_DEC,
-					  OP_ALG_ALGSEL_3DES);
+					  mode ? DIR_ENC : DIR_DEC);
 		break;
 
 	case SNOW_F8:
