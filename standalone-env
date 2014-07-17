@@ -160,6 +160,8 @@ fi
 
 export ARCH=powerpc${prefix}
 export CROSS_COMPILE=powerpc${prefix}-fsl-linux-
+export CC="${CROSS_COMPILE}gcc --sysroot=${PKG_CONFIG_SYSROOT_DIR}"
+export LD="${CROSS_COMPILE}ld --sysroot=${PKG_CONFIG_SYSROOT_DIR}"
 export LIBXML2_CFLAGS=$(pkg-config --cflags libxml-2.0)
 export LIBXML2_LDFLAGS=$(pkg-config --libs --static libxml-2.0)
 export LIBEDIT_CFLAGS=$(pkg-config --cflags libedit)
@@ -169,5 +171,5 @@ export FMC_EXTRA_CFLAGS="-I ${PKG_CONFIG_SYSROOT_DIR}/usr/include/fmc"
 export FMC_EXTRA_LDFLAGS="-L ${PKG_CONFIG_SYSROOT_DIR}/usr/lib"
 export FMLIB_EXTRA_CFLAGS="-I ${PKG_CONFIG_SYSROOT_DIR}/usr/include/fmd -I ${PKG_CONFIG_SYSROOT_DIR}/usr/include/fmd/Peripherals -I ${PKG_CONFIG_SYSROOT_DIR}/usr/include/fmd/integrations -D$FMAN_VARIANT"
 export FMLIB_EXTRA_LDFLAGS="-L ${PKG_CONFIG_SYSROOT_DIR}/usr/lib"
-export EXTRA_LDFLAGS="-L $(${CROSS_COMPILE}gcc -print-sysroot)/usr/lib"
+export EXTRA_LDFLAGS="-L ${PKG_CONFIG_SYSROOT_DIR}/usr/lib"
 unset -v OLD_OPTIND board FMAN_VARIANT PKG_CONFIG_SYSROOT_DIR PKG_CONFIG_LIBDIR PKG_CONFIG_ALLOW_SYSTEM_LIBS prefix sysroot
