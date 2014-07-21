@@ -297,6 +297,7 @@ struct dpa_cls_compat_hm_remove_params {
 	enum dpa_cls_hm_remove_type	type;
 	struct dpa_cls_hm_custom_rm_params custom;
 	compat_uptr_t fm_pcd;
+	bool reparse;
 };
 
 struct compat_ioc_dpa_cls_hm_remove_params {
@@ -319,14 +320,15 @@ struct dpa_cls_compat_hm_custom_ins_params {
 };
 
 struct dpa_cls_compat_hm_insert_params {
-	enum dpa_cls_hm_insert_type	type;
+	enum dpa_cls_hm_insert_type type;
 	union {
 		struct dpa_cls_hm_eth_ins_params eth;
-		struct dpa_cls_hm_pppoe_ins_params		pppoe;
-		uint16_t					ppp_pid;
-		struct dpa_cls_compat_hm_custom_ins_params	custom;
+		struct dpa_cls_hm_pppoe_ins_params pppoe;
+		uint16_t ppp_pid;
+		struct dpa_cls_compat_hm_custom_ins_params custom;
 	};
-	compat_uptr_t	fm_pcd;
+	compat_uptr_t fm_pcd;
+	bool reparse;
 };
 
 struct compat_ioc_dpa_cls_hm_insert_params {
@@ -345,6 +347,7 @@ struct dpa_cls_compat_hm_vlan_params {
 		struct dpa_cls_hm_egress_vlan_params	egress;
 	};
 	compat_uptr_t	fm_pcd;
+	bool reparse;
 };
 
 struct dpa_cls_compat_hm_vlan_resources {
@@ -376,7 +379,7 @@ struct dpa_cls_compat_hm_nat_pt_params {
 };
 
 struct dpa_cls_compat_hm_nat_params {
-	int	flags;
+	int		flags;
 	enum dpa_cls_hm_nat_proto	proto;
 	enum dpa_cls_hm_nat_type	type;
 	union {
@@ -386,6 +389,7 @@ struct dpa_cls_compat_hm_nat_params {
 	uint16_t	sport;
 	uint16_t	dport;
 	compat_uptr_t	fm_pcd;
+	bool		reparse;
 };
 
 struct dpa_cls_compat_hm_nat_resources {
@@ -403,7 +407,7 @@ struct compat_ioc_dpa_cls_hm_nat_params {
 };
 
 struct dpa_cls_compat_hm_update_params {
-	int	op_flags;
+	int					op_flags;
 	union {
 		struct compat_ipv4_header	new_ipv4_hdr;
 		struct ipv6_header		new_ipv6_hdr;
@@ -414,6 +418,7 @@ struct dpa_cls_compat_hm_update_params {
 	} update;
 	struct dpa_cls_hm_ip_frag_params	ip_frag_params;
 	compat_uptr_t				fm_pcd;
+	bool					reparse;
 };
 
 struct dpa_cls_compat_hm_update_resources {
@@ -440,6 +445,7 @@ struct dpa_cls_compat_hm_fwd_params {
 	};
 	struct dpa_cls_hm_ip_frag_params	ip_frag_params;
 	compat_uptr_t				fm_pcd;
+	bool					reparse;
 };
 
 struct dpa_cls_compat_hm_fwd_resources {
@@ -462,6 +468,7 @@ struct dpa_cls_compat_hm_mpls_params {
 	struct mpls_header		mpls_hdr[DPA_CLS_HM_MAX_MPLS_LABELS];
 	unsigned int			num_labels;
 	compat_uptr_t			fm_pcd;
+	bool 				reparse;
 };
 
 struct dpa_cls_compat_hm_mpls_resources {

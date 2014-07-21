@@ -638,6 +638,11 @@ struct dpa_cls_hm_nat_params {
 	 * manipulation object.
 	 */
 	void							*fm_pcd;
+
+	/*
+	 * Request re-parsing of the packet headers after this NAT.
+	 */
+	bool							reparse;
 };
 
 /* Output interface type for forwarding */
@@ -770,6 +775,12 @@ struct dpa_cls_hm_fwd_params {
 	 * manipulation object.
 	 */
 	void						*fm_pcd;
+
+	/*
+	 * Request re-parsing of the packet headers after this forwarding
+	 * header manipulation.
+	 */
+	bool						reparse;
 };
 
 /* Types of the remove header manipulation operations */
@@ -835,6 +846,11 @@ struct dpa_cls_hm_remove_params {
 	 * manipulation object.
 	 */
 	void						*fm_pcd;
+
+	/*
+	 * Request re-parsing of the packet headers after this header remove.
+	 */
+	bool						reparse;
 };
 
 /* Types of insert header manipulation operations */
@@ -957,6 +973,11 @@ struct dpa_cls_hm_insert_params {
 	 * manipulation object.
 	 */
 	void						*fm_pcd;
+
+	/*
+	 * Request re-parsing of the packet headers after this header insert.
+	 */
+	bool						reparse;
 };
 
 /* Update header manipulation op flags */
@@ -1115,6 +1136,11 @@ struct dpa_cls_hm_update_params {
 	 * manipulation object.
 	 */
 	void						*fm_pcd;
+
+	/*
+	 * Request re-parsing of the packet headers after this header update.
+	 */
+	bool						reparse;
 };
 
 /* VLAN specific header manipulation operation types */
@@ -1235,6 +1261,12 @@ struct dpa_cls_hm_vlan_params {
 	 * manipulation object.
 	 */
 	void						*fm_pcd;
+
+	/*
+	 * Request re-parsing of the packet headers after this VLAN header
+	 * update.
+	 */
+	bool						reparse;
 };
 
 /* MPLS specific header manipulation operation types */
@@ -1285,6 +1317,12 @@ struct dpa_cls_hm_mpls_params {
 	 * manipulation object.
 	 */
 	void				*fm_pcd;
+
+	/*
+	 * Request re-parsing of the packet headers after this MPLS header
+	 * update.
+	 */
+	bool				reparse;
 };
 
 
