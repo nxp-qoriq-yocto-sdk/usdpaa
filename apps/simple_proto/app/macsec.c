@@ -154,12 +154,12 @@ void macsec_set_pn_constant(uint32_t *shared_desc, unsigned *shared_desc_len)
 	 * Use CONTEXT2 to save the current value of PN. CONTEXT2 _should_ be
 	 * unused by MACSEC protocol.
 	 */
-	MOVE(DESCBUF, 5 * 4, CONTEXT2, 0, IMM(4), 0);
+	MOVE(DESCBUF, 5 * 4, CONTEXT2, 0, 4, IMMED);
 	program->buffer[program->current_pc++] = op_line;
-	MOVE(CONTEXT2, 0, DESCBUF, 5 * 4, IMM(4), WAITCOMP);
+	MOVE(CONTEXT2, 0, DESCBUF, 5 * 4, 4, WAITCOMP | IMMED);
 	STORE(SHAREDESCBUF, 5 * 4, NONE, 4, 0);
 	/* Wait for all bus transactions to finish before stopping. */
-	JUMP(IMM(0), HALT_STATUS, ALL_TRUE, CALM);
+	JUMP(0, HALT_STATUS, ALL_TRUE, CALM);
 
 	/* erase context in shared desc header */
 	*shared_desc &= ~HDR_SAVECTX;

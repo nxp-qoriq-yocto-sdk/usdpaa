@@ -70,11 +70,11 @@ static inline void cnstr_shdsc_ipsec_encap_hb(uint32_t *descbuf,
 	COPY_DATA((uint8_t *)pdb,
 		  sizeof(struct ipsec_encap_pdb) + pdb->ip_hdr_len);
 	SET_LABEL(hdr);
-	pkeyjmp = JUMP(IMM(keyjmp), LOCAL_JUMP, ALL_TRUE, BOTH|SHRD);
-	KEY(MDHA_SPLIT_KEY, authdata->key_enc_flags, PTR(authdata->key),
-	    authdata->keylen, IMMED);
-	KEY(KEY1, cipherdata->key_enc_flags, PTR(cipherdata->key),
-	    cipherdata->keylen, IMMED);
+	pkeyjmp = JUMP(keyjmp, LOCAL_JUMP, ALL_TRUE, BOTH|SHRD);
+	KEY(MDHA_SPLIT_KEY, authdata->key_enc_flags, authdata->key,
+	    authdata->keylen, IMMED | COPY);
+	KEY(KEY1, cipherdata->key_enc_flags, cipherdata->key,
+	    cipherdata->keylen, IMMED | COPY);
 	SET_LABEL(keyjmp);
 	PROTOCOL(OP_TYPE_ENCAP_PROTOCOL,
 		 OP_PCLID_IPSEC,
@@ -217,15 +217,15 @@ static inline void cnstr_shdsc_ipsec_decap_hb(uint32_t *descbuf,
 	phdr = SHR_HDR(SHR_WAIT, hdr, 0);
 	COPY_DATA((uint8_t *)pdb, sizeof(struct ipsec_decap_pdb));
 	SET_LABEL(hdr);
-	pkeyjmp = JUMP(IMM(keyjmp), LOCAL_JUMP, ALL_TRUE, BOTH|SHRD);
-	KEY(MDHA_SPLIT_KEY, authdata->key_enc_flags, PTR(authdata->key),
-	    authdata->keylen, IMMED);
-	KEY(KEY1, cipherdata->key_enc_flags, PTR(cipherdata->key),
-	    cipherdata->keylen, IMMED);
+	pkeyjmp = JUMP(keyjmp, LOCAL_JUMP, ALL_TRUE, BOTH|SHRD);
+	KEY(MDHA_SPLIT_KEY, authdata->key_enc_flags, authdata->key,
+	    authdata->keylen, IMMED | COPY);
+	KEY(KEY1, cipherdata->key_enc_flags, cipherdata->key,
+	    cipherdata->keylen, IMMED | COPY);
 	SET_LABEL(keyjmp);
 
 	/* Workaround to assert ok-to-share. This works only for ARS=off */
-	LOAD(IMM(0), DCTRL, LDOFF_CHG_SHARE_OK_NO_PROP, 0, 0);
+	LOAD(0, DCTRL, LDOFF_CHG_SHARE_OK_NO_PROP, 0, IMMED);
 	PROTOCOL(OP_TYPE_DECAP_PROTOCOL,
 		 OP_PCLID_IPSEC,
 		 cipherdata->algtype | authdata->algtype);
