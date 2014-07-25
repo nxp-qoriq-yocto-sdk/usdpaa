@@ -56,32 +56,32 @@ static inline void cnstr_shdsc_ipsec_encap_hb(uint32_t *descbuf,
 					   struct alginfo *authdata)
 {
 	struct program prg;
-	struct program *program = &prg;
+	struct program *p = &prg;
 
 	LABEL(keyjmp);
 	REFERENCE(pkeyjmp);
 	LABEL(hdr);
 	REFERENCE(phdr);
 
-	PROGRAM_CNTXT_INIT(descbuf, 0);
+	PROGRAM_CNTXT_INIT(p, descbuf, 0);
 	if (ps)
-		PROGRAM_SET_36BIT_ADDR();
-	phdr = SHR_HDR(SHR_WAIT, hdr, 0);
-	COPY_DATA((uint8_t *)pdb,
+		PROGRAM_SET_36BIT_ADDR(p);
+	phdr = SHR_HDR(p, SHR_WAIT, hdr, 0);
+	COPY_DATA(p, (uint8_t *)pdb,
 		  sizeof(struct ipsec_encap_pdb) + pdb->ip_hdr_len);
-	SET_LABEL(hdr);
-	pkeyjmp = JUMP(keyjmp, LOCAL_JUMP, ALL_TRUE, BOTH|SHRD);
-	KEY(MDHA_SPLIT_KEY, authdata->key_enc_flags, authdata->key,
+	SET_LABEL(p, hdr);
+	pkeyjmp = JUMP(p, keyjmp, LOCAL_JUMP, ALL_TRUE, BOTH|SHRD);
+	KEY(p, MDHA_SPLIT_KEY, authdata->key_enc_flags, authdata->key,
 	    authdata->keylen, IMMED | COPY);
-	KEY(KEY1, cipherdata->key_enc_flags, cipherdata->key,
+	KEY(p, KEY1, cipherdata->key_enc_flags, cipherdata->key,
 	    cipherdata->keylen, IMMED | COPY);
-	SET_LABEL(keyjmp);
-	PROTOCOL(OP_TYPE_ENCAP_PROTOCOL,
+	SET_LABEL(p, keyjmp);
+	PROTOCOL(p, OP_TYPE_ENCAP_PROTOCOL,
 		 OP_PCLID_IPSEC,
 		 cipherdata->algtype | authdata->algtype);
-	PATCH_JUMP(pkeyjmp, keyjmp);
-	PATCH_HDR(phdr, hdr);
-	*bufsize = PROGRAM_FINALIZE();
+	PATCH_JUMP(p, pkeyjmp, keyjmp);
+	PATCH_HDR(p, phdr, hdr);
+	*bufsize = PROGRAM_FINALIZE(p);
 }
 
 
@@ -204,34 +204,34 @@ static inline void cnstr_shdsc_ipsec_decap_hb(uint32_t *descbuf,
 					   struct alginfo *authdata)
 {
 	struct program prg;
-	struct program *program = &prg;
+	struct program *p = &prg;
 
 	LABEL(keyjmp);
 	REFERENCE(pkeyjmp);
 	LABEL(hdr);
 	REFERENCE(phdr);
 
-	PROGRAM_CNTXT_INIT(descbuf, 0);
+	PROGRAM_CNTXT_INIT(p, descbuf, 0);
 	if (ps)
-		PROGRAM_SET_36BIT_ADDR();
-	phdr = SHR_HDR(SHR_WAIT, hdr, 0);
-	COPY_DATA((uint8_t *)pdb, sizeof(struct ipsec_decap_pdb));
-	SET_LABEL(hdr);
-	pkeyjmp = JUMP(keyjmp, LOCAL_JUMP, ALL_TRUE, BOTH|SHRD);
-	KEY(MDHA_SPLIT_KEY, authdata->key_enc_flags, authdata->key,
+		PROGRAM_SET_36BIT_ADDR(p);
+	phdr = SHR_HDR(p, SHR_WAIT, hdr, 0);
+	COPY_DATA(p, (uint8_t *)pdb, sizeof(struct ipsec_decap_pdb));
+	SET_LABEL(p, hdr);
+	pkeyjmp = JUMP(p, keyjmp, LOCAL_JUMP, ALL_TRUE, BOTH|SHRD);
+	KEY(p, MDHA_SPLIT_KEY, authdata->key_enc_flags, authdata->key,
 	    authdata->keylen, IMMED | COPY);
-	KEY(KEY1, cipherdata->key_enc_flags, cipherdata->key,
+	KEY(p, KEY1, cipherdata->key_enc_flags, cipherdata->key,
 	    cipherdata->keylen, IMMED | COPY);
-	SET_LABEL(keyjmp);
+	SET_LABEL(p, keyjmp);
 
 	/* Workaround to assert ok-to-share. This works only for ARS=off */
-	LOAD(0, DCTRL, LDOFF_CHG_SHARE_OK_NO_PROP, 0, IMMED);
-	PROTOCOL(OP_TYPE_DECAP_PROTOCOL,
+	LOAD(p, 0, DCTRL, LDOFF_CHG_SHARE_OK_NO_PROP, 0, IMMED);
+	PROTOCOL(p, OP_TYPE_DECAP_PROTOCOL,
 		 OP_PCLID_IPSEC,
 		 cipherdata->algtype | authdata->algtype);
-	PATCH_JUMP(pkeyjmp, keyjmp);
-	PATCH_HDR(phdr, hdr);
-	*bufsize = PROGRAM_FINALIZE();
+	PATCH_JUMP(p, pkeyjmp, keyjmp);
+	PATCH_HDR(p, phdr, hdr);
+	*bufsize = PROGRAM_FINALIZE(p);
 }
 
 

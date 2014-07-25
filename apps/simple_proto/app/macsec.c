@@ -113,7 +113,7 @@ int init_rtv_macsec(struct test_param *crypto_info)
 void macsec_set_pn_constant(uint32_t *shared_desc, unsigned *shared_desc_len)
 {
 	struct program prg;
-	struct program *program = &prg;
+	struct program *p = &prg;
 	uint32_t op_line, tmp;
 	uint32_t tmp_buf[64];
 	int i, op_idx = 0, save_lines = 0;
@@ -147,19 +147,19 @@ void macsec_set_pn_constant(uint32_t *shared_desc, unsigned *shared_desc_len)
 	op_line = shared_desc[op_idx];
 
 	/* RTA snippet code to update shared descriptor */
-	program->buffer = shared_desc;
-	program->current_pc = op_idx;
+	p->buffer = shared_desc;
+	p->current_pc = op_idx;
 
 	/*
 	 * Use CONTEXT2 to save the current value of PN. CONTEXT2 _should_ be
 	 * unused by MACSEC protocol.
 	 */
-	MOVE(DESCBUF, 5 * 4, CONTEXT2, 0, 4, IMMED);
-	program->buffer[program->current_pc++] = op_line;
-	MOVE(CONTEXT2, 0, DESCBUF, 5 * 4, 4, WAITCOMP | IMMED);
-	STORE(SHAREDESCBUF, 5 * 4, NONE, 4, 0);
+	MOVE(p, DESCBUF, 5 * 4, CONTEXT2, 0, 4, IMMED);
+	p->buffer[p->current_pc++] = op_line;
+	MOVE(p, CONTEXT2, 0, DESCBUF, 5 * 4, 4, WAITCOMP | IMMED);
+	STORE(p, SHAREDESCBUF, 5 * 4, NONE, 4, 0);
 	/* Wait for all bus transactions to finish before stopping. */
-	JUMP(0, HALT_STATUS, ALL_TRUE, CALM);
+	JUMP(p, 0, HALT_STATUS, ALL_TRUE, CALM);
 
 	/* erase context in shared desc header */
 	*shared_desc &= ~HDR_SAVECTX;
@@ -171,7 +171,7 @@ void macsec_set_pn_constant(uint32_t *shared_desc, unsigned *shared_desc_len)
 
 	/* copy the rest of the instructions in buffer */
 	for (i = 0; i < save_lines; i++)
-		shared_desc[program->current_pc + i] = tmp_buf[i];
+		shared_desc[p->current_pc + i] = tmp_buf[i];
 }
 
 static void *create_descriptor(bool mode, void *params)
