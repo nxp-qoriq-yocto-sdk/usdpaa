@@ -423,8 +423,7 @@ static void *create_descriptor(bool mode, void *params)
 	struct rsa_params *rsa_params = proto->proto_params;
 	struct sec_descriptor_t *prehdr_desc;
 	uint32_t *shared_desc = NULL;
-	unsigned shared_desc_len = 0;
-	int i;
+	int shared_desc_len = 0, i;
 	bool found = 0;
 
 	prehdr_desc = __dma_mem_memalign(L1_CACHE_BYTES,
@@ -461,16 +460,15 @@ static void *create_descriptor(bool mode, void *params)
 	if (ENCRYPT == mode) {
 		rtv->protocmd.protid = OP_PCLID_RSAENCRYPT;
 		rtv->protocmd.protinfo = OP_PCL_RSAPROT_OP_ENC_F_IN;
-		cnstr_shdsc_rsa(shared_desc,
-				&shared_desc_len,
+		shared_desc_len = cnstr_shdsc_rsa(shared_desc,
 /*
  * This is currently hardcoded. The application doesn't allow for
  * proper retrieval of PS.
  */
-				true,
-				rtv->e_pdb,
-				rtv->e_pdb_size,
-				&rtv->protocmd);
+						  true,
+						  rtv->e_pdb,
+						  rtv->e_pdb_size,
+						  &rtv->protocmd);
 	} else {
 		rtv->protocmd.protid = OP_PCLID_RSADECRYPT;
 		switch (rsa_params->form) {
@@ -484,16 +482,15 @@ static void *create_descriptor(bool mode, void *params)
 			rtv->protocmd.protinfo = OP_PCL_RSAPROT_OP_DEC_PQDPDQC;
 			break;
 		}
-		cnstr_shdsc_rsa(shared_desc,
-				&shared_desc_len,
+		shared_desc_len = cnstr_shdsc_rsa(shared_desc,
 /*
  * This is currently hardcoded. The application doesn't allow for
  * proper retrieval of PS.
  */
-				true,
-				rtv->d_pdb,
-				rtv->d_pdb_size,
-				&rtv->protocmd);
+						  true,
+						  rtv->d_pdb,
+						  rtv->d_pdb_size,
+						  &rtv->protocmd);
 	}
 
 	prehdr_desc->prehdr.hi.word = shared_desc_len & SEC_PREHDR_SDLEN_MASK;

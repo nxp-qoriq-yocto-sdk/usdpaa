@@ -238,8 +238,7 @@ static void *create_descriptor(bool mode, void *params)
 	struct sec_descriptor_t *prehdr_desc;
 	struct alginfo cipher_info, auth_info;
 	uint32_t *shared_desc = NULL;
-	unsigned shared_desc_len = 0;
-	int i;
+	int shared_desc_len, i;
 	bool found = 0;
 
 	prehdr_desc = __dma_mem_memalign(L1_CACHE_BYTES,
@@ -283,8 +282,7 @@ static void *create_descriptor(bool mode, void *params)
 	case TLS10:
 		if (ENCRYPT == mode) {
 			rtv->protcmd.optype = OP_TYPE_ENCAP_PROTOCOL;
-			cnstr_shdsc_tls(shared_desc,
-					&shared_desc_len,
+			shared_desc_len = cnstr_shdsc_tls(shared_desc,
 					true,
 					rtv->e_pdb,
 					sizeof(struct tls_block_pdb),
@@ -293,8 +291,7 @@ static void *create_descriptor(bool mode, void *params)
 					&auth_info);
 		} else {
 			rtv->protcmd.optype = OP_TYPE_DECAP_PROTOCOL;
-			cnstr_shdsc_tls(shared_desc,
-					&shared_desc_len,
+			shared_desc_len = cnstr_shdsc_tls(shared_desc,
 					true,
 					rtv->d_pdb,
 					sizeof(struct tls_block_pdb),

@@ -258,8 +258,7 @@ static void *create_descriptor(bool mode, void *params)
 	struct sec_descriptor_t *prehdr_desc;
 	struct alginfo cipher_info;
 	uint32_t *shared_desc = NULL;
-	unsigned shared_desc_len;
-	int i;
+	int shared_desc_len, i;
 	bool found = 0;
 
 	prehdr_desc = __dma_mem_memalign(L1_CACHE_BYTES,
@@ -296,15 +295,13 @@ static void *create_descriptor(bool mode, void *params)
 	cipher_info.keylen = WIMAX_KEY_SIZE;
 	cipher_info.key_enc_flags = 0;
 	if (ENCRYPT == mode)
-		cnstr_shdsc_wimax_encap(shared_desc,
-					&shared_desc_len,
+		shared_desc_len = cnstr_shdsc_wimax_encap(shared_desc,
 					ref_test_vector->encap_opts,
 					ref_test_vector->pn,
 					ref_test_vector->protinfo,
 					&cipher_info);
 	else
-		cnstr_shdsc_wimax_decap(shared_desc,
-					&shared_desc_len,
+		shared_desc_len = cnstr_shdsc_wimax_decap(shared_desc,
 					ref_test_vector->decap_opts,
 					ref_test_vector->pn,
 					ref_test_vector->ar_len,

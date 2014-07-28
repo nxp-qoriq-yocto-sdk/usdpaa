@@ -290,9 +290,8 @@ static void *create_descriptor(bool mode, void *params)
 	struct mbms_params *mbms_params = proto->proto_params;
 	struct sec_descriptor_t *prehdr_desc;
 	uint32_t *shared_desc = NULL;
-	unsigned shared_desc_len = 0;
+	int shared_desc_len = 0, i;
 	unsigned preheader_len = 0;
-	int i;
 	size_t len, align;
 	bool found = 0;
 
@@ -326,11 +325,10 @@ static void *create_descriptor(bool mode, void *params)
 
 	shared_desc = (typeof(shared_desc))&prehdr_desc->descbuf;
 
-	cnstr_shdsc_mbms(shared_desc,
-			 &shared_desc_len,
-			 true,
-			 &preheader_len,
-			 mbms_params->type);
+	shared_desc_len = cnstr_shdsc_mbms(shared_desc,
+					   true,
+					   &preheader_len,
+					   mbms_params->type);
 
 	/* Store the pointer to the descriptor for freeing later on */
 	for (i = mode ? 0 : 1; i < proto->num_cpus * FQ_PER_CORE * 2; i += 2) {

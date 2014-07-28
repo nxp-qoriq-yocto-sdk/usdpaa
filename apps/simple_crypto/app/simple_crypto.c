@@ -486,8 +486,7 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 	struct sec_descriptor_t *prehdr_desc;
 	struct alginfo alginfo;
 	uint32_t *shared_desc = NULL;
-	unsigned shared_desc_len;
-	int i, length;
+	int shared_desc_len, i, length;
 
 	prehdr_desc = __dma_mem_memalign(L1_CACHE_BYTES,
 					 sizeof(struct sec_descriptor_t));
@@ -506,7 +505,7 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 		alginfo.key = ref_test_vector.key;
 		alginfo.keylen = AES_CBC_KEY_LEN;
 		alginfo.key_enc_flags = 0;
-		cnstr_shdsc_cbc_blkcipher(shared_desc, &shared_desc_len,
+		shared_desc_len = cnstr_shdsc_cbc_blkcipher(shared_desc,
 					  &alginfo,
 					  ref_test_vector.iv.init_vec,
 					  AES_CBC_IV_LEN,
@@ -518,7 +517,7 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 		alginfo.key = ref_test_vector.key;
 		alginfo.keylen = TDES_CBC_KEY_LEN;
 		alginfo.key_enc_flags = 0;
-		cnstr_shdsc_cbc_blkcipher(shared_desc, &shared_desc_len,
+		shared_desc_len = cnstr_shdsc_cbc_blkcipher(shared_desc,
 					  &alginfo,
 					  ref_test_vector.iv.init_vec,
 					  TDES_CBC_IV_LEN,
@@ -529,7 +528,7 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 		alginfo.key = ref_test_vector.key;
 		alginfo.keylen = F8_KEY_LEN;
 		alginfo.key_enc_flags = 0;
-		cnstr_shdsc_snow_f8(shared_desc, &shared_desc_len,
+		shared_desc_len = cnstr_shdsc_snow_f8(shared_desc,
 				    &alginfo,
 				    mode ? DIR_ENC : DIR_DEC,
 				    ref_test_vector.iv.f8.count,
@@ -552,7 +551,7 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 		alginfo.key = ref_test_vector.key;
 		alginfo.keylen = F9_KEY_LEN;
 		alginfo.key_enc_flags = 0;
-		cnstr_shdsc_snow_f9(shared_desc, &shared_desc_len,
+		shared_desc_len = cnstr_shdsc_snow_f9(shared_desc,
 				    &alginfo,
 				    DIR_ENC, ref_test_vector.iv.f9.count,
 				    ref_test_vector.iv.f9.fresh,
@@ -563,7 +562,7 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 		alginfo.key = ref_test_vector.key;
 		alginfo.keylen = F8_KEY_LEN;
 		alginfo.key_enc_flags = 0;
-		cnstr_shdsc_kasumi_f8(shared_desc, &shared_desc_len,
+		shared_desc_len = cnstr_shdsc_kasumi_f8(shared_desc,
 				      &alginfo,
 				      mode ? DIR_ENC : DIR_DEC,
 				      ref_test_vector.iv.f8.count,
@@ -586,7 +585,7 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 		alginfo.key = ref_test_vector.key;
 		alginfo.keylen = F9_KEY_LEN;
 		alginfo.key_enc_flags = 0;
-		cnstr_shdsc_kasumi_f9(shared_desc, &shared_desc_len,
+		shared_desc_len = cnstr_shdsc_kasumi_f9(shared_desc,
 				      &alginfo,
 				      DIR_ENC, ref_test_vector.iv.f9.count,
 				      ref_test_vector.iv.f9.fresh,
@@ -600,7 +599,7 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 			return NULL;
 		}
 
-		cnstr_shdsc_crc(shared_desc, &shared_desc_len);
+		shared_desc_len = cnstr_shdsc_crc(shared_desc);
 		break;
 
 	case HMAC_SHA1:
@@ -613,7 +612,7 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 		alginfo.algtype = OP_ALG_ALGSEL_SHA1;
 		alginfo.key = ref_test_vector.key;
 		alginfo.key_enc_flags = 0;
-		cnstr_shdsc_hmac(shared_desc, &shared_desc_len, &alginfo, 0, 0);
+		shared_desc_len = cnstr_shdsc_hmac(shared_desc, &alginfo, 0, 0);
 		break;
 
 	default:

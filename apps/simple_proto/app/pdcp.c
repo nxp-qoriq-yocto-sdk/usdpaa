@@ -411,8 +411,8 @@ static void *create_descriptor(bool mode, void *params)
 	switch (pdcp_params->type) {
 	case PDCP_CONTROL_PLANE:
 		if (ENCRYPT == mode)
-			cnstr_shdsc_pdcp_c_plane_encap(shared_desc,
-						       &shared_desc_len,
+			shared_desc_len = cnstr_shdsc_pdcp_c_plane_encap(
+						       shared_desc,
 /*
 * This is currently hardcoded. The application doesn't allow for
 * proper retrieval of PS.
@@ -426,8 +426,8 @@ static void *create_descriptor(bool mode, void *params)
 						       &auth_info,
 						       sw_hfn_ov);
 		else
-			cnstr_shdsc_pdcp_c_plane_decap(shared_desc,
-						       &shared_desc_len,
+			shared_desc_len = cnstr_shdsc_pdcp_c_plane_decap(
+						       shared_desc,
 /*
 * This is currently hardcoded. The application doesn't allow for
 * proper retrieval of PS.
@@ -444,8 +444,8 @@ static void *create_descriptor(bool mode, void *params)
 
 	case PDCP_DATA_PLANE:
 		if (ENCRYPT == mode)
-			cnstr_shdsc_pdcp_u_plane_encap(shared_desc,
-						       &shared_desc_len,
+			shared_desc_len = cnstr_shdsc_pdcp_u_plane_encap(
+						       shared_desc,
 /*
 * This is currently hardcoded. The application doesn't allow for
 * proper retrieval of PS.
@@ -459,8 +459,8 @@ static void *create_descriptor(bool mode, void *params)
 						       &cipher_info,
 						       sw_hfn_ov);
 		else
-			cnstr_shdsc_pdcp_u_plane_decap(shared_desc,
-						       &shared_desc_len,
+			shared_desc_len = cnstr_shdsc_pdcp_u_plane_decap(
+						       shared_desc,
 /*
 * This is currently hardcoded. The application doesn't allow for
 * proper retrieval of PS.
@@ -477,8 +477,8 @@ static void *create_descriptor(bool mode, void *params)
 
 	case PDCP_SHORT_MAC:
 		if (ENCRYPT == mode)
-			cnstr_shdsc_pdcp_short_mac(shared_desc,
-						   &shared_desc_len,
+			shared_desc_len = cnstr_shdsc_pdcp_short_mac(
+						   shared_desc,
 /*
 * This is currently hardcoded. The application doesn't allow for
 * proper retrieval of PS.

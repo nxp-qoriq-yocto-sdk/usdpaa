@@ -235,7 +235,7 @@ static void *create_descriptor(bool mode, void *params)
 	struct sec_descriptor_t *prehdr_desc;
 	struct alginfo cipher_info, auth_info;
 	uint32_t *shared_desc = NULL;
-	unsigned i, shared_desc_len = 0;
+	int i, shared_desc_len = 0;
 	bool found = 0;
 
 	prehdr_desc = __dma_mem_memalign(L1_CACHE_BYTES,
@@ -278,10 +278,10 @@ static void *create_descriptor(bool mode, void *params)
 	auth_info.key_enc_flags = 0;
 
 	if (ENCRYPT == mode)
-		cnstr_shdsc_ipsec_encap(shared_desc, &shared_desc_len, true,
+		shared_desc_len = cnstr_shdsc_ipsec_encap(shared_desc, true,
 					rtv->e_pdb, &cipher_info, &auth_info);
 	else
-		cnstr_shdsc_ipsec_decap(shared_desc, &shared_desc_len, true,
+		shared_desc_len = cnstr_shdsc_ipsec_decap(shared_desc, true,
 					rtv->d_pdb, &cipher_info, &auth_info);
 
 	prehdr_desc->prehdr.hi.word = shared_desc_len & SEC_PREHDR_SDLEN_MASK;

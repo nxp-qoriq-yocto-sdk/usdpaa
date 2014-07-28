@@ -110,7 +110,7 @@ int init_rtv_macsec(struct test_param *crypto_info)
  * @param[in]	shared_desc_len - shared descriptor length
  * @return	None
  */
-void macsec_set_pn_constant(uint32_t *shared_desc, unsigned *shared_desc_len)
+void macsec_set_pn_constant(uint32_t *shared_desc, int *shared_desc_len)
 {
 	struct program prg;
 	struct program *p = &prg;
@@ -183,8 +183,7 @@ static void *create_descriptor(bool mode, void *params)
 	struct sec_descriptor_t *prehdr_desc;
 	struct alginfo cipher_info;
 	uint32_t *shared_desc = NULL;
-	unsigned shared_desc_len;
-	int i;
+	int shared_desc_len, i;
 	bool found = 0;
 
 	prehdr_desc = __dma_mem_memalign(L1_CACHE_BYTES,
@@ -223,8 +222,7 @@ static void *create_descriptor(bool mode, void *params)
 	cipher_info.algtype =
 			macsec_params->cipher_alg;
 	if (ENCRYPT == mode)
-		cnstr_shdsc_macsec_encap(shared_desc,
-					 &shared_desc_len,
+		shared_desc_len = cnstr_shdsc_macsec_encap(shared_desc,
 					 &cipher_info,
 					 ref_test_vector->sci,
 					 ref_test_vector->ethertype,
@@ -232,8 +230,7 @@ static void *create_descriptor(bool mode, void *params)
 					 ref_test_vector->pn);
 
 	else
-		cnstr_shdsc_macsec_decap(shared_desc,
-					 &shared_desc_len,
+		shared_desc_len = cnstr_shdsc_macsec_decap(shared_desc,
 					 &cipher_info,
 					 ref_test_vector->sci,
 					 ref_test_vector->pn);

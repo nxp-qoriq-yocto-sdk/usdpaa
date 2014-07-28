@@ -160,7 +160,7 @@ int generate_splitkey(void)
 	struct qm_sg_entry *sg;
 	void *alg_key, *job_desc;
 	struct qm_fd fd;
-	unsigned bufsize;
+	int bufsize;
 
 	job_desc = __dma_mem_memalign(L1_CACHE_BYTES, 256);
 	if (job_desc == NULL) {
@@ -191,10 +191,10 @@ int generate_splitkey(void)
 	bufsize = 256;
 	memcpy(alg_key, def_auth_key, 20);
 	pr_debug("ipsec_tunnel_create: before cnstr_jobdesc_mdsplitkey\n");
-	cnstr_jobdesc_mdsplitkey(job_desc, &bufsize, true,
-				 __dma_mem_vtop(alg_key), 20,
-				 OP_ALG_ALGSEL_SHA1,
-				 __dma_mem_vtop(g_split_key));
+	bufsize = cnstr_jobdesc_mdsplitkey(job_desc, true,
+					   __dma_mem_vtop(alg_key), 20,
+					   OP_ALG_ALGSEL_SHA1,
+					   __dma_mem_vtop(g_split_key));
 	pr_debug("ipsec_tunnel_create: after cnstr_jobdesc_mdsplitkey\n");
 
 	sg = __dma_mem_memalign(L1_CACHE_BYTES, 2 * sizeof(struct qm_sg_entry));

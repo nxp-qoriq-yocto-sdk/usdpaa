@@ -151,8 +151,7 @@ static void *create_descriptor(bool mode, void *params)
 	struct sec_descriptor_t *prehdr_desc;
 	struct alginfo cipher_info;
 	uint32_t *shared_desc = NULL;
-	unsigned shared_desc_len;
-	int i;
+	int shared_desc_len, i;
 	bool found = 0;
 
 	prehdr_desc = __dma_mem_memalign(L1_CACHE_BYTES,
@@ -190,8 +189,7 @@ static void *create_descriptor(bool mode, void *params)
 	cipher_info.key_enc_flags = 0;
 
 	if (ENCRYPT == mode)
-		cnstr_shdsc_wifi_encap(shared_desc,
-				       &shared_desc_len,
+		shared_desc_len = cnstr_shdsc_wifi_encap(shared_desc,
 /*
 * This is currently hardcoded. The application doesn't allow for
 * proper retrieval of PS.
@@ -203,8 +201,7 @@ static void *create_descriptor(bool mode, void *params)
 				       ref_test_vector->key_id,
 				       &cipher_info);
 	else
-		cnstr_shdsc_wifi_decap(shared_desc,
-				       &shared_desc_len,
+		shared_desc_len = cnstr_shdsc_wifi_decap(shared_desc,
 /*
 * This is currently hardcoded. The application doesn't allow for
 * proper retrieval of PS.

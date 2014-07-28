@@ -127,8 +127,7 @@ static void *create_descriptor(bool mode, void *params)
 	struct sec_descriptor_t *prehdr_desc;
 	struct alginfo cipher_info, auth_info;
 	uint32_t *shared_desc = NULL;
-	unsigned shared_desc_len;
-	int i;
+	int shared_desc_len, i;
 	bool found = 0;
 
 	prehdr_desc = __dma_mem_memalign(L1_CACHE_BYTES,
@@ -168,16 +167,14 @@ static void *create_descriptor(bool mode, void *params)
 	auth_info.keylen = ref_test_vector->auth_keylen;
 	auth_info.key_enc_flags = 0;
 	if (ENCRYPT == mode)
-		cnstr_shdsc_srtp_encap(shared_desc,
-				       &shared_desc_len,
+		shared_desc_len = cnstr_shdsc_srtp_encap(shared_desc,
 				       &auth_info,
 				       &cipher_info,
 				       ref_test_vector->n_tag,
 				       ref_test_vector->roc,
 				       ref_test_vector->cipher_salt);
 	else
-		cnstr_shdsc_srtp_decap(shared_desc,
-				       &shared_desc_len,
+		shared_desc_len = cnstr_shdsc_srtp_decap(shared_desc,
 				       &auth_info,
 				       &cipher_info,
 				       ref_test_vector->n_tag,

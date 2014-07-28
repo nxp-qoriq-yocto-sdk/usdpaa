@@ -47,13 +47,13 @@
  * @param[in] authdata    Pointer to authentication transform definitions. Note
  *      that since a split key is to be used, the size of the split key itself
  *      is specified. Valid algorithm values: one of OP_PCL_IPSEC_*
+ * @return size of descriptor written in words
  **/
-static inline void cnstr_shdsc_ipsec_encap_hb(uint32_t *descbuf,
-					   unsigned *bufsize,
-					   bool ps,
-					   struct ipsec_encap_pdb *pdb,
-					   struct alginfo *cipherdata,
-					   struct alginfo *authdata)
+static inline int cnstr_shdsc_ipsec_encap_hb(uint32_t *descbuf,
+					     bool ps,
+					     struct ipsec_encap_pdb *pdb,
+					     struct alginfo *cipherdata,
+					     struct alginfo *authdata)
 {
 	struct program prg;
 	struct program *p = &prg;
@@ -81,7 +81,7 @@ static inline void cnstr_shdsc_ipsec_encap_hb(uint32_t *descbuf,
 		 cipherdata->algtype | authdata->algtype);
 	PATCH_JUMP(p, pkeyjmp, keyjmp);
 	PATCH_HDR(p, phdr, hdr);
-	*bufsize = PROGRAM_FINALIZE(p);
+	return PROGRAM_FINALIZE(p);
 }
 
 
@@ -101,7 +101,7 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 					  uint8_t next_header)
 {
 	struct ipsec_encap_descriptor_t *preheader_initdesc;
-	unsigned desc_len;
+	int desc_len;
 	struct ipsec_encap_pdb *pdb;
 	struct alginfo cipher;
 	struct alginfo auth;
@@ -155,11 +155,12 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
  * The application doesn't allow for proper retrieval of PS.
  */
 	if (sa->hb_tunnel) {
-		cnstr_shdsc_ipsec_encap_hb((uint32_t *)buff_start, &desc_len,
-					   true, pdb, &cipher, &auth);
+		desc_len = cnstr_shdsc_ipsec_encap_hb((uint32_t *)buff_start,
+						      true, pdb, &cipher,
+						      &auth);
 	} else {
-		cnstr_shdsc_ipsec_encap((uint32_t *)buff_start, &desc_len,
-					true, pdb, &cipher, &auth);
+		desc_len = cnstr_shdsc_ipsec_encap((uint32_t *)buff_start,
+						   true, pdb, &cipher, &auth);
 	}
 
 	free(pdb);
@@ -182,8 +183,6 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
  * @ingroup sharedesc_group
  *
  * @param[in,out] descbuf    Pointer to buffer used for descriptor construction
- * @param[in,out] bufsize    Pointer to descriptor size to be written back upon
- *      completion
  * @param [in] ps            If 36/40bit addressing is desired, this parameter
  *      must be true.
  * @param[in] pdb         Pointer to the PDB to be used with this descriptor.
@@ -195,13 +194,13 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
  * @param[in] authdata    Pointer to authentication transform definitions. Note
  *      that since a split key is to be used, the size of the split key itself
  *      is specified. Valid algorithm values: one of OP_PCL_IPSEC_*
+ * @return size of descriptor written in words
  **/
-static inline void cnstr_shdsc_ipsec_decap_hb(uint32_t *descbuf,
-					   unsigned *bufsize,
-					   bool ps,
-					   struct ipsec_decap_pdb *pdb,
-					   struct alginfo *cipherdata,
-					   struct alginfo *authdata)
+static inline int cnstr_shdsc_ipsec_decap_hb(uint32_t *descbuf,
+					     bool ps,
+					     struct ipsec_decap_pdb *pdb,
+					     struct alginfo *cipherdata,
+					     struct alginfo *authdata)
 {
 	struct program prg;
 	struct program *p = &prg;
@@ -231,7 +230,7 @@ static inline void cnstr_shdsc_ipsec_decap_hb(uint32_t *descbuf,
 		 cipherdata->algtype | authdata->algtype);
 	PATCH_JUMP(p, pkeyjmp, keyjmp);
 	PATCH_HDR(p, phdr, hdr);
-	*bufsize = PROGRAM_FINALIZE(p);
+	return PROGRAM_FINALIZE(p);
 }
 
 
@@ -247,7 +246,7 @@ void
 *create_decapsulation_sec_descriptor(struct ipsec_tunnel_t *sa)
 {
 	struct ipsec_decap_descriptor_t *preheader_initdesc;
-	unsigned desc_len;
+	int desc_len;
 	struct ipsec_decap_pdb pdb;
 	struct alginfo cipher;
 	struct alginfo auth;
@@ -290,11 +289,12 @@ void
  * The application doesn't allow for proper retrieval of PS.
  */
 	if (sa->hb_tunnel) {
-		cnstr_shdsc_ipsec_decap_hb((uint32_t *)buff_start, &desc_len,
-					   true, &pdb, &cipher, &auth);
+		desc_len = cnstr_shdsc_ipsec_decap_hb((uint32_t *)buff_start,
+						      true, &pdb, &cipher,
+						      &auth);
 	} else {
-		cnstr_shdsc_ipsec_decap((uint32_t *)buff_start, &desc_len, true,
-					&pdb, &cipher, &auth);
+		desc_len = cnstr_shdsc_ipsec_decap((uint32_t *)buff_start, true,
+						   &pdb, &cipher, &auth);
 	}
 
 	pr_debug("Desc len in %s is %x\n", __func__, desc_len);
