@@ -1,4 +1,4 @@
-/* Copyright 2013 Freescale Semiconductor, Inc.
+/* Copyright 2014 Freescale Semiconductor, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -25,33 +25,27 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
  * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef SEC_H
-#define SEC_H
 
-/* Disassembler options */
-#define DISASM_SHOW_OFFSETS	0x01 /* display instruction indices */
-#define DISASM_SHOW_RAW		0x02 /* display each raw instruction */
+#include <internal/of.h>
+#include <fsl_sec/sec.h>
 
 /**
- * SEC QI error codes
- *
+ * @brief	Reads the SEC ERA from DTS by using the of library
+ * @returns	-1 if the SEC ERA could not be read (i.e. the property does
+ *		not exist in DTS), the SEC ERA otherwise
  */
-#define SEC_QI_ERR_BITS         0x50000000
-#define SEC_QI_ERR_MASK         0xff000000
-#define SEC_QI_STA_MASK         0x000000ff
-#define SEC_QI_ERR_BPD          0x00000008
+int sec_get_of_era(void)
+{
+	const struct device_node *caam_node;
+	for_each_compatible_node(caam_node, NULL, "fsl,sec-v4.0") {
+		const uint32_t *prop = (uint32_t *)of_get_property(caam_node,
+				"fsl,sec-era",
+				NULL);
+		return prop ? *prop : -1;
+	}
 
-int sec_get_of_era(void);
-
-/*
- * Disassembler functions
- */
-void desc_hexdump(uint32_t *descdata, uint32_t  size, uint32_t wordsperline,
-		  int8_t *indentstr);
-
-void caam_desc_disasm(uint32_t *desc, uint32_t opts);
-
-#endif /* SEC_H */
+	return -1;
+}

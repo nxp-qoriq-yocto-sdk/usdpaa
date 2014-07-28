@@ -35,6 +35,7 @@
 #include "ip/ip_appconf.h"
 #include "ipsec/ipsec_sec.h"
 
+
 #include <mqueue.h>
 
 static struct bman_pool *sec_bpool;
@@ -993,9 +994,10 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 	ip_handler(p, notes, data);
 }
 
-int ppam_sec_needed()
+bool ppam_sec_needed = true;
+int ppam_sec_get_era(void)
 {
-	return 1;
+	return sec_get_of_era();
 }
 
 #include <ppac.c>

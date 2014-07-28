@@ -480,6 +480,12 @@ static void ppam_rx_hash_finish(struct ppam_rx_hash *p,
 {
 }
 
+char ppam_sec_needed = 1;
+int ppam_sec_get_era(void)
+{
+	return sec_get_of_era();
+}
+
 static int init_buffer_pools(void)
 {
 	const struct bpool *bp = bpool;

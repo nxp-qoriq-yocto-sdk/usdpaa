@@ -42,7 +42,7 @@ ipsecfwd_app_SOURCES := ipsecfwd.c ipsecfwd_init.c ipsecfwd_handler.c \
 ipsecfwd_app_LDADD := usdpaa_ppac usdpaa_qbman usdpaa_fman usdpaa_dma_mem \
 	usdpaa_of usdpaa_process app_ipsecfwd_ipsec app_ipsecfwd_net \
 	app_ipsecfwd_ethernet app_ipsecfwd_ip app_ipsecfwd_mm apps_ipsecfwd_arp \
-	app_ipsecfwd_refcount usdpaa_syscfg
+	app_ipsecfwd_refcount usdpaa_syscfg usdpaa_sec
 ipsecfwd_app_sys_LDADD := rt
 ipsecfwd_app_LDFLAGS := $(LIBXML2_LDFLAGS) $(LIBEDIT_LDFLAGS) \
 	-T $(TOP_LEVEL)/apps/ppac/ppac.lds

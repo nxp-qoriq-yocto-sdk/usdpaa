@@ -36,4 +36,4 @@ AM_CFLAGS += $(LIBRTA_CFLAGS)
 
 simple_crypto_SOURCES := simple_crypto.c
 simple_crypto_LDADD := usdpaa_qbman usdpaa_dma_mem usdpaa_of usdpaa_process \
-		       fslcrypto
+		       fslcrypto usdpaa_sec

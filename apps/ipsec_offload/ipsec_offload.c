@@ -720,9 +720,10 @@ static void ppam_rx_hash_finish(struct ppam_rx_hash *p,
 {
 }
 
-int ppam_sec_needed()
+bool ppam_sec_needed = true;
+int ppam_sec_get_era(void)
 {
-	return 1;
+	return sec_get_of_era();
 }
 
 static int init_buffer_pools(void)

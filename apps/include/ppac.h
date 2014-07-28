@@ -45,6 +45,8 @@
 #include <usdpaa/dma_mem.h>
 #include <usdpaa/usdpaa_netcfg.h>
 
+#include <fsl_sec/sec.h>
+
 #include <argp.h>
 #include <error.h>
 #include <stdbool.h>
@@ -253,7 +255,7 @@ int ppam_post_tx_init(void);
 void ppam_finish(void);
 int ppam_thread_init(void);
 void ppam_thread_finish(void);
-int ppam_sec_needed(void);
+int ppam_sec_get_era(void);
 
 /* Default paths to FMan configuration files - these are determined from the
  * build, but can be overriden at run-time using "DEF_PCD_PATH" and
@@ -265,6 +267,13 @@ extern const char ppam_cfg_path[];
 /* Default CLI prompt. PPAC defines a weakly-linked version of this, but a PPAM
  * can declare its own and it will take precedence. */
 extern const char ppam_prompt[];
+
+/*
+ * SEC configuration enable/disable variable. PPAC defines the weak-linked
+ * version which disables any SEC related configuration. PPAM can override this
+ * variable.
+ */
+extern bool ppam_sec_needed;
 
 /* PPAM thread polling hook. PPAC defines a weakly-linked version of this, which
  * will abort the application if it is ever called, so PPAM should implement its

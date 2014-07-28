@@ -33,7 +33,6 @@
 
 #include <usdpaa/dma_mem.h>
 #include <flib/rta.h>
-#include <fsl_sec/sec.h>
 #include "common.h"
 
 #define MAX_DESCRIPTOR_SIZE      64

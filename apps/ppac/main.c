@@ -51,7 +51,6 @@
 
 #include <usdpaa/compat.h>
 
-#include <fsl_sec/sec.h>
 #include <crypto/sec.h>
 
 /*
@@ -118,15 +117,23 @@ int __attribute__((weak)) ppam_thread_poll(void)
 	return 0;
 }
 
-int __attribute__((weak)) ppam_sec_needed(void)
-{
-	return 0;
-}
 /*
  * PPAM-overridable paths to FMan configuration files.
  */
 const char ppam_pcd_path[] __attribute__((weak)) = __stringify(DEF_PCD_PATH);
 const char ppam_cfg_path[] __attribute__((weak)) = __stringify(DEF_CFG_PATH);
+
+/*
+ * PPAM-overridable SEC related configuration
+ */
+bool ppam_sec_needed __attribute__((weak)) = false;
+
+int __attribute__((weak)) ppam_sec_get_era(void)
+{
+	fprintf(stderr, "PPAM requested SEC configuration but didn't implement it!\n");
+	abort();
+	return 0;
+}
 
 /***************/
 /* Global data */
@@ -1645,8 +1652,8 @@ int main(int argc, char *argv[])
 	if (unlikely(rcode != 0))
 		return -rcode;
 
-	if (ppam_sec_needed()) {
-		hw_sec_era = sec_get_of_era();
+	if (ppam_sec_needed) {
+		hw_sec_era = ppam_sec_get_era();
 		if (validate_sec_era_version(user_sec_era, hw_sec_era))
 			return -EINVAL;
 	}

@@ -38,6 +38,7 @@
 #include <crypto/sec.h>
 #include <crypto/thread_priv.h>
 #include <crypto/qman.h>
+#include <fsl_sec/sec.h>
 
 #include "test_vector.h"
 #include "common.h"
