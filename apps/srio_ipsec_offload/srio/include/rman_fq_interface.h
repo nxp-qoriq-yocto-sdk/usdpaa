@@ -37,7 +37,6 @@
 #include <rman_bpool.h>
 #include <usdpaa/fsl_qman.h>
 #include <usdpaa/fsl_bman.h>
-#include <internal/compat.h>
 /* The forwarding logic uses a per-cpu FQ object for handling enqueues (and
  * ERNs), irrespective of the destination FQID. In this way, cache-locality is
  * more assured, and any ERNs that do occur will show up on the same CPUs they

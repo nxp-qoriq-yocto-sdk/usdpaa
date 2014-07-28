@@ -34,7 +34,6 @@
 #include <ppac_interface.h>
 #include <usdpaa/fsl_bman.h>
 #include <usdpaa/fsl_qman.h>
-#include "internal/compat.h"
 
 #include <errno.h>
 #include <stdlib.h>

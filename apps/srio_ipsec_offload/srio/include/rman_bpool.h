@@ -37,7 +37,6 @@
 #include <usdpaa/fsl_bman.h>
 #include <usdpaa/fsl_qman.h>
 #include <usdpaa/dma_mem.h>
-#include <internal/compat.h>
 #include <error.h>
 
 #undef BPOOL_DEPLETION

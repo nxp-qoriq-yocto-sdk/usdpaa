@@ -53,8 +53,6 @@
 #include <ipc/ipc/include/fsl_heterogeneous_l1_defense.h>
 
 /* USDPAA APIs */
-#include <internal/compat.h>
-
 #include <usdpaa/compat.h>
 #include <usdpaa/of.h>
 #include <usdpaa/fsl_usd.h>

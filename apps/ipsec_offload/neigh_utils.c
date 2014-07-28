@@ -33,7 +33,6 @@
 #include <ppac.h>
 #include "ppam_if.h"
 #include <ppac_interface.h>
-#include "internal/compat.h"
 
 #include <errno.h>
 #include <stdlib.h>
@@ -46,6 +45,7 @@
 #include <net/if.h>
 #include <net/ethernet.h>
 #include <signal.h>
+#include <assert.h>
 
 #include "usdpaa/fsl_dpa_classifier.h"
 #include "usdpaa/fsl_dpa_ipsec.h"

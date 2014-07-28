@@ -33,7 +33,6 @@
 #ifndef __CEETM_CFG_PARSER_H
 #define	__CEETM_CFG_PARSER_H
 
-#include <internal/compat.h>
 
 /* Structure contains information of groupA or groupB */
 struct ceetm_group_info {

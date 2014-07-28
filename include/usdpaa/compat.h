@@ -43,6 +43,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <errno.h>
 #include <string.h>
 #include <pthread.h>
@@ -370,6 +371,45 @@ static inline void cpu_spin(int cycles)
 	uint64_t now = mfatb();
 	while (mfatb() < (now + cycles))
 		;
+}
+
+static inline void __hexdump(unsigned long start, unsigned long end,
+			unsigned long p, size_t sz, const unsigned char *c)
+{
+	while (start < end) {
+		unsigned int pos = 0;
+		char buf[64];
+		int nl = 0;
+		pos += sprintf(buf + pos, "%08lx: ", start);
+		do {
+			if ((start < p) || (start >= (p + sz)))
+				pos += sprintf(buf + pos, "..");
+			else
+				pos += sprintf(buf + pos, "%02x", *(c++));
+			if (!(++start & 15)) {
+				buf[pos++] = '\n';
+				nl = 1;
+			} else {
+				nl = 0;
+				if(!(start & 1))
+					buf[pos++] = ' ';
+				if(!(start & 3))
+					buf[pos++] = ' ';
+			}
+		} while (start & 15);
+		if (!nl)
+			buf[pos++] = '\n';
+		buf[pos] = '\0';
+		pr_info("%s", buf);
+	}
+}
+static inline void hexdump(const void *ptr, size_t sz)
+{
+	unsigned long p = (unsigned long)ptr;
+	unsigned long start = p & ~(unsigned long)15;
+	unsigned long end = (p + sz + 15) & ~(unsigned long)15;
+	const unsigned char *c = ptr;
+	__hexdump(start, end, p, sz, c);
 }
 
 #endif /* HEADER_USDPAA_COMPAT_H */

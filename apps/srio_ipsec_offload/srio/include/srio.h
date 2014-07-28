@@ -30,7 +30,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <internal/compat.h>
 #include <usdpaa/dma_mem.h>
 #include <usdpaa/fsl_dma.h>
 #include <usdpaa/fsl_srio.h>
