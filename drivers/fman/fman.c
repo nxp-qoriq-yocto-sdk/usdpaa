@@ -374,6 +374,7 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 		assert(lenp == (6 * sizeof(phandle)));
 		assert((rx_phandle[1] == 1) && (rx_phandle[3] == 1));
 		__if->__if.fqid_rx_err = rx_phandle[0];
+		__if->__if.fqid_rx_def = rx_phandle[2];
 	} else {
 		assert(lenp == (4 * sizeof(phandle)));
 		assert((rx_phandle[1] == 1) && (rx_phandle[3] == 1));
