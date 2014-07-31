@@ -1,4 +1,4 @@
-# Copyright (c) 2011 - 2012 Freescale Semiconductor, Inc.
+# Copyright (c) 2014 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -29,23 +29,9 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback \
-	  hello_reflector ipfwd ipsecfwd sra rmu fra lpm-ipfwd dma_test \
-	  simple_proto classifier_demo fragmentation_demo reassembly_demo \
-	  ipsec_offload cpu_hotplug capwap
+lib_LIBRARIES = capwap_xml_parser
 
-ifeq (B4860,$(SOC))
-SUBDIRS += srio_ipsec_offload
-ifeq (powerpc,$(ARCH))
-SUBDIRS += dsp_dpa
-endif
-endif
+capwap_xml_parser_CFLAGS := -I$(TOP_LEVEL)/apps/capwap/include -I$(TOP_LEVEL)/apps/include \
+		$(LIBXML2_CFLAGS) $(FMLIB_CFLAGS)
 
-ifneq (,$(findstring $(SOC),B4860 T4240 T2080))
-SUBDIRS += ceetm_demo
-endif
-
-dist_DATA = SOURCE_THIS
-
-# install the SOURCE_THIS file in the 'root' home directory
-SOURCE_THIS_install := root
+capwap_xml_parser_SOURCES = tunnel_cfg_parser.c

@@ -1,5 +1,4 @@
-# Copyright (c) 2011 - 2012 Freescale Semiconductor, Inc.
-# All rights reserved.
+# Copyright 2014 Freescale Semiconductor, Inc.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -18,7 +17,7 @@
 # Foundation, either version 2 of that License or (at your option) any
 # later version.
 #
-# THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
+# THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor "AS IS" AND ANY
 # EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
 # DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
@@ -29,23 +28,9 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback \
-	  hello_reflector ipfwd ipsecfwd sra rmu fra lpm-ipfwd dma_test \
-	  simple_proto classifier_demo fragmentation_demo reassembly_demo \
-	  ipsec_offload cpu_hotplug capwap
+lib_LIBRARIES = capwap_fq_interface
 
-ifeq (B4860,$(SOC))
-SUBDIRS += srio_ipsec_offload
-ifeq (powerpc,$(ARCH))
-SUBDIRS += dsp_dpa
-endif
-endif
+capwap_fq_interface_CFLAGS := -I$(TOP_LEVEL)/apps/capwap/include -I$(TOP_LEVEL)/apps/include \
+		$(FMLIB_CFLAGS)
 
-ifneq (,$(findstring $(SOC),B4860 T4240 T2080))
-SUBDIRS += ceetm_demo
-endif
-
-dist_DATA = SOURCE_THIS
-
-# install the SOURCE_THIS file in the 'root' home directory
-SOURCE_THIS_install := root
+capwap_fq_interface_SOURCES := capwap_fq_interface.c capwap_handler.c
