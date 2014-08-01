@@ -74,8 +74,11 @@ pthread_t event_thread;
 pthread_t control_thread;
 pthread_t wk_thread;
 volatile unsigned int us_threads = 0;
+volatile bool us_main_thread = false;
+volatile bool dpa_stats_shutdown = false;
 struct us_thread_data us_thread[MAX_NUM_OF_THREADS];
 struct list_head us_thread_list;
+static pthread_cond_t us_main_thread_wake_up = PTHREAD_COND_INITIALIZER;
 
 /* Mutex to insure safe access to worker threads counter */
 static pthread_mutex_t us_thread_list_access = PTHREAD_MUTEX_INITIALIZER;
@@ -492,6 +495,11 @@ static int free_resources(struct dpa_stats *dpa_stats)
 	uint32_t i, j;
 	int err;
 
+	/* Wake up the main worker thread (if it exists) so that it shuts down */
+	dpa_stats_shutdown = true;
+	if (us_main_thread)
+		us_req_queue_busy(&dpa_stats->async_us_req_queue);
+
 	if (dpa_stats->cnts_cb) {
 		for (i = 0; i < dpa_stats->config.max_counters; i++) {
 			for (j = 0; j < dpa_stats->cnts_cb[i].members_num; j++) {
@@ -503,7 +511,6 @@ static int free_resources(struct dpa_stats *dpa_stats)
 			free(dpa_stats->cnts_cb[i].info.last_stats);
 		}
 	}
-
 	if (dpa_stats->req)
 		free(dpa_stats->req);
 
@@ -524,6 +531,7 @@ static int free_resources(struct dpa_stats *dpa_stats)
 
 	free(dpa_stats);
 	gbl_dpa_stats = NULL;
+
 	return 0;
 }
 
@@ -1539,15 +1547,26 @@ void us_req_queue_busy(const struct fifo_q *q)
 				"Failed to release US worker threads counter lock");
 		return;
 	}
+
 	/* Create a new worker thread */
 	new_us_thread = list_entry(us_thread_list.next,
 			struct us_thread_data, node);
 	list_del(&new_us_thread->node);
-	/* Set worker thread as "detached". */
-	pthread_attr_init(&worker_thread_attributes);
-	pthread_attr_setdetachstate(&worker_thread_attributes,
+
+	us_threads++;
+	if ((us_threads <= 1) && (us_main_thread)) {
+		/*
+		 * The first/last worker thread never dies. It is only put to
+		 * sleep waiting for requests to arrive in the queue, so just
+		 * wake it up.
+		 */
+		pthread_cond_signal(&us_main_thread_wake_up);
+	} else {
+		/* Set worker thread as "detached". */
+		pthread_attr_init(&worker_thread_attributes);
+		pthread_attr_setdetachstate(&worker_thread_attributes,
 				PTHREAD_CREATE_DETACHED);
-	ret = pthread_create(&new_us_thread->id,
+		ret = pthread_create(&new_us_thread->id,
 			&worker_thread_attributes,
 			dpa_stats_worker_thread,
 			new_us_thread);
@@ -1559,7 +1578,7 @@ void us_req_queue_busy(const struct fifo_q *q)
 		error(0, ret, "Failed to create new worker thread");
 		return;
 	}
-	us_threads++;
+	us_main_thread = true;
 	ret = pthread_mutex_unlock(&us_thread_list_access);
 	if (ret)
 		error(0, ret,
@@ -1598,57 +1617,79 @@ void *dpa_stats_worker_thread(void *arg)
 		return NULL;
 	}
 
-	while ((req = (struct dpa_stats_req *)
-		fifo_try_get(&dpa_stats->async_us_req_queue)) != NULL) {
+	/*
+	 * This lock is necessary to balance the "unlock" from the "while"
+	 * loop.
+	 */
+	pthread_mutex_lock(&us_thread_list_access);
+	do {
+		pthread_mutex_unlock(&us_thread_list_access);
+		while ((req = (struct dpa_stats_req *)
+			fifo_try_get(&dpa_stats->async_us_req_queue)) != NULL) {
 
-		if (req->type == US_CNTS_ONLY)
-			/* Treat every counter from the request */
-			ret = treat_us_cnts_request(dpa_stats, req);
-		else
-			/* Treat only user-space counters */
-			ret = treat_mixed_cnts_request(dpa_stats, req);
-		if (ret < 0) {
-			error(0, EINVAL, "Cannot obtain counter values "
+			if (req->type == US_CNTS_ONLY)
+				/* Treat every counter from the request */
+				ret = treat_us_cnts_request(dpa_stats, req);
+			else
+				/* Treat only user-space counters */
+				ret = treat_mixed_cnts_request(dpa_stats, req);
+			if (ret < 0) {
+				error(0, EINVAL, "Cannot obtain counter values "
 					"in asynchronous mode\n");
-			req->bytes_num = ret;
-		}
+				req->bytes_num = ret;
+			}
 
-		/* Call user-provided callback */
-		req->request_done(0,
+			/* Call user-provided callback */
+			req->request_done(0,
 				req->config.storage_area_offset,
 				req->cnts_num,
 				req->bytes_num);
 
-		/* Return the asynchronous request in the pool */
-		free(req->cnt_off);
-		free(req->cnt_ids);
-		req->cnt_off = NULL;
-		req->cnt_ids = NULL;
-		ret = fifo_add(&dpa_stats->req_queue, req);
+			/* Return the asynchronous request in the pool */
+			free(req->cnt_off);
+			free(req->cnt_ids);
+			req->cnt_off = NULL;
+			req->cnt_ids = NULL;
+			ret = fifo_add(&dpa_stats->req_queue, req);
+			if (ret) {
+				error(0, -ret,
+					"Failed to recycle stats request\n");
+				return NULL;
+			}
+		}
+
+		ret = pthread_mutex_lock(&us_thread_list_access);
 		if (ret) {
-			error(0, -ret, "Failed to recycle stats request\n");
+			error(0, ret,
+				"Failed to lock the number of available US threads");
 			return NULL;
 		}
-	}
 
-	/* Die and put back the thread id to the pool */
-	ret = pthread_mutex_lock(&us_thread_list_access);
-	if (ret) {
-		error(0, ret,
-			"Worker thread died but failed to update number of available US threads");
-		return NULL;
+		/*
+		 * If this is the last worker thread alive, sleep until new work
+		 * arrives
+		 */
+		if (us_threads <= 1) {
+			us_threads--;
+			list_add(&this_thread->node, &us_thread_list);
+			pthread_cond_wait(&us_main_thread_wake_up,
+				&us_thread_list_access);
+		}
 	}
+	while ((us_threads <= 1) && (!dpa_stats_shutdown));
+
+	ret = qman_thread_finish();
+	if (ret)
+		error(0, ret, "Failed to shut down QMan thread");
+
 	us_threads--;
-	list_add_tail(&this_thread->node, &us_thread_list);
+	list_add(&this_thread->node, &us_thread_list);
 	ret = pthread_mutex_unlock(&us_thread_list_access);
 	if (ret) {
 		error(0, -ret, "Failed to release US thread number lock\n");
 		return NULL;
 	}
 
-	ret = qman_thread_finish();
-	if (ret)
-		error(0, ret, "Failed to shut down QMan thread");
 	pthread_exit(NULL);
 
 	return NULL;
