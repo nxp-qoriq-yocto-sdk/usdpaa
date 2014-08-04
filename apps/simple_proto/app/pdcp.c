@@ -397,11 +397,13 @@ static void *create_descriptor(bool mode, void *params)
 	cipher_info.key = ref_test_vector->dma_addr_key;
 	cipher_info.keylen = ref_test_vector->cipher_keylen;
 	cipher_info.key_enc_flags = 0;
+	cipher_info.key_type = RTA_DATA_PTR;
 
 	auth_info.algtype = ref_test_vector->auth_alg;
 	auth_info.key = ref_test_vector->dma_addr_auth_key;
 	auth_info.keylen = ref_test_vector->auth_keylen;
 	auth_info.key_enc_flags = 0;
+	auth_info.key_type = RTA_DATA_PTR;
 
 	sw_hfn_ov = ((rta_sec_era == RTA_SEC_ERA_2) &&
 		(pdcp_params->hfn_ov_en));

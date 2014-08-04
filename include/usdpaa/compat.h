@@ -275,12 +275,23 @@ static inline void out_be32(volatile void *__p, u32 val)
 		printf(fmt, ##args); \
 		fflush(stdout); \
 	} while (0)
+
 #define pr_crit(fmt, args...)	 prflush("CRIT:" fmt, ##args)
+
 #ifdef pr_err
 #undef pr_err
 #endif
 #define pr_err(fmt, args...)	 prflush("ERR:" fmt, ##args)
+
+#ifdef pr_warning
+#undef pr_warning
+#endif
+#ifdef pr_warn
+#undef pr_warn
+#endif
 #define pr_warning(fmt, args...) prflush("WARN:" fmt, ##args)
+#define pr_warn	pr_warning
+
 #define pr_info(fmt, args...)	 prflush(fmt, ##args)
 
 #define BUG()	abort()

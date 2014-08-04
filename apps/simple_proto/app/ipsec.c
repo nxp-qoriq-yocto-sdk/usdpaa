@@ -272,10 +272,12 @@ static void *create_descriptor(bool mode, void *params)
 	cipher_info.key = rtv->key;
 	cipher_info.keylen = rtv->cipher_keylen;
 	cipher_info.key_enc_flags = 0;
+	cipher_info.key_type = RTA_DATA_IMM;
 	auth_info.algtype = rtv->auth_alginfo;
 	auth_info.key = rtv->auth_key;
 	auth_info.keylen = rtv->auth_keylen;
 	auth_info.key_enc_flags = 0;
+	auth_info.key_type = RTA_DATA_IMM;
 
 	if (ENCRYPT == mode)
 		shared_desc_len = cnstr_shdsc_ipsec_encap(shared_desc, true,

@@ -294,6 +294,7 @@ static void *create_descriptor(bool mode, void *params)
 	cipher_info.key = ref_test_vector->key;
 	cipher_info.keylen = WIMAX_KEY_SIZE;
 	cipher_info.key_enc_flags = 0;
+	cipher_info.key_type = RTA_DATA_IMM;
 	if (ENCRYPT == mode)
 		shared_desc_len = cnstr_shdsc_wimax_encap(shared_desc,
 					ref_test_vector->encap_opts,

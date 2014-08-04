@@ -163,9 +163,11 @@ static void *create_descriptor(bool mode, void *params)
 	cipher_info.key = ref_test_vector->key;
 	cipher_info.keylen = ref_test_vector->cipher_keylen;
 	cipher_info.key_enc_flags = 0;
+	cipher_info.key_type = RTA_DATA_IMM;
 	auth_info.key = ref_test_vector->auth_key;
 	auth_info.keylen = ref_test_vector->auth_keylen;
 	auth_info.key_enc_flags = 0;
+	auth_info.key_type = RTA_DATA_IMM;
 	if (ENCRYPT == mode)
 		shared_desc_len = cnstr_shdsc_srtp_encap(shared_desc,
 				       &auth_info,

@@ -72,9 +72,9 @@ static inline int cnstr_shdsc_ipsec_encap_hb(uint32_t *descbuf,
 	SET_LABEL(p, hdr);
 	pkeyjmp = JUMP(p, keyjmp, LOCAL_JUMP, ALL_TRUE, BOTH|SHRD);
 	KEY(p, MDHA_SPLIT_KEY, authdata->key_enc_flags, authdata->key,
-	    authdata->keylen, IMMED | COPY);
+	    authdata->keylen, INLINE_KEY(authdata));
 	KEY(p, KEY1, cipherdata->key_enc_flags, cipherdata->key,
-	    cipherdata->keylen, IMMED | COPY);
+	    cipherdata->keylen, INLINE_KEY(cipherdata));
 	SET_LABEL(p, keyjmp);
 	PROTOCOL(p, OP_TYPE_ENCAP_PROTOCOL,
 		 OP_PCLID_IPSEC,
@@ -143,11 +143,13 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 	cipher.key = (uintptr_t)sa->ealg->alg_key;
 	cipher.keylen = sa->ealg->alg_key_len;
 	cipher.key_enc_flags = 0;
+	cipher.key_type = RTA_DATA_IMM;
 
 	auth.algtype = sa->aalg->alg_type;
 	auth.key = (uintptr_t)sa->aalg->alg_key_ptr;
 	auth.keylen = sa->aalg->alg_key_len;
 	auth.key_enc_flags = ENC;
+	auth.key_type = RTA_DATA_IMM;
 
 	/* Now construct */
 /*
@@ -218,9 +220,9 @@ static inline int cnstr_shdsc_ipsec_decap_hb(uint32_t *descbuf,
 	SET_LABEL(p, hdr);
 	pkeyjmp = JUMP(p, keyjmp, LOCAL_JUMP, ALL_TRUE, BOTH|SHRD);
 	KEY(p, MDHA_SPLIT_KEY, authdata->key_enc_flags, authdata->key,
-	    authdata->keylen, IMMED | COPY);
+	    authdata->keylen, INLINE_KEY(authdata));
 	KEY(p, KEY1, cipherdata->key_enc_flags, cipherdata->key,
-	    cipherdata->keylen, IMMED | COPY);
+	    cipherdata->keylen, INLINE_KEY(cipherdata));
 	SET_LABEL(p, keyjmp);
 
 	/* Workaround to assert ok-to-share. This works only for ARS=off */
@@ -277,11 +279,13 @@ void
 	cipher.key = (uintptr_t)sa->ealg->alg_key;
 	cipher.keylen = sa->ealg->alg_key_len;
 	cipher.key_enc_flags = 0;
+	cipher.key_type = RTA_DATA_IMM;
 
 	auth.algtype = sa->aalg->alg_type;
 	auth.key = (uintptr_t)sa->aalg->alg_key_ptr;
 	auth.keylen = sa->aalg->alg_key_len;
 	auth.key_enc_flags = ENC;
+	auth.key_type = RTA_DATA_IMM;
 
 	/* Now construct */
 /*
