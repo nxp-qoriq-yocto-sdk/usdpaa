@@ -49,7 +49,7 @@
 int main(int argc, char *argv[])
 {
 	fd_set readfds, master;
-	unsigned int recv_app_socket, send_app_socket, recv_cmd_socket;
+	int recv_app_socket, send_app_socket, recv_cmd_socket;
 	struct sockaddr_un recv_app, send_app, recv_cmd;
 	char buf[BUF_SIZE_MAX];
 	char cmd_buf[CMD_BUF_SIZE_MAX];
