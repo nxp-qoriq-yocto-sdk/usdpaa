@@ -32,6 +32,8 @@
 #include <argp.h>
 #include <inttypes.h>
 
+#include <usdpaa/compat.h>
+
 #include <flib/desc/algo.h>
 
 #include <crypto/test_utils.h>

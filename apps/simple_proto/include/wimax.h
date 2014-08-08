@@ -36,9 +36,9 @@
 #include <argp.h>
 #include <inttypes.h>
 
-#include <flib/desc/wimax.h>
-
 #include <usdpaa/compat.h>
+
+#include <flib/desc/wimax.h>
 
 #include <crypto/test_utils.h>
 

@@ -35,9 +35,9 @@
 #include <argp.h>
 #include <inttypes.h>
 
-#include <flib/desc/mbms.h>
-
 #include <usdpaa/compat.h>
+
+#include <flib/desc/mbms.h>
 
 #include <crypto/test_utils.h>
 

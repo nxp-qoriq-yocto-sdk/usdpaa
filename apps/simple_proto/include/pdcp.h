@@ -36,9 +36,9 @@
 #include <argp.h>
 #include <inttypes.h>
 
-#include <flib/desc/pdcp.h>
-
 #include <usdpaa/compat.h>
+
+#include <flib/desc/pdcp.h>
 
 #include <crypto/test_utils.h>
 
