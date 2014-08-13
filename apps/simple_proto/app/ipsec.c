@@ -281,10 +281,12 @@ static void *create_descriptor(bool mode, void *params)
 
 	if (ENCRYPT == mode)
 		shared_desc_len = cnstr_shdsc_ipsec_encap(shared_desc, true,
-					rtv->e_pdb, &cipher_info, &auth_info);
+					false, rtv->e_pdb, &cipher_info,
+					&auth_info);
 	else
 		shared_desc_len = cnstr_shdsc_ipsec_decap(shared_desc, true,
-					rtv->d_pdb, &cipher_info, &auth_info);
+					false, rtv->d_pdb, &cipher_info,
+					&auth_info);
 
 	prehdr_desc->prehdr.hi.word = shared_desc_len & SEC_PREHDR_SDLEN_MASK;
 

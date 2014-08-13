@@ -162,7 +162,8 @@ void *create_encapsulation_sec_descriptor(struct ipsec_tunnel_t *sa,
 						      &auth);
 	} else {
 		desc_len = cnstr_shdsc_ipsec_encap((uint32_t *)buff_start,
-						   true, pdb, &cipher, &auth);
+						   true, false, pdb, &cipher,
+						   &auth);
 	}
 
 	free(pdb);
@@ -298,7 +299,7 @@ void
 						      &auth);
 	} else {
 		desc_len = cnstr_shdsc_ipsec_decap((uint32_t *)buff_start, true,
-						   &pdb, &cipher, &auth);
+						   false, &pdb, &cipher, &auth);
 	}
 
 	pr_debug("Desc len in %s is %x\n", __func__, desc_len);
