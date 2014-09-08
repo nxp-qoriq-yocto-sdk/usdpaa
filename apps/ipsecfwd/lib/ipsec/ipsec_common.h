@@ -31,7 +31,6 @@
 #include "ip/ip.h"
 #include "ethernet/eth.h"
 #include "ip/ip_common.h"
-#include "ipsec/ipsec.h"
 #include "net/annotations.h"
 #include "statistics.h"
 

@@ -237,6 +237,10 @@ static struct fib_entry *fibtab_getsubtbl(struct fib_entry *pl, u8 level)
 	uint32_t n;
 	struct fib_entry *p;
 
+	if (unlikely(level >= FIBTBL_MAX_LEVEL)) {
+		pr_err("fibtab_getsubtbl invalid level");
+		return -EINVAL;
+	}
 	n = 1 << fib_tree_level[level];
 	p = (struct fib_entry *)idx_getnode((uint32_t) pl, sizeof(*p),
 					    fib_index, fibidx_size, n);
