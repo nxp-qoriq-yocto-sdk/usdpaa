@@ -187,7 +187,7 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 	const phandle *rx_phandle, *tx_phandle;
 	const struct device_node *mac_node = NULL, *tx_node, *pool_node,
 			*fman_node;
-	const uint32_t *regs_addr;
+	const uint32_t *regs_addr = NULL;
 	const char *mname, *fname;
 	const char *dname = dpa_node->full_name;
 	int is_offline = 0, is_shared = 0;
@@ -295,10 +295,71 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 
 	/* Extract the index of the MAC */
 	if (!is_macless) {
-		cell_idx = of_get_property(mac_node, "cell-index", &lenp);
-		my_err(!cell_idx, -ENXIO, "%s: no cell-index\n", mname);
-		assert(lenp == sizeof(*cell_idx));
-		__if->__if.mac_idx = *cell_idx;
+		if (is_offline) {
+			cell_idx = of_get_property(mac_node, "cell-index", &lenp);
+			my_err(!cell_idx, -ENXIO, "%s: no cell-index\n", mname);
+			assert(lenp == sizeof(*cell_idx));
+			__if->__if.mac_idx = *cell_idx;
+		} else {
+
+			/* 
+ 			 * For MAC ports, we cannot rely on cell-index. In
+ 			 * T2080, two of the 10G ports on single FMAN have same
+ 			 * duplicate cell-indexes as the other two 10G ports on
+ 			 * same FMAN. Hence, we now rely upon addresses of the
+ 			 * ports from device tree to deduce the index.
+ 			 */
+
+			/* 
+			 * MAC1 : E_0000h
+			 * MAC2 : E_2000h
+			 * MAC3 : E_4000h
+			 * MAC4 : E_6000h
+			 * MAC5 : E_8000h
+			 * MAC6 : E_A000h
+			 * MAC7 : E_C000h
+			 * MAC8 : E_E000h
+			 * MAC9 : F_0000h
+			 * MAC10: F_2000h
+			 */
+    
+			switch (*regs_addr) {
+				case 0xE0000:
+					__if->__if.mac_idx = 1;
+					break;
+				case 0xE2000:
+					__if->__if.mac_idx = 2;
+					break;
+				case 0xE4000:
+					__if->__if.mac_idx = 3;
+					break;
+				case 0xE6000:
+					__if->__if.mac_idx = 4;
+					break;
+				case 0xE8000:
+					__if->__if.mac_idx = 5;
+					break;
+				case 0xEA000:
+					__if->__if.mac_idx = 6;
+					break;
+				case 0xEC000:
+					__if->__if.mac_idx = 7;
+					break;
+				case 0xEE000:
+					__if->__if.mac_idx = 8;
+					break;
+				case 0xF0000:
+					__if->__if.mac_idx = 9;
+					break;
+				case 0xF2000:
+					__if->__if.mac_idx = 10;
+					break;
+				default:
+					my_err(1, -EINVAL, "Invalid regs_addr: %#x\n",
+					       *regs_addr);
+			}
+		}
+		
 	}
 
 	if (is_macless) {

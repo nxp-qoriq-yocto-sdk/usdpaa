@@ -30,6 +30,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <stdbool.h>
 #include <usdpaa/usdpaa_netcfg.h>
 #include "fmc_netcfg_parser.h"
 
@@ -557,6 +558,7 @@ struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
 		idx += netcfg_interface->numof_fman_enabled_macless;
 	list_for_each_entry(__if, fman_if_list, node) {
 		struct fmc_netcfg_fqs xmlcfg;
+		bool is_offline;
 		struct fm_eth_port_cfg *cfg = &usdpaa_netcfg->port_cfg[idx];
 		/* Hook in the fman driver interface */
 		cfg->fman_if = __if;
@@ -566,8 +568,10 @@ struct usdpaa_netcfg_info *usdpaa_netcfg_acquire(const char *pcd_file,
 			cfg->rx_def = __if->fqid_rx_def;
 			continue;
 		}
-		_errno = fmc_netcfg_get_info(__if->fman_idx,
-			__if->mac_type, __if->mac_idx, &xmlcfg);
+		
+		is_offline = __if->mac_type == fman_offline? true: false;
+		_errno = fmc_netcfg_get_info(__if->fman_idx, is_offline,
+					     __if->mac_idx, &xmlcfg);
 		if (_errno == 0) {
 			if (use_all_interfaces || netcfg_interface_match(
 			   __if->fman_idx, __if->mac_type, __if->mac_idx)) {

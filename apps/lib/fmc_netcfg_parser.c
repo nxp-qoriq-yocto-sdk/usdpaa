@@ -30,6 +30,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <stdbool.h>
 #include "fmc_netcfg_parser.h"
 #include <error.h>
 
@@ -72,7 +73,7 @@
  * */
 struct interface_info {
 	uint8_t fman_num;		/* 0 => FMAN0, 1 => FMAN1 and so on */
-	enum fman_mac_type port_type;
+	bool	is_offline;
 	uint8_t port_num;		/* 0 onwards */
 	struct list_head *list;		/* List of PCD FQs*/
 };
@@ -444,7 +445,7 @@ static int parse_engine(xmlNodePtr enode, const char *pcd_file)
 	char *tmp;
 	static uint8_t p_curr;
 	uint8_t fman, p_num;
-	enum fman_mac_type p_type;
+	bool is_offline = false;
 	xmlNodePtr cur;
 
 	if (unlikely(!is_node(enode, BAD_CAST CFG_FMAN_NODE))) {
@@ -481,9 +482,18 @@ static int parse_engine(xmlNodePtr enode, const char *pcd_file)
 		tmp = (char *)get_attributes(cur, BAD_CAST CFG_PORT_NA_type);
 		if (unlikely(tmp == NULL))
 			break;
-		p_type = (strcmp(tmp, "OFFLINE") == 0) ? fman_offline :
-			(strcmp(tmp,"10G") == 0) ? fman_mac_10g :
-			(strcmp(tmp,"ONIC") == 0) ? fman_onic : fman_mac_1g;
+		
+		if (strcmp(tmp, "OFFLINE") == 0) {
+			is_offline = true;
+		} else if (strcmp(tmp, "MAC") == 0) {
+			is_offline = false; /* 'MAC' is only for 10G port */
+			p_num;
+		} else {
+			fprintf(stderr, "%s:%hu:%s() error: Invalid port type (%s) "
+					"in XMLFILE(%s)\n", __FILE__, __LINE__,
+					__func__, tmp, pcd_file);
+			return -EINVAL;
+		}
 
 		/* Get the policy applied with the MAC port from PORT node
 		 attribute "policy" */
@@ -501,7 +511,7 @@ static int parse_engine(xmlNodePtr enode, const char *pcd_file)
 		i_info->fman_num = fman;
 		i_info->port_num = p_num;
 		i_info->list = fqs.list;
-		i_info->port_type = p_type;
+		i_info->is_offline = is_offline;
 		p_curr++;
 	}
 
@@ -635,7 +645,7 @@ int fmc_netcfg_parser_exit(void)
 	return 0;
 }
 
-int fmc_netcfg_get_info(uint8_t fman, enum fman_mac_type p_type, uint8_t p_num,
+int fmc_netcfg_get_info(uint8_t fman, bool is_offline, uint8_t p_num,
 				struct fmc_netcfg_fqs *cfg)
 {
 	struct interface_info *i_info;
@@ -643,7 +653,7 @@ int fmc_netcfg_get_info(uint8_t fman, enum fman_mac_type p_type, uint8_t p_num,
 
 	for (i = 0; i < netcfg_info->numof_interface; i++) {
 		i_info = &netcfg_info->interface_info[i];
-		if (fman != i_info->fman_num || p_type != i_info->port_type ||
+		if (fman != i_info->fman_num || is_offline != i_info->is_offline ||
 						p_num != i_info->port_num)
 			continue;
 
