@@ -40,10 +40,10 @@ indicated below.
 <cfgdata>
     <config>
 	<engine name="fm0">
-		<port type="1G" number="2" policy="hash_ipsec_src_dst_spi_policy2"/>
-		<port type="1G" number="3" policy="hash_ipsec_src_dst_spi_policy3"/>
-		<port type="10G" number="0" policy="hash_ipsec_src_dst_spi_policy6"/>
-		<port type="10G" number="1" policy="hash_ipsec_src_dst_spi_policy7"/>
+		<port type="MAC" number="3" policy="hash_ipsec_src_dst_spi_policy2"/>
+		<port type="MAC" number="4" policy="hash_ipsec_src_dst_spi_policy3"/>
+		<port type="MAC" number="9" policy="hash_ipsec_src_dst_spi_policy6"/>
+		<port type="MAC" number="10" policy="hash_ipsec_src_dst_spi_policy7"/>
 	</engine>
     </config>
 </cfgdata>

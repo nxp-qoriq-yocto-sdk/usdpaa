@@ -34,12 +34,12 @@
 <cfgdata>
     <config>
 	<engine name="fm0">
-		<port type="10G" number="0" policy="hash_ipsec_src_dst_spi_policy5"/>
+		<port type="MAC" number="9" policy="hash_ipsec_src_dst_spi_policy5"/>
 	</engine>
 	<engine name="fm1">
-		<port type="1G" number="2" policy="hash_ipsec_src_dst_spi_policy8"/>
-		<port type="1G" number="3" policy="hash_ipsec_src_dst_spi_policy9"/>
-		<port type="10G" number="0" policy="hash_ipsec_src_dst_spi_policy11"/>
+		<port type="MAC" number="3" policy="hash_ipsec_src_dst_spi_policy8"/>
+		<port type="MAC" number="4" policy="hash_ipsec_src_dst_spi_policy9"/>
+		<port type="MAC" number="9" policy="hash_ipsec_src_dst_spi_policy11"/>
 	</engine>
     </config>
 </cfgdata>
