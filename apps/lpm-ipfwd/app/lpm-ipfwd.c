@@ -254,9 +254,9 @@ static int ipfwd_show_intf(const struct app_ctrl_op_info *route_info)
 			printf("MACLESS Interface:\n name : %s\n",
 				fif->macless_info.macless_name);
 		} else {
-			iface = (fif->mac_type == fman_mac_1g ? 0 : 8)
+			iface = (fif->mac_type == fman_mac_1g ? 0 : 80)
 				+ fif->mac_idx;
-			i = fif->fman_idx * 10 + iface;
+			i = fif->fman_idx * 100 + iface;
 			printf("FMAN Interface number: %d\n, "
 				"PortID=%d:%d is FMan interface node "
 				"with MAC Address "ETH_MAC_PRINTF_FMT"\n",
@@ -622,8 +622,8 @@ static int ppam_interface_init(struct ppam_interface *p,
 		return 0;
 	}
 
-	iface = (fif->mac_type == fman_mac_1g ? 0 : 8) + fif->mac_idx;
-	p->ifnum = fif->fman_idx * 10 + iface;
+	iface = (fif->mac_type == fman_mac_1g ? 0 : 80) + fif->mac_idx;
+	p->ifnum = fif->fman_idx * 100 + iface;
 	p->mtu = ETHERMTU;
 	p->header_len = ETHER_HDR_LEN;
 	p->mask = IN_CLASSC_NET;
