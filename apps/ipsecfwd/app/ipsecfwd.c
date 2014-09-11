@@ -138,12 +138,14 @@ static int ipfwd_add_route(const struct app_ctrl_op_info *route_info)
 		if (NULL == neigh_init(&ipsec_stack.ip_stack.arp_table,
 				dest->neighbor, dev, &gw_ipaddr)) {
 			pr_err("%s: Unable to init Neigh Entry\n", __func__);
+			mutex_destroy(&dest->neighbor->wlock);
 			return -1;
 		}
 
 		if (false == neigh_add(&ipsec_stack.ip_stack.arp_table,
 				dest->neighbor)) {
 			pr_err("%s: Unable to add Neigh Entry\n", __func__);
+			mutex_destroy(&dest->neighbor->wlock);
 			return -1;
 		}
 		/* MAC addr would be updated later through ARP request */
@@ -257,12 +259,14 @@ static int ipfwd_add_arp(const struct app_ctrl_op_info *route_info)
 		}
 		if (NULL == neigh_init(&ipsec_stack.ip_stack.arp_table,
 				n, dev, &ip_addr)) {
+			mutex_destroy(&n->wlock);
 			pr_err("ipfwd_add_arp: Exit: Failed\n");
 			return -1;
 		}
 
 		if (false == neigh_add(&ipsec_stack.ip_stack.arp_table, n)) {
 			pr_err("ipfwd_add_arp: Exit: Failed\n");
+			mutex_destroy(&n->wlock);
 			return -1;
 		}
 	} else {
@@ -279,6 +283,7 @@ static int ipfwd_add_arp(const struct app_ctrl_op_info *route_info)
 	if (NULL == neigh_update(n,
 			route_info->ip_info.mac_addr.ether_addr_octet,
 			NEIGH_STATE_PERMANENT)) {
+		mutex_destroy(&n->wlock);
 		pr_err("ipfwd_add_arp: Exit: Failed\n");
 		return -1;
 	}
@@ -569,6 +574,11 @@ int receive_data(mqd_t mqdes)
 
 	ip_info = (struct app_ctrl_op_info *)malloc
 			(sizeof(struct app_ctrl_op_info));
+	if (unlikely(!ip_info)) {
+		pr_err("%s: %dError getting ip_info mem\n",
+			 __FILE__, __LINE__);
+		return -ENOMEM;
+	}
 	memset(ip_info, 0, sizeof(struct app_ctrl_op_info));
 
 	_err = mq_getattr(mqdes, &attr);
@@ -610,15 +620,15 @@ static int create_mq(void)
 {
 	struct mq_attr attr_snd, attr_rcv;
 	int _err = 0, ret;
-	char name[10];
+	char name[20];
 
 	pr_debug("Create mq: Enter\n");
 	memset(&attr_snd, 0, sizeof(attr_snd));
 
 	/* Create message queue to send the response */
-	attr_snd.mq_maxmsg = 10;
+	attr_snd.mq_maxmsg = 20;
 	attr_snd.mq_msgsize = 8192;
-	sprintf(name, "/mq_snd_%d", getpid());
+	snprintf(name, 20, "/mq_snd_%d", getpid());
 	printf("Message queue to send: %s\n", name);
 	mq_fd_snd = mq_open(name, O_CREAT | O_WRONLY,
 				(S_IRWXU | S_IRWXG | S_IRWXO), &attr_snd);
@@ -632,9 +642,9 @@ static int create_mq(void)
 	memset(&attr_rcv, 0, sizeof(attr_rcv));
 
 	/* Create message queue to read the message */
-	attr_rcv.mq_maxmsg = 10;
+	attr_rcv.mq_maxmsg = 20;
 	attr_rcv.mq_msgsize = 8192;
-	sprintf(name, "/mq_rcv_%d", getpid());
+	snprintf(name, 20, "/mq_rcv_%d", getpid());
 	printf("Message queue to receive: %s\n", name);
 	mq_fd_rcv = mq_open(name, O_CREAT | O_RDONLY,
 			(S_IRWXU | S_IRWXG | S_IRWXO), &attr_rcv);
@@ -791,7 +801,7 @@ int ppam_init(void)
 
 void ppam_finish(void)
 {
-	char name[10];
+	char name[20];
 	int i;
 
 	TRACE("closing snd and rcv message queues\n");
@@ -800,7 +810,7 @@ void ppam_finish(void)
 		if (mq_close(mq_fd_snd) == -1)
 			error(0, errno, "%s():mq_close send", __func__);
 		mq_fd_snd = -1;
-		sprintf(name, "/mq_snd_%d", getpid());
+		snprintf(name, 20, "/mq_snd_%d", getpid());
 		if (mq_unlink(name) == -1)
 			error(0, errno, "%s():mq_unlink send", __func__);
 	}
@@ -808,7 +818,7 @@ void ppam_finish(void)
 		if (mq_close(mq_fd_rcv) == -1)
 			error(0, errno, "%s():mq_close rcv", __func__);
 		mq_fd_rcv = -1;
-		sprintf(name, "/mq_rcv_%d", getpid());
+		snprintf(name, 20, "/mq_rcv_%d", getpid());
 		if (mq_unlink(name) == -1)
 			error(0, errno, "%s():mq_unlink rcv", __func__);
 	}

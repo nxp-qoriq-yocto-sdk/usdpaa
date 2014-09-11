@@ -264,15 +264,18 @@ int add_arp_entry(struct neigh_table_t *arp_tab, struct ppac_interface *dev,
 
 	if (NULL == neigh_init(arp_tab, n, dev, &node->ip)) {
 		pr_err("%s: Unable to init Neigh Entry\n", __func__);
+		mutex_destroy(&n->wlock);
 		return -EINVAL;
 	}
 	if (false == neigh_add(arp_tab, n)) {
 		pr_err("%s: Unable to add Neigh Entry\n", __func__);
+		mutex_destroy(&n->wlock);
 		return -EINVAL;
 	}
 	if (NULL ==  neigh_update(n, node->mac.ether_addr_octet,
 				  NEIGH_STATE_PERMANENT)) {
 		pr_err("%s: Unable to update Neigh Entry\n", __func__);
+		mutex_destroy(&n->wlock);
 		return -EINVAL;
 	}
 
