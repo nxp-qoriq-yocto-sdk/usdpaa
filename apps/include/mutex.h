@@ -57,5 +57,10 @@
 		__maybe_unused int __foo = pthread_mutex_unlock(x); \
 		BUG_ON(__foo); \
 	} while (0)
+#define mutex_destroy(x) \
+	do { \
+		__maybe_unused int __foo = pthread_mutex_destroy(x); \
+		BUG_ON(__foo); \
+	} while (0)
 
 #endif /* MUTEX_H_ */

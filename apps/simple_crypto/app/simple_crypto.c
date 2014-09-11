@@ -433,13 +433,13 @@ void *setup_preheader(uint32_t shared_desc_len, uint32_t pool_id,
 	struct preheader_s *prehdr = NULL;
 
 	prehdr = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(struct preheader_s));
-	memset(prehdr, 0, sizeof(struct preheader_s));
 
 	if (unlikely(!prehdr)) {
 		fprintf(stderr, "error: %s: dma_mem_memalign failed for"
 			" preheader\n", __func__);
 		return NULL;
 	}
+	memset(prehdr, 0, sizeof(struct preheader_s));
 
 	/* the shared descriptor length is 0, meaning that no shared
 	   descriptor follows the preheader in the context A */
