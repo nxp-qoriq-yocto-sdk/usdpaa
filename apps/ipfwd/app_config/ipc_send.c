@@ -333,9 +333,9 @@ void ipc_show_intf_command(int argc, char **argv, char *type)
 /* opens message queue to talk to the application */
 static int create_mq(int pid)
 {
-	char name[10];
+	char name[20];
 
-	sprintf(name, "/mq_rcv_%d", pid);
+	snprintf(name, 20, "/mq_rcv_%d", pid);
 	/* Opens message queue to write */
 	mq_fd_wr = mq_open(name,  O_WRONLY);
 	if (mq_fd_wr == -1) {
@@ -343,7 +343,7 @@ static int create_mq(int pid)
 		return -1;
 	}
 
-	sprintf(name, "/mq_snd_%d", pid);
+	snprintf(name, 20, "/mq_snd_%d", pid);
 	/* Opens message queue to read */
 	mq_fd_rd = mq_open(name, O_RDONLY);
 	if (mq_fd_rd == -1) {
