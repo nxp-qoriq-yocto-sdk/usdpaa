@@ -223,6 +223,36 @@
 		</key>
 		<action type="classification" name="icmp6_cc"/>
 	</distribution>
+	<distribution name="ob_pre_sctp_dist">
+		<protocols>
+			<protcolref name="ipv4"/>
+			<protocolref name="sctp"/>
+		</protocols>
+		<queue count="1" base="0x3e82"/>
+		<key>
+			<fieldref name="ipv4.src"/>
+			<fieldref name="ipv4.dst"/>
+			<fieldref name="ipv4.nextp"/>
+			<fieldref name="sctp.sport"/>
+			<fieldref name="sctp.dport"/>
+		</key>
+		<action type="classification" name="tcpudp_cc"/>
+	</distribution>
+	<distribution name="ob_pre_sctp6_dist">
+		<protocols>
+			<protcolref name="ipv6"/>
+			<protocolref name="sctp"/>
+		</protocols>
+		<queue count="1" base="0x3e82"/>
+		<key>
+			<fieldref name="ipv6.src"/>
+			<fieldref name="ipv6.dst"/>
+			<fieldref name="ipv6.nexthdr"/>
+			<fieldref name="sctp.sport"/>
+			<fieldref name="sctp.dport"/>
+		</key>
+		<action type="classification" name="tcpudp6_cc"/>
+	</distribution>
 	<distribution name="ob_pre_default_dist">
 		<queue count="1" base="0x3e82"/>
 	</distribution>
@@ -232,6 +262,8 @@
 			<distributionref name="ob_pre_tcp6_dist"/>
 			<distributionref name="ob_pre_udp_dist"/>
 			<distributionref name="ob_pre_udp6_dist"/>
+			<distributionref name="ob_pre_sctp_dist"/>
+			<distributionref name="ob_pre_sctp6_dist"/>
 			<distributionref name="ob_pre_ip4_icmp"/>
 			<distributionref name="ob_pre_ip6_icmp"/>
 			<distributionref name="ob_pre_default_dist"/>

@@ -44,11 +44,13 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <signal.h>
+#include <libxml/parser.h>
 
 #include "fmc.h"
 #include "usdpaa/fsl_dpa_ipsec.h"
 #include "app_config.h"
 #include "app_common.h"
+#include "ipsec_sizing.h"
 
 #if defined(B4860) || defined(T4240) || defined(B4420)
 #include "fm_vsp_ext.h"
@@ -83,17 +85,10 @@ const char ppam_prompt[] = "ipsec_offload> ";
 
 /* Ports and fman used */
 struct ppam_arguments {
-	const char *fm;
-	const char *ob_eth;
-	const char *ib_eth;
-	const char *ib_oh;
-	const char *ob_oh_pre;
-	const char *ob_oh_post;
-	const char *max_sa;
 	const char *mtu_pre_enc;
 	const char *outer_tos;
-	int ib_ecn;
-	int ob_ecn;
+	int disable_ib_ecn;
+	int disable_ob_ecn;
 	int ib_loop;
 	const char *vif;
 	const char *vof;
@@ -699,6 +694,7 @@ static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_interface *_if,
 	if (&ib_oh_if->ppam_data == _if) {
 		__if = &eth_if->ppam_data;
 		p->tx_fqid = __if->tx_fqids[idx % __if->num_tx_fqids];
+
 		TRACE("Mapping Rx FQ %p:%d --> Tx FQID %d\n",
 		      p, idx, p->tx_fqid);
 	}
@@ -768,26 +764,141 @@ void cleanup_buffer_pools(void)
 	bman_release_bpid(app_conf.ipf_bpid);
 }
 
-static struct fman_if *parse_eth_portarg(const char *p, int fm_idx)
+/* CONFIG XML parsing */
+
+
+#define CFG_FMAN_NODE			("engine")
+#define CFG_FMAN_NA_name		("name")
+#define CFG_PORT_NODE			("port")
+#define CFG_PORT_NA_type		("type")
+#define CFG_PORT_NA_number		("number")
+#define CFG_PORT_NA_policy		("policy")
+
+#define CFG_OB_POLICY			("ob_rx_policy")
+#define CFG_IB_POLICY			("ib_rx_policy")
+#define CFG_IB_OH_POLICY		("ib_oh_post_policy")
+#define CFG_OB_OH_PRE_POLICY	("ob_oh_pre_policy")
+#define CFG_OB_OH_POST_POLICY	("ob_oh_post_policy")
+
+
+static inline int is_node(xmlNodePtr node, xmlChar *name)
 {
-	char *pch;
-	int port_idx, port_type;
-	pch = strtok((char *)p, ",");
-	port_idx = atoi(pch);
-	pch = strtok(NULL, ",");
-	if (!pch)
-		return NULL;
-	port_type = atoi(pch);
-	return get_fif(fm_idx, port_idx, port_type);
+	return xmlStrcmp(node->name, name) ? 0 : 1;
 }
 
-static struct fman_if *parse_offline_portarg(const char *p, int fm_idx)
+static void *get_attributes(xmlNodePtr node, xmlChar *attr)
 {
-	int port_idx;
-	port_idx = atoi(p);
-	return get_fif(fm_idx, port_idx, fman_offline);
+	char *atr = (char *)xmlGetProp(node, attr);
+	if (unlikely(atr == NULL))
+		fprintf(stderr, "%s:%hu:%s() error: xmlGetProp(%s) not found\n",
+				__FILE__, __LINE__, __func__,  attr);
+	return atr;
 }
 
+int parse_config(void)
+{
+	xmlDocPtr doc;
+	int p_idx, p_type;
+	char *tmp;
+	const char *envp;
+	xmlNodePtr node;
+	void *_if = NULL;
+	const char *cfg_path = ppam_cfg_path;
+
+	envp = getenv(ppam_cfg_path);
+	if (envp != NULL)
+		cfg_path = envp;
+
+	xmlInitParser();
+	LIBXML_TEST_VERSION;
+	xmlKeepBlanksDefault(0);
+
+	/* parse config file and get the root element*/
+
+	doc = xmlParseFile(cfg_path);
+	if (unlikely(doc == NULL)) {
+		fprintf(stderr, "%s:%hu:%s() error: xmlParseFile(%s)\n",
+				__FILE__, __LINE__, __func__, cfg_path);
+		return -EINVAL;
+	}
+
+	node = xmlDocGetRootElement(doc);
+
+	/* the XML has already been validated by the netcfg layer
+	 * go directly to the engine node - process only the first one
+	 */
+
+	while (node) {
+		if (!xmlStrcmp(node->name, (const xmlChar *)CFG_FMAN_NODE))
+			break;
+
+		node = node->xmlChildrenNode;
+	}
+
+	/* save the fman index */
+
+	tmp = (char *)get_attributes(node, BAD_CAST CFG_FMAN_NA_name);
+	if (unlikely(!tmp) || unlikely(strncmp(tmp, "fm", 2)) ||
+				unlikely(!isdigit(tmp[2]))) {
+		fprintf(stderr, "%s:%hu:%s() error: attrtibute name in %s node"
+				"is neither <fm0> nor <fm1> in XMLFILE(%s)\n",
+				__FILE__, __LINE__, __func__,
+				CFG_FMAN_NODE, cfg_path);
+		return -EINVAL;
+	}
+
+	app_conf.fm = tmp[2] - '0';
+
+	/* save the ports info */
+
+	node = node->xmlChildrenNode;
+	for (; unlikely(node != NULL); node = node->next) {
+
+		if (unlikely(!is_node(node, BAD_CAST CFG_PORT_NODE)))
+			continue;
+
+		/* Get the MAC port number and policy name*/
+		tmp = (char *)get_attributes(node, BAD_CAST CFG_PORT_NA_number);
+		if (unlikely(tmp == NULL))
+			break;
+		p_idx = strtoul(tmp, NULL, 0);
+
+		/* Get the MAC port type from PORT node attribute "type" */
+		tmp = (char *)get_attributes(node, BAD_CAST CFG_PORT_NA_type);
+		if (unlikely(tmp == NULL))
+			break;
+		p_type = (strcmp(tmp, "OFFLINE") == 0) ? fman_offline :
+				 (strcmp(tmp, "10G") == 0) ? fman_mac_10g :
+				 (strcmp(tmp, "ONIC") == 0) ? fman_onic :
+				 fman_mac_1g;
+
+		tmp = (char *)get_attributes(node, BAD_CAST CFG_PORT_NA_policy);
+		if (unlikely(tmp == NULL))
+			break;
+
+		/* Get the corresponding fman_if handles */
+
+		_if = get_fif(app_conf.fm, p_idx, p_type);
+		if (!_if) {
+			fprintf(stderr, "Error: invalid interface"
+					"(idx: %d type: %d)\n", p_idx, p_type);
+			return -1;
+		}
+
+		if (!strcmp(tmp, CFG_OB_POLICY))
+			app_conf.ob_eth = _if;
+		else if (!strcmp(tmp, CFG_IB_POLICY))
+			app_conf.ib_eth = _if;
+		else if (!strcmp(tmp, CFG_IB_OH_POLICY))
+			app_conf.ib_oh = _if;
+		else if (!strcmp(tmp, CFG_OB_OH_PRE_POLICY))
+			app_conf.ob_oh_pre = _if;
+		else if (!strcmp(tmp, CFG_OB_OH_POST_POLICY))
+			app_conf.ob_oh_post = _if;
+	}
+
+	return 0;
+}
 
 int ppam_init(void)
 {
@@ -796,84 +907,14 @@ int ppam_init(void)
 	memset(&xfrm_tid, 0, sizeof(pthread_t));
 	memset(&neigh_tid, 0, sizeof(pthread_t));
 
-	/* mandatory cmdline args */
-	/* fm index */
-	if (!ppam_args.fm) {
-		fprintf(stderr, "Error : fm arg not set\n");
-		goto err;
-	}
-	app_conf.fm = atoi(ppam_args.fm);
-	/* outbound eth port */
-	if (!ppam_args.ob_eth) {
-		fprintf(stderr, "Error : ob_eth arg not set\n");
-		goto err;
-	}
-	app_conf.ob_eth = parse_eth_portarg(ppam_args.ob_eth,
-					    app_conf.fm);
-	if (!app_conf.ob_eth) {
-		fprintf(stderr, "Error : ob_eth %s invalid\n",
-			ppam_args.ob_eth);
+	ret = parse_config();
+	if (ret) {
+		fprintf(stderr, "Error parsing config XML\n");
 		goto err;
 	}
 
-	/* inbound offline port */
-	if (!ppam_args.ib_oh) {
-		fprintf(stderr, "Error : ib_oh arg not set\n");
-		goto err;
-	}
-	app_conf.ib_oh = parse_offline_portarg(ppam_args.ib_oh,
-					       app_conf.fm);
-	if (!app_conf.ib_oh) {
-		fprintf(stderr, "Error : ib_eth %s invalid\n",
-			ppam_args.ib_oh);
-		goto err;
-	}
+	app_conf.max_sa = NUM_SETS * NUM_WAYS * DPA_IPSEC_MAX_SA_TYPE;
 
-	/* outbound pre SEC offline port */
-	if (!ppam_args.ob_oh_pre) {
-		fprintf(stderr, "Error : ib_oh_pre arg not set\n");
-		goto err;
-	}
-	app_conf.ob_oh_pre = parse_offline_portarg(ppam_args.ob_oh_pre,
-						   app_conf.fm);
-	if (!app_conf.ob_oh_pre) {
-		fprintf(stderr, "Error : ob_oh_pre %s invalid\n",
-			ppam_args.ob_oh_pre);
-		goto err;
-	}
-
-	/* inbound eth port */
-	if (!ppam_args.ib_eth) {
-		fprintf(stderr, "Error : ib_eth arg not set\n");
-		goto err;
-	}
-	app_conf.ib_eth = parse_eth_portarg(ppam_args.ib_eth,
-					    app_conf.fm);
-	if (!app_conf.ib_eth) {
-		fprintf(stderr, "Error : ib_eth %s invalid\n",
-			ppam_args.ib_eth);
-		goto err;
-	}
-
-	/* outbound post SEC offline port */
-	if (!ppam_args.ob_oh_post) {
-		fprintf(stderr, "Error : ib_oh_post arg not set\n");
-		goto err;
-	}
-	app_conf.ob_oh_post = parse_offline_portarg(ppam_args.ob_oh_post,
-						     app_conf.fm);
-	if (!app_conf.ob_oh_post) {
-		fprintf(stderr, "Error : ob_oh_post %s invalid\n",
-			ppam_args.ob_oh_post);
-		goto err;
-	}
-
-	/* max sa pairs */
-	if (!ppam_args.max_sa) {
-		fprintf(stderr, "Error : max-sa arg not set\n");
-		goto err;
-	}
-	app_conf.max_sa = atoi(ppam_args.max_sa);
 	/* optionals */
 	if (ppam_args.vif)
 		strncpy(app_conf.vif, ppam_args.vif, sizeof(app_conf.vif));
@@ -899,11 +940,8 @@ int ppam_init(void)
 	if (ppam_args.outer_tos)
 		app_conf.outer_tos = atoi(ppam_args.outer_tos);
 
-	if (ppam_args.ib_ecn)
-		app_conf.ib_ecn = true;
-
-	if (ppam_args.ob_ecn)
-		app_conf.ob_ecn = true;
+	app_conf.ib_ecn = ppam_args.disable_ib_ecn ? false : true;
+	app_conf.ob_ecn = ppam_args.disable_ob_ecn ? false : true;
 
 	if (ppam_args.ib_loop)
 		app_conf.ib_loop = true;
@@ -1232,19 +1270,14 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 }
 const char ppam_doc[] = "Offloading demo application";
 
+
 static const struct argp_option argp_opts[] = {
 	{"aggreg", 'a', 0, 0, "Aggregate inbound tunnels"},
-	{"fm", 'f', "INT", 0, "FMAN index"},
-	{"ob_eth", 'e',	"FILE", 0, "Outbound Ethernet port index"},
-	{"ib_eth", 't',	"FILE", 0, "Inbound Ethernet port index"},
-	{"ib-oh", 'i', "INT", 0, "Inbound offline port index" },
-	{"ob-oh-pre", 'o', "INT", 0, "Outbound pre IPsec offline port index"},
 	{"ob-oh-post", 's', "INT", 0, "Outbound post IPsec offline port index"},
-	{"max-sa", 'm', "INT", 0, "Maximum number of SA pairs"},
 	{"mtu-pre-enc", 'r', "INT", 0, "MTU pre encryption"},
 	{"outer-tos", 'x', "INT", 0, "Outer header TOS field"},
-	{"ib-ecn", 'y', 0, 0, "Inbound ECN tunneling"},
-	{"ob-ecn", 'z', 0, 0, "Outbound ECN tunneling"},
+	{"disable-ib-ecn", 'y', 0, 0, "Inbound ECN tunneling"},
+	{"disable-ob-ecn", 'z', 0, 0, "Outbound ECN tunneling"},
 	{"ib-loop", 'l', 0, 0, "Loopback on inbound Ethernet port"},
 	{"vif", 'v', "FILE", 0 , "Virtual inbound interface name"},
 	{"vof", 'w', "FILE", 0 , "Virtual outbound interface name"},
@@ -1258,26 +1291,7 @@ static error_t parse_opts(int key, char *arg, struct argp_state *state)
 	case 'a':
 		ppam_args.ib_aggreg = 1;
 		break;
-	case 'f':
-		ppam_args.fm = arg;
-		break;
-	case 'e':
-		ppam_args.ob_eth = arg;
-		break;
-	case 't':
-		ppam_args.ib_eth = arg;
-		break;
-	case 'i':
-		ppam_args.ib_oh = arg;
-		break;
-	case 'o':
-		ppam_args.ob_oh_pre = arg;
-		break;
 	case 's':
-		ppam_args.ob_oh_post = arg;
-		break;
-	case 'm':
-		ppam_args.max_sa = arg;
 		break;
 	case 'r':
 		ppam_args.mtu_pre_enc = arg;
@@ -1286,10 +1300,10 @@ static error_t parse_opts(int key, char *arg, struct argp_state *state)
 		ppam_args.outer_tos = arg;
 		break;
 	case 'y':
-		ppam_args.ib_ecn = 1;
+		ppam_args.disable_ib_ecn = 1;
 		break;
 	case 'z':
-		ppam_args.ob_ecn = 1;
+		ppam_args.disable_ob_ecn = 1;
 		break;
 	case 'l':
 		ppam_args.ib_loop = 1;
@@ -1308,6 +1322,7 @@ static error_t parse_opts(int key, char *arg, struct argp_state *state)
 	}
 	return 0;
 }
+
 
 const struct argp ppam_argp = {argp_opts, parse_opts, 0, ppam_doc};
 

@@ -183,6 +183,8 @@ extern t_Handle cc_in_local[MAX_ETHER_TYPES];
 extern t_Handle ob_fwd_hm, ib_fwd_hm;
 /* inbound reassembly */
 extern t_Handle ib_reass;
+/* handle for configuration file path */
+extern const char ppam_cfg_path[];
 
 int fmc_config(void);
 void fmc_cleanup(void);
@@ -210,4 +212,5 @@ int show_ipsec_stats(int argc, char *argv[]);
 int list_dpa_sa(int argc, char *argv[]);
 int show_eth_stats(int argc, char *argv[]);
 int show_ib_reass_stats(int argc, char *argv[]);
+int parse_config(void);
 #endif

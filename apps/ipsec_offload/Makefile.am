@@ -51,7 +51,7 @@ dist_DATA = ipsec_offload_config_p4080.xml ipsec_offload_config_p4080_1p.xml \
             ipsec_offload_config_t4240_1p_fman1_instance.xml
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/include \
-	     $(FMC_CFLAGS) $(FMLIB_CFLAGS) $(LIBRTA_CFLAGS)
+	     $(FMC_CFLAGS) $(FMLIB_CFLAGS) $(LIBRTA_CFLAGS) $(LIBXML2_CFLAGS)
 
 ipsec_offload_SOURCES := ipsec_offload.c pcd_init.c \
 			ipsec_init.c xfrm_km.c \
