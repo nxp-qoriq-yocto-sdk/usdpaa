@@ -419,6 +419,8 @@ int get_cpu_frequency(uint64_t *cpu_freq)
 		}
 	}
 
+	fclose(p_cpuinfo);
+
 	*cpu_freq = strtoul(cpu_f, NULL, 10);	/* cpu_freq in MHz */
 	if (ERANGE == errno || EINVAL == errno)
 		error(err, err, "error: could not read cpu frequency"
