@@ -90,7 +90,7 @@ int start_threads_custom(struct thread_data *ctxs, int num_ctxs)
 	int i, err;
 	struct thread_data *ctx;
 	sigset_t sigset, oldset;
-	struct sigaction s;
+	struct sigaction s = {0};
 
 	/*
 	 * Remove SIGINT handling from this thread: the worker threads will
