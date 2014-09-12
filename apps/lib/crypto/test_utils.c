@@ -429,7 +429,7 @@ int get_cpu_frequency(uint64_t *cpu_freq)
 
 	while (fgets(buf, 255, p_cpuinfo)) {
 		if (strstr(buf, "clock")) {
-			strncpy(cpu_f, &buf[9], 20);
+			strncpy(cpu_f, &buf[9], sizeof(cpu_f) - 1);
 			break;
 		}
 	}
