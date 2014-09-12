@@ -50,11 +50,11 @@ net_directional_routes()
 
 case $(basename $0 .sh) in
    ipfwd_t1040_8G)
-	ipfwd_config -P $pid -F -a 192.168.10.1 -i 0
-	ipfwd_config -P $pid -F -a 192.168.20.1 -i 1
-	ipfwd_config -P $pid -F -a 192.168.30.1 -i 2
-	ipfwd_config -P $pid -F -a 192.168.40.1 -i 3
-	ipfwd_config -P $pid -F -a 192.168.50.1 -i 4
+	ipfwd_config -P $pid -F -a 192.168.10.1 -i 1
+	ipfwd_config -P $pid -F -a 192.168.20.1 -i 2
+	ipfwd_config -P $pid -F -a 192.168.30.1 -i 3
+	ipfwd_config -P $pid -F -a 192.168.40.1 -i 4
+	ipfwd_config -P $pid -F -a 192.168.50.1 -i 5
 
 	ipfwd_config -P $pid -G -s 192.168.10.2 -m 02:00:c0:a8:0a:02 -r true
 	ipfwd_config -P $pid -G -s 192.168.20.2 -m 02:00:c0:a8:14:02 -r true
@@ -86,8 +86,8 @@ case $(basename $0 .sh) in
 	;;
 
    ipfwd_20G)
-	ipfwd_config -P $pid -F -a 192.168.60.1	 -i 8
-	ipfwd_config -P $pid -F -a 192.168.160.1 -i 18
+	ipfwd_config -P $pid -F -a 192.168.60.1	 -i 89
+	ipfwd_config -P $pid -F -a 192.168.160.1 -i 189
 
 	ipfwd_config -P $pid -G -s 192.168.60.2	 -m 02:00:c0:a8:3c:02 -r true
 	ipfwd_config -P $pid -G -s 192.168.160.2 -m 02:00:c0:a8:a0:02 -r true
@@ -97,11 +97,11 @@ case $(basename $0 .sh) in
 	;;
 
    ipfwd_14G)
-	ipfwd_config -P $pid -F -a 192.168.10.1 -i 0
-	ipfwd_config -P $pid -F -a 192.168.20.1 -i 1
-	ipfwd_config -P $pid -F -a 192.168.40.1 -i 3
-	ipfwd_config -P $pid -F -a 192.168.50.1 -i 4
-	ipfwd_config -P $pid -F -a 192.168.60.1	-i 8
+	ipfwd_config -P $pid -F -a 192.168.10.1 -i 1
+	ipfwd_config -P $pid -F -a 192.168.20.1 -i 2
+	ipfwd_config -P $pid -F -a 192.168.40.1 -i 4
+	ipfwd_config -P $pid -F -a 192.168.50.1 -i 5
+	ipfwd_config -P $pid -F -a 192.168.60.1	-i 89
 
 	ipfwd_config -P $pid -G -s 192.168.10.2 -m 02:00:c0:a8:0a:02 -r true
 	ipfwd_config -P $pid -G -s 192.168.20.2 -m 02:00:c0:a8:14:02 -r true
@@ -117,10 +117,10 @@ case $(basename $0 .sh) in
 	;;
 
    ipfwd_40G)
-	ipfwd_config -P $pid -F -a 192.168.50.1 -i 8
-	ipfwd_config -P $pid -F -a 192.168.60.1 -i 9
-	ipfwd_config -P $pid -F -a 192.168.140.1 -i 18
-	ipfwd_config -P $pid -F -a 192.168.150.1 -i 19
+	ipfwd_config -P $pid -F -a 192.168.50.1 -i 89
+	ipfwd_config -P $pid -F -a 192.168.60.1 -i 90
+	ipfwd_config -P $pid -F -a 192.168.140.1 -i 189
+	ipfwd_config -P $pid -F -a 192.168.150.1 -i 190
 
 	ipfwd_config -P $pid -G -s 192.168.50.2 -m 02:00:c0:a8:0a:02 -r true
 	ipfwd_config -P $pid -G -s 192.168.60.2 -m 02:00:c0:a8:14:02 -r true
@@ -133,12 +133,12 @@ case $(basename $0 .sh) in
 	;;
 
    ipfwd_42G)
-	ipfwd_config -P $pid -F -a 192.168.40.1 -i 4
-	ipfwd_config -P $pid -F -a 192.168.50.1 -i 8
-	ipfwd_config -P $pid -F -a 192.168.60.1 -i 9
-	ipfwd_config -P $pid -F -a 192.168.130.1 -i 14
-	ipfwd_config -P $pid -F -a 192.168.140.1 -i 18
-	ipfwd_config -P $pid -F -a 192.168.150.1 -i 19
+	ipfwd_config -P $pid -F -a 192.168.40.1 -i 5
+	ipfwd_config -P $pid -F -a 192.168.50.1 -i 89
+	ipfwd_config -P $pid -F -a 192.168.60.1 -i 90
+	ipfwd_config -P $pid -F -a 192.168.130.1 -i 105
+	ipfwd_config -P $pid -F -a 192.168.140.1 -i 189
+	ipfwd_config -P $pid -F -a 192.168.150.1 -i 190
 
 	ipfwd_config -P $pid -G -s 192.168.40.2 -m 02:00:c0:a8:da:02 -r true
 	ipfwd_config -P $pid -G -s 192.168.50.2 -m 02:00:c0:a8:0a:02 -r true

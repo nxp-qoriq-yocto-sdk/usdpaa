@@ -45,10 +45,10 @@ net=0
 
 case $(basename $0 .sh) in
   lpm_ipfwd_7G)
-     lpm_ipfwd_config -P $pid -F -a 192.168.50.1 -i 0
-     lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 1
-     lpm_ipfwd_config -P $pid -F -a 192.168.140.1 -i 3
-     lpm_ipfwd_config -P $pid -F -a 192.168.150.1 -i 4
+     lpm_ipfwd_config -P $pid -F -a 192.168.50.1 -i 1
+     lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 2
+     lpm_ipfwd_config -P $pid -F -a 192.168.140.1 -i 4
+     lpm_ipfwd_config -P $pid -F -a 192.168.150.1 -i 5
 
      lpm_ipfwd_config -P $pid -G -s 192.168.50.2 -m 02:00:c0:a8:3c:02 -r true
      lpm_ipfwd_config -P $pid -G -s 192.168.60.2 -m 02:00:c0:a8:82:02 -r true
@@ -63,10 +63,10 @@ case $(basename $0 .sh) in
      ;;
 
   lpm_ipfwd_22G)
-     lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 8
-     lpm_ipfwd_config -P $pid -F -a 192.168.130.1 -i 12
-     lpm_ipfwd_config -P $pid -F -a 192.168.140.1 -i 13
-     lpm_ipfwd_config -P $pid -F -a 192.168.160.1 -i 18
+     lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 89
+     lpm_ipfwd_config -P $pid -F -a 192.168.130.1 -i 103
+     lpm_ipfwd_config -P $pid -F -a 192.168.140.1 -i 104
+     lpm_ipfwd_config -P $pid -F -a 192.168.160.1 -i 189
 
      lpm_ipfwd_config -P $pid -G -s 192.168.60.2 -m 02:00:c0:a8:3c:02 -r true
      lpm_ipfwd_config -P $pid -G -s 192.168.130.2 -m 02:00:c0:a8:82:02 -r true
@@ -81,8 +81,8 @@ case $(basename $0 .sh) in
      ;;
 
   lpm_ipfwd_20G)
-     lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 8
-     lpm_ipfwd_config -P $pid -F -a 192.168.160.1 -i 18
+     lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 89
+     lpm_ipfwd_config -P $pid -F -a 192.168.160.1 -i 189
 
      lpm_ipfwd_config -P $pid -G -s 192.168.60.2 -m 02:00:c0:a8:3c:02 -r true
      lpm_ipfwd_config -P $pid -G -s 192.168.160.2 -m 02:00:c0:a8:a0:02 -r true
@@ -95,11 +95,11 @@ case $(basename $0 .sh) in
      ;;
 
   lpm_ipfwd_14G)
-     lpm_ipfwd_config -P $pid -F -a 192.168.10.1 -i 0
-     lpm_ipfwd_config -P $pid -F -a 192.168.20.1 -i 1
-     lpm_ipfwd_config -P $pid -F -a 192.168.40.1 -i 3
-     lpm_ipfwd_config -P $pid -F -a 192.168.50.1 -i 4
-     lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 8
+     lpm_ipfwd_config -P $pid -F -a 192.168.10.1 -i 1
+     lpm_ipfwd_config -P $pid -F -a 192.168.20.1 -i 2
+     lpm_ipfwd_config -P $pid -F -a 192.168.40.1 -i 4
+     lpm_ipfwd_config -P $pid -F -a 192.168.50.1 -i 5
+     lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 89
 
      lpm_ipfwd_config -P $pid -G -s 192.168.10.2 -m 02:00:c0:a8:0a:02 -r true
      lpm_ipfwd_config -P $pid -G -s 192.168.20.2 -m 02:00:c0:a8:14:02 -r true
@@ -116,10 +116,10 @@ case $(basename $0 .sh) in
      ;;
 
   lpm_ipfwd_40G)
-     lpm_ipfwd_config -P $pid -F -a 192.168.50.1 -i 8
-     lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 9
-     lpm_ipfwd_config -P $pid -F -a 192.168.140.1 -i 18
-     lpm_ipfwd_config -P $pid -F -a 192.168.150.1 -i 19
+     lpm_ipfwd_config -P $pid -F -a 192.168.50.1 -i 89
+     lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 90
+     lpm_ipfwd_config -P $pid -F -a 192.168.140.1 -i 189
+     lpm_ipfwd_config -P $pid -F -a 192.168.150.1 -i 190
 
      lpm_ipfwd_config -P $pid -G -s 192.168.50.2 -m 02:00:c0:a8:3c:02 -r true
      lpm_ipfwd_config -P $pid -G -s 192.168.60.2 -m 02:00:c0:a8:82:02 -r true
@@ -134,12 +134,12 @@ case $(basename $0 .sh) in
      ;;
 
   lpm_ipfwd_42G)
-     lpm_ipfwd_config -P $pid -F -a 192.168.40.1 -i 4
-     lpm_ipfwd_config -P $pid -F -a 192.168.50.1 -i 8
-     lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 9
-     lpm_ipfwd_config -P $pid -F -a 192.168.130.1 -i 14
-     lpm_ipfwd_config -P $pid -F -a 192.168.140.1 -i 18
-     lpm_ipfwd_config -P $pid -F -a 192.168.150.1 -i 19
+     lpm_ipfwd_config -P $pid -F -a 192.168.40.1 -i 5
+     lpm_ipfwd_config -P $pid -F -a 192.168.50.1 -i 89
+     lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 90
+     lpm_ipfwd_config -P $pid -F -a 192.168.130.1 -i 105
+     lpm_ipfwd_config -P $pid -F -a 192.168.140.1 -i 189
+     lpm_ipfwd_config -P $pid -F -a 192.168.150.1 -i 190
 
      lpm_ipfwd_config -P $pid -G -s 192.168.40.2 -m 02:00:c0:a8:45:02 -r true
      lpm_ipfwd_config -P $pid -G -s 192.168.50.2 -m 02:00:c0:a8:3c:02 -r true

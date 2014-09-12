@@ -43,18 +43,18 @@ net=0
 	done
 }
 
-lpm_ipfwd_config -P $pid -F -a 192.168.10.1 -i 0
-lpm_ipfwd_config -P $pid -F -a 192.168.20.1 -i 1
-lpm_ipfwd_config -P $pid -F -a 192.168.30.1 -i 2
-lpm_ipfwd_config -P $pid -F -a 192.168.40.1 -i 3
-lpm_ipfwd_config -P $pid -F -a 192.168.50.1 -i 8
-lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 9
-lpm_ipfwd_config -P $pid -F -a 192.168.100.1 -i 10
-lpm_ipfwd_config -P $pid -F -a 192.168.110.1 -i 11
-lpm_ipfwd_config -P $pid -F -a 192.168.120.1 -i 12
-lpm_ipfwd_config -P $pid -F -a 192.168.130.1 -i 13
-lpm_ipfwd_config -P $pid -F -a 192.168.140.1 -i 18
-lpm_ipfwd_config -P $pid -F -a 192.168.150.1 -i 19
+lpm_ipfwd_config -P $pid -F -a 192.168.10.1 -i 1
+lpm_ipfwd_config -P $pid -F -a 192.168.20.1 -i 2
+lpm_ipfwd_config -P $pid -F -a 192.168.30.1 -i 3
+lpm_ipfwd_config -P $pid -F -a 192.168.40.1 -i 4
+lpm_ipfwd_config -P $pid -F -a 192.168.50.1 -i 89
+lpm_ipfwd_config -P $pid -F -a 192.168.60.1 -i 90
+lpm_ipfwd_config -P $pid -F -a 192.168.100.1 -i 101
+lpm_ipfwd_config -P $pid -F -a 192.168.110.1 -i 102
+lpm_ipfwd_config -P $pid -F -a 192.168.120.1 -i 103
+lpm_ipfwd_config -P $pid -F -a 192.168.130.1 -i 104
+lpm_ipfwd_config -P $pid -F -a 192.168.140.1 -i 189
+lpm_ipfwd_config -P $pid -F -a 192.168.150.1 -i 190
 
 lpm_ipfwd_config -P $pid -G -s 192.168.10.2 -m 02:00:c0:a8:a:02 -r true
 lpm_ipfwd_config -P $pid -G -s 192.168.20.2 -m 02:00:c0:a8:14:02 -r true

@@ -32,8 +32,8 @@ if [ "$pid" == "" ]
 		exit 1
 fi
 
-ipsecfwd_config -P $pid -F -a 192.168.60.1 -i 8
-ipsecfwd_config -P $pid -F -a 192.168.160.1 -i 18
+ipsecfwd_config -P $pid -F -a 192.168.60.1 -i 89
+ipsecfwd_config -P $pid -F -a 192.168.160.1 -i 189
 
 if [ "$1" == "left" ]
 then

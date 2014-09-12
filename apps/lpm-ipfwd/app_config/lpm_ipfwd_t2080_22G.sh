@@ -43,10 +43,10 @@ net=0
 	done
 }
 
-lpm_ipfwd_config -P $pid -F -a 192.168.20.1 -i 2
-lpm_ipfwd_config -P $pid -F -a 192.168.30.1 -i 3
-lpm_ipfwd_config -P $pid -F -a 192.168.80.1 -i 8
-lpm_ipfwd_config -P $pid -F -a 192.168.90.1 -i 9
+lpm_ipfwd_config -P $pid -F -a 192.168.20.1 -i 3
+lpm_ipfwd_config -P $pid -F -a 192.168.30.1 -i 4
+lpm_ipfwd_config -P $pid -F -a 192.168.80.1 -i 89
+lpm_ipfwd_config -P $pid -F -a 192.168.90.1 -i 90
 
 lpm_ipfwd_config -P $pid -G -s 192.168.20.2 -m 02:00:c0:a8:1e:02 -r true
 lpm_ipfwd_config -P $pid -G -s 192.168.30.2 -m 02:00:c0:a8:28:02 -r true

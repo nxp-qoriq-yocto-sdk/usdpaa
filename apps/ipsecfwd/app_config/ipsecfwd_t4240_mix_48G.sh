@@ -32,18 +32,18 @@ if [ "$pid" == "" ]
 		exit 1
 fi
 
-ipsecfwd_config -P $pid -F -a 192.168.10.1 -i 0
-ipsecfwd_config -P $pid -F -a 192.168.20.1 -i 1
-ipsecfwd_config -P $pid -F -a 192.168.30.1 -i 2
-ipsecfwd_config -P $pid -F -a 192.168.40.1 -i 3
-ipsecfwd_config -P $pid -F -a 192.168.50.1 -i 8
-ipsecfwd_config -P $pid -F -a 192.168.60.1 -i 9
-ipsecfwd_config -P $pid -F -a 192.168.100.1 -i 10
-ipsecfwd_config -P $pid -F -a 192.168.110.1 -i 11
-ipsecfwd_config -P $pid -F -a 192.168.120.1 -i 12
-ipsecfwd_config -P $pid -F -a 192.168.130.1 -i 13
-ipsecfwd_config -P $pid -F -a 192.168.140.1 -i 18
-ipsecfwd_config -P $pid -F -a 192.168.150.1 -i 19
+ipsecfwd_config -P $pid -F -a 192.168.10.1 -i 1
+ipsecfwd_config -P $pid -F -a 192.168.20.1 -i 2
+ipsecfwd_config -P $pid -F -a 192.168.30.1 -i 3
+ipsecfwd_config -P $pid -F -a 192.168.40.1 -i 4
+ipsecfwd_config -P $pid -F -a 192.168.50.1 -i 89
+ipsecfwd_config -P $pid -F -a 192.168.60.1 -i 90
+ipsecfwd_config -P $pid -F -a 192.168.100.1 -i 101
+ipsecfwd_config -P $pid -F -a 192.168.110.1 -i 102
+ipsecfwd_config -P $pid -F -a 192.168.120.1 -i 103
+ipsecfwd_config -P $pid -F -a 192.168.130.1 -i 104
+ipsecfwd_config -P $pid -F -a 192.168.140.1 -i 189
+ipsecfwd_config -P $pid -F -a 192.168.150.1 -i 190
 
 if [ "$1" == "left" ]
 then
@@ -79,14 +79,14 @@ then
       ipsecfwd_config -P $pid -G -s 192.168.20.$i -m 00:e0:0c:00:8a:14 -r true
       ipsecfwd_config -P $pid -G -s 192.168.30.$i -m 00:e0:0c:00:8a:1e -r true
       ipsecfwd_config -P $pid -G -s 192.168.40.$i -m 00:e0:0c:00:8a:28 -r true
-      ipsecfwd_config -P $pid -G -s 192.168.60.$i -m 00:e0:0c:00:8a:32 -r true
-      ipsecfwd_config -P $pid -G -s 192.168.70.$i -m 00:e0:0c:00:8a:3c -r true
+      ipsecfwd_config -P $pid -G -s 192.168.50.$i -m 00:e0:0c:00:8a:32 -r true
+      ipsecfwd_config -P $pid -G -s 192.168.60.$i -m 00:e0:0c:00:8a:3c -r true
       ipsecfwd_config -P $pid -G -s 192.168.100.$i -m 00:e0:0c:00:8a:64 -r true
       ipsecfwd_config -P $pid -G -s 192.168.110.$i -m 00:e0:0c:00:8a:6e -r true
       ipsecfwd_config -P $pid -G -s 192.168.120.$i -m 00:e0:0c:00:8a:78 -r true
       ipsecfwd_config -P $pid -G -s 192.168.130.$i -m 00:e0:0c:00:8a:82 -r true
-      ipsecfwd_config -P $pid -G -s 192.168.160.$i -m 00:e0:0c:00:8a:8c -r true
-      ipsecfwd_config -P $pid -G -s 192.168.170.$i -m 00:e0:0c:00:8a:96 -r true
+      ipsecfwd_config -P $pid -G -s 192.168.140.$i -m 00:e0:0c:00:8a:8c -r true
+      ipsecfwd_config -P $pid -G -s 192.168.150.$i -m 00:e0:0c:00:8a:96 -r true
       i=`expr $i + 1`
     done
     f=in
