@@ -29,8 +29,6 @@
 #ifndef	__TEST_VECTOR_H
 #define	__TEST_VECTOR_H
 
-#include "simple_crypto.h"
-
 /**< Integer number of 32-bit items */
 #define NO_OF_WORDS(bitlen) \
     (((bitlen) >> 5) + ((31 + ((bitlen) & 0x1F)) >> 5))
