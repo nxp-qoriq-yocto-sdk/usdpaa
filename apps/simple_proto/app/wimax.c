@@ -354,7 +354,7 @@ static int validate_opts(uint32_t g_proto_params,
 {
 	struct protocol_info *proto = crypto_info->proto;
 	struct wimax_params *wimax_params = proto->proto_params;
-	unsigned int ar_len;
+	int ar_len;
 
 	/* Only anti-replay is allowed CIPHER mode */
 	if ((CIPHER == crypto_info->mode) &&
