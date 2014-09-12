@@ -841,7 +841,8 @@ int register_modules()
 			 " %d for %s\n", proto_num + 1, cur_proto->name);
 
 		strncat(protocol_string, proto_help_str,
-			sizeof(protocol_string));
+			sizeof(protocol_string) -
+			strnlen(protocol_string, sizeof(protocol_string)) - 1);
 
 		protocols[proto_num] = cur_proto;
 	}
