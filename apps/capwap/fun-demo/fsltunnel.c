@@ -60,6 +60,7 @@ const char capwap_prompt[] = "capwap-tunnel> ";
 
 struct thread_args{
 	int is_silent;
+	int is_reflector;
 	int stats[4];
 	int quit;
 };
@@ -106,6 +107,11 @@ void rcv_thread(void *args)
 			do {
 				len = read(fd_ctrl_dtls,  rcv_packet, sizeof(rcv_packet));
 				if(len > 0) {
+				       if (t_args->is_reflector) {
+					       write(fd_ctrl_dtls, rcv_packet, len);
+					       t_args->stats[0]++;
+					       continue;
+				       }
 				       if (!t_args->is_silent)
 						printf("rcv %d ctrl-dtls-packets length=%d\n", t_args->stats[0], len);
 				       t_args->stats[0]++;
@@ -116,6 +122,11 @@ void rcv_thread(void *args)
 			do {
 				len = read(fd_ctrl_n_dtls,  rcv_packet, sizeof(rcv_packet));
 				if(len > 0) {
+				       if (t_args->is_reflector) {
+					       write(fd_ctrl_n_dtls, rcv_packet, len);
+					       t_args->stats[2]++;
+					       continue;
+				       }
 					if (!t_args->is_silent)
 						printf("rcv %d ctrl-n-dtls-packets length=%d\n", t_args->stats[2], len);
 					t_args->stats[2]++;
@@ -126,6 +137,11 @@ void rcv_thread(void *args)
 			do {
 				len = read(fd_data_dtls,  rcv_packet, sizeof(rcv_packet));
 				if(len > 0) {
+				       if (t_args->is_reflector) {
+					       write(fd_data_dtls, rcv_packet, len);
+					       t_args->stats[1]++;
+					       continue;
+				       }
 					if (!t_args->is_silent)
 						printf("rcv %d data-dtls-packets length=%d\n",  t_args->stats[1], len);
 					t_args->stats[1]++;
@@ -136,6 +152,11 @@ void rcv_thread(void *args)
 			do {
 				len = read(fd_data_n_dtls,  rcv_packet, sizeof(rcv_packet));
 				if(len > 0 ) {
+				       if (t_args->is_reflector) {
+					       write(fd_data_n_dtls, rcv_packet, len);
+					       t_args->stats[3]++;
+					       continue;
+				       }
 					if (!t_args->is_silent)
 						printf("rcv %d data-n-dtls-packets length=%d\n", t_args->stats[3], len);
 					t_args->stats[3]++;
@@ -159,7 +180,8 @@ void help(void)
 {
 	printf("Usage: fsltunnel <option>\n");
 	printf("	-h	print help\n");
-	printf("	-s	silent mode, when recive a new packets, only statistic it and don't print anyinfo\n");
+	printf("	-r	reflector mode, when receive a new packets from a tunnel, then send it back to this tunnel\n");
+	printf("	-s	silent mode, when receive a new packets, only statistic it and don't print anyinfo\n");
 }
 
 int main(int argc, char *argv[])
@@ -174,16 +196,21 @@ int main(int argc, char *argv[])
 	int f;
 	static const struct option options[] = {
 		{ .name = "help", .val = 'h' },
+		{ .name = "reflector", .val = 'r' },
 		{ .name = "silent", .val = 's' },
 		{ 0 }
 	};
 
 	memset(&t_args, 0, sizeof(struct thread_args));
-	while ((f = getopt_long(argc, argv, "hs", options, NULL)) != EOF)
+	while ((f = getopt_long(argc, argv, "hrs", options, NULL)) != EOF)
 		switch(f) {
 		case 'h':
 			help();
 			return 0;
+		case 'r':
+			printf("Running in reflector mode\n");
+			t_args.is_reflector = 1;
+			break;
 		case 's':
 			printf("Running in silent mode\n");
 			t_args.is_silent = 1;
