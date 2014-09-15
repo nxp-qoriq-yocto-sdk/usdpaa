@@ -192,7 +192,7 @@ int get_mac_addr(const char *vname, struct ether_addr *src_mac)
 
 	assert(skfd != -1);
 
-	strncpy(ifr.ifr_name, vname, sizeof(ifr.ifr_name));
+	strncpy(ifr.ifr_name, vname, sizeof(ifr.ifr_name) - 1);
 	/*retrieve corresponding MAC*/
 	if (ioctl(skfd, SIOCGIFHWADDR, &ifr) == -1) {
 		error(0, errno, "%s(): SIOCGIFINDEX", __func__);
@@ -258,10 +258,10 @@ void usdpaa_netcfg_enable_disable_shared_rx(const struct fman_if *fif,
 
 	if (fif->mac_type == fman_mac_less) {
 		strncpy(ifreq.ifr_name, fif->macless_info.macless_name,
-				sizeof(ifreq.ifr_name));
+				sizeof(ifreq.ifr_name) - 1);
 	} else
 		strncpy(ifreq.ifr_name, fif->shared_mac_info.shared_mac_name,
-				sizeof(ifreq.ifr_name));
+				sizeof(ifreq.ifr_name) - 1);
 	if (ioctl(skfd, SIOCGIFFLAGS, &ifreq) == -1) {
 		error(0, errno, "%s(): SIOCGIFFLAGS", __func__);
 		return;
