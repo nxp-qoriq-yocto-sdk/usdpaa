@@ -331,7 +331,7 @@ static inline int block_sched_cnts(struct dpa_stats *dpa_stats,
 	int ret, i;
 
 	ret = pthread_mutex_lock(&dpa_stats->sched_cnt_lock);
-	if (ret < 0)
+	if (ret)
 		return ret;
 	for (i = 0; i < cnts_ids_len; i++)
 		dpa_stats->sched_cnt_ids[cnts_ids[i]] = true;
@@ -344,7 +344,7 @@ static inline int unblock_sched_cnts(struct dpa_stats *dpa_stats,
 	int i, ret = 0;
 
 	ret = pthread_mutex_lock(&dpa_stats->sched_cnt_lock);
-	if (ret < 0)
+	if (ret)
 		return ret;
 	for (i = 0; i < cnts_ids_len; i++)
 		dpa_stats->sched_cnt_ids[cnts_ids[i]] = false;
@@ -574,7 +574,7 @@ static int check_us_get_counters_params(struct dpa_stats *dpa_stats,
 
 		/* Acquire counter lock */
 		ret = pthread_mutex_lock(&cnt_cb->lock);
-		if (ret < 0)
+		if (ret)
 			return ret;
 
 		/* Check if counter control block is initialized */
@@ -582,7 +582,7 @@ static int check_us_get_counters_params(struct dpa_stats *dpa_stats,
 			error(0, EINVAL, "Counter id (cnt_ids[%d]) %d is "
 				"not initialized\n", i, cnt_id);
 			ret = pthread_mutex_unlock(&cnt_cb->lock);
-			if (ret < 0)
+			if (ret)
 				return ret;
 
 			return -EINVAL;
@@ -590,7 +590,7 @@ static int check_us_get_counters_params(struct dpa_stats *dpa_stats,
 
 		*cnts_len += cnt_cb->bytes_num;
 		ret = pthread_mutex_unlock(&cnt_cb->lock);
-		if (ret < 0)
+		if (ret)
 			return ret;
 	}
 
@@ -620,7 +620,7 @@ static int treat_us_cnts_request(struct dpa_stats *dpa_stats,
 
 		/* Acquire counter lock */
 		err = pthread_mutex_lock(&cnt_cb->lock);
-		if (err < 0)
+		if (err)
 			return err;
 
 		cnt_cb->info.reset = req_cb->config.reset_cnts;
@@ -633,7 +633,7 @@ static int treat_us_cnts_request(struct dpa_stats *dpa_stats,
 			      "counter id %d\n", req_cb->cnt_ids[i]);
 
 			err = pthread_mutex_unlock(&cnt_cb->lock);
-			if (err < 0)
+			if (err)
 				return err;
 			err = unblock_sched_cnts(dpa_stats,
 					req_cb->cnt_ids, params.cnts_ids_len);
@@ -650,7 +650,7 @@ static int treat_us_cnts_request(struct dpa_stats *dpa_stats,
 		req_cb->cnts_num += 1;
 
 		err = pthread_mutex_unlock(&cnt_cb->lock);
-		if (err < 0)
+		if (err)
 			return err;
 	}
 	return unblock_sched_cnts(dpa_stats,
@@ -671,13 +671,13 @@ static int treat_mixed_cnts_request(struct dpa_stats *dpa_stats,
 
 		/* Acquire counter lock */
 		err = pthread_mutex_lock(&cnt_cb->lock);
-		if (err < 0)
+		if (err)
 			return err;
 
 		/* If counter is kernel-space, it was already treated */
 		if (cnt_cb->id == DPA_OFFLD_INVALID_OBJECT_ID) {
 			err = pthread_mutex_unlock(&cnt_cb->lock);
-			if (err < 0)
+			if (err)
 				return err;
 			continue;
 		}
@@ -691,7 +691,7 @@ static int treat_mixed_cnts_request(struct dpa_stats *dpa_stats,
 			error(0, EINVAL, "Cannot retrieve statistics for "
 			      "counter id %d\n", req_cb->cnt_ids[i]);
 			err = pthread_mutex_unlock(&cnt_cb->lock);
-			if (err < 0)
+			if (err)
 				return err;
 
 			err = unblock_sched_cnts(dpa_stats,
@@ -701,7 +701,7 @@ static int treat_mixed_cnts_request(struct dpa_stats *dpa_stats,
 			return -EINVAL;
 		}
 		err = pthread_mutex_unlock(&cnt_cb->lock);
-		if (err < 0)
+		if (err)
 			return err;
 	}
 	return unblock_sched_cnts(dpa_stats,
@@ -727,7 +727,7 @@ static int process_async_req(struct dpa_stats_event_params *ev)
 
 	/* Search in the request group the request event */
 	err = pthread_mutex_lock(&async_ks_reqs_lock);
-	if (err < 0)
+	if (err)
 		return err;
 
 	list_for_each(pos, &dpa_stats->async_ks_reqs) {
@@ -741,7 +741,7 @@ static int process_async_req(struct dpa_stats_event_params *ev)
 		}
 	}
 	err = pthread_mutex_unlock(&async_ks_reqs_lock);
-	if (err < 0)
+	if (err)
 		return err;
 
 	if (!found) {
@@ -1280,18 +1280,18 @@ int dpa_stats_remove_counter(int dpa_stats_cnt_id)
 
 	/* Counter scheduled for the retrieve mechanism can't be removed */
 	ret = pthread_mutex_lock(&dpa_stats->sched_cnt_lock);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	if (dpa_stats->sched_cnt_ids[dpa_stats_cnt_id]) {
 		error(0, errno, "Counter id %d is in use\n", dpa_stats_cnt_id);
 		ret = pthread_mutex_unlock(&dpa_stats->sched_cnt_lock);
-		if (ret < 0)
+		if (ret)
 			return ret;
 		return -EBUSY;
 	}
 	ret = pthread_mutex_unlock(&dpa_stats->sched_cnt_lock);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	/* Mark the equivalent 'user-space' counter structure as invalid */
@@ -1345,11 +1345,11 @@ int dpa_stats_get_counters(struct dpa_stats_cnt_request_params params,
 		 * so add it in the list that treats only us requests
 		 */
 		ret = pthread_mutex_lock(&async_ks_reqs_lock);
-		if (ret < 0)
+		if (ret)
 			return ret;
 		list_add_tail(&req->node, &dpa_stats->async_ks_reqs);
 		ret = pthread_mutex_unlock(&async_ks_reqs_lock);
-		if (ret < 0)
+		if (ret)
 			return ret;
 	}
 
@@ -1474,7 +1474,7 @@ int dpa_stats_reset_counters(int *cnts_ids, unsigned int cnts_ids_len)
 
 		if (cnt_cb->id == DPA_OFFLD_INVALID_OBJECT_ID) {
 			ret = pthread_mutex_unlock(&cnt_cb->lock);
-			if (ret < 0)
+			if (ret)
 				return ret;
 			continue;
 		}
@@ -1483,7 +1483,7 @@ int dpa_stats_reset_counters(int *cnts_ids, unsigned int cnts_ids_len)
 			memset(cnt_cb->info.stats[j], 0,
 				cnt_cb->info.stats_num * sizeof(uint64_t));
 		ret = pthread_mutex_unlock(&cnt_cb->lock);
-		if (ret < 0)
+		if (ret)
 			return ret;
 	}
 	return unblock_sched_cnts(dpa_stats, cnts_ids, cnts_ids_len);
@@ -1528,12 +1528,15 @@ void us_req_queue_busy(const struct fifo_q *q)
 	struct us_thread_data *new_us_thread;
 	int ret;
 
-	pthread_mutex_lock(&us_thread_list_access);
+	ret = pthread_mutex_lock(&us_thread_list_access);
+	if (ret)
+		error(0, ret,
+			"Failed to acquire US worker threads counter lock");
 
 	/* If we can still create worker threads... */
 	if (us_threads >= MAX_NUM_OF_THREADS) {
 		ret = pthread_mutex_unlock(&us_thread_list_access);
-		if (ret < 0)
+		if (ret)
 			error(0, ret,
 				"Failed to release US worker threads counter lock");
 		return;
@@ -1562,14 +1565,17 @@ void us_req_queue_busy(const struct fifo_q *q)
 			dpa_stats_worker_thread,
 			new_us_thread);
 		if (ret != 0) {
-			pthread_mutex_unlock(&us_thread_list_access);
+			int err = pthread_mutex_unlock(&us_thread_list_access);
+			if (err)
+				error(0, err,
+					"Failed to release US worker threads counter lock");
 			error(0, ret, "Failed to create new worker thread");
 			return;
 		}
 	}
 	us_main_thread = true;
 	ret = pthread_mutex_unlock(&us_thread_list_access);
-	if (ret < 0)
+	if (ret)
 		error(0, ret,
 			"Failed to release US worker threads counter lock");
 }
