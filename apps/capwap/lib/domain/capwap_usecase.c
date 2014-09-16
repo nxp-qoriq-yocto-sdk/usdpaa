@@ -49,7 +49,8 @@
 #define IPv4_HDR_SIZE                   20
 
 #define FRAG_REASSEM_ENABLE
-#define CAPWAP_MTU                      250
+#define CAPWAP_MTU			1396
+#define CAPWAP_FRAG_BPID		8
 
 struct fman_dev{
 	t_Handle h_dev;
