@@ -296,9 +296,7 @@ int prepare_test_frames(struct test_param *crypto_info)
 		crypto_info->buf_size = NO_OF_BYTES(ref_test_vector.length);
 	}
 
-	err = set_buf_size(crypto_info);
-	if (err)
-		error(err, err, "error: set output buffer size");
+	set_buf_size(crypto_info);
 
 	err = create_compound_fd(crypto_info->buf_num,
 				 crypto_info->rt.output_buf_size,
@@ -359,9 +357,9 @@ static int get_buf_size(struct test_param *crypto_info)
 /*
  * brief	Set buffer sizes for input/output frames
  * param[in]	crypto_info - test parameters
- * return	0 on success, otherwise -ve value
+ * return	none
  */
-int set_buf_size(struct test_param *crypto_info)
+void set_buf_size(struct test_param *crypto_info)
 {
 	struct runtime_param *p_rt = &(crypto_info->rt);
 
@@ -414,13 +412,7 @@ int set_buf_size(struct test_param *crypto_info)
 		p_rt->input_buf_length += p_rt->job_desc_buf_size;
 
 		break;
-	default:
-		fprintf(stderr, "error: %s: algorithm not supported\n",
-			__func__);
-		return -EINVAL;
 	}
-
-	return 0;
 }
 
 /*
