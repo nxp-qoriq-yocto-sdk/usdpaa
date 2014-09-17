@@ -54,10 +54,9 @@ static void *thread_wrapper(void *arg)
 	CPU_ZERO(&cpuset);
 	CPU_SET(tdata->cpu, &cpuset);
 	s = pthread_setaffinity_np(tdata->id, sizeof(cpu_set_t), &cpuset);
-	if (s != 0) {
+	if (s != 0)
 		handle_error_en(s, "pthread_setaffinity_np");
-		goto end;
-	}
+
 	s = qman_thread_init();
 	if (s) {
 		fprintf(stderr, "qman_thread_init(%d) failed, ret=%d\n",
