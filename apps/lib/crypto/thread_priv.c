@@ -107,7 +107,12 @@ int start_threads_custom(struct thread_data *ctxs, int num_ctxs)
 	}
 
 	/* Create the barrier used for qman_fqalloc_init() */
-	i = pthread_barrier_init(&barr, NULL, num_ctxs + 1);
+	err = pthread_barrier_init(&barr, NULL, num_ctxs + 1);
+	if (err) {
+		perror("Couldn't initialize thread barriers: ");
+		return err;
+	}
+
 	/* Create the threads */
 	for (i = 0, ctx = &ctxs[0]; i < num_ctxs; i++, ctx++) {
 		/* Create+start the thread */
@@ -144,9 +149,19 @@ int start_threads_custom(struct thread_data *ctxs, int num_ctxs)
 	}
 
 	/* Wait till threads have initialised thread-local qman/bman */
-	pthread_barrier_wait(&barr);
+	err = pthread_barrier_wait(&barr);
+	if (err < 0) {
+		perror("failed to wait for thread-local qman/bman: ");
+		return err;
+	}
+
 	/* Release threads to start processing again */
-	pthread_barrier_wait(&barr);
+	err = pthread_barrier_wait(&barr);
+	if (err < 0) {
+		perror("failed to wait for releasing threads: ");
+		return err;
+	}
+
 	return 0;
 }
 
