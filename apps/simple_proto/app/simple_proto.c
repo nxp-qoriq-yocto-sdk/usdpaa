@@ -38,8 +38,8 @@ struct protocol_info *proto;
 struct ref_vector_s *ref_test_vector;
 
 enum rta_sec_era rta_sec_era;
-int32_t user_sec_era = -1;
-int32_t hw_sec_era = -1;
+int user_sec_era = -1;
+int hw_sec_era = -1;
 
 /*
  * Array of pointers to various protocol informations. Each registered protocol
