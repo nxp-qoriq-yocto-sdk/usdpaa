@@ -46,8 +46,8 @@ long ncpus;
 pthread_barrier_t app_barrier;
 
 enum rta_sec_era rta_sec_era;
-int32_t user_sec_era = -1;
-int32_t hw_sec_era = -1;
+int user_sec_era = -1;
+int hw_sec_era = -1;
 
 /*
  * brief	Initialises the reference test vector for aes-cbc

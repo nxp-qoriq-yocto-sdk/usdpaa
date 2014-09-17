@@ -142,9 +142,9 @@ int __attribute__((weak)) ppam_sec_get_era(void)
 /* SEC engine era used by RTA functions*/
 enum rta_sec_era rta_sec_era;
 /* SEC engine era, as read from the device tree */
-int32_t hw_sec_era = -1;
+int hw_sec_era = -1;
 /* SEC engine era, as given by the user at command line */
-int32_t user_sec_era = -1;
+int user_sec_era = -1;
 /* The triplet of buffer counts indicating how many to seed to pools */
 static unsigned int bpool_cnt[3];
 /* The SDQCR mask to use (computed from pchannels) */

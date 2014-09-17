@@ -79,8 +79,8 @@ struct sec_descriptor_t {
  * @param[in]	hw_sec_era - the SEC ERA as it was read from HW
  * @return	0 on success, otherwise -1 value
  */
-static inline int validate_sec_era_version(int32_t user_sec_era,
-					   int32_t hw_sec_era)
+static inline int validate_sec_era_version(int user_sec_era,
+					   int hw_sec_era)
 {
 	int ret;
 

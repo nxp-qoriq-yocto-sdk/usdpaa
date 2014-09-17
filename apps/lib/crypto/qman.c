@@ -607,7 +607,7 @@ void print_frame_desc(struct qm_fd *frame_desc)
 			qm_fd_addr_get64(frame_desc));
 
 		switch (frame_desc->format) {
-		case 0:
+		case qm_fd_contig:
 			fprintf(stdout, "error: - format : 0"
 				" - Short single buffer FD\n");
 			fprintf(stdout, "error: - offset : %d\n",
@@ -615,18 +615,18 @@ void print_frame_desc(struct qm_fd *frame_desc)
 			fprintf(stdout, "error: - length : %d\n",
 				frame_desc->length20);
 			break;
-		case 1:
+		case qm_fd_compound:
 			fprintf(stdout, "error: - format : 1 - Compound FD\n");
 			fprintf(stdout, "error: - congestion weight : %d\n",
 				frame_desc->cong_weight);
 			break;
-		case 2:
+		case qm_fd_contig_big:
 			fprintf(stdout, "error: - format : 2"
 				" - Long single buffer FD\n");
 			fprintf(stdout, "error: - length : %d\n",
 				frame_desc->length29);
 			break;
-		case 4:
+		case qm_fd_sg:
 			fprintf(stderr, "error: - format : 4"
 				" - Short multi buffer FD\n");
 			fprintf(stdout, "error: - offset : %d\n",
@@ -634,7 +634,7 @@ void print_frame_desc(struct qm_fd *frame_desc)
 			fprintf(stdout, "error: - length : %d\n",
 				frame_desc->length29);
 			break;
-		case 6:
+		case qm_fd_sg_big:
 			fprintf(stdout, "error: - format : 6"
 				" - Long multi buffer FD\n");
 			fprintf(stdout, "error: - length : %d\n",
