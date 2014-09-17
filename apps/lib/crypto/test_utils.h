@@ -73,7 +73,7 @@ enum test_mode {
  */
 #define SAFE_STRNCPY(d, s, sz)			\
 	do {					\
-		strncpy((d), (s), (sz));	\
+		strncpy((d), (s), (sz) - 1);	\
 		(d)[(sz)-1] = '\0';		\
 	} while (0)
 /*
