@@ -211,9 +211,17 @@ void init_rtv_pdcp_c_plane(struct test_param *crypto_info)
 		     sizeof(proto->name));
 
 	cipherkey = __dma_mem_memalign(L1_CACHE_BYTES, PDCP_MAX_KEY_LEN);
+	if (!cipherkey) {
+		pr_err("Could not allocate memory for cipher key\n");
+		return;
+	}
 	memcpy(cipherkey, pdcp_test_crypto_key[proto_offset], PDCP_MAX_KEY_LEN);
 
 	authkey = __dma_mem_memalign(L1_CACHE_BYTES, PDCP_MAX_KEY_LEN);
+	if (!authkey) {
+		pr_err("Could not allocate memory for integrity key\n");
+		return;
+	}
 	memcpy(authkey, pdcp_test_auth_key[proto_offset], PDCP_MAX_KEY_LEN);
 
 	ref_test_vector->cipher_alg =
@@ -252,6 +260,11 @@ void init_rtv_pdcp_u_plane(struct test_param *crypto_info)
 		     sizeof(proto->name));
 
 	cipherkey = __dma_mem_memalign(L1_CACHE_BYTES, PDCP_MAX_KEY_LEN);
+	if (!cipherkey) {
+		pr_err("Could not allocate memory for cipher key\n");
+		return;
+	}
+
 	memcpy(cipherkey, pdcp_test_crypto_key[proto_offset], PDCP_MAX_KEY_LEN);
 
 	ref_test_vector->cipher_alg =
@@ -285,6 +298,10 @@ void init_rtv_pdcp_short_mac(struct test_param *crypto_info)
 		     sizeof(proto->name));
 
 	authkey = __dma_mem_memalign(L1_CACHE_BYTES, PDCP_MAX_KEY_LEN);
+	if (!authkey) {
+		pr_err("Could not allocate memory for integrity key\n");
+		return;
+	}
 
 	memcpy(authkey, pdcp_test_auth_key[proto_offset], PDCP_MAX_KEY_LEN);
 
