@@ -562,7 +562,7 @@ void unregister_wimax(struct protocol_info *proto_info)
 	int i;
 	struct wimax_ref_vector_s *wimax_ref_vector;
 
-	if (unlikely(proto_info))
+	if (!proto_info)
 		return;
 
 	for (i = 0; i < proto_info->num_cpus * FQ_PER_CORE * 2; i++)
