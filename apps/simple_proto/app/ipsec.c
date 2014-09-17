@@ -527,11 +527,12 @@ err:
 void unregister_ipsec(struct protocol_info *proto_info)
 {
 	int i;
-	struct ipsec_ref_vector_s *rtv = proto_info->proto_vector;
+	struct ipsec_ref_vector_s *rtv;
 
 	if (!proto_info)
 		return;
 
+	rtv = proto_info->proto_vector;
 	for (i = 0; i < proto_info->num_cpus * FQ_PER_CORE * 2; i++)
 		if (proto_info->descr[i].descr)
 			__dma_mem_free(proto_info->descr[i].descr);
