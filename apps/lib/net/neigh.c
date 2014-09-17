@@ -156,6 +156,7 @@ struct neigh_t *neigh_init(struct neigh_table_t *nt, struct neigh_t *n,
 	n->solicitations_sent = 0;
 	n->refcnt = refcount_create();
 	if (unlikely(NULL == n->refcnt)) {
+		mutex_destroy(&n->wlock);
 		return NULL;
 	}
 

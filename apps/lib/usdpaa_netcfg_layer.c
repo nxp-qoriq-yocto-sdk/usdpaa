@@ -215,7 +215,7 @@ int set_mac_addr(const char *vname, struct ether_addr *mac)
 		return -EINVAL;
 
 	memset(&ifr, 0, sizeof(ifr));
-	strcpy(ifr.ifr_name, vname);
+	strncpy(ifr.ifr_name, vname, sizeof(ifr.ifr_name) - 1);
 	ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
 	memcpy(ifr.ifr_hwaddr.sa_data, mac->ether_addr_octet, sizeof(*mac));
 	ret = ioctl(skfd, SIOCSIFHWADDR, &ifr);
@@ -432,7 +432,7 @@ static inline int netcfg_interface_match(uint8_t fman,
 		i++) {
 		cli_info = &netcfg_interface->interface_info[i];
 		if (cli_info->fman_enabled_mac_interface == 1) {
-			strcpy(str, cli_info->name);
+			strncpy(str, cli_info->name, sizeof(str) - 1);
 			num = str[2] - '0';
 			if (strncmp((str + 4), "mac", 3) == 0) {
 				fman_get_mac_info(str, &num1, &val);
