@@ -338,9 +338,17 @@ error_t parse_opt(int opt, char *arg, struct argp_state *state)
 
 	case 'p':
 		crypto_info->sel_proto = atoi(arg) - 1;
-		*p_cmd_params |= BMASK_SEC_ALG;
-		crypto_info->proto = protocols[crypto_info->sel_proto];
-		printf("SEC cryptographic operation = %s\n", arg);
+		if (crypto_info->sel_proto < proto_num) {
+			*p_cmd_params |= BMASK_SEC_ALG;
+			printf("SEC cryptographic operation = %s\n", arg);
+			crypto_info->proto = protocols[crypto_info->sel_proto];
+		}
+		/*
+		 * No message here, it will be given in validate_params.
+		 * This is done since it's possible to have an array
+		 * overrun here if the user enters a malicious value.
+		 */
+
 		break;
 
 	case 'l':
@@ -379,12 +387,10 @@ static int validate_params(uint32_t g_cmd_params, uint32_t g_proto_params,
 {
 	unsigned int total_size, max_num_buf;
 
-
-	if (crypto_info->sel_proto > proto_num) {
-		fprintf(stderr,
-			"error: Invalid Parameters: SEC protocol not supported\n"
-			"see --help option\n");
-			return -EINVAL;
+	if (!(g_cmd_params & BMASK_SEC_ALG)) {
+		pr_err("Invalid Parameters: SEC protocol not supported\n"
+		       "see --help option\n");
+		return -EINVAL;
 	}
 
 	/*
@@ -392,11 +398,6 @@ static int validate_params(uint32_t g_cmd_params, uint32_t g_proto_params,
 	 * protocol info and also store it in the test parameters.
 	 */
 	proto = crypto_info->proto;
-
-	if (!proto) {
-		pr_err("Invalid protocol selected");
-		return -EINVAL;
-	}
 
 	if ((PERF == crypto_info->mode) &&
 	    BMASK_SEC_PERF_MODE == g_cmd_params) {
