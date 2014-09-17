@@ -91,6 +91,8 @@ struct dpa_stats *gbl_dpa_stats;
 void *dpa_stats_event_thread(void *arg);
 void *dpa_stats_worker_thread(void *arg);
 void us_req_queue_busy(const struct fifo_q *q);
+static int alloc_cnt_cb(struct dpa_stats *dpa_stats,
+			struct dpa_stats_cnt_cb *cnt_cb);
 
 int *copy_array(int const *src, size_t len)
 {
@@ -251,17 +253,15 @@ int check_cnt_traffic_mng_ccg(struct qm_ceetm_ccg *ccg, int id)
 	return err;
 }
 
-static int cnt_traffic_mng_to_stats(struct dpa_stats_cnt_cb *cnt_cb,
+static int alloc_cnt_traffic_mng(struct dpa_stats_cnt_cb *cnt_cb,
 				    enum dpa_stats_cnt_sel cnt_sel)
 {
+	int err;
+
 	if (cnt_sel == DPA_STATS_CNT_NUM_OF_BYTES ||
 	    cnt_sel == DPA_STATS_CNT_NUM_OF_PACKETS) {
-		cnt_cb->info.stats_off[0] = cnt_sel * sizeof(uint64_t);
 		cnt_cb->info.stats_num = 1;
 	} else if (cnt_sel == DPA_STATS_CNT_NUM_ALL) {
-		cnt_cb->info.stats_off[0] = DPA_STATS_CNT_NUM_OF_BYTES;
-		cnt_cb->info.stats_off[1] =
-			DPA_STATS_CNT_NUM_OF_PACKETS * sizeof(uint64_t);
 		cnt_cb->info.stats_num = 2;
 	} else {
 		error(0, EINVAL, "Parameter cnt_sel %d must be in range (%d - "
@@ -270,6 +270,24 @@ static int cnt_traffic_mng_to_stats(struct dpa_stats_cnt_cb *cnt_cb,
 		      DPA_STATS_CNT_NUM_ALL, cnt_cb->id);
 		return -EINVAL;
 	}
+
+	err = alloc_cnt_cb(gbl_dpa_stats, cnt_cb);
+	if (err < 0) {
+		error(0, ENOMEM,
+			"Failed to allocate counter control block for counter id=%d.\n",
+			cnt_cb->id);
+		return err;
+	}
+
+	if (cnt_sel == DPA_STATS_CNT_NUM_OF_BYTES ||
+	    cnt_sel == DPA_STATS_CNT_NUM_OF_PACKETS) {
+		cnt_cb->info.stats_off[0] = cnt_sel * sizeof(uint64_t);
+	} else { /* can only be DPA_STATS_CNT_NUM_ALL */
+		cnt_cb->info.stats_off[0] = DPA_STATS_CNT_NUM_OF_BYTES;
+		cnt_cb->info.stats_off[1] =
+			DPA_STATS_CNT_NUM_OF_PACKETS * sizeof(uint64_t);
+	}
+
 	return 0;
 }
 
@@ -338,15 +356,8 @@ static int alloc_cnt_cb(struct dpa_stats *dpa_stats,
 {
 	int i = 0;
 
-	/* Initialize counter lock */
-	pthread_mutex_init(&cnt_cb->lock, NULL);
-	/* Store dpa_stats instance */
-	cnt_cb->dpa_stats = dpa_stats;
-	/* Mark the counter as being 'kernel-space' counter */
-	cnt_cb->id = DPA_OFFLD_INVALID_OBJECT_ID;
-
 	/* Allocate array of statistics offsets */
-	cnt_cb->info.stats_off = malloc(MAX_NUM_OF_STATS *
+	cnt_cb->info.stats_off = malloc(cnt_cb->info.stats_num *
 					sizeof(*cnt_cb->info.stats_off));
 	if (!cnt_cb->info.stats_off) {
 		error(0, ENOMEM, "Cannot allocate memory to store array of "
@@ -354,14 +365,14 @@ static int alloc_cnt_cb(struct dpa_stats *dpa_stats,
 		return -ENOMEM;
 	}
 	/* Allocate array of currently read statistics */
-	cnt_cb->info.stats = calloc(MAX_NUM_OF_MEMBERS, sizeof(uint64_t *));
+	cnt_cb->info.stats = calloc(cnt_cb->members_num, sizeof(uint64_t *));
 	if (!cnt_cb->info.stats) {
 		error(0, ENOMEM, "Cannot allocate memory to store array of "
 			"statistics for all members\n");
 		return -ENOMEM;
 	}
-	for (i = 0; i < MAX_NUM_OF_MEMBERS; i++) {
-		cnt_cb->info.stats[i] = calloc(MAX_NUM_OF_STATS,
+	for (i = 0; i < cnt_cb->members_num; i++) {
+		cnt_cb->info.stats[i] = calloc(cnt_cb->info.stats_num,
 					       sizeof(uint64_t));
 		if (!cnt_cb->info.stats[i]) {
 			error(0, ENOMEM, "Cannot allocate memory to store "
@@ -371,15 +382,15 @@ static int alloc_cnt_cb(struct dpa_stats *dpa_stats,
 	}
 
 	/* Allocate array of previously read statistics */
-	cnt_cb->info.last_stats = calloc(MAX_NUM_OF_MEMBERS,
+	cnt_cb->info.last_stats = calloc(cnt_cb->members_num,
 					 sizeof(uint64_t *));
 	if (!cnt_cb->info.last_stats) {
 		error(0, ENOMEM, "Cannot allocate memory to store array of "
 			"previous read statistics for all members\n");
 		return -ENOMEM;
 	}
-	for (i = 0; i < MAX_NUM_OF_MEMBERS; i++) {
-		cnt_cb->info.last_stats[i] = calloc(MAX_NUM_OF_STATS,
+	for (i = 0; i < cnt_cb->members_num; i++) {
+		cnt_cb->info.last_stats[i] = calloc(cnt_cb->info.stats_num,
 						    sizeof(uint64_t));
 		if (!cnt_cb->info.last_stats[i]) {
 			error(0, ENOMEM, "Cannot allocate memory to store array "
@@ -459,9 +470,12 @@ static int init_resources(struct dpa_stats *dpa_stats)
 
 	/* Mark all the counters as being 'kernel-space' counters */
 	for (i = 0; i < dpa_stats->config.max_counters; i++) {
-		err = alloc_cnt_cb(dpa_stats, &dpa_stats->cnts_cb[i]);
-		if (err < 0)
-			return err;
+		/* Initialize counter lock */
+		pthread_mutex_init(&dpa_stats->cnts_cb[i].lock, NULL);
+		/* Store dpa_stats instance */
+		dpa_stats->cnts_cb[i].dpa_stats = dpa_stats;
+		/* Mark the counter as being 'kernel-space' counter */
+		dpa_stats->cnts_cb[i].id = DPA_OFFLD_INVALID_OBJECT_ID;
 	}
 
 	/* Initialize user space worker threads control blocks: */
@@ -488,7 +502,7 @@ static int free_resources(struct dpa_stats *dpa_stats)
 
 	if (dpa_stats->cnts_cb) {
 		for (i = 0; i < dpa_stats->config.max_counters; i++) {
-			for (j = 0; j < MAX_NUM_OF_MEMBERS; j++) {
+			for (j = 0; j < dpa_stats->cnts_cb[i].members_num; j++) {
 				free(dpa_stats->cnts_cb[i].info.stats[j]);
 				free(dpa_stats->cnts_cb[i].info.last_stats[j]);
 			}
@@ -871,8 +885,8 @@ static int set_cnt_traffic_mng_cb(
 
 	cnt_cb->obj[0] = params->traffic_mng_params.traffic_mng;
 
-	/* Map Traffic Manager counter selection to CQ/CCG statistics */
-	cnt_traffic_mng_to_stats(cnt_cb, cnt_cb->sel);
+	/* Allocate resources for Traffic Manager counter selection */
+	alloc_cnt_traffic_mng(cnt_cb, cnt_cb->sel);
 
 	/* Set number of bytes that will be written by this counter */
 	cnt_cb->bytes_num = cnt_cb->members_num *
@@ -922,8 +936,8 @@ static int set_cls_cnt_traffic_mng_cb(
 	for (i = 0; i < cnt_cb->members_num; i++)
 		cnt_cb->obj[i] = params->traffic_mng_params.traffic_mng[i];
 
-	/* Map Traffic Manager counter selection to CQ/CCG statistics */
-	cnt_traffic_mng_to_stats(cnt_cb, cnt_cb->sel);
+	/* Allocate resources for Traffic Manager counter selection */
+	alloc_cnt_traffic_mng(cnt_cb, cnt_cb->sel);
 
 	/* Set number of bytes that will be written by this counter */
 	cnt_cb->bytes_num = cnt_cb->members_num *
@@ -1238,7 +1252,6 @@ int dpa_stats_remove_counter(int dpa_stats_cnt_id)
 {
 	struct dpa_stats *dpa_stats = NULL;
 	struct dpa_stats_cnt_cb *cnt_cb = NULL;
-	uint32_t i;
 	int ret;
 
 	if (dpa_stats_cnt_id < 0) {
@@ -1283,15 +1296,14 @@ int dpa_stats_remove_counter(int dpa_stats_cnt_id)
 
 	/* Mark the equivalent 'user-space' counter structure as invalid */
 	cnt_cb->id = DPA_OFFLD_INVALID_OBJECT_ID;
-	/* Reset all statistics information */
-	memset(cnt_cb->info.stats_off, 0,
-			MAX_NUM_OF_STATS * sizeof(*cnt_cb->info.stats_off));
-	for (i = 0; i < MAX_NUM_OF_MEMBERS; i++) {
-		memset(cnt_cb->info.stats[i], 0,
-				MAX_NUM_OF_STATS * sizeof(uint64_t));
-		memset(cnt_cb->info.last_stats[i], 0,
-				MAX_NUM_OF_STATS * sizeof(uint64_t));
-	}
+
+	free(cnt_cb->info.stats);
+	free(cnt_cb->info.last_stats);
+	free(cnt_cb->info.stats_off);
+	cnt_cb->info.stats	= NULL;
+	cnt_cb->info.last_stats	= NULL;
+	cnt_cb->info.stats_off	= NULL;
+
 	return 0;
 }
 
@@ -1467,9 +1479,9 @@ int dpa_stats_reset_counters(int *cnts_ids, unsigned int cnts_ids_len)
 			continue;
 		}
 		/* Reset stored statistics values */
-		for (j = 0; j < MAX_NUM_OF_MEMBERS; j++)
+		for (j = 0; j < cnt_cb->members_num; j++)
 			memset(cnt_cb->info.stats[j], 0,
-					MAX_NUM_OF_STATS * sizeof(uint64_t));
+				cnt_cb->info.stats_num * sizeof(uint64_t));
 		ret = pthread_mutex_unlock(&cnt_cb->lock);
 		if (ret < 0)
 			return ret;
