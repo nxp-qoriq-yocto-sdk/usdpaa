@@ -42,6 +42,7 @@ static void cleanup_handler(void *arg)
 
 	if (unlikely(free_sec_fq(param->authnct) != 0)) {
 		fprintf(stderr, "error: %s: free_sec_fq failed\n", __func__);
+		free(param);
 		abort();
 	}
 

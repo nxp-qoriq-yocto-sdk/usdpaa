@@ -515,7 +515,7 @@ void unregister_wimax(struct protocol_info *proto_info)
 {
 	struct wimax_ref_vector_s *wimax_ref_vector;
 
-	if (unlikely(proto_info))
+	if (!proto_info)
 		return;
 
 	if (proto_info->descr)
