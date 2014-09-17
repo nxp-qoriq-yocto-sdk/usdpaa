@@ -102,7 +102,7 @@ void init_rtv_snow_f8_f9(struct test_param *crypto_info);
 
 /* prepare test buffers, fqs, fds routines */
 int prepare_test_frames(struct test_param *crypto_info);
-int set_buf_size(struct test_param *crypto_info);
+void set_buf_size(struct test_param *crypto_info);
 void *setup_preheader(uint32_t shared_desc_len, uint32_t pool_id,
 		      uint32_t pool_buf_size, uint8_t absolute,
 		      uint8_t add_buf);
