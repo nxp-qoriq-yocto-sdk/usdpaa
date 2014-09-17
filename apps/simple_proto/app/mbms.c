@@ -293,20 +293,19 @@ static void *create_descriptor(bool mode, void *params)
 	unsigned shared_desc_len = 0;
 	unsigned preheader_len = 0;
 	int i;
+	size_t len, align;
 	bool found = 0;
 
 	switch (mbms_params->type) {
 	case MBMS_PDU_TYPE0:
-		prehdr_desc = __dma_mem_memalign(MBMS_TYPE0_DESC_ALIGN,
-				sizeof(struct sec_descriptor_t));
-		memset(prehdr_desc, 0, sizeof(struct sec_descriptor_t));
+		len = sizeof(struct sec_descriptor_t);
+		align = MBMS_TYPE0_DESC_ALIGN;
 		break;
 
 	case MBMS_PDU_TYPE1:
 	case MBMS_PDU_TYPE3:
-		prehdr_desc = __dma_mem_memalign(MBMS_TYPE1_DESC_ALIGN,
-				2 * sizeof(struct sec_descriptor_t));
-		memset(prehdr_desc, 0, 2 * sizeof(struct sec_descriptor_t));
+		len = 2 * sizeof(struct sec_descriptor_t);
+		align = MBMS_TYPE1_DESC_ALIGN;
 		break;
 
 	default:
@@ -316,12 +315,14 @@ static void *create_descriptor(bool mode, void *params)
 		return NULL;
 	}
 
+	prehdr_desc = __dma_mem_memalign(align, len);
 	if (unlikely(!prehdr_desc)) {
 		fprintf(stderr,
 			"error: %s: dma_mem_memalign failed for preheader\n",
 			__func__);
 		return NULL;
 	}
+	memset(prehdr_desc, 0, len);
 
 	shared_desc = (typeof(shared_desc))&prehdr_desc->descbuf;
 
