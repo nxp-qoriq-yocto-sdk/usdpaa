@@ -162,6 +162,7 @@ struct qman_fq *create_sec_frame_queue(enum SEC_MODE mode,
 	}
 
 	if (unlikely(qman_create_fq(0, flags, fq) != 0)) {
+		__dma_mem_free(fq);
 		pr_err("qman_create_fq failed in %s\n", __func__);
 		return NULL;
 	}
