@@ -57,7 +57,7 @@ struct wimax_params {
 	bool ofdma;
 	bool fcs;
 	bool ar;
-	int ar_len;
+	char ar_len;
 };
 
 struct protocol_info *register_wimax(void);

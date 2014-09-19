@@ -119,8 +119,8 @@ static uint8_t *tls_test_auth_key[] = {
 		    0xD0, 0x43, 0x38, 0x65, 0xFB, 0x33, 0x05, 0x87, 0xDB, 0x40,
 		    0xB3, 0xC4, 0xF1, 0x9E, 0x25, 0xCE, 0x6F, 0x5C, 0x2C, 0xD7},
 };
-static uint32_t tls_test_auth_keylen[] = { 40 };
-static uint32_t tls_test_cipher_keylen[] = { 16 };
+static uint16_t tls_test_auth_keylen[] = { 40 };
+static uint16_t tls_test_cipher_keylen[] = { 16 };
 
 static uint8_t *tls_test_data_in[] = {
 	/* TLS10 AES-CBC & HMAC-SHA1 */

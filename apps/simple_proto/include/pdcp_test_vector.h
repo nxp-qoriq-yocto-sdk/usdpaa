@@ -78,8 +78,8 @@ struct pdcp_ref_vector_s {
 	 * NOTE: Keep members above unchanged!
 	 */
 	unsigned short sns;
-	unsigned short bearer;
-	unsigned short dir;
+	unsigned char bearer;
+	unsigned char dir;
 	uint32_t hfn;
 	uint32_t hfn_thr;
 };

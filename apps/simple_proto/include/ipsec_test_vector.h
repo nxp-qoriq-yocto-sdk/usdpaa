@@ -125,7 +125,7 @@ static uint8_t *ipsec_test_cipher_key[] = {
 		    0x58, 0x40, 0xea, 0xf1}
 };
 
-static uint32_t ipsec_test_cipher_keylen[] = {
+static uint16_t ipsec_test_cipher_keylen[] = {
 	/* IPsec 3DES-CBC & HMAC-MD5-96 */
 	24
 };
@@ -138,7 +138,7 @@ static uint8_t *ipsec_test_auth_key[] = {
 		    0xfe, 0xed}
 };
 
-static uint32_t ipsec_test_auth_keylen[] = {
+static uint16_t ipsec_test_auth_keylen[] = {
 	/* IPsec 3DES-CBC & HMAC-MD5-96 */
 	32
 };
@@ -149,7 +149,7 @@ static uint8_t *ipsec_opt_ip_hdr[] = {
 		    0x21, 0x08, 0xc8, 0xc8, 0xc8, 0x14, 0xc8, 0xc8, 0xc8, 0x0a}
 };
 
-static uint32_t ipsec_opt_ip_hdr_len[] = {
+static uint16_t ipsec_opt_ip_hdr_len[] = {
 	/* IPsec 3DES-CBC & HMAC-MD5-96 */
 	sizeof(struct iphdr)
 };
