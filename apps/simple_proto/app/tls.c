@@ -167,8 +167,9 @@ static int init_ref_test_vector_tls10(struct test_param *crypto_info)
 	rtv->block_cipher = 1;
 	rtv->icv_size = SHA1_DIGEST_SIZE;
 	rtv->block_size = AES_BLOCK_SIZE;
-	rtv->pad_size = TLS_PAD_SIZE(crypto_info->buf_size, rtv->icv_size,
-				     rtv->block_size);
+	rtv->pad_size = (unsigned short)TLS_PAD_SIZE(crypto_info->buf_size,
+						     rtv->icv_size,
+						     rtv->block_size);
 
 	if (CIPHER == crypto_info->mode) {
 		rtv->length = NO_OF_BITS(tls_test_data_in_len[proto_offset]);

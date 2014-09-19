@@ -1380,7 +1380,7 @@ static void show_signature(uint32_t *cmd, uint8_t *idx, int8_t *leader)
 
 	/* Process 8 word signature */
 	desc_hexdump(cmd + 1, 8, 4, leader);
-	idx += 8;
+	*idx += 8;
 }
 
 static void show_jump(uint32_t *cmd, uint8_t *idx, int8_t *leader)
@@ -1585,8 +1585,6 @@ void caam_desc_disasm(uint32_t *desc, uint32_t opts)
 {
 	uint8_t len, idx, stidx;
 	int8_t emptyleader[MAX_LEADER_LEN], pdbleader[MAX_LEADER_LEN];
-
-	stidx  = 0;
 
 	/*
 	 * Build up padded leader strings for non-instruction content

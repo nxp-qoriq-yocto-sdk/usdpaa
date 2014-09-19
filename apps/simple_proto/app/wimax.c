@@ -143,7 +143,7 @@ int init_rtv_wimax_aes_ccm_128(struct test_param *crypto_info)
 
 	if (wimax_params->ar) {
 		ref_test_vector->decap_opts = WIMAX_PDBOPTS_AR;
-		ref_test_vector->ar_len = wimax_params->ar_len;
+		ref_test_vector->ar_len = (uint16_t)wimax_params->ar_len;
 	}
 
 	if (PERF == crypto_info->mode) {
@@ -354,7 +354,7 @@ static error_t parse_opts(int key, char *arg, struct argp_state *state)
 
 	case 'w':
 		*p_proto_params |= BMASK_WIMAX_AR_EN;
-		wimax_params->ar_len = atoi(arg);
+		wimax_params->ar_len = (char)atoi(arg);
 		fprintf(stdout, "Anti-Replay Length = %d\n", atoi(arg));
 		break;
 
@@ -378,7 +378,7 @@ static int validate_opts(uint32_t g_proto_params,
 {
 	struct protocol_info *proto = crypto_info->proto;
 	struct wimax_params *wimax_params = proto->proto_params;
-	int ar_len;
+	char ar_len;
 
 	/* Only anti-replay is allowed CIPHER mode */
 	if ((CIPHER == crypto_info->mode) &&

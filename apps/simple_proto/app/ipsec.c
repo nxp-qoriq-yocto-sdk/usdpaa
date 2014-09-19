@@ -185,8 +185,8 @@ static int init_ref_test_vector_ipsec(struct test_param *crypto_info)
 		/* Version and Header Length */
 		rtv->iphdr[0] = 0x45;
 		/* Total Length */
-		rtv->iphdr[2] = crypto_info->buf_size >> 8;
-		rtv->iphdr[3] = crypto_info->buf_size & 0xFF;
+		rtv->iphdr[2] = (uint8_t)(crypto_info->buf_size >> 8);
+		rtv->iphdr[3] = (uint8_t)(crypto_info->buf_size & 0xFF);
 	}
 
 	/* set IPSEC encapsulation PDB */
@@ -416,7 +416,8 @@ static int set_buf_size(struct test_param *crypto_info)
 
 	esp_hdr_size = IPSEC_SPI_SIZE + IPSEC_SEQNUM_SIZE + rtv->iv_size;
 
-	rtv->pad_size = IPSEC_PAD_SIZE(crypto_info->buf_size, rtv->block_size);
+	rtv->pad_size = (unsigned short)IPSEC_PAD_SIZE(crypto_info->buf_size,
+						       rtv->block_size);
 	esp_trailer_size = rtv->pad_size + IPSEC_PAD_LEN_SIZE + IPSEC_N_SIZE +
 			   rtv->icv_size;
 
