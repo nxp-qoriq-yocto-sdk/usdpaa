@@ -419,8 +419,8 @@ void set_buf_size(struct test_param *crypto_info)
  * brief	Setup preheader for shared descriptor
  * return	0 on success, otherwise -ve value
  */
-void *setup_preheader(uint32_t shared_desc_len, uint32_t pool_id,
-		      uint32_t pool_buf_size, uint8_t absolute, uint8_t add_buf)
+void *setup_preheader(uint32_t shared_desc_len, uint8_t pool_id,
+		      uint8_t pool_buf_size, uint8_t absolute, uint8_t add_buf)
 {
 	struct preheader_s *prehdr = NULL;
 

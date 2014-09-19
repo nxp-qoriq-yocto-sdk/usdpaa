@@ -361,7 +361,7 @@ static void *create_descriptor(bool mode, void *params)
 	struct alginfo cipher_info, auth_info;
 	uint32_t *shared_desc = NULL;
 	unsigned shared_desc_len = 0;
-	unsigned sw_hfn_ov = 0;
+	unsigned char sw_hfn_ov = 0;
 	int i, hfn_val;
 
 	prehdr_desc = __dma_mem_memalign(L1_CACHE_BYTES,

@@ -134,8 +134,8 @@ static uint8_t srtp_reference_ciphertext[][SRTP_MAX_BUF_SIZE] = {
 	 0x68, 0xFE, 0x8E, 0xA2, 0x23, 0xF5, 0xDB}
 };
 
-static uint32_t srtp_reference_auth_keylen[] = { 40 };
-static uint32_t srtp_reference_cipher_keylen[] = { 16 };
+static uint16_t srtp_reference_auth_keylen[] = { 40 };
+static uint16_t srtp_reference_cipher_keylen[] = { 16 };
 
 static uint8_t srtp_reference_n_tag[] = { 0x0F };
 static uint16_t srtp_reference_seq_num[] = { 0x4BEE };
