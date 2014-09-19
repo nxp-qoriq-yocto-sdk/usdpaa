@@ -40,6 +40,10 @@ dist_DATA = \
 	fsl_qman.h \
 	fsl_usd.h \
 	of.h \
+	fsl_dpa_classifier.h \
+	fsl_dpa_ipsec.h \
+	fsl_dpa_stats.h \
+	fsl_dpa_offload.h \
 	usdpaa_netcfg.h
 
 compat.h_install = $(PREFIX)/include/usdpaa
@@ -53,3 +57,7 @@ fsl_qman.h_install = $(PREFIX)/include/usdpaa
 fsl_usd.h_install = $(PREFIX)/include/usdpaa
 of.h_install = $(PREFIX)/include/usdpaa
 usdpaa_netcfg.h_install = $(PREFIX)/include/usdpaa
+fsl_dpa_classifier.h_install = $(PREFIX)/include/usdpaa
+fsl_dpa_offload.h_install = $(PREFIX)/include/usdpaa
+fsl_dpa_ipsec.h_install = $(PREFIX)/include/usdpaa
+fsl_dpa_stats.h_install = $(PREFIX)/include/usdpaa
