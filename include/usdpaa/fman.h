@@ -398,6 +398,9 @@ int memac_get_station_mac_addr(const struct fman_if *p, uint8_t *eth);
 /* Set ignore pause option for a specific interface */
 void fm_mac_set_rx_ignore_pause_frames(const struct fman_if *p, bool enable);
 
+/* Enable Loopback mode */
+void fm_mac_config_loopback(const struct fman_if *p, bool enable);
+
 /* Enable/disable Rx promiscuous mode on specified interface */
 void fman_if_promiscuous_enable(const struct fman_if *);
 void fman_if_promiscuous_disable(const struct fman_if *);

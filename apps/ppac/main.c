@@ -1656,6 +1656,56 @@ static int ppac_cli_pause_frame(int argc, char *argv[])
 	return ret;
 }
 
+static int ppac_cli_loopback(int argc, char *argv[])
+{
+	struct list_head *i;
+	const struct fman_if *fif;
+	const struct fm_eth_port_cfg *pcfg;
+	bool enable;
+	uint8_t fman_idx, mac_idx;
+	int ret = -ENODEV;
+
+	if (argc != 4) {
+		printf("Usage: loopback enable/disable f:<> m:<>\n");
+		return -EINVAL;
+	}
+
+	if (!strncmp(argv[1], "enable", 6))
+		enable = true;
+	else if (!strncmp(argv[1], "disable", 7))
+		enable = false;
+	else
+		return -EINVAL;
+
+	/* Parse FMan number */
+	if (!strncmp(argv[2], "f:", 2))
+		fman_idx = atoi(&argv[2][2]);
+	else
+		return -EINVAL;
+
+	/* Parse port number */
+	if (!strncmp(argv[3], "m:", 2))
+		mac_idx = atoi(&argv[3][2]);
+	else
+		return -EINVAL;
+
+	list_for_each(i, &ifs) {
+		pcfg = ppac_interface_pcfg((struct ppac_interface *)i);
+		fif = pcfg->fman_if;
+		if ((fif->fman_idx == fman_idx) && (fif->mac_idx == mac_idx)) {
+			fm_mac_config_loopback(fif, enable);
+			ret = 0;
+			break;
+		}
+	}
+
+	if (ret)
+		fprintf(stderr, "error: no such network interface (fman:%d, "
+			"port:%d)\n", fman_idx, mac_idx);
+
+	return ret;
+}
+
 static int ppac_cli_ifconfig(int argc, char *argv[])
 {
 	dump_usdpaa_netcfg(netcfg);
@@ -1771,6 +1821,7 @@ cli_cmd(rm, ppac_cli_rm);
 cli_cmd(promisc, ppac_cli_promisc);
 cli_cmd(macaddr, ppac_cli_macaddr_api);
 cli_cmd(pause_frame, ppac_cli_pause_frame);
+cli_cmd(loopback, ppac_cli_loopback);
 cli_cmd(ifconfig, ppac_cli_ifconfig);
 
 
