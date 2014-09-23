@@ -48,7 +48,7 @@
 #define ETH_HDR_SIZE                    14
 #define IPv4_HDR_SIZE                   20
 
-/* #define FRAG_REASSEM_ENABLE */
+#define FRAG_REASSEM_ENABLE
 #define CAPWAP_MTU                      250
 
 struct fman_dev{
@@ -639,6 +639,7 @@ static void *add_new_tunnel(void *h_Domain,
 		return tunnel_params.tunnel_id;
 	} else { /* outbound tunnel */
 		struct dpaa_capwap_domain_tunnel_out_params tunnel_params;
+
 		memset(&tunnel_params, 0, sizeof(tunnel_params));
 		cc_next_engine_param.nextEngine = e_FM_PCD_DONE;
 		cc_next_engine_param.params.enqueueParams.action =
@@ -669,6 +670,8 @@ static void *add_new_tunnel(void *h_Domain,
 		}
 #ifdef FRAG_REASSEM_ENABLE
 		tunnel_params.size_for_fragment = CAPWAP_MTU;
+		tunnel_params.frag_bp_enable = TRUE;
+		tunnel_params.frag_bp_id = CAPWAP_FRAG_BPID;
 #endif
 		tunnel_params.p_NextEngineParams = &cc_next_engine_param;
 		tunnel_params.eth_header_size = ETH_HDR_SIZE;

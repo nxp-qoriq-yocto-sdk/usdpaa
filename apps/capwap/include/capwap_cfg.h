@@ -108,6 +108,7 @@
 #define UDP_HDR_SIZE                    8
 #define CAPWAP_DTLS_HDR_SIZE            4
 
+#define CAPWAP_FRAG_BPID	8
 
 /* The dynamically allocated pool-channels, and the iterator index that loops
  * around them binding Rx FQs to them in a round-robin fashion. */

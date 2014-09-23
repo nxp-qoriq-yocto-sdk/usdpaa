@@ -727,9 +727,8 @@ int interface_init(void)
 			}
 			err = capwap_prepare_bpid(bp->bpid, bp->count,
 						bp->size, 0, 1,
-#ifdef PPAC_DEPLETION
-						bp->count ?
-							bp_depletion : NULL,
+#ifdef CAPWAP_DEPLETION
+						bp->count ? bp_depletion : NULL,
 #else
 						NULL,
 #endif
@@ -742,6 +741,25 @@ int interface_init(void)
 			}
 			bp_idx++;
 		}
+	}
+	/* Prepare bp for fragmentation */
+	struct fman_if_bpool frag_bp;
+	frag_bp.bpid = CAPWAP_FRAG_BPID;
+	frag_bp.size = 2112;
+	frag_bp.count = 8192;
+	err = capwap_prepare_bpid(frag_bp.bpid, frag_bp.count,
+					frag_bp.size, 0, 1,
+#ifdef CAPWAP_DEPLETION
+					frag_bp.count ? bp_depletion : NULL,
+#else
+					NULL,
+#endif
+					&pool[frag_bp.bpid]);
+	if (err) {
+		fprintf(stderr, "error: bpid %d failed\n",
+			frag_bp.bpid);
+		do_global_finish();
+		return err;
 	}
 
 	return 0;
