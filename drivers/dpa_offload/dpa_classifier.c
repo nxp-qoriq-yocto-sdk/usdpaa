@@ -461,6 +461,32 @@ int dpa_classif_table_get_entry_stats_by_ref(int		td,
 	return 0;
 }
 
+int dpa_classif_table_get_miss_stats(int			td,
+				struct dpa_cls_tbl_entry_stats	*stats)
+{
+	struct ioc_dpa_cls_tbl_miss_stats params;
+
+	dpa_cls_dbg((
+		"DEBUG: dpa_classifier_lib %s (%d): --> Executing ioctl=0x%x\n",
+		__func__, __LINE__, DPA_CLS_IOC_TBL_GET_MISS_STATS));
+
+	CHECK_CLASSIFIER_DEV_FD();
+
+	memset(&params, 0, sizeof(struct ioc_dpa_cls_tbl_miss_stats));
+	params.td	= td;
+
+	if (ioctl(dpa_cls_devfd, DPA_CLS_IOC_TBL_GET_MISS_STATS, &params) < 0)
+		return -errno;
+	else
+		memcpy(stats, &params.stats,
+			sizeof(struct dpa_cls_tbl_entry_stats));
+
+	dpa_cls_dbg(("DEBUG: dpa_classifier_lib %s (%d): <-- Done\n", __func__,
+		__LINE__));
+
+	return 0;
+}
+
 int dpa_classif_table_get_params(int td, struct dpa_cls_tbl_params *params)
 {
 	struct ioc_dpa_cls_tbl_params table_params;
