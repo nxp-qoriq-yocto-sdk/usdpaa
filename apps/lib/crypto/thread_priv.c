@@ -63,10 +63,13 @@ static void *thread_wrapper(void *arg)
 			tdata->cpu, s);
 		goto end;
 	}
-	/* First barrier allows global fqalloc initialisation to start */
-	pthread_barrier_wait(&barr);
-	/* Second barrier waits for fqalloc init to complete */
-	pthread_barrier_wait(&barr);
+	/* Allow all processing threads to perform qman_init_thread() */
+	s = pthread_barrier_wait(&barr);
+	if ((s != 0) && (PTHREAD_BARRIER_SERIAL_THREAD != s)) {
+		perror("failed to wait for all threads to perform qman_init_thread");
+		goto end;
+	}
+
 	/* Invoke the application thread function */
 	s = tdata->fn(tdata);
 end:
@@ -149,15 +152,8 @@ int start_threads_custom(struct thread_data *ctxs, int num_ctxs)
 
 	/* Wait till threads have initialised thread-local qman/bman */
 	err = pthread_barrier_wait(&barr);
-	if (err < 0) {
+	if ((err != 0) && (PTHREAD_BARRIER_SERIAL_THREAD != err)) {
 		perror("failed to wait for thread-local qman/bman: ");
-		return err;
-	}
-
-	/* Release threads to start processing again */
-	err = pthread_barrier_wait(&barr);
-	if (err < 0) {
-		perror("failed to wait for releasing threads: ");
 		return err;
 	}
 
