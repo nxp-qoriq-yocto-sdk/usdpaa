@@ -88,13 +88,36 @@ static int get_fm_handle(uint8_t fm_index)
 	return 0;
 }
 
+static e_FmPortType get_port_type(const char *type)
+{
+	if (strcmp(type, "1G") == 0)
+		return e_FM_PORT_TYPE_RX;
+	else if (strcmp(type, "10G") == 0)
+		return e_FM_PORT_TYPE_RX_10G;
+	else if (strcmp(type, "OFFLINE") == 0)
+		return e_FM_PORT_TYPE_OH_OFFLINE_PARSING;
+	else if (strcmp(type, "TX_1G") == 0)
+		return e_FM_PORT_TYPE_TX;
+	else if (strcmp(type, "TX_10G") == 0)
+		return e_FM_PORT_TYPE_TX_10G;
+	else
+		return e_FM_PORT_TYPE_DUMMY;
+}
+
 static int get_port_handle(struct capwap_port *port)
 {
+	const uint8_t lu_n[11] = {255, 0, 1, 2, 3, 4, 5, 6, 7, 0, 1};
+	const char *lu_t[11] =  {"ERR", "1G", "1G", "1G", "1G", "1G", "1G", "1G", "1G", "10G", "10G"};
 	t_FmPortParams fm_port_param = { 0 };
 
 	fm_port_param.h_Fm = fms[port->interface->fman_idx].h_dev;
-	fm_port_param.portId = port->interface->mac_idx;
-	fm_port_param.portType = port->type;
+	if (port->type == e_FM_PORT_TYPE_OH_OFFLINE_PARSING) {
+		fm_port_param.portId = port->interface->mac_idx;
+		fm_port_param.portType = port->type;
+	} else {
+		fm_port_param.portId = lu_n[port->interface->mac_idx];
+		fm_port_param.portType = get_port_type(lu_t[port->interface->mac_idx]);
+	}
 
 	port->handle = FM_PORT_Open(&fm_port_param);
 
