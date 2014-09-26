@@ -1570,13 +1570,14 @@ void us_req_queue_busy(const struct fifo_q *q)
 			&worker_thread_attributes,
 			dpa_stats_worker_thread,
 			new_us_thread);
-	if (ret != 0) {
-		int err = pthread_mutex_unlock(&us_thread_list_access);
-		if (err)
-			error(0, err,
+		if (ret != 0) {
+			int err = pthread_mutex_unlock(&us_thread_list_access);
+			if (err)
+				error(0, err,
 				"Failed to release US worker threads counter lock");
-		error(0, ret, "Failed to create new worker thread");
-		return;
+			error(0, ret, "Failed to create new worker thread");
+			return;
+		}
 	}
 	us_main_thread = true;
 	ret = pthread_mutex_unlock(&us_thread_list_access);
