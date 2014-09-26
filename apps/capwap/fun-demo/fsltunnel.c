@@ -53,7 +53,7 @@ int fd_data_n_dtls = -1;
 
 #define max(a,b) ( ((a)>(b)) ? (a):(b) )
 
-#define MAX_FRAME_SIZE 1396
+#define MAX_FRAME_SIZE 2048
 #define MIN_FRAME_SIZE 64
 
 const char capwap_prompt[] = "capwap-tunnel> ";
