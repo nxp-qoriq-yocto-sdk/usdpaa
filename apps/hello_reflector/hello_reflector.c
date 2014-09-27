@@ -362,6 +362,7 @@ b_err:
 	qman_release_pool_range(pchannels[0], NUM_POOL_CHANNELS);
 
 	printf("Finished hello_reflector\n");
+	free(workers);
 	return 0;
 }
 
@@ -629,16 +630,21 @@ static int net_if_init(struct net_if *interface,
 		newrange->rx_count = fq_range->count;
 		newrange->rx = __dma_mem_memalign(MAX_CACHELINE,
 				newrange->rx_count * sizeof(newrange->rx[0]));
-		if (!newrange->rx)
+		if (!newrange->rx) {
+			free(newrange);
 			return -ENOMEM;
+		}
 		memset(newrange->rx, 0,
 		       newrange->rx_count * sizeof(newrange->rx[0]));
 		/* Initialise each Rx FQ within the range */
 		for (tmp = 0; tmp < fq_range->count; tmp++, loop++) {
 			ret = net_if_rx_init(interface, newrange, tmp, loop,
 					     fq_range->start + tmp);
-			if (ret)
+			if (ret) {
+				free(newrange->rx);
+				free(newrange);
 				return ret;
+			}
 		}
 		/* Range initialised, at it to the interface's rx-list */
 		list_add_tail(&newrange->list, &interface->rx_list);
