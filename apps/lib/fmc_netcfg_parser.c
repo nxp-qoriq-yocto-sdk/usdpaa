@@ -347,12 +347,6 @@ static int parse_policy(xmlNodePtr cur, struct fmc_netcfg_fqs *fqs)
 	for_all_sibling_nodes(dist_node) {
 		struct fm_eth_port_fqrange *fqr, *fqr_temp;
 
-		if (unlikely(dist_node == NULL)) {
-			fprintf(stderr, "%s:%hu:%s() error: (Node(%s) have no "
-				"child node\n", __FILE__, __LINE__, __func__,
-				distp->name);
-			return -ENXIO;
-		}
 		name = distribution_ref(dist_node);
 		if (unlikely(name == NULL))
 			return -ENXIO;

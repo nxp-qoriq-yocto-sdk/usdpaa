@@ -277,6 +277,7 @@ struct rc_t *rc_init(uint32_t expire_jiffies, uint32_t proto_len)
 	if (unlikely(entries != RC_ENTRY_POOL_SIZE)) {
 		__dma_mem_free(rc->stats);
 		/** \todo mem_cache_destory(rc->free_entries); */
+		mutex_destroy(&(rc->free_entries->mmlock));
 		return NULL;
 	}
 
