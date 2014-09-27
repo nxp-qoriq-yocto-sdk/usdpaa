@@ -1531,21 +1531,26 @@ void *listener_fn(void * arg)
 	char buf[BUF_SIZE_MAX];
 	char s_pid[SIZE_PID_MAX];
 	int len, core_num, ret, n;
-	unsigned int to_daemon, from_daemon;
+	int to_daemon, from_daemon;
 	pid_t pid;
 	/* Supporting maximum 32 cpu, thread on core_num >32 won't be restore*/
 	u32 core_map = 0;
 
 	pid = getpid();
-	sprintf(s_pid, "/%d", pid);
+	snprintf(s_pid, SIZE_PID_MAX-1,"/%d", pid);
 
 	to_daemon = socket(AF_UNIX, SOCK_DGRAM, 0);
-	if (to_daemon < 0)
+	if (to_daemon < 0) {
 		perror("opening datagram socket");
+		return NULL;
+	}
 
 	from_daemon = socket(AF_UNIX, SOCK_DGRAM, 0);
-	if (from_daemon < 0)
+	if (from_daemon < 0) {
 		perror("opening datagram socket");
+		close(to_daemon);
+		return NULL;
+	}
 
 	s_to_daemon.sun_family = AF_UNIX;
 	strcpy(s_to_daemon.sun_path, S_APP_PATH);
@@ -1556,8 +1561,12 @@ void *listener_fn(void * arg)
 	len = sizeof(s_from_daemon);
 
 	unlink(s_from_daemon.sun_path);
-	if (bind(from_daemon, (struct sockaddr *)&s_from_daemon, len) == -1)
+	if (bind(from_daemon, (struct sockaddr *)&s_from_daemon, len) == -1) {
 		perror("bind failed");
+		close(to_daemon);
+		close(from_daemon);
+		return NULL;
+	}
 
 	memset(buf, 0, BUF_SIZE_MAX);
 	sprintf(buf, "%d", pid);
@@ -1568,14 +1577,22 @@ void *listener_fn(void * arg)
 	/* register with usdpaa_cpu_hotplug daemon */
 	ret = sendto(to_daemon, buf, n, 0,
 			(const struct sockaddr *)&s_to_daemon, len);
-	if (ret  == -1)
+	if (ret  == -1) {
 		perror("cpu hotplug daemon not running");
+		close(to_daemon);
+		close(from_daemon);
+		return NULL;
+	}
 
 	while (1) {
 		/* Check msgs from daemon */
 		memset(buf, 0, BUF_SIZE_MAX);
-		if (read(from_daemon, buf, BUF_SIZE_MAX) < 0)
+		if (read(from_daemon, buf, BUF_SIZE_MAX) < 0) {
 			perror("cpu hotplug daemon not running");
+			close(to_daemon);
+			close(from_daemon);
+			return NULL;
+		}
 
 		/* Process the received cmd */
 		core_num = atoi(&buf[1]);
