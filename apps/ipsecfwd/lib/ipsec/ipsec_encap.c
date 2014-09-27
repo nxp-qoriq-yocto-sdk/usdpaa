@@ -47,7 +47,7 @@ enum IP_STATUS ipsec_encap_send(const struct ppam_rx_hash *ctxt,
 	struct ipsec_tunnel_t *entry = notes->dest->tunnel;
 	const struct qm_fd *fd = &notes->dqrr->fd;
 	struct qm_fd fd2;
-	uint32_t ret;
+	int32_t ret;
 	struct qman_fq *fq_to_sec;
 	static int to_sec_fq_index;
 

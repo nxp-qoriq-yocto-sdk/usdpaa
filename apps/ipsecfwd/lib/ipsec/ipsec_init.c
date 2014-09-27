@@ -58,6 +58,7 @@ int32_t ipsec_config_create(void)
 		fprintf(stderr, "error: %s: mem_cache_refill failed\n",
 			__func__);
 		/* TODO: This doesn't seem the reverse of mem_cache_create */
+		mutex_destroy(&config->free_entries->mmlock);
 		free(config->free_entries);
 		__dma_mem_free(config);
 		return -ENOMEM;
@@ -205,6 +206,7 @@ int32_t ipsec_tunnel_encap_init(struct ipsec_tunnel_config_entry_t *config,
 
 	if (false == ipsec_add_tunnel_entry(&(ipsec_stack->itt), entry)) {
 		ipsec_free_entry(&(ipsec_stack->itt), entry);
+		mutex_destroy(&entry->tlock);
 		fprintf(stderr, "error: %s: Tunnel Entry Couldn't be added\n",
 			__func__);
 		return -EINVAL;
@@ -215,6 +217,7 @@ int32_t ipsec_tunnel_encap_init(struct ipsec_tunnel_config_entry_t *config,
 	if (outer_ip_hdr == NULL) {
 		fprintf(stderr, "error: %s: Unable to allocate memory for"
 			" outer ip header\n", __func__);
+		mutex_destroy(&entry->tlock);
 		return -ENOMEM;
 	}
 
@@ -282,6 +285,7 @@ int32_t ipsec_tunnel_decap_init(struct ipsec_tunnel_config_entry_t *config,
 
 	if (false == ipsec_add_tunnel_entry(&(ipsec_stack->itt), entry)) {
 		ipsec_free_entry(&(ipsec_stack->itt), entry);
+		mutex_destroy(&entry->tlock);
 		fprintf(stderr, "error: %s: Tunnel Entry Couldn't be added\n",
 			__func__);
 		return -ENOMEM;
