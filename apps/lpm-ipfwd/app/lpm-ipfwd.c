@@ -160,11 +160,13 @@ static int ipfwd_add_arp(const struct app_ctrl_op_info *route_info)
 		}
 		if (NULL == neigh_init(&stack.arp_table, n, dev, &ip_addr)) {
 			pr_err("ipfwd_add_arp: Exit: Failed\n");
+			mutex_destroy(&n->wlock);
 			return -1;
 		}
 
 		if (false == neigh_add(&stack.arp_table, n)) {
 			pr_err("ipfwd_add_arp: Exit: Failed\n");
+			mutex_destroy(&n->wlock);
 			return -1;
 		}
 	} else {
@@ -181,6 +183,7 @@ static int ipfwd_add_arp(const struct app_ctrl_op_info *route_info)
 			route_info->ip_info.mac_addr.ether_addr_octet,
 			NEIGH_STATE_PERMANENT)) {
 		pr_err("ipfwd_add_arp: Exit: Failed\n");
+		mutex_destroy(&n->wlock);
 		return -1;
 	}
 
@@ -360,10 +363,7 @@ static int initialize_ip_stack(struct ip_stack_t *ip_stack)
 	int _errno;
 
 	_errno = arp_table_init(&ip_stack->arp_table);
-	if (unlikely(_errno < 0)) {
-		pr_err("Failed to create ARP Table\n");
-		return _errno;
-	}
+
 	_errno = neigh_table_init(&ip_stack->arp_table);
 	if (unlikely(_errno < 0)) {
 		pr_err("Failed to init ARP Table\n");
@@ -375,10 +375,6 @@ static int initialize_ip_stack(struct ip_stack_t *ip_stack)
 		return _errno;
 	}
 	_errno = ip_protos_init(&ip_stack->protos);
-	if (unlikely(_errno < 0)) {
-		pr_err("IP Stack L4 Protocols initialized\n");
-		return _errno;
-	}
 
 	ip_stack->ip_stats = ipfwd_stats_init();
 	if (unlikely(ip_stack->ip_stats == NULL)) {
@@ -449,6 +445,11 @@ int receive_data(mqd_t mqdes)
 
 	ip_info = (struct app_ctrl_op_info *)malloc
 			(sizeof(struct app_ctrl_op_info));
+	if (unlikely(!ip_info)) {
+		pr_err("%s: %dError getting mem for ip_info\n",
+			 __FILE__, __LINE__);
+		return -ENOMEM;
+	}
 	memset(ip_info, 0, sizeof(struct app_ctrl_op_info));
 
 	_err = mq_getattr(mqdes, &attr);
@@ -490,7 +491,7 @@ static int create_mq(void)
 {
 	struct mq_attr attr_snd, attr_rcv;
 	int _err = 0, ret;
-	char name[10];
+	char name[MAX_MQ_NAME_LEN];
 
 	pr_debug("Create mq: Enter\n");
 	if ((mq_fd_snd != -1) || (mq_fd_rcv != -1))
@@ -498,9 +499,9 @@ static int create_mq(void)
 	memset(&attr_snd, 0, sizeof(attr_snd));
 
 	/* Create message queue to send the response */
-	attr_snd.mq_maxmsg = 10;
+	attr_snd.mq_maxmsg = MAX_MQ_NAME_LEN;
 	attr_snd.mq_msgsize = 8192;
-	sprintf(name, "/mq_snd_%d", getpid());
+	snprintf(name, MAX_MQ_NAME_LEN, "/mq_snd_%d", getpid());
 	printf("Message queue to send: %s\n", name);
 	mq_fd_snd = mq_open(name, O_CREAT | O_WRONLY,
 				(S_IRWXU | S_IRWXG | S_IRWXO), &attr_snd);
@@ -513,10 +514,10 @@ static int create_mq(void)
 
 	memset(&attr_rcv, 0, sizeof(attr_rcv));
 
-	sprintf(name, "/mq_rcv_%d", getpid());
+	snprintf(name, MAX_MQ_NAME_LEN, "/mq_rcv_%d", getpid());
 	printf("Message queue to receive: %s\n", name);
 	/* Create message queue to read the message */
-	attr_rcv.mq_maxmsg = 10;
+	attr_rcv.mq_maxmsg = MAX_MQ_NAME_LEN;
 	attr_rcv.mq_msgsize = 8192;
 	mq_fd_rcv = mq_open(name, O_CREAT | O_RDONLY,
 				 (S_IRWXU | S_IRWXG | S_IRWXO), &attr_rcv);
@@ -580,7 +581,7 @@ int ppam_init(void)
 
 void ppam_finish(void)
 {
-	char name[10];
+	char name[MAX_MQ_NAME_LEN];
 
 	TRACE("closing snd and rcv message queues\n");
 
@@ -588,7 +589,7 @@ void ppam_finish(void)
 		if (mq_close(mq_fd_snd) == -1)
 			error(0, errno, "%s():mq_close send", __func__);
 		mq_fd_snd = -1;
-		sprintf(name, "/mq_snd_%d", getpid());
+		snprintf(name, MAX_MQ_NAME_LEN, "/mq_snd_%d", getpid());
 		if (mq_unlink(name) == -1)
 			error(0, errno, "%s():mq_unlink send", __func__);
 	}
@@ -596,7 +597,7 @@ void ppam_finish(void)
 		if (mq_close(mq_fd_rcv) == -1)
 			error(0, errno, "%s():mq_close rcv", __func__);
 		mq_fd_rcv = -1;
-		sprintf(name, "/mq_rcv_%d", getpid());
+		snprintf(name, MAX_MQ_NAME_LEN, "/mq_rcv_%d", getpid());
 		if (mq_unlink(name) == -1)
 			error(0, errno, "%s():mq_unlink rcv", __func__);
 	}

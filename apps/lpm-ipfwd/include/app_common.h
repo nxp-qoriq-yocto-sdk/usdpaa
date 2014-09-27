@@ -41,4 +41,5 @@
 #define MAGIC_BREAKPOINT MAGIC(0)
 
 #define MAX_NUM_BMAN_POOLS 64
+#define MAX_MQ_NAME_LEN		20
 #endif	/* APP_COMMON__H */
