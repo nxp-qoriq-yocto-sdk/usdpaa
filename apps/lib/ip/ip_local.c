@@ -38,7 +38,7 @@ enum IP_STATUS ip_local_deliver(const struct ppam_rx_hash *ctxt,
 		ip_defragment(ctxt, notes, ip_hdr);
 		retval = IP_STATUS_STOLEN;
 	} else {
-		ip_protos_exec(ctxt, ip_hdr->protocol, notes, ip_hdr);
+		retval = ip_protos_exec(ctxt, ip_hdr->protocol, notes, ip_hdr);
 	}
 
 	return retval;

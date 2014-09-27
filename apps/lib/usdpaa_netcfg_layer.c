@@ -156,15 +156,11 @@ void dump_usdpaa_netcfg(struct usdpaa_netcfg_info *cfg_ptr)
 							fqr->start, fqr->count);
 				}
 			}
-			if (__if->mac_type == fman_onic) {
-				printf("\tfqid_rx_def: 0x%x\n", __if->fqid_rx_def);
-				printf("\tonic_rx_start: %#x\n",
-				       __if->onic_info.onic_rx_start);
-				printf("\tonic_rx_count: %#x\n",
-				       __if->onic_info.onic_rx_count);
-			} else {
-				printf("\tfqid_rx_def: 0x%x\n", p_cfg->rx_def);
-			}
+			printf("\tfqid_rx_def: 0x%x\n", __if->fqid_rx_def);
+			printf("\tonic_rx_start: %#x\n",
+			       __if->onic_info.onic_rx_start);
+			printf("\tonic_rx_count: %#x\n",
+			       __if->onic_info.onic_rx_count);
 			printf("\tfqid_rx_err: 0x%x\n", __if->fqid_rx_err);
 		}
 
@@ -219,7 +215,7 @@ int get_mac_addr(const char *vname, struct ether_addr *src_mac)
 
 	assert(skfd != -1);
 
-	strncpy(ifr.ifr_name, vname, sizeof(ifr.ifr_name));
+	strncpy(ifr.ifr_name, vname, sizeof(ifr.ifr_name) - 1);
 	/*retrieve corresponding MAC*/
 	if (ioctl(skfd, SIOCGIFHWADDR, &ifr) == -1) {
 		error(0, errno, "%s(): SIOCGIFINDEX", __func__);
@@ -242,7 +238,7 @@ int set_mac_addr(const char *vname, struct ether_addr *mac)
 		return -EINVAL;
 
 	memset(&ifr, 0, sizeof(ifr));
-	strcpy(ifr.ifr_name, vname);
+	strncpy(ifr.ifr_name, vname, sizeof(ifr.ifr_name) - 1);
 	ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
 	memcpy(ifr.ifr_hwaddr.sa_data, mac->ether_addr_octet, sizeof(*mac));
 	ret = ioctl(skfd, SIOCSIFHWADDR, &ifr);
@@ -285,10 +281,10 @@ void usdpaa_netcfg_enable_disable_shared_rx(const struct fman_if *fif,
 
 	if (fif->mac_type == fman_mac_less) {
 		strncpy(ifreq.ifr_name, fif->macless_info.macless_name,
-				sizeof(ifreq.ifr_name));
+				sizeof(ifreq.ifr_name) - 1);
 	} else if (fif->mac_type == fman_onic) {
 		strncpy(ifreq.ifr_name, fif->onic_info.macless_name,
-				sizeof(ifreq.ifr_name));
+				sizeof(ifreq.ifr_name) - 1);
 	} else
 		strncpy(ifreq.ifr_name, fif->shared_mac_info.shared_mac_name,
 				sizeof(ifreq.ifr_name));
@@ -387,7 +383,7 @@ static void check_fman_enabled_interfaces(void)
 
 static int parse_cmd_line_args(const char *str)
 {
-	uint8_t	numof_netcfg_interface = 0;
+	int8_t	numof_netcfg_interface = 0;
 	struct interface_info *cli_info;
 	char endptr[100];
 	uint32_t i = 0;
@@ -401,10 +397,7 @@ static int parse_cmd_line_args(const char *str)
 	/* in case sizeof str is greater than sizeof endptr */
 	endptr[sizeof(endptr) - 1] = '\0';
 	numof_netcfg_interface = get_num_netcfg_interfaces(endptr);
-	if (numof_netcfg_interface < 0) {
-		error(0, errno, "%s", __func__);
-		return -EINVAL;
-	} else if (numof_netcfg_interface == 0)
+	if (numof_netcfg_interface == 0)
 		return 0;
 	sz = sizeof(struct netcfg_interface) +
 		sizeof(struct interface_info) * numof_netcfg_interface;
@@ -459,7 +452,7 @@ static inline int netcfg_interface_match(uint8_t fman,
 		i++) {
 		cli_info = &netcfg_interface->interface_info[i];
 		if (cli_info->fman_enabled_mac_interface == 1) {
-			strcpy(str, cli_info->name);
+			strncpy(str, cli_info->name, sizeof(str) - 1);
 			num = str[2] - '0';
 			if (strncmp((str + 4), "mac", 3) == 0) {
 				fman_get_mac_info(str, &num1, &val);
