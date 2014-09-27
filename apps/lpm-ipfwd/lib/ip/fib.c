@@ -237,6 +237,10 @@ static struct fib_entry *fibtab_getsubtbl(struct fib_entry *pl, u8 level)
 	uint32_t n;
 	struct fib_entry *p;
 
+	if (unlikely(level >= FIBTBL_MAX_LEVEL)) {
+		pr_err("fibtab_getsubtbl invalid level");
+		return -EINVAL;
+	}
 	n = 1 << fib_tree_level[level];
 	p = (struct fib_entry *)idx_getnode((uint32_t) pl, sizeof(*p),
 					    fib_index, fibidx_size, n);
@@ -695,7 +699,7 @@ int ip_route_lookup(uint32_t daddr, uint32_t *gwaddr,
 static int fib_subtbl_dump(struct fib_entry *subtbl, uint32_t size, int numtab)
 {
 	int i;
-	int n = numtab;
+	int n;
 	struct fib_entry *p = subtbl;
 
 	for (i = 0; i < size; i++, p++) {

@@ -32,6 +32,7 @@
 
 #include "ipc_send.h"
 #include "ip/ip_appconf.h"
+#include "app_common.h"
 
 #include <mqueue.h>
 #include <netinet/in.h>
@@ -332,9 +333,9 @@ void ipc_show_intf_command(int argc, char **argv, char *type)
 /* opens message queue to talk to the application */
 static int create_mq(int pid)
 {
-	char name[10];
+	char name[MAX_MQ_NAME_LEN];
 
-	sprintf(name, "/mq_rcv_%d", pid);
+	snprintf(name, MAX_MQ_NAME_LEN, "/mq_rcv_%d", pid);
 	/* Opens message queue to write */
 	mq_fd_wr = mq_open(name,  O_WRONLY);
 	if (mq_fd_wr == -1) {
@@ -342,7 +343,7 @@ static int create_mq(int pid)
 		return -1;
 	}
 
-	sprintf(name, "/mq_snd_%d", pid);
+	snprintf(name, MAX_MQ_NAME_LEN, "/mq_snd_%d", pid);
 	/* Opens message queue to read */
 	mq_fd_rd = mq_open(name, O_RDONLY);
 	if (mq_fd_rd == -1) {
@@ -584,13 +585,13 @@ static error_t parse_intf_conf_opt(int key, char *arg, struct argp_state *state)
 			return -ERANGE;
 		}
 		route_info->ip_info.intf_conf.ifnum = val;
-		strcpy(route_info->ip_info.intf_conf.ifname, str);
+		strncpy(route_info->ip_info.intf_conf.ifname, str, IFNAME_LEN-1);
 		g_mndtr_param |= IPC_CTRL_PARAM_BMASK_IFNUM;
 		break;
 
 	case 'n':
 		name = arg;
-		strcpy(route_info->ip_info.intf_conf.ifname, name);
+		strncpy(route_info->ip_info.intf_conf.ifname, name, IFNAME_LEN-1);
 		g_mndtr_param |= IPC_CTRL_PARAM_BMASK_IFNAME;
 		break;
 

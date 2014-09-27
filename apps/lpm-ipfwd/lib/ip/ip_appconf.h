@@ -27,6 +27,7 @@
  */
 #ifndef LIB_IP_APPCONF_H
 #define LIB_IP_APPCONF_H
+#define IFNAME_LEN	20
 
 #include <netinet/in.h>
 
@@ -36,7 +37,7 @@
 struct app_ctrl_intf_conf {
 	in_addr_t ip_addr;			/**< IP Address */
 	int ifnum;				/**< Interface number */
-	char ifname[10];			/**< MACless Interface name */
+	char ifname[IFNAME_LEN];		/**< MACless Interface name */
 #define IPC_CTRL_PARAM_BMASK_IFNUM		(1 << 0)
 #define IPC_CTRL_PARAM_BMASK_IFNAME		(1 << 1)
 #define IPC_CTRL_PARAM_BMASK_IPADDR		(1 << 2)
