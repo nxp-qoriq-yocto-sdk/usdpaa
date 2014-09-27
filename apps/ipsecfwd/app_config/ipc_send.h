@@ -69,7 +69,7 @@ const char *argp_program_version = "argex 1.0";
 /**< Bit Mask for Gateway IP */
 #define IPC_CTRL_PARAM_BMASK_FLOWID	(1 << 4)
 /**< Bit Mask for Flow ID */
-#define IPC_CTRL_PARAM_MAX_IP_BIT_NO		5
+#define IPC_CTRL_PARAM_MAX_IP_BIT_NO		3
 
 #define IPC_CTRL_ROUTE_FLOWID_MIN				0
 #define IPC_CTRL_ROUTE_FLOWID_MAX				1024
