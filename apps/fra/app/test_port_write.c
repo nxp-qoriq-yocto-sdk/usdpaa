@@ -50,7 +50,9 @@ static struct test_pw test_pw;
 void test_pw_send_data(void)
 {
 	struct msg_buf *msg;
-	__maybe_unused int i;
+#ifdef ENABLE_FRA_DEBUG
+	int i;
+#endif
 
 	if (test_pw.len < 4 || test_pw.len > 64) {
 		error(0, 0,
@@ -85,8 +87,10 @@ test_pw_rx_handler(struct distribution *dist, struct hash_opt *opt,
 	int i;
 
 	msg = fd_to_msg((struct qm_fd *)fd);
-	if (!msg)
+	if (!msg) {
 		fra_drop_frame(fd);
+		return HANDLER_ERROR;
+	}
 
 	printf("Port Write: get %d bytes data:", msg->len);
 	for (i = 0; i < msg->len; i++)
@@ -116,7 +120,7 @@ static int fra_cli_test_pw(int argc, char *argv[])
 	if (test_pw.len < 4)
 		test_pw.len = 4;
 
-	strncpy(test_pw.data, argv[1], test_pw.len);
+	memcpy(test_pw.data, argv[1], test_pw.len);
 
 	list_for_each_entry(dist_order, &fra->dist_order_list, node) {
 		dist = dist_order->dist;
