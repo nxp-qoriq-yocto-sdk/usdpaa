@@ -95,12 +95,15 @@ static int get_clockinfo(void)
 	if (bytes_read == 0 || bytes_read == sizeof(cpuinfo))
 		return -ENOENT;
 
+	cpuinfo[bytes_read] = '\0';
+
 	match_char = strstr(cpuinfo, "clock");
 
-	if (match_char)
+	if (match_char) {
 		sscanf(match_char, "clock : %f", &cpu_clock);
-
-	return 0;
+		return 0;
+	} else
+		return -ENOENT;
 }
 
 void test_speed_info(void)
@@ -110,7 +113,10 @@ void test_speed_info(void)
 		return;
 	}
 
-	get_clockinfo();
+	if (get_clockinfo()) {
+		fprintf(stderr, "Testspeed: Failed to get cpu clock\n");
+		return;
+	}
 
 	if (test_speed.mode == RECEIVE)
 		fprintf(stderr, "Testspeed information:\n"
@@ -171,8 +177,10 @@ test_speed_cmd_rx_handler(struct distribution *dist, struct hash_opt *opt,
 	int i, error_flag;
 	uint64_t max, min;
 	msg = fd_to_msg((struct qm_fd *)fd);
-	if (!msg)
+	if (!msg) {
 		fra_drop_frame(fd);
+		return HANDLER_ERROR;
+	}
 
 	data = dbell_get_data(msg);
 	FRA_DBG("test_speed_cmd_rx_handler get data 0x%x cmd %d", data,
