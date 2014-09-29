@@ -277,7 +277,7 @@ static int parse_tran(xmlNodePtr tran_node, struct list_head *list)
 		if (!tran)
 			return -ENOMEM;
 		memset(tran, 0, sizeof(*tran));
-		snprintf(tran->name, sizeof(tran->name), name);
+		snprintf(tran->name, sizeof(tran->name), "%s",  name);
 		type = get_attributes(tran_node, BAD_CAST TRAN_TYPE);
 		tran->type = rio_type_str_to_idx(type);
 		list_add_tail(&tran->node, list);
@@ -326,8 +326,8 @@ static int parse_tran(xmlNodePtr tran_node, struct list_head *list)
 		}
 		break;
 	default:
-		error(0, 0, "transaction %s has"
-			" an invalid type %s", name, type);
+		error(0, 0, "transaction %s has an invalid type %s",
+		      tran->name, RIO_TYPE_TO_STR[tran->type]);
 		return -ENXIO;
 	}
 	return 0;
@@ -500,6 +500,7 @@ static int parse_dist_rman_to_fman(xmlNodePtr distp,
 				fmcfg = &dist_cfg->dist_fman_tx_cfg;
 				snprintf(r2fcfg->fman_port_name,
 					sizeof(r2fcfg->fman_port_name),
+					"%s",
 					fmcfg->fman_port_name);
 			} else
 				return -EINVAL;
@@ -553,7 +554,7 @@ static int parse_dist_rman_to_fman(xmlNodePtr distp,
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
 			snprintf(r2fcfg->fman_port_name,
-				sizeof(r2fcfg->fman_port_name), ptr);
+				 sizeof(r2fcfg->fman_port_name), "%s", ptr);
 		}
 	}
 	return 0;
@@ -570,7 +571,8 @@ static int parse_dist_fman_rx(xmlNodePtr distp,
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
 			snprintf(rxcfg->fman_port_name,
-				sizeof(rxcfg->fman_port_name), ptr);
+				sizeof(rxcfg->fman_port_name),
+				"%s", ptr);
 		} else if ((is_node(distp, BAD_CAST DIST_FQ_NODE))) {
 			ptr = get_attributes(distp, BAD_CAST DIST_FQ_WQ);
 			if (unlikely(ptr == NULL))
@@ -591,7 +593,7 @@ static int parse_dist_fman_tx(xmlNodePtr distp,
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
 			snprintf(txcfg->fman_port_name,
-				sizeof(txcfg->fman_port_name), ptr);
+				sizeof(txcfg->fman_port_name), "%s", ptr);
 		}  else if ((is_node(distp, BAD_CAST DIST_FQ_NODE))) {
 			ptr = get_attributes(distp, BAD_CAST DIST_FQ_COUNT);
 			if (unlikely(ptr == NULL))
@@ -630,6 +632,7 @@ static int parse_dist_fman_to_rman(xmlNodePtr distp,
 				fmcfg = &dist_cfg->dist_fman_rx_cfg;
 				snprintf(f2rcfg->fman_port_name,
 					sizeof(f2rcfg->fman_port_name),
+					"%s",
 					fmcfg->fman_port_name);
 				f2rcfg->wq = fmcfg->wq;
 			} else
@@ -657,7 +660,8 @@ static int parse_dist_fman_to_rman(xmlNodePtr distp,
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
 			snprintf(f2rcfg->fman_port_name,
-				sizeof(f2rcfg->fman_port_name), ptr);
+				sizeof(f2rcfg->fman_port_name),
+				"%s", ptr);
 		}
 	}
 	return 0;
@@ -681,7 +685,7 @@ static int parse_dist(xmlNodePtr dist_node, struct list_head *dist_list)
 		if (!dist_cfg)
 			return -ENOMEM;
 		memset(dist_cfg, 0, sizeof(*dist_cfg));
-		snprintf(dist_cfg->name, sizeof(dist_cfg->name), name);
+		snprintf(dist_cfg->name, sizeof(dist_cfg->name), "%s", name);
 		type = get_attributes(dist_node, BAD_CAST DIST_TYPE);
 		dist_cfg->type = dist_type_str_to_idx(type);
 		list_add_tail(&dist_cfg->node, dist_list);
@@ -853,7 +857,8 @@ static int parse_policy(xmlNodePtr node, struct list_head *list)
 		if (!policy_cfg)
 			return -ENOMEM;
 		memset(policy_cfg, 0, sizeof(*policy_cfg));
-		snprintf(policy_cfg->name, sizeof(policy_cfg->name), name);
+		snprintf(policy_cfg->name, sizeof(policy_cfg->name),
+			 "%s", name);
 		INIT_LIST_HEAD(&policy_cfg->dist_order_cfg_list);
 		list_add_tail(&policy_cfg->node, list);
 	}
@@ -1052,7 +1057,7 @@ static int parse_network_cfg(xmlNodePtr cur, struct list_head *list)
 			if (!cfg)
 				return -ENOMEM;
 			memset(cfg, 0, sizeof(*cfg));
-			snprintf(cfg->name, sizeof(cfg->name), ptr);
+			snprintf(cfg->name, sizeof(cfg->name), "%s", ptr);
 			list_add_tail(&cfg->node, list);
 		}
 
