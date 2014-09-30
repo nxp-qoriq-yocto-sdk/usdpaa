@@ -474,17 +474,16 @@ static void worker_free(struct worker *worker)
 	BUG_ON(worker == primary);
 	msg_quit(worker);
 	err = pthread_join(worker->id, NULL);
-	if (err) {
+	if (err)
 		/* Leak, but warn */
-		error(0, 0,
-		      "Failed to join thread uid:%u (cpu %d)",
-		      worker->uid, worker->cpu);
-		return;
-	}
+		fprintf(stderr, "Failed to join thread uid:%u (cpu %d)\n",
+			worker->uid, worker->cpu);
+	else
+		fprintf(stderr, "Thread uid:%u killed (cpu %d)\n", uid, cpu);
+
 	list_del(&worker->node);
 	free(worker->msg);
 	free(worker);
-	fprintf(stderr, "Thread uid:%u killed (cpu %d)\n", uid, cpu);
 }
 
 static int worker_reap(struct worker *worker)
