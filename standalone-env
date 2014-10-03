@@ -126,7 +126,7 @@ do
 	esac
 done
 OPTIND=$OLD_OPTIND
-declare -u SOC=$(board2soc $board)
+declare -x -u SOC=$(board2soc $board)
 declare -u FMAN_VARIANT=$(fman_version $board)
 
 if [[ $board =~ "-64b" ]]
