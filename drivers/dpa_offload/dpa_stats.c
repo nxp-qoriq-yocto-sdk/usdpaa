@@ -1296,6 +1296,7 @@ int dpa_stats_remove_counter(int dpa_stats_cnt_id)
 
 	/* Mark the equivalent 'user-space' counter structure as invalid */
 	cnt_cb->id = DPA_OFFLD_INVALID_OBJECT_ID;
+	cnt_cb->members_num = 0;
 
 	free(cnt_cb->info.stats);
 	free(cnt_cb->info.last_stats);
