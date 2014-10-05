@@ -502,13 +502,15 @@ static int free_resources(struct dpa_stats *dpa_stats)
 
 	if (dpa_stats->cnts_cb) {
 		for (i = 0; i < dpa_stats->config.max_counters; i++) {
-			for (j = 0; j < dpa_stats->cnts_cb[i].members_num; j++) {
-				free(dpa_stats->cnts_cb[i].info.stats[j]);
-				free(dpa_stats->cnts_cb[i].info.last_stats[j]);
+			if (dpa_stats->cnts_cb[i].id != DPA_OFFLD_INVALID_OBJECT_ID) {
+				for (j = 0; j < dpa_stats->cnts_cb[i].members_num; j++) {
+					free(dpa_stats->cnts_cb[i].info.stats[j]);
+					free(dpa_stats->cnts_cb[i].info.last_stats[j]);
+				}
+				free(dpa_stats->cnts_cb[i].info.stats_off);
+				free(dpa_stats->cnts_cb[i].info.stats);
+				free(dpa_stats->cnts_cb[i].info.last_stats);
 			}
-			free(dpa_stats->cnts_cb[i].info.stats_off);
-			free(dpa_stats->cnts_cb[i].info.stats);
-			free(dpa_stats->cnts_cb[i].info.last_stats);
 		}
 	}
 	if (dpa_stats->req)
@@ -1252,7 +1254,7 @@ int dpa_stats_remove_counter(int dpa_stats_cnt_id)
 {
 	struct dpa_stats *dpa_stats = NULL;
 	struct dpa_stats_cnt_cb *cnt_cb = NULL;
-	int ret;
+	int i, ret;
 
 	if (dpa_stats_cnt_id < 0) {
 		error(0, EINVAL, "Invalid input parameter\n");
@@ -1294,16 +1296,23 @@ int dpa_stats_remove_counter(int dpa_stats_cnt_id)
 	if (ret)
 		return ret;
 
-	/* Mark the equivalent 'user-space' counter structure as invalid */
-	cnt_cb->id = DPA_OFFLD_INVALID_OBJECT_ID;
-	cnt_cb->members_num = 0;
+	if (cnt_cb->id != DPA_OFFLD_INVALID_OBJECT_ID) {
+		/* Mark the equivalent 'user-space' counter structure as invalid */
+		cnt_cb->id = DPA_OFFLD_INVALID_OBJECT_ID;
 
-	free(cnt_cb->info.stats);
-	free(cnt_cb->info.last_stats);
-	free(cnt_cb->info.stats_off);
-	cnt_cb->info.stats	= NULL;
-	cnt_cb->info.last_stats	= NULL;
-	cnt_cb->info.stats_off	= NULL;
+		for (i = 0; i < cnt_cb->members_num; i++) {
+			free(cnt_cb->info.stats[i]);
+			free(cnt_cb->info.last_stats[i]);
+		}
+		cnt_cb->members_num = 0;
+
+		free(cnt_cb->info.stats);
+		free(cnt_cb->info.last_stats);
+		free(cnt_cb->info.stats_off);
+		cnt_cb->info.stats	= NULL;
+		cnt_cb->info.last_stats	= NULL;
+		cnt_cb->info.stats_off	= NULL;
+	}
 
 	return 0;
 }
