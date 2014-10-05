@@ -1005,6 +1005,7 @@ int dpa_stats_init(const struct dpa_stats_params *params, int *dpa_stats_id)
 		free_resources(dpa_stats);
 		return -errno;
 	}
+	*dpa_stats_id = prm.dpa_stats_id;
 
 	gbl_dpa_stats = dpa_stats;
 
@@ -1154,6 +1155,7 @@ int dpa_stats_create_class_counter(int dpa_stats_id,
 	}
 	dpa_stats = gbl_dpa_stats;
 
+	memset(&prm, 0, sizeof(prm));
 	memcpy(&prm.cnt_params, cnt_params, sizeof(*cnt_params));
 
 	switch (cnt_params->type) {
