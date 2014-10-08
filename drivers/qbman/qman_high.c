@@ -4547,6 +4547,7 @@ int qman_ceetm_create_fq(struct qm_ceetm_lfq *lfq, struct qman_fq *fq)
 }
 EXPORT_SYMBOL(qman_ceetm_create_fq);
 
+#define MAX_CCG_IDX 0x000F
 int qman_ceetm_ccg_claim(struct qm_ceetm_ccg **ccg,
 				struct qm_ceetm_channel *channel,
 				unsigned int idx,
@@ -4557,7 +4558,7 @@ int qman_ceetm_ccg_claim(struct qm_ceetm_ccg **ccg,
 {
 	struct qm_ceetm_ccg *p;
 
-	if ((idx < 0) || (idx > 15)) {
+	if (idx > MAX_CCG_IDX) {
 		pr_err("The given ccg index is out of range\n");
 		return -EINVAL;
 	}
