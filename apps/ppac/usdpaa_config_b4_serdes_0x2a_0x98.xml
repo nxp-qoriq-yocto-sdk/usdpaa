@@ -42,7 +42,7 @@ indicated below.
 	<engine name="fm0">
 		<port type="MAC" number="6" policy="hash_ipsec_src_dst_spi_policy5"/>
 		<port type="MAC" number="9" policy="hash_ipsec_src_dst_spi_policy6"/>
-		<port type="10G" number="10" policy="hash_ipsec_src_dst_spi_policy7"/>
+		<port type="MAC" number="10" policy="hash_ipsec_src_dst_spi_policy7"/>
 	</engine>
     </config>
 </cfgdata>
