@@ -220,9 +220,9 @@ int fsl_srio_uio_finish(struct srio_dev *sriodev)
 		munmap(sriodev->rio_regs, sriodev->regs_size);
 		close(sriodev->reg_fd);
 		free(sriodev->port);
-		free(sriodev);
 	}
 
+	free(sriodev);
 	return 0;
 }
 
@@ -329,7 +329,8 @@ int fsl_srio_set_obwin_attr(struct srio_dev *sriodev, uint8_t port_id,
 {
 	struct rio_atmu *atmu;
 
-	if (!sriodev || win_id > SRIO_OB_WIN_NUM)
+	if (!sriodev || win_id >= SRIO_OB_WIN_NUM ||
+	    port_id >= SRIO_PORT_MAX_NUM)
 		return -EINVAL;
 
 	atmu = &sriodev->rio_regs->atmu;
@@ -350,7 +351,8 @@ int fsl_srio_set_obwin(struct srio_dev *sriodev, uint8_t port_id,
 {
 	struct rio_atmu *atmu;
 
-	if (!sriodev || win_id > SRIO_OB_WIN_NUM)
+	if (!sriodev || win_id >= SRIO_OB_WIN_NUM ||
+	    port_id >= SRIO_PORT_MAX_NUM)
 		return -EINVAL;
 
 	atmu = &sriodev->rio_regs->atmu;
@@ -373,7 +375,8 @@ int fsl_srio_set_ibwin(struct srio_dev *sriodev, uint8_t port_id,
 {
 	struct rio_atmu *atmu;
 
-	if (!sriodev || win_id > SRIO_IB_WIN_NUM)
+	if (!sriodev || win_id >= SRIO_IB_WIN_NUM ||
+	    port_id >= SRIO_PORT_MAX_NUM)
 		return -EINVAL;
 
 	atmu = &sriodev->rio_regs->atmu;
@@ -467,9 +470,6 @@ int fsl_srio_set_seg_num(struct srio_dev *sriodev, uint8_t port_id,
 	else
 		nseg = 0;
 
-	if (nseg < 0)
-		return nseg;
-
 	out_be32(&atmu->port[port_id].outbw[win_id].rowar,
 		(in_be32(&atmu->port[port_id].outbw[win_id].rowar) &
 		~SRIO_ROWAR_NSEG_MASK) | (nseg << SRIO_ROWAR_NSGE_SHIFT));
@@ -508,7 +508,7 @@ int fsl_srio_set_seg_attr(struct srio_dev *sriodev, uint8_t port_id,
 	struct rio_atmu *atmu;
 	uint8_t seg_num;
 
-	if (!sriodev || win_id > SRIO_OB_WIN_NUM)
+	if (!sriodev || win_id >= SRIO_OB_WIN_NUM)
 		return -EINVAL;
 
 	atmu = &sriodev->rio_regs->atmu;
@@ -581,9 +581,6 @@ int fsl_srio_set_subseg_num(struct srio_dev *sriodev, uint8_t port_id,
 		nsseg = (uint32_t)log2(subseg_num);
 	else
 		nsseg = 0;
-
-	if (nsseg < 0)
-		return -EINVAL;
 
 	out_be32(&atmu->port[port_id].outbw[win_id].rowar,
 		 (in_be32(&atmu->port[port_id].outbw[win_id].rowar) &
