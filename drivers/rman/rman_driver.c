@@ -167,7 +167,7 @@ void rman_reset(void)
 
 int rman_get_channel_id(const struct rman_dev *rmdev, int idx)
 {
-	if (!rmdev || idx > RMAN_MAX_NUM_OF_CHANNELS)
+	if (!rmdev || idx >= RMAN_MAX_NUM_OF_CHANNELS)
 		return -EINVAL;
 
 	return rmdev->channel_id[idx];
@@ -235,15 +235,10 @@ rman_global_node_init(const struct device_node *global_regs_node,
 struct rman_dev *rman_dev_init(void)
 {
 	struct rman_dev *rmdev;
-	int uiofd = -1, channel_num, i;
+	int channel_num, i;
 	const struct device_node *rman_node, *child;
 	size_t lenp;
 	const phandle *prop;
-
-	uiofd = open(RMAN_UIO_FILE, O_RDWR);
-	if (uiofd < 0)
-		error(0, 0, "Can not open RMan device file"
-			"It may have been opened by other app");
 
 	rman_node = of_find_compatible_node(NULL, NULL, "fsl,rman");
 	if (of_device_is_available(rman_node) == false)
@@ -256,7 +251,11 @@ struct rman_dev *rman_dev_init(void)
 	}
 	memset(rmdev, 0, sizeof(*rmdev));
 
-	rmdev->uiofd = uiofd;
+	rmdev->uiofd = open(RMAN_UIO_FILE, O_RDWR);
+	if (rmdev->uiofd < 0)
+		error(0, 0,
+		      "Can not open RMan device file"
+		      "It may have been opened by other app");
 
 	/* Setup channels */
 	prop = of_get_property(rman_node, "fsl,qman-channels-id", &lenp);
