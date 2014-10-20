@@ -583,6 +583,7 @@ static int net_if_init(struct net_if *interface,
 	const struct fman_if *fif = cfg->fman_if;
 	struct fm_eth_port_fqrange *fq_range;
 	int ret = 0, loop;
+	struct net_if_rx_fqrange *delete_range, *next_range;
 
 	interface->cfg = cfg;
 
@@ -625,14 +626,17 @@ static int net_if_init(struct net_if *interface,
 	list_for_each_entry(fq_range, cfg->list, list) {
 		int tmp;
 		struct net_if_rx_fqrange *newrange = malloc(sizeof(*newrange));
-		if (!newrange)
-			return -ENOMEM;
+		if (!newrange) {
+			ret = -ENOMEM;
+			goto if_rx_init_fail;
+		}
 		newrange->rx_count = fq_range->count;
 		newrange->rx = __dma_mem_memalign(MAX_CACHELINE,
 				newrange->rx_count * sizeof(newrange->rx[0]));
 		if (!newrange->rx) {
 			free(newrange);
-			return -ENOMEM;
+			ret = -ENOMEM;
+			goto if_rx_init_fail;
 		}
 		memset(newrange->rx, 0,
 		       newrange->rx_count * sizeof(newrange->rx[0]));
@@ -643,7 +647,7 @@ static int net_if_init(struct net_if *interface,
 			if (ret) {
 				free(newrange->rx);
 				free(newrange);
-				return ret;
+				goto if_rx_init_fail;
 			}
 		}
 		/* Range initialised, at it to the interface's rx-list */
@@ -653,6 +657,18 @@ static int net_if_init(struct net_if *interface,
 	/* Enable RX and TX */
 	fman_if_enable_rx(fif);
 	return 0;
+
+if_rx_init_fail:
+	list_for_each_entry_safe(delete_range, next_range,
+			 &interface->rx_list, list) {
+		if (delete_range) {
+			if (delete_range->rx)
+				free(delete_range->rx);
+			list_del(&delete_range->list);
+			free(delete_range);
+		}
+	}
+	return ret;
 }
 
 /* Retire, drain, OOS a FQ. (Dynamically-allocated FQIDs will be released.) */
