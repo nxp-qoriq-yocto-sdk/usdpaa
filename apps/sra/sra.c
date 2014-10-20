@@ -541,7 +541,7 @@ static int op_implement(struct srio_dev *sriodev, struct dma_ch *dmadev,
 	uint8_t port_id = cmd_param.curr_port_id;
 	int i, j, k, err;
 	const char *pri;
-	uint8_t nseg, nsseg;
+	int nseg, nsseg;
 	uint32_t seg_size, sseg_size, win_offset;
 
 	nseg = fsl_srio_get_seg_num(sriodev, port_id, 1);
@@ -807,6 +807,7 @@ static int srio_perf_test(struct srio_dev *sriodev, struct dma_ch *dmadev,
 				atb_clock_finish(atb_clock);
 			}
 		}
+		free(atb_clock);
 		return 0;
 	}
 
@@ -872,6 +873,7 @@ static int srio_perf_test(struct srio_dev *sriodev, struct dma_ch *dmadev,
 						"SRIO transmission failed");
 						fsl_srio_clr_bus_err(sriodev);
 						atb_clock_finish(atb_clock);
+						free(atb_clock);
 						return err;
 					}
 					atb_clock_stop(atb_clock);
@@ -898,6 +900,7 @@ static int srio_perf_test(struct srio_dev *sriodev, struct dma_ch *dmadev,
 		}
 	}
 
+	free(atb_clock);
 	return 0;
 }
 
@@ -910,6 +913,11 @@ static int dma_chain_mode_test(struct dma_ch *dmadev,
 
 	link_data = (struct dma_link_setup_data *)
 		malloc(sizeof(*link_data) * DMA_TEST_CHAIN_NUM);
+	if (!link_data) {
+		printf("failed to malloc memory for link_data\n");
+		return -ENOMEM;
+	}
+
 	link_dsc = (struct dma_link_dsc *)port_data[1].virt->res;
 
 	for (i = 0; i < DMA_TEST_CHAIN_NUM; i++) {
@@ -952,18 +960,17 @@ static void *t_srio_dma_test(void *arg)
 	uint64_t atb_multiplier = 0;
 	uint64_t perf_times = ~0;
 
+	atb_clock = malloc(sizeof(struct atb_clock));
+	if (!atb_clock) {
+		printf("failed to malloc memory for atb_clock\n");
+		return 0;
+	}
+	atb_clock_init(atb_clock);
+
 	while (1) {
 		if (task_flag[port].show_perf) {
 			task_flag[port].show_perf = 0;
 			perf_times = task_flag[port].show_times;
-			atb_clock = malloc(sizeof(struct atb_clock));
-			if (!atb_clock) {
-				printf("port %d: show performance error!\n",
-				       port + 1);
-				task_flag[port].show_times = 0;
-				perf_times = ~0;
-				break;
-			}
 			atb_multiplier = atb_get_multiplier();
 			atb_clock_init(atb_clock);
 			atb_clock_reset(atb_clock);
@@ -982,7 +989,6 @@ static void *t_srio_dma_test(void *arg)
 			printf("port %d: dma task error!\n", port + 1);
 			fsl_srio_clr_bus_err(sriodev);
 			task_flag[port].show_times = 0;
-			perf_times = ~0;
 			break;
 		}
 		if (!perf_times && task_flag[port].show_times) {
@@ -1016,6 +1022,8 @@ static void *t_srio_dma_test(void *arg)
 			break;
 		}
 	}
+
+	free(atb_clock);
 	pthread_exit(NULL);
 }
 
@@ -1030,18 +1038,17 @@ static void *t_srio_core_test(void *arg)
 	uint64_t atb_multiplier = 0;
 	uint64_t perf_times = ~0;
 
+	atb_clock = malloc(sizeof(struct atb_clock));
+	if (!atb_clock) {
+		printf("failed to malloc memory for atb_clock\n");
+		return 0;
+	}
+	atb_clock_init(atb_clock);
+
 	while (1) {
 		if (task_flag[port].show_perf) {
 			task_flag[port].show_perf = 0;
 			perf_times = task_flag[port].show_times;
-			atb_clock = malloc(sizeof(struct atb_clock));
-			if (!atb_clock) {
-				printf("port %d: show performance error!\n",
-				       port + 1);
-				task_flag[port].show_times = 0;
-				perf_times = ~0;
-				break;
-			}
 			atb_multiplier = atb_get_multiplier();
 			atb_clock_init(atb_clock);
 			atb_clock_reset(atb_clock);
@@ -1085,6 +1092,8 @@ static void *t_srio_core_test(void *arg)
 			break;
 		}
 	}
+
+	free(atb_clock);
 	pthread_exit(NULL);
 }
 
@@ -1424,8 +1433,8 @@ const char sra_prompt[] = "sra> ";
 
 int main(int argc, char *argv[])
 {
-	struct srio_dev *sriodev;
-	struct dma_ch *dmadev;
+	struct srio_dev *sriodev = NULL;
+	struct dma_ch *dmadev = NULL;
 	struct dma_pool *dmapool = NULL;
 	int i, err;
 	struct srio_port_data *port_data;
@@ -1434,8 +1443,10 @@ int main(int argc, char *argv[])
 
 	of_init();
 	err = fsl_srio_uio_init(&sriodev);
-	if (err < 0)
-		error(EXIT_FAILURE, -err, "%s(): srio_uio_init()", __func__);
+	if (err < 0) {
+		error(0, -err, "%s(): srio_uio_init()", __func__);
+		goto err_srio_init;
+	}
 
 	port_num = fsl_srio_get_port_num(sriodev);
 
@@ -1465,7 +1476,7 @@ int main(int argc, char *argv[])
 		goto err_srio_connected;
 	}
 
-	err = dma_pool_init(&dmapool);
+	dma_pool_init(&dmapool);
 
 	for (i = 0; i < port_num; i++) {
 		dma_addr_t port_phys_base =
@@ -1543,22 +1554,16 @@ int main(int argc, char *argv[])
 		cmd_implement(sriodev, dmadev, port_data);
 	}
 
-	free(port_data);
-	free(cmd_param.port);
+err_srio_connected:
 	fsl_dma_chan_finish(dmadev);
 	fsl_dma_chan_finish(dmadev1);
 	fsl_dma_chan_finish(dmadev2);
-	dma_pool_finish(dmapool);
-	fsl_srio_uio_finish(sriodev);
-
-	of_finish();
-	return EXIT_SUCCESS;
-
-err_srio_connected:
 	free(port_data);
 	free(cmd_param.port);
 err_cmd_malloc:
+	dma_pool_finish(dmapool);
 	fsl_srio_uio_finish(sriodev);
+err_srio_init:
 	of_finish();
 
 	return err;
