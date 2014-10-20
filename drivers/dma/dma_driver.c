@@ -45,7 +45,7 @@ int fsl_dma_chan_init(struct dma_ch **dma_ch, uint8_t dma_id, uint8_t ch_id)
 	int dma_uio_fd;
 	uint32_t regs_size;
 	uint32_t offset;
-	size_t len;
+	int len;
 
 	/* DMA uio name */
 	snprintf(dma_uio_name, PATH_MAX - 1, "/dev/dma-uio%d-%d",
