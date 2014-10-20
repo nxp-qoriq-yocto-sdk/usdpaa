@@ -52,7 +52,7 @@ static inline int64_t atb_get_multiplier(void)
 	char cpuinfo[8192];
 	uint32_t bytes_read;
 	char *match_char;
-	float cpu_clock;
+	float cpu_clock = 0;
 
 	file = fopen("/proc/cpuinfo", "r");
 	if (file == NULL)
@@ -63,10 +63,15 @@ static inline int64_t atb_get_multiplier(void)
 	if (bytes_read == 0 || bytes_read == sizeof(cpuinfo))
 		return -ENOENT;
 
+	cpuinfo[bytes_read] = '\0';
+
 	match_char = strstr(cpuinfo, "clock");
 
 	if (match_char)
 		sscanf(match_char, "clock : %f", &cpu_clock);
+
+	if (cpu_clock < 1)
+		return -ENOENT;
 
 	return cpu_clock * ATB_MHZ;
 }
