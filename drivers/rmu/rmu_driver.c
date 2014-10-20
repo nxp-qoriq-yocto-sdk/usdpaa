@@ -46,7 +46,7 @@ int fsl_rmu_unit_uio_init(struct rmu_unit **unit, uint8_t unit_id)
 	const struct device_node *rmu_node, *child;
 	const uint32_t *regs_addr;
 	uint64_t phys_addr = 0;
-	uint64_t regs_size;
+	uint64_t regs_size = 0;
 	uint32_t offset;
 
 	rmu_node = of_find_compatible_node(NULL, NULL, "fsl,srio-rmu");
