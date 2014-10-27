@@ -256,19 +256,12 @@ static inline enum fman_mac_type get_mac_type(const char *str)
 	return p_type;
 }
 
-static inline void fman_get_mac_info(const char *str, uint8_t *mac_idx,
-				enum fman_mac_type *mac_type)
+static inline void fman_get_mac_info(const char *str, uint8_t *mac_idx)
 {
-	if (strncmp((str + 7), "9", 1) == 0) {
-		*mac_idx = 0;
-		*mac_type = fman_mac_10g;
-	} else if (strncmp((str + 7), "10", 2) == 0) {
-		*mac_idx = 1;
-		*mac_type = fman_mac_10g;
-	} else {
-		*mac_idx = str[7] - '1';
-		*mac_type = fman_mac_1g;
-	}
+	if (str[8] > '0' && str[8] < '9')
+		*mac_idx = (str[7] - '0')*10 + (str[8] - '0');
+	else
+		*mac_idx = str[7] - '0';
 }
 
 /* This function disables/enables shared interface using ioctl */
@@ -354,27 +347,23 @@ static void check_fman_enabled_interfaces(void)
 			str[sizeof(str) - 1] = '\0';
 			num = str[2] - '0';
 			if (strncmp((str + 4), "mac", 3) == 0) {
-				fman_get_mac_info(str, &num1, &val);
+				fman_get_mac_info(str, &num1);
+				if ((num - 1) != __if->fman_idx ||
+					num1 != __if->mac_idx)
+					continue;
 			} else {
 				num1 = str[6] - '0';
 				val = get_mac_type(str);
-			}
-			if (val == fman_mac_10g) {
-				if (strncmp((str + 4), "mac", 3) == 0) {
+				if (val == fman_mac_10g) {
 					if ((num - 1) != __if->fman_idx ||
-						num1 != __if->mac_idx ||
 						val != __if->mac_type)
 						continue;
 				} else {
 					if ((num - 1) != __if->fman_idx ||
-					    val != __if->mac_type)
+						num1 != __if->mac_idx ||
+						val != __if->mac_type)
 						continue;
 				}
-			} else {
-				if ((num - 1) != __if->fman_idx ||
-					num1 != __if->mac_idx ||
-					val != __if->mac_type)
-					continue;
 			}
 			cli_info->fman_enabled_mac_interface = 1;
 			break;
@@ -456,27 +445,22 @@ static inline int netcfg_interface_match(uint8_t fman,
 			strncpy(str, cli_info->name, sizeof(str) - 1);
 			num = str[2] - '0';
 			if (strncmp((str + 4), "mac", 3) == 0) {
-				fman_get_mac_info(str, &num1, &val);
+				fman_get_mac_info(str, &num1);
+				if ((num - 1) != fman || num1 != p_num)
+					continue;
 			} else {
 				num1 = str[6] - '0';
 				val = get_mac_type(str);
-			}
-			if (val == fman_mac_10g) {
-				if (strncmp((str + 4), "mac", 3) == 0) {
+				if (val == fman_mac_10g) {
 					if ((num - 1) != fman ||
-						num1 != p_num ||
 						val != p_type)
 						continue;
 				} else {
 					if ((num - 1) != fman ||
-					    val != p_type)
+						num1 != p_num ||
+						val != p_type)
 						continue;
 				}
-			} else {
-				if ((num - 1) != fman ||
-					num1 != p_num ||
-					val != p_type)
-					continue;
 			}
 			return 1;
 		}
