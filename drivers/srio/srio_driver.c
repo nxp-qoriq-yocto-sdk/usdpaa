@@ -770,7 +770,6 @@ void fsl_srio_irq_handler(struct srio_dev *sriodev)
 	port_bits = reg_epwisr >> 28;
 
 	for (i = 0; i < sriodev->port_num; i++) {
-		if (port_bits & (0x8 >> i)) {
 			printf("SRIO Port%d interrupt info\t IECSR: 0x%x,"
 			       "ESCSR: 0x%x, EDCSR: 0x%x\n",
 			       i + 1,
@@ -784,8 +783,6 @@ void fsl_srio_irq_handler(struct srio_dev *sriodev)
 				~0x0);
 			out_be32(&rio_regs->phys_err.port[i].edcsr,
 				0x0);
-		} else
-			continue;
 	}
 
 	fsl_srio_irq_enable(sriodev);
