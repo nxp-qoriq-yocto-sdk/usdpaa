@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = common crypto fifo_queue hash_table helper
+SUBDIRS = common crypto fifo_queue hash_table
 
 lib_LIBRARIES = usdpaa_syscfg
 
