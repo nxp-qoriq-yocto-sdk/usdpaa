@@ -38,7 +38,7 @@
 <cfgdata>
     <config>
         <engine name="fm1" offload="1">
-            <port type="1G" number="0" policy="3_tuple_policy"/>
+            <port type="MAC" number="1" policy="3_tuple_policy"/>
         </engine>
     </config>
 </cfgdata>

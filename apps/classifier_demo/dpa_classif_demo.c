@@ -318,11 +318,11 @@ int ppam_init(void)
 		return err;
 	}
 
-	printf("dpa_classifier_demo is assuming FMan:%d and port:%d\n",
+	printf("dpa_classifier_demo is assuming FMan:%d and MAC:%d\n",
 		ppam_args.fm, ppam_args.port);
 
 	/* Get the CC Node Handle */
-	sprintf(object_name, "fm%d/port/1G/%d/ccnode/3_tuple_ipv4_classif",
+	sprintf(object_name, "fm%d/port/MAC/%d/ccnode/3_tuple_ipv4_classif",
 		ppam_args.fm, ppam_args.port);
 	ccnodes[0] = fmc_get_handle(&cmodel, object_name);
 	if (!ccnodes[0]) {
@@ -330,7 +330,7 @@ int ppam_init(void)
 		return -EINVAL;
 	}
 
-	sprintf(object_name, "fm%d/port/1G/%d/ccnode/3_tuple_ipv6_classif",
+	sprintf(object_name, "fm%d/port/MAC/%d/ccnode/3_tuple_ipv6_classif",
 			ppam_args.fm, ppam_args.port);
 	ccnodes[1] = fmc_get_handle(&cmodel, object_name);
 	if (!ccnodes[1]) {
@@ -338,7 +338,7 @@ int ppam_init(void)
 		return -EINVAL;
 	}
 
-	sprintf(object_name, "fm%d/port/1G/%d/ccnode/dscp_classif",
+	sprintf(object_name, "fm%d/port/MAC/%d/ccnode/dscp_classif",
 			ppam_args.fm, ppam_args.port);
 	ccnodes[2] = fmc_get_handle(&cmodel, object_name);
 	if (!ccnodes[2]) {
@@ -605,7 +605,7 @@ static int create_dpa_stats_counters(void)
 	cnt_params.eth_params.cnt_sel = DPA_STATS_CNT_ETH_ALL;
 	cnt_params.eth_params.src.engine_id = ppam_args.fm;
 	cnt_params.eth_params.src.eth_id = DPA_STATS_ETH_1G_PORT0 +
-			ppam_args.port;
+			ppam_args.port - 1;
 
 	err = dpa_stats_create_counter(dpa_stats_id, &cnt_params, &eth_cnt_id);
 	if (err < 0) {
@@ -721,7 +721,7 @@ static int ppam_interface_init(struct ppam_interface	*p,
 			clean_up();
 			return err;
 		} else {
-			printf("Successfully initialized CEETM resources for FMan %d Port %d\n",
+			printf("Successfully initialized CEETM resources for FMan %d MAC %d\n",
 			ppam_args.fm, ppam_args.port);
 		}
 
@@ -1496,9 +1496,9 @@ static int ppam_cli_parse(int key, char *arg, struct argp_state *state)
 		break;
 	case 't':
 		ppam_args.port = atoi(arg);
-		if ((ppam_args.port < 0) || (ppam_args.port > 5)) {
+		if ((ppam_args.port < 1) || (ppam_args.port > 6)) {
 			error(0, EINVAL,
-				"FMan port Id must be in the range 0-5");
+				"FMan MAC Id must be in the range 1-6");
 			return -EINVAL;
 		}
 		break;
