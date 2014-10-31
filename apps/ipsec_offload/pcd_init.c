@@ -174,7 +174,6 @@ struct fmc_model_t *fmc_compile_model(void)
 int fmc_apply_model(void)
 {
 	t_Error err = E_OK;
-	const char *port_type;
 	char fmc_path[64];
 
 	err = fmc_execute(&cmodel);
@@ -191,23 +190,22 @@ int fmc_apply_model(void)
 		goto err;
 
 	memset(fmc_path, 0, sizeof(fmc_path));
-	port_type = get_port_type(app_conf.ib_eth);
-	sprintf(fmc_path, "fm%d/port/%s/%d/ccnode/"
-		"esp_cc", app_conf.fm, port_type, app_conf.ib_eth->mac_idx);
+	sprintf(fmc_path, "fm%d/port/MAC/%d/ccnode/"
+		"esp_cc", app_conf.fm, app_conf.ib_eth->mac_idx);
 	cc_in_rx[DPA_IPSEC_SA_IPV4] = fmc_get_handle(&cmodel, fmc_path);
 	if (!cc_in_rx[DPA_IPSEC_SA_IPV4])
 		goto err;
 
 	memset(fmc_path, 0, sizeof(fmc_path));
-	sprintf(fmc_path, "fm%d/port/%s/%d/ccnode/"
-		"esp_udp_cc", app_conf.fm, port_type, app_conf.ib_eth->mac_idx);
+	sprintf(fmc_path, "fm%d/port/MAC/%d/ccnode/"
+		"esp_udp_cc", app_conf.fm, app_conf.ib_eth->mac_idx);
 	cc_in_rx[DPA_IPSEC_SA_IPV4_NATT] = fmc_get_handle(&cmodel, fmc_path);
 	if (!cc_in_rx[DPA_IPSEC_SA_IPV4_NATT])
 		goto err;
 
 	memset(fmc_path, 0, sizeof(fmc_path));
-	sprintf(fmc_path, "fm%d/port/%s/%d/ccnode/"
-		"esp6_cc", app_conf.fm, port_type, app_conf.ib_eth->mac_idx);
+	sprintf(fmc_path, "fm%d/port/MAC/%d/ccnode/"
+		"esp6_cc", app_conf.fm, app_conf.ib_eth->mac_idx);
 	cc_in_rx[DPA_IPSEC_SA_IPV6] = fmc_get_handle(&cmodel, fmc_path);
 	if (!cc_in_rx[DPA_IPSEC_SA_IPV6])
 		goto err;
@@ -294,33 +292,31 @@ int fmc_apply_model(void)
 	if (!cc_vipsec_rx[ETHER_TYPE_IPv6])
 		goto err;
 
-	port_type = get_port_type(app_conf.ob_eth);
 	sprintf(fmc_path,
-		"fm%d/port/%s/%d/ccnode/ob_ip4_local_cc",
-		app_conf.fm, port_type, app_conf.ob_eth->mac_idx);
+		"fm%d/port/MAC/%d/ccnode/ob_ip4_local_cc",
+		app_conf.fm, app_conf.ob_eth->mac_idx);
 	cc_out_local[ETHER_TYPE_IPv4] = fmc_get_handle(&cmodel,
 						      fmc_path);
 	if (!cc_out_local[ETHER_TYPE_IPv4])
 		goto err;
 	sprintf(fmc_path,
-		"fm%d/port/%s/%d/ccnode/ob_ip6_local_cc",
-		app_conf.fm, port_type, app_conf.ob_eth->mac_idx);
+		"fm%d/port/MAC/%d/ccnode/ob_ip6_local_cc",
+		app_conf.fm, app_conf.ob_eth->mac_idx);
 	cc_out_local[ETHER_TYPE_IPv6] = fmc_get_handle(&cmodel,
 							fmc_path);
 	if (!cc_out_local[ETHER_TYPE_IPv6])
 		goto err;
 
-	port_type = get_port_type(app_conf.ib_eth);
 	sprintf(fmc_path,
-		"fm%d/port/%s/%d/ccnode/ib_ip4_local_cc",
-		app_conf.fm, port_type, app_conf.ib_eth->mac_idx);
+		"fm%d/port/MAC/%d/ccnode/ib_ip4_local_cc",
+		app_conf.fm, app_conf.ib_eth->mac_idx);
 	cc_in_local[ETHER_TYPE_IPv4] = fmc_get_handle(&cmodel,
 							fmc_path);
 	if (!cc_in_local[ETHER_TYPE_IPv4])
 		goto err;
 
-	sprintf(fmc_path, "fm%d/port/%s/%d/ccnode/ib_ip6_local_cc",
-		app_conf.fm, port_type, app_conf.ib_eth->mac_idx);
+	sprintf(fmc_path, "fm%d/port/MAC/%d/ccnode/ib_ip6_local_cc",
+		app_conf.fm, app_conf.ib_eth->mac_idx);
 	cc_in_local[ETHER_TYPE_IPv6] = fmc_get_handle(&cmodel,
 							fmc_path);
 

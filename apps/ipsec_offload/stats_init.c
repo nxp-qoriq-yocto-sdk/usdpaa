@@ -111,7 +111,7 @@ int create_eth_stats_counter(struct fman_if *__if)
 		TRACE("create stats counter for 10G interface %d\n",
 		      __if->mac_idx);
 		cnt_params.eth_params.src.eth_id = DPA_STATS_ETH_10G_PORT0 +
-						__if->mac_idx;
+						__if->mac_idx - 1;
 	} else if (__if->mac_type == fman_mac_1g) {
 		TRACE("create stats counter for 1G interface %d\n",
 		     __if->mac_idx);
@@ -295,27 +295,21 @@ int show_eth_stats(int argc, char *argv[])
 	struct dpa_stats_cnt_request_params req_params;
 	struct ppac_interface *ppac_if;
 	struct fman_if *__if;
-	int port_idx, port_type, cnts_len, err;
+	int port_idx, cnts_len, err;
 
-	if (argc != 3)
+	if (argc != 2)
 		return -EINVAL;
 
 	if (!isdigit(*argv[1])) {
-		printf("\n.Port index must be of type int.\n");
+		printf("\n.MAC index must be of type int.\n");
 		return -EINVAL;
 	}
 	port_idx = atoi(argv[1]);
 
-	if (!isdigit(*argv[2])) {
-		printf("\n.Port type must be of type int.\n");
-		return -EINVAL;
-	}
-	port_type = atoi(argv[2]);
-
-	__if = get_fif(app_conf.fm, port_idx, port_type);
+	__if = get_fif(app_conf.fm, port_idx);
 
 	if (!__if) {
-		printf("\nInvalid port id or type.\n");
+		printf("\nInvalid MAC id.\n");
 		return -EINVAL;
 	}
 
@@ -334,7 +328,7 @@ int show_eth_stats(int argc, char *argv[])
 
 	if (err < 0) {
 		fprintf(stderr, "Failed to create stats request"
-			"for eth port idx %d (%d)\n", port_idx, err);
+			"for eth MAC idx %d (%d)\n", port_idx, err);
 	}
 	return err;
 }

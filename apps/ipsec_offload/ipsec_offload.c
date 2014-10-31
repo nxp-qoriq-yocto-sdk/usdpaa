@@ -287,7 +287,6 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 	struct fman_if *__if = NULL;
 	uint32_t rx_start = 0;
 	char fmc_path[64];
-	const char *port_type;
 	int idx;
 
 	if (strcmp(macless_name, app_conf.vif) &&
@@ -308,10 +307,9 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 	if (!strcmp(macless_name, app_conf.vif)) {
 		/* set fqids for vif PCD */
 		memset(fmc_path, 0, sizeof(fmc_path));
-		port_type = get_port_type(app_conf.ib_eth);
-		sprintf(fmc_path, "fm%d/port/%s/%d/dist/"
+		sprintf(fmc_path, "fm%d/port/MAC/%d/dist/"
 			"ib_default_dist",
-			app_conf.fm, port_type, app_conf.ib_eth->mac_idx);
+			app_conf.fm, app_conf.ib_eth->mac_idx);
 		ret = set_dist_base_fqid(cmodel, fmc_path, rx_start);
 		if (ret < 0)
 			goto err;
@@ -346,10 +344,9 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 	if (!strcmp(macless_name, app_conf.vof)) {
 		/* set fqids for vof PCD */
 		memset(fmc_path, 0, sizeof(fmc_path));
-		port_type = get_port_type(app_conf.ob_eth);
-		sprintf(fmc_path, "fm%d/port/%s/%d/dist/"
+		sprintf(fmc_path, "fm%d/port/MAC/%d/dist/"
 			"ob_rx_default_dist",
-			app_conf.fm, port_type, app_conf.ob_eth->mac_idx);
+			app_conf.fm, app_conf.ob_eth->mac_idx);
 		ret = set_dist_base_fqid(cmodel, fmc_path, rx_start);
 		if (ret < 0)
 			goto err;
@@ -384,13 +381,11 @@ err:
 static int update_ib_local_cc_miss_fq(void)
 {
 	char fmc_path[64];
-	const char *port_type;
 	int ret;
 
 	memset(fmc_path, 0, sizeof(fmc_path));
-	port_type = get_port_type(app_conf.ob_eth);
-	sprintf(fmc_path, "fm%d/port/%s/%d/ccnode/ib_ip4_local_cc",
-		app_conf.fm, port_type, app_conf.ob_eth->mac_idx);
+	sprintf(fmc_path, "fm%d/port/MAC/%d/ccnode/ib_ip4_local_cc",
+		app_conf.fm, app_conf.ob_eth->mac_idx);
 
 	ret = set_cc_miss_fqid(cmodel, fmc_path,
 			       ob_oh_pre_tx_fqid[app_conf.fm]);
@@ -401,9 +396,8 @@ static int update_ib_local_cc_miss_fq(void)
 	}
 
 	memset(fmc_path, 0, sizeof(fmc_path));
-	port_type = get_port_type(app_conf.ob_eth);
-	sprintf(fmc_path, "fm%d/port/%s/%d/ccnode/ib_ip6_local_cc",
-		app_conf.fm, port_type, app_conf.ob_eth->mac_idx);
+	sprintf(fmc_path, "fm%d/port/MAC/%d/ccnode/ib_ip6_local_cc",
+		app_conf.fm, app_conf.ob_eth->mac_idx);
 	ret = set_cc_miss_fqid(cmodel, fmc_path,
 			       ob_oh_pre_tx_fqid[app_conf.fm]);
 	if (ret < 0) {
@@ -423,13 +417,11 @@ static int update_ib_local_cc_miss_fq(void)
 static int update_ob_dist_miss_fq(void)
 {
 	char fmc_path[64];
-	const char *port_type;
 	int ret;
 
 	memset(fmc_path, 0, sizeof(fmc_path));
-	port_type = get_port_type(app_conf.ob_eth);
-	sprintf(fmc_path, "fm%d/port/%s/%d/dist/ob_rx_dist_udp",
-		app_conf.fm, port_type, app_conf.ob_eth->mac_idx);
+	sprintf(fmc_path, "fm%d/port/MAC/%d/dist/ob_rx_dist_udp",
+		app_conf.fm, app_conf.ob_eth->mac_idx);
 
 	ret = set_dist_base_fqid(cmodel, fmc_path,
 				 ob_oh_pre_tx_fqid[app_conf.fm]);
@@ -440,9 +432,8 @@ static int update_ob_dist_miss_fq(void)
 	}
 
 	memset(fmc_path, 0, sizeof(fmc_path));
-	port_type = get_port_type(app_conf.ob_eth);
-	sprintf(fmc_path, "fm%d/port/%s/%d/dist/ob_rx_dist_tcp",
-		app_conf.fm, port_type, app_conf.ob_eth->mac_idx);
+	sprintf(fmc_path, "fm%d/port/MAC/%d/dist/ob_rx_dist_tcp",
+		app_conf.fm, app_conf.ob_eth->mac_idx);
 
 	ret = set_dist_base_fqid(cmodel, fmc_path,
 				 ob_oh_pre_tx_fqid[app_conf.fm]);
@@ -453,9 +444,8 @@ static int update_ob_dist_miss_fq(void)
 	}
 
 	memset(fmc_path, 0, sizeof(fmc_path));
-	port_type = get_port_type(app_conf.ob_eth);
-	sprintf(fmc_path, "fm%d/port/%s/%d/dist/ob_rx_ip4_dist",
-		app_conf.fm, port_type, app_conf.ob_eth->mac_idx);
+	sprintf(fmc_path, "fm%d/port/MAC/%d/dist/ob_rx_ip4_dist",
+		app_conf.fm, app_conf.ob_eth->mac_idx);
 
 	ret = set_dist_base_fqid(cmodel, fmc_path,
 				 ob_oh_pre_tx_fqid[app_conf.fm]);
@@ -466,9 +456,8 @@ static int update_ob_dist_miss_fq(void)
 	}
 
 	memset(fmc_path, 0, sizeof(fmc_path));
-	port_type = get_port_type(app_conf.ob_eth);
-	sprintf(fmc_path, "fm%d/port/%s/%d/dist/ob_rx_ip6_dist",
-		app_conf.fm, port_type, app_conf.ob_eth->mac_idx);
+	sprintf(fmc_path, "fm%d/port/MAC/%d/dist/ob_rx_ip6_dist",
+		app_conf.fm, app_conf.ob_eth->mac_idx);
 
 	ret = set_dist_base_fqid(cmodel, fmc_path,
 				 ob_oh_pre_tx_fqid[app_conf.fm]);
@@ -770,12 +759,12 @@ void cleanup_buffer_pools(void)
 #define CFG_FMAN_NODE			("engine")
 #define CFG_FMAN_NA_name		("name")
 #define CFG_PORT_NODE			("port")
-#define CFG_PORT_NA_type		("type")
 #define CFG_PORT_NA_number		("number")
 #define CFG_PORT_NA_policy		("policy")
 
 #define CFG_OB_POLICY			("ob_rx_policy")
 #define CFG_IB_POLICY			("ib_rx_policy")
+#define CFG_1PORT_POLICY		("ib_ob_rx_policy")
 #define CFG_IB_OH_POLICY		("ib_oh_post_policy")
 #define CFG_OB_OH_PRE_POLICY	("ob_oh_pre_policy")
 #define CFG_OB_OH_POST_POLICY	("ob_oh_post_policy")
@@ -798,7 +787,7 @@ static void *get_attributes(xmlNodePtr node, xmlChar *attr)
 int parse_config(void)
 {
 	xmlDocPtr doc;
-	int p_idx, p_type;
+	int p_idx;
 	char *tmp;
 	const char *envp;
 	xmlNodePtr node;
@@ -863,25 +852,16 @@ int parse_config(void)
 			break;
 		p_idx = strtoul(tmp, NULL, 0);
 
-		/* Get the MAC port type from PORT node attribute "type" */
-		tmp = (char *)get_attributes(node, BAD_CAST CFG_PORT_NA_type);
-		if (unlikely(tmp == NULL))
-			break;
-		p_type = (strcmp(tmp, "OFFLINE") == 0) ? fman_offline :
-				 (strcmp(tmp, "10G") == 0) ? fman_mac_10g :
-				 (strcmp(tmp, "ONIC") == 0) ? fman_onic :
-				 fman_mac_1g;
-
 		tmp = (char *)get_attributes(node, BAD_CAST CFG_PORT_NA_policy);
 		if (unlikely(tmp == NULL))
 			break;
 
 		/* Get the corresponding fman_if handles */
 
-		_if = get_fif(app_conf.fm, p_idx, p_type);
+		_if = get_fif(app_conf.fm, p_idx);
 		if (!_if) {
 			fprintf(stderr, "Error: invalid interface"
-					"(idx: %d type: %d)\n", p_idx, p_type);
+					"(fm: %d idx: %d)\n", app_conf.fm, p_idx);
 			return -1;
 		}
 
@@ -889,6 +869,10 @@ int parse_config(void)
 			app_conf.ob_eth = _if;
 		else if (!strcmp(tmp, CFG_IB_POLICY))
 			app_conf.ib_eth = _if;
+		else if (!strcmp(tmp, CFG_1PORT_POLICY)) {
+			app_conf.ib_eth = _if;
+			app_conf.ob_eth = _if;
+		}
 		else if (!strcmp(tmp, CFG_IB_OH_POLICY))
 			app_conf.ib_oh = _if;
 		else if (!strcmp(tmp, CFG_OB_OH_PRE_POLICY))

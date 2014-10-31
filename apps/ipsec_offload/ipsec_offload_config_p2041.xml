@@ -39,8 +39,8 @@
 <cfgdata>
 	<config>
 	<engine name="fm0">
-		<port type="1G" number="1" policy="ob_rx_policy"/>
-		<port type="1G" number="2" policy="ib_rx_policy"/>
+		<port type="MAC" number="2" policy="ob_rx_policy"/>
+		<port type="MAC" number="3" policy="ib_rx_policy"/>
 		<port type="OFFLINE" number="1" policy="ib_oh_post_policy"/>
 		<port type="OFFLINE" number="2" policy="ob_oh_pre_policy"/>
 		<port type="OFFLINE" number="3" policy="ob_oh_post_policy"/>
