@@ -382,7 +382,7 @@ static int ppam_rx_hash_init(struct ppam_rx_hash *p, struct ppam_interface *_if,
 	}
 
 	if (!eth_if) {
-		error(0, ENODEV, "Ethernet port fm%d#%d not found\n",
+		error(0, ENODEV, "Ethernet MAC fm%d#%d not found\n",
 			ppam_args.fm, ppam_args.eth);
 		return -ENODEV;
 	}
@@ -804,8 +804,8 @@ cli_cmd(reset_stats, ppac_cli_dpa_stats_cmd);
 const char ppam_doc[] = "Fragmentation demo application";
 
 static const struct argp_option argp_opts[] = {
-	{"fm",	'f',	"INT", 0, "FMAN index for Offline port"},
-	{"eth",	't',	"INT", 0, "Ethernet port index"},
+	{"fm",	'f',	"INT", 0, "FMAN index"},
+	{"eth",	't',	"INT", 0, "Ethernet MAC index"},
 	{"oh",  'o',	"INT", 0, "Offline port index" },
 	{}
 };
@@ -822,9 +822,9 @@ static error_t parse_opts(int key, char *arg, struct argp_state *state)
 		break;
 	case 't':
 		ppam_args.eth = atoi(arg);
-		if ((ppam_args.eth < 0) || (ppam_args.eth > 5)) {
+		if ((ppam_args.eth < 1) || (ppam_args.eth > 6)) {
 			error(0, EINVAL,
-				"FMan port Id must be in the range 0-5");
+				"FMan MAC Id must be in the range 1-6");
 			return -EINVAL;
 		}
 		break;

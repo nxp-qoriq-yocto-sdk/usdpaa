@@ -38,7 +38,7 @@
 <cfgdata>
     <config>
         <engine name="fm1">
-            <port type="1G" number="0" policy="fman_eth_policy"/>
+            <port type="MAC" number="1" policy="fman_eth_policy"/>
             <port type="OFFLINE" number="2" policy="fragmentation_policy"/>
         </engine>
     </config>
