@@ -78,7 +78,7 @@ const char ppam_doc[] = "Reassembly demo application";
 
 static const struct argp_option argp_opts[] = {
 	{"fm",		'f', "INT", 0, "FMan index"},
-	{"port",	't', "INT", 0, "FMan port index"},
+	{"port",	't', "INT", 0, "FMan MAC index"},
 	{}
 };
 
@@ -207,7 +207,7 @@ int ppam_init(void)
 
 #ifdef VSP_SUPPORTED
 	/* Init vsp */
-	err = vsp_init(ppam_args.fm, ppam_args.port);
+	err = vsp_init(ppam_args.fm, ppam_args.port - 1);
 	if (err != 0) {
 		error(0, err, "Failed to initialize VSP\n");
 		return -err;
@@ -606,9 +606,9 @@ static int ppam_cli_parse(int key, char *arg, struct argp_state *state)
 		break;
 	case 't':
 		ppam_args.port = atoi(arg);
-		if ((ppam_args.port < 0) || (ppam_args.port > 5)) {
+		if ((ppam_args.port < 1) || (ppam_args.port > 6)) {
 			error(0, EINVAL,
-				"FMan port Id must be in the range 0-5");
+				"FMan MAC Id must be in the range 1-6");
 			return -EINVAL;
 		}
 		break;
@@ -631,7 +631,7 @@ static int create_dpa_stats_counters(void)
 	char object_name[100];
 	int err = 0;
 
-	printf("reassembly_demo is assuming FMan:%d and port:%d\n",
+	printf("reassembly_demo is assuming FMan:%d and MAC:%d\n",
 		ppam_args.fm, ppam_args.port);
 
 	/* Attempt to initialize the DPA Stats user space library */
@@ -712,7 +712,7 @@ static int create_dpa_stats_counters(void)
 	cnt_params.eth_params.cnt_sel = DPA_STATS_CNT_ETH_ALL;
 	cnt_params.eth_params.src.engine_id = ppam_args.fm;
 	cnt_params.eth_params.src.eth_id =
-				DPA_STATS_ETH_1G_PORT0 + ppam_args.port;
+				DPA_STATS_ETH_1G_PORT0 + ppam_args.port - 1;
 
 	err = dpa_stats_create_counter(dpa_stats_id,
 			&cnt_params, &cnt_ids[cntId++]);
@@ -723,7 +723,7 @@ static int create_dpa_stats_counters(void)
 	TRACE("Successfully created DPA Stats counter: %d\n", cnt_ids[cntId-1]);
 
 	/* Get Classification node used to perform IPv6 classification */
-	sprintf(object_name, "fm%d/port/1G/%d/ccnode/vlan_ipv6_classif",
+	sprintf(object_name, "fm%d/port/MAC/%d/ccnode/vlan_ipv6_classif",
 		ppam_args.fm, ppam_args.port);
 	ccNodeIpv6 = fmc_get_handle(&cmodel, object_name);
 
@@ -822,7 +822,7 @@ static int create_dpa_stats_counters(void)
 
 
 	/* Get Classification node used to perform IPv4 classification */
-	sprintf(object_name, "fm%d/port/1G/%d/ccnode/vlan_ipv4_classif",
+	sprintf(object_name, "fm%d/port/MAC/%d/ccnode/vlan_ipv4_classif",
 		ppam_args.fm, ppam_args.port);
 	ccNodeIpv4 = fmc_get_handle(&cmodel, object_name);
 

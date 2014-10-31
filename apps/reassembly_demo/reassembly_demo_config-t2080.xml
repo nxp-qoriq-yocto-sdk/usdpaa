@@ -38,7 +38,7 @@
 <cfgdata>
     <config>
         <engine name="fm0">
-            <port type="1G" number="3" policy="reassembly_policy"/>
+            <port type="MAC" number="4" policy="reassembly_policy"/>
         </engine>
     </config>
 </cfgdata>
