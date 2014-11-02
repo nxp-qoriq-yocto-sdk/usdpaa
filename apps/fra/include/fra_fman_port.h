@@ -120,7 +120,7 @@ void fman_rx_hash_listen(struct fra_fman_port *port,
 
 /* This function creates tx error tx confirm and tx frame queues */
 int fman_tx_init(struct fra_fman_port *port, uint32_t fqid,
-		 int fqs_num, uint8_t wq);
+		 int fqs_num, uint8_t wq, int32_t cgrid);
 
 /*
  * Listen to tx confirm frame, if received frame, handler function will be

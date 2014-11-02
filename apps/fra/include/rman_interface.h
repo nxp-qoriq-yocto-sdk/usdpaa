@@ -270,6 +270,15 @@ rman_tx_init(uint8_t port, int fqid, int fqs_num, uint8_t wq,
  */
 int rman_tx_enable_multicast(struct rman_tx *tx, int mg, int ml);
 
+#ifdef FRA_FC
+/* Sets rman_tx to receive the Xon/Xoff flow control frame */
+int rman_tx_fc_listen(struct rman_tx *tx, uint8_t port, uint32_t fqid,
+		      struct rio_tran *tran);
+
+/* This function returns this cgr index which this rx socket binded to */
+int rman_rx_get_cgrid(struct rman_rx *rx);
+#endif
+
 /* Sets rman_tx to receive the completed or/and error status frame */
 int rman_tx_status_listen(struct rman_tx *tx, int error_flag,
 			  int complete_flag, void *pvt,
@@ -327,4 +336,8 @@ void rman_if_rxs_disable(void);
 /* Enable all the ready RMan inbound blocks */
 void rman_if_rxs_enable(void);
 
+/* Dump the cgrs */
+void rman_rx_dump_cgr(struct rman_rx *rman_rx);
+void rman_tx_dump_cgr(struct rman_tx *rman_tx);
+void dump_cgr(struct qman_cgr *cgr);
 #endif	/* _RMAN_IF_H */

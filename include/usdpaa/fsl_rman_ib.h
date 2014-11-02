@@ -95,6 +95,7 @@ struct ibcu_cfg {
 	int		ibcu;
 	uint8_t		port;
 	uint8_t		port_mask;
+	uint8_t		fcdr;
 	uint16_t	sid;
 	uint16_t	sid_mask;
 	uint16_t	did;
@@ -105,6 +106,8 @@ struct ibcu_cfg {
 	uint32_t	msgsize;
 	uint32_t	sgsize;
 	uint32_t	data_offset;
+	uint32_t	cgn;
+	uint32_t	ext;
 	enum RMAN_FQ_MODE	fq_mode;
 	struct rio_tran	*tran;
 };

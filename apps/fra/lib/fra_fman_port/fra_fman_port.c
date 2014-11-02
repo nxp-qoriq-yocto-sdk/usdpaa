@@ -140,8 +140,8 @@ int fman_rx_init(struct fra_fman_port *port, int init_hash, uint8_t wq,
 			struct fman_rx_hash *hash = &pcd_range->hash[loop];
 			hash->opt.rx_fqid = fqr->start + loop;
 			fra_fq_pcd_init(&hash->fq, hash->opt.rx_fqid,
-					wq, channel, &default_stash_opts,
-					fman_hash_dqrr);
+					wq, channel, CGRID_NULL,
+					&default_stash_opts, fman_hash_dqrr);
 #ifdef FRA_ORDER_RESTORATION
 			fra_orp_init(&hash->orp_id);
 			FRA_DBG("FMan port %s, Rx FQID %d associated "
@@ -213,7 +213,7 @@ int opt_bindto_fman_tx(struct hash_opt *opt, struct fra_fman_port *port,
 }
 
 int fman_tx_init(struct fra_fman_port *port, uint32_t fqid,
-		   int fqs_num, uint8_t wq)
+		   int fqs_num, uint8_t wq, int32_t cgrid)
 {
 	const struct fman_if *fif;
 	uint64_t context_a;
@@ -256,7 +256,7 @@ int fman_tx_init(struct fra_fman_port *port, uint32_t fqid,
 	for (loop = 0; loop < fqs_num; loop++) {
 		struct qman_fq *fq = &port->tx_fqs[loop];
 		fra_fq_tx_init(fq, fqid ? (fqid + loop) : 0, wq,
-			       fif->tx_channel_id, context_a, context_b);
+			       fif->tx_channel_id, cgrid, context_a, context_b);
 	}
 	return 0;
 }

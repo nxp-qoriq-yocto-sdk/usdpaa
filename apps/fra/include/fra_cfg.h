@@ -38,6 +38,8 @@
 #undef FRA_CORE_COPY_MD /* core copy the rman descriptor */
 #undef FRA_ERROR_INTERRUPT_INFO /* print error interrupt info */
 
+#define FRA_FC
+
 /*
  * This macro is to enable Mailbox multicast mode
  * Note: Messages are limited to one segment and 256 bytes or less
@@ -60,9 +62,6 @@
 #define FRA_TX_PREFERINCACHE	/* Keep tx FQDs in-cache even when empty */
 #define FRA_TX_FORCESFDR	/* Priority allocation of SFDRs to egress */
 #undef FRA_DEPLETION		/* Trace depletion entry/exit */
-#undef FRA_CGR			/* Track rx and tx fill-levels via CGR */
-#undef FRA_CSTD			/* CGR tail-drop */
-#undef FRA_CSCN			/* Log CGR state-change notifications */
 #define FRA_IDLE_IRQ		/* Block in interrupt-mode when idle */
 #undef FRA_TX_CONFIRM		/* Use Tx confirmation for all transmits */
 

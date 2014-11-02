@@ -63,6 +63,7 @@ struct rman_cfg {
 	uint8_t osid; /* Outbound segmentation interleaving disable */
 	uint8_t sgbpid;
 	uint8_t efq; /* Error frame queue enable */
+	uint8_t cgrid; /* CGR id */
 };
 
 struct rman_dev;

@@ -37,6 +37,8 @@
 #include <usdpaa/compat.h>
 #include <stdio.h>
 
+#define CGRID_NULL -1
+
 /* sanity check the application options for basic conflicts */
 #if defined(FRA_HOLDACTIVE) && defined(FRA_AVOIDBLOCK)
 #error "HOLDACTIVE and AVOIDBLOCK options are mutually exclusive"
@@ -70,12 +72,6 @@ extern __thread u32 local_seqnum;
 extern __PERCPU const struct qm_dqrr_entry *local_dqrr;
 #endif
 
-#ifdef FRA_CGR
-/* A congestion group to hold Rx FQs (uses netcfg::cgrids[0]) */
-extern struct qman_cgr cgr_rx;
-/* Tx FQs go into a separate CGR (uses netcfg::cgrids[1]) */
-extern struct qman_cgr cgr_tx;
-#endif
 
 #if defined(FRA_ORDER_PRESERVATION) || \
 	defined(FRA_ORDER_RESTORATION)
@@ -207,7 +203,7 @@ void local_fq_init(void);
 
 /* Initialize pcd frame queue */
 void fra_fq_pcd_init(struct qman_fq *fq, uint32_t fqid,
-		     uint8_t wq, u16 channel,
+		     uint8_t wq, u16 channel, int32_t cgrid,
 		     const struct qm_fqd_stashing *stashing,
 		     qman_cb_dqrr cb);
 
@@ -219,7 +215,7 @@ void fra_fq_nonpcd_init(struct qman_fq *fq, uint32_t fqid,
 
 /* Initialize tx frame queue */
 void fra_fq_tx_init(struct qman_fq *fq,  uint32_t fqid,
-		    uint8_t wq, u16 channel,
+		    uint8_t wq, u16 channel, int32_t cgrid,
 		    uint64_t cont_a, uint32_t cont_b);
 
 /* Tear down frame queue */
@@ -227,5 +223,7 @@ void fra_teardown_fq(struct qman_fq *fq);
 
 int init_pool_channels(void);
 void finish_pool_channels(void);
+
+int fra_cgr_init(struct qman_cgr *cgr, uint32_t numtxfqs);
 
 #endif /* _FRA_FQ_INTERFACE_H */

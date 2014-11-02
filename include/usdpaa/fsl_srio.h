@@ -99,6 +99,7 @@ int fsl_srio_enable_accept_all(struct srio_dev *sriodev, uint8_t port_id);
 int fsl_srio_disable_accept_all(struct srio_dev *sriodev, uint8_t port_id);
 int fsl_srio_set_deviceid(struct srio_dev *sriodev, uint8_t port_id,
 			  uint32_t dev_id);
+int fsl_srio_get_deviceid(struct srio_dev *sriodev, uint8_t port_id);
 int fsl_srio_set_targetid(struct srio_dev *sriodev, uint8_t port_id,
 			  uint8_t win_id, uint32_t target_id);
 int fsl_srio_set_seg_num(struct srio_dev *sriodev, uint8_t port_id,

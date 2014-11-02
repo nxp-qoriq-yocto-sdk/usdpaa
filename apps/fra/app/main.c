@@ -77,18 +77,10 @@ struct worker_msg {
 		worker_msg_do_test_speed,
 		worker_msg_do_test_pw,
 		worker_msg_do_reset,
-#ifdef FRA_CGR
+#ifdef FRA_FC
 		worker_msg_query_cgr
 #endif
 	} msg;
-#ifdef FRA_CGR
-	union {
-		struct {
-			struct qm_mcr_querycgr res_rx;
-			struct qm_mcr_querycgr res_tx;
-		} query_cgr;
-	};
-#endif
 } ____cacheline_aligned;
 
 struct worker {
@@ -157,18 +149,10 @@ static int process_msg(struct worker *worker, struct worker_msg *msg)
 	else if (msg->msg == worker_msg_do_reset)
 		fra_reset();
 
-#ifdef FRA_CGR
+#ifdef FRA_FC
 	/* Query the CGR state */
-	else if (msg->msg == worker_msg_query_cgr) {
-		int err = qman_query_cgr(&cgr_rx, &msg->query_cgr.res_rx);
-		if (err)
-			error(0, 0,
-			      "error: query rx CGR, continuing");
-		err = qman_query_cgr(&cgr_tx, &msg->query_cgr.res_tx);
-		if (err)
-			error(0, 0,
-			      "error: query tx CGR, continuing");
-	}
+	else if (msg->msg == worker_msg_query_cgr)
+		fra_dump_cgr();
 #endif
 
 	/* What did you want? */
@@ -518,7 +502,7 @@ static struct worker *worker_find(int cpu, int can_be_primary)
 	return NULL;
 }
 
-#ifdef FRA_CGR
+#ifdef FRA_FC
 /* This function is, so far, only used by CGR-specific code. */
 static struct worker *worker_first(void)
 {
@@ -761,21 +745,7 @@ void test_pw_to_send(void)
 	}
 }
 
-#ifdef FRA_CGR
-static int msg_query_cgr(struct worker *worker)
-{
-	int ret = msg_post(worker, worker_msg_query_cgr);
-	if (ret)
-		return ret;
-	error(0, 0,
-	      "Rx CGR ID: %d, selected fields;", cgr_rx.cgrid);
-	dump_cgr(&worker->msg->query_cgr.res_rx);
-	error(0, 0,
-	      "Tx CGR ID: %d, selected fields;", cgr_tx.cgrid);
-	dump_cgr(&worker->msg->query_cgr.res_tx);
-	return 0;
-}
-
+#ifdef FRA_FC
 static int fra_cli_cgr(int argc, char *argv[])
 {
 	struct worker *worker;
@@ -784,9 +754,7 @@ static int fra_cli_cgr(int argc, char *argv[])
 		return -EINVAL;
 
 	worker = worker_first();
-	msg_query_cgr(worker);
-
-	return 0;
+	return msg_post(worker, worker_msg_query_cgr);
 }
 
 cli_cmd(cgr, fra_cli_cgr);

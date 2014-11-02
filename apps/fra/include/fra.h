@@ -99,4 +99,6 @@ int msg_do_reset(void);
 
 void fra_finish(void);
 
+void fra_dump_cgr(void);
+
 #endif /* _FRA_H */

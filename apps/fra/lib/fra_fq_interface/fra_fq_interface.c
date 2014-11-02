@@ -53,12 +53,6 @@ __thread u32 local_orp_id;
 __thread u32 local_seqnum;
 #endif
 
-#ifdef FRA_CGR
-/* A congestion group to hold Rx FQs (uses netcfg::cgrids[0]) */
-struct qman_cgr cgr_rx;
-/* Tx FQs go into a separate CGR (uses netcfg::cgrids[1]) */
-struct qman_cgr cgr_tx;
-#endif
 
 static uint32_t pchannel_idx;
 static uint32_t pchannels[FRA_NUM_POOL_CHANNELS];
@@ -125,7 +119,7 @@ void fra_fq_nonpcd_init(struct qman_fq *fq, uint32_t fqid,
 }
 
 void fra_fq_pcd_init(struct qman_fq *fq, uint32_t fqid,
-		     uint8_t wq, u16 channel,
+		     uint8_t wq, u16 channel, int32_t cgrid,
 		     const struct qm_fqd_stashing *stashing,
 		     qman_cb_dqrr cb)
 {
@@ -158,10 +152,12 @@ void fra_fq_pcd_init(struct qman_fq *fq, uint32_t fqid,
 		QM_FQCTRL_PREFERINCACHE |
 #endif
 		QM_FQCTRL_CTXASTASHING;
-#ifdef FRA_CGR
-	opts.we_mask |= QM_INITFQ_WE_CGID;
-	opts.fqd.cgid = cgr_rx.cgrid;
-	opts.fqd.fq_ctrl |= QM_FQCTRL_CGE;
+#ifdef FRA_FC
+	if (cgrid != CGRID_NULL) {
+		opts.we_mask |= QM_INITFQ_WE_CGID;
+		opts.fqd.cgid = cgrid;
+		opts.fqd.fq_ctrl |= QM_FQCTRL_CGE;
+	}
 #endif
 	opts.fqd.context_a.stashing = *stashing;
 	ret = qman_init_fq(fq, QMAN_INITFQ_FLAG_SCHED, &opts);
@@ -203,7 +199,7 @@ cb_tx_drain(struct qman_portal *qm __always_unused,
 }
 
 void fra_fq_tx_init(struct qman_fq *fq,  uint32_t fqid,
-		uint8_t wq, u16 channel,
+		uint8_t wq, u16 channel, int32_t cgrid,
 		uint64_t cont_a, uint32_t cont_b)
 {
 	struct qm_mcc_initfq opts;
@@ -236,10 +232,12 @@ void fra_fq_tx_init(struct qman_fq *fq,  uint32_t fqid,
 #ifdef FRA_TX_FORCESFDR
 	opts.fqd.fq_ctrl |= QM_FQCTRL_FORCESFDR;
 #endif
-#ifdef FRA_CGR
-	opts.we_mask |= QM_INITFQ_WE_CGID;
-	opts.fqd.cgid = cgr_tx.cgrid;
-	opts.fqd.fq_ctrl |= QM_FQCTRL_CGE;
+#ifdef FRA_FC
+	if (cgrid != CGRID_NULL) {
+		opts.we_mask |= QM_INITFQ_WE_CGID;
+		opts.fqd.cgid = cgrid;
+		opts.fqd.fq_ctrl |= QM_FQCTRL_CGE;
+	}
 #endif
 	qm_fqd_context_a_set64(&opts.fqd, cont_a);
 	opts.fqd.context_b = cont_b;
@@ -310,120 +308,15 @@ void fra_teardown_fq(struct qman_fq *fq)
 	qman_destroy_fq(fq, 0);
 }
 
-#ifdef FRA_CGR
-static void cgr_rx_cb(struct qman_portal *qm, struct qman_cgr *c, int congested)
+#ifdef FRA_FC
+void dump_cgr(struct qman_cgr *cgr)
 {
-	BUG_ON(c != &cgr_rx);
-
-	error(0, 0, "%s: rx CGR -> congestion %s", __func__,
-		congested ? "entry" : "exit");
-}
-
-static void cgr_tx_cb(struct qman_portal *qm, struct qman_cgr *c, int congested)
-{
-	BUG_ON(c != &cgr_tx);
-
-	error(0, 0, "%s: tx CGR -> congestion %s", __func__,
-		congested ? "entry" : "exit");
-}
-
-int fra_cgr_ids_init(void)
-{
-	uint32_t cgrids[2];
-	int err;
-
-	err = qman_alloc_cgrid_range(&cgrids[0], 2, 1, 0);
-	if (err != 2) {
-		cgr_rx.cgrid = -1;
-		cgr_tx.cgrid = -1;
-		fprintf(stderr, "error: insufficient CGRIDs available\n");
-		return -EINVAL;
-	}
-
-	cgr_rx.cgrid = cgrids[0];
-	cgr_tx.cgrid = cgrids[1];
-	return 0;
-}
-
-uint32_t fra_cgr_rx_id(void)
-{
-	return cgr_rx.cgrid;
-}
-
-uint32_t fra_cgr_tx_id(void)
-{
-	return cgr_tx.cgrid;
-}
-
-int fra_cgr_rx_init(uint32_t numrxfqs)
-{
-	struct qm_mcc_initcgr opts = {
-		.we_mask = QM_CGR_WE_CS_THRES |
-#ifdef FRA_CSCN
-			   QM_CGR_WE_CSCN_EN |
-#endif
-#ifdef FRA_CSTD
-			   QM_CGR_WE_CSTD_EN |
-#endif
-			   QM_CGR_WE_MODE,
-		.cgr = {
-#ifdef FRA_CSCN
-			.cscn_en = QM_CGR_EN,
-#endif
-#ifdef FRA_CSTD
-			.cstd_en = QM_CGR_EN,
-#endif
-			.mode = QMAN_CGR_MODE_FRAME
-		}
-	};
-
-	if (-1 == cgr_rx.cgrid)
-		return -EINVAL;
-	/* Set up Rx CGR */
-	qm_cgr_cs_thres_set64(&opts.cgr.cs_thres,
-			      numrxfqs * FRA_CGR_RX_PERFQ_THRESH, 0);
-	cgr_rx.cb = cgr_rx_cb;
-
-	return qman_create_cgr(&cgr_rx, QMAN_CGR_FLAG_USE_INIT, &opts);
-}
-
-int fra_cgr_tx_init(uint32_t numtxfqs)
-{
-	struct qm_mcc_initcgr opts = {
-		.we_mask = QM_CGR_WE_CS_THRES |
-#ifdef FRA_CSCN
-			   QM_CGR_WE_CSCN_EN |
-#endif
-#ifdef FRA_CSTD
-			   QM_CGR_WE_CSTD_EN |
-#endif
-			   QM_CGR_WE_MODE,
-		.cgr = {
-#ifdef FRA_CSCN
-			.cscn_en = QM_CGR_EN,
-#endif
-#ifdef FRA_CSTD
-			.cstd_en = QM_CGR_EN,
-#endif
-			.mode = QMAN_CGR_MODE_FRAME
-		}
-	};
-
-	if (-1 == cgr_tx.cgrid)
-		return -EINVAL;
-
-	/* Set up Tx CGR */
-	qm_cgr_cs_thres_set64(&opts.cgr.cs_thres,
-			      numtxfqs * FRA_CGR_TX_PERFQ_THRESH, 0);
-	cgr_tx.cb = cgr_tx_cb;
-
-	return qman_create_cgr(&cgr_tx, QMAN_CGR_FLAG_USE_INIT, &opts);
-}
-
-void dump_cgr(const struct qm_mcr_querycgr *res)
-{
+	struct qm_mcr_querycgr quercgr, *res = &quercgr;
 	uint64_t val64;
 
+	qman_query_cgr(cgr, res);
+
+	printf("CGR ID: %d\n", cgr->cgrid);
 	printf("\tcscn_en: %d\n", res->cgr.cscn_en);
 	printf("\tcscn_targ: 0x%08x\n", res->cgr.cscn_targ);
 	printf("\tcstd_en: %d\n", res->cgr.cstd_en);
@@ -440,12 +333,33 @@ void dump_cgr(const struct qm_mcr_querycgr *res)
 		(uint32_t)(val64 >> 16) & 0xffff, (uint32_t)val64 & 0xffff);
 }
 
-void fra_cgr_ids_release(void)
+int fra_cgr_init(struct qman_cgr *cgr, uint32_t numtxfqs)
 {
-	qman_release_cgrid_range(cgr_rx.cgrid, 1);
-	qman_release_cgrid_range(cgr_tx.cgrid, 1);
-	qman_delete_cgr(&cgr_rx);
-	qman_delete_cgr(&cgr_tx);
-}
+	struct qm_mcc_initcgr opts = {
+		.we_mask = QM_CGR_WE_CS_THRES |
+			   QM_CGR_WE_CSCN_EN |
+			   QM_CGR_WE_MODE,
+		.cgr = {
+			.cscn_en = QM_CGR_EN,
+			.mode = QMAN_CGR_MODE_FRAME
+		}
+	};
 
+	uint32_t cgrid;
+	int err;
+
+	err = qman_alloc_cgrid_range(&cgrid, 1, 1, 0);
+	if (err != 1) {
+		cgr->cgrid = -1;
+		fprintf(stderr, "error: insufficient CGRIDs available\n");
+		return -EINVAL;
+	}
+
+	cgr->cgrid = cgrid;
+	qm_cgr_cs_thres_set64(&opts.cgr.cs_thres,
+			      numtxfqs * FRA_CGR_TX_PERFQ_THRESH, 0);
+	cgr->cb = NULL;
+
+	return qman_create_cgr_to_dcp(cgr, QMAN_CGR_FLAG_USE_INIT, 4, &opts);
+}
 #endif

@@ -76,6 +76,9 @@ struct rman_rx {
 	struct rman_inbound_block *rmib;
 	struct ibcu_cfg cfg;
 	struct rman_status *status;
+#ifdef FRA_FC
+	struct qman_cgr cgr;
+#endif
 	int fqs_num;
 	struct rman_rx_hash *hash;
 };
@@ -89,6 +92,11 @@ struct rman_tx {
 	struct list_head node;
 	struct rio_tran *tran;
 	struct rman_status *status;
+#ifdef FRA_FC
+	struct rman_inbound_block *fcib;
+	struct ibcu_cfg cfg;
+	struct qman_cgr cgr;
+#endif
 	int fqs_num;
 	struct rman_tx_hash *hash;
 };
@@ -366,6 +374,11 @@ void rman_rx_finish(struct rman_rx *rx)
 	if (rx->node.next && rx->node.prev)
 		list_del(&rx->node);
 
+#ifdef FRA_FC
+	qman_delete_cgr(&rx->cgr);
+	qman_release_cgrid_range(rx->cgr.cgrid, 1);
+#endif
+
 	free(rx);
 }
 
@@ -418,6 +431,7 @@ rman_rx_init(int hash_init, uint32_t fqid, int fq_mode, uint8_t wq,
 	struct rman_rx *rx;
 	struct rman_rx_hash *hash;
 	size_t size;
+	int32_t cgrid;
 
 	if (!rmif || !fqid || !tran)
 		return NULL;
@@ -444,6 +458,11 @@ rman_rx_init(int hash_init, uint32_t fqid, int fq_mode, uint8_t wq,
 	if (rx->fqs_num <= 0)
 		goto _err;
 
+#ifdef FRA_FC
+	if (fra_cgr_init(&rx->cgr, rx->fqs_num))
+		goto _err;
+#endif
+
 	if (!hash_init) {
 		list_add(&rx->node, &rmif->rman_rx_list);
 		return rx;
@@ -461,8 +480,13 @@ rman_rx_init(int hash_init, uint32_t fqid, int fq_mode, uint8_t wq,
 		hash = &rx->hash[i];
 		hash->opt.rx_fqid = fqid +
 			rman_get_rxfqid_offset(fq_mode, tran, i);
+#ifdef FRA_FC
+		cgrid = rx->cgr.cgrid;
+#else
+		cgrid = CGRID_NULL;
+#endif
 		fra_fq_pcd_init(&hash->fq, hash->opt.rx_fqid,
-				wq, channel, &default_stash_opts,
+				wq, channel, cgrid, &default_stash_opts,
 				rman_rx_dqrr);
 		hash->pvt = pvt;
 		hash->handler = handler;
@@ -511,6 +535,14 @@ int rman_rx_listen(struct rman_rx *rx, uint8_t port, uint8_t port_mask,
 	cfg->msgsize = rmif->msg_size[cfg->tran->type];
 	cfg->sgsize = rmif->sg_size;
 	cfg->data_offset = RM_DATA_OFFSET;
+	cfg->ext = 0;
+#ifdef FRA_FC
+	cfg->cgn = rx->cgr.cgrid;
+	cfg->fcdr = sid;
+#else
+	cfg->cgn = 0;
+	cfg->fcdr = 0;
+#endif
 	err = rman_config_ibcu(rx->rmib, cfg);
 	return err;
 }
@@ -524,6 +556,85 @@ void rman_rx_enable(struct rman_rx *rx)
 	rman_enable_ibcu(rx->rmib, rx->cfg.ibcu);
 }
 
+#ifdef FRA_FC
+void rman_rx_dump_cgr(struct rman_rx *rman_rx)
+{
+	dump_cgr(&rman_rx->cgr);
+}
+
+void rman_tx_dump_cgr(struct rman_tx *rman_tx)
+{
+	dump_cgr(&rman_tx->cgr);
+}
+
+int rman_rx_get_cgrid(struct rman_rx *rman_rx)
+{
+	if (!rman_rx)
+		return 0;
+	return rman_rx->cgr.cgrid;
+}
+
+int rman_tx_fc_listen(struct rman_tx *tx, uint8_t port, uint32_t fqid,
+		      struct rio_tran *tran)
+{
+	struct ibcu_cfg *cfg;
+
+	if (!rmif || !fqid || !tx)
+		return -EINVAL;
+
+	cfg = &tx->cfg;
+
+	printf("Configuring flow control inbound.\n");
+	printf("Bind FQID 0x%x to IBCU %d\n", fqid, cfg->ibcu);
+
+	cfg->tran = tran;
+	cfg->fqid = fqid;
+	cfg->fq_mode = 0;
+	cfg->port = port;
+	cfg->port_mask = 0;
+	cfg->sid = 0;
+	cfg->sid_mask = 0;
+	cfg->sid_mask = 0xffff;
+	cfg->did = fsl_srio_get_deviceid(rmif->sriodev, port);
+	cfg->did_mask = 0x0;
+	cfg->bpid = rmif->cfg.bpid[cfg->tran->type];
+	cfg->sgbpid = rmif->cfg.sgbpid;
+	cfg->msgsize = rmif->msg_size[cfg->tran->type];
+	cfg->sgsize = rmif->sg_size;
+	cfg->data_offset = RM_DATA_OFFSET;
+	cfg->cgn = tx->cgr.cgrid;
+	cfg->ext = 1;
+	cfg->fcdr = cfg->did;
+	rman_config_ibcu(tx->fcib, cfg);
+	rman_enable_ibcu(tx->fcib, tx->cfg.ibcu);
+	return 0;
+}
+
+static int rman_tx_fcibcu_request(struct rman_tx *tx)
+{
+	int i;
+
+	if (!tx)
+		return -EINVAL;
+
+	for (i = 0; i < FRA_MAX_NUM_OF_IB; i++) {
+		/* first initialize inbound block */
+		if (!rmif->rmib[i])
+			rmif->rmib[i] = rman_ib_init(i);
+		if (!rmif->rmib[i])
+			continue;
+
+		tx->cfg.ibcu = rman_request_ibcu(rmif->rmib[i]);
+		if (tx->cfg.ibcu < 0)
+			continue;
+
+		tx->fcib = rmif->rmib[i];
+		return 0;
+	}
+	return -EINVAL;
+}
+#endif
+
 struct rman_tx *
 rman_tx_init(uint8_t port, int fqid, int fqs_num, uint8_t wq,
 	     struct rio_tran *tran)
@@ -534,6 +645,7 @@ rman_tx_init(uint8_t port, int fqid, int fqs_num, uint8_t wq,
 	int i;
 	size_t size;
 	uint64_t cont_a;
+	int32_t cgrid;
 
 	if (!rmif || !tran || port >= RMAN_MAX_NUM_OF_CHANNELS)
 		return NULL;
@@ -543,12 +655,22 @@ rman_tx_init(uint8_t port, int fqid, int fqs_num, uint8_t wq,
 		return NULL;
 	memset(tx, 0, sizeof(*tx));
 
+#ifdef FRA_FC
+	if (rman_tx_fcibcu_request(tx))
+		goto _err;
+#endif
+
 	tx->status = rman_status_init();
 	if (!tx->status)
 		goto _err;
 
 	tx->tran = tran;
 	tx->fqs_num = fqs_num;
+#ifdef FRA_FC
+	if (fra_cgr_init(&tx->cgr, tx->fqs_num))
+		goto _err;
+#endif
+
 	size = tx->fqs_num * sizeof(struct rman_tx_hash);
 	tx->hash = __dma_mem_memalign(L1_CACHE_BYTES, size);
 	if (!tx->hash) {
@@ -594,8 +716,15 @@ rman_tx_init(uint8_t port, int fqid, int fqs_num, uint8_t wq,
 #else
 		cont_a = __dma_mem_vtop(md);
 #endif
+
+#ifdef FRA_FC
+		cgrid = tx->cgr.cgrid;
+#else
+		cgrid = CGRID_NULL;
+#endif
+
 		fra_fq_tx_init(&hash->fq , fqid ? fqid + i : 0,
-				wq, rmif->tx_channel_id[port],
+				wq, rmif->tx_channel_id[port], cgrid,
 				cont_a, 0);
 	}
 
@@ -675,6 +804,12 @@ void rman_tx_finish(struct rman_tx *tx)
 	if (!tx)
 		return;
 
+	/* Disable inbound block classification unit */
+#ifdef FRA_FC
+	if (tx->fcib)
+		rman_release_ibcu(tx->fcib, tx->cfg.ibcu);
+#endif
+
 	if (tx->status) {
 		fra_teardown_fq(&tx->status->fq);
 		__dma_mem_free(tx->status);
@@ -688,6 +823,11 @@ void rman_tx_finish(struct rman_tx *tx)
 
 	if (tx->node.next && tx->node.prev)
 		list_del(&tx->node);
+
+#ifdef FRA_FC
+	qman_delete_cgr(&tx->cgr);
+	qman_release_cgrid_range(tx->cgr.cgrid, 1);
+#endif
 
 	free(tx);
 }
@@ -916,6 +1056,10 @@ int rman_if_init(const struct rman_cfg *cfg)
 		error(0, -err, "srio_uio_init()");
 		return err;
 	}
+
+#ifdef FRA_FC
+	fsl_srio_set_tmmode(rmif->sriodev, 1);
+#endif
 
 	rmif->rmdev = rman_dev_init();
 	if (!rmif->rmdev) {

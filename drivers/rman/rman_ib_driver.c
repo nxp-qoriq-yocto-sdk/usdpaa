@@ -215,6 +215,9 @@ int rman_config_ibcu(struct rman_inbound_block *ib,
 			  cfg->port_mask << 24 |
 			  cfg->tran->dstr.cos_mask << 16 |
 			  cfg->tran->dstr.streamid_mask);
+		write_reg(&ib->cu[cu_index].cu_regs->t9fcdr,
+			  cfg->fcdr << 16 |
+			  cfg->fcdr);
 		write_reg(&ib->cu[cu_index].cu_regs->dbpr,
 			  (cfg->msgsize << 16) | cfg->bpid);
 		write_reg(&ib->cu[cu_index].cu_regs->t9sgbpr,
@@ -226,7 +229,11 @@ int rman_config_ibcu(struct rman_inbound_block *ib,
 		return -EINVAL;
 	}
 	write_reg(&ib->cu[cu_index].cu_regs->mr,
-		  cfg->fq_mode << 28 | (cfg->tran->type << 24));
+		  cfg->fq_mode << 28 |
+		  cfg->tran->type << 24 |
+		  cfg->ext << 23 |
+		  cfg->cgn);
+
 	return 0;
 }
 

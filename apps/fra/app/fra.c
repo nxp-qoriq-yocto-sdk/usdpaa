@@ -452,6 +452,10 @@ static struct distribution *dist_rman_tx_init(struct dist_cfg *cfg)
 		return NULL;
 	}
 
+#ifdef FRA_FC
+	rman_tx_fc_listen(dist->rman_tx, txcfg->rio_port,
+			  txcfg->fqid, txcfg->tran);
+#endif
 #ifdef FRA_TX_CONFIRM
 	rman_tx_status_listen(dist->rman_tx, 0, 1, dist, dist_tx_confirm_cb);
 #endif
@@ -470,6 +474,7 @@ static struct distribution *dist_rman_to_fman_init(struct dist_cfg *cfg)
 	struct dist_rman_to_fman_cfg *r2fcfg;
 	struct fra_fman_port *fman_port;
 	struct distribution *dist;
+	int32_t cgrid;
 
 	if (!cfg || cfg->type != DIST_TYPE_RMAN_TO_FMAN)
 		return NULL;
@@ -506,9 +511,14 @@ static struct distribution *dist_rman_to_fman_init(struct dist_cfg *cfg)
 	if (!dist->rman_to_fman->rman_rx)
 		goto _err;
 
+#ifdef FRA_FC
+	cgrid = rman_rx_get_cgrid(dist->rman_to_fman->rman_rx);
+#else
+	cgrid = CGRID_NULL;
+#endif
 	fman_tx_init(fman_port, r2fcfg->fqid,
 		     rman_rx_get_fqs_num(dist->rman_to_fman->rman_rx),
-		     r2fcfg->wq);
+		     r2fcfg->wq, cgrid);
 
 #ifdef FRA_TX_CONFIRM
 	fman_tx_confirm_listen(dist->rman_to_fman->fman_port,
@@ -571,7 +581,7 @@ static struct distribution *dist_fman_tx_init(struct dist_cfg *cfg)
 	if (!port)
 		return NULL;
 
-	if (fman_tx_init(port, 0, txcfg->fqs_num,  txcfg->wq))
+	if (fman_tx_init(port, 0, txcfg->fqs_num,  txcfg->wq, CGRID_NULL))
 		return NULL;
 
 	dist = __dma_mem_memalign(L1_CACHE_BYTES, sizeof(*dist));
@@ -650,6 +660,10 @@ static struct distribution *dist_fman_to_rman_init(struct dist_cfg *cfg)
 		if (!rman_tx_list->rman_tx)
 			goto _err;
 
+#ifdef FRA_FC
+		rman_tx_fc_listen(rman_tx_list->rman_tx, f2rcfg->rio_port,
+				  fqid, f2rcfg->tran);
+#endif
 #ifdef FRA_TX_CONFIRM
 		rman_tx_status_listen(rman_tx_list->rman_tx, 0, 1, dist,
 				      dist_tx_confirm_cb);
@@ -912,6 +926,7 @@ static void rman_interrupt_handler(void)
 		return;
 	}
 
+#ifndef FRA_FC
 	/* A workaround to avoid PFDR low watermark error interrupt */
 	if (status & RMAN_BAE_ERROR_MASK) {
 		rman_if_rxs_disable();
@@ -919,6 +934,7 @@ static void rman_interrupt_handler(void)
 		sleep(1);
 		rman_if_rxs_enable();
 	}
+#endif
 
 #ifdef FRA_ERROR_INTERRUPT_INFO
 	if (status & RMAN_OFER_ERROR_MASK)
@@ -1069,3 +1085,63 @@ void fra_reset(void)
 	fra_rman_reset();
 	rman_interrupt_enable();
 }
+
+#ifdef FRA_FC
+static void dist_dump_cgr(struct distribution *dist)
+{
+	struct dist_cfg *cfg;
+	struct rman_tx_list *list, *temp;
+
+	if (!dist)
+		return;
+
+	cfg = dist->cfg;
+	switch (cfg->type) {
+	case DIST_TYPE_RMAN_RX:
+		rman_rx_dump_cgr(dist->rman_rx);
+		break;
+	case DIST_TYPE_RMAN_TX:
+		rman_tx_dump_cgr(dist->rman_tx);
+		break;
+	case DIST_TYPE_RMAN_TO_FMAN:
+		if (!dist->rman_to_fman)
+			break;
+		rman_rx_dump_cgr(dist->rman_to_fman->rman_rx);
+		break;
+	case DIST_TYPE_FMAN_TO_RMAN:
+		list_for_each_entry_safe(list, temp,
+			&dist->fman_to_rman->f2r_tx_list, node) {
+			rman_tx_dump_cgr(list->rman_tx);
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+static void dist_order_dump_cgr(struct dist_order *dist_order)
+{
+	struct distribution *dist, *dist_temp;
+
+	if (!dist_order)
+		return;
+
+	dist = dist_order->dist;
+	while (dist) {
+		dist_temp = dist;
+		dist = dist->next;
+		dist_dump_cgr(dist_temp);
+	}
+}
+
+void fra_dump_cgr(void)
+{
+	struct dist_order *dist_order, *temp;
+
+	if (!fra)
+		return;
+	list_for_each_entry_safe(dist_order, temp,
+			&fra->dist_order_list, node)
+		dist_order_dump_cgr(dist_order);
+}
+#endif

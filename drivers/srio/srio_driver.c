@@ -431,6 +431,19 @@ int fsl_srio_set_deviceid(struct srio_dev *sriodev, uint8_t port_id,
 	return 0;
 }
 
+/* This function gets srio port unique device id */
+int fsl_srio_get_deviceid(struct srio_dev *sriodev, uint8_t port_id)
+{
+	uint32_t dev_id;
+
+	if (!sriodev)
+		return -EINVAL;
+	dev_id = (in_be32(&sriodev->rio_regs->impl.port[port_id].adidcsr)
+		 >> SRIO_ADIDCSR_ADID_SHIFT) & 0xff;
+
+	return dev_id;
+}
+
 /* This function sets srio port outbound window target id for transmission */
 int fsl_srio_set_targetid(struct srio_dev *sriodev, uint8_t port_id,
 			  uint8_t win_id, uint32_t target_id)
