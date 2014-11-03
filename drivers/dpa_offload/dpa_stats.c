@@ -1068,6 +1068,7 @@ int dpa_stats_create_counter(int dpa_stats_id,
 	}
 	dpa_stats = gbl_dpa_stats;
 
+	memset(&prm, 0, sizeof(prm));
 	memcpy(&prm.cnt_params, cnt_params, sizeof(prm.cnt_params));
 
 	switch (cnt_params->type) {
