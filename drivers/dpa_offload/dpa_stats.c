@@ -308,9 +308,8 @@ int dpa_stats_lib_init(void)
 
 	/* Initialize the thread for reading events: */
 	err = pthread_create(&event_thread, NULL, dpa_stats_event_thread, NULL);
-
 	if (err != 0) {
-		error(0, -err, "Cannot create new event thread\n");
+		error(0, err, "Cannot create new event thread\n");
 		return err;
 	}
 
@@ -1615,13 +1614,13 @@ void *dpa_stats_worker_thread(void *arg)
 	ret = pthread_setaffinity_np(
 			this_thread->id, sizeof(cpu_set_t), &cpuset);
 	if (ret) {
-		error(0, -ret, "(%d): Fail: pthread_setaffinity_np()\n", cpu);
+		error(0, ret, "(%d): Fail: pthread_setaffinity_np()\n", cpu);
 		return NULL;
 	}
 
 	ret = qman_thread_init();
 	if (ret) {
-		error(0, -ret, "(%d): Fail: qman_thread_init()\n", cpu);
+		error(0, ret, "(%d): Fail: qman_thread_init()\n", cpu);
 		return NULL;
 	}
 
@@ -1629,9 +1628,19 @@ void *dpa_stats_worker_thread(void *arg)
 	 * This lock is necessary to balance the "unlock" from the "while"
 	 * loop.
 	 */
-	pthread_mutex_lock(&us_thread_list_access);
+	ret = pthread_mutex_lock(&us_thread_list_access);
+	if (ret) {
+		error(0, ret,
+			"Failed to lock the number of available US threads");
+		return NULL;
+	}
 	do {
-		pthread_mutex_unlock(&us_thread_list_access);
+		ret = pthread_mutex_unlock(&us_thread_list_access);
+		if (ret) {
+			error(0, ret,
+				"Failed to release US thread number lock\n");
+			return NULL;
+		}
 		while ((req = (struct dpa_stats_req *)
 			fifo_try_get(&dpa_stats->async_us_req_queue)) != NULL) {
 
@@ -1680,8 +1689,12 @@ void *dpa_stats_worker_thread(void *arg)
 		if (us_threads <= 1) {
 			us_threads--;
 			list_add(&this_thread->node, &us_thread_list);
-			pthread_cond_wait(&us_main_thread_wake_up,
+			ret = pthread_cond_wait(&us_main_thread_wake_up,
 				&us_thread_list_access);
+			if (ret) {
+				error(0, ret, "Failed to wait for new work");
+				return NULL;
+			}
 		}
 	}
 	while ((us_threads <= 1) && (!dpa_stats_shutdown));
@@ -1694,7 +1707,7 @@ void *dpa_stats_worker_thread(void *arg)
 	list_add(&this_thread->node, &us_thread_list);
 	ret = pthread_mutex_unlock(&us_thread_list_access);
 	if (ret) {
-		error(0, -ret, "Failed to release US thread number lock\n");
+		error(0, ret, "Failed to release US thread number lock\n");
 		return NULL;
 	}
 
