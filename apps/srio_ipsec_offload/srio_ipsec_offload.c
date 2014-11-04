@@ -480,7 +480,7 @@ static void ppam_rx_hash_finish(struct ppam_rx_hash *p,
 {
 }
 
-char ppam_sec_needed = 1;
+bool ppam_sec_needed = true;
 int ppam_sec_get_era(void)
 {
 	return sec_get_of_era();
