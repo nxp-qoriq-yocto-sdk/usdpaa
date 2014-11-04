@@ -34,7 +34,6 @@
 
 #include <ppac.h>
 #include "std_ext.h"
-#include <flib/rta.h>
 #include "fmc.h"
 
 static inline struct fman_if *get_fif(int fm,

@@ -100,11 +100,7 @@ int ipsec_offload_init(int *dpa_ipsec_id)
 	}
 
 	/* INB/DL  post SEC params */
-        if (rta_get_sec_era() < RTA_SEC_ERA_5)
-                ipsec_params.post_sec_in_params.data_off =
-                                SEC_DATA_OFF_BURST;
-        else
-                ipsec_params.post_sec_in_params.data_off =
+        ipsec_params.post_sec_in_params.data_off =
                                 SEC_ERA_5_DATA_OFF_BURST;
 	ipsec_params.post_sec_in_params.base_flow_id = IPSEC_START_IN_FLOW_ID;
 	ipsec_params.post_sec_in_params.use_ipv6_pol = false;
@@ -131,11 +127,7 @@ int ipsec_offload_init(int *dpa_ipsec_id)
 		ipsec_params.post_sec_in_params.key_fields =
 						DPA_IPSEC_KEY_FIELD_DPORT;
 	/* OUTB/UL post SEC params */
-        if (rta_get_sec_era() < RTA_SEC_ERA_5)
-                ipsec_params.post_sec_out_params.data_off =
-                                SEC_DATA_OFF_BURST;
-        else
-                ipsec_params.post_sec_out_params.data_off =
+        ipsec_params.post_sec_out_params.data_off =
                                 SEC_ERA_5_DATA_OFF_BURST;
 	ipsec_params.post_sec_out_params.qm_tx_ch =
 					app_conf.ob_oh_post->tx_channel_id;
