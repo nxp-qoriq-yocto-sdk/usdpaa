@@ -43,6 +43,10 @@
 #include <readline.h>
 #include <time.h>
 #include <sys/eventfd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
 
 /* IPC stuff */
 #include <ipc/ipc/include/fsl_ipc_errorcodes.h>
