@@ -258,7 +258,6 @@ int fslbr_list(int argc, char *const* argv)
 int fslbr_set_encrypt(int argc, char *const* argv)
 {
 	int ret;
-	int ifindex;
 	int status = -1;
 
 	ret = check_fd();

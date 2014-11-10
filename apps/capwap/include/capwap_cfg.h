@@ -170,7 +170,7 @@ static inline void capwap_drop_frame(const struct qm_fd *fd)
 	BUG_ON(fd->bpid >= CAPWAP_MAX_BPID);
 	bm_buffer_set64(&buf, qm_fd_addr(fd));
 	bm_free_buf(pool[fd->bpid], &buf, 1);
-	TRACE("drop: bpid %d <-- 0x%llx\n", fd->bpid, qm_fd_addr(fd));
+	TRACE("drop: bpid %d <-- 0x%"PRIu64"\n", fd->bpid, qm_fd_addr(fd));
 #ifdef CAPWAP_ORDER_RESTORATION
 	/* Perform a "HOLE" enqueue so that the ORP doesn't wait for the
 	 * sequence number that we're dropping. */
@@ -261,6 +261,7 @@ u16 get_rxc(void);
 int lazy_init_bpool(u8 bpid, u8 depletion_notify);
 void do_global_finish(void);
 int capwap_init(void);
+int interface_init(void);
 int capwap_interface_init_rx(struct capwap_interface *i);
 void capwap_interface_enable_rx(const struct capwap_interface *i);
 void capwap_interface_disable_rx(const struct capwap_interface *i);

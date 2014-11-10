@@ -31,7 +31,7 @@
  */
 
 #include <flib/rta.h>
-
+#include <error.h>
 #include <libxml/parser.h>
 #include <arpa/inet.h>
 #include <usdpaa/compat.h>

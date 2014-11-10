@@ -44,6 +44,7 @@
 
 #include "dpaa_capwap_ioctl.h"
 #include "app_config.h"
+#include "capwap_cfg.h"
 
 #define ETH_HDR_SIZE                    14
 #define IPv4_HDR_SIZE                   20
@@ -801,21 +802,45 @@ static int init_domain(uint8_t  max_num_of_tunnels)
 	/* OutBound */
 	out_ctrl_dtls_tunnel = add_new_tunnel(capwap_domain, FALSE,
 			app_conf.tunnel_list[0], TRUE, TRUE);
+	if (out_ctrl_dtls_tunnel == NULL)
+		return -1;
+
 	out_data_dtls_tunnel = add_new_tunnel(capwap_domain, FALSE,
 			app_conf.tunnel_list[0], FALSE, TRUE);
+	if (out_data_dtls_tunnel == NULL)
+		return -1;
+
 	out_ctrl_non_dtls_tunnel = add_new_tunnel(capwap_domain, FALSE,
 			app_conf.tunnel_list[0], TRUE, FALSE);
+	if (out_ctrl_non_dtls_tunnel == NULL)
+		return -1;
+
 	out_data_non_dtls_tunnel = add_new_tunnel(capwap_domain, FALSE,
 			app_conf.tunnel_list[0], FALSE, FALSE);
+	if (out_data_non_dtls_tunnel == NULL)
+		return -1;
+
 	/* InBound */
 	in_ctrl_dtls_tunnel = add_new_tunnel(capwap_domain, TRUE,
 			app_conf.tunnel_list[0], TRUE, TRUE);
+	if (in_ctrl_dtls_tunnel == NULL)
+		return -1;
+
 	in_data_dtls_tunnel = add_new_tunnel(capwap_domain, TRUE,
 			app_conf.tunnel_list[0], FALSE, TRUE);
+	if (in_data_dtls_tunnel == NULL)
+		return -1;
+
 	in_ctrl_non_dtls_tunnel = add_new_tunnel(capwap_domain, TRUE,
 			app_conf.tunnel_list[0], TRUE, FALSE);
+	if (in_ctrl_non_dtls_tunnel == NULL)
+		return -1;
+
 	in_data_non_dtls_tunnel = add_new_tunnel(capwap_domain, TRUE,
 			app_conf.tunnel_list[0], FALSE, FALSE);
+	if (in_data_non_dtls_tunnel == NULL)
+		return -1;
+
 #if 0
 	/* Test Remove and re-add tunnel function */
 	printf("remove tunnel %p\n", out_ctrl_dtls_tunnel);

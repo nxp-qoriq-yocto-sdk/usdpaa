@@ -31,7 +31,8 @@
  */
 
 #include <flib/rta.h>
-
+#include <inttypes.h>
+#include <usdpaa/compat.h>
 #include <capwap_debug.h>
 #include <capwap_cfg.h>
 #include <app_config.h>
@@ -123,7 +124,7 @@ void dump_fd(const struct qm_fd *fd)
 	if (fd->format == qm_fd_sg) {/*short sg */
 		addr = qm_fd_addr(fd);
 		len = fd->length20;
-		TRACE("FD: addr = 0x%llx\n", addr);
+		TRACE("FD: addr = 0x%"PRIu64"\n", addr);
 		TRACE("    offset=%d\n", fd->offset);
 		TRACE("    len  = %d\n", len);
 		data = __dma_mem_ptov(addr);
@@ -133,7 +134,7 @@ void dump_fd(const struct qm_fd *fd)
 			addr = qm_sg_addr(sg_entry);
 			len = sg_entry->length;
 			final = sg_entry->final;
-			TRACE("SG ENTRY: addr = 0x%llx\n", addr);
+			TRACE("SG ENTRY: addr = 0x%"PRIu64"\n", addr);
 			TRACE("          len  = %d\n", len);
 			TRACE("          bpid = %d\n", sg_entry->bpid);
 			TRACE("          extension = %d\n", sg_entry->extension);
@@ -148,7 +149,7 @@ void dump_fd(const struct qm_fd *fd)
 	} else if (fd->format == qm_fd_contig) { /* short single */
 		addr = qm_fd_addr(fd);
 		len = fd->length20;
-		TRACE("FD: addr = 0x%llx\n", addr);
+		TRACE("FD: addr = 0x%"PRIu64"\n", addr);
 		TRACE("    offset=%d\n", fd->offset);
 		TRACE("    len  = %d\n", len);
 		data = __dma_mem_ptov(addr);
@@ -199,17 +200,6 @@ cb_dqrr_rx_default(struct qman_portal *qm __always_unused,
 #endif /* DUMP_FRAME */
 	PRE_DQRR();
 	capwap_drop_frame(fd);
-	return POST_DQRR();
-}
-
-static enum qman_cb_dqrr_result
-cb_dqrr_rx_timeout(struct qman_portal *qm __always_unused,
-		 struct qman_fq *fq,
-		 const struct qm_dqrr_entry *dqrr)
-{
-	TRACE("Reassble_timeout\n");
-	PRE_DQRR();
-	capwap_drop_frame(&dqrr->fd);
 	return POST_DQRR();
 }
 
@@ -527,17 +517,6 @@ struct qman_fq *capwap_orp_init(void)
 }
 #endif
 
-static enum qman_cb_dqrr_result
-cb_tx_drain(struct qman_portal *qm __always_unused,
-	    struct qman_fq *fq __always_unused,
-	    const struct qm_dqrr_entry *dqrr)
-{
-	TRACE("Tx_drain: fqid=%d\tfd_status = 0x%08x\n", fq->fqid,
-		dqrr->fd.status);
-	capwap_drop_frame(&dqrr->fd);
-	return qman_cb_dqrr_consume;
-}
-
 void capwap_fq_tx_init(struct qman_fq *fq, u16 channel,
 			dma_addr_t context_a, uint32_t context_b)
 {
@@ -547,7 +526,6 @@ void capwap_fq_tx_init(struct qman_fq *fq, u16 channel,
 
 	/* These FQ objects need to be able to handle DQRR callbacks, when
 	 * cleaning up. */
-	//fq->cb.dqrr = cb_tx_drain;
 	fq->cb = capwap_tx_cb;
 	if (!fq->fqid)
 		flags |= QMAN_FQ_FLAG_DYNAMIC_FQID;
@@ -688,6 +666,7 @@ int interface_init(void)
 	int err;
 	struct list_head *interface;
 	unsigned int loop;
+	struct fman_if_bpool frag_bp;
 
 	/* Initialise interface objects. We initialise the interface objects and
 	 * their Tx FQs in one loop */
@@ -743,7 +722,6 @@ int interface_init(void)
 		}
 	}
 	/* Prepare bp for fragmentation */
-	struct fman_if_bpool frag_bp;
 	frag_bp.bpid = CAPWAP_FRAG_BPID;
 	frag_bp.size = 2112;
 	frag_bp.count = 8192;

@@ -87,6 +87,8 @@ static struct qman_cgr cgr_tx;
 uint32_t send_packets_count;
 
 extern int tunnel_parse_cfgfile(const char *cfg_file);
+extern int capwap_usecase(void);
+extern int fslbrctl(int argc, char *argv[]);
 
 static int init_pool_channels(void)
 {
@@ -1080,6 +1082,11 @@ static int capwap_cli_ifconfig(int argc, char *argv[])
 	return 0;
 }
 
+static int capwap_cli_fslbrctl(int argc, char *argv[])
+{
+	return fslbrctl(argc, argv);
+}
+
 void *listener_fn(void * arg)
 {
 	/* Initialization required for connecting with cpu_hotplug daemon */
@@ -1172,8 +1179,6 @@ cli_cmd(rm, capwap_cli_rm);
 cli_cmd(promisc, capwap_cli_promisc);
 cli_cmd(ifconfig, capwap_cli_ifconfig);
 cli_cmd(loopback, capwap_cli_loopback);
-
-extern int capwap_cli_fslbrctl(int argc, char *argv[]);
 cli_cmd(fslbrctl, capwap_cli_fslbrctl);
 #if 0
 extern void dump_pcd_regs(void);

@@ -38,8 +38,8 @@
 #include "fsl_capwap_br.h"
 #include "fslbr.h"
 
-#define PACKAGE_NAME "FSL-Bridge"
-#define PACKAGE_VERSION "1.0"
+#define APP_NAME "FSL-Bridge"
+#define APP_VERSION "1.0"
 
 static const struct command commands[] = {
 	{ 1, "addif", fslbr_add_if_cmd, "<device>\t\tadd interface to bridge" },
@@ -57,7 +57,7 @@ void command_helpall(void)
 	}
 }
 
-static void help()
+static void help(void)
 {
 	printf("Usage: fslbrctl [commands]\n");
 	printf("commands:\n");
@@ -92,7 +92,7 @@ int main(int argc, char *const* argv)
 			help();
 			return 0;
 		case 'V':
-			printf("%s, %s\n", PACKAGE_NAME, PACKAGE_VERSION);
+			printf("%s, %s\n", APP_NAME, APP_VERSION);
 			return 0;
 		default:
 			fprintf(stderr, "Unknown option '%c'\n", f);
