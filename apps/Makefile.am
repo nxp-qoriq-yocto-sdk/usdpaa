@@ -32,7 +32,7 @@
 SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback \
 	  hello_reflector ipfwd ipsecfwd sra rmu fra lpm-ipfwd dma_test \
 	  simple_proto classifier_demo fragmentation_demo reassembly_demo \
-	  ipsec_offload cpu_hotplug capwap
+	  ipsec_offload cpu_hotplug
 
 ifeq (B4860,$(SOC))
 SUBDIRS += srio_ipsec_offload
@@ -43,6 +43,10 @@ endif
 
 ifneq (,$(findstring $(SOC),B4860 T4240 T2080))
 SUBDIRS += ceetm_demo
+endif
+
+ifeq (T1040,$(SOC))
+SUBDIRS += capwap
 endif
 
 dist_DATA = SOURCE_THIS
