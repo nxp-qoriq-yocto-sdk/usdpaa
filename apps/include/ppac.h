@@ -125,7 +125,7 @@
 #define PPAC_DMA_MAP_SIZE	0x1000000 /* 16MB */
 #define PPAC_BPOOL_CNT0		0
 #define PPAC_BPOOL_CNT1		0
-#define PPAC_BPOOL_CNT2		0x2000
+#define PPAC_BPOOL_CNT2		0x800
 
 /**************/
 /* PPAM flags */
