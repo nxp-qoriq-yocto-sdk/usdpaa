@@ -198,6 +198,8 @@ static inline void copy_bytes(void *dest, const void *src, size_t sz)
 		BUG_ON(__foo);	\
 		__foo = pthread_mutex_init(x, &__foo_attr); \
 		BUG_ON(__foo); \
+		__foo = pthread_mutexattr_destroy(&__foo_attr);	\
+		BUG_ON(__foo); \
 	} while (0)
 #define spin_lock(x) \
 	do { \
