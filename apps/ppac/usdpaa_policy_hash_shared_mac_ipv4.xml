@@ -432,6 +432,66 @@ policy.
                 </key>
         </distribution>
 
+	<distribution name="hash_ipv4_shared_mac_dist16">
+		<queue base="1" count="1" />
+		<protocols>
+			<protocolref name="ipv4" />
+		</protocols>
+		<action type="classification" name="ip_dest_clsf16"/>
+	</distribution>
+	<classification name="ip_dest_clsf16">
+		<key>
+			<fieldref name="ipv4.dst" />
+		</key>
+		<entry>
+			<data>0xc0a82c03</data>
+			<queue base="0x02" />
+			<action type="distribution" name="usdpaa_dist16" />
+		</entry>
+		<entry>
+			<data>0xc0a82c04</data>
+			<queue base="0x03" />
+			<action type="distribution" name="default_dist16" />
+		</entry>
+		<action type="distribution" name="default_dist16" condition="on-miss" />
+	</classification>
+	<distribution name="usdpaa_dist16">
+		<queue count="32" base="0x1400"/>
+		<key>
+			<fieldref name="ipv4.dst"/>
+		</key>
+	</distribution>
+
+	<distribution name="hash_ipv4_shared_mac_dist17">
+		<queue base="1" count="1" />
+		<protocols>
+			<protocolref name="ipv4" />
+		</protocols>
+		<action type="classification" name="ip_dest_clsf17"/>
+	</distribution>
+	<classification name="ip_dest_clsf17">
+		<key>
+			<fieldref name="ipv4.dst" />
+		</key>
+		<entry>
+			<data>0xc0a82c03</data>
+			<queue base="0x02" />
+			<action type="distribution" name="usdpaa_dist17" />
+		</entry>
+		<entry>
+			<data>0xc0a82c04</data>
+			<queue base="0x03" />
+			<action type="distribution" name="default_dist17" />
+		</entry>
+		<action type="distribution" name="default_dist17" condition="on-miss" />
+	</classification>
+	<distribution name="usdpaa_dist17">
+		<queue count="32" base="0x1500"/>
+		<key>
+			<fieldref name="ipv4.dst"/>
+		</key>
+	</distribution>
+
 	<distribution name="default_dist0">
 		<queue count="1" base="0x51"/>
 	</distribution>
@@ -471,6 +531,14 @@ policy.
 	<distribution name="default_dist15">
 		<queue count="1" base="0x6f"/>
 	</distribution>
+	<distribution name="default_dist16">
+		<queue count="1" base="0x71"/>
+	</distribution>
+	<distribution name="default_dist17">
+		<queue count="1" base="0x73"/>
+	</distribution>
+
+
 
 <!--	xxxxxxxxxxxxxxxxxxxxxxxxxx Policies xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx -->
 
@@ -649,6 +717,39 @@ policy.
 		<dist_order>
 			<distributionref name="hash_ipv4_shared_mac_dist15"/>
 			<distributionref name="default_dist15"/>
+		</dist_order>
+	</policy>
+
+	<policy name="hash_default_policy15">
+		<dist_order>
+			<distributionref name="default_dist15"/>
+		</dist_order>
+	</policy>
+
+	<policy name="hash_ipsec_src_dst_spi_policy16">
+		<dist_order>
+			<distributionref name="hash_ipv4_shared_mac_dist16"/>
+			<distributionref name="default_dist16"/>
+		</dist_order>
+	</policy>
+
+	<policy name="hash_default_policy16">
+		<dist_order>
+			<distributionref name="default_dist16"/>
+		</dist_order>
+	</policy>
+
+
+	<policy name="hash_ipsec_src_dst_spi_policy17">
+		<dist_order>
+			<distributionref name="hash_ipv4_shared_mac_dist17"/>
+			<distributionref name="default_dist17"/>
+		</dist_order>
+	</policy>
+
+	<policy name="hash_default_policy17">
+		<dist_order>
+			<distributionref name="default_dist17"/>
 		</dist_order>
 	</policy>
 
