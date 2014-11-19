@@ -306,7 +306,7 @@ int show_eth_stats(int argc, char *argv[])
 	}
 	port_idx = atoi(argv[1]);
 
-	__if = get_fif(app_conf.fm, port_idx);
+	__if = get_mac_fif(app_conf.fm, port_idx);
 
 	if (!__if) {
 		printf("\nInvalid MAC id.\n");

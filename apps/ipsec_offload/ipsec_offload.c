@@ -761,6 +761,7 @@ void cleanup_buffer_pools(void)
 #define CFG_PORT_NODE			("port")
 #define CFG_PORT_NA_number		("number")
 #define CFG_PORT_NA_policy		("policy")
+#define CFG_PORT_NA_type		("type")
 
 #define CFG_OB_POLICY			("ob_rx_policy")
 #define CFG_IB_POLICY			("ib_rx_policy")
@@ -846,25 +847,34 @@ int parse_config(void)
 		if (unlikely(!is_node(node, BAD_CAST CFG_PORT_NODE)))
 			continue;
 
-		/* Get the MAC port number and policy name*/
+		/* Get the MAC port number, port type and policy name. */
 		tmp = (char *)get_attributes(node, BAD_CAST CFG_PORT_NA_number);
 		if (unlikely(tmp == NULL))
 			break;
 		p_idx = strtoul(tmp, NULL, 0);
 
+		tmp = (char *)get_attributes(node, BAD_CAST CFG_PORT_NA_type);
+		if (unlikely(tmp == NULL))
+			break;
+
+		/* Get the corresponding fman_if handle */
+		if (0 == strcmp(tmp, "OFFLINE"))
+			_if = get_offline_fif(app_conf.fm, p_idx);
+		else if (0 == strcmp(tmp, "MAC"))
+			_if = get_mac_fif(app_conf.fm, p_idx);
+
+		if (!_if) {
+			fprintf(stderr, "Error: invalid interface"
+					"(fm: %d, idx: %d, type: '%s')\n",
+					app_conf.fm, p_idx, tmp);
+			return -1;
+		}
+
 		tmp = (char *)get_attributes(node, BAD_CAST CFG_PORT_NA_policy);
 		if (unlikely(tmp == NULL))
 			break;
 
-		/* Get the corresponding fman_if handles */
-
-		_if = get_fif(app_conf.fm, p_idx);
-		if (!_if) {
-			fprintf(stderr, "Error: invalid interface"
-					"(fm: %d idx: %d)\n", app_conf.fm, p_idx);
-			return -1;
-		}
-
+		/* Update application configuration based on found info. */
 		if (!strcmp(tmp, CFG_OB_POLICY))
 			app_conf.ob_eth = _if;
 		else if (!strcmp(tmp, CFG_IB_POLICY))

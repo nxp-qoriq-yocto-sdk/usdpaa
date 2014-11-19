@@ -37,15 +37,32 @@
 #include "std_ext.h"
 #include "fmc.h"
 
-static inline struct fman_if *get_fif(int fm,
-				      int port_idx)
+static inline struct fman_if *get_offline_fif(int fm,
+					      int port_idx)
 {
 	int idx;
 	struct fm_eth_port_cfg *port_cfg;
 	for (idx = 0; idx < netcfg->num_ethports; idx++) {
 		port_cfg = &netcfg->port_cfg[idx];
-		if ((fm == port_cfg->fman_if->fman_idx) &&
-		    (port_idx == port_cfg->fman_if->mac_idx))
+		if (fm == port_cfg->fman_if->fman_idx &&
+		    port_idx == port_cfg->fman_if->mac_idx &&
+		    fman_offline == port_cfg->fman_if->mac_type)
+			return port_cfg->fman_if;
+	}
+	return NULL;
+}
+
+static inline struct fman_if *get_mac_fif(int fm,
+					  int port_idx)
+{
+	int idx;
+	struct fm_eth_port_cfg *port_cfg;
+	for (idx = 0; idx < netcfg->num_ethports; idx++) {
+		port_cfg = &netcfg->port_cfg[idx];
+		if (fm == port_cfg->fman_if->fman_idx &&
+		    port_idx == port_cfg->fman_if->mac_idx &&
+		    (fman_mac_1g == port_cfg->fman_if->mac_type ||
+		     fman_mac_10g == port_cfg->fman_if->mac_type))
 			return port_cfg->fman_if;
 	}
 	return NULL;
