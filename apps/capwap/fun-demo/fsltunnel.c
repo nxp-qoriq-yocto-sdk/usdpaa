@@ -316,6 +316,7 @@ next_loop:
 		free(cli);
 	}
 	t_args.quit = 1;
+	pthread_cancel(thread_id);
 	pthread_join(thread_id, NULL);
 	close(fd_ctrl_dtls);
 	close(fd_ctrl_n_dtls);
