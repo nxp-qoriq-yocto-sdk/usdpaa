@@ -111,11 +111,11 @@ int create_eth_stats_counter(struct fman_if *__if)
 		TRACE("create stats counter for 10G interface %d\n",
 		      __if->mac_idx);
 		cnt_params.eth_params.src.eth_id = DPA_STATS_ETH_10G_PORT0 +
-						__if->mac_idx - 1;
+						__if->mac_idx - 9;
 	} else if (__if->mac_type == fman_mac_1g) {
 		TRACE("create stats counter for 1G interface %d\n",
 		     __if->mac_idx);
-		cnt_params.eth_params.src.eth_id = __if->mac_idx;
+		cnt_params.eth_params.src.eth_id = __if->mac_idx - 1;
 	}
 
 	cnt_params.eth_params.src.engine_id = app_conf.fm;
