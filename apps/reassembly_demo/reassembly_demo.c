@@ -163,12 +163,12 @@ struct app_counters
 	struct reass_counters reass_ipv4;
 	struct reass_counters reass_ipv6;
 
-	struct eth_counters eth;
-
 	struct classif_counters cls1_ipv6;
 	struct classif_counters cls2_ipv6;
 	struct classif_counters cls3_ipv4;
 	struct classif_counters cls4_ipv4;
+
+	struct eth_counters eth;
 };
 
 int ppam_init(void)
@@ -276,6 +276,9 @@ static int ppam_interface_init(struct ppam_interface *p,
 			       unsigned int num_tx_fqs,
 			       uint32_t *flags __maybe_unused)
 {
+	struct dpa_stats_cnt_params cnt_params;
+	int err;
+
 	p->num_tx_fqids = num_tx_fqs;
 	p->tx_fqids = malloc(p->num_tx_fqids * sizeof(*p->tx_fqids));
 	if (!p->tx_fqids)
@@ -287,6 +290,26 @@ static int ppam_interface_init(struct ppam_interface *p,
 		/* Enable promiscuous mode for testing purposes */
 		fman_if_promiscuous_enable(cfg->fman_if);
 #endif /* ENABLE_PROMISC */
+
+	/* Create Ethernet single counter to retrieve all statistics */
+	cnt_params.type = DPA_STATS_CNT_ETH;
+	cnt_params.eth_params.cnt_sel = DPA_STATS_CNT_ETH_ALL;
+	cnt_params.eth_params.src.engine_id = ppam_args.fm;
+	if (cfg->fman_if->mac_type == fman_mac_1g)
+		cnt_params.eth_params.src.eth_id =
+				DPA_STATS_ETH_1G_PORT0 + ppam_args.port - 1;
+	else
+		cnt_params.eth_params.src.eth_id =
+				DPA_STATS_ETH_10G_PORT0 + ppam_args.port - 9;
+
+	err = dpa_stats_create_counter(dpa_stats_id,
+			&cnt_params, &cnt_ids[15]);
+	if (err < 0) {
+		error(0, -err, "Failed to create DPA Stats counter\n");
+		return err;
+	}
+	TRACE("Successfully created DPA Stats counter: %d\n", cnt_ids[15]);
+
 	return 0;
 }
 
@@ -698,21 +721,6 @@ static int create_dpa_stats_counters(void)
 	cnt_params.type = DPA_STATS_CNT_REASS;
 	cnt_params.reass_params.reass = reass;
 	cnt_params.reass_params.cnt_sel = DPA_STATS_CNT_REASS_IPv6_ALL;
-
-	err = dpa_stats_create_counter(dpa_stats_id,
-			&cnt_params, &cnt_ids[cntId++]);
-	if (err < 0) {
-		error(0, -err, "Failed to create DPA Stats counter\n");
-		return err;
-	}
-	TRACE("Successfully created DPA Stats counter: %d\n", cnt_ids[cntId-1]);
-
-	/* Create Ethernet single counter to retrieve all statistics */
-	cnt_params.type = DPA_STATS_CNT_ETH;
-	cnt_params.eth_params.cnt_sel = DPA_STATS_CNT_ETH_ALL;
-	cnt_params.eth_params.src.engine_id = ppam_args.fm;
-	cnt_params.eth_params.src.eth_id =
-				DPA_STATS_ETH_1G_PORT0 + ppam_args.port - 1;
 
 	err = dpa_stats_create_counter(dpa_stats_id,
 			&cnt_params, &cnt_ids[cntId++]);
