@@ -283,9 +283,12 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 		__if->__if.is_memac = 1;
 		char_prop = of_get_property(mac_node, "phy-connection-type",
 								NULL);
-		if (strstr(char_prop, "sgmii") || strstr(char_prop, "rgmii"))
+		if (strstr(char_prop, "sgmii"))
 			__if->__if.mac_type = fman_mac_1g;
-		else if (strstr(char_prop, "xgmii"))
+		else if (strstr(char_prop, "rgmii")) {
+			__if->__if.mac_type = fman_mac_1g;
+			__if->__if.is_rgmii = 1;
+		} else if (strstr(char_prop, "xgmii"))
 			__if->__if.mac_type = fman_mac_10g;
 	} else
 		my_err(1, -EINVAL, "%s: unknown MAC type\n", mname);
@@ -919,7 +922,11 @@ void fman_if_loopback_enable(const struct fman_if *p)
 		unsigned *maccfg =
 				&((struct dtsec_regs *)__if->ccsr_map)->maccfg1;
 		out_be32(maccfg, in_be32(maccfg) | MACCFG1_LOOPBACK);
-	} else {
+	} else if ((__if->__if.is_memac) && (__if->__if.is_rgmii)) {
+		unsigned *ifmode =
+			 &((struct memac_regs *)__if->ccsr_map)->if_mode;
+		out_be32(ifmode, in_be32(ifmode) | IF_MODE_RLP);
+	} else{
 		unsigned *cmdcfg =
 			 &((struct memac_regs *)__if->ccsr_map)->command_config;
 		out_be32(cmdcfg, in_be32(cmdcfg) | CMD_CFG_LOOPBACK_EN);
@@ -942,6 +949,10 @@ void fman_if_loopback_disable(const struct fman_if *p)
 		unsigned *maccfg =
 				&((struct dtsec_regs *)__if->ccsr_map)->maccfg1;
 		out_be32(maccfg, in_be32(maccfg) & ~MACCFG1_LOOPBACK);
+	} else if ((__if->__if.is_memac) && (__if->__if.is_rgmii)) {
+		unsigned *ifmode =
+			 &((struct memac_regs *)__if->ccsr_map)->if_mode;
+		out_be32(ifmode, in_be32(ifmode) & ~IF_MODE_RLP);
 	} else {
 		unsigned *cmdcfg =
 			 &((struct memac_regs *)__if->ccsr_map)->command_config;

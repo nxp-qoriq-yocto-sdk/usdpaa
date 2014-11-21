@@ -50,6 +50,8 @@
 #define CMD_CFG_LOOPBACK_EN	0x00000400 /* 21 XGMII/GMII loopback enable */
 #define CMD_CFG_PROMIS_EN	0x00000010 /* 27 Promiscuous operation enable */
 
+/* Interface Mode Register Register for MEMAC */
+#define IF_MODE_RLP 0x00000820
 
 /* Represents the different flavour of network interface */
 enum fman_mac_type {
@@ -331,6 +333,8 @@ struct fman_if {
 	enum fman_mac_type mac_type;
 	/* Boolean, set when mac type is memac */
 	uint8_t is_memac;
+	/* Boolean, set when PHY is RGMII */
+	uint8_t is_rgmii;
 	/* The index of this MAC (within the Fman it belongs to) */
 	uint8_t mac_idx;
 	/* The MAC address */
