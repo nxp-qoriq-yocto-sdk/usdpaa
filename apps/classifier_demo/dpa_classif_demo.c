@@ -421,7 +421,6 @@ static int create_dscp_table(void)
 static int create_dpa_stats_counters(void)
 {
 	struct dpa_stats_params		stats_params;
-	struct dpa_stats_cnt_params	cnt_params;
 	struct dpa_stats_cls_cnt_params	cls_params;
 	struct dpa_offload_lookup_key	**cls_keys;
 	int err = 0, i = 0, j = 0;
@@ -600,20 +599,6 @@ static int create_dpa_stats_counters(void)
 		free(cls_params.classif_tbl_params.keys[i]);
 	free(cls_params.classif_tbl_params.keys);
 
-	/* Create Ethernet single counter to retrieve all statistics */
-	cnt_params.type = DPA_STATS_CNT_ETH;
-	cnt_params.eth_params.cnt_sel = DPA_STATS_CNT_ETH_ALL;
-	cnt_params.eth_params.src.engine_id = ppam_args.fm;
-	cnt_params.eth_params.src.eth_id = DPA_STATS_ETH_1G_PORT0 +
-			ppam_args.port - 1;
-
-	err = dpa_stats_create_counter(dpa_stats_id, &cnt_params, &eth_cnt_id);
-	if (err < 0) {
-		error(0, -err, "Failed to create DPA Stats single counter\n");
-		return err;
-	}
-	printf("Successfully created DPA Stats counter: %d\n", eth_cnt_id);
-
 	err = create_ceetm_counters(dpa_stats_id);
 	if (err < 0)
 		return err;
@@ -711,8 +696,12 @@ static int ppam_interface_init(struct ppam_interface	*p,
 		fman_if_promiscuous_enable(cfg->fman_if);
 #endif /* ENABLE_PROMISC */
 
-	if (cfg->fman_if->mac_idx == ppam_args.port &&
-			cfg->fman_if->fman_idx == ppam_args.fm) {
+	if ((cfg->fman_if->mac_idx == ppam_args.port) &&
+			(cfg->fman_if->fman_idx == ppam_args.fm) &&
+			((cfg->fman_if->mac_type == fman_mac_1g) ||
+			(cfg->fman_if->mac_type == fman_mac_10g))) {
+		struct dpa_stats_cnt_params cnt_params;
+
 		deq_sp = cfg->fman_if->tx_channel_id & 0xF;
 
 		err = ceetm_init(ppam_args.fm, deq_sp);
@@ -760,6 +749,24 @@ static int ppam_interface_init(struct ppam_interface	*p,
 			clean_up();
 			ceetm_free(clean_tx_fqs);
 		}
+
+		/* Create Ethernet single counter to retrieve all statistics */
+		cnt_params.type = DPA_STATS_CNT_ETH;
+		cnt_params.eth_params.cnt_sel = DPA_STATS_CNT_ETH_ALL;
+		cnt_params.eth_params.src.engine_id = ppam_args.fm;
+		if (cfg->fman_if->mac_type == fman_mac_1g)
+			cnt_params.eth_params.src.eth_id =
+				DPA_STATS_ETH_1G_PORT0 + ppam_args.port - 1;
+		else /* fman_mac_10g */
+			cnt_params.eth_params.src.eth_id =
+				DPA_STATS_ETH_10G_PORT0 + ppam_args.port - 9;
+
+		err = dpa_stats_create_counter(dpa_stats_id, &cnt_params, &eth_cnt_id);
+		if (err < 0) {
+			error(0, -err, "Failed to create DPA Stats single counter\n");
+			return err;
+		}
+		printf("Successfully created DPA Stats counter: %d\n", eth_cnt_id);
 	}
 
 	return 0;
