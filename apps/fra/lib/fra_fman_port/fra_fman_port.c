@@ -357,7 +357,6 @@ int fman_port_init(const struct fra_fman_port_cfg *cfg,
 	for (loop = 0; loop < netcfg->num_ethports; loop++) {
 		fman_if = netcfg->port_cfg[loop].fman_if;
 		if (fman_if->fman_idx == cfg->fman_num &&
-		    fman_if->mac_type == cfg->port_type &&
 		    fman_if->mac_idx == cfg->port_num) {
 			port->port_cfg = &netcfg->port_cfg[loop];
 			break;

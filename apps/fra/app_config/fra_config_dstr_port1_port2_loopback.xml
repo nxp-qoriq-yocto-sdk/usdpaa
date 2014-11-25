@@ -58,22 +58,22 @@
 		<policy name="loopback" enable="yes">
 			<!-- dtsec3 packets processing -->
 			<dist_order>
-				<distributionref name="fman_from_dtsec3"/>
-				<distributionref name="rman_to_peer_dtsec4"/>
+				<distributionref name="fman_from_fm0mac4"/>
+				<distributionref name="rman_to_peer_fm0mac5"/>
 			</dist_order>
 			<dist_order>
-				<distributionref name="rman_from_peer_dtsec3"/>
-				<distributionref name="fman_to_dtsec3"/>
+				<distributionref name="rman_from_peer_fm0mac4"/>
+				<distributionref name="fman_to_fm0mac4"/>
 			</dist_order>
 
 			<!-- dtsec4 packets processing -->
 			<dist_order>
-				<distributionref name="fman_from_dtsec4"/>
-				<distributionref name="rman_to_peer_dtsec3"/>
+				<distributionref name="fman_from_fm0mac5"/>
+				<distributionref name="rman_to_peer_fm0mac4"/>
 			</dist_order>
 			<dist_order>
-				<distributionref name="rman_from_peer_dtsec4"/>
-				<distributionref name="fman_to_dtsec4"/>
+				<distributionref name="rman_from_peer_fm0mac5"/>
+				<distributionref name="fman_to_fm0mac5"/>
 			</dist_order>
 		</policy>
 	</policies_cfg>

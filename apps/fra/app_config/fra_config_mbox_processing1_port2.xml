@@ -57,165 +57,205 @@
 		 distribution from 0 to 1.
 		-->
 		<!--	xxxxxx RMan to FMan distribution xxxxxxxxx -->
-		<distribution name="rman_to_fman_10gec0">
+		<distribution name="rman_to_fman_fm0mac1">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-10gec0"/>
+			<transactionref name="mbox-fm0mac1"/>
 		</distribution>
 
-		<distribution name="rman_to_fman_10gec1">
+		<distribution name="rman_to_fman_fm0mac2">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-10gec1"/>
+			<transactionref name="mbox-fm0mac2"/>
 		</distribution>
 
-		<distribution name="rman_to_fman_10gec2">
+		<distribution name="rman_to_fman_fm0mac3">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-10gec2"/>
+			<transactionref name="mbox-fm0mac3"/>
 		</distribution>
 
-		<distribution name="rman_to_fman_10gec3">
+		<distribution name="rman_to_fman_fm0mac4">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-10gec3"/>
+			<transactionref name="mbox-fm0mac4"/>
 		</distribution>
 
-		<distribution name="rman_to_fman_dtsec0">
+		<distribution name="rman_to_fman_fm0mac5">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec0"/>
+			<transactionref name="mbox-fm0mac5"/>
 		</distribution>
 
-		<distribution name="rman_to_fman_dtsec1">
+		<distribution name="rman_to_fman_fm0mac6">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec1"/>
+			<transactionref name="mbox-fm0mac6"/>
 		</distribution>
 
-		<distribution name="rman_to_fman_dtsec2">
+		<distribution name="rman_to_fman_fm0mac7">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec2"/>
+			<transactionref name="mbox-fm0mac7"/>
 		</distribution>
 
-		<distribution name="rman_to_fman_dtsec3">
+		<distribution name="rman_to_fman_fm0mac8">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec3"/>
+			<transactionref name="mbox-fm0mac8"/>
 		</distribution>
 
-		<distribution name="rman_to_fman_dtsec4">
+		<distribution name="rman_to_fman_fm0mac9">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec4"/>
+			<transactionref name="mbox-fm0mac9"/>
 		</distribution>
 
-		<distribution name="rman_to_fman_dtsec5">
+		<distribution name="rman_to_fman_fm0mac10">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec5"/>
+			<transactionref name="mbox-fm0mac10"/>
 		</distribution>
 
-		<distribution name="rman_to_fman_dtsec8">
+		<distribution name="rman_to_fman_fm1mac1">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec8"/>
+			<transactionref name="mbox-fm1mac1"/>
 		</distribution>
 
-		<distribution name="rman_to_fman_dtsec9">
+		<distribution name="rman_to_fman_fm1mac2">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec9"/>
+			<transactionref name="mbox-fm1mac2"/>
 		</distribution>
 
-		<distribution name="rman_to_fman_dtsec10">
+		<distribution name="rman_to_fman_fm1mac3">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec10"/>
+			<transactionref name="mbox-fm1mac3"/>
 		</distribution>
 
-		<distribution name="rman_to_fman_dtsec11">
+		<distribution name="rman_to_fman_fm1mac4">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec11"/>
+			<transactionref name="mbox-fm1mac4"/>
 		</distribution>
 
-		<distribution name="rman_to_fman_dtsec12">
+		<distribution name="rman_to_fman_fm1mac5">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec12"/>
+			<transactionref name="mbox-fm1mac5"/>
 		</distribution>
 
-		<distribution name="rman_to_fman_dtsec13">
+		<distribution name="rman_to_fman_fm1mac6">
 		<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec13"/>
+			<transactionref name="mbox-fm1mac6"/>
+		</distribution>
+
+		<distribution name="rman_to_fman_fm1mac7">
+		<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-fm1mac7"/>
+		</distribution>
+
+		<distribution name="rman_to_fman_fm1mac8">
+		<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-fm1mac8"/>
+		</distribution>
+
+		<distribution name="rman_to_fman_fm1mac9">
+		<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-fm1mac9"/>
+		</distribution>
+
+		<distribution name="rman_to_fman_fm1mac10">
+		<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-fm1mac10"/>
 		</distribution>
 
 		<!--	xxxxxx FMan to RMan distribution xxxxxx -->
-		<distribution name="fman_to_rman_10gec0">
+		<distribution name="fman_to_rman_fm0mac1">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-10gec0"/>
+			<transactionref name="mbox-fm0mac1"/>
 		</distribution>
 
-		<distribution name="fman_to_rman_10gec1">
+		<distribution name="fman_to_rman_fm0mac2">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-10gec1"/>
+			<transactionref name="mbox-fm0mac2"/>
 		</distribution>
 
-		<distribution name="fman_to_rman_10gec2">
+		<distribution name="fman_to_rman_fm0mac3">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-10gec2"/>
+			<transactionref name="mbox-fm0mac3"/>
 		</distribution>
 
-		<distribution name="fman_to_rman_10gec3">
+		<distribution name="fman_to_rman_fm0mac4">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-10gec3"/>
+			<transactionref name="mbox-fm0mac4"/>
 		</distribution>
 
-		<distribution name="fman_to_rman_dtsec0">
+		<distribution name="fman_to_rman_fm0mac5">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec0"/>
+			<transactionref name="mbox-fm0mac5"/>
 		</distribution>
 
-		<distribution name="fman_to_rman_dtsec1">
+		<distribution name="fman_to_rman_fm0mac6">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec1"/>
+			<transactionref name="mbox-fm0mac6"/>
 		</distribution>
 
-		<distribution name="fman_to_rman_dtsec2">
+		<distribution name="fman_to_rman_fm0mac7">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec2"/>
+			<transactionref name="mbox-fm0mac7"/>
 		</distribution>
 
-		<distribution name="fman_to_rman_dtsec3">
+		<distribution name="fman_to_rman_fm0mac8">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec3"/>
+			<transactionref name="mbox-fm0mac8"/>
 		</distribution>
 
-		<distribution name="fman_to_rman_dtsec4">
+		<distribution name="fman_to_rman_fm0mac9">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec4"/>
+			<transactionref name="mbox-fm0mac9"/>
 		</distribution>
 
-		<distribution name="fman_to_rman_dtsec5">
+		<distribution name="fman_to_rman_fm0mac10">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec5"/>
+			<transactionref name="mbox-fm0mac10"/>
 		</distribution>
 
-		<distribution name="fman_to_rman_dtsec8">
+		<distribution name="fman_to_rman_fm1mac1">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec8"/>
+			<transactionref name="mbox-fm1mac1"/>
 		</distribution>
 
-		<distribution name="fman_to_rman_dtsec9">
+		<distribution name="fman_to_rman_fm1mac2">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec9"/>
+			<transactionref name="mbox-fm1mac2"/>
 		</distribution>
 
-		<distribution name="fman_to_rman_dtsec10">
+		<distribution name="fman_to_rman_fm1mac3">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec10"/>
+			<transactionref name="mbox-fm1mac3"/>
 		</distribution>
 
-		<distribution name="fman_to_rman_dtsec11">
+		<distribution name="fman_to_rman_fm1mac4">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec11"/>
+			<transactionref name="mbox-fm1mac4"/>
 		</distribution>
 
-		<distribution name="fman_to_rman_dtsec12">
+		<distribution name="fman_to_rman_fm1mac5">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec12"/>
+			<transactionref name="mbox-fm1mac5"/>
 		</distribution>
 
-		<distribution name="fman_to_rman_dtsec13">
+		<distribution name="fman_to_rman_fm1mac6">
 			<rio_port number="1" mask="1"/>
-			<transactionref name="mbox-dtsec13"/>
+			<transactionref name="mbox-fm1mac6"/>
+		</distribution>
+
+		<distribution name="fman_to_rman_fm1mac7">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-fm1mac7"/>
+		</distribution>
+
+		<distribution name="fman_to_rman_fm1mac8">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-fm1mac8"/>
+		</distribution>
+
+		<distribution name="fman_to_rman_fm1mac9">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-fm1mac9"/>
+		</distribution>
+
+		<distribution name="fman_to_rman_fm1mac10">
+			<rio_port number="1" mask="1"/>
+			<transactionref name="mbox-fm1mac10"/>
 		</distribution>
 	</dists_cfg>
 

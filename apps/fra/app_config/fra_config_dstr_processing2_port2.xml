@@ -57,131 +57,164 @@
 		 distribution from 0 to 1.
 		-->
 		<!--	xxxxxxxxx RMAN RX distribution xxxxxxxxxx -->
-		<distribution name="rman_from_peer_10gec0">
+		<distribution name="rman_from_peer_fm0mac1">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_from_peer_10gec1">
+		<distribution name="rman_from_peer_fm0mac2">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_from_peer_10gec2">
+		<distribution name="rman_from_peer_fm0mac3">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_from_peer_10gec3">
+		<distribution name="rman_from_peer_fm0mac4">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_from_peer_dtsec0">
+		<distribution name="rman_from_peer_fm0mac5">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_from_peer_dtsec1">
+		<distribution name="rman_from_peer_fm0mac6">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_from_peer_dtsec2">
+		<distribution name="rman_from_peer_fm0mac7">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_from_peer_dtsec3">
+		<distribution name="rman_from_peer_fm0mac8">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_from_peer_dtsec4">
+		<distribution name="rman_from_peer_fm0mac9">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_from_peer_dtsec5">
+		<distribution name="rman_from_peer_fm0mac10">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_from_peer_dtsec8">
+		<distribution name="rman_from_peer_fm1mac1">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_from_peer_dtsec9">
+		<distribution name="rman_from_peer_fm1mac2">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_from_peer_dtsec10">
+		<distribution name="rman_from_peer_fm1mac3">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_from_peer_dtsec11">
+		<distribution name="rman_from_peer_fm1mac4">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_from_peer_dtsec12">
+		<distribution name="rman_from_peer_fm1mac5">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_from_peer_dtsec13">
+		<distribution name="rman_from_peer_fm1mac6">
+			<rio_port number="1" mask="1"/>
+		</distribution>
+
+		<distribution name="rman_from_peer_fm1mac7">
+			<rio_port number="1" mask="1"/>
+		</distribution>
+
+		<distribution name="rman_from_peer_fm1mac8">
+			<rio_port number="1" mask="1"/>
+		</distribution>
+
+		<distribution name="rman_from_peer_fm1mac9">
+			<rio_port number="1" mask="1"/>
+		</distribution>
+
+		<distribution name="rman_from_peer_fm1mac10">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
 		<!--	xxxxxxxxx RMAN TX distribution xxxxxxxxxx -->
-		<distribution name="rman_to_peer_10gec0">
+		<distribution name="rman_to_peer_fm0mac1">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_to_peer_10gec1">
+		<distribution name="rman_to_peer_fm0mac2">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_to_peer_10gec2">
+		<distribution name="rman_to_peer_fm0mac3">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_to_peer_10gec3">
+		<distribution name="rman_to_peer_fm0mac4">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_to_peer_dtsec0">
+		<distribution name="rman_to_peer_fm0mac5">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_to_peer_dtsec1">
+		<distribution name="rman_to_peer_fm0mac6">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_to_peer_dtsec2">
+		<distribution name="rman_to_peer_fm0mac7">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_to_peer_dtsec3">
+		<distribution name="rman_to_peer_fm0mac8">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_to_peer_dtsec4">
+		<distribution name="rman_to_peer_fm0mac9">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_to_peer_dtsec5">
+		<distribution name="rman_to_peer_fm0mac10">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_to_peer_dtsec8">
-		</distribution>
-
-		<distribution name="rman_to_peer_dtsec9">
+		<distribution name="rman_to_peer_fm1mac1">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_to_peer_dtsec10">
+		<distribution name="rman_to_peer_fm1mac2">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_to_peer_dtsec11">
+		<distribution name="rman_to_peer_fm1mac3">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_to_peer_dtsec12">
+		<distribution name="rman_to_peer_fm1mac4">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 
-		<distribution name="rman_to_peer_dtsec13">
+		<distribution name="rman_to_peer_fm1mac5">
+			<rio_port number="1" mask="1"/>
+		</distribution>
+
+		<distribution name="rman_to_peer_fm1mac6">
+			<rio_port number="1" mask="1"/>
+		</distribution>
+
+		<distribution name="rman_to_peer_fm1mac7">
+			<rio_port number="1" mask="1"/>
+		</distribution>
+
+		<distribution name="rman_to_peer_fm1mac8">
+			<rio_port number="1" mask="1"/>
+		</distribution>
+
+		<distribution name="rman_to_peer_fm1mac9">
+			<rio_port number="1" mask="1"/>
+		</distribution>
+
+		<distribution name="rman_to_peer_fm1mac10">
 			<rio_port number="1" mask="1"/>
 		</distribution>
 	</dists_cfg>

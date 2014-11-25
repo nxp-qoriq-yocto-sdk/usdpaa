@@ -32,210 +32,262 @@
 -->
 
 <trans_cfg>
-	<transaction name="dstr-10gec0" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="100" mask="0"/>
-		<streamid value="0" mask="0x1f"/>
-	</transaction>
-
-	<transaction name="dstr-10gec1" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="110" mask="0"/>
-		<streamid value="0" mask="0x1f"/>
-	</transaction>
-
-	<transaction name="dstr-10gec2" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="120" mask="0"/>
-		<streamid value="0" mask="0x1f"/>
-	</transaction>
-
-	<transaction name="dstr-10gec3" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="130" mask="0"/>
-		<streamid value="0" mask="0x1f"/>
-	</transaction>
-
-	<transaction name="dstr-dtsec0" type="Data-streaming">
-		<flowlvl value="0" mask="2"/>
-		<cos value="0" mask="0"/>
-		<streamid value="0" mask="0x1f"/>
-	</transaction>
-
-	<transaction name="dstr-dtsec1" type="Data-streaming">
+	<transaction name="dstr-fm0mac1" type="Data-streaming">
 		<flowlvl value="0" mask="2"/>
 		<cos value="1" mask="0"/>
 		<streamid value="0" mask="0x1f"/>
 	</transaction>
 
-	<transaction name="dstr-dtsec2" type="Data-streaming">
+	<transaction name="dstr-fm0mac2" type="Data-streaming">
 		<flowlvl value="0" mask="2"/>
 		<cos value="2" mask="0"/>
 		<streamid value="0" mask="0x1f"/>
 	</transaction>
 
-	<transaction name="dstr-dtsec3" type="Data-streaming">
+	<transaction name="dstr-fm0mac3" type="Data-streaming">
 		<flowlvl value="0" mask="2"/>
 		<cos value="3" mask="0"/>
 		<streamid value="0" mask="0x1f"/>
 	</transaction>
 
-	<transaction name="dstr-dtsec4" type="Data-streaming">
+	<transaction name="dstr-fm0mac4" type="Data-streaming">
 		<flowlvl value="0" mask="2"/>
 		<cos value="4" mask="0"/>
 		<streamid value="0" mask="0x1f"/>
 	</transaction>
 
-	<transaction name="dstr-dtsec5" type="Data-streaming">
+	<transaction name="dstr-fm0mac5" type="Data-streaming">
 		<flowlvl value="0" mask="2"/>
 		<cos value="5" mask="0"/>
 		<streamid value="0" mask="0x1f"/>
 	</transaction>
 
-	<transaction name="dstr-dtsec8" type="Data-streaming">
+	<transaction name="dstr-fm0mac6" type="Data-streaming">
+		<flowlvl value="0" mask="2"/>
+		<cos value="6" mask="0"/>
+		<streamid value="0" mask="0x1f"/>
+	</transaction>
+
+	<transaction name="dstr-fm0mac7" type="Data-streaming">
+		<flowlvl value="0" mask="2"/>
+		<cos value="7" mask="0"/>
+		<streamid value="0" mask="0x1f"/>
+	</transaction>
+
+	<transaction name="dstr-fm0mac8" type="Data-streaming">
 		<flowlvl value="0" mask="2"/>
 		<cos value="8" mask="0"/>
 		<streamid value="0" mask="0x1f"/>
 	</transaction>
 
-	<transaction name="dstr-dtsec9" type="Data-streaming">
+	<transaction name="dstr-fm0mac9" type="Data-streaming">
 		<flowlvl value="0" mask="2"/>
 		<cos value="9" mask="0"/>
 		<streamid value="0" mask="0x1f"/>
 	</transaction>
 
-	<transaction name="dstr-dtsec10" type="Data-streaming">
+	<transaction name="dstr-fm0mac10" type="Data-streaming">
 		<flowlvl value="0" mask="2"/>
 		<cos value="10" mask="0"/>
 		<streamid value="0" mask="0x1f"/>
 	</transaction>
 
-	<transaction name="dstr-dtsec11" type="Data-streaming">
+	<transaction name="dstr-fm1mac1" type="Data-streaming">
 		<flowlvl value="0" mask="2"/>
 		<cos value="11" mask="0"/>
 		<streamid value="0" mask="0x1f"/>
 	</transaction>
 
-	<transaction name="dstr-dtsec12" type="Data-streaming">
+	<transaction name="dstr-fm1mac2" type="Data-streaming">
 		<flowlvl value="0" mask="2"/>
 		<cos value="12" mask="0"/>
 		<streamid value="0" mask="0x1f"/>
 	</transaction>
 
-	<transaction name="dstr-dtsec13" type="Data-streaming">
+	<transaction name="dstr-fm1mac3" type="Data-streaming">
 		<flowlvl value="0" mask="2"/>
 		<cos value="13" mask="0"/>
 		<streamid value="0" mask="0x1f"/>
 	</transaction>
 
-	<transaction name="mbox-10gec0" type="Mailbox">
+	<transaction name="dstr-fm1mac4" type="Data-streaming">
+		<flowlvl value="0" mask="2"/>
+		<cos value="14" mask="0"/>
+		<streamid value="0" mask="0x1f"/>
+	</transaction>
+
+	<transaction name="dstr-fm1mac5" type="Data-streaming">
+		<flowlvl value="0" mask="2"/>
+		<cos value="15" mask="0"/>
+		<streamid value="0" mask="0x1f"/>
+	</transaction>
+
+	<transaction name="dstr-fm1mac6" type="Data-streaming">
+		<flowlvl value="0" mask="2"/>
+		<cos value="16" mask="0"/>
+		<streamid value="0" mask="0x1f"/>
+	</transaction>
+
+	<transaction name="dstr-fm1mac7" type="Data-streaming">
+		<flowlvl value="0" mask="2"/>
+		<cos value="17" mask="0"/>
+		<streamid value="0" mask="0x1f"/>
+	</transaction>
+
+	<transaction name="dstr-fm1mac8" type="Data-streaming">
+		<flowlvl value="0" mask="2"/>
+		<cos value="18" mask="0"/>
+		<streamid value="0" mask="0x1f"/>
+	</transaction>
+
+	<transaction name="dstr-fm1mac9" type="Data-streaming">
+		<flowlvl value="0" mask="2"/>
+		<cos value="19" mask="0"/>
+		<streamid value="0" mask="0x1f"/>
+	</transaction>
+
+	<transaction name="dstr-fm1mac10" type="Data-streaming">
+		<flowlvl value="0" mask="2"/>
+		<cos value="20" mask="0"/>
+		<streamid value="0" mask="0x1f"/>
+	</transaction>
+
+	<transaction name="mbox-fm0mac1" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
 		<mbox value="0" mask="0"/>
-		<ltr value="0" mask="3" />
-		<msglen value="6" mask="1"/>
-	</transaction>
-
-	<transaction name="mbox-10gec1" type="Mailbox">
-		<flowlvl value="0" mask="2"/>
-		<mbox value="1" mask="0"/>
-		<ltr value="0" mask="3" />
-		<msglen value="6" mask="1"/>
-	</transaction>
-
-	<transaction name="mbox-10gec2" type="Mailbox">
-		<flowlvl value="0" mask="2"/>
-		<mbox value="2" mask="0"/>
-		<ltr value="0" mask="3" />
-		<msglen value="6" mask="1"/>
-	</transaction>
-
-	<transaction name="mbox-10gec3" type="Mailbox">
-		<flowlvl value="0" mask="2"/>
-		<mbox value="3" mask="0"/>
-		<ltr value="0" mask="3" />
-		<msglen value="6" mask="1"/>
-	</transaction>
-
-	<transaction name="mbox-dtsec0" type="Mailbox">
-		<flowlvl value="0" mask="2"/>
-		<mbox value="3" mask="0"/>
 		<ltr value="0" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
-	<transaction name="mbox-dtsec1" type="Mailbox">
+	<transaction name="mbox-fm0mac2" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
-		<mbox value="3" mask="0"/>
+		<mbox value="0" mask="0"/>
 		<ltr value="1" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
-	<transaction name="mbox-dtsec2" type="Mailbox">
+	<transaction name="mbox-fm0mac3" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
-		<mbox value="3" mask="0"/>
+		<mbox value="0" mask="0"/>
 		<ltr value="2" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
-	<transaction name="mbox-dtsec3" type="Mailbox">
+	<transaction name="mbox-fm0mac4" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
-		<mbox value="3" mask="0"/>
+		<mbox value="0" mask="0"/>
 		<ltr value="3" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
-	<transaction name="mbox-dtsec4" type="Mailbox">
+	<transaction name="mbox-fm0mac5" type="Mailbox">
+		<flowlvl value="0" mask="2"/>
+		<mbox value="1" mask="0"/>
+		<ltr value="0" mask="0" />
+		<msglen value="6" mask="1"/>
+	</transaction>
+
+	<transaction name="mbox-fm0mac6" type="Mailbox">
+		<flowlvl value="0" mask="2"/>
+		<mbox value="1" mask="0"/>
+		<ltr value="1" mask="0" />
+		<msglen value="6" mask="1"/>
+	</transaction>
+
+	<transaction name="mbox-fm0mac7" type="Mailbox">
+		<flowlvl value="0" mask="2"/>
+		<mbox value="1" mask="0"/>
+		<ltr value="0" mask="0" />
+		<msglen value="6" mask="1"/>
+	</transaction>
+
+	<transaction name="mbox-fm0mac8" type="Mailbox">
+		<flowlvl value="0" mask="2"/>
+		<mbox value="1" mask="0"/>
+		<ltr value="1" mask="0" />
+		<msglen value="6" mask="1"/>
+	</transaction>
+
+	<transaction name="mbox-fm0mac9" type="Mailbox">
+		<flowlvl value="0" mask="2"/>
+		<mbox value="1" mask="0"/>
+		<ltr value="2" mask="0" />
+		<msglen value="6" mask="1"/>
+	</transaction>
+
+	<transaction name="mbox-fm0mac10" type="Mailbox">
+		<flowlvl value="0" mask="2"/>
+		<mbox value="1" mask="0"/>
+		<ltr value="3" mask="0" />
+		<msglen value="6" mask="1"/>
+	</transaction>
+
+	<transaction name="mbox-fm1mac1" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
 		<mbox value="2" mask="0"/>
 		<ltr value="0" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
-	<transaction name="mbox-dtsec5" type="Mailbox">
+	<transaction name="mbox-fm1mac2" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
 		<mbox value="2" mask="0"/>
 		<ltr value="1" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
-	<transaction name="mbox-dtsec8" type="Mailbox">
+	<transaction name="mbox-fm1mac3" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
 		<mbox value="2" mask="0"/>
 		<ltr value="2" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
-	<transaction name="mbox-dtsec9" type="Mailbox">
+	<transaction name="mbox-fm1mac4" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
 		<mbox value="2" mask="0"/>
 		<ltr value="3" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
-	<transaction name="mbox-dtsec10" type="Mailbox">
+	<transaction name="mbox-fm1mac5" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
-		<mbox value="1" mask="0"/>
+		<mbox value="3" mask="0"/>
 		<ltr value="0" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
-	<transaction name="mbox-dtsec11" type="Mailbox">
+	<transaction name="mbox-fm1mac6" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
-		<mbox value="1" mask="0"/>
+		<mbox value="3" mask="0"/>
 		<ltr value="1" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
-	<transaction name="mbox-dtsec12" type="Mailbox">
+	<transaction name="mbox-fm1mac7" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
-		<mbox value="1" mask="0"/>
+		<mbox value="3" mask="0"/>
+		<ltr value="0" mask="0" />
+		<msglen value="6" mask="1"/>
+	</transaction>
+
+	<transaction name="mbox-fm1mac8" type="Mailbox">
+		<flowlvl value="0" mask="2"/>
+		<mbox value="3" mask="0"/>
+		<ltr value="1" mask="0" />
+		<msglen value="6" mask="1"/>
+	</transaction>
+
+	<transaction name="mbox-fm1mac9" type="Mailbox">
+		<flowlvl value="0" mask="2"/>
+		<mbox value="3" mask="0"/>
 		<ltr value="2" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
 
-	<transaction name="mbox-dtsec13" type="Mailbox">
+	<transaction name="mbox-fm1mac10" type="Mailbox">
 		<flowlvl value="0" mask="2"/>
-		<mbox value="1" mask="0"/>
+		<mbox value="3" mask="0"/>
 		<ltr value="3" mask="0" />
 		<msglen value="6" mask="1"/>
 	</transaction>
