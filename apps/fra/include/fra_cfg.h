@@ -38,7 +38,7 @@
 #undef FRA_CORE_COPY_MD /* core copy the rman descriptor */
 #undef FRA_ERROR_INTERRUPT_INFO /* print error interrupt info */
 
-#define FRA_FC
+#undef FRA_FC
 
 /*
  * This macro is to enable Mailbox multicast mode
