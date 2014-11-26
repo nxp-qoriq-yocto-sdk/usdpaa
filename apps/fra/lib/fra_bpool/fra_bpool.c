@@ -83,8 +83,7 @@ static void bpool_node_init(const struct bpool_config *cfg)
 	struct bman_pool	*pool;
 	struct bm_buffer	bufs[8];
 	uint32_t		num_bufs = 0;
-	uint8_t			bpid;
-	uint32_t		rel;
+	uint8_t			bpid, rel;
 	int			err, loop;
 
 	bpid = cfg->bpid;
@@ -111,11 +110,12 @@ static void bpool_node_init(const struct bpool_config *cfg)
 			num_bufs += err;
 	} while (err > 0);
 	if (num_bufs)
-		error(0, 0, "warn: drained %u bufs from BPID %d",
-		      num_bufs, bpid);
+		fprintf(stderr, "warn: drained %u bufs from BPID %d\n",
+			num_bufs, bpid);
 	/* Fill the pool */
 	for (num_bufs = 0; num_bufs < cfg->num; ) {
-		rel = (cfg->num - num_bufs) > 8 ? 8 : (cfg->num - num_bufs);
+		rel = (uint8_t)
+		      ((cfg->num - num_bufs) > 8 ? 8 : (cfg->num - num_bufs));
 		for (loop = 0; loop < rel; loop++) {
 			void *ptr = __dma_mem_memalign(L1_CACHE_BYTES, cfg->sz);
 			if (!ptr) {
@@ -132,8 +132,8 @@ static void bpool_node_init(const struct bpool_config *cfg)
 			error(0, -err, "%s", __func__);
 		num_bufs += rel;
 	}
-	error(0, 0, "BPOOL: Release %u bufs to BPID %d",
-	      num_bufs, bpid);
+	fprintf(stderr, "BPOOL: Release %u bufs to BPID %d\n",
+		num_bufs, bpid);
 }
 
 /* Initialise and see any BPIDs we've been configured to set up */

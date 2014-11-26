@@ -183,8 +183,12 @@ static enum RIO_TYPE rio_type_str_to_idx(const char *type)
 
 static void strip_blanks(char *str)
 {
-	int i, j;
-	int len = strlen(str);
+	int i, j, len;
+
+	if (!str)
+		return;
+
+	len = strlen(str);
 
 	for (i = 0; (i < len) && (str[i] == ' '); i++)
 		;
@@ -201,11 +205,11 @@ static void strip_blanks(char *str)
 		ptr = get_attributes(node, BAD_CAST TRAN_COMMON_VALUE);	\
 		if (unlikely(ptr == NULL))				\
 			return -EINVAL;					\
-		value = strtoul(ptr, NULL, 0);				\
+		value = (typeof(value))strtoul(ptr, NULL, 0);		\
 		ptr = get_attributes(node, BAD_CAST TRAN_COMMON_MASK);	\
 		if (unlikely(ptr == NULL))				\
 			return -EINVAL;					\
-		mask = strtoul(ptr, NULL, 0);				\
+		mask = (typeof(mask))strtoul(ptr, NULL, 0);		\
 	} while (0)
 
 #define search_member(member, nm, list) \
@@ -382,27 +386,27 @@ static int parse_dist_rman_rx(xmlNodePtr distp,
 				BAD_CAST DIST_PORT_NUMBER);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			rxcfg->rio_port = strtoul(ptr, NULL, 0);
+			rxcfg->rio_port = (uint8_t)strtoul(ptr, NULL, 0);
 			ptr = get_attributes(distp, BAD_CAST
 					     DIST_RIO_PORT_MASK);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			rxcfg->port_mask = strtoul(ptr, NULL, 0);
+			rxcfg->port_mask = (uint8_t)strtoul(ptr, NULL, 0);
 		} else if ((is_node(distp, BAD_CAST DIST_SID_NODE))) {
 			ptr = get_attributes(distp, BAD_CAST DIST_SID_VALUE);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			rxcfg->sid = strtoul(ptr, NULL, 0);
+			rxcfg->sid = (uint16_t)strtoul(ptr, NULL, 0);
 			ptr = get_attributes(distp, BAD_CAST DIST_SID_MASK);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			rxcfg->sid_mask = strtoul(ptr, NULL, 0);
+			rxcfg->sid_mask = (uint16_t)strtoul(ptr, NULL, 0);
 		} else if ((is_node(distp, BAD_CAST DIST_FQ_NODE))) {
 			ptr = get_attributes(distp,
 				BAD_CAST DIST_FQ_ID);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			rxcfg->fqid = strtoul(ptr, NULL, 0);
+			rxcfg->fqid = (uint32_t)strtoul(ptr, NULL, 0);
 			ptr = get_attributes(distp,
 				BAD_CAST DIST_FQ_MODE);
 			if (unlikely(ptr == NULL))
@@ -414,7 +418,7 @@ static int parse_dist_rman_rx(xmlNodePtr distp,
 			ptr = get_attributes(distp, BAD_CAST DIST_FQ_WQ);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			rxcfg->wq = strtoul(ptr, NULL, 0);
+			rxcfg->wq = (uint8_t)strtoul(ptr, NULL, 0);
 		} else if ((is_node(distp, BAD_CAST DIST_TRANREF_NODE))) {
 			ptr = get_attributes(distp,
 				BAD_CAST DIST_TRANREF_NAME);
@@ -438,12 +442,12 @@ static int parse_dist_rman_tx(xmlNodePtr distp,
 				BAD_CAST DIST_PORT_NUMBER);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			txcfg->rio_port = strtoul(ptr, NULL, 0);
+			txcfg->rio_port = (uint8_t)strtoul(ptr, NULL, 0);
 		} else if ((is_node(distp, BAD_CAST DIST_DID_NODE))) {
 			ptr = get_attributes(distp, BAD_CAST DIST_DID_VALUE);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			txcfg->did = strtoul(ptr, NULL, 0);
+			txcfg->did = (uint16_t)strtoul(ptr, NULL, 0);
 		} else if ((is_node(distp, BAD_CAST DIST_FQ_NODE))) {
 			ptr = get_attributes(distp,
 				BAD_CAST DIST_FQ_ID);
@@ -454,12 +458,12 @@ static int parse_dist_rman_tx(xmlNodePtr distp,
 				BAD_CAST DIST_FQ_COUNT);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			txcfg->fqs_num = strtoul(ptr, NULL, 0);
+			txcfg->fqs_num = (uint8_t)strtoul(ptr, NULL, 0);
 			ptr = get_attributes(distp,
 				BAD_CAST DIST_FQ_WQ);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			txcfg->wq = strtoul(ptr, NULL, 0);
+			txcfg->wq = (uint8_t)strtoul(ptr, NULL, 0);
 		} else if ((is_node(distp, BAD_CAST DIST_TRANREF_NODE))) {
 			ptr = get_attributes(distp,
 				BAD_CAST DIST_TRANREF_NAME);
@@ -509,21 +513,21 @@ static int parse_dist_rman_to_fman(xmlNodePtr distp,
 				BAD_CAST DIST_PORT_NUMBER);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			r2fcfg->rio_port = strtoul(ptr, NULL, 0);
+			r2fcfg->rio_port = (uint8_t)strtoul(ptr, NULL, 0);
 			ptr = get_attributes(distp, BAD_CAST
 					     DIST_RIO_PORT_MASK);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			r2fcfg->port_mask = strtoul(ptr, NULL, 0);
+			r2fcfg->port_mask = (uint8_t)strtoul(ptr, NULL, 0);
 		} else if ((is_node(distp, BAD_CAST DIST_SID_NODE))) {
 			ptr = get_attributes(distp, BAD_CAST DIST_SID_VALUE);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			r2fcfg->sid = strtoul(ptr, NULL, 0);
+			r2fcfg->sid = (uint16_t)strtoul(ptr, NULL, 0);
 			ptr = get_attributes(distp, BAD_CAST DIST_SID_MASK);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			r2fcfg->sid_mask = strtoul(ptr, NULL, 0);
+			r2fcfg->sid_mask = (uint16_t)strtoul(ptr, NULL, 0);
 		} else if ((is_node(distp, BAD_CAST DIST_FQ_NODE))) {
 			ptr = get_attributes(distp,
 				BAD_CAST DIST_FQ_ID);
@@ -541,7 +545,7 @@ static int parse_dist_rman_to_fman(xmlNodePtr distp,
 			ptr = get_attributes(distp, BAD_CAST DIST_FQ_WQ);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			r2fcfg->wq = strtoul(ptr, NULL, 0);
+			r2fcfg->wq = (uint8_t)strtoul(ptr, NULL, 0);
 		} else if ((is_node(distp, BAD_CAST DIST_TRANREF_NODE))) {
 			ptr = get_attributes(distp,
 				BAD_CAST DIST_TRANREF_NAME);
@@ -577,7 +581,7 @@ static int parse_dist_fman_rx(xmlNodePtr distp,
 			ptr = get_attributes(distp, BAD_CAST DIST_FQ_WQ);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			rxcfg->wq = strtoul(ptr, NULL, 0);
+			rxcfg->wq = (uint8_t)strtoul(ptr, NULL, 0);
 		}
 	}
 	return 0;
@@ -602,7 +606,7 @@ static int parse_dist_fman_tx(xmlNodePtr distp,
 			ptr = get_attributes(distp, BAD_CAST DIST_FQ_WQ);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			txcfg->wq = strtoul(ptr, NULL, 0);
+			txcfg->wq = (uint8_t)strtoul(ptr, NULL, 0);
 		}
 	}
 	return 0;
@@ -642,12 +646,12 @@ static int parse_dist_fman_to_rman(xmlNodePtr distp,
 				BAD_CAST DIST_PORT_NUMBER);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			f2rcfg->rio_port = strtoul(ptr, NULL, 0);
+			f2rcfg->rio_port = (uint8_t)strtoul(ptr, NULL, 0);
 		} else if ((is_node(distp, BAD_CAST DIST_DID_NODE))) {
 			ptr = get_attributes(distp, BAD_CAST DIST_DID_VALUE);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			f2rcfg->did = strtoul(ptr, NULL, 0);
+			f2rcfg->did = (uint16_t)strtoul(ptr, NULL, 0);
 		} else if ((is_node(distp, BAD_CAST DIST_TRANREF_NODE))) {
 			ptr = get_attributes(distp,
 				BAD_CAST DIST_TRANREF_NAME);
@@ -941,7 +945,7 @@ static int parse_rman_cfg(xmlNodePtr cur, struct rman_cfg *cfg)
 			ptr = get_attributes(cfgptr, BAD_CAST RMAN_CFG_VALUE);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			cfg->fq_bits[type] = strtoul(ptr, NULL, 0);
+			cfg->fq_bits[type] = (uint8_t)strtoul(ptr, NULL, 0);
 		} else if ((is_node(cfgptr, BAD_CAST MD_CREATE_NODE))) {
 			ptr = get_attributes(cfgptr, BAD_CAST MD_CREATE_MODE);
 			if (unlikely(ptr == NULL))
@@ -966,12 +970,12 @@ static int parse_rman_cfg(xmlNodePtr cur, struct rman_cfg *cfg)
 			ptr = get_attributes(cfgptr, BAD_CAST RMAN_CFG_VALUE);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			cfg->bpid[type] = strtoul(ptr, NULL, 0);
+			cfg->bpid[type] = (uint8_t)strtoul(ptr, NULL, 0);
 		} else if ((is_node(cfgptr, BAD_CAST SG_BPID_NODE))) {
 			ptr = get_attributes(cfgptr, BAD_CAST RMAN_CFG_VALUE);
 			if (unlikely(ptr == NULL))
 				return -EINVAL;
-			cfg->sgbpid = strtoul(ptr, NULL, 0);
+			cfg->sgbpid = (uint8_t)strtoul(ptr, NULL, 0);
 		} else if ((is_node(cfgptr, BAD_CAST RMAN_EFQ_NODE))) {
 			ptr = get_attributes(cfgptr, BAD_CAST RMAN_CFG_VALUE);
 			if (ptr && !strcmp(ptr, "yes"))
@@ -1072,11 +1076,11 @@ static int parse_network_cfg(xmlNodePtr cur, struct list_head *list)
 
 		ptr = (char *)get_attributes(cfgptr, BAD_CAST FMAN_PORT_NUM);
 		if (ptr)
-			cfg->port_num = strtoul(ptr, NULL, 0);
+			cfg->port_num = (uint8_t)strtoul(ptr, NULL, 0);
 
 		ptr = (char *)get_attributes(cfgptr, BAD_CAST FMAN_NUM);
 		if (ptr)
-			cfg->fman_num = strtoul(ptr, NULL, 0);
+			cfg->fman_num = (uint8_t)strtoul(ptr, NULL, 0);
 
 		cfgptr = cfgptr->next;
 	}

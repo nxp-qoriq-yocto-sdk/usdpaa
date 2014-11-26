@@ -59,6 +59,10 @@ static struct distribution *test_speed_dist_cmd_rx;
 #define test_speed_cmd_offset 13
 #define test_speed_cmd_mask 0x1fff
 
+#define CMD_DATA(command, data) \
+		((uint16_t)(((command) << test_speed_cmd_offset) | \
+			    ((data) & test_speed_cmd_mask)))
+
 enum test_speed_mode {
 	RECEIVE,
 	SEND
@@ -258,19 +262,20 @@ void test_speed_send_msg(void)
 	struct msg_buf *msg;
 
 	if (test_speed.end_flag) {
-		test_speed_send_cmd(RESTART << test_speed_cmd_offset);
+		test_speed_send_cmd(CMD_DATA(RESTART, 0));
+
 		usleep(wait_cmd_handler_time); /* wait test speed cmd handler */
-		test_speed_send_cmd(END << test_speed_cmd_offset);
+		test_speed_send_cmd(CMD_DATA(END, 0));
 		return;
 	}
 	if (!test_speed.loop) { /* the first loop */
-		test_speed_send_cmd(START << test_speed_cmd_offset);
-		test_speed_send_cmd(PACKETS_SIZE << test_speed_cmd_offset |
-				    test_speed.packets_size);
-		test_speed_send_cmd(PACKETS_NUM << test_speed_cmd_offset |
-				    test_speed.packets_num);
+		test_speed_send_cmd(CMD_DATA(START, 0));
+		test_speed_send_cmd(CMD_DATA(PACKETS_SIZE,
+					     test_speed.packets_size));
+		test_speed_send_cmd(CMD_DATA(PACKETS_NUM,
+					     test_speed.packets_num));
 	} else
-		test_speed_send_cmd(RESTART << test_speed_cmd_offset);
+		test_speed_send_cmd(CMD_DATA(RESTART, 0));
 
 	usleep(wait_cmd_handler_time); /* wait test speed cmd handler */
 

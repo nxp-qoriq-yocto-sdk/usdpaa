@@ -66,7 +66,7 @@ int init_pool_channels(void)
 	if (ret != FRA_NUM_POOL_CHANNELS)
 		return -ENOMEM;
 	for (ret = 0; ret < FRA_NUM_POOL_CHANNELS; ret++) {
-		sdqcr |= QM_SDQCR_CHANNELS_POOL_CONV(pchannels[ret]);
+		sdqcr |= QM_SDQCR_CHANNELS_POOL_CONV((uint16_t)pchannels[ret]);
 		FRA_DBG("Adding pool 0x%x to SDQCR 0x%08x",
 			pchannels[ret], sdqcr);
 	}
@@ -155,7 +155,7 @@ void fra_fq_pcd_init(struct qman_fq *fq, uint32_t fqid,
 #ifdef FRA_FC
 	if (cgrid != CGRID_NULL) {
 		opts.we_mask |= QM_INITFQ_WE_CGID;
-		opts.fqd.cgid = cgrid;
+		opts.fqd.cgid = (uint8_t)cgrid;
 		opts.fqd.fq_ctrl |= QM_FQCTRL_CGE;
 	}
 #endif
@@ -235,7 +235,7 @@ void fra_fq_tx_init(struct qman_fq *fq,  uint32_t fqid,
 #ifdef FRA_FC
 	if (cgrid != CGRID_NULL) {
 		opts.we_mask |= QM_INITFQ_WE_CGID;
-		opts.fqd.cgid = cgrid;
+		opts.fqd.cgid = (uint8_t)cgrid;
 		opts.fqd.fq_ctrl |= QM_FQCTRL_CGE;
 	}
 #endif

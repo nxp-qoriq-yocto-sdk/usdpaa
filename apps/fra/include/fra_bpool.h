@@ -51,7 +51,7 @@
 #endif
 
 struct bpool_config {
-	int bpid;
+	uint8_t bpid;
 	uint32_t num;
 	uint32_t sz;
 };
@@ -76,7 +76,7 @@ static inline uint32_t bpool_get_size(uint8_t bpid)
 static inline void
 bm_buffer_free(struct bman_pool *bp, const struct bm_buffer *buf, int count)
 {
-	while (bman_release(bp, buf, count, 0))
+	while (bman_release(bp, buf, (uint8_t)count, 0))
 		cpu_spin(BPOOL_BACKOFF_CYCLES);
 }
 

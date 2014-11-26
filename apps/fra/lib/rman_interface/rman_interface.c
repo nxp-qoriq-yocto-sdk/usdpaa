@@ -51,7 +51,7 @@ struct rman_if {
 	struct rman_cfg cfg;
 	struct srio_dev *sriodev;
 	int port_connected;
-	u16 tx_channel_id[RMAN_MAX_NUM_OF_CHANNELS];
+	uint16_t tx_channel_id[RMAN_MAX_NUM_OF_CHANNELS];
 	uint32_t msg_size[RIO_TYPE_NUM];
 	int sg_size;
 	struct list_head rman_rx_list;
@@ -197,7 +197,7 @@ static inline int msg_to_fd(struct qm_fd *fd, const struct msg_buf *msg)
 	fd->length20 = msg->len;
 	fd->bpid = msg->bmb.bpid;
 	qm_fd_addr_set64(fd, bm_buffer_get64(&msg->bmb));
-	fd->offset = (void *)msg->data - (void *)msg;
+	fd->offset = (uint16_t)((void *)msg->data - (void *)msg);
 	return 0;
 }
 
@@ -567,7 +567,7 @@ void rman_tx_dump_cgr(struct rman_tx *rman_tx)
 	dump_cgr(&rman_tx->cgr);
 }
 
-int rman_rx_get_cgrid(struct rman_rx *rman_rx)
+uint32_t rman_rx_get_cgrid(struct rman_rx *rman_rx)
 {
 	if (!rman_rx)
 		return 0;
@@ -780,7 +780,7 @@ int rman_tx_status_listen(struct rman_tx *tx, int error_flag,
 	return 0;
 }
 
-int rman_tx_connect(struct rman_tx *tx, int did)
+int rman_tx_connect(struct rman_tx *tx, uint16_t did)
 {
 	int i;
 
@@ -789,7 +789,7 @@ int rman_tx_connect(struct rman_tx *tx, int did)
 
 	for (i = 0; i < tx->fqs_num; i++) {
 #ifdef FRA_VIRTUAL_MULTI_DID
-		tx->hash[i].md.did = did + i;
+		tx->hash[i].md.did = (uint16_t)(did + i);
 #else
 		tx->hash[i].md.did = did;
 #endif
@@ -914,14 +914,12 @@ int rman_send_msg(struct rman_tx *tx, int hash_idx, struct msg_buf *msg)
 
 struct srio_dev *rman_if_get_sriodev(void)
 {
-	if (!rmif)
-		return NULL;
 	return rmif->sriodev;
 }
 
 int rman_if_port_connet(uint8_t port)
 {
-	int port_num;
+	uint8_t port_num;
 
 	if (!rmif || !rmif->sriodev)
 		return -EINVAL;
@@ -943,7 +941,7 @@ int rman_if_port_connet(uint8_t port)
 
 void rman_if_ports_stop(void)
 {
-	int i, port_num;
+	uint8_t i, port_num;
 
 	port_num = fsl_srio_get_port_num(rmif->sriodev);
 	for (i = 0; i < port_num; i++) {
@@ -956,7 +954,7 @@ void rman_if_ports_stop(void)
 
 void rman_if_ports_start(void)
 {
-	int i, port_num;
+	uint8_t i, port_num;
 
 	port_num = fsl_srio_get_port_num(rmif->sriodev);
 	for (i = 0; i < port_num; i++) {
@@ -972,7 +970,7 @@ void rman_if_status(void)
 	int socket_counts, fq_counts;
 	struct rman_rx *rx;
 	struct rman_tx *tx;
-	int i, port_num, port_width;
+	uint8_t i, port_num, port_width;
 
 	if (!rmif) {
 		fprintf(stderr, "RMan interface has not been initialized\n");
@@ -983,7 +981,8 @@ void rman_if_status(void)
 	for (i = 0; i < port_num; i++) {
 		if (rmif->port_connected & (1 << i)) {
 			fprintf(stderr, "\tUse SRIO port %d: ", i);
-			port_width = fsl_srio_port_width(rmif->sriodev, i);
+			port_width =
+				(uint8_t)fsl_srio_port_width(rmif->sriodev, i);
 			switch (port_width) {
 			case 0:
 				fprintf(stderr, "using lane 0\n");
@@ -1070,7 +1069,8 @@ int rman_if_init(const struct rman_cfg *cfg)
 	rman_if_reconfig(cfg);
 
 	for (i = 0; i < RMAN_MAX_NUM_OF_CHANNELS; i++)
-		rmif->tx_channel_id[i] = rman_get_channel_id(rmif->rmdev, i);
+		rmif->tx_channel_id[i] =
+			(uint16_t)rman_get_channel_id(rmif->rmdev, i);
 
 	INIT_LIST_HEAD(&rmif->rman_rx_list);
 	INIT_LIST_HEAD(&rmif->rman_tx_list);

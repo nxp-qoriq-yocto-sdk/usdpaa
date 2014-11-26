@@ -276,7 +276,7 @@ int rman_tx_fc_listen(struct rman_tx *tx, uint8_t port, uint32_t fqid,
 		      struct rio_tran *tran);
 
 /* This function returns this cgr index which this rx socket binded to */
-int rman_rx_get_cgrid(struct rman_rx *rx);
+uint32_t rman_rx_get_cgrid(struct rman_rx *rx);
 #endif
 
 /* Sets rman_tx to receive the completed or/and error status frame */
@@ -285,7 +285,7 @@ int rman_tx_status_listen(struct rman_tx *tx, int error_flag,
 			  nonhash_handler handler);
 
 /* Connects rman_tx socket to the destination device */
-int rman_tx_connect(struct rman_tx *tx, int did);
+int rman_tx_connect(struct rman_tx *tx, uint16_t did);
 
 /* Returns pointer of the RMan tx frame queue. */
 struct qman_fq *rman_tx_get_fq(struct rman_tx *tx, int idx);

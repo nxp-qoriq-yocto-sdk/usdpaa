@@ -36,7 +36,7 @@
 #include <math.h>
 #include "srio_driver.h"
 
-static int __fsl_srio_get_port_num(struct srio_dev *srio_dev,
+static uint8_t __fsl_srio_get_port_num(struct srio_dev *srio_dev,
 				 const struct device_node *srio_node)
 {
 	const struct device_node *child;
@@ -95,7 +95,7 @@ static int fsl_srio_port_init(struct srio_dev *srio_dev,
 		return ret;
 	}
 
-	srio_port->mem_win = mmap(NULL, srio_port->win_range.size,
+	srio_port->mem_win = mmap(NULL, (size_t)srio_port->win_range.size,
 				  PROT_READ | PROT_WRITE, MAP_SHARED,
 				  srio_port->port_fd, 0);
 	if (srio_port->mem_win == MAP_FAILED) {
@@ -150,7 +150,7 @@ int fsl_srio_uio_init(struct srio_dev **srio)
 	}
 
 	sriodev->port_num = __fsl_srio_get_port_num(sriodev, srio_node);
-	if (sriodev->port_num == 0) {
+	if (sriodev->port_num == 0 || sriodev->port_num > SRIO_PORT_MAX_NUM) {
 		ret = -ENODEV;
 		error(0, -ret, "%s(): Srio port", __func__);
 		goto err_of_compatible;
@@ -164,7 +164,7 @@ int fsl_srio_uio_init(struct srio_dev **srio)
 		goto err_of_compatible;
 	}
 
-	sriodev->rio_regs = mmap(NULL, sriodev->regs_size,
+	sriodev->rio_regs = mmap(NULL, (size_t)sriodev->regs_size,
 				 PROT_READ | PROT_WRITE, MAP_SHARED,
 				 sriodev->reg_fd, 0);
 	if (sriodev->rio_regs == MAP_FAILED) {
@@ -192,7 +192,7 @@ int fsl_srio_uio_init(struct srio_dev **srio)
 	return 0;
 
 err_port_malloc:
-	munmap(sriodev->rio_regs, sriodev->regs_size);
+	munmap(sriodev->rio_regs, (size_t)sriodev->regs_size);
 err_reg_map:
 	close(sriodev->reg_fd);
 err_of_compatible:
@@ -212,12 +212,12 @@ int fsl_srio_uio_finish(struct srio_dev *sriodev)
 
 	for (i = 0; i < sriodev->port_num; i++) {
 		munmap(sriodev->port[i].mem_win,
-		       sriodev->port[i].win_range.size);
+		       (size_t)sriodev->port[i].win_range.size);
 		close(sriodev->port[i].port_fd);
 	}
 
 	if (sriodev->reg_fd) {
-		munmap(sriodev->rio_regs, sriodev->regs_size);
+		munmap(sriodev->rio_regs, (size_t)sriodev->regs_size);
 		close(sriodev->reg_fd);
 		free(sriodev->port);
 	}
@@ -234,7 +234,7 @@ int fsl_srio_connection(struct srio_dev *sriodev, uint8_t port_id)
 	struct rio_regs *rio_regs;
 	struct srio_port *port;
 
-	if (!sriodev || (port_id > sriodev->port_num))
+	if (!sriodev || (port_id >= sriodev->port_num))
 		return -EINVAL;
 
 	port = &sriodev->port[port_id];
@@ -294,9 +294,9 @@ int fsl_srio_port_connected(struct srio_dev *sriodev)
 /*
  * This function return the total port number of rapidio.
  */
-int fsl_srio_get_port_num(struct srio_dev *sriodev)
+uint8_t fsl_srio_get_port_num(struct srio_dev *sriodev)
 {
-	return (int)sriodev->port_num;
+	return sriodev->port_num;
 }
 
 /* This function copies the srio port info to user */
@@ -432,9 +432,9 @@ int fsl_srio_set_deviceid(struct srio_dev *sriodev, uint8_t port_id,
 }
 
 /* This function gets srio port unique device id */
-int fsl_srio_get_deviceid(struct srio_dev *sriodev, uint8_t port_id)
+uint16_t fsl_srio_get_deviceid(struct srio_dev *sriodev, uint8_t port_id)
 {
-	uint32_t dev_id;
+	uint16_t dev_id;
 
 	if (!sriodev)
 		return -EINVAL;
@@ -650,6 +650,9 @@ void fsl_srio_set_tmmode(struct srio_dev *sriodev, uint8_t mode)
 
 void fsl_srio_port_disable(struct srio_dev *sriodev, uint8_t port_id)
 {
+	if (port_id >= sriodev->port_num)
+		return;
+
 	out_be32(&sriodev->rio_regs->lp_serial.port[port_id].ccsr,
 		in_be32(&sriodev->rio_regs->lp_serial.port[port_id].ccsr) |
 		1 << SRIO_CCSR_PD_OFFSET);
@@ -657,6 +660,9 @@ void fsl_srio_port_disable(struct srio_dev *sriodev, uint8_t port_id)
 
 void fsl_srio_port_enable(struct srio_dev *sriodev, uint8_t port_id)
 {
+	if (port_id >= sriodev->port_num)
+		return;
+
 	out_be32(&sriodev->rio_regs->lp_serial.port[port_id].ccsr,
 		in_be32(&sriodev->rio_regs->lp_serial.port[port_id].ccsr) &
 		~(1 << SRIO_CCSR_PD_OFFSET));
@@ -664,6 +670,9 @@ void fsl_srio_port_enable(struct srio_dev *sriodev, uint8_t port_id)
 
 void fsl_srio_drop_enable(struct srio_dev *sriodev, uint8_t port_id)
 {
+	if (port_id >= sriodev->port_num)
+		return;
+
 	out_be32(&sriodev->rio_regs->lp_serial.port[port_id].ccsr,
 		 in_be32(&sriodev->rio_regs->lp_serial.port[port_id].ccsr) |
 		 1 << SRIO_CCSR_DPE_OFFSET);
@@ -671,6 +680,9 @@ void fsl_srio_drop_enable(struct srio_dev *sriodev, uint8_t port_id)
 
 void fsl_srio_drop_disable(struct srio_dev *sriodev, uint8_t port_id)
 {
+	if (port_id >= sriodev->port_num)
+		return;
+
 	out_be32(&sriodev->rio_regs->lp_serial.port[port_id].ccsr,
 		 in_be32(&sriodev->rio_regs->lp_serial.port[port_id].ccsr) &
 		 ~(1 << SRIO_CCSR_DPE_OFFSET));
@@ -678,6 +690,9 @@ void fsl_srio_drop_disable(struct srio_dev *sriodev, uint8_t port_id)
 
 void fsl_srio_drain_enable(struct srio_dev *sriodev, uint8_t port_id)
 {
+	if (port_id >= sriodev->port_num)
+		return;
+
 	out_be32(&sriodev->rio_regs->impl.port[port_id].pcr,
 		 in_be32(&sriodev->rio_regs->impl.port[port_id].pcr) |
 		 1 << SRIO_PCR_OBDEN_OFFSET);
@@ -685,6 +700,9 @@ void fsl_srio_drain_enable(struct srio_dev *sriodev, uint8_t port_id)
 
 void fsl_srio_drain_disable(struct srio_dev *sriodev, uint8_t port_id)
 {
+	if (port_id >= sriodev->port_num)
+		return;
+
 	out_be32(&sriodev->rio_regs->impl.port[port_id].pcr,
 		 in_be32(&sriodev->rio_regs->impl.port[port_id].pcr) &
 		 ~(1 << SRIO_PCR_OBDEN_OFFSET));
@@ -693,6 +711,9 @@ void fsl_srio_drain_disable(struct srio_dev *sriodev, uint8_t port_id)
 void fsl_srio_set_packet_timeout(struct srio_dev *sriodev,
 				 uint8_t port_id, uint32_t value)
 {
+	if (port_id >= sriodev->port_num)
+		return;
+
 	out_be32(&sriodev->rio_regs->impl.port[port_id].lopttlcr,
 		 value << SRIO_LIVE_TIME_SHIFT);
 }
@@ -705,6 +726,9 @@ void fsl_srio_set_link_timeout(struct srio_dev *sriodev, uint32_t value)
 
 int fsl_srio_port_width(struct srio_dev *sriodev, uint8_t port_id)
 {
+	if (port_id >= sriodev->port_num)
+		return 0;
+
 	return (in_be32(&sriodev->rio_regs->lp_serial.port[port_id].ccsr) >>
 		SRIO_CCSR_IPW_OFFSET) & SRIO_CCSR_IPW_MASK;
 }
@@ -751,7 +775,6 @@ int fsl_srio_irq_disable(struct srio_dev *sriodev)
 void fsl_srio_irq_handler(struct srio_dev *sriodev)
 {
 	int i;
-	uint32_t port_bits;
 	uint32_t reg_ltledcsr, reg_epwisr;
 	struct rio_regs *rio_regs;
 
@@ -766,8 +789,6 @@ void fsl_srio_irq_handler(struct srio_dev *sriodev)
 		printf("SRIO interrupt info LTLEDCSR: 0x%x\n", reg_ltledcsr);
 		out_be32(&rio_regs->logical_err.ltledcsr, 0x0);
 	}
-
-	port_bits = reg_epwisr >> 28;
 
 	for (i = 0; i < sriodev->port_num; i++) {
 			printf("SRIO Port%d interrupt info\t IECSR: 0x%x,"

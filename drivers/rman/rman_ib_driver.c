@@ -307,7 +307,8 @@ struct rman_inbound_block *rman_ib_init(int idx)
 	if (ib->uiofd < 0)
 		goto _err;
 
-	ib->ib_regs = mmap(NULL, ib->regs_size, PROT_READ | PROT_WRITE,
+	ib->ib_regs = mmap(NULL, (size_t)ib->regs_size,
+			   PROT_READ | PROT_WRITE,
 			   MAP_SHARED, ib->uiofd, 0);
 	if (MAP_FAILED == ib->ib_regs)
 		goto _err;
@@ -318,7 +319,7 @@ struct rman_inbound_block *rman_ib_init(int idx)
 		ib->cu[cu_index].status = IBCU_STATUS_IDLE;
 	}
 
-	error(0, 0, "RMan inbound block%d is initialized", ib->index);
+	fprintf(stderr, "RMan inbound block%d is initialized\n", ib->index);
 
 	return ib;
 _err:
@@ -332,7 +333,7 @@ void rman_ib_finish(struct rman_inbound_block *ib)
 		return;
 
 	if (ib->ib_regs)
-		munmap((void *)ib->ib_regs, ib->regs_size);
+		munmap((void *)ib->ib_regs, (size_t)ib->regs_size);
 
 	if (ib->uiofd > 0)
 		close(ib->uiofd);

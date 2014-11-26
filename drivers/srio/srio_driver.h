@@ -265,5 +265,5 @@ struct srio_dev {
 	uint64_t regs_size;
 	int reg_fd;
 	struct srio_port *port;
-	uint32_t port_num;
+	uint8_t port_num;
 };

@@ -220,7 +220,7 @@ rman_global_node_init(const struct device_node *global_regs_node,
 	if (!of_get_address(global_regs_node, 0, &rmdev->regs_size, NULL))
 		return -EINVAL;
 
-	rmdev->global_regs = mmap(NULL, rmdev->regs_size,
+	rmdev->global_regs = mmap(NULL, (size_t)rmdev->regs_size,
 				  PROT_READ | PROT_WRITE, MAP_SHARED,
 				  rmdev->uiofd, 0);
 
@@ -297,7 +297,7 @@ void rman_dev_finish(struct rman_dev *rmdev)
 		return;
 
 	if (rmdev->global_regs)
-		munmap((void *)rmdev->global_regs, rmdev->regs_size);
+		munmap((void *)rmdev->global_regs, (size_t)rmdev->regs_size);
 	if (rmdev->uiofd > 0)
 		close(rmdev->uiofd);
 

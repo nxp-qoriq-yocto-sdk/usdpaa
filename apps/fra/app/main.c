@@ -754,6 +754,9 @@ static int fra_cli_cgr(int argc, char *argv[])
 		return -EINVAL;
 
 	worker = worker_first();
+	if (!worker)
+		return -EINVAL;
+
 	return msg_post(worker, worker_msg_query_cgr);
 }
 

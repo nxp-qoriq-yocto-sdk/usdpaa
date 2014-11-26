@@ -95,7 +95,7 @@ struct ibcu_cfg {
 	int		ibcu;
 	uint8_t		port;
 	uint8_t		port_mask;
-	uint8_t		fcdr;
+	uint16_t	fcdr;
 	uint16_t	sid;
 	uint16_t	sid_mask;
 	uint16_t	did;
