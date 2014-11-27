@@ -258,7 +258,7 @@ static inline enum fman_mac_type get_mac_type(const char *str)
 
 static inline void fman_get_mac_info(const char *str, uint8_t *mac_idx)
 {
-	if (str[8] > '0' && str[8] < '9')
+	if (str[8] >= '0' && str[8] <= '9')
 		*mac_idx = (str[7] - '0')*10 + (str[8] - '0');
 	else
 		*mac_idx = str[7] - '0';
@@ -348,10 +348,10 @@ static void check_fman_enabled_interfaces(void)
 			num = str[2] - '0';
 			if (strncmp((str + 4), "mac", 3) == 0) {
 				fman_get_mac_info(str, &num1);
-				if ((num - 1) != __if->fman_idx ||
+				if (num != __if->fman_idx ||
 					num1 != __if->mac_idx)
 					continue;
-			} else {
+			} else { /* for e.g. fm1-gb4 */
 				num1 = str[6] - '0';
 				val = get_mac_type(str);
 				if (val == fman_mac_10g) {
@@ -446,7 +446,7 @@ static inline int netcfg_interface_match(uint8_t fman,
 			num = str[2] - '0';
 			if (strncmp((str + 4), "mac", 3) == 0) {
 				fman_get_mac_info(str, &num1);
-				if ((num - 1) != fman || num1 != p_num)
+				if (num != fman || num1 != p_num)
 					continue;
 			} else {
 				num1 = str[6] - '0';
