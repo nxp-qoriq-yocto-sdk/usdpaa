@@ -42,7 +42,7 @@ dist_DATA =						\
 	usdpaa_config_p5_serdes_0x02.xml		\
 	usdpaa_config_b4_serdes_0x2a_0x98.xml		\
 	usdpaa_config_b4_serdes_0x18_0x9e.xml		\
-	usdpaa_config_t4_serdes_1_1_6_6.xml		\
+	usdpaa_config_t4_serdes_1_1_5_5.xml		\
 	usdpaa_config_t4_48g.xml			\
 	usdpaa_config_t2_serdes_66_15.xml		\
 	usdpaa_config_t2_serdes_66_15_22g.xml		\
