@@ -818,6 +818,7 @@ static inline void ppam_rx_hash_cb(struct ppam_rx_hash *p,
 	switch (dqrr->fd.format) {
 	case qm_fd_contig:
 		notes = __dma_mem_ptov(qm_fd_addr(&dqrr->fd));
+		dcbz_64(notes);
 		data = (void *)notes + dqrr->fd.offset;
 		break;
 	default:
