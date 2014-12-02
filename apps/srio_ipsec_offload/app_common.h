@@ -36,17 +36,32 @@
 #include "std_ext.h"
 #include "fmc.h"
 
-static inline struct fman_if *get_fif(int fm,
-				      int port_idx,
-				      enum fman_mac_type type)
+static inline struct fman_if *get_offline_fif(int fm,
+					      int port_idx)
 {
 	int idx;
 	struct fm_eth_port_cfg *port_cfg;
 	for (idx = 0; idx < netcfg->num_ethports; idx++) {
 		port_cfg = &netcfg->port_cfg[idx];
-		if ((fm == port_cfg->fman_if->fman_idx) &&
-		    (type == port_cfg->fman_if->mac_type) &&
-		    (port_idx == port_cfg->fman_if->mac_idx))
+		if (fm == port_cfg->fman_if->fman_idx &&
+		    port_idx == port_cfg->fman_if->mac_idx &&
+		    fman_offline == port_cfg->fman_if->mac_type)
+			return port_cfg->fman_if;
+	}
+	return NULL;
+}
+
+static inline struct fman_if *get_mac_fif(int fm,
+					  int port_idx)
+{
+	int idx;
+	struct fm_eth_port_cfg *port_cfg;
+	for (idx = 0; idx < netcfg->num_ethports; idx++) {
+		port_cfg = &netcfg->port_cfg[idx];
+		if (fm == port_cfg->fman_if->fman_idx &&
+		    port_idx == port_cfg->fman_if->mac_idx &&
+		    (fman_mac_1g == port_cfg->fman_if->mac_type ||
+		     fman_mac_10g == port_cfg->fman_if->mac_type))
 			return port_cfg->fman_if;
 	}
 	return NULL;
@@ -61,6 +76,80 @@ static inline struct ppac_interface *get_ppac_if(struct fman_if *__if)
 	}
 	return NULL;
 }
+
+static inline char * get_macless_name (struct fman_if * __if)
+{
+	if (!__if)
+		return NULL;
+
+	return __if->mac_type == fman_mac_less? __if->macless_info.macless_name :
+		   __if->mac_type == fman_onic ? __if->onic_info.macless_name :
+		   NULL;
+}
+
+static inline void set_macless_name (struct fman_if * __if, const char * macless_name)
+{
+	char * p = NULL;
+	if (!__if || !macless_name)
+		return;
+
+	p = __if->mac_type == fman_mac_less? __if->macless_info.macless_name :
+	    __if->mac_type == fman_onic ? __if->onic_info.macless_name :
+	   NULL;
+
+	if (!p)
+		return;
+
+	strncpy(p, macless_name, IFNAMSIZ);
+	p[IFNAMSIZ-1] = 0;
+}
+
+
+static inline struct ether_addr * get_macless_peer_mac (struct fman_if * __if)
+{
+	if (!__if)
+		return NULL;
+
+	return __if->mac_type == fman_mac_less? &__if->macless_info.peer_mac :
+		   __if->mac_type == fman_onic ?  &__if->onic_info.peer_mac :
+		   NULL;
+}
+
+static inline struct fman_if * get_fman_if_by_name (const char * p_macless_name)
+{
+	char * port_name = NULL;
+	struct fman_if * __if = NULL;
+
+	if (!p_macless_name)
+		return NULL;
+
+	list_for_each_entry(__if, fman_if_list, node) {
+		port_name = get_macless_name(__if);
+		if (port_name && !strcmp(p_macless_name, port_name))
+			return __if;
+	}
+
+	return NULL;
+}
+
+static inline struct fman_if * get_fman_if_by_mac (struct ether_addr * p_macless_mac)
+{
+	struct ether_addr * port_mac = NULL;
+	struct fman_if * __if = NULL;
+
+	if (!p_macless_mac)
+		return NULL;
+
+	list_for_each_entry(__if, fman_if_list, node) {
+		port_mac = get_macless_peer_mac(__if);
+		if (port_mac &&	!memcmp(&p_macless_mac->ether_addr_octet,
+				                &port_mac->ether_addr_octet, ETH_ALEN))
+			return __if;
+	}
+
+	return NULL;
+}
+
 
 /* VLAN header definition */
 struct vlan_hdr {
@@ -109,6 +198,8 @@ extern t_Handle cc_in_local[MAX_ETHER_TYPES];
 extern t_Handle ob_fwd_hm, ib_fwd_hm;
 /* inbound reassembly */
 extern t_Handle ib_reass;
+/* handle for configuration file path */
+extern const char ppam_cfg_path[];
 
 int fmc_config(void);
 void fmc_cleanup(void);
@@ -129,6 +220,8 @@ int fmc_apply_model(void);
 int stats_init(void);
 int show_sa_stats(int argc, char *argv[]);
 int show_ipsec_stats(int argc, char *argv[]);
+int list_dpa_sa(int argc, char *argv[]);
 int show_eth_stats(int argc, char *argv[]);
 int show_ib_reass_stats(int argc, char *argv[]);
+int parse_config(void);
 #endif

@@ -29,7 +29,6 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 #include <ppac.h>
 #include "ppam_if.h"
 #include <ppac_interface.h>
@@ -44,16 +43,17 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <signal.h>
+#include <libxml/parser.h>
 
 #include "fmc.h"
 #include "usdpaa/fsl_dpa_ipsec.h"
 #include "app_config.h"
 #include "app_common.h"
+#include "ipsec_sizing.h"
 #include <rman_interface.h>
 #include <rman_fq_interface.h>
 #include <rman_cfg.h>
 extern int rman_init();
-
 /* All of the following things could be placed into vtables, declared as
  * "extern", implemented elsewhere, and generally made less hacky if you want.
  *
@@ -93,8 +93,8 @@ struct ppam_arguments {
 	const char *mtu_pre_enc;
 	int inb_pol_check;
 	const char *outer_tos;
-	int ib_ecn;
-	int ob_ecn;
+	int disable_ib_ecn;
+	int disable_ob_ecn;
 	int ib_loop;
 	const char *vif;
 	const char *vof;
@@ -195,7 +195,6 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 	uint32_t rx_start = 0;
 	int ret;
 	char fmc_path[64];
-	const char *port_type;
 	int idx;
 
 	if (strcmp(macless_name, app_conf.vif) &&
@@ -239,10 +238,9 @@ static int setup_macless_if_rx(struct ppac_interface *i,
 	if (!strcmp(macless_name, app_conf.vof)) {
 		/* set fqids for vof PCD */
 		memset(fmc_path, 0, sizeof(fmc_path));
-		port_type = get_port_type(app_conf.ob_eth);
-		sprintf(fmc_path, "fm%d/port/%s/%d/dist/"
+		sprintf(fmc_path, "fm%d/port/MAC/%d/dist/"
 			"ob_rx_default_dist",
-			app_conf.fm, port_type, app_conf.ob_eth->mac_idx);
+			app_conf.fm, app_conf.ob_eth->mac_idx);
 		ret = set_dist_base_fqid(cmodel, fmc_path, rx_start);
 		if (ret < 0)
 			goto err;
@@ -285,6 +283,7 @@ static int ppam_interface_init(struct ppam_interface *p,
 			       uint32_t *flags __maybe_unused)
 {
 	int ret;
+	int idx;
 	struct ppac_interface *i =
 		container_of(p, struct ppac_interface, ppam_data);
 	struct qman_fq *fq = &i->tx_fqs[0];
@@ -322,7 +321,15 @@ static int ppam_interface_init(struct ppam_interface *p,
 		if (ret < 0)
 			goto err;
 	}
-	if (app_conf.ib_oh ==  i->port_cfg->fman_if) {
+	if (app_conf.ib_oh == i->port_cfg->fman_if)
+	{
+		/* The IB OH sends traffic to the vipsec interface*/
+
+		idx = if_nametoindex(app_conf.vipsec);
+		if (!idx)
+			return -ENODEV;
+		i->ppam_data.macless_ifindex = idx;
+
 		fq->fqid = IB_OH_TX_FQID;
 	}
 
@@ -360,8 +367,8 @@ static inline void ppam_rx_error_cb(struct ppam_rx_error *p,
 {
         const struct qm_fd *fd = &dqrr->fd;
 	/* don't drop BPDERR SEC errored fds */
-	if (fd->status & SEC_QI_ERR_MASK == SEC_QI_ERR_BITS &&
-	    fd->status & SEC_QI_STA_MASK == SEC_QI_ERR_BPD)
+	if ((fd->status & SEC_QI_ERR_MASK) == SEC_QI_ERR_BITS &&
+	    (fd->status & SEC_QI_STA_MASK) == SEC_QI_ERR_BPD)
 		return;
 	ppac_drop_frame(fd);
 }
@@ -528,107 +535,160 @@ void cleanup_buffer_pools(void)
 	bman_release_bpid(app_conf.ipf_bpid);
 }
 
-static struct fman_if *parse_eth_portarg(const char *p, int fm_idx)
+/* CONFIG XML parsing */
+
+
+#define CFG_FMAN_NODE                   ("engine")
+#define CFG_FMAN_NA_name                ("name")
+#define CFG_PORT_NODE                   ("port")
+#define CFG_PORT_NA_number              ("number")
+#define CFG_PORT_NA_policy              ("policy")
+#define CFG_PORT_NA_type                ("type")
+
+#define CFG_OB_POLICY                   ("ob_rx_policy")
+#define CFG_IB_POLICY                   ("ib_rx_policy")
+#define CFG_IB_OH_RX_POLICY             ("ib_oh_rx_policy")
+#define CFG_1PORT_POLICY                ("ib_ob_rx_policy")
+#define CFG_IB_OH_POLICY                ("ib_oh_post_policy")
+#define CFG_OB_OH_PRE_POLICY    ("ob_oh_pre_policy")
+#define CFG_OB_OH_POST_POLICY   ("ob_oh_post_policy")
+
+
+static inline int is_node(xmlNodePtr node, xmlChar *name)
 {
-	char *pch;
-	int port_idx, port_type;
-	pch = strtok((char *)p, ",");
-	port_idx = atoi(pch);
-	pch = strtok(NULL, ",");
-	if (!pch)
-		return NULL;
-	port_type = atoi(pch);
-	return get_fif(fm_idx, port_idx, port_type);
+        return xmlStrcmp(node->name, name) ? 0 : 1;
 }
 
-static struct fman_if *parse_offline_portarg(const char *p, int fm_idx)
+static void *get_attributes(xmlNodePtr node, xmlChar *attr)
 {
-	int port_idx;
-	port_idx = atoi(p);
-	return get_fif(fm_idx, port_idx, fman_offline);
+        char *atr = (char *)xmlGetProp(node, attr);
+        if (unlikely(atr == NULL))
+                fprintf(stderr, "%s:%hu:%s() error: xmlGetProp(%s) not found\n",
+                                __FILE__, __LINE__, __func__,  attr);
+        return atr;
+}
+
+int parse_config(void)
+{
+        xmlDocPtr doc;
+        int p_idx;
+        char *tmp;
+        const char *envp;
+        xmlNodePtr node;
+        void *_if = NULL;
+        const char *cfg_path = ppam_cfg_path;
+
+        envp = getenv(ppam_cfg_path);
+        if (envp != NULL)
+                cfg_path = envp;
+
+        xmlInitParser();
+        LIBXML_TEST_VERSION;
+        xmlKeepBlanksDefault(0);
+
+        /* parse config file and get the root element*/
+
+        doc = xmlParseFile(cfg_path);
+        if (unlikely(doc == NULL)) {
+                fprintf(stderr, "%s:%hu:%s() error: xmlParseFile(%s)\n",
+                                __FILE__, __LINE__, __func__, cfg_path);
+                return -EINVAL;
+        }
+
+        node = xmlDocGetRootElement(doc);
+
+        /* the XML has already been validated by the netcfg layer
+         * go directly to the engine node - process only the first one
+         */
+
+        while (node) {
+                if (!xmlStrcmp(node->name, (const xmlChar *)CFG_FMAN_NODE))
+                        break;
+
+                node = node->xmlChildrenNode;
+        }
+        /* save the fman index */
+
+        tmp = (char *)get_attributes(node, BAD_CAST CFG_FMAN_NA_name);
+        if (unlikely(!tmp) || unlikely(strncmp(tmp, "fm", 2)) ||
+                                unlikely(!isdigit(tmp[2]))) {
+                fprintf(stderr, "%s:%hu:%s() error: attrtibute name in %s node"
+                                "is neither <fm0> nor <fm1> in XMLFILE(%s)\n",
+                                __FILE__, __LINE__, __func__,
+                                CFG_FMAN_NODE, cfg_path);
+                return -EINVAL;
+        }
+
+        app_conf.fm = tmp[2] - '0';
+
+        /* save the ports info */
+
+        node = node->xmlChildrenNode;
+        for (; unlikely(node != NULL); node = node->next) {
+
+                if (unlikely(!is_node(node, BAD_CAST CFG_PORT_NODE)))
+                        continue;
+
+                /* Get the MAC port number, port type and policy name. */
+                tmp = (char *)get_attributes(node, BAD_CAST CFG_PORT_NA_number);
+                if (unlikely(tmp == NULL))
+                        break;
+                p_idx = strtoul(tmp, NULL, 0);
+
+                tmp = (char *)get_attributes(node, BAD_CAST CFG_PORT_NA_type);
+                if (unlikely(tmp == NULL))
+                        break;
+
+                /* Get the corresponding fman_if handle */
+                if (0 == strcmp(tmp, "OFFLINE"))
+                        _if = get_offline_fif(app_conf.fm, p_idx);
+                else if (0 == strcmp(tmp, "MAC"))
+                        _if = get_mac_fif(app_conf.fm, p_idx);
+
+                if (!_if) {
+                        fprintf(stderr, "Error: invalid interface"
+                                        "(fm: %d, idx: %d, type: '%s')\n",
+                                        app_conf.fm, p_idx, tmp);
+                        return -1;
+                }
+
+                tmp = (char *)get_attributes(node, BAD_CAST CFG_PORT_NA_policy);
+                if (unlikely(tmp == NULL))
+                        break;
+
+                /* Update application configuration based on found info. */
+                if (!strcmp(tmp, CFG_OB_POLICY))
+                        app_conf.ob_eth = _if;
+                else if (!strcmp(tmp, CFG_1PORT_POLICY))
+                        app_conf.ob_eth = _if;
+                else if (!strcmp(tmp, CFG_IB_OH_RX_POLICY))
+                        app_conf.ib_oh_pre = _if;
+                else if (!strcmp(tmp, CFG_IB_OH_POLICY))
+                        app_conf.ib_oh = _if;
+                else if (!strcmp(tmp, CFG_OB_OH_PRE_POLICY))
+                        app_conf.ob_oh_pre = _if;
+                else if (!strcmp(tmp, CFG_OB_OH_POST_POLICY))
+                        app_conf.ob_oh_post = _if;
+        }
+
+        return 0;
 }
 
 int ppam_init(void)
 {
 	int ret;
 
-	/* mandatory cmdline args */
-	/* fm index */
-	if (!ppam_args.fm) {
-		fprintf(stderr, "Error : fm arg not set\n");
-		goto err;
-	}
-	app_conf.fm = atoi(ppam_args.fm);
-	/* outbound eth port */
-	if (!ppam_args.ob_eth) {
-		fprintf(stderr, "Error : ob_eth arg not set\n");
-		goto err;
-	}
-	app_conf.ob_eth = parse_eth_portarg(ppam_args.ob_eth,
-					    app_conf.fm);
-	if (!app_conf.ob_eth) {
-		fprintf(stderr, "Error : ob_eth %s invalid\n",
-			ppam_args.ob_eth);
+	memset(&xfrm_tid, 0, sizeof(pthread_t));
+	memset(&neigh_tid, 0, sizeof(pthread_t));
+
+	ret = parse_config();
+	if (ret) {
+		fprintf(stderr, "Error parsing config XML\n");
 		goto err;
 	}
 
-	/* inbound offline port */
-	if (!ppam_args.ib_oh) {
-		fprintf(stderr, "Error : ib_oh arg not set\n");
-		goto err;
-	}
-	app_conf.ib_oh = parse_offline_portarg(ppam_args.ib_oh,
-					       app_conf.fm);
-	if (!app_conf.ib_oh) {
-		fprintf(stderr, "Error : ib_oh %s invalid\n",
-			ppam_args.ib_oh);
-		goto err;
-	}
-	/* inbound pre SEC  offline port */
-	if (!ppam_args.ib_oh_pre) {
-		fprintf(stderr, "Error : ib_oh_pre arg not set\n");
-		goto err;
-	}
-	app_conf.ib_oh_pre = parse_offline_portarg(ppam_args.ib_oh_pre,
-					       app_conf.fm);
-	if (!app_conf.ib_oh_pre) {
-		fprintf(stderr, "Error : ib_oh_pre %s invalid\n",
-			ppam_args.ib_oh_pre);
-		goto err;
-	}
+	app_conf.max_sa = NUM_SETS * NUM_WAYS * DPA_IPSEC_MAX_SA_TYPE;
 
-	/* outbound pre SEC offline port */
-	if (!ppam_args.ob_oh_pre) {
-		fprintf(stderr, "Error : ib_oh_pre arg not set\n");
-		goto err;
-	}
-	app_conf.ob_oh_pre = parse_offline_portarg(ppam_args.ob_oh_pre,
-						   app_conf.fm);
-	if (!app_conf.ob_oh_pre) {
-		fprintf(stderr, "Error : ob_oh_pre %s invalid\n",
-			ppam_args.ob_oh_pre);
-		goto err;
-	}
-
-	/* outbound post SEC offline port */
-	if (!ppam_args.ob_oh_post) {
-		fprintf(stderr, "Error : ib_oh_post arg not set\n");
-		goto err;
-	}
-	app_conf.ob_oh_post = parse_offline_portarg(ppam_args.ob_oh_post,
-						     app_conf.fm);
-	if (!app_conf.ob_oh_post) {
-		fprintf(stderr, "Error : ob_oh_post %s invalid\n",
-			ppam_args.ob_oh_post);
-		goto err;
-	}
-
-	/* max sa pairs */
-	if (!ppam_args.max_sa) {
-		fprintf(stderr, "Error : max-sa arg not set\n");
-		goto err;
-	}
-	app_conf.max_sa = atoi(ppam_args.max_sa);
 	/* optionals */
 	if (ppam_args.vif)
 		strncpy(app_conf.vif, ppam_args.vif, sizeof(app_conf.vif));
@@ -650,11 +710,8 @@ int ppam_init(void)
 	if (ppam_args.outer_tos)
 		app_conf.outer_tos = atoi(ppam_args.outer_tos);
 
-	if (ppam_args.ib_ecn)
-		app_conf.ib_ecn = true;
-
-	if (ppam_args.ob_ecn)
-		app_conf.ob_ecn = true;
+	app_conf.ib_ecn = ppam_args.disable_ib_ecn ? false : true;
+	app_conf.ob_ecn = ppam_args.disable_ob_ecn ? false : true;
 
 	if (ppam_args.ib_loop)
 		app_conf.ib_loop = true;
@@ -666,11 +723,11 @@ int ppam_init(void)
 	}
 	TRACE("Buffer pool initialized\n");
 
-    ret = rman_init();
-    if (unlikely(ret < 0)) {
-        error(0, -ret, "rman_init()");
-        return -ret;
-    }
+        ret = rman_init();
+        if (unlikely(ret < 0)) {
+            error(0, -ret, "rman_init()");
+            return -ret;
+        }
 	TRACE("RMan initialized\n");
 
 	cmodel = fmc_compile_model();
@@ -704,10 +761,17 @@ int ppam_post_tx_init(void)
 	}
 	TRACE("DPA IPsec offloading initialized\n");
 
-	ret = stats_init();
-	if (ret < 0) {
-		fprintf(stderr, "DPA Stats init failed\n");
-		goto err;
+	/*
+	 * DPA Offload Stats driver does not support multiple instances
+	 * Only enable stats for the first created instance
+	 */
+	if (dpa_ipsec_id == 0) {
+		ret = stats_init();
+		if (ret < 0) {
+			fprintf(stderr, "DPA Stats init failed\n");
+			goto err;
+		}
+		TRACE("DPA Stats initialized\n");
 	}
 	TRACE("DPA Stats initialized\n");
 
@@ -754,7 +818,9 @@ void ppam_post_finish_rx(void)
 
 void ppam_finish(void)
 {
-	stats_cleanup();
+	/* Stats are enabled only for the first DPA IPSec instance */
+	if (dpa_ipsec_id == 0)
+		stats_cleanup();
 	ipsec_offload_cleanup(dpa_ipsec_id);
 	fmc_cleanup();
 	cleanup_macless_config(app_conf.vipsec);
@@ -952,26 +1018,7 @@ static const struct argp_option argp_opts[] = {
 static error_t parse_opts(int key, char *arg, struct argp_state *state)
 {
 	switch (key) {
-	case 'f':
-		ppam_args.fm = arg;
-		break;
-	case 'e':
-		ppam_args.ob_eth = arg;
-		break;
-	case 'i':
-		ppam_args.ib_oh = arg;
-		break;
-	case 'h':
-		ppam_args.ib_oh_pre = arg;
-		break;
-	case 'o':
-		ppam_args.ob_oh_pre = arg;
-		break;
 	case 's':
-		ppam_args.ob_oh_post = arg;
-		break;
-	case 'm':
-		ppam_args.max_sa = arg;
 		break;
 	case 'r':
 		ppam_args.mtu_pre_enc = arg;
@@ -983,10 +1030,10 @@ static error_t parse_opts(int key, char *arg, struct argp_state *state)
 		ppam_args.outer_tos = arg;
 		break;
 	case 'y':
-		ppam_args.ib_ecn = 1;
+		ppam_args.disable_ib_ecn = 1;
 		break;
 	case 'z':
-		ppam_args.ob_ecn = 1;
+		ppam_args.disable_ob_ecn = 1;
 		break;
 	case 'v':
 		ppam_args.vif = arg;
@@ -994,7 +1041,7 @@ static error_t parse_opts(int key, char *arg, struct argp_state *state)
 	case 'w':
 		ppam_args.vof = arg;
 		break;
-	 case 'u':
+	case 'u':
 		ppam_args.vipsec = arg;
 		break;
 	default:
@@ -1009,6 +1056,7 @@ cli_cmd(sa_stats, show_sa_stats);
 cli_cmd(eth_stats, show_eth_stats);
 cli_cmd(ib_reass_stats, show_ib_reass_stats);
 cli_cmd(ipsec_stats, show_ipsec_stats);
+cli_cmd(list_sa, list_dpa_sa);
 
 /* Inline the PPAC machinery */
 #include <ppac.c>
