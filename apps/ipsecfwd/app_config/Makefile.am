@@ -34,12 +34,10 @@ dist_DATA = ipsecfwd_enc_20G.sh ipsecfwd_enc_22G.sh ipsecfwd_dec_20G.sh \
 	ipsecfwd_dec_22G.sh ipsecfwd_mix_20G.sh ipsecfwd_mix_15G.sh \
 	ipsecfwd_mix_40G.sh ipsecfwd_enc_40G.sh ipsecfwd_enc_42G.sh \
 	ipsecfwd_dec_40G.sh ipsecfwd_dec_42G.sh ipsecfwd_t1040qds_enc_7G.sh \
-	ipsecfwd_t1040qds_dec_7G.sh ipsecfwd_t2080_enc_42G.sh \
-	ipsecfwd_t2080_dec_42G.sh ipsecfwd_t2080_mix_40G.sh \
+	ipsecfwd_t1040qds_dec_7G.sh ipsecfwd_t2080_mix_40G.sh \
 	ipsecfwd_t1040qds_mix_7G.sh ipsecfwd_t4240_dec_48G.sh \
 	ipsecfwd_t4240_enc_48G.sh ipsecfwd_t4240_mix_48G.sh \
-	ipsecfwd_b4860qds_mix_20G.sh ipsecfwd_t2080_enc_22G.sh \
-	ipsecfwd_t2080_mix_22G.sh ipsecfwd_t1024_mix_12G.sh
+	ipsecfwd_b4860qds_mix_20G.sh ipsecfwd_t1024_mix_12G.sh
 
 AM_CFLAGS := -I$(TOP_LEVEL)/apps/ipsecfwd/lib -I$(TOP_LEVEL)/apps/ipsecfwd/include
 AM_CFLAGS += $(LIBRTA_CFLAGS)
@@ -60,12 +58,6 @@ ipsecfwd_enc_42G.sh_install = $(INSTALL_BIN)
 ipsecfwd_enc_42G.sh_install_flags = $(INSTALL_BIN_FLAGS)
 ipsecfwd_t1040qds_enc_7G.sh_install = $(INSTALL_BIN)
 ipsecfwd_t1040qds_enc_7G.sh_install_flags = $(INSTALL_BIN_FLAGS)
-ipsecfwd_t2080qds_enc_7G.sh_install = $(INSTALL_BIN)
-ipsecfwd_t2080qds_enc_7G.sh_install_flags = $(INSTALL_BIN_FLAGS)
-ipsecfwd_t2080_enc_42G.sh_install = $(INSTALL_BIN)
-ipsecfwd_t2080_enc_42G.sh_install_flags = $(INSTALL_BIN_FLAGS)
-ipsecfwd_t2080_enc_22G.sh_install = $(INSTALL_BIN)
-ipsecfwd_t2080_enc_22G.sh_install_flags = $(INSTALL_BIN_FLAGS)
 ipsecfwd_dec_20G.sh_install = $(INSTALL_BIN)
 ipsecfwd_dec_20G.sh_install_flags = $(INSTALL_BIN_FLAGS)
 ipsecfwd_dec_22G.sh_install = $(INSTALL_BIN)
@@ -76,10 +68,6 @@ ipsecfwd_dec_42G.sh_install = $(INSTALL_BIN)
 ipsecfwd_dec_42G.sh_install_flags = $(INSTALL_BIN_FLAGS)
 ipsecfwd_t1040qds_dec_7G.sh_install = $(INSTALL_BIN)
 ipsecfwd_t1040qds_dec_7G.sh_install_flags = $(INSTALL_BIN_FLAGS)
-ipsecfwd_t2080qds_dec_7G.sh_install = $(INSTALL_BIN)
-ipsecfwd_t2080qds_dec_7G.sh_install_flags = $(INSTALL_BIN_FLAGS)
-ipsecfwd_t2080_dec_42G.sh_install = $(INSTALL_BIN)
-ipsecfwd_t2080_dec_42G.sh_install_flags = $(INSTALL_BIN_FLAGS)
 ipsecfwd_mix_20G.sh_install = $(INSTALL_BIN)
 ipsecfwd_mix_20G.sh_install_flags = $(INSTALL_BIN_FLAGS)
 ipsecfwd_mix_15G.sh_install = $(INSTALL_BIN)
@@ -98,7 +86,5 @@ ipsecfwd_t4240_mix_48G.sh.sh_install = $(INSTALL_BIN)
 ipsecfwd_t4240_dec_48G.sh.sh_install_flags = $(INSTALL_BIN_FLAGS)
 ipsecfwd_b4860qds_mix_20G.sh.sh_install_flags = $(INSTALL_BIN_FLAGS)
 ipsecfwd_b4860qds_mix_20G.sh.sh_install = $(INSTALL_BIN)
-ipsecfwd_t2080_mix_22G.sh_install = $(INSTALL_BIN)
-ipsecfwd_t2080_mix_22G.sh_install_flags = $(INSTALL_BIN_FLAGS)
 ipsecfwd_t1024_mix_12G.sh_install = $(INSTALL_BIN)
 ipsecfwd_t1024_mix_12G.sh_install_flags = $(INSTALL_BIN_FLAGS)
