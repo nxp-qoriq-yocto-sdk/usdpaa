@@ -1492,7 +1492,11 @@ static int ppac_cli_promisc(int argc, char *argv[])
 		return -EINVAL;
 
 	/* Parse port number */
-	if (!strncmp(argv[3], "p:", 2)) {
+	if (!strncmp(argv[3], "m:", 2)) {
+
+	if (argv[3][3] >= '0' && argv[3][3] <= '9')
+		mac_idx = (argv[3][2] - '0')*10 + (argv[3][3] - '0');
+	else
 		mac_idx = argv[3][2] - '0';
 	} else
 		return -EINVAL;
@@ -1512,7 +1516,7 @@ static int ppac_cli_promisc(int argc, char *argv[])
 
 	if (ret)
 		fprintf(stderr, "error: no such network interface (fman:%d, "
-			"port:%d)\n", fman_idx, mac_idx);
+			"mac:%d)\n", fman_idx, mac_idx);
 
 	return ret;
 }
