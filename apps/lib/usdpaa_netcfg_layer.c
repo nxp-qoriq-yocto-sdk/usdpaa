@@ -352,7 +352,7 @@ static void check_fman_enabled_interfaces(void)
 					num1 != __if->mac_idx)
 					continue;
 			} else { /* for e.g. fm1-gb4 */
-				num1 = str[6] - '0';
+				num1 = str[6] - '0' + 1;
 				val = get_mac_type(str);
 				if (val == fman_mac_10g) {
 					if ((num - 1) != __if->fman_idx ||
@@ -448,8 +448,9 @@ static inline int netcfg_interface_match(uint8_t fman,
 				fman_get_mac_info(str, &num1);
 				if (num != fman || num1 != p_num)
 					continue;
-			} else {
-				num1 = str[6] - '0';
+			} else {/* fmx-gby y starts from 0,
+				hardware mac index starts from 1*/
+				num1 = str[6] - '0' + 1;
 				val = get_mac_type(str);
 				if (val == fman_mac_10g) {
 					if ((num - 1) != fman ||
