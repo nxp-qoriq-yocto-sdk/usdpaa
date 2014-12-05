@@ -62,7 +62,7 @@
 #define FRA_TX_PREFERINCACHE	/* Keep tx FQDs in-cache even when empty */
 #define FRA_TX_FORCESFDR	/* Priority allocation of SFDRs to egress */
 #undef FRA_DEPLETION		/* Trace depletion entry/exit */
-#define FRA_IDLE_IRQ		/* Block in interrupt-mode when idle */
+#undef FRA_IDLE_IRQ		/* Block in interrupt-mode when idle */
 #undef FRA_TX_CONFIRM		/* Use Tx confirmation for all transmits */
 
 /*
