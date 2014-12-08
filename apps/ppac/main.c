@@ -139,6 +139,8 @@ int __attribute__((weak)) ppam_sec_get_era(void)
 /* Global data */
 /***************/
 
+/* Data stashing enabled boolean flag */
+static int data_stashing_enabled = 1;
 /* SEC engine era used by RTA functions*/
 enum rta_sec_era rta_sec_era;
 /* SEC engine era, as read from the device tree */
@@ -254,7 +256,8 @@ void ppac_fq_nonpcd_init(struct qman_fq *fq, u32 fqid,
 			QM_INITFQ_WE_CONTEXTA;
 	opts.fqd.dest.channel = channel;
 	opts.fqd.dest.wq = PPAC_PRIORITY_2DROP;
-	opts.fqd.fq_ctrl = QM_FQCTRL_CTXASTASHING;
+	if (data_stashing_enabled)
+		opts.fqd.fq_ctrl = QM_FQCTRL_CTXASTASHING;
 	opts.fqd.context_a.stashing = *stashing;
 	ret = qman_init_fq(fq, QMAN_INITFQ_FLAG_SCHED, &opts);
 	BUG_ON(ret);
@@ -286,7 +289,9 @@ void ppac_fq_pcd_init(struct qman_fq *fq, u32 fqid,
 #ifdef PPAC_AVOIDBLOCK
 		QM_FQCTRL_AVOIDBLOCK |
 #endif
-		QM_FQCTRL_CTXASTASHING;
+		0;
+	if (data_stashing_enabled)
+		opts.fqd.fq_ctrl |= QM_FQCTRL_CTXASTASHING;
 	if (prefer_in_cache)
 		opts.fqd.fq_ctrl |= QM_FQCTRL_PREFERINCACHE;
 #ifdef PPAC_CGR
@@ -739,6 +744,8 @@ static void do_global_init(void)
 			bp_idx++;
 		}
 	}
+	printf("Data stashing: %s\n",
+	       data_stashing_enabled ? "Enabled" : "Disabled");
 }
 
 static int process_msg(struct worker *worker, struct worker_msg *msg)
@@ -1264,6 +1271,7 @@ static const struct argp_option argp_opts[] = {
 	{"buffers",	'b',	"x:y:z", 0,		"Number of buffers to allocate"},
 	{"cpu-range",	 0,	0,	OPTION_DOC,	"'index' or 'first'..'last'"},
 	{"sec-era",     'e', "ERA", 0, "SEC engine era (default 2)"},
+	{"disable-data-stash", 's', 0,	0,		"Disable data stash"},
 	{}
 };
 
@@ -1311,6 +1319,9 @@ static error_t ppac_parse(int key, char *arg, struct argp_state *state)
 		 * validate_sec_era_version(...) function call
 		 */
 		user_sec_era = atoi(arg);
+		break;
+	case 's':
+		data_stashing_enabled = 0;
 		break;
 
 	case ARGP_KEY_ARGS:
