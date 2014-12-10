@@ -449,30 +449,3 @@ int dpa_ipsec_sa_get_seq_number(int sa_id, uint64_t *seq)
 
 	return 0;
 }
-
-int dpa_ipsec_sa_get_out_path(int sa_id, uint32_t *fqid)
-{
-	struct ioc_dpa_ipsec_sa_get_out_path ioc_prm;
-
-	if (dpa_ipsec_devfd < 0) {
-		error(0, ENODEV, "DPA IPSec library is not initialized\n");
-		return -ENODEV;
-	}
-
-	if (!fqid) {
-		error(0, EINVAL, "Invalid fqid handle\n");
-		return -EINVAL;
-	}
-
-	ioc_prm.sa_id = sa_id;
-
-	if (ioctl(dpa_ipsec_devfd, DPA_IPSEC_IOC_SA_GET_OUT_PATH,
-		  &ioc_prm) < 0) {
-		error(0, errno, "Could not get out_path for SA %d\n", sa_id);
-		return -errno;
-	}
-
-	*fqid = ioc_prm.fqid;
-
-	return 0;
-}
