@@ -87,8 +87,8 @@ const char ppam_prompt[] = "ipsec_offload> ";
 struct ppam_arguments {
 	const char *mtu_pre_enc;
 	const char *outer_tos;
-	int disable_ib_ecn;
-	int disable_ob_ecn;
+	int enable_ib_ecn;
+	int enable_ob_ecn;
 	int ib_loop;
 	const char *vif;
 	const char *vof;
@@ -934,8 +934,8 @@ int ppam_init(void)
 	if (ppam_args.outer_tos)
 		app_conf.outer_tos = atoi(ppam_args.outer_tos);
 
-	app_conf.ib_ecn = ppam_args.disable_ib_ecn ? false : true;
-	app_conf.ob_ecn = ppam_args.disable_ob_ecn ? false : true;
+	app_conf.ib_ecn = ppam_args.enable_ib_ecn ? true : false;
+	app_conf.ob_ecn = ppam_args.enable_ob_ecn ? true : false;
 
 	if (ppam_args.ib_loop)
 		app_conf.ib_loop = true;
@@ -1267,11 +1267,10 @@ const char ppam_doc[] = "Offloading demo application";
 
 static const struct argp_option argp_opts[] = {
 	{"aggreg", 'a', 0, 0, "Aggregate inbound tunnels"},
-	{"ob-oh-post", 's', "INT", 0, "Outbound post IPsec offline port index"},
 	{"mtu-pre-enc", 'r', "INT", 0, "MTU pre encryption"},
 	{"outer-tos", 'x', "INT", 0, "Outer header TOS field"},
-	{"disable-ib-ecn", 'y', 0, 0, "Inbound ECN tunneling"},
-	{"disable-ob-ecn", 'z', 0, 0, "Outbound ECN tunneling"},
+	{"enable-ib-ecn", 'y', 0, 0, "Inbound ECN tunneling"},
+	{"enable-ob-ecn", 'z', 0, 0, "Outbound ECN tunneling"},
 	{"ib-loop", 'l', 0, 0, "Loopback on inbound Ethernet port"},
 	{"vif", 'v', "FILE", 0 , "Virtual inbound interface name"},
 	{"vof", 'w', "FILE", 0 , "Virtual outbound interface name"},
@@ -1285,8 +1284,6 @@ static error_t parse_opts(int key, char *arg, struct argp_state *state)
 	case 'a':
 		ppam_args.ib_aggreg = 1;
 		break;
-	case 's':
-		break;
 	case 'r':
 		ppam_args.mtu_pre_enc = arg;
 		break;
@@ -1294,10 +1291,10 @@ static error_t parse_opts(int key, char *arg, struct argp_state *state)
 		ppam_args.outer_tos = arg;
 		break;
 	case 'y':
-		ppam_args.disable_ib_ecn = 1;
+		ppam_args.enable_ib_ecn = 1;
 		break;
 	case 'z':
-		ppam_args.disable_ob_ecn = 1;
+		ppam_args.enable_ob_ecn = 1;
 		break;
 	case 'l':
 		ppam_args.ib_loop = 1;
