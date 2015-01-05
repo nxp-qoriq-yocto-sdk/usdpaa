@@ -44,6 +44,9 @@
 /**< Integer number of 8-bit items */
 #define NO_OF_BYTES(bitlen) (((bitlen) >> 3) + !!((bitlen) & 0x7))
 
+/**< Integer number of bits in given bytes  */
+#define NO_OF_BITS(bytelen)	(bytelen << 3)
+
 /**
  * @struct	runtime_param
  * @details	Structure used for the user defined SEC parameters
