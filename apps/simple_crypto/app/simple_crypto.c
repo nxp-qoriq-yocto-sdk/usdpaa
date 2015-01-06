@@ -503,11 +503,12 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 	switch (crypto_info.algo) {
 	case AES_CBC:
 		alginfo.algtype = OP_ALG_ALGSEL_AES;
+		alginfo.algmode = OP_ALG_AAI_CBC;
 		alginfo.key = ref_test_vector.key;
 		alginfo.keylen = AES_CBC_KEY_LEN;
 		alginfo.key_enc_flags = 0;
 		alginfo.key_type = RTA_DATA_IMM;
-		shared_desc_len = cnstr_shdsc_cbc_blkcipher(shared_desc, ps,
+		shared_desc_len = cnstr_shdsc_blkcipher(shared_desc, ps,
 					  &alginfo,
 					  ref_test_vector.iv.init_vec,
 					  AES_CBC_IV_LEN,
@@ -516,11 +517,12 @@ static void *setup_init_descriptor(bool mode, struct test_param crypto_info)
 
 	case TDES_CBC:
 		alginfo.algtype = OP_ALG_ALGSEL_3DES;
+		alginfo.algmode = OP_ALG_AAI_CBC;
 		alginfo.key = ref_test_vector.key;
 		alginfo.keylen = TDES_CBC_KEY_LEN;
 		alginfo.key_enc_flags = 0;
 		alginfo.key_type = RTA_DATA_IMM;
-		shared_desc_len = cnstr_shdsc_cbc_blkcipher(shared_desc, ps,
+		shared_desc_len = cnstr_shdsc_blkcipher(shared_desc, ps,
 					  &alginfo,
 					  ref_test_vector.iv.init_vec,
 					  TDES_CBC_IV_LEN,
