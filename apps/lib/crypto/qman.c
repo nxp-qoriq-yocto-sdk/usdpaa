@@ -120,7 +120,7 @@ int create_compound_fd(unsigned buf_num, struct compound_fd_params *fd_params)
 		/* Frame Descriptor */
 		qm_fd_addr_set64(&fd[ind], __dma_mem_vtop(sg));
 		fd[ind]._format1 = qm_fd_compound;
-		fd[ind].length29 = 2 * sizeof(struct qm_sg_entry);
+		fd[ind].cong_weight = 2 * sizeof(struct qm_sg_entry);
 
 		sg_priv_and_data->index = ind;
 	}
