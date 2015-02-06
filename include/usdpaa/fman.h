@@ -44,6 +44,9 @@
 #define MACCFG1_LOOPBACK	0x00000100
 #define MACCFG1_RX_FLOW		0x00000020
 
+#define MAXFRM_SIZE_DTSEC	0x00002580
+#define MAXFRM_MASK		0x00003fff
+
 #define RCTRL_MPROM		0x00000008
 #define RCTRL_UPROM		0x00000001
 #define RCTRL_PROM		(RCTRL_UPROM | RCTRL_MPROM)
@@ -52,6 +55,10 @@
 #define CMD_CFG_LOOPBACK_EN	0x00000400 /* 21 XGMII/GMII loopback enable */
 #define CMD_CFG_PROMIS_EN	0x00000010 /* 27 Promiscuous operation enable */
 #define CMD_CFG_PAUSE_IGNORE	0x00000100 /* 23 Ignore Pause frame quanta */
+
+/* Max recieve frame length mask */
+#define MAXFRM_SIZE_MEMAC	0x00007fe0
+#define MAXFRM_RX_MASK		0x0000ffff
 
 /* Interface Mode Register Register for MEMAC */
 #define IF_MODE_RLP 0x00000820
@@ -400,6 +407,10 @@ void fm_mac_set_rx_ignore_pause_frames(const struct fman_if *p, bool enable);
 
 /* Enable Loopback mode */
 void fm_mac_config_loopback(const struct fman_if *p, bool enable);
+
+/* Set max frame length */
+void fm_mac_conf_max_frame_len(const struct fman_if *p,
+			unsigned int max_frame_len);
 
 /* Enable/disable Rx promiscuous mode on specified interface */
 void fman_if_promiscuous_enable(const struct fman_if *);

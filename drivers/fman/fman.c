@@ -965,6 +965,30 @@ void fm_mac_config_loopback(const struct fman_if *p, bool enable)
 	}
 }
 
+void fm_mac_conf_max_frame_len(const struct fman_if *p,
+			unsigned int max_frame_len)
+{
+	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
+
+	assert(ccsr_map_fd != -1);
+
+	/* Do nothing for Offline port */
+	if (__if->__if.mac_type == fman_offline ||
+	    __if->__if.mac_type == fman_onic)
+		return;
+
+	/* Set Max frame length */
+	if ((__if->__if.mac_type == fman_mac_1g) && (!__if->__if.is_memac)) {
+		unsigned *maxfrm =
+				&((struct dtsec_regs *)__if->ccsr_map)->maxfrm;
+		out_be32(maxfrm, (MAXFRM_MASK & max_frame_len));
+	} else {
+		unsigned *maxfrm =
+			 &((struct memac_regs *)__if->ccsr_map)->maxfrm;
+		out_be32(maxfrm, (MAXFRM_RX_MASK & max_frame_len));
+	}
+}
+
 void fm_mac_set_promiscuous(const struct fman_if *p)
 {
 	fman_if_promiscuous_enable(p);

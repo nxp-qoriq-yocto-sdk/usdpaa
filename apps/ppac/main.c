@@ -1706,6 +1706,62 @@ static int ppac_cli_loopback(int argc, char *argv[])
 	return ret;
 }
 
+static int ppac_cli_max_frame_len(int argc, char *argv[])
+{
+	struct list_head *i;
+	const struct fman_if *fif;
+	const struct fm_eth_port_cfg *pcfg;
+	uint8_t fman_idx, mac_idx;
+	int ret = -ENODEV;
+	unsigned int len = 0;
+	bool is_memac;
+
+	if (argc != 4) {
+		printf("Usage: max_frame_len <value> f:<> m:<>\n");
+		return -EINVAL;
+	}
+
+	/* Get frame size */
+	len = atoi(argv[1]);
+
+	/* Parse FMan number */
+	if (!strncmp(argv[2], "f:", 2))
+		fman_idx = atoi(&argv[2][2]);
+	else
+		return -EINVAL;
+
+	/* Parse mac index */
+	if (!strncmp(argv[3], "m:", 2))
+		mac_idx = atoi(&argv[3][2]);
+	else
+		return -EINVAL;
+
+	list_for_each(i, &ifs) {
+		pcfg = ppac_interface_pcfg((struct ppac_interface *)i);
+		fif = pcfg->fman_if;
+		if ((fif->fman_idx == fman_idx) && (fif->mac_idx == mac_idx)) {
+			is_memac = fif->is_memac;
+			if (is_memac && len > MAXFRM_SIZE_MEMAC) {
+				printf("Invalid Frame size, range (0, 32736)\n");
+				return -EINVAL;
+			} else if (len > MAXFRM_SIZE_DTSEC) {
+				printf("Invalid Frame size, range (0, 9600)\n");
+				return -EINVAL;
+			} else {
+				fm_mac_conf_max_frame_len(fif, len);
+				ret = 0;
+				break;
+			}
+		}
+	}
+
+	if (ret)
+		fprintf(stderr, "error: no such network interface (fman:%d, "
+			"port:%d)\n", fman_idx, mac_idx);
+
+	return ret;
+}
+
 static int ppac_cli_ifconfig(int argc, char *argv[])
 {
 	dump_usdpaa_netcfg(netcfg);
@@ -1822,6 +1878,7 @@ cli_cmd(promisc, ppac_cli_promisc);
 cli_cmd(macaddr, ppac_cli_macaddr_api);
 cli_cmd(pause_frame, ppac_cli_pause_frame);
 cli_cmd(loopback, ppac_cli_loopback);
+cli_cmd(max_frame_len, ppac_cli_max_frame_len);
 cli_cmd(ifconfig, ppac_cli_ifconfig);
 
 
