@@ -895,6 +895,42 @@ int fm_mac_config(const struct fman_if *p,  uint8_t *eth)
 		return memac_get_station_mac_addr(p, eth);
 }
 
+void fm_mac_set_rx_ignore_pause_frames(const struct fman_if *p, bool enable)
+{
+	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
+	u32 value = 0;
+
+	assert(ccsr_map_fd != -1);
+
+	/* Do nothing for Offline or Macless ports */
+	if ((__if->__if.mac_type == fman_offline) ||
+		(__if->__if.mac_type == fman_mac_less)) {
+		my_log(EINVAL, "port type (%d)\n", __if->__if.mac_type);
+		return;
+	}
+
+	/* Set Rx Ignore Pause Frames */
+	if ((__if->__if.mac_type == fman_mac_1g) && (!__if->__if.is_memac)) {
+		void *rx_control =
+				&((struct dtsec_regs *)__if->ccsr_map)->maccfg1;
+		if (enable)
+			value = in_be32(rx_control) | MACCFG1_RX_FLOW;
+		else
+			value = in_be32(rx_control) & ~MACCFG1_RX_FLOW;
+
+		out_be32(rx_control, value);
+	} else {
+		void *cmdcfg =
+			 &((struct memac_regs *)__if->ccsr_map)->command_config;
+		if (enable)
+			value = in_be32(cmdcfg) | CMD_CFG_PAUSE_IGNORE;
+		else
+			value = in_be32(cmdcfg) & ~CMD_CFG_PAUSE_IGNORE;
+
+		out_be32(cmdcfg, value);
+	}
+}
+
 void fm_mac_set_promiscuous(const struct fman_if *p)
 {
 	fman_if_promiscuous_enable(p);
