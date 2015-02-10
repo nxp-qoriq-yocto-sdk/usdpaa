@@ -1517,7 +1517,7 @@ static int ppac_cli_promisc(int argc, char *argv[])
 		fif = pcfg->fman_if;
 		if ((fif->fman_idx == fman_idx) && (fif->mac_idx == mac_idx)) {
 			if (enable)
-				fman_if_promiscuous_enable(fif);
+				fm_mac_set_promiscuous(fif);
 			else
 				fman_if_promiscuous_disable(fif);
 			ret = 0;

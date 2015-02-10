@@ -379,6 +379,9 @@ const struct list_head *fman_if_list;
 int fman_init(void);
 void fman_finish(void);
 
+/* Set promiscuous mode on an interface */
+void fm_mac_set_promiscuous(const struct fman_if *p);
+
 /* Enable/disable Rx promiscuous mode on specified interface */
 void fman_if_promiscuous_enable(const struct fman_if *);
 void fman_if_promiscuous_disable(const struct fman_if *);

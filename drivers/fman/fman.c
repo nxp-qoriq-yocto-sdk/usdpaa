@@ -817,6 +817,11 @@ void fman_finish(void)
 	ccsr_map_fd = -1;
 }
 
+void fm_mac_set_promiscuous(const struct fman_if *p)
+{
+	fman_if_promiscuous_enable(p);
+}
+
 void fman_if_promiscuous_enable(const struct fman_if *p)
 {
 	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
