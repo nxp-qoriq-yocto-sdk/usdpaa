@@ -1532,6 +1532,79 @@ static int ppac_cli_promisc(int argc, char *argv[])
 	return ret;
 }
 
+#define MAC_PRINTF_ARGS(a) \
+		(a)[0], (a)[1], (a)[2], (a)[3], \
+		(a)[4], (a)[5]
+
+static int ppac_cli_macaddr_api(int argc, char *argv[])
+{
+	struct list_head *i;
+	const struct fman_if *fif;
+	const struct fm_eth_port_cfg *pcfg;
+	bool get = false;
+	bool set = false;
+	uint8_t fman_idx, mac_idx;
+	int ret = -ENODEV;
+	uint8_t mac_addr[6];
+
+	if (argc != 4 && argc != 5) {
+		printf("Usage: macaddr set f:<> m:<> <mac_addr>\n");
+		printf("Usage: macaddr get f:<> m:<>\n");
+		return -EINVAL;
+	}
+
+	if (!strncmp(argv[1], "get", 3))
+		get = true;
+	else if (!strncmp(argv[1], "set", 3))
+		set = true;
+	else
+		return -EINVAL;
+
+	if (set && argc != 5) {
+		printf("Usage: macaddr set f:<> m:<> <mac_addr>\n");
+		return -EINVAL;
+	}
+
+	/* Parse FMan number */
+	if (!strncmp(argv[2], "f:", 2))
+		fman_idx = atoi(&argv[2][2]);
+	else
+		return -EINVAL;
+
+	/* Parse mac index number */
+	if (!strncmp(argv[3], "m:", 2))
+		mac_idx = atoi(&argv[3][2]);
+	else
+		return -EINVAL;
+	memset(&mac_addr, 0, sizeof(mac_addr));
+
+	if (set) {
+		mac_addr[0] = (int)strtol(&argv[4][0], NULL, 16);
+		mac_addr[1] = (int)strtol(&argv[4][3], NULL, 16);
+		mac_addr[2] = (int)strtol(&argv[4][6], NULL, 16);
+		mac_addr[3] = (int)strtol(&argv[4][9], NULL, 16);
+		mac_addr[4] = (int)strtol(&argv[4][12], NULL, 16);
+		mac_addr[5] = (int)strtol(&argv[4][15], NULL, 16);
+	}
+	list_for_each(i, &ifs) {
+		pcfg = ppac_interface_pcfg((struct ppac_interface *)i);
+		fif = pcfg->fman_if;
+		if ((fif->fman_idx == fman_idx) && (fif->mac_idx == mac_idx)) {
+			if (set)
+				fm_mac_add_exact_match_mac_addr(fif, mac_addr);
+			if (get)
+				fm_mac_config(fif, mac_addr);
+
+			ret = 0;
+			printf("fman %d port %d MAC is "ETH_MAC_PRINTF_FMT"\n",
+				fman_idx, mac_idx, MAC_PRINTF_ARGS(mac_addr));
+			break;
+		}
+	}
+
+	return ret;
+}
+
 static int ppac_cli_ifconfig(int argc, char *argv[])
 {
 	dump_usdpaa_netcfg(netcfg);
@@ -1645,6 +1718,7 @@ cli_cmd(list, ppac_cli_list);
 cli_cmd(macs, ppac_cli_macs);
 cli_cmd(rm, ppac_cli_rm);
 cli_cmd(promisc, ppac_cli_promisc);
+cli_cmd(macaddr, ppac_cli_macaddr_api);
 cli_cmd(ifconfig, ppac_cli_ifconfig);
 
 

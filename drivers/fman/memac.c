@@ -99,3 +99,46 @@ int memac_add_hash_mac_addr(const struct fman_if *p, uint8_t *eth)
 
 	return 0;
 }
+
+int memac_get_station_mac_addr(const struct fman_if *p, uint8_t *eth)
+{
+	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
+	void *mac_reg =  &((struct memac_regs *)__if->ccsr_map)->mac_addr0.mac_addr_l;
+	u32 val = in_be32(mac_reg);
+
+	eth[0] = (val & 0x000000ff) >> 0;
+	eth[1] = (val & 0x0000ff00) >> 8;
+	eth[2] = (val & 0x00ff0000) >> 16;
+	eth[3] = (val & 0xff000000) >> 24;
+
+	mac_reg =  &((struct memac_regs *)__if->ccsr_map)->mac_addr0.mac_addr_u;
+	val = in_be32(mac_reg);
+
+	eth[4] = (val & 0x000000ff) >> 0;
+	eth[5] = (val & 0x0000ff00) >> 8;
+
+	return 0;
+}
+
+int memac_set_station_mac_addr(const struct fman_if *p, uint8_t *eth)
+{
+	struct __fman_if *m = container_of(p, struct __fman_if, __if);
+
+	void *reg = &((struct memac_regs *)m->ccsr_map)->command_config;
+	u32 val = in_be32(reg);
+
+	memcpy(&m->__if.mac_addr, eth, ETH_ALEN);
+	reg = &((struct memac_regs *)m->ccsr_map)->mac_addr0.mac_addr_l;
+	val = (m->__if.mac_addr.ether_addr_octet[0] |
+	       (m->__if.mac_addr.ether_addr_octet[1] << 8) |
+	       (m->__if.mac_addr.ether_addr_octet[2] << 16) |
+	       (m->__if.mac_addr.ether_addr_octet[3] << 24));
+	out_be32(reg, val);
+
+	reg = &((struct memac_regs *)m->ccsr_map)->mac_addr0.mac_addr_u;
+	val = ((m->__if.mac_addr.ether_addr_octet[4] << 0) |
+	       (m->__if.mac_addr.ether_addr_octet[5] << 8));
+	out_be32(reg, val);
+
+	return 0;
+}

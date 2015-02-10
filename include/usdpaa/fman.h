@@ -36,6 +36,7 @@
 #include <net/if.h>
 #include <usdpaa/compat.h>
 #include <usdpaa/fsl_qman.h>
+#include <stdbool.h>
 
 #define MEMAC_NUM_OF_PADDRS 7 /* Num of additional exact match MAC adr regs */
 
@@ -381,6 +382,16 @@ void fman_finish(void);
 
 /* Set promiscuous mode on an interface */
 void fm_mac_set_promiscuous(const struct fman_if *p);
+
+/* Get mac config*/
+int fm_mac_config(const struct fman_if *p, uint8_t *eth);
+
+/* Get MAC address for a particular interface */
+int fm_mac_add_exact_match_mac_addr(const struct fman_if *p, uint8_t *eth);
+
+/* Add station MAC address on MEMAC */
+int memac_set_station_mac_addr(const struct fman_if *p, uint8_t *eth);
+int memac_get_station_mac_addr(const struct fman_if *p, uint8_t *eth);
 
 /* Enable/disable Rx promiscuous mode on specified interface */
 void fman_if_promiscuous_enable(const struct fman_if *);

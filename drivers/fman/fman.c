@@ -74,6 +74,46 @@ static LIST_HEAD(__ifs);
  * Internally, we have read-write access directly to __ifs. */
 const struct list_head *fman_if_list = &__ifs;
 
+static int _dtsec_set_stn_mac_addr(struct __fman_if *m, uint8_t *eth)
+{
+	void *reg = &((struct dtsec_regs *)m->ccsr_map)->maccfg1;
+	u32 val = in_be32(reg);
+
+	memcpy(&m->__if.mac_addr, eth, ETH_ALEN);
+	reg = &((struct dtsec_regs *)m->ccsr_map)->macstnaddr1;
+	val = (m->__if.mac_addr.ether_addr_octet[2] |
+	       (m->__if.mac_addr.ether_addr_octet[3] << 8) |
+	       (m->__if.mac_addr.ether_addr_octet[4] << 16) |
+	       (m->__if.mac_addr.ether_addr_octet[5] << 24));
+	out_be32(reg, val);
+
+	reg = &((struct dtsec_regs *)m->ccsr_map)->macstnaddr2;
+	val = ((m->__if.mac_addr.ether_addr_octet[0] << 16) |
+	       (m->__if.mac_addr.ether_addr_octet[1] << 24));
+	out_be32(reg, val);
+
+	return 0;
+}
+
+static int _dtsec_get_stn_mac_addr(struct __fman_if *m, uint8_t *eth)
+{
+	void *reg = &((struct dtsec_regs *)m->ccsr_map)->macstnaddr1;
+	u32 val = in_be32(reg);
+
+	eth[2] = (val & 0x000000ff) >> 0;
+	eth[3] = (val & 0x0000ff00) >> 8;
+	eth[4] = (val & 0x00ff0000) >> 16;
+	eth[5] = (val & 0xff000000) >> 24;
+
+	reg = &((struct dtsec_regs *)m->ccsr_map)->macstnaddr2;
+	val = in_be32(reg);
+
+	eth[0] = (val & 0x00ff0000) >> 16;
+	eth[1] = (val & 0xff00ff00) >> 24;
+
+	return 0;
+}
+
 static void if_destructor(struct __fman_if *__if)
 {
 	struct fman_if_bpool *bp, *tmpbp;
@@ -815,6 +855,44 @@ void fman_finish(void)
 
 	close(ccsr_map_fd);
 	ccsr_map_fd = -1;
+}
+
+int fm_mac_add_exact_match_mac_addr(const struct fman_if *p, uint8_t *eth)
+{
+	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
+
+	assert(ccsr_map_fd != -1);
+
+	/* Do nothing for Offline or Macless ports */
+	if ((__if->__if.mac_type == fman_offline) ||
+		(__if->__if.mac_type == fman_mac_less)) {
+		my_log(EINVAL, "port type (%d)\n", __if->__if.mac_type);
+		return EINVAL;
+	}
+
+	if ((__if->__if.mac_type == fman_mac_1g) && (!__if->__if.is_memac))
+		return _dtsec_set_stn_mac_addr(__if, eth);
+	else
+		return memac_set_station_mac_addr(p, eth);
+}
+
+int fm_mac_config(const struct fman_if *p,  uint8_t *eth)
+{
+	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
+
+	assert(ccsr_map_fd != -1);
+
+	/* Do nothing for Offline or Macless ports */
+	if ((__if->__if.mac_type == fman_offline) ||
+		(__if->__if.mac_type == fman_mac_less)) {
+		my_log(EINVAL, "port type (%d)\n", __if->__if.mac_type);
+		return EINVAL;
+	}
+
+	if ((__if->__if.mac_type == fman_mac_1g) && (!__if->__if.is_memac))
+		return _dtsec_get_stn_mac_addr(__if, eth);
+	else
+		return memac_get_station_mac_addr(p, eth);
 }
 
 void fm_mac_set_promiscuous(const struct fman_if *p)
