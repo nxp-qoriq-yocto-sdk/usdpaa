@@ -31,10 +31,6 @@
 
 SUBDIRS = lib
 
-ifeq (B4860,$(SOC))
-SUBDIRS += srio_ipsec_offload
-endif
-
 dist_DATA = SOURCE_THIS
 
 # install the SOURCE_THIS file in the 'root' home directory
