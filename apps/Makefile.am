@@ -31,7 +31,7 @@
 
 SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback \
 	  hello_reflector ipfwd ipsecfwd sra rmu lpm-ipfwd \
-	  simple_proto fragmentation_demo reassembly_demo \
+	  simple_proto reassembly_demo \
 	  ipsec_offload
 
 ifeq (B4860,$(SOC))
