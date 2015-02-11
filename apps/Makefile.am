@@ -41,10 +41,6 @@ SUBDIRS += dsp_dpa
 endif
 endif
 
-ifneq (,$(findstring $(SOC),B4860 T4240 T2080))
-SUBDIRS += ceetm_demo
-endif
-
 dist_DATA = SOURCE_THIS
 
 # install the SOURCE_THIS file in the 'root' home directory
