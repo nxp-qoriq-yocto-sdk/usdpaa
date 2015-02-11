@@ -30,7 +30,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback \
-	  sra rmu lpm-ipfwd simple_proto reassembly_demo
+	  sra rmu simple_proto reassembly_demo
 
 ifeq (B4860,$(SOC))
 SUBDIRS += srio_ipsec_offload
