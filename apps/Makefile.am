@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = lib ppac simple_crypto sra rmu simple_proto
+SUBDIRS = lib ppac simple_crypto sra simple_proto
 
 ifeq (B4860,$(SOC))
 SUBDIRS += srio_ipsec_offload
