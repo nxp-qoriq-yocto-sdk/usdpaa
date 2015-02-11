@@ -32,7 +32,7 @@
 SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback \
 	  hello_reflector ipfwd ipsecfwd sra rmu fra lpm-ipfwd dma_test \
 	  simple_proto fragmentation_demo reassembly_demo \
-	  ipsec_offload cpu_hotplug
+	  ipsec_offload
 
 ifeq (B4860,$(SOC))
 SUBDIRS += srio_ipsec_offload
