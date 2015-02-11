@@ -29,4 +29,4 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = process dma_mem fman of qbman sec pme dma srio rman rmu dpa_offload
+SUBDIRS = process dma_mem fman of qbman sec pme dma srio rman rmu
