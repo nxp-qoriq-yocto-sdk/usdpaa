@@ -33,9 +33,6 @@ SUBDIRS = lib
 
 ifeq (B4860,$(SOC))
 SUBDIRS += srio_ipsec_offload
-ifeq (powerpc,$(ARCH))
-SUBDIRS += dsp_dpa
-endif
 endif
 
 dist_DATA = SOURCE_THIS
