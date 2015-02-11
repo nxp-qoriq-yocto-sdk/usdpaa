@@ -45,10 +45,6 @@ ifneq (,$(findstring $(SOC),B4860 T4240 T2080))
 SUBDIRS += ceetm_demo
 endif
 
-ifeq (T1040,$(SOC))
-SUBDIRS += capwap
-endif
-
 dist_DATA = SOURCE_THIS
 
 # install the SOURCE_THIS file in the 'root' home directory
