@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback ipsecfwd \
+SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback \
 	  sra rmu lpm-ipfwd simple_proto reassembly_demo ipsec_offload
 
 ifeq (B4860,$(SOC))

@@ -1,1 +1,0 @@
-ipsecfwd_dec_20G.sh
