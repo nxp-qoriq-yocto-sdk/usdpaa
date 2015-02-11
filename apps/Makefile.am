@@ -30,7 +30,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 SUBDIRS = lib ppac reflector qbman_speed simple_crypto pme_loopback \
-	  hello_reflector ipfwd ipsecfwd sra rmu fra lpm-ipfwd \
+	  hello_reflector ipfwd ipsecfwd sra rmu lpm-ipfwd \
 	  simple_proto fragmentation_demo reassembly_demo \
 	  ipsec_offload
 
