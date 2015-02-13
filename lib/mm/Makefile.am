@@ -1,4 +1,4 @@
-# Copyright (c) 2010-2011 Freescale Semiconductor, Inc.
+# Copyright (c) 2015 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -28,6 +28,15 @@
 # ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
 
-SUBDIRS = include drivers lib
+lib_LIBRARIES = usdpaa_mm
+
+AM_CFLAGS := -I$(TOP_LEVEL)/include -I$(TOP_LEVEL)/lib \
+	-I$(TOP_LEVEL)/include/lib
+
+usdpaa_mm_SOURCES := mem_cache.c
+
+dist_DATA = mem_cache.h
+
+mem_cache.h_install = $(PREFIX)/include/usdpaa
+
