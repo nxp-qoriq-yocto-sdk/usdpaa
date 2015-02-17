@@ -30,4 +30,4 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-SUBDIRS = include drivers lib
+SUBDIRS = include src lib
