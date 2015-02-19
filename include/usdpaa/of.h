@@ -33,7 +33,7 @@
 #ifndef __OF_H
 #define	__OF_H
 
-#include <usdpaa/compat.h>
+#include <compat.h>
 
 /* Make this conditional, so it can be overriden by the including code and/or by
  * the build flags. */

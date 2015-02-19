@@ -34,8 +34,8 @@
 #define __FMAN_H
 
 #include <net/if.h>
-#include <usdpaa/compat.h>
-#include <usdpaa/fsl_qman.h>
+#include <compat.h>
+#include <fsl_qman.h>
 #include <stdbool.h>
 
 #define MEMAC_NUM_OF_PADDRS 7 /* Num of additional exact match MAC adr regs */

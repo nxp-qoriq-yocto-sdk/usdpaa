@@ -76,6 +76,7 @@ LIB_DIR		:= $(TOP_LEVEL)/lib_$(ARCH)
 CFLAGS		:= -pthread -O2 -Wall
 CFLAGS		+= -Wshadow -Wstrict-prototypes -Wwrite-strings -Wdeclaration-after-statement
 CFLAGS		+= -I$(TOP_LEVEL)/include $(addprefix -I,$($(ARCH)_SPEC_INC_PATH))
+CFLAGS		+= -I$(TOP_LEVEL)/include/usdpaa
 CFLAGS		+= -DPACKAGE_VERSION=\"$(shell git describe --always --dirty 2>/dev/null || echo n/a)\" -D_GNU_SOURCE
 CFLAGS		+= $(addprefix -D,$($(ARCH)_SPEC_DEFINE) $(EXTRA_DEFINE))
 CFLAGS		+= $($(ARCH)_SPEC_CFLAGS) $(EXTRA_CFLAGS)

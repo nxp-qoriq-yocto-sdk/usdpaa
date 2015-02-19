@@ -51,7 +51,7 @@
 
 /* This defines any configuration symbols that are required by <usdpaa/xxx.h>
  * headers. */
-#include <usdpaa/conf.h>
+#include <conf.h>
 
 /* The following definitions are primarily to allow the single-source driver
  * interfaces to be included by arbitrary program code. Ie. for interfaces that
@@ -338,7 +338,7 @@ do { \
 /* "struct list_head" is needed by fsl_qman.h and fman.h, and the latter is not
  * much use to users unless related logic is available too
  * ("list_for_each_entry()", etc), so we put all of it in here; */
-#include <usdpaa/compat_list.h>
+#include <compat_list.h>
 
 /* Other miscellaneous interfaces our APIs depend on; */
 

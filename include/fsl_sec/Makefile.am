@@ -1,4 +1,4 @@
-# Copyright (c) 2011 Freescale Semiconductor, Inc.
+# Copyright (c) 2015 Freescale Semiconductor, Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -29,37 +29,6 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-dist_DATA = \
-	compat.h \
-	compat_list.h \
-	conf.h \
-	dma_mem.h \
-	fman.h \
-	fsl_bman.h \
-	fsl_dma.h \
-	fsl_pme.h \
-	fsl_qman.h \
-	fsl_rman.h \
-	fsl_rman_ib.h \
-	fsl_rmu.h \
-	fsl_srio.h \
-	fsl_usd.h \
-	of.h \
-	usdpaa_netcfg.h
+dist_DATA = sec.h
 
-compat.h_install = $(PREFIX)/include/usdpaa
-compat_list.h_install = $(PREFIX)/include/usdpaa
-conf.h_install = $(PREFIX)/include/usdpaa
-dma_mem.h_install = $(PREFIX)/include/usdpaa
-fman.h_install = $(PREFIX)/include/usdpaa
-fsl_bman.h_install = $(PREFIX)/include/usdpaa
-fsl_dma.h_install = $(PREFIX)/include/usdpaa
-fsl_pme.h_install = $(PREFIX)/include/usdpaa
-fsl_qman.h_install = $(PREFIX)/include/usdpaa
-fsl_rman.h_install = $(PREFIX)/include/usdpaa
-fsl_rman_ib.h_install = $(PREFIX)/include/usdpaa
-fsl_rmu.h_install = $(PREFIX)/include/usdpaa
-fsl_srio.h_install = $(PREFIX)/include/usdpaa
-fsl_usd.h_install = $(PREFIX)/include/usdpaa
-of.h_install = $(PREFIX)/include/usdpaa
-usdpaa_netcfg.h_install = $(PREFIX)/include/usdpaa
+sec.h_install = $(PREFIX)/include/usdpaa

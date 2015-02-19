@@ -34,7 +34,7 @@
 #define _FSL_RMAN_H
 
 #include <limits.h>
-#include <usdpaa/fsl_rman_ib.h>
+#include <fsl_rman_ib.h>
 
 #define RMAN_MAX_NUM_OF_CHANNELS 2
 

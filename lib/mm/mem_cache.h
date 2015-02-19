@@ -28,7 +28,7 @@
 #ifndef __LIB_MM_MEM_CACHE_H
 #define __LIB_MM_MEM_CACHE_H 1
 
-#include <usdpaa/compat.h>
+#include <compat.h>
 
 #include <mutex.h>
 

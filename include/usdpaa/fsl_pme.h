@@ -260,8 +260,8 @@ struct pme_db_sre_reset {
 
 #ifdef __KERNEL__
 
-#include <linux/fsl_qman.h>
-#include <linux/fsl_bman.h>
+#include <fsl_qman.h>
+#include <fsl_bman.h>
 
 /* "struct pme_hw_flow" represents a flow-context resource for h/w, whereas
  * "struct pme_flow" (below) is the s/w type used to provide (and receive)
