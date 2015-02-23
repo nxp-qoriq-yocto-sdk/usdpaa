@@ -35,7 +35,8 @@
 #include <error.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
+#include <inttypes.h>
 
 #include <fsl_cpu_hotplug.h>
 #include <app_config.h>

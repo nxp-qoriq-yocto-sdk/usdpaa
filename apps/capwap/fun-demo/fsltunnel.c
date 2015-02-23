@@ -38,7 +38,7 @@
 #include <readline.h>  /* libedit */
 #include <error.h>
 #include <unistd.h>
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
 #include <getopt.h>
 
 #define ctrl_dtls_dev_file "/dev/fsl-capwap-ctrl-dtls"
