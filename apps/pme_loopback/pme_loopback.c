@@ -37,6 +37,7 @@
 #include <usdpaa/dma_mem.h>
 #include <sys/time.h>
 #include <inttypes.h>
+#include <unistd.h>
 
 #undef DEBUG
 #undef USE_MALLOC

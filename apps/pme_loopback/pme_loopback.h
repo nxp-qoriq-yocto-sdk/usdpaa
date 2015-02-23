@@ -33,11 +33,24 @@
 #ifndef _PME_LOOPBACK_H
 #define _PME_LOOPBACK_H
 
-#warning "Fix below (should be #include <usdpaa/compat.h>"
-#include <internal/compat.h>
+#include <usdpaa/compat.h>
 #include <argp.h>
 
+#define __KERNEL__
+
 #define init_completion(i) { *i = 0; }
+#define complete(n) \
+do { \
+	*n = 1; \
+} while(0)
+#define wait_for_completion(n) \
+do { \
+	while (!*n) { \
+		bman_poll(); \
+		qman_poll(); \
+	} \
+	*n = 0; \
+} while(0)
 
 #ifdef PME_LOOPBACK_TRACE
 #define TRACE           printf
