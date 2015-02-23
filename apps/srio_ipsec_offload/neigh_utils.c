@@ -33,8 +33,9 @@
 #include <ppac.h>
 #include "ppam_if.h"
 #include <ppac_interface.h>
-#include "internal/compat.h"
+#include "usdpaa/compat.h"
 
+#include <assert.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -315,7 +316,7 @@ int create_neigh_entry(struct fman_if *__if,
 	struct fman_if *__oif_tmp;
 
         __oif_tmp = __oif;
-	if (__oif == app_conf.ib_oh_pre) 
+	if (__oif == app_conf.ib_oh_pre)
             __oif = app_conf.ob_eth;
 	ret = create_neigh_hhm(&hmd, fwd_hm, &__oif->mac_addr, dst_addr);
 	if (ret < 0)
