@@ -933,36 +933,12 @@ void fm_mac_set_rx_ignore_pause_frames(const struct fman_if *p, bool enable)
 
 void fm_mac_config_loopback(const struct fman_if *p, bool enable)
 {
-	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
-	u32 value = 0;
-
-	assert(ccsr_map_fd != -1);
-
-	/* Do nothing for Offline port */
-	if (__if->__if.mac_type == fman_offline ||
-	    __if->__if.mac_type == fman_onic)
-		return;
-
-	/* Enable loopback mode */
-	if ((__if->__if.mac_type == fman_mac_1g) && (!__if->__if.is_memac)) {
-		unsigned *maccfg =
-				&((struct dtsec_regs *)__if->ccsr_map)->maccfg1;
-		if (enable)
-			value = in_be32(maccfg) | MACCFG1_LOOPBACK;
-		else
-			value = in_be32(maccfg) & ~MACCFG1_LOOPBACK;
-
-		out_be32(maccfg, value);
-	} else {
-		unsigned *cmdcfg =
-			 &((struct memac_regs *)__if->ccsr_map)->command_config;
-		if (enable)
-			value = in_be32(cmdcfg) | CMD_CFG_LOOPBACK_EN;
-		else
-			value = in_be32(cmdcfg) & ~CMD_CFG_LOOPBACK_EN;
-
-		out_be32(cmdcfg, value);
-	}
+	if (enable)
+		/* Enable loopback mode */
+		fman_if_loopback_enable(p);
+	else
+		/* Disable loopback mode */
+		fman_if_loopback_disable(p);
 }
 
 void fm_mac_conf_max_frame_len(const struct fman_if *p,
