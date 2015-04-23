@@ -44,7 +44,7 @@ int sec_get_of_era(void)
 		const uint32_t *prop = (uint32_t *)of_get_property(caam_node,
 				"fsl,sec-era",
 				NULL);
-		return prop ? *prop : -1;
+		return prop ? be32_to_cpu(*prop) : -1;
 	}
 
 	return -1;
