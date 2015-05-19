@@ -201,6 +201,12 @@ static inline void copy_bytes(void *dest, const void *src, size_t sz)
 		__foo = pthread_mutexattr_destroy(&__foo_attr);	\
 		BUG_ON(__foo); \
 	} while (0)
+#define spin_lock_destroy(x) \
+	do { \
+		__maybe_unused int __foo; \
+		__foo = pthread_mutex_destroy(x); \
+		BUG_ON(__foo); \
+	} while (0)
 #define spin_lock(x) \
 	do { \
 		__maybe_unused int __foo = pthread_mutex_lock(x); \
@@ -224,6 +230,7 @@ static inline void copy_bytes(void *dest, const void *src, size_t sz)
 
 #define raw_spinlock_t				spinlock_t
 #define raw_spin_lock_init(x)			spin_lock_init(x)
+#define raw_spin_lock_destroy(x)        spin_lock_destroy(x)
 #define raw_spin_lock_irqsave(x, f)		spin_lock(x)
 #define raw_spin_unlock_irqrestore(x, f)	spin_unlock(x)
 
