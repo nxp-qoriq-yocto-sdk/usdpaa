@@ -35,7 +35,7 @@ KWWRAP		?= kwwrap
 KWINJECT	?= kwinject
 KWCHECK		?= kwcheck
 
-KWINJECT_PROG	:= --prog $(notdir $(CC))=gnu,$(notdir $(LD))=gnu_ld,$(notdir $(AR))=ar
+KWINJECT_PROG  := --prog $(firstword $(CC))=gnu,$(firstword $(LD))=gnu_ld,$(firstword $(AR))=ar
 
 CC		:= $(KWWRAP) --force-relative-path --output $(BIN_DIR)/kwwrap.trace $(CC)
 LD		:= $(KWWRAP) --force-relative-path --output $(BIN_DIR)/kwwrap.trace $(LD)
