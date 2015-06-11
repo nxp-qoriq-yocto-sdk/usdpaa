@@ -143,9 +143,11 @@ static int __init fsl_bman_portal_init(uint32_t idx, int is_shared)
 	master->index = bman_get_portal_config()->index;
 	master->slave_refs = 0;
 
-	pthread_mutex_lock(&master_list_lock);
+	ret = pthread_mutex_lock(&master_list_lock);
+	assert(!ret);
 	list_add(&master->node, &master_list);
-	pthread_mutex_unlock(&master_list_lock);
+	ret = pthread_mutex_unlock(&master_list_lock);
+	assert(!ret);
 #endif
 
 	/* Set the IRQ number */
@@ -166,7 +168,8 @@ static int fsl_bman_portal_finish(void)
 	const struct bman_portal_config *portal_cfg;
 	portal_cfg = bman_get_portal_config();
 
-	pthread_mutex_lock(&master_list_lock);
+	ret = pthread_mutex_lock(&master_list_lock);
+	assert(!ret);
 
 	list_for_each_entry(master, &master_list, node) {
 		if (master->index == portal_cfg->index) {
@@ -177,12 +180,15 @@ static int fsl_bman_portal_finish(void)
 
 	BUG_ON(!redirect);
 	if (master->slave_refs) {
-		pthread_mutex_unlock(&master_list_lock);
+		ret = pthread_mutex_unlock(&master_list_lock);
+		assert(!ret);
 		return -EBUSY;
 	}
 
 	list_del(&master->node);
-	pthread_mutex_unlock(&master_list_lock);
+	ret = pthread_mutex_unlock(&master_list_lock);
+	assert(!ret);
+
 	free(master);
 #endif
 
@@ -224,8 +230,10 @@ static int fsl_bman_slave_portal_init(const struct bman_portal_config *cfg)
 	struct bman_portal *redirect = NULL;
 	struct bman_master *master;
 	struct bman_portal *p;
+	int ret;
 
-	pthread_mutex_lock(&master_list_lock);
+	ret = pthread_mutex_lock(&master_list_lock);
+	assert(!ret);
 
 	list_for_each_entry(master, &master_list, node) {
 		if (master->index == cfg->index) {
@@ -236,19 +244,23 @@ static int fsl_bman_slave_portal_init(const struct bman_portal_config *cfg)
 
 	if (!redirect) {
 		pr_err("Given portal not found in master list: %p\n", cfg);
-		pthread_mutex_unlock(&master_list_lock);
+		ret = pthread_mutex_unlock(&master_list_lock);
+		assert(!ret);
 		return -ENODEV;
 	}
 
 	master->slave_refs++;
-	pthread_mutex_unlock(&master_list_lock);
+	ret = pthread_mutex_unlock(&master_list_lock);
+	assert(!ret);
 
 	p = bman_create_affine_slave(redirect);
 	if (!p) {
 		pr_err("Bman slave init failure for portal: %u\n", cfg->index);
-		pthread_mutex_lock(&master_list_lock);
+		ret = pthread_mutex_lock(&master_list_lock);
+		assert(!ret);
 		master->slave_refs--;
-		pthread_mutex_unlock(&master_list_lock);
+		ret = pthread_mutex_unlock(&master_list_lock);
+		assert(!ret);
 		return -ENODEV;
 	}
 
@@ -279,7 +291,8 @@ int bman_thread_finish_slave(void)
 
 	bman_destroy_affine_portal();
 
-	pthread_mutex_lock(&master_list_lock);
+	ret = pthread_mutex_lock(&master_list_lock);
+	assert(!ret);
 
 	list_for_each_entry(master, &master_list, node) {
 		if (master->index == index) {
@@ -290,7 +303,8 @@ int bman_thread_finish_slave(void)
 
 	BUG_ON(!redirect);
 	master->slave_refs--;
-	pthread_mutex_unlock(&master_list_lock);
+	ret = pthread_mutex_unlock(&master_list_lock);
+	assert(!ret);
 
 	return ret;
 }

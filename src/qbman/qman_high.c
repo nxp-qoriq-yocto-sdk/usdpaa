@@ -368,6 +368,10 @@ struct qman_portal *qman_create_portal(
 
 	if (!portal) {
 		portal = kmalloc(sizeof(*portal), GFP_KERNEL);
+		if (!portal) {
+			pr_err("Can't allocate memory for qman portal\n");
+			return NULL;
+		}
 		portal->alloced = 1;
 	} else
 		portal->alloced = 0;
@@ -3746,6 +3750,12 @@ int qman_ceetm_channel_claim(struct qm_ceetm_channel **channel,
 	}
 
 	p = kzalloc(sizeof(*p), GFP_KERNEL);
+
+	if (!p) {
+		pr_err("Can't allocate memory for qman ceetm channel\n");
+		return -ENOMEM;
+	}
+
 	p->idx = channel_idx;
 	p->dcp_idx = lni->dcp_idx;
 	list_add_tail(&p->node, &lni->channels);
@@ -4351,7 +4361,9 @@ int qman_ceetm_cq_claim(struct qm_ceetm_cq **cq,
 		if (qman_ceetm_configure_cq(&cq_config)) {
 			pr_err("Can't configure the CQ#%d with CCGRID#%d\n",
 						 idx, ccg->idx);
-		return -EINVAL;
+			list_del(&p->node);
+			kfree(p);
+			return -EINVAL;
 		}
 	}
 
@@ -4398,6 +4410,8 @@ int qman_ceetm_cq_claim_A(struct qm_ceetm_cq **cq,
 		if (qman_ceetm_configure_cq(&cq_config)) {
 			pr_err("Can't configure the CQ#%d with CCGRID#%d\n",
 						 idx, ccg->idx);
+			list_del(&p->node);
+			kfree(p);
 			return -EINVAL;
 		}
 	}
@@ -4444,7 +4458,9 @@ int qman_ceetm_cq_claim_B(struct qm_ceetm_cq **cq,
 		if (qman_ceetm_configure_cq(&cq_config)) {
 			pr_err("Can't configure the CQ#%d with CCGRID#%d\n",
 					 idx, ccg->idx);
-		return -EINVAL;
+			list_del(&p->node);
+			kfree(p);
+			return -EINVAL;
 		}
 	}
 	*cq = p;
@@ -4709,6 +4725,8 @@ int qman_ceetm_lfq_claim(struct qm_ceetm_lfq **lfq,
 	if (qman_ceetm_configure_lfqmt(&lfqmt_config)) {
 		pr_err("Can't configure LFQMT for LFQID#%d @ CQ#%d\n",
 				lfqid, cq->idx);
+		list_del(&p->node);
+		kfree(p);
 		return -EINVAL;
 	}
 	*lfq = p;
@@ -5091,6 +5109,7 @@ int qman_ceetm_querycongestion(struct __qm_mcr_querycongestion *ccg_state,
 				mcr->ccgr_query.congestion_state.state;
 		} else {
 			pr_err("QUERY CEETM CONGESTION STATE failed\n");
+			PORTAL_IRQ_UNLOCK(p, irqflags);
 			return -EIO;
 		}
 	}
