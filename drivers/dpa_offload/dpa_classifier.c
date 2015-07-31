@@ -37,6 +37,8 @@
 #include <internal/of.h>
 #include <linux/fsl_dpa_classifier.h>
 #include <error.h>
+#include <pthread.h>
+#include <semaphore.h>
 #include <sys/ioctl.h>
 
 #include "dpa_classifier_ioctl.h"
@@ -58,8 +60,15 @@
 	}
 
 
-/* The device data structure is necessary so that the dpa_classifier library
- * can translate the "fmlib" handles into FM driver handles. */
+/*
+ * The device data structure is necessary so that the dpa_classifier library
+ * can translate the "fmlib" handles into FM driver handles needed in the
+ * dpa_classifier interface. This is an unwanted duplication of the t_Device
+ * data structure due to the fact that the original definition of this
+ * structure is private to the "fmlib". This is a dangerous source of
+ * synchronization failures if the structure ever gets updated in fmlib and
+ * not synchronized here.
+ */
 struct t_Device {
 	uintptr_t	id;
 	int		fd;
@@ -67,13 +76,50 @@ struct t_Device {
 	uint32_t	owners;
 };
 
+/*
+ * Table poll control data structure is created per table poll request and
+ * includes the resources necessary to synchronize and control the poll
+ * process throughout its lifetime.
+ */
+struct dpa_cls_tbl_poll_ctrl {
+	/*
+	 * Semaphore acknowledging the reception of the END_POLL event (for
+	 * this poll)
+	 */
+	sem_t poll_ended;
+
+	/* The status code of this table poll */
+	int err;
+
+	/*
+	 * The user application context information of this table poll. This
+	 * is provided back to the user application during the table event
+	 * delivery
+	 */
+	void *user_context;
+
+	/* Table poll configuration information */
+	const struct dpa_cls_tbl_poll_data *poll_data;
+};
+
 
 static inline void *dev_get_id(void *device);
 
 static inline void *dev_get_fd(void *device);
 
+static void *dpa_classif_event_thread(void *arg);
+
+static void dpa_classif_dispatch_event(
+				const struct dpa_cls_tbl_event_info *event,
+				uint8_t *key,
+				uint8_t *mask);
+
+
 static int dpa_cls_devfd = -1;
 
+static pthread_t event_thread;
+static pthread_mutex_t event_thread_control = PTHREAD_MUTEX_INITIALIZER;
+volatile static bool event_thread_running = false;
 
 int dpa_classif_lib_init(void)
 {
@@ -485,6 +531,163 @@ int dpa_classif_table_get_params(int td, struct dpa_cls_tbl_params *params)
 		__LINE__));
 
 	return 0;
+}
+
+int dpa_classif_table_poll(int					td,
+			const struct dpa_cls_tbl_poll_data	*poll_params,
+			void					*user_context)
+{
+	struct ioc_dpa_cls_tbl_poll_params params;
+	struct dpa_cls_tbl_poll_ctrl poll_control;
+	int err;
+
+	dpa_cls_dbg(("DEBUG: dpa_classifier_lib %s (%d): --> Executing "
+		"ioctl=0x%x\n", __func__, __LINE__, DPA_CLS_IOC_TBL_POLL));
+
+	CHECK_CLASSIFIER_DEV_FD();
+
+	/*
+	 * If the table event processing thread is not running yet, start it
+	 * now.
+	 */
+	if ((!event_thread_running) &&
+			(pthread_mutex_trylock(&event_thread_control) == 0)) {
+
+		err = pthread_create(	&event_thread,
+					NULL,
+					dpa_classif_event_thread,
+					NULL);
+		if (err) {
+			error(0, err, "dpa_classifier event thread");
+			return -err;
+		}
+		event_thread_running = true;
+		pthread_mutex_unlock(&event_thread_control);
+	}
+
+	/* Initialize the table poll control data structure */
+	poll_control.err		= 0;
+	poll_control.poll_data		= poll_params;
+	poll_control.user_context	= user_context;
+	err = sem_init(&poll_control.poll_ended, 0, 0);
+	if (err) {
+		error(0, err, "Failed to initialize dpa_classifier table poll");
+		return -err;
+	}
+
+	/* Call driver ioctl to start the poll */
+	memset(&params, 0, sizeof(struct ioc_dpa_cls_tbl_poll_params));
+	params.td		= td;
+	params.user_context	= (uint64_t)&poll_control;
+	params.reset_aging	= poll_params->reset_aging;
+	params.start_ref	= poll_params->start_ref;
+
+	err = ioctl(dpa_cls_devfd, DPA_CLS_IOC_TBL_POLL, &params);
+	if (err != 0)
+		return err;
+
+	/* Sleep until END_POLL event arrives */
+	err = sem_wait(&poll_control.poll_ended);
+	if (err) {
+		error(0, err,
+			"Aggressively woken up during waiting table END_POLL "
+			"event. Risk of memory corruption!");
+		return -err;
+	}
+
+	dpa_cls_dbg(("DEBUG: dpa_classifier_lib %s (%d): <-- Done\n", __func__,
+		__LINE__));
+
+	return err;
+}
+
+static void dpa_classif_dispatch_event(
+				const struct dpa_cls_tbl_event_info *event,
+				uint8_t *key,
+				uint8_t *mask)
+{
+	struct dpa_cls_tbl_poll_ctrl *poll_control =
+			(struct dpa_cls_tbl_poll_ctrl*) event->ucontext;
+	struct ioc_dpa_cls_tbl_poll_cont_params poll_continue_params;
+	struct dpa_cls_tbl_event_data user_event;
+	int err;
+
+	poll_control->err = 0;
+
+	switch (event->code) {
+	case DPA_CLS_EVENT_ENTRY_EXPIRED:
+		/* Prepare the event information to be delivered to the user: */
+		memset(&user_event, 0, sizeof(user_event));
+		user_event.td = event->td;
+		user_event.entry_id = event->entry_id;
+		user_event.key.size = event->key_size;
+		if (event->key_size)
+			user_event.key.byte = key;
+		if (event->mask_size)
+			user_event.key.mask = mask;
+
+		/* Call user event notification callback */
+		poll_continue_params.err = poll_control->poll_data->event_func(
+					event->code,
+					&user_event,
+					poll_control->user_context);
+		/* Signal the kernel driver that the table poll can continue: */
+		poll_continue_params.user_context = event->kcontext;
+		if (ioctl(dpa_cls_devfd, DPA_CLS_IOC_TBL_POLL_CONTINUE,
+						&poll_continue_params) < 0)
+			error(0, EINVAL, "Failed to signal the table poll "
+				"to continue (td=%d)", user_event.td);
+		break;
+	case DPA_CLS_EVENT_END_POLL:
+		/* Signal table poll end */
+		err = sem_post(&poll_control->poll_ended);
+		if (err)
+			error(0, err, "Failed to signal table poll end");
+		break;
+	}
+}
+
+static void *dpa_classif_event_thread(void *arg)
+{
+	char event_hdr[sizeof(struct dpa_cls_tbl_event_info)];
+	uint8_t key_data[2 * DPA_OFFLD_MAXENTRYKEYSIZE];
+	uint8_t *key, *mask;
+	struct dpa_cls_tbl_event_info *event = NULL;
+	ssize_t size;
+	int key_buf_size;
+
+	/*
+	 * Read one event from the device file. This call is blocking and will
+	 * put the thread to sleep if there are no events available. It will
+	 * wake up and return the event as it becomes available.
+	 */
+	do {
+		size = read(dpa_cls_devfd, event_hdr, sizeof(*event));
+		if (size != sizeof(*event)) {
+			error(0, EINVAL, "Failed to read dpa_classifier "
+				"event");
+			continue;
+		}
+		event  = (struct dpa_cls_tbl_event_info *)event_hdr;
+
+		/* Check if a key is being provided and needs to be read */
+		key_buf_size = event->key_size + event->mask_size;
+		if (key_buf_size) {
+			size = read(dpa_cls_devfd, key_data, key_buf_size);
+			if (size != key_buf_size) {
+				error(0, EINVAL, "Failed to read "
+					"dpa_classifier event key");
+				continue;
+			}
+		}
+		key = (event->key_size)? key_data: NULL;
+		mask = (event->mask_size)? &key_data[event->key_size]: NULL;
+
+		/* Dispatch this event */
+		dpa_classif_dispatch_event(event, key, mask);
+	} while (1);
+
+	return NULL;
 }
 
 int dpa_classif_set_remove_hm(const struct dpa_cls_hm_remove_params
