@@ -63,15 +63,9 @@ struct sg_entry_priv_t {
 	uint32_t reserved[7];
 } __packed;
 
-struct compound_fd_params {
-	uint32_t output_buf_size;
-	uint32_t input_buf_capacity;
-	uint32_t input_buf_length;
-	unsigned short buf_align;
-};
-
 /* Create/Init routines */
-int create_compound_fd(unsigned buf_num, struct compound_fd_params *fd_params);
+int create_compound_fd(unsigned int buf_num, uint32_t output_buf_size,
+		       uint32_t input_buf_capacity, uint32_t input_buf_length);
 struct qman_fq *create_sec_frame_queue(enum SEC_MODE mode,
 		dma_addr_t ctxt_a_addr, uint32_t ctx_b);
 int init_sec_frame_queues(enum SEC_MODE mode, struct fq_ctx *fqs,

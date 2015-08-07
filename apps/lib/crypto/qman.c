@@ -67,10 +67,14 @@ const struct qman_fq_cb sec_tx_cb = {
 
 /*
  * brief	Create a compound frame descriptor understood by SEC 4.0
- * param[in]	fd_params - parameters for each FD
+ * param[in]	buf_num - number of buffers
+ * param[in]	output_buf_size
+ * param[in]	input_buf_capacity
+ * param[in]	input_buf_length
  * return	0 on success, otherwise -ve value
  */
-int create_compound_fd(unsigned buf_num, struct compound_fd_params *fd_params)
+int create_compound_fd(unsigned int buf_num, uint32_t output_buf_size,
+		       uint32_t input_buf_capacity, uint32_t input_buf_length)
 {
 	uint8_t *in_buf, *out_buf;
 	struct sg_entry_priv_t *sg_priv_and_data;
@@ -78,18 +82,16 @@ int create_compound_fd(unsigned buf_num, struct compound_fd_params *fd_params)
 	/* Total size of sg entry, i/p and o/p buffer required */
 	uint32_t total_size;
 	uint32_t ind;
-	size_t align = fd_params->buf_align ?
-			fd_params->buf_align : L1_CACHE_BYTES;
-
-	total_size = sizeof(struct sg_entry_priv_t) +
-		     fd_params->output_buf_size +
-		     fd_params->input_buf_capacity;
 
 	for (ind = 0; ind < buf_num; ind++) {
+
 		/* Allocate memory for scatter-gather entry and
 		   i/p & o/p buffers */
+		total_size = sizeof(struct sg_entry_priv_t) + output_buf_size
+		    + input_buf_capacity;
+
 		sg_priv_and_data =
-		    __dma_mem_memalign(align, total_size);
+		    __dma_mem_memalign(L1_CACHE_BYTES, total_size);
 
 		if (unlikely(!sg_priv_and_data)) {
 			fprintf(stderr, "error: Unable to allocate memory"
@@ -101,19 +103,19 @@ int create_compound_fd(unsigned buf_num, struct compound_fd_params *fd_params)
 		/* Get the address of output and input buffers */
 		out_buf = (uint8_t *) (sg_priv_and_data)
 		    + sizeof(struct sg_entry_priv_t);
-		in_buf = (uint8_t *)sg_priv_and_data +
-			 (total_size - fd_params->input_buf_capacity);
+		in_buf = (uint8_t *) sg_priv_and_data + (total_size
+							 - input_buf_capacity);
 
 		sg = (struct qm_sg_entry *)sg_priv_and_data;
 
 		/* output buffer */
 		qm_sg_entry_set64(sg, __dma_mem_vtop(out_buf));
-		sg->length = fd_params->output_buf_size;
+		sg->length = output_buf_size;
 
 		/* input buffer */
 		sg++;
 		qm_sg_entry_set64(sg, __dma_mem_vtop(in_buf));
-		sg->length = fd_params->input_buf_length;
+		sg->length = input_buf_length;
 		sg->final = 1;
 		sg--;
 
@@ -443,7 +445,7 @@ void cb_fq_change_state(struct qman_portal *qm, struct qman_fq *fq,
  * return	0 - if status is correct (i.e. 0)
  *		-1 - if CAAM returned an error status (i.e. non 0)
  */
-__attribute__((weak)) int check_fd_status(unsigned int buf_num)
+int check_fd_status(unsigned int buf_num)
 {
 	uint32_t ind;
 
@@ -674,7 +676,7 @@ void print_frame_desc(struct qm_fd *frame_desc)
 				sgentry->offset);
 
 			v = __dma_mem_ptov(addr);
-			for (i = 0; i < sgentry->length + sgentry->offset; i++)
+			for (i = 0; i < sgentry->length; i++)
 				fprintf(stdout, "error: 0x%x\n", *v++);
 
 			sgentry++;
@@ -694,7 +696,7 @@ void print_frame_desc(struct qm_fd *frame_desc)
 				sgentry->offset);
 
 			v = __dma_mem_ptov(addr);
-			for (i = 0; i < sgentry->length + sgentry->offset; i++)
+			for (i = 0; i < sgentry->length; i++)
 				fprintf(stdout, "error: 0x%x\n", *v++);
 		}
 	}

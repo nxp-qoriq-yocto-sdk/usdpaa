@@ -111,6 +111,9 @@
 	(PDCP_SHORT_MAC_OFFSET +				\
 	(pdcp_params)->integrity_alg)
 
+/**< Integer number of bits in given bytes  */
+#define NO_OF_BITS(bytelen)	(bytelen << 3)
+
 #define PDCP_MAX_KEY_LEN	16 /* bytes */
 
 struct pdcp_params {

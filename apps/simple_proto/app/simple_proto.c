@@ -102,11 +102,9 @@ int prepare_test_frames(struct test_param *crypto_info)
 		error(err, err, "error: set output buffer size");
 
 	err = create_compound_fd(crypto_info->buf_num,
-				&(struct compound_fd_params){
-					crypto_info->rt.output_buf_size,
-					crypto_info->rt.input_buf_capacity,
-					crypto_info->rt.input_buf_length,
-					proto->buf_align});
+				 crypto_info->rt.output_buf_size,
+				 crypto_info->rt.input_buf_capacity,
+				 crypto_info->rt.input_buf_length);
 	if (err)
 		error(err, err, "error: create_compound_fd() failed");
 
@@ -768,8 +766,6 @@ inline pthread_barrier_t *get_thread_barrier(void)
  */
 static void set_crypto_cbs(struct test_cb *crypto_cb)
 {
-	memset(crypto_cb, 0, sizeof(struct test_cb));
-
 	crypto_cb->set_sec_descriptor = proto->setup_sec_descriptor;
 	crypto_cb->is_enc_match = test_enc_match;
 	crypto_cb->is_dec_match = test_dec_match;
@@ -782,8 +778,6 @@ static void set_crypto_cbs(struct test_cb *crypto_cb)
 	crypto_cb->get_num_of_cpus = get_num_of_cpus;
 	crypto_cb->requires_authentication = requires_authentication;
 	crypto_cb->get_thread_barrier = get_thread_barrier;
-	crypto_cb->enc_done_cbk = proto->enc_done_cbk;
-	crypto_cb->dec_done_cbk = proto->dec_done_cbk;
 }
 
 int register_modules()
@@ -863,24 +857,3 @@ void unregister_modules()
 	free(protocols);
 	free(argp_children);
 }
-
-int check_fd_status(unsigned int buf_num) {
-	int ind;
-	extern struct qm_fd *fd;
-
-	for (ind = 0; ind < buf_num; ind++)
-		if (unlikely(fd[ind].status)) {
-			int fail = 1;
-			if (unlikely(proto->check_status))
-				fail = proto->check_status(&fd[ind].status,
-							   proto);
-
-			if (likely(fail)) {
-				fprintf(stderr, "error: Bad status return from SEC\n");
-				print_frame_desc(&fd[ind]);
-				return -1;
-			}
-		}
-	return 0;
-}
-

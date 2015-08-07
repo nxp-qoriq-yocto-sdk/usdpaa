@@ -36,7 +36,6 @@
 #include <stdbool.h>
 
 #include <usdpaa/fsl_qman.h>
-#include <mutex.h>
 
 /**< Integer number of 32-bit items */
 #define NO_OF_WORDS(bitlen) \
@@ -44,9 +43,6 @@
 
 /**< Integer number of 8-bit items */
 #define NO_OF_BYTES(bitlen) (((bitlen) >> 3) + !!((bitlen) & 0x7))
-
-/**< Integer number of bits in given bytes  */
-#define NO_OF_BITS(bytelen)	(bytelen << 3)
 
 /**
  * @struct	runtime_param
@@ -63,11 +59,6 @@ struct parse_input_t {
 	uint32_t *cmd_params;
 	uint32_t *proto_params;	/**< protocol specific parameters */
 	struct test_param *crypto_info;
-};
-
-struct desc_storage {
-	uint32_t *descr;
-	bool mode;
 };
 
 /**
@@ -116,22 +107,8 @@ struct protocol_info {
 	void *proto_params;	/**< Per-protocol defined parameters. */
 	void (*unregister)(struct protocol_info *);
 				/**< Callback for deregistering the protocol */
-	struct desc_storage *descr;
-				/**< Descriptor storage */
-	spinlock_t desc_wlock;	/**< Mutex for ensuring that the descriptors
-				     are written in an ordered fashion in the
-				     descr member. */
-	unsigned short buf_align;	/**< Alignment of buffers */
-	int (*check_status)(unsigned *, void*);
-				/**< Callback for checking the status returned
-				     by SEC in fd_status. */
-	unsigned num_cpus;	/**< Number of online CPUs in the system */
-	int (*enc_done_cbk) (void *, int);
-				/**< Callback for encapsulation end of test
-				     checks */
-	int (*dec_done_cbk) (void *, int);
-				/**< Callback for decapsulation end of test
-				     checks */
+	void *descr;
+
 };
 
 #endif /* PROTOCOLS_H_ */

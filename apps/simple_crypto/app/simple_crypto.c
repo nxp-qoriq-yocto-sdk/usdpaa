@@ -299,11 +299,9 @@ int prepare_test_frames(struct test_param *crypto_info)
 	set_buf_size(crypto_info);
 
 	err = create_compound_fd(crypto_info->buf_num,
-				 &(struct compound_fd_params){
-					crypto_info->rt.output_buf_size,
-					crypto_info->rt.input_buf_capacity,
-					crypto_info->rt.input_buf_length,
-					0});
+				 crypto_info->rt.output_buf_size,
+				 crypto_info->rt.input_buf_capacity,
+				 crypto_info->rt.input_buf_length);
 	if (err)
 		error(err, err, "error: create_compound_fd() failed");
 
@@ -1398,8 +1396,6 @@ inline pthread_barrier_t *get_thread_barrier(void)
  */
 void set_crypto_cbs(struct test_cb *crypto_cb, struct test_param crypto_info)
 {
-	memset(crypto_cb, 0, sizeof(struct test_cb));
-
 	crypto_cb->set_sec_descriptor = setup_sec_descriptor;
 	crypto_cb->is_enc_match = test_enc_match;
 	crypto_cb->is_dec_match = test_dec_match;

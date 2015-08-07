@@ -194,14 +194,6 @@ int worker_fn(struct thread_data *tdata)
 				}
 			}
 
-			if (unlikely(crypto_cb.enc_done_cbk &&
-				     crypto_cb.enc_done_cbk(crypto_param,
-							    itr_num -
-								iterations))){
-				ctrl_error = 1;
-				goto error2;
-			}
-
 			if (crypto_cb.set_dec_buf)
 				/* Set decryption buffer */
 				crypto_cb.set_dec_buf(crypto_param, fd);
@@ -263,12 +255,6 @@ error2:
 				ctrl_error = 1;
 				goto error3;
 			}
-
-			if (unlikely(crypto_cb.dec_done_cbk &&
-				     crypto_cb.dec_done_cbk(crypto_param,
-							    itr_num -
-								iterations)))
-				ctrl_error = 1;
 		}
 error3:
 		if (EINVAL == pthread_barrier_wait(app_barrier)) {
