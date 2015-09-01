@@ -126,6 +126,36 @@ int dpa_ipsec_free(int dpa_ipsec_id)
 	return 0;
 }
 
+int dpa_ipsec_set_extended_arw(int dpa_ipsec_id,
+                                const struct dpa_ipsec_ext_arw_params *params)
+{
+	struct ioc_dpa_ipsec_ext_arw_params arw_prm;
+
+	if (dpa_ipsec_devfd < 0) {
+		error(0, ENODEV, "DPA IPSec library is not initialized");
+		return -ENODEV;
+	}
+
+	if (!params) {
+		error(0, EINVAL, "Input parameters");
+		return -EINVAL;
+	}
+
+	arw_prm.dpa_ipsec_id = dpa_ipsec_id;
+	arw_prm.params.post_dec_oh_fm =
+			(void *)((struct t_Device *)params->post_dec_oh_fm)->fd;
+	arw_prm.params.max_arw_size = params->max_arw_size;
+
+	if (ioctl(dpa_ipsec_devfd,
+			DPA_IPSEC_IOC_SET_EXTENDED_ARW,
+			&arw_prm) < 0) {
+		error(0, errno, "dpa_ipsec_set_extended_arw");
+		return -errno;
+	}
+
+	return 0;
+}
+
 int dpa_ipsec_create_sa(int dpa_ipsec_id, struct dpa_ipsec_sa_params *sa_params,
 			int *sa_id)
 {
