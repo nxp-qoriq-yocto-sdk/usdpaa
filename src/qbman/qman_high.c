@@ -2505,6 +2505,7 @@ EXPORT_SYMBOL(qman_modify_cgr);
 
 #define TARG_MASK(n) (0x80000000 >> (n->config->public_cfg.channel - \
 					QM_CHANNEL_SWPORTAL0))
+#define TARG_DCP_MASK(n) (0x80000000 >> (10 + n))
 #define PORTAL_IDX(n) (n->config->public_cfg.channel - QM_CHANNEL_SWPORTAL0)
 
 int qman_create_cgr(struct qman_cgr *cgr, u32 flags,
@@ -2581,13 +2582,9 @@ int qman_create_cgr_to_dcp(struct qman_cgr *cgr, u32 flags, u16 dcp_portal,
 {
 	unsigned long irqflags __maybe_unused;
 	struct qm_mcc_initcgr local_opts;
+	struct qm_mcr_querycgr cgr_state;
 	int ret;
 
-	if ((qman_ip_rev & 0xFF00) < QMAN_REV30) {
-		pr_warning("This QMan version doesn't support to send CSCN to"
-						" DCP portal\n");
-		return -EINVAL;
-	}
 	/* We have to check that the provided CGRID is within the limits of the
 	 * data-structures, for obvious reasons. However we'll let h/w take
 	 * care of determining whether it's within the limits of what exists on
@@ -2596,12 +2593,21 @@ int qman_create_cgr_to_dcp(struct qman_cgr *cgr, u32 flags, u16 dcp_portal,
 	if (cgr->cgrid >= __CGR_NUM)
 		return -EINVAL;
 
+	ret = qman_query_cgr(cgr, &cgr_state);
+	if (ret)
+		return ret;
+
 	memset(&local_opts, 0, sizeof(struct qm_mcc_initcgr));
 	if (opts)
 		local_opts = *opts;
 
-	local_opts.cgr.cscn_targ_upd_ctrl = QM_CGR_TARG_UDP_CTRL_WRITE_BIT |
+	if ((qman_ip_rev & 0xFF00) >= QMAN_REV30)
+		local_opts.cgr.cscn_targ_upd_ctrl =
+				QM_CGR_TARG_UDP_CTRL_WRITE_BIT |
 				QM_CGR_TARG_UDP_CTRL_DCP | dcp_portal;
+	else
+		local_opts.cgr.cscn_targ = cgr_state.cgr.cscn_targ |
+					TARG_DCP_MASK(dcp_portal);
 	local_opts.we_mask |= QM_CGR_WE_CSCN_TARG;
 
 	/* send init if flags indicate so */
