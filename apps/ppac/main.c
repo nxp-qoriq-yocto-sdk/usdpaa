@@ -1716,6 +1716,8 @@ int main(int argc, char *argv[])
 	printf("Configuring for %d network interface%s\n",
 		netcfg->num_ethports, netcfg->num_ethports > 1 ? "s" : "");
 	/* - map DMA mem */
+
+	of_finish();
 	TRACE("Initialising DMA mem\n");
 	dma_mem_generic = dma_mem_create(DMA_MAP_FLAG_ALLOC, NULL,
 					 ppac_args.dma_sz);
@@ -1811,6 +1813,5 @@ leave:
 	qman_release_cgrid_range(cgr_rx.cgrid, 2);
 #endif
 	usdpaa_netcfg_release(netcfg);
-	of_finish();
 	return rcode;
 }
