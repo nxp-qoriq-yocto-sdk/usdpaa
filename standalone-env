@@ -46,7 +46,7 @@
 # to sucessfully build USDPAA.
 if [[ -z ${SDK_ROOT} ]]
 then
-	export SDK_ROOT="$PWD/../fsl-qoriq-sdk"
+	export SDK_ROOT="$PWD/../../fsl-qoriq-sdk"
 fi
 
 board2soc()
