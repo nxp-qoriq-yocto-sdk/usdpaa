@@ -120,8 +120,8 @@ struct dma_mem *dma_mem_create(uint32_t flags, const char *map_name,
 	strncpy(map->name, params.name, USDPAA_DMA_NAME_MAX);
 	if (params.did_create && (flags & DMA_MAP_FLAG_ALLOC))
 		dma_mem_allocator_init(map);
-
-	pthread_mutex_lock(&maps_lock);
+	ret = pthread_mutex_lock(&maps_lock);
+	assert(!ret);
 	if (num_maps < MAX_DMA_MAPS)
 		maps[num_maps++] = map;
 	else {
@@ -129,14 +129,18 @@ struct dma_mem *dma_mem_create(uint32_t flags, const char *map_name,
 		free(map);
 		map = NULL;
 	}
-	pthread_mutex_unlock(&maps_lock);
+	ret = pthread_mutex_unlock(&maps_lock);
+	assert(!ret);
 	return map;
 }
 
 void dma_mem_destroy(struct dma_mem *map)
 {
 	unsigned int idx;
-	pthread_mutex_lock(&maps_lock);
+	int ret;
+
+	ret = pthread_mutex_lock(&maps_lock);
+	assert(!ret);
 	for (idx = 0; idx < num_maps; idx++)
 		if (maps[idx] == map) {
 			/* Delete the array entry, and if it wasn't at the end
@@ -146,7 +150,8 @@ void dma_mem_destroy(struct dma_mem *map)
 				maps[idx] = maps[num_maps];
 			break;
 		}
-	pthread_mutex_unlock(&maps_lock);
+	ret = pthread_mutex_unlock(&maps_lock);
+	assert(!ret);
 	process_dma_unmap(map->addr.virt);
 	free(map);
 }
@@ -175,8 +180,10 @@ struct dma_mem *dma_mem_findv(void *v)
 {
 	struct dma_mem *map;
 	unsigned int idx;
+	int ret;
 
-	pthread_mutex_lock(&maps_lock);
+	ret = pthread_mutex_lock(&maps_lock);
+	assert(!ret);
 	for (map = maps[0], idx = 0; (idx < MAX_DMA_MAPS) && map;
 				     map = maps[idx++]) {
 		if ((v >= map->addr.virt) && (v < (map->addr.virt + map->sz)))
@@ -184,7 +191,9 @@ struct dma_mem *dma_mem_findv(void *v)
 	}
 	map = NULL;
 found:
-	pthread_mutex_unlock(&maps_lock);
+	ret = pthread_mutex_unlock(&maps_lock);
+	assert(!ret);
+
 	return map;
 }
 
@@ -192,8 +201,10 @@ struct dma_mem *dma_mem_findp(dma_addr_t p)
 {
 	struct dma_mem *map;
 	unsigned int idx;
+	int ret;
 
-	pthread_mutex_lock(&maps_lock);
+	ret = pthread_mutex_lock(&maps_lock);
+	assert(!ret);
 	for (map = maps[0], idx = 0; (idx < MAX_DMA_MAPS) && map;
 				     map = maps[idx++]) {
 		if ((p >= map->addr.phys) && (p < (map->addr.phys + map->sz)))
@@ -201,6 +212,7 @@ struct dma_mem *dma_mem_findp(dma_addr_t p)
 	}
 	map = NULL;
 found:
-	pthread_mutex_unlock(&maps_lock);
+	ret = pthread_mutex_unlock(&maps_lock);
+	assert(!ret);
 	return map;
 }

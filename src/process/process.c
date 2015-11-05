@@ -46,13 +46,16 @@ static pthread_mutex_t fd_init_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static int check_fd(void)
 {
+	int ret;
 	if (fd >= 0)
 		return 0;
-	pthread_mutex_lock(&fd_init_lock);
+	ret = pthread_mutex_lock(&fd_init_lock);
+	assert(!ret);
 	/* check again with the lock held */
 	if (fd < 0)
 		fd = open(PROCESS_PATH, O_RDWR);
-	pthread_mutex_unlock(&fd_init_lock);
+	ret = pthread_mutex_unlock(&fd_init_lock);
+	assert(!ret);
 	return (fd >= 0) ? 0 : -ENODEV;
 }
 

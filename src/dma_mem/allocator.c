@@ -177,21 +177,25 @@ static void local_free(struct dma_mem *map, void *ptr)
 
 static inline int map_lock(struct dma_mem *map)
 {
+	int ret;
 	if (map->has_locking) {
-		int ret = process_dma_lock(map->addr.virt);
+		ret = process_dma_lock(map->addr.virt);
 		if (ret) {
 			perror("Failed to lock DMA region");
 			return -ENODEV;
 		}
 	}
-	pthread_mutex_lock(&map->alloc_lock);
+	ret = pthread_mutex_lock(&map->alloc_lock);
+	assert(!ret);
 	return 0;
 }
 static inline int map_unlock(struct dma_mem *map)
 {
-	pthread_mutex_unlock(&map->alloc_lock);
+	int ret;
+	ret = pthread_mutex_unlock(&map->alloc_lock);
+	assert(!ret);
 	if (map->has_locking) {
-		int ret = process_dma_unlock(map->addr.virt);
+		ret = process_dma_unlock(map->addr.virt);
 		if (ret) {
 			perror("Failed to unlock DMA region");
 			return -ENODEV;
