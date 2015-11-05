@@ -512,9 +512,14 @@ fail_devalloc:
 	if (num_ceetms)
 		for (ret = 0; ret < num_ceetms; ret++)
 			kfree(portal->ccgrs[ret]);
+	spin_lock_destroy(&portal->ccgr_lock);
+#ifdef CONFIG_FSL_DPA_PORTAL_SHARE
+	raw_spin_lock_destroy(&portal->sharing_lock);
+#endif
 fail_ccgrs:
 	if (portal->cgrs)
 		kfree(portal->cgrs);
+	spin_lock_destroy(&portal->cgr_lock);
 fail_cgrs:
 	qm_isr_finish(__p);
 fail_isr:
@@ -526,14 +531,8 @@ fail_mr:
 fail_dqrr:
 	qm_eqcr_finish(__p);
 fail_eqcr:
-	if (portal->alloced) {
-		spin_lock_destroy(&portal->cgr_lock);
-		spin_lock_destroy(&portal->ccgr_lock);
-#ifdef CONFIG_FSL_DPA_PORTAL_SHARE
-		raw_spin_lock_destroy(&portal->sharing_lock);
-#endif
+	if (portal->alloced)
 		kfree(portal);
-	}
 	return NULL;
 }
 
@@ -618,14 +617,15 @@ void qman_destroy_portal(struct qman_portal *qm)
 	platform_device_put(qm->pdev);
 
 	qm->config = NULL;
-	if (qm->alloced) {
-		spin_lock_destroy(&qm->cgr_lock);
-		spin_lock_destroy(&qm->ccgr_lock);
+
+	spin_lock_destroy(&qm->cgr_lock);
+	spin_lock_destroy(&qm->ccgr_lock);
 #ifdef CONFIG_FSL_DPA_PORTAL_SHARE
-		raw_spin_lock_destroy(&qm->sharing_lock);
+	raw_spin_lock_destroy(&qm->sharing_lock);
 #endif
+
+	if (qm->alloced)
 		kfree(qm);
-	}
 }
 
 const struct qm_portal_config *qman_destroy_affine_portal(void)
