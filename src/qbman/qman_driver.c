@@ -153,9 +153,11 @@ static int __init fsl_qman_portal_init(uint32_t index, int is_shared)
 	master->index = qman_get_portal_config()->index;
 	master->slave_refs = 0;
 
-	pthread_mutex_lock(&master_list_lock);
+	ret = pthread_mutex_lock(&master_list_lock);
+	assert(!ret);
 	list_add(&master->node, &master_list);
-	pthread_mutex_unlock(&master_list_lock);
+	ret = pthread_mutex_unlock(&master_list_lock);
+	assert(!ret);
 #endif
 
 	irq_map.type = usdpaa_portal_qman;
@@ -175,7 +177,8 @@ static int fsl_qman_portal_finish(void)
 	const struct qman_portal_config *portal_cfg;
 	portal_cfg = qman_get_portal_config();
 
-	pthread_mutex_lock(&master_list_lock);
+	ret = pthread_mutex_lock(&master_list_lock);
+	assert(!ret);
 
 	list_for_each_entry(master, &master_list, node) {
 		if (master->index == portal_cfg->index) {
@@ -186,12 +189,14 @@ static int fsl_qman_portal_finish(void)
 
 	BUG_ON(!redirect);
 	if (master->slave_refs) {
-		pthread_mutex_unlock(&master_list_lock);
+		ret = pthread_mutex_unlock(&master_list_lock);
+		assert(!ret);
 		return -EBUSY;
 	}
 
 	list_del(&master->node);
-	pthread_mutex_unlock(&master_list_lock);
+	ret = pthread_mutex_unlock(&master_list_lock);
+	assert(!ret);
 	free(master);
 #endif
 
@@ -226,8 +231,10 @@ static int fsl_qman_slave_portal_init(const struct qman_portal_config *cfg)
 	struct qman_portal *redirect = NULL;
 	struct qman_master *master;
 	struct qman_portal *p;
+	int ret;
 
-	pthread_mutex_lock(&master_list_lock);
+	ret = pthread_mutex_lock(&master_list_lock);
+	assert(!ret);
 
 	list_for_each_entry(master, &master_list, node) {
 		if (master->index == cfg->index) {
@@ -238,19 +245,23 @@ static int fsl_qman_slave_portal_init(const struct qman_portal_config *cfg)
 
 	if (!redirect) {
 		pr_err("Given portal not found in master list: %p\n", cfg);
-		pthread_mutex_unlock(&master_list_lock);
+		ret = pthread_mutex_unlock(&master_list_lock);
+		assert(!ret);
 		return -ENODEV;
 	}
 
 	master->slave_refs++;
-	pthread_mutex_unlock(&master_list_lock);
+	ret = pthread_mutex_unlock(&master_list_lock);
+	assert(!ret);
 
 	p = qman_create_affine_slave(redirect);
 	if (!p) {
 		pr_err("Qman slave init failure for portal: %u\n", cfg->index);
-		pthread_mutex_lock(&master_list_lock);
+		ret = pthread_mutex_lock(&master_list_lock);
+		assert(!ret);
 		master->slave_refs--;
-		pthread_mutex_unlock(&master_list_lock);
+		ret = pthread_mutex_unlock(&master_list_lock);
+		assert(!ret);
 		return -ENODEV;
 	}
 
@@ -287,7 +298,8 @@ int qman_thread_finish_slave(void)
 
 	qman_destroy_affine_portal();
 
-	pthread_mutex_lock(&master_list_lock);
+	ret = pthread_mutex_lock(&master_list_lock);
+	assert(!ret);
 
 	list_for_each_entry(master, &master_list, node) {
 		if (master->index == index) {
@@ -298,7 +310,8 @@ int qman_thread_finish_slave(void)
 
 	BUG_ON(!redirect);
 	master->slave_refs--;
-	pthread_mutex_unlock(&master_list_lock);
+	ret = pthread_mutex_unlock(&master_list_lock);
+	assert(!ret);
 
 	return ret;
 }
