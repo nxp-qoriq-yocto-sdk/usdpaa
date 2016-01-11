@@ -362,7 +362,7 @@ static __init int fsl_ceetm_init(const struct device_node *node)
 		return -EINVAL;
 	}
 
-	dcp_portal = (range[0] & 0x0F0000) >> 16;
+	dcp_portal = (be32_to_cpu(range[0]) & 0x0F0000) >> 16;
 	if (dcp_portal > qm_dc_portal_fman1) {
 		pr_err("The DCP portal %d doesn't support CEETM\n", dcp_portal);
 		return -EINVAL;
@@ -384,23 +384,23 @@ static __init int fsl_ceetm_init(const struct device_node *node)
 		return -EINVAL;
 	}
 
-	for (i = 0; i < range[1]; i++) {
+	for (i = 0; i < be32_to_cpu(range[1]); i++) {
 		sp = kzalloc(sizeof(*sp), GFP_KERNEL);
 		if (!sp) {
 			pr_err("Can't alloc memory for sub-portal %d\n",
 								range[0] + i);
 			return -ENOMEM;
 		}
-		sp->idx = range[0] + i;
+		sp->idx = be32_to_cpu(range[0]) + i;
 		sp->dcp_idx = dcp_portal;
 		sp->is_claimed = 0;
 		list_add_tail(&sp->node, &qman_ceetms[dcp_portal].sub_portals);
 		sp++;
 	}
 	pr_debug("Qman: Reserve sub-portal %d:%d for CEETM %d\n",
-					range[0], range[1], dcp_portal);
-	qman_ceetms[dcp_portal].sp_range[0] = range[0];
-	qman_ceetms[dcp_portal].sp_range[1] = range[1];
+		be32_to_cpu(range[0]), be32_to_cpu(range[1]), dcp_portal);
+	qman_ceetms[dcp_portal].sp_range[0] = be32_to_cpu(range[0]);
+	qman_ceetms[dcp_portal].sp_range[1] = be32_to_cpu(range[1]);
 
 	/* Find LNI range */
 	range = of_get_property(node, "fsl,ceetm-lni-range", &ret);
@@ -414,14 +414,14 @@ static __init int fsl_ceetm_init(const struct device_node *node)
 		return -EINVAL;
 	}
 
-	for (i = 0; i < range[1]; i++) {
+	for (i = 0; i < be32_to_cpu(range[1]); i++) {
 		lni = kzalloc(sizeof(*lni), GFP_KERNEL);
 		if (!lni) {
 			pr_err("Can't alloc memory for LNI %d\n",
 							range[0] + i);
 			return -ENOMEM;
 		}
-		lni->idx = range[0] + i;
+		lni->idx = be32_to_cpu(range[0]) + i;
 		lni->dcp_idx = dcp_portal;
 		lni->is_claimed = 0;
 		INIT_LIST_HEAD(&lni->channels);
@@ -429,9 +429,9 @@ static __init int fsl_ceetm_init(const struct device_node *node)
 		lni++;
 	}
 	pr_debug("Qman: Reserve LNI %d:%d for CEETM %d\n",
-					range[0], range[1], dcp_portal);
-	qman_ceetms[dcp_portal].lni_range[0] = range[0];
-	qman_ceetms[dcp_portal].lni_range[1] = range[1];
+		be32_to_cpu(range[0]), be32_to_cpu(range[1]), dcp_portal);
+	qman_ceetms[dcp_portal].lni_range[0] = be32_to_cpu(range[0]);
+	qman_ceetms[dcp_portal].lni_range[1] = be32_to_cpu(range[1]);
 
 	return 0;
 }
@@ -548,7 +548,7 @@ int qman_global_init(void)
 	if (!clk)
 		pr_warning("Can't find Qman clock frequency\n");
 	else
-		qman_clk = *clk;
+		qman_clk = be32_to_cpu(*clk);
 
 #ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
 	ret = qman_setup_fq_lookup_table(CONFIG_FSL_QMAN_FQ_LOOKUP_MAX);
@@ -561,7 +561,7 @@ int qman_global_init(void)
 #define CEETM_CFG_PRES     0x904
 int qman_ceetm_get_prescaler(u16 *pres)
 {
-	*pres = (u16)in_be32(qman_ccsr_map + CEETM_CFG_PRES);
+	*pres = (u16)(in_be32(qman_ccsr_map + CEETM_CFG_PRES));
 	return 0;
 }
 
