@@ -86,11 +86,18 @@ static int my_open_dir(const char *relative_path, struct dirent ***d)
 {
 	int ret;
 	char full_path[PATH_MAX];
+	int tries = 0;
 
 	snprintf(full_path, PATH_MAX, "%s/%s", base_dir, relative_path);
-	ret = scandir(full_path, d, 0, versionsort);
+	while (tries++ < 10) {
+		ret = scandir(full_path, d, 0, versionsort);
+		if (ret >= 0)
+			break;
+		usleep(10000);
+	}
 	if (ret < 0) {
-		fprintf(stderr, "Failed to open directory %s\n", full_path);
+		fprintf(stderr, "Failed to open directory %s after %d tries\n",
+			full_path, tries);
 		perror("scandir");
 	}
 	return ret;
