@@ -81,17 +81,23 @@ static int alive;
 static struct dt_dir root_dir;
 static const char *base_dir;
 static LIST_HEAD(linear);
-pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 static int my_open_dir(const char *relative_path, struct dirent ***d)
 {
 	int ret;
 	char full_path[PATH_MAX];
+	int tries = 0;
 
 	snprintf(full_path, PATH_MAX, "%s/%s", base_dir, relative_path);
-	ret = scandir(full_path, d, 0, versionsort);
+	while (tries++ < 10) {
+		ret = scandir(full_path, d, 0, versionsort);
+		if (ret >= 0)
+			break;
+		usleep(10000);
+	}
 	if (ret < 0) {
-		fprintf(stderr, "Failed to open directory %s\n", full_path);
+		fprintf(stderr, "Failed to open directory %s after %d tries\n",
+			full_path, tries);
 		perror("scandir");
 	}
 	return ret;
@@ -266,13 +272,11 @@ int of_init_path(const char *dt_path)
 	INIT_LIST_HEAD(&root_dir.node.list);
 	root_dir.parent = NULL;
 	/* Kick things off... */
-	pthread_mutex_lock(&lock);
 	ret = process_dir("", &root_dir);
 	if (ret)
 		return ret;
 	/* Now make a flat, linear list of directories */
 	linear_dir(&root_dir);
-	pthread_mutex_unlock(&lock);
 	alive = 1;
 	return 0;
 }
