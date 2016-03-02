@@ -57,16 +57,13 @@ static inline int of_init(void)
 void of_finish(void);
 
 /* Read a numeric property according to its size and return it as a 64-bit value
- * for a big endian CPU
  */
-static inline uint64_t of_read_number(const uint32_t *cell, uint32_t cell_size)
+static inline uint64_t of_read_number(const __be32 *cell, int size)
 {
-	uint64_t n = cell[0];
-
-	if (cell_size > 1)
-		n = (n << 32) | cell[1];
-
-	return n;
+	uint64_t r = 0;
+	while (size--)
+		r = (r << 32) | be32toh(*(cell++));
+	return r;
 }
 
 #endif	/*  __OF_H */

@@ -51,7 +51,7 @@
 
 /* This defines any configuration symbols that are required by <usdpaa/xxx.h>
  * headers. */
-#include <conf.h>
+#include <usdpaa/conf.h>
 
 /* The following definitions are primarily to allow the single-source driver
  * interfaces to be included by arbitrary program code. Ie. for interfaces that
@@ -138,6 +138,23 @@ static inline void atomic_set(atomic_t *v, int i)
 {
 	v->v = i;
 }
+#if defined(__aarch64__)
+static inline long __atomic_add(long *i, long v)
+{
+	unsigned long tmp;
+	unsigned long result;
+
+	asm volatile("// atomic_add\n"
+		"1:     ldxr    %w0, %2\n"
+		"	add     %w0, %w0, %w3\n"
+		"	stxr    %w1, %w0, %2\n"
+		"	cbnz    %w1, 1b"
+		: "=&r" (result), "=&r" (tmp), "+Q" (v)
+		: "Ir" (*i));
+
+	return result;
+}
+#elif defined( __powerpc__) || defined(__powerpc64__)
 static inline long
 __atomic_add(long *ptr, long val)
 {
@@ -154,6 +171,9 @@ __atomic_add(long *ptr, long val)
 
 	return ret;
 }
+#else
+#error ARCH not Supported
+#endif
 static inline void atomic_inc(atomic_t *v)
 {
 	__atomic_add((long *)&v->v, 1);
@@ -201,29 +221,66 @@ do { \
 static inline u32 in_be32(volatile void *__p)
 {
 	volatile u32 *p = __p;
-	return *p;
+	return be32toh(*p);
 }
 static inline void out_be32(volatile void *__p, u32 val)
 {
 	volatile u32 *p = __p;
-	*p = val;
+	*p = htobe32(val);
 }
 #define hwsync __sync_synchronize
 #define dcbt_ro(p) __builtin_prefetch(p, 0)
 #define dcbt_rw(p) __builtin_prefetch(p, 1)
+
+
+#if defined(__aarch64__)
+#define lwsync() \
+	do { \
+		asm volatile ("dmb st" : : : "memory");	\
+	} while (0)
+
+#define dcbf(p) \
+	do { \
+		asm volatile("dc cvac, %0" : : "r"(p) : "memory");	\
+	} while (0)
+#define dcbf_64(p) dcbf(p)
+
+#define dcbi(p) \
+	do { \
+		asm volatile("dc civac, %0" : : "r"(p) : "memory");	\
+	} while (0)
+
+#define dcbz(p) \
+	do { \
+		asm volatile("dc zva, %0" : : "r" (p) : "memory");	\
+	} while(0)
+#define dcbz_64(p) dcbz(p)
+
+#define dcbit_ro(p) \
+	do { \
+		dcbi(p);						\
+		asm volatile("prfm pldl1keep, [%0, #64]" : : "r" (p));	\
+	} while(0)
+
+
+#elif defined( __powerpc__) || defined(__powerpc64__)
+#ifdef CONFIG_PPC_E500MC
+
 #define lwsync() \
 	do { \
 		asm volatile ("lwsync" : : : "memory"); \
 	} while (0)
+
 #define dcbf(p) \
-	do { \
-		asm volatile ("dcbf 0,%0" : : "r" (p)); \
-	} while (0)
+        do { \
+               asm volatile ("dcbf 0,%0" : : "r" (p)); \
+       } while (0)
+
 #define dcbi(p) dcbf(p)
-#ifdef CONFIG_PPC_E500MC
+
 #define dcbzl(p) \
 	do { \
-		__asm__ __volatile__ ("dcbzl 0,%0" : : "r" (p)); \
+		__asm__ __volatile__ ("dcbzl 0,%0" : : "r" (p));	\
 	} while (0)
 #define dcbz_64(p) \
 	do { \
@@ -242,7 +299,7 @@ static inline void out_be32(volatile void *__p, u32 val)
 #else
 #define dcbz(p) \
 	do { \
-		__asm__ __volatile__ ("dcbz 0,%0" : : "r" (p)); \
+		__asm__ __volatile__ ("dcbz 0,%0" : : "r" (p));	\
 	} while (0)
 #define dcbz_64(p) \
 	do { \
@@ -263,6 +320,9 @@ static inline void out_be32(volatile void *__p, u32 val)
 		dcbt_ro((u32)p + 32); \
 	} while (0)
 #endif /* CONFIG_PPC_E500MC */
+
+#endif /* __ppc__ */
+
 #define barrier() \
 	do { \
 		asm volatile ("" : : : "memory"); \
@@ -338,7 +398,7 @@ do { \
 /* "struct list_head" is needed by fsl_qman.h and fman.h, and the latter is not
  * much use to users unless related logic is available too
  * ("list_for_each_entry()", etc), so we put all of it in here; */
-#include <compat_list.h>
+#include <usdpaa/compat_list.h>
 
 /* Other miscellaneous interfaces our APIs depend on; */
 
@@ -353,6 +413,23 @@ do { \
 #undef upper_32_bits
 #endif
 #define upper_32_bits(x) ((u32)(((x) >> 16) >> 16))
+
+
+#if defined(__aarch64__)
+static inline uint64_t mfatb(void)
+{
+
+	uint64_t ret, ret_new, timeout = 200;
+	asm volatile ("mrs %0, cntvct_el0" : "=r" (ret));
+	asm volatile ("mrs %0, cntvct_el0" : "=r" (ret_new));
+	while (ret != ret_new && timeout--) {
+		ret = ret_new;
+		asm volatile ("mrs %0, cntvct_el0" : "=r" (ret_new));
+	}
+	BUG_ON(!timeout && (ret != ret_new));
+	return ret * 64;
+}
+#elif defined( __powerpc__) || defined(__powerpc64__)
 
 /* PPAC inlines require cpu_spin(); */
 /* Alternate Time Base */
@@ -387,6 +464,8 @@ static inline uint64_t mftb(void)
 	} while (unlikely(hi != chk));
 	return (uint64_t) hi << 32 | (uint64_t) lo;
 }
+
+#endif
 
 /* Spin for a few cycles without bothering the bus */
 static inline void cpu_spin(int cycles)
@@ -434,5 +513,13 @@ static inline void hexdump(const void *ptr, size_t sz)
 	const unsigned char *c = ptr;
 	__hexdump(start, end, p, sz, c);
 }
+
+#define cpu_to_be64(d) htobe64(d)
+#define cpu_to_be32(d) htobe32(d)
+#define cpu_to_be16(d) htobe16(d)
+
+#define be64_to_cpu(d) be64toh(d)
+#define be32_to_cpu(d) be32toh(d)
+#define be16_to_cpu(d) be16toh(d)
 
 #endif /* HEADER_USDPAA_COMPAT_H */

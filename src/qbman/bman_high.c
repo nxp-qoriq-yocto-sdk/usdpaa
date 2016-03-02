@@ -413,6 +413,8 @@ static u32 __poll_portal_slow(struct bman_portal *p, u32 is)
 		while (!(mcr = bm_mc_result(&p->p)))
 			cpu_relax();
 		tmp = mcr->query.ds.state;
+		tmp.__state[0] = be32_to_cpu(tmp.__state[0]);
+		tmp.__state[1] = be32_to_cpu(tmp.__state[1]);
 		PORTAL_IRQ_UNLOCK(p, irqflags);
 		for (i = 0; i < 2; i++) {
 			int idx = i * 32;
@@ -776,21 +778,12 @@ static noinline struct bm_rcr_entry *wait_rel_start(struct bman_portal **p,
 }
 #endif
 
-/* to facilitate better copying of bufs into the ring without either (a) copying
- * noise into the first byte (prematurely triggering the command), nor (b) being
- * very inefficient by copying small fields using read-modify-write */
-struct overlay_bm_buffer {
-	u32 first;
-	u32 second;
-};
-
+#define BMAN_BUF_MASK 0x0000fffffffffffful
 static inline int __bman_release(struct bman_pool *pool,
 			const struct bm_buffer *bufs, u8 num, u32 flags)
 {
 	struct bman_portal *p;
 	struct bm_rcr_entry *r;
-	struct overlay_bm_buffer *o_dest;
-	struct overlay_bm_buffer *o_src = (struct overlay_bm_buffer *)&bufs[0];
 	__maybe_unused unsigned long irqflags;
 	u32 i = num - 1;
 
@@ -806,12 +799,15 @@ static inline int __bman_release(struct bman_pool *pool,
 		return -EBUSY;
 	/* We can copy all but the first entry, as this can trigger badness
 	 * with the valid-bit. Use the overlay to mask the verb byte. */
-	o_dest = (struct overlay_bm_buffer *)&r->bufs[0];
-	o_dest->first = (o_src->first & 0x0000ffff) |
-		(((u32)pool->params.bpid << 16) & 0x00ff0000);
-	o_dest->second = o_src->second;
-	if (i)
-		copy_words(&r->bufs[1], &bufs[1], i * sizeof(bufs[0]));
+	r->bufs[0].opaque =
+		cpu_to_be64(((u64)pool->params.bpid<<48) |
+			    (bufs[0].opaque & BMAN_BUF_MASK));
+	if (i) {
+		for (i=1; i<num; i++)
+			r->bufs[i].opaque =
+				cpu_to_be64(bufs[i].opaque & BMAN_BUF_MASK);
+	}
+
 	bm_rcr_pvb_commit(&p->p, BM_RCR_VERB_CMD_BPID_SINGLE |
 			(num & BM_RCR_VERB_BUFCOUNT_MASK));
 #ifdef CONFIG_FSL_DPA_CAN_WAIT_SYNC
@@ -905,7 +901,7 @@ static inline int __bman_acquire(struct bman_pool *pool, struct bm_buffer *bufs,
 	struct bm_mc_command *mcc;
 	struct bm_mc_result *mcr;
 	__maybe_unused unsigned long irqflags;
-	int ret;
+	int ret, i;
 
 	PORTAL_IRQ_LOCK(p, irqflags);
 	mcc = bm_mc_start(&p->p);
@@ -915,9 +911,11 @@ static inline int __bman_acquire(struct bman_pool *pool, struct bm_buffer *bufs,
 	while (!(mcr = bm_mc_result(&p->p)))
 		cpu_relax();
 	ret = mcr->verb & BM_MCR_VERB_ACQUIRE_BUFCOUNT;
-	if (bufs)
-		copy_words(&bufs[0], &mcr->acquire.bufs[0],
-				num * sizeof(bufs[0]));
+	if (bufs) {
+		for (i=0; i<num; i++)
+			bufs[i].opaque =
+				be64_to_cpu(mcr->acquire.bufs[i].opaque);
+	}
 	PORTAL_IRQ_UNLOCK(p, irqflags);
 	put_affine_portal();
 	if (ret != num)
