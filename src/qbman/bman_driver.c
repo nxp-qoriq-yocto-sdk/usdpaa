@@ -368,7 +368,8 @@ int bman_init_ccsr(const struct device_node *node)
 	bman_ccsr_map = mmap(NULL, regs_size, PROT_READ|PROT_WRITE, MAP_SHARED,
 				ccsr_map_fd, phys_addr);
 	if (bman_ccsr_map == MAP_FAILED) {
-		pr_err("Can not map BMan CCSR base\n");
+		pr_err("Can not map BMan CCSR base Bman: 0x%x Phys: 0x%lx size 0x%lx\n",
+		       *bman_addr, phys_addr, regs_size);
 		return -EINVAL;
 	}
 
@@ -403,7 +404,13 @@ int bman_global_init(void)
 		of_device_is_compatible(dt_node, "fsl,bman-portal-2.1.3")) {
 		bman_ip_rev = BMAN_REV21;
 		bman_pool_max = 64;
-	}
+	} else {
+                pr_warn("unknown BMan version in portal node,"
+                                "default to rev1.0\n");
+                bman_ip_rev = BMAN_REV10;
+                bman_pool_max = 64;
+        }
+
 	if (!bman_ip_rev) {
 		pr_err("Unknown bman portal version\n");
 		return -ENODEV;

@@ -62,9 +62,10 @@
 
 /* don't compile support for FQ lookups (turn this on for 64bit user-space) */
 #undef CONFIG_FSL_QMAN_FQ_LOOKUP
-#ifdef __powerpc64__
+#if ( __WORDSIZE == 64 )
 #define CONFIG_FSL_QMAN_FQ_LOOKUP
 #endif
+
 
 #ifdef CONFIG_FSL_QMAN_FQ_LOOKUP
 /* if FQ lookups are supported, this controls the number of initialised,
