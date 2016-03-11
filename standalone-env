@@ -71,35 +71,16 @@ board2soc()
 board2cpu()
 {
        case $1 in
-               [pP]1023*) echo e500v2;;
-               [pP]2041*) echo e500mc;;
-               [pP]3041*) echo e500mc;;
-               [pP]4080*) echo e500mc;;
-               [pP]5020*-64b) echo 64e5500;;
-               [pP]5020*) echo e5500;;
-               [pP]5040*-64b) echo 64e5500;;
-               [pP]5040*) echo e5500;;
-               [bB]4860*-64b) echo 64e6500;;
-               [bB]4860*) echo e6500;;
-               [tT]4240*-64b) echo 64e6500;;
-               [tT]4240*) echo e6500;;
-               [tT]1040*-64b) echo 64e5500;;
-               [tT]1040*) echo e5500;;
-               [tT]2080*-64b) echo 64e6500;;
-               [tT]2080*) echo e6500;;
-               [tT]1023*-64b) echo 64e5500;;
-               [tT]1023*) echo e5500;;
-               [tT]1024*-64b) echo 64e5500;;
-               [tT]1024*) echo e5500;;
                [lL][sS]1043*-be) echo aarch64_be;;
                [lL][sS]1043*) echo aarch64;;
+               *) echo -n "powerpc";;
        esac
 }
 
 soc2arch()
 {
        case $1 in
-               [lL][sS]1043*) echo aarch64;;
+               [lL][sS]1043*) echo arm64;;
                *) echo -n "powerpc";;
        esac
 }
@@ -129,7 +110,7 @@ do
 	case $flags in
 		m)
 			case $OPTARG in
-				p1023ds | p2041rdb | p3041ds | p4080ds | p5020ds | p5020ds-64b | p5040ds | p5040ds-64b | b4860qds | b4860qds-64b | t4240qds | t4240qds-64b | t4240rdb | t4240rdb-64b | t1040qds | t1040qds-64b | t1040rdb | t1040rdb-64b | t2080qds | t2080qds-64b | t1023rdb | t1023rdb-64b | t1024rdb | t1024rdb-64b | t1024qds | t1024qds-64b | ls1043ardb )
+				p1023ds | p2041rdb | p3041ds | p4080ds | p5020ds | p5020ds-64b | p5040ds | p5040ds-64b | b4860qds | b4860qds-64b | t4240qds | t4240qds-64b | t4240rdb | t4240rdb-64b | t1040qds | t1040qds-64b | t1040rdb | t1040rdb-64b | t2080qds | t2080qds-64b | t1023rdb | t1023rdb-64b | t1024rdb | t1024rdb-64b | t1024qds | t1024qds-64b | ls1043ardb | ls1043ardb-be | ls1043a-simu | ls1043aqds | ls1043aqds-be)
 					board=$OPTARG
 					;;
 				*)
@@ -173,4 +154,5 @@ export ARCH=$(soc2arch $board)${prefix}
 export CROSS_COMPILE=$(soc2cc $board)${prefix}-fsl-linux-
 export CC="${CROSS_COMPILE}gcc --sysroot=${PKG_CONFIG_SYSROOT_DIR}"
 export LD="${CROSS_COMPILE}ld --sysroot=${PKG_CONFIG_SYSROOT_DIR}"
+export EXTRA_CFLAGS=$(soc2cflags $board)
 unset -v OLD_OPTIND board PKG_CONFIG_SYSROOT_DIR prefix sysroot
