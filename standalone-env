@@ -46,7 +46,7 @@
 # to sucessfully build USDPAA.
 if [[ -z ${SDK_ROOT} ]]
 then
-	export SDK_ROOT="$PWD/../../fsl-qoriq-sdk"
+	export SDK_ROOT="$PWD/../../.."
 fi
 
 board2soc()
@@ -64,6 +64,7 @@ board2soc()
                [tT]2080*) echo t2080;;
                [tT]1023*) echo t1023;;
                [tT]1024*) echo t1024;;
+               [lL][sS]1043*) echo ls1043;;
        esac
 }
 
@@ -90,7 +91,34 @@ board2cpu()
                [tT]1023*) echo e5500;;
                [tT]1024*-64b) echo 64e5500;;
                [tT]1024*) echo e5500;;
+               [lL][sS]1043*-be) echo aarch64_be;;
+               [lL][sS]1043*) echo aarch64;;
        esac
+}
+
+soc2arch()
+{
+       case $1 in
+               [lL][sS]1043*) echo aarch64;;
+               *) echo -n "powerpc";;
+       esac
+}
+
+soc2cc()
+{
+       case $1 in
+               [lL][sS]1043*-be) echo aarch64_be;;
+               [lL][sS]1043*) echo aarch64;;
+               *) echo -n "powerpc";;
+       esac
+}
+
+soc2cflags()
+{
+        case $1 in
+                [lL][sS]1043*-[bB][eE]) echo -n "-mbig-endian";;
+                *) echo -n "";;
+        esac
 }
 
 declare -l board=p4080ds
@@ -101,7 +129,7 @@ do
 	case $flags in
 		m)
 			case $OPTARG in
-				p1023ds | p2041rdb | p3041ds | p4080ds | p5020ds | p5020ds-64b | p5040ds | p5040ds-64b | b4860qds | b4860qds-64b | t4240qds | t4240qds-64b | t4240rdb | t4240rdb-64b | t1040qds | t1040qds-64b | t1040rdb | t1040rdb-64b | t2080qds | t2080qds-64b | t1023rdb | t1023rdb-64b | t1024rdb | t1024rdb-64b | t1024qds | t1024qds-64b)
+				p1023ds | p2041rdb | p3041ds | p4080ds | p5020ds | p5020ds-64b | p5040ds | p5040ds-64b | b4860qds | b4860qds-64b | t4240qds | t4240qds-64b | t4240rdb | t4240rdb-64b | t1040qds | t1040qds-64b | t1040rdb | t1040rdb-64b | t2080qds | t2080qds-64b | t1023rdb | t1023rdb-64b | t1024rdb | t1024rdb-64b | t1024qds | t1024qds-64b | ls1043ardb )
 					board=$OPTARG
 					;;
 				*)
@@ -122,11 +150,11 @@ else
 	prefix=""
 fi
 
-sysroot="${SDK_ROOT}/build_${board}_release/tmp/sysroots"
+sysroot="${SDK_ROOT}/build_${board}/tmp/sysroots"
 if [[ -d "${sysroot}" ]]
 then
 	export PATH="${sysroot}/`uname -m`-linux/usr/bin:$PATH"
-	export PATH="${sysroot}/`uname -m`-linux/usr/bin/ppc$(board2cpu $board)-fsl-linux/:$PATH"
+	export PATH="${sysroot}/`uname -m`-linux/usr/bin/$(board2cpu $board)-fsl-linux/:$PATH"
 
 	export PKG_CONFIG_SYSROOT_DIR="${sysroot}/$board"
 else
@@ -141,8 +169,8 @@ else
 	fi
 fi
 
-export ARCH=powerpc${prefix}
-export CROSS_COMPILE=powerpc${prefix}-fsl-linux-
+export ARCH=$(soc2arch $board)${prefix}
+export CROSS_COMPILE=$(soc2cc $board)${prefix}-fsl-linux-
 export CC="${CROSS_COMPILE}gcc --sysroot=${PKG_CONFIG_SYSROOT_DIR}"
 export LD="${CROSS_COMPILE}ld --sysroot=${PKG_CONFIG_SYSROOT_DIR}"
 unset -v OLD_OPTIND board PKG_CONFIG_SYSROOT_DIR prefix sysroot
