@@ -35,7 +35,7 @@ MAKEFLAGS += --no-builtin-rules --no-builtin-variables
 ifneq (distclean,$(MAKECMDGOALS))
  ifeq (powerpc,$(ARCH))
    CROSS_COMPILE	?= powerpc-linux-gnu-
-   $(ARCH)_SPEC_DEFINE	:= _FILE_OFFSET_BITS=64
+   $(ARCH)_SPEC_DEFINE	:= _FILE_OFFSET_BITS=64 CONFIG_PPC32
    $(ARCH)_SPEC_INC_PATH:=
    $(ARCH)_SPEC_LIB_PATH:=
    $(ARCH)_SPEC_CFLAGS	:= -mcpu=e500mc
@@ -43,7 +43,7 @@ ifneq (distclean,$(MAKECMDGOALS))
    LIBDIR               ?= lib
  else ifeq (powerpc64,$(ARCH))
     CROSS_COMPILE	 ?= powerpc-linux-gnu-
-    $(ARCH)_SPEC_DEFINE	 :=
+    $(ARCH)_SPEC_DEFINE	 := CONFIG_PPC64
     $(ARCH)_SPEC_INC_PATH:=
     $(ARCH)_SPEC_LIB_PATH:=
     $(ARCH)_SPEC_CFLAGS	 := -mcpu=e500mc64 -m64
