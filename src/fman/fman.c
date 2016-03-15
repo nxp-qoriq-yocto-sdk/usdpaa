@@ -43,6 +43,7 @@
 #include <fsl_fman.h>
 
 #include <internal/of.h>
+#include <usdpaa/of.h>
 
 /* Instantiate the global variable that the inline CRC64 implementation (in
  * <fsl_fman.h>) depends on. */
@@ -225,6 +226,11 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 	const phandle *mac_phandle, *ports_phandle, *pools_phandle;
 	const phandle *tx_channel_id, *mac_addr, *cell_idx;
 	const phandle *rx_phandle, *tx_phandle;
+	uint64_t tx_phandle_host[4] = {0};
+	uint64_t rx_phandle_host[4] = {0};
+	uint64_t regs_addr_host = 0;
+	uint64_t cell_idx_host = 0;
+	
 	const struct device_node *mac_node = NULL, *tx_node, *pool_node,
 			*fman_node;
 	const uint32_t *regs_addr = NULL;
@@ -234,6 +240,7 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 	size_t lenp;
 	int _errno;
 	const char *char_prop;
+	uint32_t na;
 
 	if (of_device_is_available(dpa_node) == false)
 		return 0;
@@ -277,17 +284,22 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 				ccsr_map_fd, phys_addr);
 		my_err(__if->ccsr_map == MAP_FAILED, -errno,
 			"mmap(0x%"PRIx64")\n", phys_addr);
+	        na = of_n_addr_cells(mac_node);
+		/* Get rid of endianess (issues). Convert to host byte order */
+	        regs_addr_host = of_read_number(regs_addr, na);
 	}
 
 	/* Get the index of the Fman this i/f belongs to */
 	if (!is_macless) {
 		fman_node = of_get_parent(mac_node);
+		na = of_n_addr_cells(mac_node);
 		my_err(!fman_node, -ENXIO, "of_get_parent(%s)\n", mname);
 		fname = fman_node->full_name;
 		cell_idx = of_get_property(fman_node, "cell-index", &lenp);
 		my_err(!cell_idx, -ENXIO, "%s: no cell-index)\n", fname);
 		assert(lenp == sizeof(*cell_idx));
-		__if->__if.fman_idx = *cell_idx;
+		cell_idx_host = of_read_number(cell_idx, lenp/sizeof(phandle));
+		__if->__if.fman_idx = cell_idx_host;
 		if (!get_once) {
 			_errno = fman_get_ip_rev(fman_node);
 			my_err(_errno, -ENXIO, "%s: ip_rev is not avaiable\n",
@@ -323,13 +335,19 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 		__if->__if.is_memac = 1;
 		char_prop = of_get_property(mac_node, "phy-connection-type",
 								NULL);
-		if (strstr(char_prop, "sgmii"))
+		if (!char_prop) {
+			printf("memac: unknown MII type assuming 1G\n");
+			/* Right now forcing memac to 1g in case of error*/
 			__if->__if.mac_type = fman_mac_1g;
-		else if (strstr(char_prop, "rgmii")) {
-			__if->__if.mac_type = fman_mac_1g;
-			__if->__if.is_rgmii = 1;
-		} else if (strstr(char_prop, "xgmii"))
-			__if->__if.mac_type = fman_mac_10g;
+		} else {
+			if (strstr(char_prop, "sgmii"))
+				__if->__if.mac_type = fman_mac_1g;
+			else if (strstr(char_prop, "rgmii")) {
+				__if->__if.mac_type = fman_mac_1g;
+				__if->__if.is_rgmii = 1;
+			} else if (strstr(char_prop, "xgmii"))
+				__if->__if.mac_type = fman_mac_10g;
+		}
 	} else
 		my_err(1, -EINVAL, "%s: unknown MAC type\n", mname);
 
@@ -342,10 +360,11 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 			cell_idx = of_get_property(mac_node, "cell-index", &lenp);
 			my_err(!cell_idx, -ENXIO, "%s: no cell-index\n", mname);
 			assert(lenp == sizeof(*cell_idx));
-			__if->__if.mac_idx = *cell_idx;
+			cell_idx_host = of_read_number(cell_idx, lenp/sizeof(phandle));
+			__if->__if.mac_idx = cell_idx_host;
 		} else {
 
-			/* 
+			/*
  			 * For MAC ports, we cannot rely on cell-index. In
  			 * T2080, two of the 10G ports on single FMAN have same
  			 * duplicate cell-indexes as the other two 10G ports on
@@ -353,7 +372,7 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
  			 * ports from device tree to deduce the index.
  			 */
 
-			/* 
+			/*
 			 * MAC1 : E_0000h
 			 * MAC2 : E_2000h
 			 * MAC3 : E_4000h
@@ -365,8 +384,8 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 			 * MAC9 : F_0000h
 			 * MAC10: F_2000h
 			 */
-    
-			switch (*regs_addr) {
+
+			switch (regs_addr_host) {
 				case 0xE0000:
 					__if->__if.mac_idx = 1;
 					break;
@@ -399,10 +418,10 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 					break;
 				default:
 					my_err(1, -EINVAL, "Invalid regs_addr: %#x\n",
-					       *regs_addr);
+					       regs_addr_host);
 			}
 		}
-		
+
 	}
 
 	if (is_macless) {
@@ -461,7 +480,7 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 	/* No channel ID for MAC-less */
 	if (!is_macless) {
 		assert(lenp == sizeof(*tx_channel_id));
-		__if->__if.tx_channel_id = *tx_channel_id;
+		__if->__if.tx_channel_id = of_read_number(tx_channel_id, na);
 	}
 
 	/* Extract the Rx FQIDs. (Note, the device representation is silly,
@@ -476,14 +495,29 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 		__if->__if.macless_info.rx_count = rx_phandle[1];
 	} else if (is_shared) {
 		assert(lenp == (6 * sizeof(phandle)));
-		assert((rx_phandle[1] == 1) && (rx_phandle[3] == 1));
-		__if->__if.fqid_rx_err = rx_phandle[0];
-		__if->__if.fqid_rx_def = rx_phandle[2];
+	        na = of_n_addr_cells(mac_node);
+		/* Get rid of endianess (issues). Convert to host byte order */
+	        rx_phandle_host[0] = of_read_number(&rx_phandle[0], na);
+	        rx_phandle_host[1] = of_read_number(&rx_phandle[1], na);
+	        rx_phandle_host[2] = of_read_number(&rx_phandle[2], na);
+	        rx_phandle_host[3] = of_read_number(&rx_phandle[3], na);
+		assert((rx_phandle_host[1] == 1) && (rx_phandle_host[3] == 1));
+		__if->__if.fqid_rx_err = rx_phandle_host[0];
+		__if->__if.fqid_rx_def = rx_phandle_host[2];
 	} else {
+	/*TODO: Fix for other cases also */
 		assert(lenp == (4 * sizeof(phandle)));
-		assert((rx_phandle[1] == 1) && (rx_phandle[3] == 1));
-		__if->__if.fqid_rx_err = rx_phandle[0];
-		__if->__if.fqid_rx_def = rx_phandle[2];
+
+	        na = of_n_addr_cells(mac_node);
+		/* Get rid of endianess (issues). Convert to host byte order */
+	        rx_phandle_host[0] = of_read_number(&rx_phandle[0], na);
+	        rx_phandle_host[1] = of_read_number(&rx_phandle[1], na);
+	        rx_phandle_host[2] = of_read_number(&rx_phandle[2], na);
+	        rx_phandle_host[3] = of_read_number(&rx_phandle[3], na);
+
+		assert((rx_phandle_host[1] == 1) && (rx_phandle_host[3] == 1));
+		__if->__if.fqid_rx_err = rx_phandle_host[0];
+		__if->__if.fqid_rx_def = rx_phandle_host[2];
 	}
 
 	/* No special Tx FQs for offline interfaces, nor hard-coded pools */
@@ -498,20 +532,34 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 	if (is_macless) {
 		/* For MAC-less, there are only 8 default TX Frame queues */
 		assert(lenp == (2 * sizeof(phandle)));
-		assert((tx_phandle[1] == 8));
-		__if->__if.macless_info.tx_start = tx_phandle[0];
-		__if->__if.macless_info.tx_count = tx_phandle[1];
+		tx_phandle_host[0] = of_read_number(&tx_phandle[0], na);
+	        tx_phandle_host[1] = of_read_number(&tx_phandle[1], na);
+		assert((tx_phandle_host[1] == 8));
+		__if->__if.macless_info.tx_start = tx_phandle_host[0];
+		__if->__if.macless_info.tx_count = tx_phandle_host[1];
 	} else if (is_shared) {
 		assert(lenp == (6 * sizeof(phandle)));
-		assert((tx_phandle[1] == 1) && (tx_phandle[3] == 1));
-		__if->__if.fqid_tx_err = tx_phandle[0];
-		__if->__if.fqid_tx_confirm = tx_phandle[2];
+	        na = of_n_addr_cells(mac_node);
+	        tx_phandle_host[0] = of_read_number(&tx_phandle[0], na);
+	        tx_phandle_host[1] = of_read_number(&tx_phandle[1], na);
+	        tx_phandle_host[2] = of_read_number(&tx_phandle[2], na);
+	        tx_phandle_host[3] = of_read_number(&tx_phandle[3], na);
+		assert((tx_phandle_host[1] == 1) && (tx_phandle_host[3] == 1));
+		__if->__if.fqid_tx_err = tx_phandle_host[0];
+		__if->__if.fqid_tx_confirm = tx_phandle_host[2];
 
 	} else {
 		assert(lenp == (4 * sizeof(phandle)));
-		assert((tx_phandle[1] == 1) && (tx_phandle[3] == 1));
-		__if->__if.fqid_tx_err = tx_phandle[0];
-		__if->__if.fqid_tx_confirm = tx_phandle[2];
+		/*TODO: Fix for other cases also */
+	        na = of_n_addr_cells(mac_node);
+		/* Get rid of endianess (issues). Convert to host byte order */
+	        tx_phandle_host[0] = of_read_number(&tx_phandle[0], na);
+	        tx_phandle_host[1] = of_read_number(&tx_phandle[1], na);
+	        tx_phandle_host[2] = of_read_number(&tx_phandle[2], na);
+	        tx_phandle_host[3] = of_read_number(&tx_phandle[3], na);
+		assert((tx_phandle_host[1] == 1) && (tx_phandle_host[3] == 1));
+		__if->__if.fqid_tx_err = tx_phandle_host[0];
+		__if->__if.fqid_tx_confirm = tx_phandle_host[2];
 	}
 
 	/* Obtain the buffer pool nodes used by this interface */
@@ -525,6 +573,8 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 	while (lenp) {
 		size_t proplen;
 		const phandle *prop;
+		uint64_t bpid_host = 0;
+		uint64_t bpool_host[6] = {0};
 		const char *pname;
 		/* Allocate an object for the pool */
 		bpool = malloc(sizeof(*bpool));
@@ -538,7 +588,10 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 		prop = of_get_property(pool_node, "fsl,bpid", &proplen);
 		my_err(!prop, -EINVAL, "%s: no fsl,bpid\n", pname);
 		assert(proplen == sizeof(*prop));
-		bpool->bpid = *prop;
+	        na = of_n_addr_cells(mac_node);
+		/* Get rid of endianess (issues). Convert to host byte order */
+	        bpid_host = of_read_number(prop, na);
+		bpool->bpid = bpid_host;
 		/* Extract the cfg property (count/size/addr). "fsl,bpool-cfg"
 		 * indicates for the Bman driver to seed the pool.
 		 * "fsl,bpool-ethernet-cfg" is used by the network driver. The
@@ -554,12 +607,21 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 			bpool->count = bpool->size = bpool->addr = 0;
 		} else {
 			assert(proplen == (6 * sizeof(*prop)));
-			bpool->count = ((uint64_t)prop[0] << 32) |
-					prop[1];
-			bpool->size = ((uint64_t)prop[2] << 32) |
-					prop[3];
-			bpool->addr = ((uint64_t)prop[4] << 32) |
-					prop[5];
+		        na = of_n_addr_cells(mac_node);
+			/* Get rid of endianess (issues). Convert to host byte order */
+		        bpool_host[0] = of_read_number(&prop[0], na);
+		        bpool_host[1] = of_read_number(&prop[1], na);
+		        bpool_host[2] = of_read_number(&prop[2], na);
+		        bpool_host[3] = of_read_number(&prop[3], na);
+		        bpool_host[4] = of_read_number(&prop[4], na);
+		        bpool_host[5] = of_read_number(&prop[5], na);
+
+			bpool->count = ((uint64_t)bpool_host[0] << 32) |
+					bpool_host[1];
+			bpool->size = ((uint64_t)bpool_host[2] << 32) |
+					bpool_host[3];
+			bpool->addr = ((uint64_t)bpool_host[4] << 32) |
+					bpool_host[5];
 		}
 		/* Parsing of the pool is complete, add it to the interface
 		 * list. */
