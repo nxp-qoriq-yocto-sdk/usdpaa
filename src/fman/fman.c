@@ -480,6 +480,7 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 	/* No channel ID for MAC-less */
 	if (!is_macless) {
 		assert(lenp == sizeof(*tx_channel_id));
+		na = of_n_addr_cells(mac_node);
 		__if->__if.tx_channel_id = of_read_number(tx_channel_id, na);
 	}
 
@@ -491,8 +492,11 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 	if (is_macless) {
 		/* For MAC-less, there are only 8 default RX Frame queues */
 		assert(lenp == (2 * sizeof(phandle)));
-		__if->__if.macless_info.rx_start = rx_phandle[0];
-		__if->__if.macless_info.rx_count = rx_phandle[1];
+		na = of_n_addr_cells(mac_node);
+		rx_phandle_host[0] = of_read_number(&rx_phandle[0], na);
+		rx_phandle_host[1] = of_read_number(&rx_phandle[1], na);
+		__if->__if.macless_info.rx_start = rx_phandle_host[0];
+		__if->__if.macless_info.rx_count = rx_phandle_host[1];
 	} else if (is_shared) {
 		assert(lenp == (6 * sizeof(phandle)));
 	        na = of_n_addr_cells(mac_node);
@@ -532,8 +536,9 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 	if (is_macless) {
 		/* For MAC-less, there are only 8 default TX Frame queues */
 		assert(lenp == (2 * sizeof(phandle)));
+		na = of_n_addr_cells(mac_node);
 		tx_phandle_host[0] = of_read_number(&tx_phandle[0], na);
-	        tx_phandle_host[1] = of_read_number(&tx_phandle[1], na);
+		tx_phandle_host[1] = of_read_number(&tx_phandle[1], na);
 		assert((tx_phandle_host[1] == 8));
 		__if->__if.macless_info.tx_start = tx_phandle_host[0];
 		__if->__if.macless_info.tx_count = tx_phandle_host[1];
