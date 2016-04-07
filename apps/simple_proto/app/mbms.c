@@ -92,6 +92,11 @@ int init_rtv_mbms(struct test_param *crypto_info)
 			ref_test_vector->expected_hdr_crc_fail =
 					mbms_type0_hdr_crc_fail[test_set];
 			ref_test_vector->expected_payload_crc_fail = 0;
+
+			/* Update the UDP offset, which is per test */
+			mbms_prebuffer_data[PREBUFFER_UDP_OFFSET] =
+					mbms_type0_udp_offset[test_set];
+
 			break;
 
 		case MBMS_PDU_TYPE1:
@@ -109,6 +114,11 @@ int init_rtv_mbms(struct test_param *crypto_info)
 					mbms_type1_hdr_crc_fail[test_set];
 			ref_test_vector->expected_payload_crc_fail =
 					mbms_type1_payload_crc_fail[test_set];
+
+			/* Update the UDP offset, which is per test */
+			mbms_prebuffer_data[PREBUFFER_UDP_OFFSET] =
+					mbms_type1_udp_offset[test_set];
+
 			break;
 
 		case MBMS_PDU_TYPE3:
@@ -126,6 +136,11 @@ int init_rtv_mbms(struct test_param *crypto_info)
 					mbms_type3_hdr_crc_fail[test_set];
 			ref_test_vector->expected_payload_crc_fail =
 					mbms_type3_payload_crc_fail[test_set];
+
+			/* Update the UDP offset, which is per test */
+			mbms_prebuffer_data[PREBUFFER_UDP_OFFSET] =
+					mbms_type3_udp_offset[test_set];
+
 			break;
 
 		default:
@@ -463,14 +478,19 @@ static int validate_test_set(struct test_param *crypto_info)
 	switch (mbms_params->type) {
 	case MBMS_PDU_TYPE0:
 		if (crypto_info->test_set > 0 &&
-		    crypto_info->test_set < 3)
+		    crypto_info->test_set < 4)
 			return 0;
 		break;
 
 	case MBMS_PDU_TYPE1:
+		if (crypto_info->test_set > 0 &&
+		    crypto_info->test_set < 5)
+			return 0;
+		break;
+
 	case MBMS_PDU_TYPE3:
 		if (crypto_info->test_set > 0 &&
-		    crypto_info->test_set < 4)
+		    crypto_info->test_set < 6)
 			return 0;
 		break;
 
