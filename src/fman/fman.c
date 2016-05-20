@@ -57,6 +57,11 @@ struct __fman_if {
 	char node_path[PATH_MAX];
 	uint64_t regs_size;
 	void *ccsr_map;
+	void *bmirx_map;
+	void *bmioh_map;
+	void *qmirx_map;
+	void *qmioh_map;
+	void *qmitx_map;
 	struct list_head node;
 };
 
@@ -65,6 +70,7 @@ void *fman_ccsr_map;
 /* fman version info */
 u16 fman_ip_rev;
 static int get_once;
+uint64_t fman_regs_size;
 u32 fman_dealloc_bufs_mask_hi;
 u32 fman_dealloc_bufs_mask_lo;
 
@@ -145,11 +151,10 @@ static int fman_get_ip_rev(const struct device_node *fman_node)
 {
 	const uint32_t *fman_addr;
 	uint64_t phys_addr;
-	uint64_t regs_size;
 	uint32_t ip_rev_1;
 	int _errno;
 
-	fman_addr = of_get_address(fman_node, 0, &regs_size, NULL);
+	fman_addr = of_get_address(fman_node, 0, &fman_regs_size, NULL);
 	if (!fman_addr) {
 		pr_err("of_get_address cannot return fman address\n");
 		return -EINVAL;
@@ -159,8 +164,8 @@ static int fman_get_ip_rev(const struct device_node *fman_node)
 		pr_err("of_translate_address failed\n");
 		return -EINVAL;
 	}
-	fman_ccsr_map = mmap(NULL, regs_size, PROT_READ|PROT_WRITE, MAP_SHARED,
-					ccsr_map_fd, phys_addr);
+	fman_ccsr_map = mmap(NULL, fman_regs_size, PROT_READ|PROT_WRITE,
+			     MAP_SHARED, ccsr_map_fd, phys_addr);
 	if (fman_ccsr_map == MAP_FAILED) {
 		pr_err("Can not map FMan ccsr base\n");
 		return -EINVAL;
@@ -169,10 +174,6 @@ static int fman_get_ip_rev(const struct device_node *fman_node)
 	ip_rev_1 = in_be32(fman_ccsr_map + FMAN_IP_REV_1);
 	fman_ip_rev = (ip_rev_1 & FMAN_IP_REV_1_MAJOR_MASK) >>
 			FMAN_IP_REV_1_MAJOR_SHIFT;
-
-	_errno = munmap(fman_ccsr_map, regs_size);
-	if (_errno)
-		pr_err("munmap() of FMan ccsr failed \n");
 
 	return 0;
 }
@@ -232,8 +233,8 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 	uint64_t cell_idx_host = 0;
 	
 	const struct device_node *mac_node = NULL, *tx_node, *pool_node,
-			*fman_node;
-	const uint32_t *regs_addr = NULL;
+			*fman_node, *rx_node;
+	const uint32_t *regs_addr;
 	const char *mname, *fname;
 	const char *dname = dpa_node->full_name;
 	int is_offline = 0, is_shared = 0;
@@ -444,6 +445,18 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 						&lenp);
 		my_err(!tx_channel_id, -EINVAL, "%s: no fsl-qman-channel-id\n",
 			mac_node->full_name);
+		regs_addr = of_get_address(mac_node, 0, &__if->regs_size, NULL);
+		my_err(!regs_addr, -EINVAL, "of_get_address(%s)\n", mname);
+		phys_addr = of_translate_address(mac_node, regs_addr);
+		my_err(!phys_addr, -EINVAL, "of_translate_address(%s, %p)\n",
+			mname, regs_addr);
+		__if->bmioh_map = mmap(NULL, __if->regs_size,
+				       PROT_READ | PROT_WRITE, MAP_SHARED,
+				       ccsr_map_fd, phys_addr);
+		my_err(__if->bmioh_map == MAP_FAILED, -errno,
+		       "mmap(0x%"PRIx64")\n", phys_addr);
+
+		__if->qmioh_map = QMI_PORT_REGS_OFFSET + __if->bmioh_map;
 	} else {
 		/* Extract the MAC address for private and shared interfaces */
 		mac_addr = of_get_property(mac_node, "local-mac-address",
@@ -466,6 +479,19 @@ static int fman_if_init(const struct device_node *dpa_node, int is_macless)
 						&lenp);
 		my_err(!tx_channel_id, -EINVAL, "%s: no fsl-qman-channel-id\n",
 			tx_node->full_name);
+
+		rx_node = of_find_node_by_phandle(ports_phandle[0]);
+		my_err(!rx_node, -ENXIO, "%s: bad fsl,port-handle[0]\n", mname);
+		regs_addr = of_get_address(rx_node, 0, &__if->regs_size, NULL);
+		my_err(!regs_addr, -EINVAL, "of_get_address(%s)\n", mname);
+		phys_addr = of_translate_address(rx_node, regs_addr);
+		my_err(!phys_addr, -EINVAL, "of_translate_address(%s, %p)\n",
+			mname, regs_addr);
+		__if->bmirx_map = mmap(NULL, __if->regs_size,
+				         PROT_READ | PROT_WRITE, MAP_SHARED,
+				         ccsr_map_fd, phys_addr);
+		my_err(__if->bmirx_map == MAP_FAILED, -errno,
+		       "mmap(0x%"PRIx64")\n", phys_addr);
 	}
 
 	/* For shared mac case, also fill the shared_mac_name */
@@ -889,12 +915,11 @@ err:
 void fman_finish(void)
 {
 	struct __fman_if *__if, *tmpif;
+	int _errno;
 
 	assert(ccsr_map_fd != -1);
 
 	list_for_each_entry_safe(__if, tmpif, &__ifs, __if.node) {
-		int _errno;
-
 		/* No need to disable Offline port or MAC less */
 		if ((__if->__if.mac_type == fman_offline) ||
 			(__if->__if.mac_type == fman_mac_less) ||
@@ -922,8 +947,11 @@ void fman_finish(void)
 
 	close(ccsr_map_fd);
 	ccsr_map_fd = -1;
-}
+	_errno = munmap(fman_ccsr_map, fman_regs_size);
+	if (_errno)
+		pr_err("munmap() of FMan ccsr failed \n");
 
+}
 int fm_mac_add_exact_match_mac_addr(const struct fman_if *p, uint8_t *eth)
 {
 	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
@@ -1178,4 +1206,170 @@ void fman_if_loopback_disable(const struct fman_if *p)
 			 &((struct memac_regs *)__if->ccsr_map)->command_config;
 		out_be32(cmdcfg, in_be32(cmdcfg) & ~CMD_CFG_LOOPBACK_EN);
 	}
+}
+
+void fman_if_set_bp(const struct fman_if *p, unsigned num, int bpid,
+		    size_t bufsize)
+{
+
+	u32 fmbm_ebmpi, fmbm_ebmpi_off;
+	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
+
+	assert(ccsr_map_fd != -1);
+
+	if (__if->__if.mac_type == fman_offline ||
+	   __if->__if.mac_type == fman_mac_less)
+		return;
+
+	if (__if->__if.mac_type == fman_mac_10g)
+		fmbm_ebmpi_off =  0x80000 + 0x10100 + num*4;
+	else /* fman_mac_1g*/
+		fmbm_ebmpi_off = 0x80000 + 0x8100 + (__if->__if.mac_idx - 1) * 0x1000 + num*4;
+
+
+	fmbm_ebmpi = in_be32(fman_ccsr_map + fmbm_ebmpi_off);
+	fmbm_ebmpi = 0xc0000000 | (fmbm_ebmpi & 0xffc00000) | (bpid<<16) | (bufsize);
+
+	out_be32(fman_ccsr_map + fmbm_ebmpi_off, fmbm_ebmpi);
+}
+
+int fman_if_get_fdoff(const struct fman_if *p)
+{
+	u32 fmbm_ricp, fmbm_ricp_off;
+	int fdoff;
+	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
+
+	assert(ccsr_map_fd != -1);
+
+	if (__if->__if.mac_type == fman_offline ||
+	   __if->__if.mac_type == fman_mac_less)
+		return -1;
+
+	if (__if->__if.mac_type == fman_mac_10g)
+		fmbm_ricp_off =  0x80000 + 0x10014;
+	else /* fman_mac_1g*/
+		fmbm_ricp_off = 0x80000 + 0x08014 + (__if->__if.mac_idx - 1) * 0x1000;
+
+	fmbm_ricp = in_be32(fman_ccsr_map + fmbm_ricp_off);
+	/*iceof + icsz*/
+	fdoff = ((fmbm_ricp & 0x001f0000)>>16)*16 + (fmbm_ricp & 0x0000001f)*16;
+
+	return fdoff;
+}
+
+void fman_if_set_err_fqid(const struct fman_if *p, uint32_t err_fqid)
+{
+	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
+
+	assert(ccsr_map_fd != -1);
+
+	if (__if->__if.mac_type == fman_mac_less ||
+	    __if->__if.mac_type == fman_onic)
+		return;
+
+	if (__if->__if.mac_type == fman_offline) {
+		unsigned *fmbm_oefqid =
+			  &((struct oh_bmi_regs *)__if->bmioh_map)->fmbm_oefqid;
+		out_be32(fmbm_oefqid, err_fqid);
+	} else {
+		unsigned *fmbm_refqid =
+			  &((struct rx_bmi_regs *)__if->bmirx_map)->fmbm_refqid;
+		out_be32(fmbm_refqid, err_fqid);
+	}
+}
+
+int fman_if_get_ic_params(const struct fman_if *p, struct fman_if_ic_params *icp)
+{
+	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
+	int val = 0;
+	int iceof_mask = 0x001f0000;
+	int icsz_mask = 0x0000001f;
+	int iciof_mask = 0x00000f00;
+
+	assert(ccsr_map_fd != -1);
+
+	if (__if->__if.mac_type == fman_mac_less ||
+	    __if->__if.mac_type == fman_onic)
+		return -1;
+
+	if (__if->__if.mac_type == fman_offline) {
+		unsigned *fmbm_oicp =
+			  &((struct oh_bmi_regs *)__if->bmioh_map)->fmbm_oicp;
+		val = in_be32(fmbm_oicp);
+	} else {
+		unsigned *fmbm_ricp =
+			  &((struct rx_bmi_regs *)__if->bmirx_map)->fmbm_ricp;
+		val = in_be32(fmbm_ricp);
+	}
+        icp->iceof = (val & iceof_mask) >> 12;
+        icp->iciof = (val & iciof_mask) >> 4;
+        icp->icsz = (val & icsz_mask) << 4;
+
+        return 0;
+}
+
+int fman_if_set_ic_params(const struct fman_if *p,
+			  const struct fman_if_ic_params *icp)
+{
+	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
+	int val = 0;
+	int iceof_mask = 0x001f0000;
+	int icsz_mask = 0x0000001f;
+	int iciof_mask = 0x00000f00;
+
+	assert(ccsr_map_fd != -1);
+
+	if (__if->__if.mac_type == fman_mac_less ||
+	    __if->__if.mac_type == fman_onic)
+		return -1;
+
+        val |= (icp->iceof << 12) & iceof_mask;
+        val |= (icp->iciof << 4) & iciof_mask;
+        val |= (icp->icsz >> 4) & icsz_mask;
+
+	if (__if->__if.mac_type == fman_offline) {
+		unsigned *fmbm_oicp =
+			  &((struct oh_bmi_regs *)__if->bmioh_map)->fmbm_oicp;
+		out_be32(fmbm_oicp, in_be32(fmbm_oicp) | val);
+	} else {
+		unsigned *fmbm_ricp =
+			  &((struct rx_bmi_regs *)__if->bmirx_map)->fmbm_ricp;
+		out_be32(fmbm_ricp, in_be32(fmbm_ricp) | val);
+	}
+
+        return 0;
+}
+
+void fman_if_set_fdoff(const struct fman_if *p, uint32_t fd_offset)
+{
+	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
+	unsigned *fmbm_rebm;
+
+	assert(ccsr_map_fd != -1);
+
+	if (__if->__if.mac_type == fman_mac_less ||
+	    __if->__if.mac_type == fman_onic ||
+	    __if->__if.mac_type == fman_offline)
+		return;
+
+	fmbm_rebm = &((struct rx_bmi_regs *)__if->bmirx_map)->fmbm_rebm;
+
+	out_be32(fmbm_rebm, in_be32(fmbm_rebm) | (fd_offset << 16));
+
+}
+
+void fman_if_set_dnia(const struct fman_if *p, uint32_t nia)
+{
+	struct __fman_if *__if = container_of(p, struct __fman_if, __if);
+	unsigned *fmqm_pndn;
+
+	assert(ccsr_map_fd != -1);
+
+	if (__if->__if.mac_type != fman_offline)
+		return;
+
+	fmqm_pndn = &((struct fman_port_qmi_regs *)__if->qmioh_map)->fmqm_pndn;
+
+	out_be32(fmqm_pndn, nia);
+
 }

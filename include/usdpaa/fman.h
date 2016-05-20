@@ -63,6 +63,15 @@
 /* Interface Mode Register Register for MEMAC */
 #define IF_MODE_RLP 0x00000820
 
+#define FMAN_PORT_MAX_EXT_POOLS_NUM	8
+#define FMAN_PORT_OBS_EXT_POOLS_NUM	2
+#define FMAN_PORT_CG_MAP_NUM		8
+#define FMAN_PORT_PRS_RESULT_WORDS_NUM	8
+#define FMAN_PORT_BMI_FIFO_UNITS	0x100
+#define FMAN_PORT_IC_OFFSET_UNITS	0x10
+
+#define QMI_PORT_REGS_OFFSET		0x400
+
 /* Represents the different flavour of network interface */
 enum fman_mac_type {
 	fman_offline = 0,
@@ -309,6 +318,131 @@ struct dtsec_regs {
 	uint32_t reserved02c0[848];
 };
 
+struct rx_bmi_regs {
+	uint32_t fmbm_rcfg;		/**< Rx Configuration */
+	uint32_t fmbm_rst;		/**< Rx Status */
+	uint32_t fmbm_rda;		/**< Rx DMA attributes*/
+	uint32_t fmbm_rfp;		/**< Rx FIFO Parameters*/
+	uint32_t fmbm_rfed;		/**< Rx Frame End Data*/
+	uint32_t fmbm_ricp;		/**< Rx Internal Context Parameters*/
+	uint32_t fmbm_rim;		/**< Rx Internal Buffer Margins*/
+	uint32_t fmbm_rebm;		/**< Rx External Buffer Margins*/
+	uint32_t fmbm_rfne;		/**< Rx Frame Next Engine*/
+	uint32_t fmbm_rfca;		/**< Rx Frame Command Attributes.*/
+	uint32_t fmbm_rfpne;		/**< Rx Frame Parser Next Engine*/
+	uint32_t fmbm_rpso;		/**< Rx Parse Start Offset*/
+	uint32_t fmbm_rpp;		/**< Rx Policer Profile  */
+	uint32_t fmbm_rccb;		/**< Rx Coarse Classification Base */
+	uint32_t fmbm_reth;		/**< Rx Excessive Threshold */
+	uint32_t reserved003c[1];	/**< (0x03C 0x03F) */
+	uint32_t fmbm_rprai[FMAN_PORT_PRS_RESULT_WORDS_NUM];
+					/**< Rx Parse Results Array Init*/
+	uint32_t fmbm_rfqid;		/**< Rx Frame Queue ID*/
+	uint32_t fmbm_refqid;		/**< Rx Error Frame Queue ID*/
+	uint32_t fmbm_rfsdm;		/**< Rx Frame Status Discard Mask*/
+	uint32_t fmbm_rfsem;		/**< Rx Frame Status Error Mask*/
+	uint32_t fmbm_rfene;		/**< Rx Frame Enqueue Next Engine */
+	uint32_t reserved0074[0x2];	/**< (0x074-0x07C)  */
+	uint32_t fmbm_rcmne;		/**< Rx Frame Continuous Mode Next Engine */
+	uint32_t reserved0080[0x20];/**< (0x080 0x0FF)  */
+	uint32_t fmbm_ebmpi[FMAN_PORT_MAX_EXT_POOLS_NUM];
+					/**< Buffer Manager pool Information-*/
+	uint32_t fmbm_acnt[FMAN_PORT_MAX_EXT_POOLS_NUM];
+					/**< Allocate Counter-*/
+	uint32_t reserved0130[8];
+					/**< 0x130/0x140 - 0x15F reserved -*/
+	uint32_t fmbm_rcgm[FMAN_PORT_CG_MAP_NUM];
+					/**< Congestion Group Map*/
+	uint32_t fmbm_mpd;		/**< BM Pool Depletion  */
+	uint32_t reserved0184[0x1F];	/**< (0x184 0x1FF) */
+	uint32_t fmbm_rstc;		/**< Rx Statistics Counters*/
+	uint32_t fmbm_rfrc;		/**< Rx Frame Counter*/
+	uint32_t fmbm_rfbc;		/**< Rx Bad Frames Counter*/
+	uint32_t fmbm_rlfc;		/**< Rx Large Frames Counter*/
+	uint32_t fmbm_rffc;		/**< Rx Filter Frames Counter*/
+	uint32_t fmbm_rfdc;		/**< Rx Frame Discard Counter*/
+	uint32_t fmbm_rfldec;		/**< Rx Frames List DMA Error Counter*/
+	uint32_t fmbm_rodc;		/**< Rx Out of Buffers Discard nntr*/
+	uint32_t fmbm_rbdc;		/**< Rx Buffers Deallocate Counter*/
+	uint32_t reserved0224[0x17];	/**< (0x224 0x27F) */
+	uint32_t fmbm_rpc;		/**< Rx Performance Counters*/
+	uint32_t fmbm_rpcp;		/**< Rx Performance Count Parameters*/
+	uint32_t fmbm_rccn;		/**< Rx Cycle Counter*/
+	uint32_t fmbm_rtuc;		/**< Rx Tasks Utilization Counter*/
+	uint32_t fmbm_rrquc;		/**< Rx Receive Queue Utilization cntr*/
+	uint32_t fmbm_rduc;		/**< Rx DMA Utilization Counter*/
+	uint32_t fmbm_rfuc;		/**< Rx FIFO Utilization Counter*/
+	uint32_t fmbm_rpac;		/**< Rx Pause Activation Counter*/
+	uint32_t reserved02a0[0x18];	/**< (0x2A0 0x2FF) */
+	uint32_t fmbm_rdbg;		/**< Rx Debug-*/
+};
+
+struct oh_bmi_regs {
+	uint32_t fmbm_ocfg;		/**< O/H Configuration  */
+	uint32_t fmbm_ost;		/**< O/H Status */
+	uint32_t fmbm_oda;		/**< O/H DMA attributes  */
+	uint32_t fmbm_oicp;		/**< O/H Internal Context Parameters */
+	uint32_t fmbm_ofdne;		/**< O/H Frame Dequeue Next Engine  */
+	uint32_t fmbm_ofne;		/**< O/H Frame Next Engine  */
+	uint32_t fmbm_ofca;		/**< O/H Frame Command Attributes.  */
+	uint32_t fmbm_ofpne;		/**< O/H Frame Parser Next Engine  */
+	uint32_t fmbm_opso;		/**< O/H Parse Start Offset  */
+	uint32_t fmbm_opp;		/**< O/H Policer Profile */
+	uint32_t fmbm_occb;		/**< O/H Coarse Classification base */
+	uint32_t fmbm_oim;		/**< O/H Internal margins*/
+	uint32_t fmbm_ofp;		/**< O/H Fifo Parameters*/
+	uint32_t fmbm_ofed;		/**< O/H Frame End Data*/
+	uint32_t reserved0030[2];	/**< (0x038 - 0x03F) */
+	uint32_t fmbm_oprai[FMAN_PORT_PRS_RESULT_WORDS_NUM];
+				/**< O/H Parse Results Array Initialization  */
+	uint32_t fmbm_ofqid;		/**< O/H Frame Queue ID  */
+	uint32_t fmbm_oefqid;		/**< O/H Error Frame Queue ID  */
+	uint32_t fmbm_ofsdm;		/**< O/H Frame Status Discard Mask  */
+	uint32_t fmbm_ofsem;		/**< O/H Frame Status Error Mask  */
+	uint32_t fmbm_ofene;		/**< O/H Frame Enqueue Next Engine  */
+	uint32_t fmbm_orlmts;		/**< O/H Rate Limiter Scale  */
+	uint32_t fmbm_orlmt;		/**< O/H Rate Limiter  */
+	uint32_t fmbm_ocmne;		/**< O/H Continuous Mode Next Engine  */
+	uint32_t reserved0080[0x20];	/**< 0x080 - 0x0FF Reserved */
+	uint32_t fmbm_oebmpi[2];	/**< Buf Mngr Observed Pool Info */
+	uint32_t reserved0108[0x16];	/**< 0x108 - 0x15F Reserved */
+	uint32_t fmbm_ocgm;		/**< Observed Congestion Group Map */
+	uint32_t reserved0164[0x7];	/**< 0x164 - 0x17F Reserved */
+	uint32_t fmbm_ompd;		/**< Observed BMan Pool Depletion */
+	uint32_t reserved0184[0x1F];	/**< 0x184 - 0x1FF Reserved */
+	uint32_t fmbm_ostc;		/**< O/H Statistics Counters  */
+	uint32_t fmbm_ofrc;		/**< O/H Frame Counter  */
+	uint32_t fmbm_ofdc;		/**< O/H Frames Discard Counter  */
+	uint32_t fmbm_ofledc;		/**< O/H Frames Len Err Discard Cntr */
+	uint32_t fmbm_ofufdc;		/**< O/H Frames Unsprtd Discard Cutr  */
+	uint32_t fmbm_offc;		/**< O/H Filter Frames Counter  */
+	uint32_t fmbm_ofwdc;		/**< Rx Frames WRED Discard Counter  */
+	uint32_t fmbm_ofldec;		/**< O/H Frames List DMA Error Cntr */
+	uint32_t fmbm_obdc;		/**< O/H Buffers Deallocate Counter */
+	uint32_t reserved0218[0x17];	/**< (0x218 - 0x27F) */
+	uint32_t fmbm_opc;		/**< O/H Performance Counters  */
+	uint32_t fmbm_opcp;		/**< O/H Performance Count Parameters */
+	uint32_t fmbm_occn;		/**< O/H Cycle Counter  */
+	uint32_t fmbm_otuc;		/**< O/H Tasks Utilization Counter  */
+	uint32_t fmbm_oduc;		/**< O/H DMA Utilization Counter */
+	uint32_t fmbm_ofuc;		/**< O/H FIFO Utilization Counter */
+};
+
+struct fman_port_qmi_regs {
+	uint32_t fmqm_pnc;		/**< PortID n Configuration Register */
+	uint32_t fmqm_pns;		/**< PortID n Status Register */
+	uint32_t fmqm_pnts;		/**< PortID n Task Status Register */
+	uint32_t reserved00c[4];	/**< 0xn00C - 0xn01B */
+	uint32_t fmqm_pnen;		/**< PortID n Enqueue NIA Register */
+	uint32_t fmqm_pnetfc;		/**< PortID n Enq Total Frame Counter */
+	uint32_t reserved024[2];	/**< 0xn024 - 0x02B */
+	uint32_t fmqm_pndn;		/**< PortID n Dequeue NIA Register */
+	uint32_t fmqm_pndc;		/**< PortID n Dequeue Config Register */
+	uint32_t fmqm_pndtfc;		/**< PortID n Dequeue tot Frame cntr */
+	uint32_t fmqm_pndfdc;		/**< PortID n Dequeue FQID Dflt Cntr */
+	uint32_t fmqm_pndcc;		/**< PortID n Dequeue Confirm Counter */
+};
+
 /* information for macless comes from device tree */
 struct macless_port_cfg {
 	char macless_name[IFNAMSIZ];
@@ -381,6 +515,16 @@ struct fman_if_bpool {
 	struct list_head node;
 };
 
+/* Internal Context transfer params - FMBM_RICP*/
+struct fman_if_ic_params {
+        /*IC offset in the packet buffer */
+        uint16_t iceof;
+        /*IC internal offset */
+        uint16_t iciof;
+        /*IC size to copy */
+        uint16_t icsz;
+};
+
 /* And this is the base list node that the interfaces are added to. (See
  * fman_if_enable_all_rx() below for an example of its use.) */
 const struct list_head *fman_if_list;
@@ -426,6 +570,28 @@ void fman_if_disable_rx(const struct fman_if *);
 /* Enable/disable loopback on specific interfaces */
 void fman_if_loopback_enable(const struct fman_if *);
 void fman_if_loopback_disable(const struct fman_if *);
+
+/* Set buffer pool on specific interface */
+void fman_if_set_bp(const struct fman_if *, unsigned num, int bpid,
+		    size_t bufsize);
+/* Get interface fd->offset value */
+int fman_if_get_fdoff(const struct fman_if *p);
+
+/* Set default error fqid on specific interface */
+void fman_if_set_err_fqid(const struct fman_if *p, uint32_t err_fqid);
+
+/* Get IC transfer params */
+int fman_if_get_ic_params(const struct fman_if *, struct fman_if_ic_params *);
+
+/* Set IC transfer params */
+int fman_if_set_ic_params(const struct fman_if *,
+			  const struct fman_if_ic_params *);
+
+/* Set interface fd->offset value */
+void fman_if_set_fdoff(const struct fman_if *p, uint32_t fd_offset);
+
+/* Set interface next invoked action for dequeue operation */
+void fman_if_set_dnia(const struct fman_if *p, uint32_t nia);
 
 /* Enable/disable Rx on all interfaces */
 static inline void fman_if_enable_all_rx(void)
