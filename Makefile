@@ -29,8 +29,6 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-MAKEFLAGS += --no-builtin-rules --no-builtin-variables
-
 # ----=[ Arch specific definitions ]=----
 ifneq (distclean,$(MAKECMDGOALS))
  ifeq (powerpc,$(ARCH))
